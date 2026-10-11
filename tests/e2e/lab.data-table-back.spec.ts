@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, turboVisitDone } from './fixtures';
+import { tableParams, tableStatus } from './data-table';
 
 /*
  * Back and Forward show the state of the URL they land on, in every control of the table's form: never an edit the
@@ -17,8 +18,6 @@ const DEFAULTS: State = { search: '', status: '', size: '10' };
 const search = (page: Page) => page.getByLabel('Search', { exact: true });
 const statusFilter = (page: Page) => page.getByLabel('Status');
 const size = (page: Page) => page.getByLabel('Rows per page');
-const shownRows = (page: Page) => page.getByRole('status').filter({ hasText: /Showing|No rows/ });
-const params = (page: Page) => Object.fromEntries(new URL(page.url()).searchParams);
 
 /** Records every turbo:load and turbo:frame-load from now on, with the URL at that moment; `mark` says where to wait from. */
 async function recordTurboEvents(page: Page): Promise<void> {
@@ -88,7 +87,7 @@ async function expectState(page: Page, state: State, rows: string | RegExp, rowC
     await expect.soft(search(page), 'Search').toHaveValue(state.search);
     await expect.soft(statusFilter(page), 'Status').toHaveValue(state.status);
     await expect.soft(size(page), 'Rows per page').toHaveValue(state.size);
-    await expect(shownRows(page)).toHaveText(rows);
+    await expect(tableStatus(page)).toHaveText(rows);
     await expect(page.locator('#orders tbody tr')).toHaveCount(rowCount);
     await expect(page.getByRole('columnheader', { name: 'Order' })).toHaveAttribute('aria-sort', 'descending');
 }
@@ -116,13 +115,13 @@ for (const { control, edit, state } of EDITS) {
         await expect(search(page)).toHaveValue(state.search);
         await expect(statusFilter(page)).toHaveValue(state.status);
         await expect(size(page)).toHaveValue(state.size);
-        const appliedRows = await shownRows(page).textContent();
+        const appliedRows = await tableStatus(page).textContent();
         const appliedCount = await page.locator('#orders tbody tr').count();
 
         since = await mark(page);
         await page.goBack();
         await pageVisitDone(page, since, {});
-        expect(params(page)).toEqual({});
+        expect(tableParams(page)).toEqual({});
         await expectState(page, DEFAULTS, 'Showing 1–10 of 57', 10);
         // the restored copy showed the earlier values from its first frame
         expect(await firstFrames()).toEqual([DEFAULTS]);
@@ -144,7 +143,7 @@ test('Back after applying every control at once, twice, shows each URL\'s values
     let since = await mark(page);
     await page.getByRole('button', { name: 'Apply' }).click();
     await frameVisitDone(page, since, urlParams(first));
-    const firstRows = await shownRows(page).textContent();
+    const firstRows = await tableStatus(page).textContent();
     const firstCount = await page.locator('#orders tbody tr').count();
 
     const second: State = { search: 'bonnie', status: 'paid', size: '10' };
@@ -187,7 +186,7 @@ test('a URL parameter named reset, kept as a hidden field, does not stop the for
 
 /** The live table's controls against its URL, which holds only the values that differ from the defaults. */
 async function expectControlsMatchUrl(page: Page): Promise<void> {
-    const url = params(page);
+    const url = tableParams(page);
     await expect.soft(search(page), 'Search').toHaveValue(url.q ?? '');
     await expect.soft(statusFilter(page), 'Status').toHaveValue(url['f[status]'] ?? '');
     await expect.soft(size(page), 'Rows per page').toHaveValue(url.size ?? '10');
@@ -197,7 +196,7 @@ test('data-table-live: Back to the table shows the URL\'s state in every control
     // opened at its URL, so Turbo caches its copy under the URL Back returns to, and Back shows that copy
     await page.goto('/lab/data-table-live?size=25&f%5Bstatus%5D=paid');
     await expect(statusFilter(page)).toHaveValue('paid');
-    const paidRows = await shownRows(page).textContent();
+    const paidRows = await tableStatus(page).textContent();
     // a search typed and not sent yet when the page is left: set without an input event, so the live controller never
     // sends it (typing would, 300 ms later, racing the visit away)
     await search(page).evaluate((input: HTMLInputElement) => (input.value = 'bonnie'));
@@ -211,7 +210,7 @@ test('data-table-live: Back to the table shows the URL\'s state in every control
     await expect(page).toHaveURL(/\/lab\/data-table-live\?/);
     await turboVisitDone(page);
     expect(requests, 'Back showed the cached copy').toEqual([]);
-    expect(params(page)).toEqual({ size: '25', 'f[status]': 'paid' });
+    expect(tableParams(page)).toEqual({ size: '25', 'f[status]': 'paid' });
     await expectControlsMatchUrl(page);
-    await expect(shownRows(page)).toHaveText(paidRows ?? '');
+    await expect(tableStatus(page)).toHaveText(paidRows ?? '');
 });

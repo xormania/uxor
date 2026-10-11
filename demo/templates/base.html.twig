@@ -52,7 +52,7 @@
                         A static copy of the demo at release <strong class="text-heading">{{ static_export.release }}</strong>.
                     {%- else -%}
                         A static copy of the demo, built from
-                        {% if static_export.commit %}<a href="{{ repository }}/commit/{{ static_export.commit }}" class="font-mono underline hover:text-heading">{{ static_export.commit[:7] }}</a> on {% endif %}<code>main</code>
+                        {% if static_export.commit %}<a href="{{ repository }}/commit/{{ static_export.commit }}" class="font-mono underline hover:text-heading">{{ static_export.commit[:7] }}</a> on {% endif %}<code>{{ static_export.branch ?? 'main' }}</code>
                         {%- if static_export.latest_release %} after release <strong class="text-heading">{{ static_export.latest_release }}</strong>{% endif %}.
                     {%- endif %}
                     Live Components, Turbo Streams and form submits need Symfony:

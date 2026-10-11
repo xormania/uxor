@@ -11,6 +11,10 @@ on:
                 description: The commit to build the site from
                 type: string
                 required: true
+        secrets:
+            TYPESAFE_API_KEY:
+                description: The key of the advisory Jev diagnosis of a failed build; without it, the diagnosis is unavailable
+                required: false
     workflow_dispatch:
 
 permissions:
@@ -26,7 +30,7 @@ jobs:
         # a manual run only on main, or on dev as a preview (from release.yml, the event is release.yml's own)
         if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         runs-on: ubuntu-latest
-        timeout-minutes: 15
+        timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis)
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -38,9 +42,28 @@ jobs:
                   extensions: intl # the calendar formats dates with twig/intl-extra
                   tools: composer
                   coverage: none
-            # the same build and checks as CI's Static site job; the install commands name the release
+            # the same build and checks as CI's Static site job; the install commands name the release (the output also
+            # goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
+            # a call from release.yml builds a commit of main; a manual run builds the branch it was started on
             - name: Build and check the site
-              run: tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags
+              id: build
+              env:
+                  BRANCH: ${{ inputs.ref && 'main' || github.ref_name }}
+              run: |
+                  set -o pipefail
+                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch="$BRANCH" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+            # Advisory diagnosis of a failed build (.github/actions/jev-diagnosis): never the job's verdict. Called from
+            # release.yml, the run's workflow is release.yml's, so this one names itself; the key comes from the caller.
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  workflow: .github/workflows/pages.yml
+                  job: Build the site
             - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
               with:
                   path: _site

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
-import { test as base, expect, type Page, type Request } from '@playwright/test';
+import { test as base, expect, type Locator, type Page, type Request } from '@playwright/test';
 import { startJsCoverage } from './coverage';
 
 const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
@@ -299,6 +299,76 @@ export async function stimulusControllers(page: Page, identifier: string): Promi
     }, identifier);
 }
 
+/** The checks of a document markDocument() marked. */
+export type SameDocument = { expectKept: () => Promise<void>; expectReplaced: () => Promise<void> };
+
+/**
+ * Marks the document on screen, to check that what follows kept it (Turbo rendered the next page in place) or replaced
+ * it (a full load). `expectKept()` fails at once when the marker is gone: a link or form fell back to a full load (a
+ * Turbo Drive regression, a `data-turbo="false"` too many, a 500 answered with a full load). `expectReplaced()` waits
+ * for the full load the step started, a new document without the marker.
+ */
+export async function markDocument(page: Page): Promise<SameDocument> {
+    await page.evaluate(() => ((window as any).__sameDocument = true));
+
+    return {
+        expectKept: async () => {
+            expect(await page.evaluate(() => (window as any).__sameDocument), 'the document marked is still on screen: no full load').toBe(true);
+        },
+        expectReplaced: async () => {
+            await expect.poll(() => page.evaluate(() => (window as any).__sameDocument), { message: 'a full load replaced the document marked' }).toBeUndefined();
+        },
+    };
+}
+
+/**
+ * Records, in each document the page loads from now on, whether `<html>` has the `dark` class when `<body>` starts
+ * parsing, i.e. before the first paint: a flash of the wrong theme reads as the other value. Call it before the
+ * `goto`; the reader returns the value of the document on screen.
+ */
+export async function recordDarkAtFirstBody(page: Page): Promise<() => Promise<boolean | undefined>> {
+    await page.addInitScript(() => {
+        new MutationObserver((_, observer) => {
+            if (document.body) {
+                (window as any).__darkAtFirstBody = document.documentElement.classList.contains('dark');
+                observer.disconnect();
+            }
+        }).observe(document, { childList: true, subtree: true });
+    });
+
+    return () => page.evaluate(() => (window as any).__darkAtFirstBody as boolean | undefined);
+}
+
+/**
+ * Counts the events of each of `types` that reach `document` from now on (bubbling), only those whose target matches
+ * the CSS selector `target` when given; the reader returns them by type, each type present (`{ change: 1 }`). Each
+ * call counts on its own: a second one in the same document starts from zero and leaves the first one's numbers alone.
+ * The current document only: Turbo visits keep it, a full load ends it (the reader then fails).
+ */
+export async function countEvents(page: Page, types: readonly string[], target?: string): Promise<() => Promise<Record<string, number>>> {
+    const id = await page.evaluate(
+        ({ types, target }) => {
+            const counts: Record<string, number> = Object.fromEntries(types.map((type) => [type, 0]));
+            for (const type of types) {
+                document.addEventListener(type, (event) => {
+                    if (!target || (event.target instanceof Element && event.target.matches(target))) {
+                        counts[type]++;
+                    }
+                });
+            }
+            return ((window as any).__eventCounts ??= [] as Record<string, number>[]).push(counts) - 1;
+        },
+        { types, target },
+    );
+
+    return () => page.evaluate((id) => ({ ...(window as any).__eventCounts[id] }) as Record<string, number>, id);
+}
+
+/** Whether the `<dialog>` is open, and shown modal (`:modal`: the page behind it inert, the dialog in the top layer). */
+export function dialogState(dialog: Locator): Promise<{ open: boolean; modal: boolean }> {
+    return dialog.evaluate((element: HTMLDialogElement) => ({ open: element.open, modal: element.matches(':modal') }));
+}
+
 /**
  * Waits until every element of the page naming a controller in `data-controller` has that controller connected
  * (lazy ones loaded): the widgets are mounted, so a scan or a check reads what they render, not the server's markup
@@ -335,46 +405,100 @@ export async function controllersConnected(page: Page): Promise<void> {
         .toEqual([]);
 }
 
+/*
+ * The one listener tracker, an init script installed once per document whoever asks first: it wraps
+ * `addEventListener` and `removeEventListener` and keeps, per target and per `<type>[ capture]`, the listeners the
+ * page's scripts add (Playwright's own, added by scripts without a URL, the specs' init scripts and evaluations, are
+ * left out). Two views, each with the rules its reader always had, so no count changes:
+ *
+ * - `__listenerCounts()` (trackCounts, counts.ts): `document`, `window` and the elements still in the document (an
+ *   element by its tag name). `{ once: true }` listeners are left out (one still waiting at the end of a step, a
+ *   dialog's `transitionend`, is there or not depending on timing, and a count that gates must not be), and a listener
+ *   added with an `AbortSignal` leaves when the signal aborts.
+ * - `__globalListeners()` (trackGlobalListeners): `document` and `window` only, every explicit add minus every explicit
+ *   remove: `{ once: true }` listeners and `AbortSignal` removals are not followed.
+ */
+function installListenerTracker() {
+    const w = window as any;
+    if (w.__listenerCounts) {
+        return;
+    }
+    const add = EventTarget.prototype.addEventListener;
+    const remove = EventTarget.prototype.removeEventListener;
+    type Registry = Map<EventTarget, Map<string, Set<unknown>>>;
+    const live: Registry = new Map();
+    const all: Registry = new Map();
+    const keyOf = (type: string, options?: boolean | AddEventListenerOptions) =>
+        `${type}${('boolean' === typeof options ? options : Boolean(options?.capture)) ? ' capture' : ''}`;
+    const fromPage = () => /\bhttps?:\/\//.test(new Error().stack ?? '');
+    const keep = (registry: Registry, target: EventTarget, key: string, listener: unknown) => {
+        const keys = registry.get(target) ?? registry.set(target, new Map()).get(target)!;
+        (keys.get(key) ?? keys.set(key, new Set()).get(key)!).add(listener);
+    };
+    const forget = (registry: Registry, target: EventTarget, key: string, listener: unknown) => registry.get(target)?.get(key)?.delete(listener);
+    const isGlobal = (target: EventTarget) => target === document || target === window;
+
+    EventTarget.prototype.addEventListener = function (type: string, listener: any, options?: any) {
+        if (listener && fromPage()) {
+            const key = keyOf(type, options);
+            const object = options && 'object' === typeof options ? (options as AddEventListenerOptions) : undefined;
+            if (isGlobal(this)) {
+                keep(all, this, key, listener);
+            }
+            if (!object?.once) {
+                keep(live, this, key, listener);
+                object?.signal?.addEventListener('abort', () => forget(live, this, key, listener), { once: true });
+            }
+        }
+        return add.call(this, type, listener, options);
+    };
+    EventTarget.prototype.removeEventListener = function (type: string, listener: any, options?: any) {
+        const key = keyOf(type, options);
+        forget(live, this, key, listener);
+        if (isGlobal(this) && fromPage()) {
+            forget(all, this, key, listener);
+        }
+        return remove.call(this, type, listener, options);
+    };
+    const count = (registry: Registry) => {
+        const counts: Record<string, number> = {};
+        for (const [target, keys] of registry) {
+            const name = target === document ? 'document' : target === window ? 'window' : target instanceof Element && target.isConnected ? target.localName : null;
+            if (null === name) {
+                continue;
+            }
+            for (const [key, listeners] of keys) {
+                if (listeners.size) {
+                    counts[`${name} ${key}`] = (counts[`${name} ${key}`] ?? 0) + listeners.size;
+                }
+            }
+        }
+        return counts;
+    };
+    w.__listenerCounts = () => count(live);
+    w.__globalListeners = () => count(all);
+}
+
+/**
+ * Installs the listener tracker (above) in every document of the page from now on: call it before the first `goto`.
+ * trackGlobalListeners() and trackCounts() (counts.ts) read it; both may install it in one page.
+ */
+export async function trackListeners(page: Page): Promise<void> {
+    await page.addInitScript(installListenerTracker);
+}
+
 /**
  * Counts the listeners the page's scripts put on `document` and `window`, by `<target> <type>` (`document click`,
- * `window resize capture`): those added minus those removed, from the start of each page. Playwright's own listeners
- * (added by scripts without a URL) are left out. Call it before the first `goto`, take a baseline once the page has
- * done each kind of step once (Turbo adds some of its listeners on the first click or submit), and compare after more
- * Turbo visits, Streams or re-renders: a controller that leaves a listener behind shows as a count above the baseline.
- * `only` declares the scope: the keys the reader returns, those of the component under test (lab.popover), so the
- * comparison holds no other script's listeners and needs no warm-up step for them. It counts explicit adds and removes
- * only: not `{ once: true }` or `AbortSignal` removals, element or media-query listeners, observers or timers.
+ * `window resize capture`): those added minus those removed, from the start of each page (the tracker's global view).
+ * Call it before the first `goto`, take a baseline once the page has done each kind of step once (Turbo adds some of
+ * its listeners on the first click or submit), and compare after more Turbo visits, Streams or re-renders: a controller
+ * that leaves a listener behind shows as a count above the baseline. `only` declares the scope: the keys the reader
+ * returns, those of the component under test (lab.popover), so the comparison holds no other script's listeners and
+ * needs no warm-up step for them. It counts explicit adds and removes only: not `{ once: true }` or `AbortSignal`
+ * removals, element or media-query listeners, observers or timers.
  */
 export async function trackGlobalListeners(page: Page, only?: readonly string[]): Promise<() => Promise<Record<string, number>>> {
-    await page.addInitScript(() => {
-        const add = EventTarget.prototype.addEventListener;
-        const remove = EventTarget.prototype.removeEventListener;
-        const listeners = new Map<string, Set<unknown>>();
-        const key = (target: EventTarget, type: string, options?: boolean | EventListenerOptions) => {
-            const name = target === document ? 'document' : target === window ? 'window' : null;
-            if (!name || !/\bhttps?:\/\//.test(new Error().stack ?? '')) {
-                return null;
-            }
-            const capture = 'boolean' === typeof options ? options : Boolean(options?.capture);
-            return `${name} ${type}${capture ? ' capture' : ''}`;
-        };
-        (window as any).__globalListeners = () =>
-            Object.fromEntries([...listeners].filter(([, set]) => set.size > 0).map(([name, set]) => [name, set.size]));
-        EventTarget.prototype.addEventListener = function (type: string, listener: any, options?: any) {
-            const name = key(this, type, options);
-            if (name && listener) {
-                listeners.set(name, (listeners.get(name) ?? new Set()).add(listener));
-            }
-            return add.call(this, type, listener, options);
-        };
-        EventTarget.prototype.removeEventListener = function (type: string, listener: any, options?: any) {
-            const name = key(this, type, options);
-            if (name) {
-                listeners.get(name)?.delete(listener);
-            }
-            return remove.call(this, type, listener, options);
-        };
-    });
+    await trackListeners(page);
 
     return async () => {
         const counts = await page.evaluate(() => (window as any).__globalListeners() as Record<string, number>);
@@ -394,7 +518,6 @@ export function listenerChanges(before: Record<string, number>, after: Record<st
             .filter(([, change]) => 0 !== change),
     );
 }
-
 
 /**
  * What an axe scan fails on: `impact` `serious` counts serious and critical violations (the suite's gate for whole

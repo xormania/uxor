@@ -21,6 +21,8 @@ Use the avatar component to show a visual representation of a user profile using
 
 ## Usage
 
+`Avatar:Image src` keeps a relative or `http(s)` URL. Another scheme renders no `src`, so the fallback stays shown.
+
 ```twig
 <twig:Avatar
     size="xs | sm | md | lg | xl | 2xl"

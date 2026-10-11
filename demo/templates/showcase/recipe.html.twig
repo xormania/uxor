@@ -4,7 +4,7 @@
 
 {% block body %}
     {%- set static_export = app.request.attributes.get('_static_export') -%}
-    {%- set kit_url = kit.manifest.homepage ~ (static_export.release ?? false ? ':' ~ static_export.release : '') -%}
+    {%- set kit_url = kit.manifest.homepage ~ (static_export ? ':' ~ (static_export.release ?? static_export.branch ?? 'main') : '') -%}
     {%- set source = kit.manifest.homepage ~ '/tree/' ~ (static_export.commit ?? 'main') ~ '/' ~ recipe.name -%}
     {%- set is_page = 'block' == recipe.manifest.type.value or 'layouts' == recipe.name -%}
 

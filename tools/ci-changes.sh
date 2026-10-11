@@ -40,6 +40,9 @@ while IFS= read -r path; do
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
         .github/workflows/monthly.yml) on workflows ;;
+        # The advisory Jev step every job calls on a failure (.github/actions/jev-diagnosis): a passing job never runs
+        # it, so no job checks it by passing; actionlint checks each call's inputs against it
+        .github/actions/jev-diagnosis/*) on workflows ;;
         # release-checks.yml runs on the release pull request, daily on dev and by hand, never on a push: the browser
         # job runs its setup (the demo's image and start, the sync, Playwright in the pinned image) and the tests it
         # runs (the @release ones, left out there, run with the same projects and fixtures)
@@ -75,6 +78,8 @@ while IFS= read -r path; do
         # every run, also runs ci-metrics.mjs and the shard plan's timings
         tools/ci/junit-attempts.mjs) on php ;;
         tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json) on php demo ;;
+        # A failed step's log as failed attempts: the jobs run it only after a failure, so its cases (Tool tests) check it
+        tools/ci/step-attempts.mjs) ;;
         tools/ci/*) on demo ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run
         # The name check reads every file, so Tool tests runs it on every run too

@@ -50,16 +50,18 @@ message where one condition is missing.
 **Catches:** a link or form that falls back to a full page load (a Turbo Drive regression, a `data-turbo="false"`
 too many, a 500 that Turbo answers with a full load).
 
-Set a marker on `window`, navigate, check the marker is still there.
+Mark the document (a marker on `window`), navigate, check the marker is still there; or, where a full load is
+expected (a tracked asset that changed, a reload), that a new document replaced it.
 
 ```ts
-await page.evaluate(() => ((window as any).__sameDocument = true));
+const sameDocument = await markDocument(page);
 await page.getByRole('link', { name: 'Lab' }).click();
 await expect(page).toHaveURL(/\/lab$/);
-expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+await sameDocument.expectKept();      // or, after a full load: await sameDocument.expectReplaced();
 ```
 
-Here: [`tests/e2e/smoke.spec.ts`](../tests/e2e/smoke.spec.ts), [`lab.turbo-nav.spec.ts`](../tests/e2e/lab.turbo-nav.spec.ts).
+Here: [`tests/e2e/fixtures.ts`](../tests/e2e/fixtures.ts) (`markDocument`), [`smoke.spec.ts`](../tests/e2e/smoke.spec.ts),
+[`lab.turbo-nav.spec.ts`](../tests/e2e/lab.turbo-nav.spec.ts), [`demo-app.spec.ts`](../tests/e2e/demo-app.spec.ts) (replaced).
 
 ### Wait for the operation to complete, not for content
 
@@ -145,7 +147,25 @@ await turboOperation(page, {}, () => page.keyboard.press('Enter'));   // any oth
 await shown(page, 'Page two');
 ```
 
+The scaffold's other two operations, and a link followed without a prefetch, have one driver each in the same module:
+
+```ts
+import { follow, reloadFrames, sendStream } from './transitions';
+
+await reloadFrames(page);                          // `Reload the frame` three times, each until `frame-load` shows it
+await reloadFrames(page, { before: open, after: expectClosed, link, activate });   // what a spec does around each
+await sendStream(page, 'replace');                 // a `<recipe>-stream` page's button, until `stream-action` shows it
+await sendStream(page, 'update', { from: 'code' });   // the form submitted from code: an open overlay stays open
+await follow(page, 'Page 2');                      // focus and Enter: Turbo does not prefetch it (the caller waits)
+```
+
 Here: [`tests/e2e/transitions.ts`](../tests/e2e/transitions.ts), used by the `lab.*` specs.
+
+The specs' other shared helpers, each the one place to change when the markup changes:
+[`calendar.ts`](../tests/e2e/calendar.ts) (`day`, `dayCell`: a day of the calendar or a date picker's dialog),
+[`files.ts`](../tests/e2e/files.ts) (`png`, `text`: files for an input), [`data-table.ts`](../tests/e2e/data-table.ts)
+(`tableStatus`, `selectionStatus`, `tableParams`: the status lines and the URL's state), and `previewUrl` in
+[`inventory.ts`](../tests/e2e/inventory.ts) (a README example's preview page, also behind `gotoExample`).
 
 ### Back after the cache snapshot
 
@@ -456,6 +476,41 @@ Here: [`tests/e2e/fixtures.ts`](../tests/e2e/fixtures.ts) (`stimulusControllers`
 [`lab.section-nav.spec.ts`](../tests/e2e/lab.section-nav.spec.ts), [`lab.overlays.spec.ts`](../tests/e2e/lab.overlays.spec.ts),
 [`lab.popover.spec.ts`](../tests/e2e/lab.popover.spec.ts).
 
+### One event per action, counted
+
+**Catches:** a widget that dispatches its event twice (two controllers on one element after Turbo visits, a pick
+reported by both the click and the keyboard path), or not at all, where the value on screen looks right.
+
+Count the events that reach `document` from the step's start, by type, only those of the widget's own targets:
+
+```ts
+const changes = await countEvents(page, ['change'], '[data-calendar-target="input"]');
+await day(calendar, '2026-03-11').click();
+expect(await changes()).toEqual({ change: 1 });
+```
+
+Each call counts on its own, in the current document (a Turbo visit keeps it, a full load ends it).
+
+Here: [`tests/e2e/fixtures.ts`](../tests/e2e/fixtures.ts) (`countEvents`), [`calendar.spec.ts`](../tests/e2e/calendar.spec.ts),
+[`lab.calendar.spec.ts`](../tests/e2e/lab.calendar.spec.ts), [`lab.date-picker.spec.ts`](../tests/e2e/lab.date-picker.spec.ts),
+[`dropzone.spec.ts`](../tests/e2e/dropzone.spec.ts), [`lab.dropzone.spec.ts`](../tests/e2e/lab.dropzone.spec.ts).
+
+### A dialog open, and modal
+
+**Catches:** a `<dialog>` shown but not modal (opened with `show()` where `showModal()` was meant: the page behind
+stays usable, Escape and the focus trap differ), or a modal one left open or in the top layer after it is hidden,
+restored from Turbo's cache or re-rendered by Live.
+
+Read both from the element: `open` and `:modal` (in the top layer, the rest of the page inert).
+
+```ts
+await expect.poll(() => dialogState(page.locator('dialog#modal-restore-modal'))).toEqual({ open: true, modal: true });
+```
+
+Here: [`tests/e2e/fixtures.ts`](../tests/e2e/fixtures.ts) (`dialogState`), [`lab.turbo-restore.spec.ts`](../tests/e2e/lab.turbo-restore.spec.ts),
+[`lab.live-modal.spec.ts`](../tests/e2e/lab.live-modal.spec.ts), [`lab.live-drawer.spec.ts`](../tests/e2e/lab.live-drawer.spec.ts),
+[`lab.value-matrix.spec.ts`](../tests/e2e/lab.value-matrix.spec.ts).
+
 ## State × transition
 
 **Catches:** what a test of each state misses: the moves between states. The theme toggle showed no icon only after
@@ -477,21 +532,21 @@ for (const system of ['light', 'dark'] as const) {
 }
 ```
 
-**Before the first paint:** record the state when `<body>` starts parsing, to catch a flash of the wrong theme.
+**Before the first paint:** record the state when `<body>` starts parsing, to catch a flash of the wrong theme. An
+init script's `MutationObserver` reads the `dark` class of `<html>` as the first `<body>` is added.
 
 ```ts
-await page.addInitScript(() => new MutationObserver((_, observer) => {
-    if (document.body) {
-        (window as any).__darkAtFirstBody = document.documentElement.classList.contains('dark');
-        observer.disconnect();
-    }
-}).observe(document, { childList: true, subtree: true }));
+const darkAtFirstBody = await recordDarkAtFirstBody(page); // before the goto
+await page.goto('/');
+expect(await darkAtFirstBody()).toBe(true);
 ```
 
 The same spec blocks `localStorage` (a getter that throws, as blocked site data does) and checks the choice still
 holds across a Turbo visit: the controller keeps it on `<html data-theme-choice>`.
 
-Here: [`tests/e2e/theme-toggle.spec.ts`](../tests/e2e/theme-toggle.spec.ts).
+Here: [`tests/e2e/fixtures.ts`](../tests/e2e/fixtures.ts) (`recordDarkAtFirstBody`),
+[`theme-toggle.spec.ts`](../tests/e2e/theme-toggle.spec.ts), [`csp.spec.ts`](../tests/e2e/csp.spec.ts) (the layout's
+inline script alone).
 
 ## Timers on Playwright's clock
 
@@ -661,6 +716,13 @@ const listeners = await trackGlobalListeners(page, Object.keys(OPEN));
 It counts explicit `addEventListener`/`removeEventListener` calls on `document` and `window` only, not listeners
 removed by `{ once: true }` or an `AbortSignal`, on elements or media queries, nor observers or timers. Keep the
 behavior check beside it (one toggle per click), and the instance count (*One controller per element, counted*).
+
+One tracker serves both this and the interaction counts (`trackListeners`, an init script wrapping
+`addEventListener` and `removeEventListener` once per document): `trackGlobalListeners` reads its `document` and
+`window` view, with the rules above; `trackCounts` its view of every target still in the document, which leaves
+`{ once: true }` listeners out (one still waiting at the end of a step, a dialog's `transitionend`, is there or not
+depending on whether its animation ended first, and a gating count must not depend on timing) and follows an
+`AbortSignal` removal. Each view keeps the rules its reader had before they shared the tracker.
 
 Here: [`tests/e2e/fixtures.ts`](../tests/e2e/fixtures.ts) (`trackGlobalListeners`, `listenerChanges`),
 [`lab.tooltip.spec.ts`](../tests/e2e/lab.tooltip.spec.ts), [`lab.overlays.spec.ts`](../tests/e2e/lab.overlays.spec.ts),
@@ -874,10 +936,15 @@ What it reports is data captured from the app, not instructions. `demo/mate/AGEN
 
 ## Hostile values in markup
 
-**Catches:** a prop that lets a value add an element, an event handler or a `javascript:` link.
+**Catches:** a prop that lets a value add an element, an event handler, a `javascript:` link or another active URL.
 
 Render every component with hostile values through the app's own Twig (a console command), then let the browser
-parse each rendering and check the DOM: no extra element, no `on*` attribute, links only with allowed schemes.
+parse each rendering and check the DOM: no extra element, no `on*` attribute, links only with their allowed schemes,
+and image sources only when relative or http(s). Every component whose template reads its attributes is rendered
+given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes, then with `HREF`, `FormAction`, `Src`,
+`srcset` and `ping` carrying hostile URLs, found by listing the templates, so a new component is covered without a new
+case. The URL corpus includes case and whitespace changes, C0 controls,
+character references, attribute breakouts, `Markup` values and stringable objects.
 
 Here: [`hostile-props.spec.ts`](../tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](../demo/src/Command/HostilePropsCommand.php).
 
@@ -902,6 +969,19 @@ The headers come from one listener; a spec checks the policy itself (nonces, no 
 above fails every other test on a violation, so the whole suite runs under the policy.
 
 Here: [`csp.spec.ts`](../tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](../demo/src/EventListener/SecurityHeadersListener.php).
+
+## Production boot and route trust boundaries
+
+**Catches:** an accidental public deployment of the dynamic fixture, a new route whose exposure was never decided,
+a read-only route accepting another method, or a public POST route with no named CSRF mechanism.
+
+The demo's kernel refuses production without an explicit opt-in and a unique secret. A kernel test tries the unsafe
+combinations and a real production boot. A second test reads the compiled route collection: every app controller's
+route carries one reviewed category, and its methods and CSRF mechanism agree with that category. The categories and
+the limit of the production opt-in are in [`DEMO-SECURITY.md`](DEMO-SECURITY.md).
+
+Here: [`ProductionConfigurationTest.php`](../demo/tests/Security/ProductionConfigurationTest.php),
+[`RouteSecurityTest.php`](../demo/tests/Security/RouteSecurityTest.php).
 
 ## Accessibility
 
@@ -977,6 +1057,47 @@ specs and the counts pass unchanged.
 
 Here: [`js-duplication.mjs`](../tools/js-duplication.mjs), [`js-duplication.test.mjs`](../tools/tests/js-duplication.test.mjs),
 with [`recipe-imports.mjs`](../tools/recipe-imports.mjs) checking that each recipe installs the module it imports.
+
+## Fault catalog
+
+**Catches:** a cleanup of the tests (a helper moved into a shared module, a loop turned into a driver) that quietly
+stops a test from failing: green before and after proves nothing about what the tests still detect.
+
+A cleanup is accepted when the same planted faults fail the same tests, by title, before and after it, and no test
+fails without them. The faults are named in [`.xorder/testing.json`](../.xorder/testing.json): each one a source edit
+in the kit (or the demo's layout), the page or served asset that shows it took effect, and what it tests. xorder's plant
+helper applies one, syncs the demo, confirms it is served, runs the specs and restores the source and the synced
+copies, even when the run fails or is interrupted:
+
+```sh
+python3 scripts/xr.py ~/uxor plant calendar-select-nothing -- tests/e2e/calendar.spec.ts tests/e2e/lab.calendar.spec.ts --project=smoke --retries=0
+python3 scripts/xr.py ~/uxor plant --restore    # after an interrupted run; `sync --check` then shows no planted copy left in demo/
+```
+
+The last cleanup, the duplicated helpers of [`TEST-INVENTORY.md`](TEST-INVENTORY.md) moved into shared modules, in
+Chromium: the tests failing on each fault, the same before (the specs of `dev`) and after, title for title.
+
+| Fault (`.xorder/testing.json`) | Helpers it proves | Failing, before and after |
+|---|---|---|
+| `calendar-select-nothing`: a day takes no pick | `day`, `dayCell`, `reloadFrames` | 51 of 260: calendar 6, date-picker 3, lab.calendar 4, lab.date-picker 6 (the frame reloaded three times among them), forms 1, lab.form-back 1, counts 1, lab.value-matrix 29 |
+| `calendar-change-twice`: a pick dispatches two change events | `countEvents` | 6 of 23: calendar 1, lab.calendar 3, lab.date-picker 2 |
+| `calendar-silent-removal`: the last date deselected dispatches no change | `countEvents` (calendar's listener moved from its root to `document`) | 1 of 11: calendar "in multiple mode, the inputs keep their attributes…" |
+| `dropzone-remove-name`: Remove loses the file's name | `png`, `text`, `previewUrl`, `sendStream` | 7 of 71: dropzone 2, lab.dropzone 5 (forms and csp stay green: they never name Remove); lab.value-matrix "a dropzone in a POST form" 10 of 10 |
+| `popover-escape-focus`: Escape leaves the focus | `previewUrl` | 1 of 6: popover |
+| `data-table-status-short`: the status counts a row less | `tableStatus`, `tableParams` | 8 of 18: lab.data-table-back 5, lab.data-table-frame 2, counts 1 |
+| `data-table-live-status-short`: the same in DataTableLive | `tableStatus`, `tableParams` | lab.data-table-live 5 of 5; lab.value-matrix "a Live data table page" 9 of 9 |
+| `data-table-live-selection`: a selected row too many | `selectionStatus` | lab.data-table-live 1 of 5; lab.value-matrix "a Live data table selection" 10 of 10 |
+| `data-table-page-link-next`: each page link goes one page further | `follow`, `tableStatus` | 20 of 29: lab.data-table-interrupt 17, lab.data-table-frame 2, counts 1 |
+| `dropdown-disconnect-leak`: a disconnected dropdown keeps its listeners | `reloadFrames`, `sendStream` (from code), the listener tracker's global view | 4 of 27: lab.overlays 3 (the frame reloaded three times, the Streams), counts 1; lab.value-matrix "a dropdown left open" 1 of 10 |
+| `dropdown-close-leak`: closing keeps the outside click listener | the listener tracker's two views (`trackCounts`, `trackGlobalListeners`) | 4 of 27: counts "dropdown: opening and closing…", lab.overlays 3 |
+| `modal-not-modal`: the modal opens with `show()` | `dialogState` | 3 of 13: lab.live-modal 1, lab.turbo-restore 2; lab.value-matrix "a modal left open" 10 of 10 |
+| `drawer-not-modal`: a modal drawer opens with `show()` | `dialogState` | 3 of 14: lab.live-drawer 1, lab.turbo-restore 2 |
+| `theme-after-first-paint`: the layouts set the theme on `DOMContentLoaded` | `recordDarkAtFirstBody` | 7 of 67: csp 1, theme-toggle 6 |
+| `lab-link-full-load`: the Main navigation's Lab link loads in full | `markDocument` | 14 of 36: smoke 7, theme-toggle 7 |
+
+Not proven by a fault yet: the `dropzone:change` counts of dropzone and lab.dropzone (`countEvents`: the event is UX
+Dropzone's, no kit edit doubles it), the files of forms and csp (`png`), the frame reloads and Streams of lab.chart,
+lab.editor, lab.markdown-editor, lab.popover and lab.tooltip, and release.timings (report only).
 
 ## Browsers
 
@@ -1104,7 +1225,8 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
 every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
 branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
-write never fails the build. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+write never fails the build. `monthly.yml` and `release-checks.yml` read the `dev` and `main` tags and write none; a
+workflow that reads a cache no build writes fails `tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
 `.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
 public once, in the package's settings, so it does not count against private package storage.
 
@@ -1232,14 +1354,31 @@ run with two.
 
 ### Jev diagnosis (advisory)
 
-When a shard has a failed or flaky test (in CI and in the monthly *Browsers* jobs), or *Kit PHP*'s PHPUnit fails, a
+When a job fails (for the browser shards, in CI and in the monthly *Browsers* jobs: when a test failed or was flaky), a
 later step, [`tools/ci/jev-diagnosis.mjs`](../tools/ci/jev-diagnosis.mjs), asks Jev (TypeSafe's model, pinned in
 [`tools/ci/jev-ci.json`](../tools/ci/jev-ci.json)) two questions about each failed attempt in
 `failed-attempts.json`, retry-recovered ones included: which category of the policy's rubric the cause likely belongs
 to (`environment_failure`, `product_defect`, `test_defect`, `timing_assertion`, or `unknown`), and which of the
 supplied excerpts best helps investigate it (or none). It is a starting hypothesis for whoever investigates, not a
-verdict: the test result decides, the step may fail or time out (2 minutes) without changing the job, and a missing
-key, a provider error or an answer that does not validate gives an *unavailable* assessment, never a failure.
+verdict: the test result decides, the step may fail or time out (110 seconds, 3 minutes with its upload, which each
+job's `timeout-minutes` counts) without changing the job, and a missing key, a provider error or an answer that does
+not validate gives an *unavailable* assessment, never a failure.
+
+Every job calls the same step, the composite action
+[`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml): it builds the job's
+`failed-attempts.json`, runs the diagnosis and uploads the assessments. The attempts come from one of three places:
+
+| Job | Its failed attempts | Server log | Artifact |
+|---|---|---|---|
+| *Demo + Playwright*, monthly *Browsers* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-<browser>-<shard>-<run>-<attempt>`, `monthly-jev-<kind>-<browser>-<shard>` |
+| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-phpunit-<run>-<attempt>` |
+| *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-tools-<run>-<attempt>` |
+| *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-<job id>-<run>-<attempt>` |
+
+A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
+`run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
+What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
+log (a checkout, a tool's download) gets no diagnosis: the step writes nothing to the summary and uploads nothing.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*
@@ -1250,20 +1389,21 @@ key, a provider error or an answer that does not validate gives an *unavailable*
   shown as `unknown` and no excerpt is selected; the answer itself stays in `assessment.json`. The threshold decides
   what is shown, it is not a measured accuracy: nothing here says how often Jev is right on this repository's
   failures. A timeout or an assertion alone does not prove a timing problem, and neither does a pass on retry.
-- **Bounds:** at most 10 attempts per shard, first attempts of every test before their retries; the rest are listed as
+- **Bounds:** at most 10 attempts per job, first attempts of every test before their retries; the rest are listed as
   *not assessed: cap*. Attempts left when the 90-second budget runs out are *not assessed: deadline*. Each request
   holds at most 8 excerpts and 28,000 bytes (server log excerpts are dropped first, then error excerpts, and the
   omissions are recorded); one retry on 429 or 529, 8 seconds per request.
 - **What leaves the runner:** the attempt's identity (file, line, title, project, retry, outcome), excerpts of its
   error and of the demo's server log during the attempt (`docker compose logs --timestamps php`, ±5 seconds), sent to
-  TypeSafe. They are filtered first: the key and every environment value whose name looks like a secret, bearer
+  TypeSafe. For a failed step, its error is its name, its command as the workflow writes it (not the values of its
+  variables) and the selected lines of its log. They are filtered first: the key and every environment value whose name looks like a secret, bearer
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is given to this step alone; without it (a fork's run, for instance) every attempt is
-*unavailable (missing_credential)*. For *Kit PHP*, [`tools/ci/junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)
-first turns PHPUnit's JUnit report (`--log-junit`) into the same `failed-attempts.json`, one attempt per failed test,
-with `demo/var/log/test.log` as its server log; that job's artifact is `jev-phpunit-<run>-<attempt>`. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
+The `TYPESAFE_API_KEY` secret is given to this step alone (`pages.yml` receives it from `release.yml` for its build's
+step, and for nothing else); without it (a fork's run, for instance) every attempt is *unavailable
+(missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
+them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
 
 ## Monthly job

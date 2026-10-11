@@ -38,7 +38,7 @@
 
 {% block body %}
     {%- set static_export = app.request.attributes.get('_static_export') -%}
-    {%- set kit_url = kit.manifest.homepage ~ (static_export.release ?? false ? ':' ~ static_export.release : '') -%}
+    {%- set kit_url = kit.manifest.homepage ~ (static_export ? ':' ~ (static_export.release ?? static_export.branch ?? 'main') : '') -%}
     {%- set example_total = example_counts|reduce((total, count) => total + count, 0) -%}
 
     <section class="pb-10" aria-labelledby="why-heading">
@@ -62,7 +62,7 @@
     <section id="install" class="scroll-mt-20 border-t border-default py-10" aria-labelledby="install-heading">
         <h2 id="install-heading" class="text-2xl font-semibold text-heading">Install</h2>
         <ol class="mt-6 grid gap-6 lg:grid-cols-2">
-            <li>
+            <li class="min-w-0">
                 <h3 class="font-semibold text-heading">1. Prepare the project, once</h3>
                 <p class="mt-1 text-sm">Then set up Tailwind CSS, Flowbite’s stylesheet and the <code>theme</code> recipe: <a href="{{ kit.manifest.homepage }}/blob/main/INSTALL.md" class="underline hover:text-heading">INSTALL.md</a>.</p>
                 <pre tabindex="0" class="mt-3 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading"><code>composer config extra.symfony.allow-contrib true
@@ -70,7 +70,7 @@ composer require symfony/twig-bundle symfony/ux-twig-component
 composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client
 composer require symfony/asset-mapper symfony/stimulus-bundle</code></pre>
             </li>
-            <li>
+            <li class="min-w-0">
                 <h3 class="font-semibold text-heading">2. Install the recipes you need</h3>
                 <p class="mt-1 text-sm">A recipe brings the recipes it depends on, then prints the packages to require. The <a href="{{ kit.manifest.homepage }}#install" class="underline hover:text-heading">README</a> has the details.</p>
                 <pre tabindex="0" class="mt-3 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading"><code>php bin/console ux:install button \

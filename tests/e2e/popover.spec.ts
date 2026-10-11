@@ -1,10 +1,9 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-
-const preview = (id: string) => `/preview/popover/${id}?theme=light`;
+import { previewUrl } from './inventory';
 
 test('the trigger toggles the popover; opening focuses its first field, Escape closes it and focuses the trigger', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('popover', 'default'));
     const trigger = page.getByRole('button', { name: 'Dimensions' });
     const dialog = page.getByRole('dialog', { name: 'Dimensions' });
     // rendered open (`open`): visible, placed under the trigger, without taking the focus
@@ -25,13 +24,13 @@ test('the trigger toggles the popover; opening focuses its first field, Escape c
 });
 
 test('a click outside closes the popover', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('popover', 'default'));
     await page.mouse.click(5, 5);
     await expect(page.getByRole('dialog', { name: 'Dimensions' })).toBeHidden();
 });
 
 test('popovers of a group close each other', async ({ page }) => {
-    await page.goto(preview('a-group'));
+    await page.goto(previewUrl('popover', 'a-group'));
     await page.getByRole('button', { name: 'Owner' }).click();
     await expect(page.getByRole('dialog', { name: 'Owner' })).toBeVisible();
     // opened through its attribute (as a Live re-render or a script would): no outside click, no focus change
@@ -43,7 +42,7 @@ test('popovers of a group close each other', async ({ page }) => {
 const box = async (page: Page, name: string) => (await page.getByRole('dialog', { name }).boundingBox())!;
 
 test('the content flips when it does not fit, stays in the viewport and follows the trigger on scroll', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('popover', 'default'));
     const trigger = page.getByRole('button', { name: 'Dimensions' });
     const below = await box(page, 'Dimensions');
     expect(below.y).toBeGreaterThan((await trigger.boundingBox())!.y);
@@ -66,7 +65,7 @@ test('the content flips when it does not fit, stays in the viewport and follows 
 });
 
 test('the trigger does not submit a surrounding form', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('popover', 'default'));
     await page.evaluate(() => {
         const form = document.createElement('form');
         form.addEventListener('submit', (event) => {
@@ -83,7 +82,7 @@ test('the trigger does not submit a surrounding form', async ({ page }) => {
 });
 
 test('opening skips hidden controls, and a canceled popover:focus leaves the focus to the page', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('popover', 'default'));
     const trigger = page.getByRole('button', { name: 'Dimensions' });
     await trigger.click();
     await expect(page.getByRole('dialog', { name: 'Dimensions' })).toBeHidden();

@@ -1,11 +1,14 @@
 name: Release
 
 # A release pull request moves CHANGELOG.md's Unreleased entries to "## [X.Y.Z] - date" (CONTRIBUTING.md, Releases).
-# Once it is merged and CI has passed on main, for each version heading without a GitHub Release, this checks that
-# the merge commit that added the heading installs from GitHub in a fresh Symfony Docker project, tags it (unless the
-# tag exists and points at that commit), and publishes the Release with the version's section of CHANGELOG.md at that
-# commit, then the gallery (pages.yml). tools/release-plan.sh decides the commit, the tag and the notes, and refuses a
-# tag that points elsewhere; CI runs it as a dry run. A failed run can be re-run: it picks up where it stopped.
+# Once it is merged and CI has passed on main, for the newest version heading, if it has no GitHub Release, this checks
+# that the merge commit that added the heading installs from GitHub in a fresh Symfony Docker project, tags it (unless
+# the tag exists and points at that commit), and publishes the Release, "Latest", with the version's section of
+# CHANGELOG.md at that commit, then the gallery (pages.yml). An older version that is tagged but has no Release gets
+# its Release from its notes, not "Latest" and without an install check (today's check installs today's recipes, not
+# that version's), after the newest one and on a best-effort basis: it never holds back the newest version or the
+# gallery. tools/release-plan.sh decides the commit, the tag and the notes, and refuses a tag that points elsewhere;
+# CI runs it as a dry run. A failed run can be re-run: it picks up where it stopped.
 on:
     workflow_run:
         workflows: [CI]
@@ -54,11 +57,14 @@ jobs:
                       gh release view "$version" > /dev/null 2>&1 || versions="$versions $version"
                   done < <(grep -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)
                   echo "versions=${versions# }" >> "$GITHUB_OUTPUT"
+                  # the version this release cuts: the only one with an install check, and the "Latest" Release
+                  echo "newest=$(grep -m1 -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)" >> "$GITHUB_OUTPUT"
                   echo "To release: ${versions:- none}"
 
             # before any install check, tag or release: a tag that points at another commit than the one that adds its
             # heading fails the run here (move or delete the tag by hand, CONTRIBUTING.md, Releases)
             - name: Plan the tags and notes
+              id: plan
               if: steps.versions.outputs.versions != ''
               env:
                   VERSIONS: ${{ steps.versions.outputs.versions }}
@@ -68,31 +74,82 @@ jobs:
                   # shellcheck disable=SC2086
                   tools/release-plan.sh --notes-dir "$RUNNER_TEMP/notes" $VERSIONS > "$RUNNER_TEMP/plan"
 
+            # The newest version (its output also goes to $RUNNER_TEMP/jev-publish.log, for the Jev step:
+            # tools/ci/step-attempts.mjs)
             - name: Tag, check the install, publish
+              id: publish
               if: steps.versions.outputs.versions != ''
               env:
                   GH_TOKEN: ${{ github.token }}
+                  NEWEST: ${{ steps.versions.outputs.newest }}
               run: |
-                  git config user.name 'github-actions[bot]'
-                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-                  # the plan on its own descriptor: the install check's commands cannot read it from stdin
-                  while read -r -u 3 version commit state; do
-                      echo "$version: $state, $(git log -1 --format='%h %s' "$commit")"
+                  set -o pipefail
+                  {
+                      git config user.name 'github-actions[bot]'
+                      git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+                      # the plan on its own descriptor: the install check's commands cannot read it from stdin
+                      while read -r -u 3 version commit state; do
+                          [ "$version" = "$NEWEST" ] || continue # an older version: the next step
+                          echo "$version: $state, $(git log -1 --format='%h %s' "$commit")"
+                          case "$state" in
+                              untagged)
+                                  # check the install of the commit from GitHub before any tag makes it a version
+                                  KIT_REF="$commit" tools/tests/docker-install.sh
+                                  git tag -a "$version" "$commit" -m "$(jq -r .name manifest.json) $version"
+                                  git push origin "refs/tags/$version"
+                                  ;;
+                              tagged)
+                                  # on the expected commit: by an earlier run, after its install check passed, or by
+                                  # hand when GitHub refused that run's push (CONTRIBUTING.md, Releases)
+                                  ;;
+                              *) echo "::error::$version: $state"; exit 1 ;;
+                          esac
+                          gh release create "$version" --verify-tag --latest --title "$version" --notes-file "$RUNNER_TEMP/notes/$version.md"
+                      done 3< "$RUNNER_TEMP/plan"
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-publish.log"
+
+            # Older versions without a Release, after the newest one: a tagged one gets its Release from its notes at
+            # its tag, not "Latest"; none gets an install check (today's check installs today's recipes, which an older
+            # version lacks) or a tag. Best effort: a failure warns, and the job and the gallery go on.
+            - name: Publish the older versions' releases
+              id: older
+              if: steps.versions.outputs.versions != ''
+              continue-on-error: true
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  NEWEST: ${{ steps.versions.outputs.newest }}
+              run: |
+                  status=0
+                  while read -r version commit state; do
+                      [ "$version" != "$NEWEST" ] || continue
                       case "$state" in
                           tagged)
-                              # tagged by hand or by an earlier run, on the expected commit: check the tag's install
-                              KIT_REF="$version" tools/tests/docker-install.sh
+                              echo "$version: tagged, publishing its Release (not Latest)"
+                              if ! gh release create "$version" --verify-tag --latest=false --title "$version" --notes-file "$RUNNER_TEMP/notes/$version.md"; then
+                                  echo "::warning::$version: its Release could not be published; re-run the workflow, or publish it by hand with gh release create $version --verify-tag --latest=false and its section of CHANGELOG.md"
+                                  status=1
+                              fi
                               ;;
                           untagged)
-                              # check the install of the commit from GitHub before any tag makes it a version
-                              KIT_REF="$commit" tools/tests/docker-install.sh
-                              git tag -a "$version" "$commit" -m "$(jq -r .name manifest.json) $version"
-                              git push origin "refs/tags/$version"
+                              echo "::warning::$version: no tag and no Release, and today's install check cannot check an older version; tag $commit by hand (git tag -a $version $commit -m \"$(jq -r .name manifest.json) $version\" && git push origin $version) and re-run the workflow to publish its Release"
+                              status=1
                               ;;
-                          *) echo "::error::$version: $state"; exit 1 ;;
+                          *) echo "::warning::$version: $state"; status=1 ;;
                       esac
-                      gh release create "$version" --verify-tag --title "$version" --notes-file "$RUNNER_TEMP/notes/$version.md"
-                  done 3< "$RUNNER_TEMP/plan"
+                  done < "$RUNNER_TEMP/plan"
+                  exit "$status"
+
+            # Advisory diagnosis of the failed install check, tag or release (.github/actions/jev-diagnosis): never the
+            # job's verdict. This job runs only for this repository's main, like the key.
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Tag and publish new versions
 
     pages:
         name: Publish the gallery
@@ -105,3 +162,5 @@ jobs:
         uses: ./.github/workflows/pages.yml
         with:
             ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+        secrets:
+            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }} # the build's advisory Jev diagnosis, and nothing else
