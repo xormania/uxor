@@ -469,6 +469,9 @@ jobs:
         needs: [changes, importmap]
         if: needs.changes.outputs.demo == 'true'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write # the demo image's build cache (ghcr.io/<owner>/<repo>-cache), written by Chromium's shard 1
         # 25 for the tests, plus 3 for the advisory Jev step (2) and its upload: a diagnosis must never be what
         # times the job out
         timeout-minutes: 28
@@ -513,6 +516,29 @@ jobs:
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+            # The demo image's build cache is an image in this repository's GitHub packages
+            # (ghcr.io/<owner>/<repo>-cache:<branch>), not the GitHub Actions cache: a push run reads Actions caches only
+            # from its own branch and main, so a new branch rebuilt from main's stale cache (~100 s instead of ~17 s);
+            # every branch reads the registry's dev and main tags. Only CI writes it (Chromium's shard 1, below); the
+            # package holds the public demo's layers and nothing else: docs/TESTING.md, *CI metrics*
+            - name: Name the build cache
+              id: cache
+              env:
+                  REPO: ${{ github.repository }}
+                  BRANCH: ${{ github.ref_name }}
+              run: |
+                  image="ghcr.io/${REPO,,}-cache"
+                  tag=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-120)
+                  echo "image=$image" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+            - name: Log in to the build cache's registry
+              if: matrix.browser == 'chromium' && matrix.shard == 1
+              continue-on-error: true # no login: the build still runs, it only does not write the cache
+              env:
+                  TOKEN: ${{ github.token }}
+              run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
             - name: Build the demo image
               id: image
               uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
@@ -524,9 +550,12 @@ jobs:
                   load: true
                   pull: true
                   set: |
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ steps.cache.outputs.tag }}
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
-                      ${{ matrix.browser == 'chromium' && matrix.shard == 1 && format('*.cache-to=type=gha,scope=demo-{0},mode=max', github.ref) || '' }}
+                      ${{ matrix.browser == 'chromium' && matrix.shard == 1 && format('*.cache-to=type=registry,ref={0}:{1},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true', steps.cache.outputs.image, steps.cache.outputs.tag) || '' }}
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none

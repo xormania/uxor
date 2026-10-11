@@ -1101,13 +1101,20 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 
 ### CI metrics
 
+The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
+every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
+branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
+write never fails the build. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+`.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
+public once, in the package's settings, so it does not count against private package storage.
+
 CI records its own numbers, report only, so a later change to the shards, workers, caches or setup can be measured
 instead of guessed. Nothing here has a threshold or changes a verdict: each step is `continue-on-error`, and the tool
 exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mjs)).
 
 - **Each browser shard** writes `job-metrics.json` next to its results (`playwright-results-<browser>-<shard>`, 30
-  days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the GitHub
-  Actions cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
+  days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the build
+  cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
   the Playwright image's pull. The Playwright browsers come from that image, pulled on every run: there is no browser
   cache to hit.
 - **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
