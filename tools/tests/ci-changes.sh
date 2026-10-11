@@ -132,6 +132,10 @@ check 'demo'                      tools/tests/fixtures/sync-kit/manifest.json
 check 'demo'                      tools/ci/playwright-summary.mjs
 # the job metrics run in the browser job (job) and in CI result, which runs on every run (run)
 check 'demo'                      tools/ci/ci-metrics.mjs
+# the shard plan runs in the browser job (plan, verify) and in CI result (timings); the timings it reads are a test file
+check 'demo'                      tools/ci/shard-plan.mjs
+check 'demo'                      tests/shard-timings.json
+check ''                          tools/tests/shard-plan.test.mjs
 check 'php'                       tools/ci/junit-attempts.mjs
 check 'php demo'                  tools/ci/jev-diagnosis.mjs tools/ci/jev-ci.json
 # tools' cases and their fixtures run in Tool tests, on every run: no other job
