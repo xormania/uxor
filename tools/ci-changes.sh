@@ -69,8 +69,8 @@ while IFS= read -r path; do
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon) on php ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
-        # the rest (the results summary, the job metrics) is the browser job's. CI result, which runs on every run, also
-        # runs ci-metrics.mjs
+        # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
+        # every run, also runs ci-metrics.mjs and the shard plan's timings
         tools/ci/junit-attempts.mjs) on php ;;
         tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json) on php demo ;;
         tools/ci/*) on demo ;;
