@@ -55,10 +55,10 @@ Use the modal component to show interactive dialogs and notifications to your we
 
 In a Live Component, an open modal stays open and modal across a re-render. A re-render that replaces the modal's container (a wrapper whose id changes) moves the `<dialog>` to a new controller: the old one disconnects without an error and the new one keeps the dialog as it is, open or closed, with its own trigger's `aria-expanded` set to match.
 
-The backdrop appears and goes with the dialog, at once: it does not fade, with or without `prefers-reduced-motion`.
+The backdrop fades in as the dialog opens and out before it closes (150 ms): the dialog stays open and modal while it fades out, then closes and gives the focus back. Under `prefers-reduced-motion` the backdrop does not fade and the dialog closes at once; before Turbo caches the page it closes at once either way. Browsers differ in the transitions they run on a `::backdrop`: Chromium runs both fades, Safari the fade in only (the dialog closes at once), Firefox neither (the backdrop comes and goes at once).
 
 Whether a `turbo:before-cache` leaves the modal open (a frame visit promoted to history, a `data-turbo-permanent`
-element) is answered by the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which `ux:install modal`
+element) is answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install modal`
 installs with it.
 
 ## Examples

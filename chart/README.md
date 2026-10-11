@@ -21,7 +21,7 @@ Charts drawn with Symfony UX Chart.js in the theme's colors, light and dark, eac
 Run the `composer require` command `ux:install` prints: Symfony Flex registers UX Chart.js and its Stimulus controller,
 and adds `chart.js` to the import map. If `importmap.php` has no `chart.js` entry afterwards, run
 `php bin/console importmap:require chart.js`. There is no stylesheet: the colors are the theme's `chart-1` to
-`chart-6` and `chart-other` roles (reinstall the `theme` recipe if your `flowbite-xor.css` has no `--color-chart-1`).
+`chart-6` and `chart-other` roles (reinstall the `theme` recipe if your `uxor.css` has no `--color-chart-1`).
 
 ## Usage
 

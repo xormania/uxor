@@ -1,9 +1,216 @@
 {% extends 'demo_app/_app.html.twig' %}
 
-{% block title %}Dashboard — Acme{% endblock %}
+{% block title %}Dashboard — xor{% endblock %}
 
 {% block content %}
-    <twig:DashboardHome>
-        <twig:block name="actions"><twig:Button variant="outline">Download report</twig:Button></twig:block>
-    </twig:DashboardHome>
+    {#- Go big or go home: the dashboard-home block with numbers nobody would believe, then more of the kit around it. -#}
+    {%- set months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] -%}
+    <div class="space-y-6">
+        <twig:Alert variant="success" dismissible>
+            <twig:block name="icon">
+                <twig:ux:icon name="flowbite:fire-outline" class="shrink-0" aria-hidden="true" />
+            </twig:block>
+            <twig:Alert:Title>Revenue is up 420%.</twig:Alert:Title>
+            <twig:Alert:Description>Please remain calm. The finance team has been given the rest of the year off.</twig:Alert:Description>
+        </twig:Alert>
+
+        <twig:DashboardHome
+            description="An overview of the last 30 days. The numbers are real, we promise."
+            :stats="[
+                {label: 'Revenue', value: '$3,141,592', trend: 'up', change: '420%', period: 'vs last month'},
+                {label: 'Orders', value: '1,284,000', trend: 'up', change: '9,001%', period: 'vs last month'},
+                {label: 'Refunds', value: '$12', trend: 'down', change: '99.9%', period: 'vs last month'},
+            ]"
+            :channels="[
+                {label: 'Online store', value: 64},
+                {label: 'Marketplaces', value: 23},
+                {label: 'A guy named Elon', value: 13},
+            ]"
+            :activity="[
+                {text: 'Order #1,000,042 shipped to the Moon', time: '2 min ago'},
+                {text: 'New customer: the entire city of Lyon', time: '1 h ago'},
+                {text: 'Refund issued: one (1) sock', time: 'Yesterday'},
+            ]"
+            :orders="[
+                {id: '#1,000,042', customer: 'Bonnie Green', status: 'paid', total: '$320,000.00'},
+                {id: '#1,000,041', customer: 'Jese Leos', status: 'pending', total: '$84,500.00'},
+                {id: '#1,000,040', customer: 'Thomas Lean', status: 'paid', total: '$1,200,000.00'},
+                {id: '#1,000,039', customer: 'Lana Byrd', status: 'refunded', total: '$4.50'},
+            ]"
+        >
+            <twig:block name="actions"><twig:Button variant="outline">Download report</twig:Button></twig:block>
+        </twig:DashboardHome>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+            <twig:Card class="max-w-none min-w-0 lg:col-span-2">
+                <twig:Tabs defaultValue="year" idPrefix="revenue-range">
+                    <div class="flex flex-wrap items-center justify-between gap-4 pb-4">
+                        <div>
+                            <h2 class="text-lg font-semibold text-heading">Revenue</h2>
+                            <p class="text-sm text-body">Up and to the right. Mostly up.</p>
+                        </div>
+                        <twig:Tabs:List variant="pill" aria-label="Revenue period">
+                            <twig:Tabs:Trigger value="week">This week</twig:Tabs:Trigger>
+                            <twig:Tabs:Trigger value="year">This year</twig:Tabs:Trigger>
+                            <twig:Tabs:Trigger value="all">All time</twig:Tabs:Trigger>
+                        </twig:Tabs:List>
+                    </div>
+                    <twig:Tabs:Content value="week">
+                        <twig:Chart
+                            id="chart-revenue-week"
+                            type="line"
+                            title="Revenue this week"
+                            description="Revenue doubled every day, and Sunday was a day of rest for nobody."
+                            labelsHeader="Day"
+                            :labels="['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']"
+                            :datasets="[{label: 'Revenue ($)', data: [48250, 96500, 193000, 386000, 772000, 1544000, 3141592], fill: true, tension: 0.35}]"
+                            :options="{scales: {y: {beginAtZero: true}}}"
+                        />
+                    </twig:Tabs:Content>
+                    <twig:Tabs:Content value="year">
+                        <twig:Chart
+                            id="chart-revenue-year"
+                            type="line"
+                            title="Revenue this year"
+                            description="From $48k in January to $3.1 million in December, against a target we stopped looking at in March."
+                            labelsHeader="Month"
+                            :labels="months"
+                            :datasets="[
+                                {label: 'Revenue ($)', data: [48250, 61200, 88400, 120000, 185000, 260000, 410000, 640000, 990000, 1450000, 2200000, 3141592], fill: true, tension: 0.35},
+                                {label: 'Target ($)', data: [50000, 52000, 54000, 56000, 58000, 60000, 62000, 64000, 66000, 68000, 70000, 72000], borderDash: [6, 6], pointRadius: 0},
+                            ]"
+                            :options="{scales: {y: {beginAtZero: true}}}"
+                        />
+                    </twig:Tabs:Content>
+                    <twig:Tabs:Content value="all">
+                        <twig:Chart
+                            id="chart-revenue-all"
+                            title="Revenue, all time"
+                            description="Revenue grew tenfold every year since the lemonade stand."
+                            labelsHeader="Year"
+                            :labels="['2020', '2021', '2022', '2023', '2024', '2025', '2026']"
+                            :datasets="[{label: 'Revenue ($)', data: [3, 30, 300, 3000, 31415, 314159, 3141592]}]"
+                            :options="{scales: {y: {beginAtZero: true}}}"
+                        />
+                    </twig:Tabs:Content>
+                </twig:Tabs>
+            </twig:Card>
+
+            <twig:Card class="max-w-none min-w-0">
+                <twig:Card:Header><twig:Card:Title as="h2" class="text-lg">Where the money comes from</twig:Card:Title></twig:Card:Header>
+                <twig:Chart
+                    id="chart-revenue-channels"
+                    type="doughnut"
+                    title="Revenue by channel"
+                    description="Elon sells 13% of everything, nobody knows how."
+                    labelsHeader="Channel"
+                    :labels="['Online store', 'Marketplaces', 'A guy named Elon', 'The Moon']"
+                    :datasets="[{label: 'Share of revenue (%)', data: [60, 23, 13, 4]}]"
+                />
+            </twig:Card>
+        </div>
+
+        <div class="grid gap-4 lg:grid-cols-3">
+            <twig:Card class="max-w-none min-w-0 lg:col-span-2">
+                <twig:Card:Header class="flex flex-wrap items-center justify-between gap-2">
+                    <twig:Card:Title as="h2" class="text-lg">Orders by destination</twig:Card:Title>
+                    <twig:Badge variant="brand" shape="pill">Interplanetary</twig:Badge>
+                </twig:Card:Header>
+                <twig:Chart
+                    id="chart-orders-destination"
+                    title="Orders by destination"
+                    hideTitle
+                    labelsHeader="Destination"
+                    size="lg"
+                    :labels="['Earth', 'Low Earth orbit', 'The Moon', 'Mars', 'Elon\'s garage']"
+                    :datasets="[{label: 'This year', data: [1120000, 98000, 42000, 17000, 7000]}, {label: 'Last year', data: [12000, 400, 3, 0, 1]}]"
+                    :options="{indexAxis: 'y'}"
+                />
+            </twig:Card>
+
+            <twig:Card class="max-w-none min-w-0">
+                <twig:Card:Header><twig:Card:Title as="h2" class="text-lg">Launch calendar</twig:Card:Title></twig:Card:Header>
+                {%- set launches = ['2026-11-03', '2026-11-17', '2026-11-24'] -%}
+                <twig:Calendar
+                    today="2026-11-10"
+                    :modifiers="{launch: launches}"
+                    class="mx-auto w-fit rounded-base border border-default bg-neutral-primary [&_[data-launch=true]_button]:font-semibold [&_[data-launch=true]_button]:text-fg-brand"
+                />
+                <p class="mt-4 flex items-center gap-2 text-sm text-body">
+                    <twig:Indicator variant="brand" aria-hidden="true" />
+                    Rocket launches, in bold blue. Liftoff is non-negotiable.
+                </p>
+            </twig:Card>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <twig:Card class="max-w-none min-w-0">
+                <twig:Card:Header><twig:Card:Title as="h2" class="text-lg">Top customers</twig:Card:Title></twig:Card:Header>
+                <div class="space-y-2 pb-5">
+                    <twig:Avatar:Group>
+                        {%- for initials in ['AL', 'GH', 'MC', 'KJ'] %}
+                            <twig:Avatar size="xl"><twig:Avatar:Fallback>{{ initials }}</twig:Avatar:Fallback></twig:Avatar>
+                        {%- endfor %}
+                        <twig:Tooltip content="Our accountant counted them twice. Both times." id="tooltip-more-customers" class="rounded-full">
+                            <twig:Avatar:GroupCount as="button" type="button" aria-label="9,999 more customers">+9k</twig:Avatar:GroupCount>
+                        </twig:Tooltip>
+                    </twig:Avatar:Group>
+                    <p class="text-sm text-body">and 9,000-something more, counting fast</p>
+                </div>
+                <ul class="divide-y divide-default">
+                    {%- for customer in [
+                        {name: 'Ada Lovelace', initials: 'AL', since: 'Customer since 1843', total: '$1.2M', badge: 'VIP', variant: 'success'},
+                        {name: 'Grace Hopper', initials: 'GH', since: 'Found a bug, bought the bug', total: '$840K', badge: 'VIP', variant: 'success'},
+                        {name: 'Marie Curie', initials: 'MC', since: 'Glows when she checks out', total: '$610K', badge: 'Radiant', variant: 'warning'},
+                    ] %}
+                        <li class="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                            <twig:Avatar size="sm"><twig:Avatar:Fallback>{{ customer.initials }}</twig:Avatar:Fallback></twig:Avatar>
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-medium text-heading">{{ customer.name }}</p>
+                                <p class="truncate text-sm text-body">{{ customer.since }}</p>
+                            </div>
+                            <div class="flex shrink-0 flex-col items-end gap-1">
+                                <span class="text-sm font-semibold text-heading">{{ customer.total }}</span>
+                                <twig:Badge :variant="customer.variant">{{ customer.badge }}</twig:Badge>
+                            </div>
+                        </li>
+                    {%- endfor %}
+                </ul>
+            </twig:Card>
+
+            <twig:Card class="max-w-none min-w-0">
+                <twig:Card:Header><twig:Card:Title as="h2" class="text-lg">Goals</twig:Card:Title></twig:Card:Header>
+                <div class="space-y-5">
+                    <twig:Progress value="100" label="Q4 revenue target (hit in February)" variant="success" showValue />
+                    <twig:Progress value="87" label="Warehouse space on the Moon" variant="warning" showValue />
+                    <twig:Progress value="73" label="World domination" showValue />
+                    <twig:Progress value="12" label="Coffee left in the office" variant="danger" showValue />
+                </div>
+                <p class="mt-5 text-sm text-body">The bars stop at 100%. Our numbers do not.</p>
+            </twig:Card>
+
+            <twig:Card class="max-w-none min-w-0 md:col-span-2 lg:col-span-1">
+                <twig:Card:Header class="flex items-center justify-between gap-2">
+                    <twig:Card:Title as="h2" class="text-lg">Milestones</twig:Card:Title>
+                    <span class="flex items-center gap-2 text-sm text-body"><twig:Indicator variant="success" aria-hidden="true" />Live</span>
+                </twig:Card:Header>
+                <ol class="relative ms-1.5 border-s border-default">
+                    {%- for milestone in [
+                        {title: 'First million', text: 'Celebrated with a slightly larger stapler.', when: 'January', variant: 'warning'},
+                        {title: 'Opened a store on the Moon', text: 'Low gravity, high margins.', when: 'June', variant: 'brand'},
+                        {title: 'Revenue passed $3,141,592', text: 'Exactly a million times pi. Coincidence?', when: 'Today', variant: 'success'},
+                    ] %}
+                        <li class="relative ps-6 pb-6 last:pb-0">
+                            <twig:Indicator :variant="milestone.variant" class="absolute -start-1.5 top-1.5 border-2 border-buffer" aria-hidden="true" />
+                            <div class="flex flex-wrap items-center gap-2">
+                                <h3 class="text-sm font-semibold text-heading">{{ milestone.title }}</h3>
+                                <twig:Badge :variant="milestone.variant">{{ milestone.when }}</twig:Badge>
+                            </div>
+                            <p class="mt-1 text-sm text-body">{{ milestone.text }}</p>
+                        </li>
+                    {%- endfor %}
+                </ol>
+            </twig:Card>
+        </div>
+    </div>
 {% endblock %}

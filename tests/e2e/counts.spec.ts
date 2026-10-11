@@ -150,3 +150,27 @@ test('editor: typing makes no request, connects nothing and adds no listener', a
 
     await counts.expect('editor typing', type(' world'), NOTHING);
 });
+
+test('measure: a step\'s duration runs to the frame presented after its update, an expensive frame included', async ({ page }) => {
+    const counts = await trackCounts(page);
+    await page.goto('/lab/turbo-nav/one');
+    // the update lands in the action itself (the action's own completion); a frame after it costs 300 ms of script
+    const { durationMs } = await counts.measure(async () => {
+        await page.evaluate(() => {
+            const note = Object.assign(document.createElement('p'), { textContent: 'updated' });
+            note.dataset.testid = 'measure-update';
+            document.body.append(note);
+            // the next frame is cheap, the one after costs 300 ms: the step is observed complete before it
+            requestAnimationFrame(() =>
+                requestAnimationFrame(() => {
+                    const end = performance.now() + 300;
+                    while (performance.now() < end) {
+                        // a frame's expensive work
+                    }
+                }),
+            );
+        });
+    });
+    await expect(page.getByTestId('measure-update')).toBeVisible();
+    expect(durationMs, 'the duration includes the frame that presents the update').toBeGreaterThanOrEqual(300);
+});

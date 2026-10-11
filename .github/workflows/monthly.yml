@@ -1,7 +1,8 @@
 name: Monthly
 
-# The periodic checks no pull request runs (docs/TESTING.md, *Monthly job*): once a month on `dev`, and by hand before a
-# release (Actions › Monthly › Run workflow, from the branch to check). Report-only, each number against the previous
+# The periodic checks CI does not run (docs/TESTING.md, *Monthly job*): once a month on `dev`, and by hand before a
+# release (Actions › Monthly › Run workflow, from the branch to check), and on its own when the release pull request is marked
+# ready for review. Report-only, each number against the previous
 # successful run: PHP line coverage of the recipes' src/ (PCOV) and Infection's surviving mutants, V8 coverage of the
 # kit's Stimulus controllers in Chromium with the methods no test runs, the whole suite in Firefox and WebKit with every
 # screenshot compared with the Chromium baselines, and the timings of the key interactions. A report that cannot be
@@ -16,6 +17,12 @@ on:
     # no input chooses another ref, so no run executes a ref it was handed in the default branch's context (CodeQL:
     # cache poisoning)
     workflow_dispatch:
+    # and on the release pull request (dev into main) when the owner marks it ready for review, so the release's run
+    # sits beside its other checks: the run tests the pull request's merge of dev into main (a pull_request event from
+    # this repository, never pull_request_target); the jobs' `if` skips any other pull request into main
+    pull_request:
+        types: [ready_for_review]
+        branches: [main]
 
 permissions:
     contents: read
@@ -34,6 +41,7 @@ jobs:
     # demo's code, its copies of the recipes or the tests' fixtures), then Infection on the same directories and tests.
     php:
         name: PHP coverage and mutants
+        if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 45
         steps:
@@ -128,6 +136,7 @@ jobs:
     # A behavior test or a count that fails fails its job, as in CI; Jev diagnoses each failed attempt, as in CI.
     browsers:
         name: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
+        if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 45
         env:
@@ -188,7 +197,9 @@ jobs:
               id: install
               run: |
                   npm ci
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
 
             - name: Prepare the tests
               id: prepare
@@ -310,7 +321,7 @@ jobs:
     report:
         name: Monthly report
         needs: [php, browsers]
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)) }}
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
@@ -368,7 +379,8 @@ jobs:
                   node tools/monthly/screenshots.mjs --merge --browsers firefox,webkit --out coverage/screenshots "${files[@]}"
 
             # The latest successful run of this workflow, other than this one, whose monthly-trends artifact exists and
-            # was made on the same ref; none on the first run, or once the artifact expired
+            # was made on the same ref; none on the first run, or once the artifact expired. The release pull request
+            # compares with dev's runs (its head), since each release has a new number in its report's label
             - name: The previous run's numbers
               id: previous
               if: ${{ !cancelled() }}
@@ -376,7 +388,7 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
-                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.ref_name }}
+                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
               run: |
                   note="no earlier successful run of this workflow on $REF"
                   file=
@@ -405,7 +417,7 @@ jobs:
               env:
                   PREVIOUS: ${{ steps.previous.outputs.file }}
                   NOTE: ${{ steps.previous.outputs.note }}
-                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.ref_name }}
+                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && format('{0} into {1} (#{2})', github.head_ref, github.base_ref, github.event.pull_request.number) || github.ref_name }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
                   args=(--out coverage/trends --ref "$REF" --commit "$(git rev-parse HEAD)" --run "$RUN_URL" --previous-note "$NOTE")

@@ -14,13 +14,14 @@ _2026-10-08. Decided with the user on 2026-10-08:_
    Components, `flowbite.min.css` and the strict CSP meet. Small component tests only where e2e cannot isolate a
    cost._
 3. _**A baseline first:** timings are recorded on `dev` before anything is compared or gated._
-4. _**Every tier must pass for a release, from 0.3.0.** 0.2.0 ships on the current checks and the security audit._
+4. _**Every tier must pass for a release.** First decided from 0.3.0; on 2026-10-10 the owner made `main`'s ruleset
+   require the *Release checks* check for 0.2.0 already. Their timings report only until step 8 sets tolerances._
 5. _**Fuzz and property testing** join the release checks (decided later the same day)._
 6. _**PHP tests first:** PHPUnit and the Symfony UX test helpers are set up before the rest of this plan, from the
    survey of PHP and Symfony testing projects._
 7. _**Before 0.2.0:** this plan, with the Turbo cleanup and the other work first planned after the release, is done
    before 0.2.0 is tagged, except step 8 (decided 2026-10-10: the gates need tolerances picked from the release
-   checks' first reports, so step 8 follows the release and the gates apply from 0.3.0, as decision 4 says)._
+   checks' first reports, so step 8 follows the release; the timing gates apply from 0.3.0, the rest of the release checks from 0.2.0)._
 
 _What led here: the theme toggle showed no icon under a dark system with the light theme chosen, and a theme switch
 faded table rows (`fix(theme-toggle)`). Each component's states were tested, not the moves between them, and nothing
@@ -98,8 +99,8 @@ taken in the browser after the response, so FrankenPHP (CI) and `php -S` (local)
 - **`release-checks.yml` (tier 3), new:**
   - `pull_request` targeting `main`: the release pull request from `dev`. `main`'s ruleset requires this check, so
     merging the release pull request needs it green;
-  - `schedule` once a day, on `dev`: first compares `dev`'s head with the commit of its last successful scheduled
-    run (GitHub API) and stops in seconds when nothing was merged;
+  - `schedule` once a day, on `dev`: first asks whether the release checks already passed on `dev`'s head (a
+    `release-checks-passed-<sha>` artifact, GitHub API) and stops in seconds when they did;
   - `workflow_dispatch`, with a `record` input to write a new baseline as an artifact;
   - Runs `npx playwright test --grep @release` in the same setup as CI.
   - A failed daily run opens one issue (label `release-checks`), or comments on the open one, instead of failing
@@ -124,11 +125,15 @@ One pull request each, in order:
    coverage updates its rows, while this plan stays the record of what was decided. Its ranked gaps are step 6's
    input.
 4. **Baseline:** the timing harness, `release-checks.yml` with `workflow_dispatch` and `record`, report only, and the
-   first `tests/perf/baseline.json`.
+   first `tests/perf/baseline.json`. _Done: `trackCounts().time()` and `tools/ci/release-timings.mjs`; the first
+   baseline recorded locally on `dev`, replaced by CI's first `record` run ([`TESTING.md`](TESTING.md), *Release checks*)._
 5. **Tier 2:** the count checks and the byte budgets, in the existing specs.
 6. **Tier 1 gaps:** the missing state × transition specs from the inventory, a recipe group per pull request.
 7. **Tier 3 and the release gate:** harsh conditions, long sessions, wide matrices, fuzz and property tests, the daily
-   schedule and its issue, the check on the release pull request.
+   schedule and its issue, the check on the release pull request. _Done, report only: `@release` specs (timings, long
+   session, fuzzing of queries, Live props, form posts and UI runs) and projects (dark theme, harsh conditions with the
+   chart), `demo/tests/Property/` ([`TESTING.md`](TESTING.md), *Release checks*). `main`'s ruleset requires the
+   check from 0.2.0. Not yet: an overlay open while the theme switches._
 8. **Gates on:** the tolerances the user picked after reviewing the reports.
 
 ## Open questions
@@ -138,5 +143,6 @@ One pull request each, in order:
    default).
 3. ~~Firefox and WebKit?~~ **Decided 2026-10-10:** Chromium only for now: the metrics above are Chromium's.
 4. ~~The work lands before 0.2.0 (decision 7): does the release gate then already apply to 0.2.0, or still from 0.3.0?~~
-   **Decided 2026-10-10:** from 0.3.0. Steps 1–7 land before 0.2.0; step 8 follows the release, once the user has
-   reviewed the first reports.
+   **Decided 2026-10-10:** from 0.3.0, then brought forward the same day: `main`'s ruleset requires the *Release
+   checks* check for 0.2.0. Steps 1–7 land before 0.2.0; step 8 (the timing tolerances) follows the release, once the
+   user has reviewed the first reports.

@@ -76,6 +76,13 @@ check 'workflows'                 .github/actionlint.yaml
 # in Tool tests, on every run, so they select no job; the browser tests' opt-in coverage (tests/e2e/coverage.ts) is part
 # of the browser tests
 check 'workflows'                 .github/workflows/monthly.yml
+# release-checks.yml runs on the release pull request, daily and by hand, never on a push: the browser job runs its
+# setup; its report tool (tools/ci/release-timings.mjs) is the browser job's, its cases are Tool tests', the baseline
+# is read by the release checks only, with the browser tests
+check 'demo workflows'            .github/workflows/release-checks.yml
+check 'demo'                      tools/ci/release-timings.mjs tests/perf/baseline.json
+check ''                          tools/tests/release-timings.test.mjs
+check 'contrast demo'             tests/e2e/release.fuzz.spec.ts
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
 check 'demo'                      tests/e2e/coverage.ts
 check "$all"                      .github/workflows/ci.yml
@@ -84,6 +91,7 @@ check "$all"                      .github/actions/setup/action.yml
 check_git 'static-site workflows' 'git rm -q .github/workflows/pages.yml'
 check_git 'workflows'             'git rm -q .github/workflows/codeql.yml'
 check_git 'workflows'             'git rm -q .github/workflows/monthly.yml'
+check_git 'demo workflows'        'git rm -q .github/workflows/release-checks.yml'
 check_git "$all"                  'git mv .github/workflows/pages.yml .github/workflows/site.yml'
 check_git "$all"                  'git mv .github/workflows/ci.yml .github/workflows/checks.yml'
 
@@ -92,6 +100,11 @@ check_git "$all"                  'git mv .github/workflows/ci.yml .github/workf
 check "$kit_contrast"             new-recipe/manifest.json
 check "$kit_contrast"             tabs/manifest.json
 check "$kit"                      some-new-file.txt
+# the kit's manifest: llms.txt (Contrast) holds its name, homepage and description
+check "$kit_contrast"             manifest.json
+check 'contrast'                  tools/kit-identity.mjs
+# the name check and its cases: Tool tests, on every run
+check ''                          tools/name-check.mjs tools/tests/name-check.test.mjs
 
 check "$all"                      tools/ci-changes.sh
 check 'workflows'                 tools/release-plan.sh
@@ -102,6 +115,8 @@ check 'contrast demo'             tests/e2e/lab.side-nav.spec.ts
 check 'demo'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
 check 'demo'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
+check 'demo'                      tools/playwright-image.mjs tools/playwright-image.json
+check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php static-site contrast demo' demo/tests/Editor/EditorTypeTest.php
 check 'php static-site contrast demo' demo/src/Controller/LabController.php
@@ -115,6 +130,12 @@ check 'fresh-install'             tools/tests/live-action.php
 check 'fresh-install'             tools/tests/fixtures/fresh-app/templates/home.html.twig
 check 'demo'                      tools/tests/fixtures/sync-kit/manifest.json
 check 'demo'                      tools/ci/playwright-summary.mjs
+# the job metrics run in the browser job (job) and in CI result, which runs on every run (run)
+check 'demo'                      tools/ci/ci-metrics.mjs
+# the shard plan runs in the browser job (plan, verify) and in CI result (timings); the timings it reads are a test file
+check 'demo'                      tools/ci/shard-plan.mjs
+check 'demo'                      tests/shard-timings.json
+check ''                          tools/tests/shard-plan.test.mjs
 check 'php'                       tools/ci/junit-attempts.mjs
 check 'php demo'                  tools/ci/jev-diagnosis.mjs tools/ci/jev-ci.json
 # a failed step's log as Jev's attempts: the jobs run it only after a failure, so only its cases (Tool tests) check it
@@ -126,6 +147,7 @@ check 'workflows'                 .github/actions/jev-diagnosis/action.yml
 # tools' cases and their fixtures run in Tool tests, on every run: no other job
 check ''                          tools/tests/playwright-summary.test.mjs tools/tests/fixtures/playwright-results/timed.json
 check ''                          tools/tests/fixtures/junit/phpunit.xml tools/tests/fixtures/junit/node-test.xml
+check ''                          tools/tests/ci-metrics.test.mjs tools/tests/fixtures/ci-metrics/jobs.jsonl
 check 'php static-site demo'      tools/sync-demo
 check 'php static-site fresh-install demo' demo/compose.yaml
 check 'php static-site fresh-install demo' demo/frankenphp/Caddyfile
@@ -133,7 +155,7 @@ check "$kit_contrast"             side-nav/assets/controllers/side_nav_controlle
 check "$kit_contrast"             side-nav/README.md
 check "$kit_contrast"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
-check "$kit_contrast"             theme/assets/styles/flowbite-xor.css
+check "$kit_contrast"             theme/assets/styles/uxor.css
 check "$kit_contrast"             button/templates/components/Button.html.twig
 check "$kit_contrast"             layouts/templates/layouts/app.html.twig
 check "$kit"                      .gitattributes

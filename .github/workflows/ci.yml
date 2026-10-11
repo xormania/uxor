@@ -231,7 +231,8 @@ jobs:
     # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
     # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
     # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Node's JUnit report, beside
-    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case.
+    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. Then the name
+    # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
     tools:
         name: Tool tests
         runs-on: ubuntu-latest
@@ -261,6 +262,9 @@ jobs:
                   junit: ${{ runner.temp }}/node-tests.xml
                   junit-project: node
                   job: Tool tests
+
+            - name: Every URL of the kit's repository is manifest.json's homepage
+              run: node tools/name-check.mjs
 
     importmap:
         name: Importmap packages
@@ -404,7 +408,7 @@ jobs:
                   composer require --no-interaction --no-progress "phpstan/phpstan:${PHPSTAN_VERSION}" \
                       "phpstan/phpstan-symfony:${PHPSTAN_SYMFONY_VERSION}" "phpstan/phpstan-phpunit:${PHPSTAN_PHPUNIT_VERSION}"
 
-            # The demo's autoloader maps App\FlowbiteXor\… to the recipes' own src/ (demo/composer.json).
+            # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).
             - name: PHPStan
               run: |
                   (cd demo && bin/console cache:warmup --env=test)
@@ -442,7 +446,7 @@ jobs:
               id: build
               run: |
                   set -o pipefail
-                  tools/build-static.sh _site --base-path=/flowbite-xor 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
@@ -550,9 +554,9 @@ jobs:
               id: theme-css
               run: |
                   set -o pipefail
-                  cmp kit.css theme/assets/styles/flowbite-xor.css 2>&1 | tee "$RUNNER_TEMP/jev-theme-css.log"
+                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-theme-css.log"
 
-            - name: llms.txt matches README.md's recipe tables
+            - name: llms.txt matches docs/RECIPES.md's recipe tables
               id: llms
               run: |
                   set -o pipefail
@@ -609,42 +613,79 @@ jobs:
                   job: Contrast
 
     demo:
-        name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/3)
+        name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
         needs: [changes, importmap]
         if: needs.changes.outputs.demo == 'true'
         runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write # the demo image's build cache (ghcr.io/<owner>/<repo>-cache), written by Chromium's shard 1
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
-        # the browser suite is most of CI's time: three shards per browser, each with its own demo and browser (Chromium's
-        # shard 1 writes the image cache the others read). Chromium runs every test, the screenshots included; Firefox
-        # and WebKit run every behavior test, without the @screenshot ones (playwright.config.ts, browserProjects()), in
-        # jobs of their own beside Chromium's: docs/TESTING.md, *Browsers*
+        # the browser suite is most of CI's time: four shards for Chromium, three for Firefox and WebKit, each with its own
+        # demo and browser (Chromium's shard 1 writes the image cache the others read). Chromium runs every test, the
+        # screenshots included, so it has the extra shard; Firefox and WebKit run every behavior test, without the
+        # @screenshot ones (playwright.config.ts, browserProjects()), in jobs of their own beside Chromium's:
+        # docs/TESTING.md, *Browsers*
         env:
             XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
         strategy:
             fail-fast: false
             matrix:
                 browser: [chromium, firefox, webkit]
-                shard: [1, 2, 3]
-                # each browser's two projects (smoke and examples)
+                shard: [1, 2, 3, 4]
+                # shard 4 is Chromium's only
+                exclude:
+                    - browser: firefox
+                      shard: 4
+                    - browser: webkit
+                      shard: 4
+                # each browser's shard count and two projects (smoke and examples)
                 include:
                     - browser: chromium
+                      shards: 4
                       projects: --project=smoke --project=examples
                     - browser: firefox
+                      shards: 3
                       projects: --project=smoke-firefox --project=examples-firefox
                     - browser: webkit
+                      shards: 3
                       projects: --project=smoke-webkit --project=examples-webkit
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              id: node # its cache-hit output, for the job's metrics
               with:
                   node-version: 22
                   cache: npm
 
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # The demo image's build cache is an image in this repository's GitHub packages
+            # (ghcr.io/<owner>/<repo>-cache:<branch>), not the GitHub Actions cache: a push run reads Actions caches only
+            # from its own branch and main, so a new branch rebuilt from main's stale cache (~100 s instead of ~17 s);
+            # every branch reads the registry's dev and main tags. Only CI writes it (Chromium's shard 1, below); the
+            # package holds the public demo's layers and nothing else: docs/TESTING.md, *CI metrics*
+            - name: Name the build cache
+              id: cache
+              env:
+                  REPO: ${{ github.repository }}
+                  BRANCH: ${{ github.ref_name }}
+              run: |
+                  image="ghcr.io/${REPO,,}-cache"
+                  tag=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-120)
+                  echo "image=$image" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+            - name: Log in to the build cache's registry
+              if: matrix.browser == 'chromium' && matrix.shard == 1
+              continue-on-error: true # no login: the build still runs, it only does not write the cache
+              env:
+                  TOKEN: ${{ github.token }}
+              run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
             - name: Build the demo image
               id: image
@@ -657,9 +698,12 @@ jobs:
                   load: true
                   pull: true
                   set: |
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ steps.cache.outputs.tag }}
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
-                      ${{ matrix.browser == 'chromium' && matrix.shard == 1 && format('*.cache-to=type=gha,scope=demo-{0},mode=max', github.ref) || '' }}
+                      ${{ matrix.browser == 'chromium' && matrix.shard == 1 && format('*.cache-to=type=registry,ref={0}:{1},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true', steps.cache.outputs.image, steps.cache.outputs.tag) || '' }}
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none
@@ -715,12 +759,18 @@ jobs:
 
             # The browser runs in upstream's Playwright image (see playwright.config.ts), so the
             # screenshots compare with the baselines copied from symfony/ux. The image holds the three browsers; the tests
-            # launch only the job's own.
+            # launch only the job's own. Each part's seconds go to the job's metrics.
             - name: Install Playwright
               id: install
               run: |
+                  start=$SECONDS
                   npm ci
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  start=$SECONDS
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
+                  echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
             # (tools/prepare-tests.mjs): Playwright finds both up to date, and a failed build reads as a setup failure
@@ -730,13 +780,41 @@ jobs:
                   DEMO_URL: https://localhost
               run: node tools/prepare-tests.mjs
 
+            # The shard's tests, split by recorded test time instead of Playwright's count split (tools/ci/shard-plan.mjs,
+            # tests/shard-timings.json): every shard lists the job's tests with the same projects and filters as the run
+            # below, computes the same plan (longest first to the least loaded shard), and runs its own list
+            # (--test-list), after checking that Playwright selects exactly its planned tests. Missing or stale timings
+            # (under half the listed tests timed) fall back to --shard=N/M in every shard alike. A list that cannot be
+            # read, or a plan that would drop or repeat a test, fails here: a shard never runs a guess.
+            # docs/TESTING.md, *Shard balance*
+            - name: Plan the shard's tests
+              id: plan
+              env:
+                  DEMO_URL: https://localhost
+                  PLAN_DIR: ${{ runner.temp }}/shard-plan
+              # --list also prints every test: kept in a file, shown when the listing fails
+              run: |
+                  mkdir -p "$PLAN_DIR"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                      > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
+                  node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings tests/shard-timings.json \
+                      --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
+                  mkdir -p playwright-results
+                  cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
+                  if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
+                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
+                  fi
+
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
-            # 2): the measured choice in docs/TESTING.md (*Worker budget*)
+            # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks (@release) run in
+            # release-checks.yml, not here
             - name: Playwright (smoke + every README example + upstream recipe specs)
               id: tests
               env:
                   DEMO_URL: https://localhost
-              run: npx playwright test ${{ matrix.projects }} --shard=${{ matrix.shard }}/3 --workers=2
+              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2 --grep-invert @release
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
             # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and
@@ -748,7 +826,7 @@ jobs:
               id: results
               if: ${{ !cancelled() }}
               env:
-                  SHARD: ${{ matrix.shard }}/3
+                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
                   BROWSER: ${{ matrix.browser }}
                   RESULTS_ARTIFACT: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
                   REPORT_ARTIFACT: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
@@ -763,6 +841,7 @@ jobs:
                       sync-demo copies what ux:install copies=${{ steps.sync-parity.outcome }}
                       Install Playwright=${{ steps.install.outcome }}
                       Prepare the tests=${{ steps.prepare.outcome }}
+                      Plan the shard's tests=${{ steps.plan.outcome }}
               run: |
                   if [ "$DEMO_STARTED" = success ]; then
                       # the PHP snippet is single-quoted on purpose: its $m is PHP's, not the shell's
@@ -773,10 +852,29 @@ jobs:
                   fi
                   node tools/ci/playwright-summary.mjs playwright-results/results.json
 
+            # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs job), report only: the demo image's
+            # build records (cached of total steps: did the GitHub Actions cache serve the build), the npm cache hit and
+            # the seconds of npm ci and of the Playwright image's pull, in job-metrics.json next to the results. CI
+            # result gathers every shard's with their durations.json. It never fails the job.
+            - name: Record the job's metrics (advisory)
+              if: ${{ !cancelled() }}
+              continue-on-error: true
+              timeout-minutes: 1
+              env:
+                  BROWSER: ${{ matrix.browser }}
+                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+                  NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
+                  NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
+                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.image-pull-seconds }}
+              run: |
+                  timeout 30 docker buildx history ls --format json > "$RUNNER_TEMP/buildx-history.jsonl" || true
+                  node tools/ci/ci-metrics.mjs job --buildx "$RUNNER_TEMP/buildx-history.jsonl" --out playwright-results/job-metrics.json
+
             # Every shard keeps its results, green or red: results.json (each test's attempts, durations and outcome:
             # passed, failed, flaky), failed-attempts.json (every failed attempt, retry-recovered ones included),
-            # durations.json (wall time, summed test time, slowest tests, per-file totals: report-only, to compare runs)
-            # and summary.md, so a test that failed once and passed on its retry leaves a record
+            # durations.json (wall time, summed test time, slowest tests, per-file totals: report-only, to compare runs),
+            # job-metrics.json (the build cache and setup times above), shard-plan.json (how the shard's tests were
+            # chosen, and every shard's planned tests and time) and summary.md, so a test that failed once and passed on its retry leaves a record
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ !cancelled() }}
               with:
@@ -814,7 +912,7 @@ jobs:
                   api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
-                  shard: ${{ matrix.browser }} ${{ matrix.shard }}/3
+                  shard: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
                   dir: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
                   artifact: jev-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -825,7 +923,7 @@ jobs:
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
     # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
-    # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/3)"), never the per-shard names, so requiring those would leave a
+    # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
     # pull request pending forever; this passes when every job passed or was skipped as unaffected.
     result:
         name: CI result
@@ -833,10 +931,14 @@ jobs:
         needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, contrast, workflows, demo]
         runs-on: ubuntu-latest
         timeout-minutes: 5
+        permissions:
+            contents: read
+            actions: read # the run's jobs and their step times, for the CI metrics below
         steps:
             # success and skipped (a lane the change cannot affect) pass; failure and cancelled do not: a cancelled job
             # checked nothing
-            - env:
+            - name: Every job passed or was skipped
+              env:
                   NEEDS: ${{ toJSON(needs) }}
                   WO_DRAFT: ${{ needs.changes.outputs.wo-draft }}
               run: |
@@ -852,3 +954,62 @@ jobs:
                       exit 1
                   fi
                   echo "Every job passed or was skipped as unaffected by the change"
+
+            # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after the verdict and
+            # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
+            # every job's queue and step times from GitHub's API, in one summary (the shard balance per browser, each
+            # shard's setup, tests and worker use, the run's slowest tests and files, the retried tests, the browser jobs'
+            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*. With them,
+            # shard-timings.json: tests/shard-timings.json refreshed from this run's durations (tools/ci/shard-plan.mjs
+            # timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard balance*
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: ${{ always() }}
+              continue-on-error: true
+              with:
+                  sparse-checkout: |
+                      tools/ci
+                      tests
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              if: ${{ always() }}
+              continue-on-error: true
+              with:
+                  node-version: 22
+
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              if: ${{ always() && needs.demo.result != 'skipped' }}
+              continue-on-error: true
+              with:
+                  pattern: playwright-results-*
+                  path: ${{ runner.temp }}/shards
+
+            - name: CI metrics (advisory)
+              if: ${{ always() }}
+              continue-on-error: true
+              timeout-minutes: 2
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  RUN_ID: ${{ github.run_id }}
+                  RUN_ATTEMPT: ${{ github.run_attempt }}
+              run: |
+                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' \
+                      > "$RUNNER_TEMP/jobs.jsonl" || echo "::warning::CI metrics: the run's jobs could not be listed"
+                  node tools/ci/ci-metrics.mjs run --shards "$RUNNER_TEMP/shards" --jobs "$RUNNER_TEMP/jobs.jsonl" --out "$RUNNER_TEMP/ci-metrics"
+
+            - name: Shard timings (advisory)
+              if: ${{ always() }}
+              continue-on-error: true
+              timeout-minutes: 1
+              run: |
+                  node tools/ci/shard-plan.mjs timings --shards "$RUNNER_TEMP/shards" --previous tests/shard-timings.json \
+                      --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ always() }}
+              continue-on-error: true
+              with:
+                  name: ci-metrics-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/ci-metrics/
+                  if-no-files-found: warn
+                  retention-days: 90

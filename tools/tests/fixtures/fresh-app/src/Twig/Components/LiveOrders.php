@@ -2,9 +2,9 @@
 
 namespace App\Twig\Components;
 
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\TableQuery;
-use App\FlowbiteXor\DataTableLive\AbstractLiveDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\TableQuery;
+use App\UXor\DataTableLive\AbstractLiveDataTable;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 
 #[AsLiveComponent(name: 'LiveOrders', template: 'components/DataTableLive.html.twig')]

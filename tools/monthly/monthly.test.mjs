@@ -97,8 +97,8 @@ test('js-coverage fails, not reports 0%, when nothing was recorded', () => {
 
 const clover = (statements, covered) => `<?xml version="1.0"?>
 <coverage><project><package name="App">
-<file name="/repo/data-table/src/FlowbiteXor/DataTable/Filter.php">
-<class name="App\\FlowbiteXor\\DataTable\\Filter" namespace="App"><metrics methods="2" coveredmethods="1" statements="${statements}" coveredstatements="${covered}"/></class>
+<file name="/repo/data-table/src/UXor/DataTable/Filter.php">
+<class name="App\\UXor\\DataTable\\Filter" namespace="App"><metrics methods="2" coveredmethods="1" statements="${statements}" coveredstatements="${covered}"/></class>
 <line num="10" type="method" name="choices" visibility="public" count="3"/>
 <line num="11" type="stmt" count="3"/>
 <line num="15" type="method" name="label" visibility="public" count="0"/>
@@ -108,8 +108,8 @@ const clover = (statements, covered) => `<?xml version="1.0"?>
 
 test('parseClover reports each recipe file relative to the repository, with the methods no test runs', () => {
     const result = parseClover(clover(4, 3), '/repo');
-    assert.deepEqual(result.files['data-table/src/FlowbiteXor/DataTable/Filter.php'], {
-        classes: ['App\\FlowbiteXor\\DataTable\\Filter'],
+    assert.deepEqual(result.files['data-table/src/UXor/DataTable/Filter.php'], {
+        classes: ['App\\UXor\\DataTable\\Filter'],
         lines: { covered: 3, total: 4, pct: 75 },
         methods: { run: 1, total: 2 },
         neverRun: ['label'],
@@ -202,7 +202,7 @@ test('timings: per step, the median, the spread (p25–p75), min and max over ev
     // a failed run's timings are left out: the step may not have completed
     runs.push(['smoke', 'tests/e2e/counts.spec.ts', 35, 'dropdown', [{ status: 'failed', annotations: [timing('dropdown open', 999, 999)] }]]);
     const { steps } = gatherTimings([pwReport(runs)]);
-    assert.deepEqual(steps['dropdown open'], { runs: 5, medianMs: 12, p25Ms: 11, p75Ms: 13, spreadMs: 2, minMs: 10, maxMs: 30, inpMedianMs: 41.5, inpRuns: 4 });
+    assert.deepEqual(steps['dropdown open'], { runs: 5, medianMs: 12, p25Ms: 11, p75Ms: 13, spreadMs: 2, minMs: 10, maxMs: 30, inpMedianMs: 41.5, inpSpreadMs: 1.5, inpRuns: 4 });
     assert.equal(steps['dropdown close'].inpMedianMs, null, 'no interaction recorded: null, not 0');
     const text = timingsMarkdown({ steps });
     assert.match(text, /\| dropdown open \| 5 \| 12 ms \| 11–13 ms \(2\) \| 10–30 ms \| 41\.5 ms \|/);

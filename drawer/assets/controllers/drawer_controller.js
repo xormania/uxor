@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
+import { isKeptOnCache } from '../lib/uxor-turbo.js';
 
 /**
  * Opens a `Drawer`, a native `<dialog>` docked to a side of the viewport: modal by default (the page is

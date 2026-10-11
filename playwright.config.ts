@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
+import { playwrightImage } from './tools/playwright-image.mjs';
 import { syncRecipeSpecs } from './tools/prepare-tests.mjs';
 
 const require = createRequire(import.meta.url);
@@ -21,14 +22,15 @@ if (demoURL) {
 
 /*
  * The browser runs in the same Docker image as upstream's toolkit tests (symfony/ux
- * src/Toolkit/assets/playwright.config.ts), so screenshots match the baselines copied from upstream.
+ * src/Toolkit/assets/playwright.config.ts), so screenshots match the baselines copied from upstream. It is pinned by
+ * digest in tools/playwright-image.json, whose tag must be this @playwright/test version (tools/playwright-image.mjs).
  * PW_BROWSER_SERVER overrides the command (e.g. `--network host` where port publishing is unavailable).
  */
 const browserServer =
     process.env.PW_BROWSER_SERVER ??
     [
         'docker run --rm --init -p 127.0.0.1:3000:3000',
-        `mcr.microsoft.com/playwright:v${version}-noble`,
+        playwrightImage(version),
         `npx -y playwright@${version} run-server --port 3000 --host 0.0.0.0`,
     ].join(' ');
 
@@ -59,9 +61,10 @@ const desktop = { chromium: 'Desktop Chrome', firefox: 'Desktop Firefox', webkit
 function browserProjects(browser: keyof typeof desktop) {
     const suffix = 'chromium' === browser ? '' : `-${browser}`;
     const other = 'chromium' !== browser;
+    // the release checks (@release) are Chromium's: CDP, and the timings' metrics
     const select = {
         grep: other && crossBrowserScreenshots ? /@screenshot/ : undefined,
-        grepInvert: other && !crossBrowserScreenshots ? /@screenshot/ : undefined,
+        grepInvert: other && !crossBrowserScreenshots ? /@screenshot|@release/ : undefined,
     };
 
     return [
@@ -85,6 +88,53 @@ function browserProjects(browser: keyof typeof desktop) {
         },
     ];
 }
+
+/*
+ * The release checks (docs/PLAN-test-tiers.md, tier 3; docs/TESTING.md, *Release checks*), Chromium only: specs tagged
+ * @release in `smoke` (timings, long session, fuzzing), and two projects running existing behavior specs again in
+ * other conditions. A project's name is part of each of its tests' titles, so `@release` in the name tags them all:
+ * `npx playwright test --grep @release` runs the release checks, CI's `--grep-invert @release` leaves them out.
+ * - `smoke-dark@release`: the overlay and editor specs in the dark theme (the system's, which the theme follows when
+ *   nothing is chosen; `smoke` runs them in the light one);
+ * - `harsh@release`: the heavy recipes' transitions (data tables, editor, date picker, autocomplete, chart) with the CPU
+ *   4 times slower, a slow network (tests/e2e/fixtures.ts, `harshConditions`) and a phone's viewport: their behavior still holds.
+ * Neither compares screenshots: the baselines are the light theme's, at desktop and example sizes.
+ */
+const releaseSpecs = (names: string[]) => names.map((name) => `${name}.spec.ts`);
+const releaseProjects = [
+    {
+        name: 'smoke-dark@release',
+        testDir: './tests/e2e',
+        testMatch: releaseSpecs([
+            'lab.overlays', 'dropdown', 'lab.popover', 'popover', 'lab.tooltip', 'lab.live-modal', 'lab.live-drawer',
+            'lab.editor', 'editor', 'lab.markdown-editor', 'markdown-editor',
+        ]),
+        fullyParallel: true,
+        grepInvert: /@screenshot/,
+        use: { ...devices['Desktop Chrome'], colorScheme: 'dark' as const },
+    },
+    {
+        name: 'harsh@release',
+        testDir: './tests/e2e',
+        testMatch: releaseSpecs(['lab.data-table-frame', 'lab.data-table-live', 'lab.editor', 'lab.date-picker', 'date-picker', 'lab.autocomplete', 'chart', 'lab.chart']),
+        fullyParallel: true,
+        grepInvert: /@screenshot/,
+        timeout: 120_000,
+        expect: { timeout: 20_000 },
+        use: {
+            // a phone (Pixel 7's viewport, scale and touch), launched as Chromium, as every project here
+            viewport: devices['Pixel 7'].viewport,
+            deviceScaleFactor: devices['Pixel 7'].deviceScaleFactor,
+            isMobile: devices['Pixel 7'].isMobile,
+            hasTouch: devices['Pixel 7'].hasTouch,
+            userAgent: devices['Pixel 7'].userAgent,
+            browserName: 'chromium' as const,
+            harshConditions: true,
+            actionTimeout: 20_000,
+            navigationTimeout: 60_000,
+        },
+    },
+];
 
 export default defineConfig({
     globalSetup: './tools/prepare-tests.mjs',
@@ -113,6 +163,9 @@ export default defineConfig({
         // Firefox and WebKit: every behavior test, no screenshot comparison
         ...browserProjects('firefox'),
         ...browserProjects('webkit'),
+        // the release checks' other conditions (above): only with RELEASE_CHECKS set, so a plain local run stays the
+        // behavior suite (release-checks.yml sets it)
+        ...(process.env.RELEASE_CHECKS ? releaseProjects : []),
     ],
 
     webServer: [

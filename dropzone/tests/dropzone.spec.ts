@@ -4,7 +4,7 @@ import { describeRecipe, expect, testState } from '../../../../assets/test/brows
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGOQSfkERwzEcQBMMhch8Z3BJwAAAABJRU5ErkJggg==', 'base64');
 const text = (name: string) => ({ name, mimeType: 'text/plain', buffer: Buffer.from(`${name}\n`) });
 
-describeRecipe('flowbite-xor/dropzone', () => {
+describeRecipe('uxor/dropzone', () => {
     testState('shows a picked image', {
         example: 'default',
         state: 'picked-image',

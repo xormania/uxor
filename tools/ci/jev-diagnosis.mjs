@@ -441,7 +441,7 @@ async function evaluate(request, policy, key, deadline) {
             response = await fetch(connection.endpoint, {
                 method: 'POST',
                 redirect: 'manual',
-                headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'flowbite-xor-ci' },
+                headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', Accept: 'application/json', 'User-Agent': 'uxor-ci' },
                 body: payload,
                 signal: AbortSignal.timeout(Math.min(transport.timeout * 1000, left)),
             });

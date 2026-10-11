@@ -26,7 +26,7 @@ Then:
 2. Import the stylesheet after the kit's, in `assets/styles/app.css`:
 
    ```css
-   @import "./flowbite-xor-autocomplete.css";
+   @import "./uxor-autocomplete.css";
    ```
 
 3. Turn off Tom Select's own stylesheet in `assets/controllers.json`: this recipe's replaces it.

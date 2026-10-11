@@ -1,7 +1,7 @@
 {% extends 'layouts/auth.html.twig' %}
 
-{% block title %}Create an account — Acme{% endblock %}
-{% block brand %}Acme{% endblock %}
+{% block title %}Create an account — xor{% endblock %}
+{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
 {% block content %}
     <twig:SignupForm :form="form" loginHref="{{ path('app_demo_login') }}" />
 {% endblock %}

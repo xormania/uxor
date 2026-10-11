@@ -12,6 +12,12 @@ export type CancelledRequest = { url: string; method: 'GET' | 'POST'; frame: str
 
 type Guard = Awaited<ReturnType<typeof guardPage>>;
 
+/**
+ * The slow network of the harsh conditions: Chrome DevTools' "Slow 4G" preset (150 ms of latency, 1.6 Mbit/s down,
+ * 750 kbit/s up, with DevTools' own adjustment factors), on every request of the page.
+ */
+export const HARSH_NETWORK = { offline: false, latency: 150 * 3.75, downloadThroughput: (1.6 * 1024 * 1024 * 0.9) / 8, uploadThroughput: (750 * 1024 * 0.9) / 8 };
+
 /** How each engine names a request the page cancelled (an aborted fetch, a navigation away): Chromium, Firefox, WebKit. */
 const CANCELLED = ['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'];
 
@@ -228,7 +234,27 @@ export const test = base.extend<{
     pageGuard: Guard;
     allowHttpError: (url: RegExp, status: number) => void;
     allowCancelledRequest: (allowance: CancelledRequest) => void;
+    harshConditions: boolean;
+    harsh: void;
 }>({
+    /**
+     * The release checks' harsh conditions (docs/PLAN-test-tiers.md, tier 3; the `harsh@release` project of
+     * playwright.config.ts): the page's CPU 4 times slower and a slow network (HARSH_NETWORK), set before the test
+     * starts, in Chromium (CDP). The project adds a phone's viewport and touch.
+     */
+    harshConditions: [false, { option: true }],
+    harsh: [
+        async ({ page, harshConditions, browserName }, use) => {
+            if (harshConditions && 'chromium' === browserName) {
+                const cdp = await page.context().newCDPSession(page);
+                await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+                await cdp.send('Network.enable');
+                await cdp.send('Network.emulateNetworkConditions', HARSH_NETWORK);
+            }
+            await use();
+        },
+        { auto: true },
+    ],
     pageGuard: [
         async ({ page, baseURL }, use, testInfo) => {
             const guard = await guardPage(page, baseURL);

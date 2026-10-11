@@ -79,13 +79,13 @@ expect_out "0.2.0 $rel2 untagged
 teardown
 
 setup 'an annotated tag on the expected commit (peeled)'
-g tag -a 0.1.0 "$rel1" -m 'flowbite-xor 0.1.0'
+g tag -a 0.1.0 "$rel1" -m 'UXor 0.1.0'
 run 0 0.1.0
 expect_out "0.1.0 $rel1 tagged"
 teardown
 
 setup 'an annotated tag on the release commit on dev: refused'
-g tag -a 0.1.0 "$rel1_dev" -m 'flowbite-xor 0.1.0'
+g tag -a 0.1.0 "$rel1_dev" -m 'UXor 0.1.0'
 run 1 0.1.0
 expect_out "0.1.0 $rel1 refused"
 case "$err" in *"0.1.0"*"$rel1_dev"*) ;; *) fail "the refusal does not name the tag's commit: $err" ;; esac
@@ -100,8 +100,8 @@ expect_out "0.2.0 $rel2 tagged
 teardown
 
 setup 'a partial re-run: 0.1.0 released, 0.2.0 tagged by the run that failed before publishing'
-g tag -a 0.1.0 "$rel1" -m 'flowbite-xor 0.1.0'
-g tag -a 0.2.0 "$rel2" -m 'flowbite-xor 0.2.0'
+g tag -a 0.1.0 "$rel1" -m 'UXor 0.1.0'
+g tag -a 0.2.0 "$rel2" -m 'UXor 0.2.0'
 run 0 0.2.0
 expect_out "0.2.0 $rel2 tagged"
 teardown

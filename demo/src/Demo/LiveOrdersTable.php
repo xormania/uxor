@@ -2,7 +2,7 @@
 
 namespace App\Demo;
 
-use App\FlowbiteXor\DataTableLive\AbstractLiveDataTable;
+use App\UXor\DataTableLive\AbstractLiveDataTable;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 
 /**

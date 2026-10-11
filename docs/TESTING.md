@@ -252,7 +252,7 @@ visit promoted to history (Turbo 8). The `turbo` recipe's module holds that chec
 `data-turbo-permanent` element, for every recipe:
 
 ```js
-import { isKeptOnCache, isPromotedFrameCache } from '../lib/flowbite-xor-turbo.js';
+import { isKeptOnCache, isPromotedFrameCache } from '../lib/uxor-turbo.js';
 // isPromotedFrameCache(): false === window.Turbo?.session?.navigator?.currentVisit?.willRender
 ```
 
@@ -522,7 +522,8 @@ Here: [`lab.turbo-stream-toast.spec.ts`](../tests/e2e/lab.turbo-stream-toast.spe
 Counts give the same result on every run, so they fail like any other assertion; timings belong to separate,
 repeated runs ([`PLAN-test-tiers.md`](PLAN-test-tiers.md)). The monthly job times the same steps, report only
 (*Monthly job*, *Timings*): with `PW_TIMINGS` set, `measure()` records each counted step's time and its longest
-interaction as a `timing` annotation of the test, and never fails a test on them.
+interaction as a `timing` annotation of the test, and never fails a test on them. The release checks time their own
+steps with the same harness (`time()`), against a baseline (*Release checks*).
 
 ### Interaction counts
 
@@ -952,10 +953,10 @@ ours in it is news from upstream: read the versions it resolved before looking f
 |---|---|---|---|
 | *Importmap packages* | `importmap.php`; the demo's `composer.lock` for the command | the CDN's answer (three attempts); the files are shared with the jobs below | the download step's log |
 | *Kit PHP*, *Static site* | the demo's `composer.lock`; PHP 8.4 (`PHP_VERSION`); PHPStan and its extensions by version | the PHP patch release; PHPStan's own dependencies | the composer and PHPStan steps' logs |
-| *Demo + Playwright* | `composer.lock`, `importmap.php`, `package-lock.json`, Playwright and its image by version | the FrankenPHP base image (`dunglas/frankenphp:1-php8.5`, a moving tag pulled at build) | the job summary: PHP, Symfony, Turbo, Node, Playwright |
+| *Demo + Playwright* | `composer.lock`, `importmap.php`, `package-lock.json`; Playwright's image by digest (`tools/playwright-image.json`, its tag the locked `@playwright/test`); the demo's base images by digest (`demo/Dockerfile`: `dunglas/frankenphp:1-php8.5`, `debian:13-slim`, moved by Dependabot pull requests) | the Debian packages and PHP extensions the demo's image installs as it builds (`apt-get`, `install-php-extensions`), when the build cache misses | the job summary: PHP, Symfony, Turbo, Node, Playwright |
 | *Lint kit* | `symfony/ux-toolkit` by version (`UX_TOOLKIT_VERSION`) | its dependencies, in a scratch project | the install step's log |
 | *Fresh install* | `symfony/ux-toolkit` by version | `symfony/skeleton` 7.4.\* and every other package, as for a new user | the composer steps' logs |
-| *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image, every other package | the last line (`ok: Symfony …`) and the logs |
+| *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image (its own `Dockerfile`, by tag, pulled at build: not the demo's pinned one), every other package | the last line (`ok: Symfony …`) and the logs |
 | *Workflows*, *Contrast* | actionlint and ShellCheck by version and SHA-256; `package-lock.json` | Node 22's patch release | the job's log |
 
 The moving parts are on purpose: the install jobs are the kit as a user installs it, and the toolkit is pinned
@@ -994,8 +995,8 @@ baselines are Chromium's, rendered in upstream's Playwright image. A new screens
 the other engines compare it with a baseline that is not theirs (`examples-*`) or that does not exist (`smoke-*`), and
 fail.
 
-In CI, *Demo + Playwright* is one job per browser and shard: three shards for each browser, side by side, so the
-other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
+In CI, *Demo + Playwright* is one job per browser and shard: four shards for Chromium, which also runs the
+screenshots, and three each for Firefox and WebKit, side by side, so the other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
 tagged tests only, compared with the Chromium baselines, to report how far the other engines render from them. Any
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
@@ -1065,7 +1066,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in three shards per browser (*Browsers*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1085,8 +1086,8 @@ each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summa
   reached or report not written* (Playwright ran but left no report), *report invalid* (it does not parse).
 - **Kept 30 days** in `playwright-results-<browser>-<shard>`: `results.json` (every test's attempts), `summary.md`, and
   `failed-attempts.json`, one entry per failed attempt, retry-recovered ones included (test id, file, line, title,
-  project, shard, retry, status, error, duration, error location), for tools that read them one by one, and
-  `durations.json` (below).
+  project, shard, retry, status, error, duration, error location), for tools that read them one by one,
+  `durations.json` (below) and `shard-plan.json` (how the shard's tests were chosen: *Shard balance*).
 - **Durations, report-only:** the summary ends with the shard's wall time (Playwright's, start to end) and workers,
   the summed time of every attempt (retries included; workers overlap, so it is larger than the wall time and the two
   are not compared), the 10 slowest tests (a test's time is the sum of its attempts) and each file's total.
@@ -1098,6 +1099,110 @@ The script's exit status says what it found: 0 a report it read (whatever its te
 report, 4 tests not reached. Run it on a local report with `node tools/ci/playwright-summary.mjs` after
 `CI=1 npx playwright test` (CI writes the JSON report); its cases: `node --test tools/tests/*.test.mjs`.
 
+### CI metrics
+
+The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
+every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
+branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
+write never fails the build. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+`.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
+public once, in the package's settings, so it does not count against private package storage.
+
+CI records its own numbers, report only, so a later change to the shards, workers, caches or setup can be measured
+instead of guessed. Nothing here has a threshold or changes a verdict: each step is `continue-on-error`, and the tool
+exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mjs)).
+
+- **Each browser shard** writes `job-metrics.json` next to its results (`playwright-results-<browser>-<shard>`, 30
+  days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the build
+  cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
+  the Playwright image's pull. The Playwright browsers come from that image, pulled on every run: there is no browser
+  cache to hit.
+- **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
+  run's jobs from GitHub's API (each job's queue time and each step's start and end, to the second), and writes one
+  section on the run's *Summary* page and `ci-metrics.json` in the `ci-metrics-<run>-<attempt>` artifact (90 days):
+  - per browser, the shard balance: the shards' wall times (max, min, mean), the imbalance ((max − min) / mean), the
+    tests, the mean job and setup time, and the shards that left no results or did not reach their tests;
+  - per shard, its tests, retries, failed and flaky tests, wall and summed test time, worker use (summed test time
+    over wall time × workers; the rest is idle worker time: worker start, waits, an unbalanced tail), and its job's
+    queue, setup (up to the Playwright step), tests step and the rest (reports, uploads), with its cache hits;
+  - the browser jobs' mean time per step and browser (checkout, image build, the demo's start, Playwright's install,
+    the tests' preparation, the tests, the uploads);
+  - the 20 slowest tests and 15 slowest files of the run, with their browser and shard, and every retried test;
+  - every job's queue time, duration and steps, the run's wall time and its longest job;
+  - beside them, `shard-timings.json`: `tests/shard-timings.json` refreshed from this run (*Shard balance*).
+
+What it cannot see: the runner's CPU and memory use (no sampler runs), the time inside a test spent in fixtures or a
+worker's start (Playwright's report does not split it; idle worker time is the bound), the bytes the image cache
+moves, and the *CI result* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
+(`gh run download <run> --pattern 'ci-metrics-*'`).
+
+### Shard balance
+
+**Catches:** one shard holding the slow tests (the axe scans, the value matrix, the heavy recipes) and setting CI's
+critical path while the others idle, and a split that drops or repeats a test.
+
+Playwright's `--shard=N/M` splits by test count. On the last count-split run on dev
+([38103383677](https://github.com/xormania/uxor/actions/runs/38103383677)) Chromium's four shards summed 971, 746,
+699 and 626 s of test time (wall 498, 384, 366, 324 s), so the first ran almost three minutes longer than the last.
+CI now splits by time instead, with [`tools/ci/shard-plan.mjs`](../tools/ci/shard-plan.mjs) in each browser job's
+*Plan the shard's tests* step:
+
+1. Playwright lists the job's tests (`--list --reporter=json`, the same projects and `--grep-invert @release` as the
+   run), so the plan follows `playwright.config.ts`: the screenshot and `a11y.spec.ts` tests in Chromium only, the
+   release checks nowhere, a new spec at once.
+2. Each listed test gets its time from the committed `tests/shard-timings.json` (its last attempt in a recent run, to
+   100 ms; a test with none gets its file's mean, then its project's), and the tests go longest first to the least
+   loaded shard (greedy LPT; ties to the lowest shard, so every shard job computes the same plan from the same inputs).
+   The unit is the test: every project is `fullyParallel`, so Playwright schedules each test on its own. A whole file
+   goes to one shard when it cannot be split by test: one that runs serially (`describe.serial`, mode `serial` or
+   `default`), a title `--test-list` cannot name (holding `›` or surrounding spaces), or a title that is a prefix of
+   another's in the file (the list matches title prefixes).
+3. The plan must hold every listed test exactly once, or the step fails. The shard writes its list and runs it with
+   `--test-list`, after listing it once more through Playwright and checking that it selects exactly the planned tests
+   (*verify*: none dropped, none of another shard's); each shard checks its own, so together they check every one.
+   A list that cannot be read (a spec that fails to load, no test listed) fails the step as well: a shard never runs
+   a guess, and the error is in the step's log.
+4. Without usable timings (the file missing or unreadable, or fewer than half the listed tests timed) every shard
+   falls back to `--shard=N/M` alike, since every shard reads the same inputs. Below 90% timed, the plan still
+   balances and asks for a refresh (a notice on the run).
+
+The job's summary says how the shard was split and every shard's recorded test time; the plan, with every shard's
+tests, is `shard-plan.json` in the shard's results. The recorded time is summed over the shard's tests, so with two
+workers its wall time is about half of it (0.52 in that run, in every shard).
+
+Measured on that run's tests, with the timings taken from the run before it on dev
+([38102452994](https://github.com/xormania/uxor/actions/runs/38102452994), three Chromium shards then) and priced
+with the later run's own times (summed test time per shard; the wall time estimated at that run's ratio):
+
+| Browser | `--shard` (measured) | By time (same tests) | Slowest shard's wall |
+|---|---|---|---|
+| Chromium, 4 shards | 971, 746, 699, 626 s | 760, 756, 760, 766 s | 498 s → about 396 s |
+| Firefox, 3 shards | 659, 781, 664 s | 691, 721, 692 s | 402 s → about 374 s |
+| WebKit, 3 shards | 740, 686, 659 s | 689, 695, 701 s | 384 s → about 363 s |
+
+What is left is the runners: the same tests took from 0.78 to 1.16 times as long from one run's shard to the next's
+(the shard's machine, not its tests), which no split decided before the run can even out. A test's time is never a
+verdict, and a slower run only makes the split less even, never incomplete. The first run with every test timed
+([38108411984](https://github.com/xormania/uxor/actions/runs/38108411984)) had Chromium's walls at 387, 392, 394 and
+416 s (497, 385, 364 and 326 s before), WebKit's at 364, 257 and 364 s (383, 356, 344 s) and Firefox's at 403, 300 and
+375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
+
+**Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
+artifact: the committed file merged with that run's durations (a browser whose every shard reported replaces its
+times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Refresh when
+the shard balance in *CI metrics* drifts or the plan asks for it, from a green run on `dev`:
+
+```bash
+gh run download <run> --pattern 'ci-metrics-*' --dir /tmp/ci-metrics
+cp /tmp/ci-metrics/ci-metrics-*/shard-timings.json tests/shard-timings.json
+# or from the shards' results: gh run download <run> --pattern 'playwright-results-*' --dir /tmp/shards
+node tools/ci/shard-plan.mjs timings --shards /tmp/shards --previous tests/shard-timings.json --out tests/shard-timings.json
+```
+
+A change to the timings runs the browser job, so its pull request shows the new balance. The first file was read from
+run 38103383677's job logs (Playwright's list reporter, to 100 ms, the tags it appends to a title removed), since that
+run's artifacts were not reachable from where it was written. The tool's cases: `node --test tools/tests/*.test.mjs`.
+
 ### Worker budget
 
 Each CI shard runs two Playwright workers: `--workers=2` in `ci.yml` (*Playwright* step). Before that was set, CI
@@ -1105,7 +1210,7 @@ ran Playwright's default, half the machine's CPUs (`'50%'` of `os.cpus().length`
 `resolveWorkers`), which is 2 on GitHub's 4-vCPU `ubuntu-latest` runners and matches the two workers the sampled CI
 runs reported. Stating it keeps the budget from changing with the runner, and makes a change to it a reviewed one.
 
-The local study behind it (October 2026): shard 2/3 (392 smoke tests: the `lab.*` specs, CSP, theme, data table),
+The local study behind it (October 2026, when Chromium ran three shards): shard 2/3 (392 smoke tests: the `lab.*` specs, CSP, theme, data table),
 `--retries=0`, runs interleaved (1, 2, 3, 2, 3, 1, ...), on a 4-CPU machine where the demo (PHP's built-in server
 with 4 workers, `PHP_CLI_SERVER_WORKERS=4`) and the browser also run:
 
@@ -1122,7 +1227,8 @@ fails its run). Two, the default CI already ran, is kept.
 
 These are local timings, not CI's: the demo runs in FrankenPHP there, the runner's CPUs differ, and the a11y (shard 1)
 and screenshot (shard 3) shards were not measured. Three workers in CI is untested; the shards' `durations.json`
-(*Reading CI results*) is where a later change would be measured, against the same run with two.
+and the run's `ci-metrics.json` (*Reading CI results*) are where a later change would be measured, against the same
+run with two.
 
 ### Jev diagnosis (advisory)
 
@@ -1200,7 +1306,7 @@ report says why, instead of showing 0%: PCOV not loaded, no `clover.xml` (the te
 measured line, no Infection log or one without a mutant, no recorded JS coverage. A browser test that fails fails its
 shard as in CI; the coverage it recorded is still reported. Branches are not measured: PCOV measures lines.
 
-**Scope.** The demo's autoloader maps `App\FlowbiteXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
+**Scope.** The demo's autoloader maps `App\UXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
 tests run the recipes' files, not the copies `tools/sync-demo` writes. [`tools/monthly/php-scope.php`](../tools/monthly/php-scope.php)
 writes a PHPUnit configuration (the demo's, with absolute paths and its `<source>` set to every recipe's `src/`) and
 Infection's: the demo's own code, its copies of the recipes and the tests' fixtures are outside both. On the JS side,
@@ -1232,6 +1338,11 @@ own update.
 workflow and its tools, so a change to them is tried by running it on its own branch. There is no input naming another
 ref: a run on one would execute that ref's code in the default branch's context, where it could poison the cache.
 
+**On the release.** When the owner marks the release pull request (`dev` into `main`) ready for review, the
+workflow runs on its own (`pull_request`, `ready_for_review`), on the pull request's merge of `dev` into `main`: the
+release's coverage, mutants, other engines and timings sit beside its other checks, and its numbers are compared with
+the last successful run on `dev`. Any other pull request into `main` skips every job.
+
 **Locally**, from the repository root, with the demo installed (*PHP tests*); the reports go to `coverage/`
 (gitignored). PCOV or Xdebug (`XDEBUG_MODE=coverage`) can measure; Infection runs as its PHAR, outside the demo's
 dependencies:
@@ -1251,3 +1362,89 @@ node --test 'tools/monthly/*.test.mjs'   # the report tools' cases
 
 `JS_COVERAGE` is the only switch: unset, `startJsCoverage()` returns at once and the fixtures behave as before. Delete
 `coverage/js/raw/` between local runs, or the old recordings are merged in.
+
+## Release checks
+
+**Catches:** what one run of the tier 1 specs cannot show: a step that got slower, a controller that leaves its page
+alive after `disconnect()` (one visit hides it, fifty show it), a transition that only holds on a fast desktop, a
+query string, a Live prop value or a form post that makes the server fail or echo markup, a sequence of clicks, keys,
+Back, Forward and theme switches that throws or connects a controller twice, a sanitizer whose output changes when
+sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 of
+[`PLAN-test-tiers.md`](PLAN-test-tiers.md): Chromium only, and not on every push.
+
+[`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request
+(`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
+(Actions › *Release checks* › *Run workflow*). A passing scheduled or manual run (never a pull request's) uploads a
+`release-checks-passed-<sha>` artifact; the daily run counts one only from a successful scheduled or manual run of this
+workflow in this repository, and stops in seconds when it finds one. The *Release suite* job sets up the demo as CI's
+browser job does and runs `RELEASE_CHECKS=1 npx playwright test --grep @release` with the `smoke`,
+`smoke-dark@release` and `harsh@release` projects named (a missing one is an error), then checks the structural
+evidence ([`tools/ci/release-evidence.mjs`](../tools/ci/release-evidence.mjs): each project ran a test, each release
+spec ran and skipped none), then the PHPUnit properties with a random seed (`--fail-on-empty-test-suite`). CI's browser
+job leaves the same tests out (`--grep-invert @release`). The required check is the *Release checks* job, which runs
+whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
+reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
+result artifacts and the passed marker are advisory: their upload never decides the verdict.
+A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
+
+| Group | Where | What it checks |
+|---|---|---|
+| Timings | [`release.timings.spec.ts`](../tests/e2e/release.timings.spec.ts) | The key transitions of the data table in a frame and in Live (sort, page, filter), the editor (typing, bold), the Markdown editor (typing, the preview), the forms page (an invalid submit) and the `/demo` dashboard (a Turbo visit and Back), each run 5 times on a fresh page, timed by the interaction-count harness (`trackCounts().time()`, [`counts.ts`](../tests/e2e/counts.ts)): the duration until the update it waits for has landed, the longest interaction (INP), the total blocking time, and Chromium's style, layout and script time over the step |
+| Long session | [`release.long-session.spec.ts`](../tests/e2e/release.long-session.spec.ts) | 50 Turbo visits and Backs across eight lab and form pages in one document; then, after the caches are dropped and a forced collection, `Memory.getDOMCounters` (documents, nodes, listeners) and the JS heap back at their level after two warm-up rounds, within the tolerance the spec states, the numbers in its `long-session` annotation |
+| Harsh conditions | the `harsh@release` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](../tests/e2e/fixtures.ts)): their behavior holds |
+| Wide matrices | the `smoke-dark@release` project | The overlay specs (dropdown, modal, drawer, popover, tooltip, their Live labs) and the editor specs again in the dark theme; `smoke` runs them in the light one |
+| Fuzzing | [`release.fuzz.spec.ts`](../tests/e2e/release.fuzz.spec.ts) | Seeded, 30 s per target (`FUZZ_BUDGET_MS`). Random query strings on the data table pages and random values for the Live data table's writable props, sent as the live controller sends them; random form posts on `/forms` and the lab's POST forms (long strings, unicode, markup, arrays where a value is expected, fields left out; the CSRF field kept, and one post in three through the page's own form in the browser): no 5xx, no slow answer, no injected element or handler, no CSP violation or console error. UI runs on the lab pages: random clicks (on controls and links that stay in the lab), keys, Back, Forward, the theme toggle and the system theme, each followed by a wait for the page to settle: no console or page error, and one Stimulus controller per element and identifier |
+| Properties | [`demo/tests/Property/`](../demo/tests/Property/) (`--group property`) | `TableQuery::fromValues()` on any values and any table: the offset stays below `maxRows()`; the editor's HTML policy and the Markdown renderer on random hostile markup: no `<script>`, `on*` attribute or unsafe link, and the output is stable when sanitized again. CI runs them with a fixed seed and 300 runs; the release checks with a random seed and 2000 |
+
+A project's name is part of its tests' titles, so `@release` in `harsh@release` and `smoke-dark@release` tags every
+test they run; Firefox's and WebKit's projects leave `@release` out. Neither project compares screenshots: the
+baselines are the light theme's, at desktop and example sizes. The monthly job's Chromium coverage run, which does not
+filter by tag, also runs the `smoke` project's `@release` specs.
+
+**Report only, for now.** The timings never fail a run: each timed step's metrics are printed against
+[`tests/perf/baseline.json`](../tests/perf/baseline.json) in the job summary
+([`tools/ci/release-timings.mjs`](../tools/ci/release-timings.mjs)), until the owner sets a tolerance per metric (the
+plan's step 8). A behavior assertion, a leak counter over its tolerance, a fuzzing or property failure fails the run
+as any test does. `main`'s ruleset requires the *Release checks* check on the release pull request from 0.2.0 (decision 4
+of the plan): every failure above blocks the release; the timings do not until step 8. A recorded baseline comes only
+from a run whose tests, properties and evidence all passed, and `--record` refuses a partial run (a step with fewer
+than 5 runs, or a step of the baseline not timed, whatever harness recorded it) and writes nothing.
+
+A malformed form post (an array where the controller reads a string) is a 400, answered with Symfony's error page,
+whose inline styles the demo's policy blocks: the form fuzzing checks markup and the CSP on the answers the app renders
+(a 2xx, a redirect, the form's 422) and the status alone on the others; the browser gets a 400's status with an empty
+page.
+
+**Replaying.** Fuzzing and the properties print their seed: `SEED=<seed> npx playwright test tests/e2e/release.fuzz.spec.ts`
+or `SEED=<seed> PROPERTY_RUNS=2000 bin/phpunit --group property` (in `demo/`) runs the same values again. A failure
+found becomes a tier 1 test once fixed (the first: `EditorHtmlPolicyTest`'s "a heading in an unwrapped block in a
+heading", from `MarkupPropertyTest`).
+
+**The long session in this demo.** The demo runs Symfony's dev environment, where Stimulus logs every connect with its
+element; with the console recorded, as Playwright records it, each logged element keeps its detached page alive. The
+spec turns Stimulus' debug log off and discards the console's messages before each reading, so it measures what the
+page keeps. `Memory.prepareForLeakDetection` crashes Chromium 145's renderer (Playwright 1.58): the spec tries it in a
+page of its own and, where it fails, drops the same caches with `Memory.simulatePressureNotification`.
+
+**Locally**, with the demo up (`DEMO_URL=https://localhost` for the Docker demo):
+
+```sh
+RELEASE_CHECKS=1 npx playwright test --grep @release --workers=1     # every release check (RELEASE_CHECKS adds the dark and harsh projects), Chromium, as CI runs them (one worker: the timings must not share the machine)
+npx playwright test tests/e2e/release.long-session.spec.ts --project=smoke
+FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=smoke
+(cd demo && SEED=$RANDOM PROPERTY_RUNS=2000 bin/phpunit --group property)
+# the timings against the baseline, and a baseline recorded from them (one worker: the timings are the point)
+PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/timings.json npx playwright test tests/e2e/release.timings.spec.ts --project=smoke --workers=1 --reporter=json
+node tools/ci/release-timings.mjs --baseline tests/perf/baseline.json test-results/timings.json
+node tools/ci/release-timings.mjs --record tests/perf/baseline.json --commit "$(git rev-parse HEAD)" test-results/timings.json
+```
+
+**Recording a baseline.** Run the workflow by hand on `dev` with `record` checked: the `release-baseline` artifact is
+the run's timings as a `baseline.json` (per step and metric, INP included, the median and the spread of the runs, with
+the commit, the date and the timing harness). It replaces `tests/perf/baseline.json` through a pull request that shows the
+old and new numbers (the report of that run, which compares them). A baseline of another timing harness (`HARNESS` in
+`tools/ci/release-timings.mjs`, raised whenever a metric starts measuring something else) is not compared with: the
+report says to record it again. The first file was recorded locally on `dev` (`3bd5b88`, 2026-10-10, the Docker demo on a
+development machine, one worker) with harness 1, whose duration ended before the frame that presents the update; harness
+2 counts that frame, so the report waits for CI's first `record` run, whose machine also sets the numbers the
+tolerances will be read against.

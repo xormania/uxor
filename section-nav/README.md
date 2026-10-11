@@ -59,4 +59,4 @@ The `layouts` recipe's `settings.html.twig` renders one: fill its `settings_nav`
 ```
 
 Marking the current section and giving the links their rendered `aria-current` back on disconnect are the `navigation`
-recipe's module (`assets/lib/flowbite-xor-navigation.js`), which `ux:install section-nav` installs with it.
+recipe's module (`assets/lib/uxor-navigation.js`), which `ux:install section-nav` installs with it.

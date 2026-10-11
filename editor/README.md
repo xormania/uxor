@@ -23,18 +23,18 @@ Then:
 2. Import the recipe's stylesheet after the theme in `assets/styles/app.css`:
 
    ```css
-   @import "./flowbite-xor-editor.css";
+   @import "./uxor-editor.css";
    ```
 
 The editor's controller is lazy: Tiptap downloads only on pages with an editor.
 
 ## Usage
 
-In a Symfony form, use the recipe's `EditorType` (copied into `src/FlowbiteXor/Editor/`). The form theme renders it,
+In a Symfony form, use the recipe's `EditorType` (copied into `src/UXor/Editor/`). The form theme renders it,
 its data is sanitized HTML, and too long is an error, never a cut:
 
 ```php
-use App\FlowbiteXor\Editor\EditorType;
+use App\UXor\Editor\EditorType;
 use Symfony\Component\Validator\Constraints as Assert;
 
 $builder->add('body', EditorType::class, [
@@ -52,7 +52,8 @@ $builder->add('body', EditorType::class, [
 - `max_chars` counts the characters the editor's counter shows: the text without markup, an entity as one character,
   a line break (`<br>`) as one, and white space between blocks as none.
 - Print stored content with the `flowbite_editor_html` filter, which sanitizes it again (content saved by another
-  path is safe too), and throws a `LengthException` for more than 1000000 bytes. Never with `|raw`:
+  path is safe too; sanitized content comes back unchanged, nested blocks included), and throws a `LengthException`
+  for more than 1000000 bytes. Never with `|raw`:
 
   ```twig
   <div class="space-y-2">{{ post.body|flowbite_editor_html }}</div>

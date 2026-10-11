@@ -1,8 +1,8 @@
 {
-    "name": "flowbite-xor-e2e",
+    "name": "uxor-e2e",
     "private": true,
     "type": "module",
-    "description": "Playwright tests of the flowbite-xor demo app (not part of the kit).",
+    "description": "Playwright tests of the UXor demo app (not part of the kit).",
     "license": "MIT",
     "scripts": {
         "test:e2e": "playwright test"

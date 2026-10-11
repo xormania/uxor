@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes the agent-facing lists of recipes from README.md's tables (the row a person reads is the line an agent
+// Writes the agent-facing lists of recipes from docs/RECIPES.md's tables (the row a person reads is the line an agent
 // reads), checked against the directories holding a manifest.json, so a recipe cannot be left out or listed twice:
 //
 // - llms.txt (https://llmstxt.org/): the kit's pages for agents, one line each, linked as raw markdown. The links
@@ -18,6 +18,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { kitIdentity } from './kit-identity.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path) => readFileSync(join(root, path), 'utf8');
@@ -35,25 +36,24 @@ if (!ref) {
     console.error('CHANGELOG.md has no unreleased entry and no `## [X.Y.Z]` heading: no ref for the links.');
     process.exit(1);
 }
-const raw = `https://raw.githubusercontent.com/xormania/flowbite-xor/${ref}`;
-
 const manifest = JSON.parse(read('manifest.json'));
+// the kit's name and repository: manifest.json's name and homepage (tools/kit-identity.mjs)
+const kit = kitIdentity(manifest);
+const raw = kit.raw(ref);
 const recipes = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && existsSync(join(root, entry.name, 'manifest.json')))
     .map((entry) => entry.name)
     .sort();
 
-// README.md's "## Recipes" section: each "### Group" heading, then rows "| [`name`](name/README.md) … | description |"
-const readme = read('README.md');
-const section = readme.slice(readme.indexOf('\n## Recipes'), readme.indexOf('\n## ', readme.indexOf('\n## Recipes') + 1));
+// docs/RECIPES.md: each "## Group" heading, then rows "| [`name`](../name/README.md) … | description |"
 const groups = [];
-for (const line of section.split('\n')) {
-    const heading = line.match(/^### (.+)$/);
+for (const line of read('docs/RECIPES.md').split('\n')) {
+    const heading = line.match(/^## (.+)$/);
     if (heading) {
         groups.push({ title: plain(heading[1]), rows: [] });
         continue;
     }
-    const row = line.match(/^\| \[`([a-z0-9-]+)`\]\(\1\/README\.md\)[^|]*\| (.+) \|$/);
+    const row = line.match(/^\| \[`([a-z0-9-]+)`\]\((?:\.\.\/)?\1\/README\.md\)[^|]*\| (.+) \|$/);
     if (row && groups.length > 0) {
         groups.at(-1).rows.push({ name: row[1], description: row[2].trim() });
     }
@@ -64,7 +64,7 @@ const missing = recipes.filter((name) => !listed.includes(name));
 const unknown = listed.filter((name) => !recipes.includes(name));
 const twice = listed.filter((name, index) => listed.indexOf(name) !== index);
 if (missing.length || unknown.length || twice.length) {
-    console.error('README.md\'s recipe tables do not match the recipe directories:');
+    console.error('docs/RECIPES.md\'s recipe tables do not match the recipe directories:');
     for (const [label, names] of [['missing', missing], ['not a recipe', unknown], ['listed twice', twice]]) {
         if (names.length) {
             console.error(`  ${label}: ${names.join(', ')}`);
@@ -72,27 +72,29 @@ if (missing.length || unknown.length || twice.length) {
     }
     process.exit(1);
 }
-// a recipe ships when its directory has a manifest.json and README.md lists it
+// a recipe ships when its directory has a manifest.json and docs/RECIPES.md lists it
 const ships = (name) => recipes.includes(name) && listed.includes(name);
 
 // --- llms.txt
 const lines = [
-    '# flowbite-xor',
+    `# ${kit.name}`,
     '',
     `> ${manifest.description}`,
     '',
-    'A Symfony UX Toolkit kit: install a recipe with `php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor`, which copies its files into the project. Each recipe\'s README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.',
+    `A Symfony UX Toolkit kit: install a recipe with \`php bin/console ux:install <recipe> --kit=${kit.homepage}\`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.`,
     '',
     ref === 'dev'
-        ? 'The links below point at `dev`, the work merged since the last release: install with `--kit=https://github.com/xormania/flowbite-xor:dev` to get what they describe.'
-        : `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=https://github.com/xormania/flowbite-xor:${ref}\`.`,
+        ? `The links below point at \`dev\`, the work merged since the last release: install with \`--kit=${kit.homepage}:dev\` to get what they describe.`
+        : `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=${kit.homepage}:${ref}\`.`,
     '',
     '## Start here',
     '',
     `- [For agents](${raw}/FOR-AGENTS.md): what the kit gives you, how to set a project up, which recipe to install for what, and the rules to follow`,
     `- [Project agents snippet](${raw}/docs/PROJECT-AGENTS-SNIPPET.md): the block to paste into a project's AGENTS.md or CLAUDE.md`,
     `- [Install](${raw}/INSTALL.md): each setup step explained, AssetMapper or Webpack Encore`,
-    `- [README](${raw}/README.md): every recipe, updating, Turbo and Live Components, security, versions and requirements`,
+    `- [README](${raw}/README.md): what the kit is, how to install it, requirements`,
+    `- [Recipes](${raw}/docs/RECIPES.md): every recipe, one line each`,
+    `- [Guide](${raw}/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning`,
     '',
 ];
 for (const group of groups) {
@@ -113,8 +115,8 @@ lines.push(
 );
 const llms = lines.join('\n');
 
-// --- FOR-AGENTS.md, *Which recipe*: one table per README group, as README.md has them (without the ✦)
-const start = '<!-- recipes:start: written by tools/llms-txt.mjs from README.md\'s recipe tables; edit those, then run it -->';
+// --- FOR-AGENTS.md, *Which recipe*: one table per group, as docs/RECIPES.md has them (without the ✦)
+const start = '<!-- recipes:start: written by tools/llms-txt.mjs from docs/RECIPES.md\'s tables; edit those, then run it -->';
 const end = '<!-- recipes:end -->';
 const table = [start];
 for (const group of groups) {
@@ -142,7 +144,7 @@ for (const path of ['FOR-AGENTS.md', 'docs/PROJECT-AGENTS-SNIPPET.md']) {
     ];
     for (const name of new Set(named)) {
         if (!ships(name)) {
-            errors.push(`${path} names \`${name}\`, which is not a recipe (no ${name}/manifest.json, or not in README.md's tables).`);
+            errors.push(`${path} names \`${name}\`, which is not a recipe (no ${name}/manifest.json, or not in docs/RECIPES.md's tables).`);
         }
     }
 }
@@ -155,12 +157,12 @@ const checkStatus = (where, status, names) => {
         return;
     }
     if (status === 'open' && names.length > 0 && names.every(ships)) {
-        errors.push(`${where}: status open, but ${names.join(', ')} ${names.length > 1 ? 'ship' : 'ships'} (README.md's tables): mark it shipped.`);
+        errors.push(`${where}: status open, but ${names.join(', ')} ${names.length > 1 ? 'ship' : 'ships'} (docs/RECIPES.md's tables): mark it shipped.`);
     }
     if (status === 'shipped') {
         const gone = names.filter((name) => !ships(name));
         if (gone.length) {
-            errors.push(`${where}: status shipped, but ${gone.join(', ')} ${gone.length > 1 ? 'are' : 'is'} not a recipe in README.md's tables.`);
+            errors.push(`${where}: status shipped, but ${gone.join(', ')} ${gone.length > 1 ? 'are' : 'is'} not a recipe in docs/RECIPES.md's tables.`);
         }
     }
 };

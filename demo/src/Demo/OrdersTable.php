@@ -2,7 +2,7 @@
 
 namespace App\Demo;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\AbstractDataTable;
 
 /**
  * The demo's plain data table (data-table recipe).

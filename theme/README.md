@@ -8,7 +8,7 @@ The Flowbite color roles (light and dark) with this kit's contrast fixes and its
 
 ## Usage
 
-The recipe copies `assets/styles/flowbite-xor.css`, Flowbite's theme with every color role checked for contrast. A role is a named color used through utilities such as `bg-brand`, `text-heading` or `border-default`. The file defines the roles (`@theme`), their dark values (`.dark`) and the `dark:` variant (`@custom-variant dark`), and gives Turbo Drive's progress bar the brand color. Import it after Tailwind and Flowbite's stylesheet in `assets/styles/app.css`:
+The recipe copies `assets/styles/uxor.css`, Flowbite's theme with every color role checked for contrast. A role is a named color used through utilities such as `bg-brand`, `text-heading` or `border-default`. The file defines the roles (`@theme`), their dark values (`.dark`) and the `dark:` variant (`@custom-variant dark`), and gives Turbo Drive's progress bar the brand color. Import it after Tailwind and Flowbite's stylesheet in `assets/styles/app.css`:
 
 ```css
 @import "tailwindcss";
@@ -17,7 +17,7 @@ The recipe copies `assets/styles/flowbite-xor.css`, Flowbite's theme with every 
 @import "../vendor/flowbite/dist/flowbite.min.css";
 /* Webpack Encore: @import "flowbite/dist/flowbite.min.css"; */
 
-@import "./flowbite-xor.css";
+@import "./uxor.css";
 
 /* The templates of your app (Tailwind scans the project root by default; list them if you build from elsewhere) */
 @source "../../templates";
@@ -32,9 +32,9 @@ Dark mode is class based: the `.dark` overrides and the `dark:` variant apply be
 Text on a solid fill, such as a brand button, an indicator, a calendar's selected day, the active pill tab, a tooltip
 or an avatar group's count, uses the `fg-on-*` role of that fill: `text-fg-on-brand` on `bg-brand`, and
 `fg-on-success`, `fg-on-danger`, `fg-on-warning` and `fg-on-dark` on theirs. The toggle's knob is `bg-knob`. Flowbite's
-theme has no such roles: they are this kit's addition to `flowbite-xor.css`. Every one is white, in both themes.
+theme has no such roles: they are this kit's addition to `uxor.css`. Every one is white, in both themes.
 
-With a light brand color, white text on it is hard to read: in your copy of `flowbite-xor.css` (the project owns it,
+With a light brand color, white text on it is hard to read: in your copy of `uxor.css` (the project owns it,
 like every file a recipe copies), set `--color-fg-on-brand` to a dark color, in `@theme` and in `.dark`:
 
 ```css
@@ -58,4 +58,4 @@ deficiencies. The `chart` recipe applies them; use them yourself as `bg-chart-1`
 
 ### Contrast
 
-In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/flowbite-xor/blob/main/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.
+In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/uxor/blob/main/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.

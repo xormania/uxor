@@ -2,9 +2,11 @@
 /*
  * The monthly job's timings (docs/TESTING.md, *Monthly job*), report-only (owner decision 6d): reads the Playwright
  * JSON reports of the interaction-count specs run with PW_TIMINGS set and repeated, where each counted step left a
- * `timing` annotation ({ step, durationMs, inpMs }, tests/e2e/counts.ts), and gives per step the median, the spread
- * (25th to 75th percentile), min and max over every passed run, and the median INP. A failed run's timings are left
- * out: its step may not have completed. No threshold: they come later, from the measured spread.
+ * `timing` annotation ({ step, durationMs, inpMs, metrics? }, tests/e2e/counts.ts), and gives per step the median, the
+ * spread (25th to 75th percentile), min and max over every passed run, the median INP and its spread, and for a
+ * step that recorded them (the release checks' timings), the same for each of its `metrics`
+ * (tools/ci/release-timings.mjs). A failed run's timings are left out: its step may not have completed. No threshold:
+ * they come later, from the measured spread.
  *
  * Usage: node tools/monthly/timings.mjs --out <dir> <results.json>...
  * Writes <dir>/timings.json and <dir>/timings.md (also appended to $GITHUB_STEP_SUMMARY). Exit status 0; 1 when no
@@ -53,17 +55,22 @@ export function gather(reports) {
     const byStep = new Map();
     for (const report of reports) {
         for (const test of testsOf(report.suites)) {
-            for (const { step, durationMs, inpMs } of timingsOf(test)) {
-                const entry = byStep.get(step) ?? byStep.set(step, { durations: [], inps: [] }).get(step);
+            for (const { step, durationMs, inpMs, metrics } of timingsOf(test)) {
+                const entry = byStep.get(step) ?? byStep.set(step, { durations: [], inps: [], metrics: {} }).get(step);
                 entry.durations.push(durationMs);
                 if (null !== inpMs && undefined !== inpMs) {
                     entry.inps.push(inpMs);
+                }
+                for (const [name, value] of Object.entries(metrics ?? {})) {
+                    if ('number' === typeof value) {
+                        (entry.metrics[name] ??= []).push(value);
+                    }
                 }
             }
         }
     }
     const steps = {};
-    for (const [step, { durations, inps }] of [...byStep].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    for (const [step, { durations, inps, metrics }] of [...byStep].sort(([a], [b]) => (a < b ? -1 : 1))) {
         const sorted = [...durations].sort((a, b) => a - b);
         const inpSorted = [...inps].sort((a, b) => a - b);
         const p25Ms = quantile(sorted, 0.25);
@@ -77,8 +84,22 @@ export function gather(reports) {
             minMs: sorted[0],
             maxMs: sorted[sorted.length - 1],
             inpMedianMs: inpSorted.length ? quantile(inpSorted, 0.5) : null,
+            // the INP samples' spread (25th to 75th percentile), as the duration's
+            inpSpreadMs: inpSorted.length ? Math.round((quantile(inpSorted, 0.75) - quantile(inpSorted, 0.25)) * 10) / 10 : null,
             inpRuns: inpSorted.length,
         };
+        // the release checks' extra metrics (tests/e2e/counts.ts, `time`): total blocking time, the renderer's style,
+        // layout and script time; only when a run recorded them
+        if (Object.keys(metrics).length) {
+            steps[step].metrics = Object.fromEntries(
+                Object.entries(metrics).sort(([a], [b]) => (a < b ? -1 : 1)).map(([name, values]) => {
+                    const sortedValues = [...values].sort((a, b) => a - b);
+                    const p25 = quantile(sortedValues, 0.25);
+                    const p75 = quantile(sortedValues, 0.75);
+                    return [name, { runs: sortedValues.length, median: quantile(sortedValues, 0.5), p25, p75, spread: Math.round((p75 - p25) * 10) / 10 }];
+                }),
+            );
+        }
     }
 
     return { steps };

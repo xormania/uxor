@@ -1,0 +1,248 @@
+/*
+ * UX Autocomplete's Tom Select, styled with the theme's color roles. Replaces tom-select.default.css: set its
+ * autoimport to false in assets/controllers.json, and import this file after uxor.css.
+ *
+ * Tom Select hides the <select> and puts a .ts-wrapper after it, carrying the select's classes (the kit's Select
+ * styles: background, border, padding, radius). The wrapper is the box; .ts-control, inside it, holds the selected
+ * items and the search input.
+ */
+
+.ts-wrapper {
+    position: relative;
+    cursor: text;
+}
+
+.ts-wrapper.single {
+    cursor: pointer;
+    padding-inline-end: 2.5rem;
+    background-image: url("data:image/svg+xml,%3csvg aria-hidden='true' xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3e%3cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 1 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 0.75em 0.75em;
+}
+
+.ts-wrapper.focus {
+    outline: none;
+    border-color: var(--color-brand);
+    box-shadow: 0 0 0 1px var(--color-brand);
+}
+
+select[aria-invalid='true'] + .ts-wrapper,
+.ts-wrapper.invalid {
+    background-color: var(--color-danger-soft);
+    border-color: var(--color-danger-subtle);
+    color: var(--color-fg-danger-strong);
+}
+
+select[aria-invalid='true'] + .ts-wrapper.focus,
+.ts-wrapper.invalid.focus {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 1px var(--color-danger);
+}
+
+.ts-wrapper.disabled {
+    cursor: not-allowed;
+    color: var(--color-fg-disabled);
+    opacity: 0.75;
+}
+
+.ts-control {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 1.25rem;
+    width: 100%;
+}
+
+.ts-control > input {
+    flex: 1 1 auto;
+    min-width: 4rem;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 none !important;
+    background: none !important;
+    box-shadow: none !important;
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+.ts-control > input:focus {
+    outline: none !important;
+}
+
+.ts-control > input::placeholder {
+    color: var(--color-body);
+}
+
+.input-hidden .ts-control > input {
+    position: absolute;
+    left: -10000px;
+    opacity: 0;
+}
+
+.ts-wrapper.single.has-items .ts-control > input:not(:focus) {
+    position: absolute;
+    left: -10000px;
+}
+
+.ts-wrapper.multi .ts-control > .item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-xs);
+    background-color: var(--color-brand-softer);
+    color: var(--color-fg-brand-strong);
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+}
+
+.ts-wrapper.multi .ts-control > .item.active {
+    background-color: var(--color-brand-soft);
+}
+
+.ts-wrapper .item .remove {
+    color: inherit;
+    text-decoration: none;
+    border-radius: var(--radius-xxs);
+    padding: 0 0.25rem;
+}
+
+.ts-wrapper .item .remove:hover,
+.ts-wrapper .item .remove:focus-visible {
+    background-color: var(--color-brand-medium);
+    outline: none;
+}
+
+.ts-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    width: 100%;
+    margin-top: 0.25rem;
+    overflow: hidden;
+    border: 1px solid var(--color-default-medium);
+    border-radius: var(--radius-base);
+    background-color: var(--color-neutral-primary-medium);
+    color: var(--color-body);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    font-size: 0.875rem;
+}
+
+.ts-dropdown-content {
+    max-height: 15rem;
+    overflow: hidden auto;
+    padding: 0.25rem;
+    scroll-behavior: smooth;
+}
+
+.ts-dropdown .option,
+.ts-dropdown .create,
+.ts-dropdown .no-results,
+.ts-dropdown .optgroup-header {
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+}
+
+.ts-dropdown [data-selectable] {
+    cursor: pointer;
+}
+
+.ts-dropdown .option.active,
+.ts-dropdown .create.active {
+    background-color: var(--color-neutral-tertiary-medium);
+    color: var(--color-heading);
+}
+
+.ts-dropdown .option.selected {
+    color: var(--color-fg-brand-strong);
+    font-weight: 500;
+}
+
+.ts-dropdown [data-disabled],
+.ts-dropdown [data-disabled] [data-selectable].option {
+    cursor: not-allowed;
+    color: var(--color-fg-disabled);
+}
+
+.ts-dropdown [data-selectable] .highlight {
+    background-color: var(--color-brand-softer);
+    color: var(--color-fg-brand-strong);
+    border-radius: var(--radius-xxs);
+}
+
+.ts-dropdown .optgroup-header {
+    color: var(--color-heading);
+    font-weight: 600;
+    cursor: default;
+}
+
+.ts-dropdown .no-results {
+    color: var(--color-body);
+}
+
+.ts-dropdown .create {
+    color: var(--color-body);
+}
+
+.ts-dropdown .spinner {
+    display: inline-block;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: 0.5rem;
+    border: 2px solid var(--color-default-medium);
+    border-top-color: var(--color-brand);
+    border-radius: 9999px;
+    animation: uxor-autocomplete-spin 0.8s linear infinite;
+}
+
+@keyframes uxor-autocomplete-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.plugin-dropdown_input .dropdown-input {
+    display: block;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 0 none;
+    border-bottom: 1px solid var(--color-default-medium);
+    background: transparent;
+    color: var(--color-heading);
+}
+
+.plugin-clear_button .clear-button {
+    position: absolute;
+    top: 50%;
+    right: 2rem;
+    transform: translateY(-50%);
+    color: var(--color-body);
+    cursor: pointer;
+    opacity: 0;
+}
+
+.plugin-clear_button.has-items:is(.focus, :hover) .clear-button {
+    opacity: 1;
+}
+
+.ts-hidden-accessible {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ts-dropdown .spinner {
+        animation-duration: 2.4s;
+    }
+}

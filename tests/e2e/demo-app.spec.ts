@@ -1,5 +1,6 @@
 import { test, expect, expectA11y, turboVisitDone } from './fixtures';
 import { turboOperation } from './transitions';
+import { demoPages } from './inventory';
 
 test('the login block signs in through form_login and shows the authentication error', async ({ page }) => {
     await page.goto('/demo/login');
@@ -91,8 +92,8 @@ test('on a phone the drawer holds the sidebar navigation, then the navbar menu',
     await page.getByRole('button', { name: 'Open menu' }).click();
     const drawer = page.getByRole('dialog', { name: 'Main' });
     // the sidebar's navigation, the same tree and brand, focused on the current page
-    await expect(drawer.getByRole('link', { name: 'Acme' })).toBeVisible();
-    const nav = drawer.getByRole('navigation', { name: 'Main' }).getByRole('tree', { name: 'Acme' });
+    await expect(drawer.getByRole('link', { name: 'xor' })).toBeVisible();
+    const nav = drawer.getByRole('navigation', { name: 'Main' }).getByRole('tree', { name: 'xor' });
     await expect(nav.getByRole('treeitem', { name: 'Profile' })).toBeFocused();
     await expect(nav.getByRole('treeitem', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
     const account = drawer.getByRole('button', { name: 'Account' });
@@ -176,9 +177,15 @@ test('every layout keeps the same toast region: a toast closed on another layout
     const region = page.getByRole('region', { name: 'Notifications' });
     await expect(region.getByText('Profile saved.')).toBeVisible();
 
+    // the toast dismisses itself 5 s after it appears, and a slow visit used that up before the check below (WebKit in
+    // CI): hovered, it is paused, so the keyboard opens the branch and follows the link while the pointer stays on it.
+    // The visit moves the region, so the toast connects again on the blank page and counts down its time left from there
+    await region.locator('[data-controller="toast"]', { hasText: 'Profile saved.' }).hover();
     const main = page.getByRole('navigation', { name: 'Main' });
-    await main.getByRole('treeitem', { name: 'Pages' }).locator(':scope > [data-side-nav-toggle]').click();
-    await main.getByRole('treeitem', { name: 'Blank page' }).click();
+    const pages = main.getByRole('treeitem', { name: 'Pages' });
+    await pages.press('Enter');
+    await expect(pages).toHaveAttribute('aria-expanded', 'true');
+    await main.getByRole('treeitem', { name: 'Blank page' }).press('Enter');
     await expect(page.getByRole('heading', { level: 1, name: 'A blank page' })).toBeVisible();
     await expect(region.getByText('Profile saved.')).toBeVisible();
     await region.getByRole('button', { name: 'Close' }).click();
@@ -231,4 +238,12 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await expect.poll(() => page.evaluate(() => document.querySelector('script[type="importmap"]')?.textContent ?? '')).toContain('?deploy=2');
     await expect(settings.getByRole('link', { name: 'Billing' })).toHaveAttribute('aria-current', 'page');
     await turboVisitDone(page);
+});
+
+test('every demo page names the brand it shows in its title', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+    for (const path of Object.values(demoPages)) {
+        await page.goto(path);
+        await expect(page, path).toHaveTitle(/ — xor$/);
+    }
 });

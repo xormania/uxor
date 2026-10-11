@@ -272,6 +272,7 @@ drawer closed, open as a modal, open on load, static backdrop, drawer non-modal;
 | modal | Live re-render, open and closed | E2E lab | lab.value-matrix "a modal left open › live" (open and modal, Escape closes it, the focus back on the trigger); closed across a re-render: lab.live-modal "a modal whose container a Live re-render replaces…" (closed part) |
 | modal | Live re-render replacing its container, open and closed: no error, the new one opens and closes | E2E lab | lab.live-modal "a modal whose container a Live re-render replaces is torn down cleanly…" |
 | modal | Opened and closed with and without reduced motion: the trigger's `aria-expanded` and the dialog's `aria-hidden` follow (the controller waits for a `transitionend` only while the dialog has a running transition) | E2E demo | motion "a modal opened and closed with … motion updates its trigger and hides" (2) |
+| modal | The backdrop's transition runs, twice over: a `transitionrun` on the `::backdrop` as the dialog opens (Chromium, WebKit) and as it closes, the dialog still open and `data-closing` within the click, closed after the fade (Chromium; WebKit and Firefox close within the click); then hidden, `aria-*` updated, the focus back on the trigger, no `data-closing` left; under reduced motion no backdrop transition and the dialog closed within the click (failed before the fix: no backdrop transition ran in Chromium or WebKit) | E2E demo | motion "the modal backdrop fades in as the dialog opens and out before it closes", "under reduced motion the modal backdrop does not fade, and the dialog closes at once" (2) |
 | drawer | Modal: Live re-render (still `:modal`, the page behind inert), Escape, the focus back on the trigger | E2E lab | lab.value-matrix "a drawer left open › live" |
 | drawer | Non-modal; a re-render replacing its container, open and closed: no error, the new one opens and closes | E2E lab | lab.live-drawer (2 tests) |
 | drawer | Open on load as a modal; backdrop click, not a click on its content; its close button and `Drawer:Close`; moved in the DOM open (still `:modal`) and closed (still closed, though rendered open) | E2E demo | recipe:drawer (5 tests; each failed with its fault planted: the `open` value ignored, the backdrop or every click ignored or closing, the close action emptied, the open state not kept or the `open` value preferred on reconnect). An open drawer moved by Turbo in a `data-turbo-permanent` element: lab.value-matrix |
@@ -543,5 +544,9 @@ a browser, so E2E lab, on the existing scaffold. G11 comes from *Rules and their
 Tier 2 (step 5) gates the key interactions on their counts (`counts`, [`TESTING.md`](TESTING.md), *Interaction
 counts*): the dropdown, modal and drawer opening and closing, the data table's sort, page and filter in a Turbo Frame
 and in Live, a Live action re-sorting rows, a date pick and typing in the editor. The "N visits" cells shown by their
-effect (and the T2 cells) are still to become Stimulus instance counts. Tier 3 (step 7) takes the
-overlays and editors × both themes (wide matrices), which this map marks T3.
+effect (and the T2 cells) are still to become Stimulus instance counts. Tier 3 (step 7, [`TESTING.md`](TESTING.md),
+*Release checks*) runs the overlay and editor specs again in the dark theme (the `smoke-dark@release` project), the
+heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) under harsh conditions (`harsh@release`),
+and random clicks, keys, Back, Forward and theme switches on the lab pages (`tests/e2e/release.fuzz.spec.ts`: no error,
+one controller per element), which switch the theme at random moments but assert no overlay's state after it: an
+overlay open while the theme switches, which this map marks T3, is not covered yet.

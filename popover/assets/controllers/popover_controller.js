@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
-import { follow, position } from '../lib/flowbite-xor-floating.js';
-import { isCachedCopy, isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
+import { follow, position } from '../lib/uxor-floating.js';
+import { isCachedCopy, isKeptOnCache } from '../lib/uxor-turbo.js';
 
 /**
  * Opens a `Popover`, a non-modal dialog anchored to its trigger: a click on the trigger toggles it,
@@ -178,7 +178,7 @@ export default class extends Controller {
     }
 
     /**
-     * Places the content next to the trigger with the kit's shared positioning (`assets/lib/flowbite-xor-floating.js`,
+     * Places the content next to the trigger with the kit's shared positioning (`assets/lib/uxor-floating.js`,
      * the `floating` recipe, as `Dropdown`), with `data-placement` for the final side: absolute, `translate(x, y)`,
      * offset, flip, shift along the trigger within the viewport.
      */

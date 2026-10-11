@@ -50,7 +50,7 @@ Free content anchored to a button: text, links or a small form, in a non-modal d
 - `placement` sets the side (`top`, `bottom`, `left`, `right`, optionally `-start` or `-end`). The content flips to the
   other side when it does not fit, shifts along the trigger to stay in the viewport, and follows the trigger on
   scroll and resize; `offsetDistance` is the gap in pixels (8). The final placement is in the content's
-  `data-placement`. The placing is the `floating` recipe's module (`assets/lib/flowbite-xor-floating.js`), shared with
+  `data-placement`. The placing is the `floating` recipe's module (`assets/lib/uxor-floating.js`), shared with
   `dropdown` and `tooltip`, which `ux:install popover` installs with it.
 - Popovers with the same `name` close each other.
 - `open` renders it open, without taking the focus.
@@ -71,7 +71,7 @@ anything else next to a control.
 
 Whether a `turbo:before-cache` leaves the popover as it is (a frame visit promoted to history, a
 `data-turbo-permanent` element) and whether it connects in a cached copy are answered by the `turbo` recipe's module
-(`assets/lib/flowbite-xor-turbo.js`), which `ux:install popover` installs with it.
+(`assets/lib/uxor-turbo.js`), which `ux:install popover` installs with it.
 
 ## Examples
 

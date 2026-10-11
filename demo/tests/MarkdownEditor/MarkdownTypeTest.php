@@ -2,8 +2,8 @@
 
 namespace App\Tests\MarkdownEditor;
 
-use App\FlowbiteXor\MarkdownEditor\MarkdownRenderer;
-use App\FlowbiteXor\MarkdownEditor\MarkdownType;
+use App\UXor\MarkdownEditor\MarkdownRenderer;
+use App\UXor\MarkdownEditor\MarkdownType;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Form\FormInterface;
 

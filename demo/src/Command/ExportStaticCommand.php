@@ -53,7 +53,7 @@ final class ExportStaticCommand
         SymfonyStyle $io,
         #[Argument(description: 'The directory to write the site to (emptied first)')]
         string $dir,
-        #[Option(description: 'The path the site is served under, e.g. /flowbite-xor')]
+        #[Option(description: 'The path the site is served under, e.g. /uxor')]
         string $basePath = '',
         #[Option(description: 'The release the site is built from, if it is one: the install commands then name it')]
         ?string $release = null,
@@ -64,7 +64,7 @@ final class ExportStaticCommand
     ): int {
         $basePath = rtrim($basePath, '/');
         if ('' !== $basePath && !preg_match('#^(/[A-Za-z0-9._-]+)+$#', $basePath)) {
-            $io->error(\sprintf('The base path "%s" is not a URL path like "/flowbite-xor".', $basePath));
+            $io->error(\sprintf('The base path "%s" is not a URL path like "/uxor".', $basePath));
 
             return Command::INVALID;
         }

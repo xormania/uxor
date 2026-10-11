@@ -16,7 +16,7 @@ A server-driven table: search, filters, sortable columns, a page size and pages,
 ::: installation
 
 Run `ux:install` from your project's root directory: besides its template, this recipe copies PHP classes into
-`src/FlowbiteXor/DataTable/`, in the `App\FlowbiteXor\DataTable` namespace. If your project's root namespace is not
+`src/UXor/DataTable/`, in the `App\UXor\DataTable` namespace. If your project's root namespace is not
 `App`, change the `namespace` and `use` lines of those files to match.
 
 ## Usage
@@ -31,10 +31,10 @@ page past the end loads the last one, and `loadRows()` runs once per request at 
 // src/Table/OrdersTable.php
 namespace App\Table;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\Filter;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableQuery;
 use Doctrine\ORM\QueryBuilder;
 
 final class OrdersTable extends AbstractDataTable
@@ -161,4 +161,4 @@ entry Back went to.
 Changing the search, a filter, the sort or the page size goes back to the first page.
 
 Whether a `turbo:before-cache` comes from a frame visit promoted to history (nothing is cancelled then) is answered by
-the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which `ux:install data-table` installs with it.
+the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install data-table` installs with it.

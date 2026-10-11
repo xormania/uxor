@@ -2,12 +2,12 @@
 
 namespace App\Tests\Editor;
 
-use App\FlowbiteXor\Editor\EditorHtmlPolicy;
+use App\UXor\Editor\EditorHtmlPolicy;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The editor's policy (editor/src/FlowbiteXor/Editor/EditorHtmlPolicy.php) on hostile and ordinary HTML: it keeps the
+ * The editor's policy (editor/src/UXor/Editor/EditorHtmlPolicy.php) on hostile and ordinary HTML: it keeps the
  * toolbar's preset, removes everything else, and gives the same output when run on its own output. The browser parses
  * the Editor component given a hostile value in tests/e2e/hostile-props.spec.ts.
  */
@@ -41,6 +41,9 @@ final class EditorHtmlPolicyTest extends TestCase
         yield 'tricks' => [self::TRICKS];
         yield 'empty' => [self::EMPTY];
         yield 'white space between blocks' => [self::INDENTED];
+        // found by MarkupPropertyTest (SEED=20261011): the unwrapped div left a heading inside a heading, which the next
+        // parse split, so the output was not its own output
+        yield 'a heading in an unwrapped block in a heading' => ['<h2><div><h2>x</h2></div></h2><h3><span><h2>y</h2></span></h3>'];
     }
 
     #[DataProvider('inputs')]
@@ -145,5 +148,19 @@ final class EditorHtmlPolicyTest extends TestCase
         self::assertSame(3, EditorHtmlPolicy::textLength((new EditorHtmlPolicy())->sanitize('<p>a<br>b</p>')));
         self::assertSame(3, EditorHtmlPolicy::textLength('<p>a<br/>b</p>'));
         self::assertSame(5, EditorHtmlPolicy::textLength('<p>a<BR>b<br>c</p>'));
+    }
+
+    /**
+     * Only an original input over MAX_INPUT_BYTES is refused: HTML under the limit whose sanitized form grows past it
+     * (each `&` written `&amp;`) comes back whole, never cut by a later pass.
+     */
+    public function testHtmlUnderTheLimitThatGrowsWhenEscapedComesBackWhole(): void
+    {
+        $count = EditorHtmlPolicy::MAX_INPUT_BYTES - 7;
+        $clean = (new EditorHtmlPolicy())->sanitize('<p>'.str_repeat('&', $count).'</p>');
+
+        self::assertGreaterThan(EditorHtmlPolicy::MAX_INPUT_BYTES, \strlen($clean), 'the output is longer than the limit');
+        self::assertSame($count, EditorHtmlPolicy::textLength($clean), 'every character of the text is kept');
+        self::assertStringEndsWith('</p>', $clean);
     }
 }

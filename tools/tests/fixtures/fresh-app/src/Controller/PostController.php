@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\FlowbiteXor\Editor\EditorType;
+use App\UXor\Editor\EditorType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

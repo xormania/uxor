@@ -5,6 +5,11 @@
 {% block navbar_nav %}{{ include('demo_app/_navbar_nav.html.twig') }}{% endblock %}
 {% block navbar_actions %}
     <twig:ThemeToggle />
+    {#- the demo's signed-in look: xor's mascot as the avatar -#}
+    <span class="flex items-center gap-2 text-sm font-medium text-heading">
+        <span class="xor-avatar size-9 shrink-0 rounded-full" aria-hidden="true"></span>
+        <span class="max-sm:sr-only">xormania</span>
+    </span>
     {%- if app.user %}
         {#- a POST form, not a link (Turbo prefetches links on hover), with the `logout` token in a field that
             csrf_protection_controller.js double-submits, like the login form's -#}

@@ -40,5 +40,5 @@ The region is a polite live region, so new toasts are announced (`danger` ones i
 A closed toast fades out (`opacity`), then leaves the page; under `prefers-reduced-motion` it leaves at once.
 
 Whether a toast connects in a cached copy of the page, and whether it sits in a `data-turbo-permanent` region, are
-answered by the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which `ux:install toast` installs with
+answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install toast` installs with
 it.
