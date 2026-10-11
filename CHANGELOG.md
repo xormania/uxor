@@ -5,6 +5,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-11
+
 ### Added
 
 - `data-table`: a server-driven table (search, filters, sortable columns, page size, pages) in a Turbo Frame, with
@@ -150,6 +152,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   attribute, which a Content Security Policy blocks.
 - The docs no longer track the official `flowbite-4` kit, an initial reference only: `UPSTREAM.md` is removed, and
   its notes on toolkit and platform behavior moved to `docs/NOTES.md`. `NOTICE` keeps the credit.
+- `README.md` is a short introduction: what the kit is, how to install it, its requirements. The recipe list moved
+  to `docs/RECIPES.md`, and the updating, Turbo and Live Components, security and versioning sections to
+  `docs/GUIDE.md`.
 
 ### Fixed
 
@@ -184,9 +189,6 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
-- `README.md` is a short introduction: what the kit is, how to install it, its requirements. The recipe list moved
-  to `docs/RECIPES.md`, and the updating, Turbo and Live Components, security and versioning sections to
-  `docs/GUIDE.md`.
 
 ## [0.1.0] - 2026-10-06
 
@@ -205,5 +207,6 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/xormania/uxor/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/xormania/uxor/releases/tag/0.1.0
