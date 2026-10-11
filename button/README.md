@@ -23,6 +23,9 @@ Use the button component inside forms, as links, social login, payment options w
 
 When `as="a"`, `href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
 
+Keyboard focus shows a 2px `brand-medium` outline 2px away from the button, the same on every variant, at 3:1 or
+more against the page in both themes; a mouse click shows none (`:focus-visible`).
+
 ```twig
 <twig:Button
     variant="brand | secondary | tertiary | success | danger | warning | dark | ghost | outline | outline-brand | outline-success | outline-danger | outline-warning"
