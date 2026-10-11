@@ -90,16 +90,19 @@ unchecked. On top of escaping, the components check what shapes their markup:
   `a`; `Avatar:GroupCount` `div`, `a`, `button`; `Card:Title` `span`, `div`, `p`, `h1`–`h6`; `Dropdown:Item` `a`,
   `button`; `FormField` `div`, `fieldset`. Any other value renders the default tag, without an error:
   `<twig:Button as="label">` is a `button`.
-- **Link props.** The links of this kit's own recipes (`Breadcrumb:Item`, `Sidebar:Item`, `SideNav:Item` and `SectionNav:Item` `href`, `LoginForm`
-  `forgotPasswordHref` and `signupHref`, `ForgotPasswordForm` and `SignupForm` `loginHref`, `NotFound` `homeHref`)
+- **Link props.** The links of this kit's own recipes (`Button`, `Badge`, `Breadcrumb:Item`, `Dropdown:Item`,
+  `Pagination:Link`, `Sidebar:Item`, `SideNav:Item`, `SectionNav:Item` and `NavMenu:Link` `href`, `LoginForm`
+  `forgotPasswordHref` and `signupHref`, `ForgotPasswordForm` and `SignupForm` `loginHref`, and `NotFound` `homeHref`)
   keep a relative, `http(s)`, `mailto` or `tel` URL, read as browsers read it (in any case, after leading spaces and
   control characters, with tabs and newlines inside). Any other scheme, `javascript:` and `data:` but also `sms:` or
   an app's `slack://`, silently renders `#`, and a sidebar, side nav or section nav item linking to `#` is never marked as the current page.
   The value is printed as text, even a `Markup` one (`|raw`).
+- **Image props.** `Avatar:Image` keeps a relative or `http(s)` `src`; another scheme renders no `src`, so the
+  fallback stays shown.
 - **Attributes.** Attributes given to a component, and `FormField`'s `labelAttr` and `helpAttr`, render with escaped
   names and values: a name cannot add another attribute. Otherwise they render as given, an `on…` handler or an
-  `href` included. URLs given as attributes are not checked: the `href` of `Button` or `Badge`
-  with `as="a"`, of `Dropdown:Item` and of `Pagination:Link`, and the `src` of `Avatar:Image`. Check those yourself.
+  `href` included. The URL attributes named above become guarded props; another component's URL attribute is not
+  checked. Check attributes not declared as props yourself.
 - **Content Security Policy.** The components print no inline script, style or event handler, so they work under a
   strict policy (nonces and `'strict-dynamic'`, no `'unsafe-inline'`). The layouts print their inline script and the
   importmap with your nonces: see *Content Security Policy* in [`layouts/README.md`](../layouts/README.md).

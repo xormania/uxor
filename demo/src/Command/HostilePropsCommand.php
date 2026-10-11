@@ -13,8 +13,8 @@ use Twig\TemplateWrapper;
 /**
  * Renders the components whose props shape the markup with hostile and ordinary values, as JSON, for
  * tests/e2e/hostile-props.spec.ts: the `as` tag of six components, the attribute names of FormField's
- * `labelAttr` and `helpAttr`, the nine link props of the kit's own recipes, and the Calendar's dates, modifier
- * names and hidden-input attributes. Every value is a constant of
+ * `labelAttr` and `helpAttr`, every guarded link and image prop, and the Calendar's dates, modifier names and
+ * hidden-input attributes. Every value is a constant of
  * this class, never request data; the spec loads each rendering in the browser and checks what it parsed.
  */
 #[AsCommand('app:hostile-props', description: 'Renders the components with hostile prop values, as JSON')]
@@ -57,7 +57,11 @@ final class HostilePropsCommand
      * block), the text of the link it renders, and the recipe whose preview form the block takes.
      */
     private const URL_PROPS = [
+        ['Button', 'href', '<twig:Button as="a" :href="value">Button</twig:Button>', 'Button', null],
+        ['Badge', 'href', '<twig:Badge as="a" :href="value">Badge</twig:Badge>', 'Badge', null],
         ['Breadcrumb:Item', 'href', '<ol><twig:Breadcrumb:Item :href="value">Level</twig:Breadcrumb:Item></ol>', 'Level', null],
+        ['Dropdown:Item', 'href', '<ul role="menu"><twig:Dropdown:Item :href="value">Item</twig:Dropdown:Item></ul>', 'Item', null],
+        ['Pagination:Link', 'href', '<twig:Pagination><twig:Pagination:Content><twig:Pagination:Item><twig:Pagination:Link :href="value">Page</twig:Pagination:Link></twig:Pagination:Item></twig:Pagination:Content></twig:Pagination>', 'Page', null],
         ['Sidebar:Item', 'href', '<ul><twig:Sidebar:Item :href="value">Item</twig:Sidebar:Item></ul>', 'Item', null],
         ['SideNav:Item', 'href', '<ul role="tree" aria-label="Tree"><twig:SideNav:Item :href="value">Item</twig:SideNav:Item></ul>', 'Item', null],
         ['SectionNav:Item', 'href', '<ul><twig:SectionNav:Item :href="value">Item</twig:SectionNav:Item></ul>', 'Item', null],
@@ -67,6 +71,11 @@ final class HostilePropsCommand
         ['ForgotPasswordForm', 'loginHref', '<twig:ForgotPasswordForm :form="form" :loginHref="value" />', 'Back to sign in', 'forgot-password'],
         ['SignupForm', 'loginHref', '<twig:SignupForm :form="form" :loginHref="value" />', 'Sign in', 'signup'],
         ['NotFound', 'homeHref', '<twig:NotFound :homeHref="value" />', 'Back to the homepage', null],
+    ];
+
+    /** Each guarded image prop => its markup (`value`: the URL). */
+    private const IMAGE_PROPS = [
+        ['Avatar:Image', 'src', '<twig:Avatar><twig:Avatar:Image :src="value" data-testid="root" /><twig:Avatar:Fallback>A</twig:Avatar:Fallback></twig:Avatar>'],
     ];
 
     /** A Sidebar on the page at this path: its current item, an item whose link is rejected, a `#` item. */
@@ -104,6 +113,7 @@ final class HostilePropsCommand
             'tags' => $this->tags(),
             'attributes' => $this->attributes(),
             'urls' => $this->urls(),
+            'images' => $this->images(),
             'calendar' => $this->calendar(),
             'editor' => $this->editor(),
             'markdown' => $this->markdown(),
@@ -234,6 +244,28 @@ final class HostilePropsCommand
                     'text' => (string) $value,
                     'hostile' => $hostile,
                     'html' => $this->render($markup, $context),
+                ];
+            }
+        }
+
+        return $cases;
+    }
+
+    /**
+     * @return list<array{component: string, prop: string, input: string, text: string, html: string}>
+     */
+    private function images(): array
+    {
+        $values = [...self::hostileUrls(), ...self::ordinaryUrls()];
+        $cases = [];
+        foreach (self::IMAGE_PROPS as [$component, $prop, $markup]) {
+            foreach ($values as $value) {
+                $cases[] = [
+                    'component' => $component,
+                    'prop' => $prop,
+                    'input' => self::describe($value),
+                    'text' => (string) $value,
+                    'html' => $this->render($markup, ['value' => $value]),
                 ];
             }
         }

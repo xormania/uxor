@@ -14,10 +14,12 @@ import { test, expect } from './fixtures';
  */
 type TagCase = { component: string; input: string; expected: string; html: string };
 type UrlCase = { component: string; prop: string; link: string; input: string; text: string; hostile: boolean; html: string };
+type ImageCase = { component: string; prop: string; input: string; text: string; html: string };
 type Cases = {
     tags: TagCase[];
     attributes: { expected: Record<string, string>; absent: string[]; html: string };
     urls: UrlCase[];
+    images: ImageCase[];
     calendar: { html: string };
     chart: { html: string };
     editor: { html: string };
@@ -47,6 +49,7 @@ type Parsed = {
     root: { tag: string; type: string | null } | null;
     legends: number;
     links: { href: string | null; protocol: string }[];
+    image: { src: string | null; protocol: string } | null;
     textProtocol: string;
 };
 
@@ -81,6 +84,7 @@ async function parse(page: Page, html: string, link = '', text = ''): Promise<Pa
                 links: [...document.querySelectorAll('a')]
                     .filter((a) => a.textContent?.trim() === link)
                     .map((a) => ({ href: a.getAttribute('href'), protocol: a.protocol })),
+                image: root instanceof HTMLImageElement ? { src: root.getAttribute('src'), protocol: root.src ? new URL(root.src).protocol : '' } : null,
                 textProtocol,
             };
         },
@@ -179,6 +183,38 @@ test('link props keep only relative, http(s), mailto and tel URLs', async ({ pag
             }
             if (href !== expectedHref) {
                 problems.push(`href ${JSON.stringify(href)}, expected ${JSON.stringify(expectedHref)}`);
+            }
+        }
+        if (found.handlers.length) {
+            problems.push(`adds handlers ${found.handlers.join(', ')}`);
+        }
+        if (null !== found.ran) {
+            problems.push(`ran a payload (${found.ran})`);
+        }
+        if (problems.length) {
+            failures.push(`${component} ${prop}=${input}: ${problems.join('; ')}`);
+        }
+    }
+
+    expect(failures).toEqual([]);
+    expect(dialogs).toEqual([]);
+});
+
+test('image props keep only relative and http(s) URLs', async ({ page }) => {
+    const dialogs = recordDialogs(page);
+    const failures: string[] = [];
+    for (const { component, prop, input, text, html } of cases.images) {
+        const found = await parse(page, `<base href="${BASE}">${html}`, '', text);
+        const expectedSrc = ['http:', 'https:'].includes(found.textProtocol) ? text : null;
+        const problems: string[] = [];
+        if (null === found.image) {
+            problems.push('renders no image');
+        } else {
+            if (found.image.src !== expectedSrc) {
+                problems.push(`src ${JSON.stringify(found.image.src)}, expected ${JSON.stringify(expectedSrc)}`);
+            }
+            if (null !== expectedSrc && !['http:', 'https:'].includes(found.image.protocol)) {
+                problems.push(`loads ${found.image.protocol}`);
             }
         }
         if (found.handlers.length) {

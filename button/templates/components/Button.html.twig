@@ -6,9 +6,13 @@
     ## 'rounded'|'pill' The badge shape.
     shape = 'rounded',
     ## 'button'|'a' The HTML tag to render; any other value renders a `button`.
-    as = 'button'
+    as = 'button',
+    ## string|null The link when `as="a"`; a URL other than relative, http(s), mailto or tel renders `#`.
+    href = null
 -%}
 {%- set as = as|lower in ['button', 'a'] ? as|lower : 'button' -%}
+{#- Read links as browsers do: ignore leading spaces/C0 controls and tabs/newlines in a scheme. -#}
+{%- set _href = href is not null ? ((href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#') : null -%}
 {%- set style = html_cva(
     base: 'inline-flex items-center justify-center box-border border border-transparent font-medium focus:ring-4 focus:outline-none shadow-xs',
     variants: {
@@ -44,6 +48,7 @@
     },
 ) -%}
 <{{ as }}
+    {%- if as == 'a' and _href is not null %} href="{{ _href }}"{% endif %}
     {{ attributes.defaults({
         class: style.apply({variant: variant, size: size, shape: shape})|tailwind_classes,
     }) }}

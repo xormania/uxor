@@ -5,6 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Fixed
+
+- `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe
+  scheme cannot be introduced through their `href` or `src` attributes.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added

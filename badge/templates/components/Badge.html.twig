@@ -8,9 +8,13 @@
     ## 'none'|'bordered' The badge border.
     border = 'none',
     ## 'div'|'span'|'a' The HTML tag to render; any other value renders a `div`.
-    as = 'div'
+    as = 'div',
+    ## string|null The link when `as="a"`; a URL other than relative, http(s), mailto or tel renders `#`.
+    href = null
 -%}
 {%- set as = as|lower in ['div', 'span', 'a'] ? as|lower : 'div' -%}
+{#- Read links as browsers do: ignore leading spaces/C0 controls and tabs/newlines in a scheme. -#}
+{%- set _href = href is not null ? ((href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#') : null -%}
 {%- set style = html_cva(
     base: 'inline-flex items-center justify-center font-medium',
     variants: {
@@ -38,6 +42,7 @@
 
 ) -%}
 <{{ as }}
+    {%- if as == 'a' and _href is not null %} href="{{ _href }}"{% endif %}
     {{ attributes.defaults({
         class: style.apply({variant: variant, size: size, shape: shape, border: border})|tailwind_classes,
     }) }}
