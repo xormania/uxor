@@ -32,8 +32,12 @@ demo's Docker setup comes from. `CONTRIBUTING.md` points here for the details.
 ## Screenshots
 
 Playwright takes and compares the screenshots in the `mcr.microsoft.com/playwright:v1.58.2-noble` image
-(`playwright.config.ts`), so they do not depend on the machine's fonts. Dependabot leaves that image alone: bump it
-by hand, together with the baselines it changes.
+(`playwright.config.ts`), so they do not depend on the machine's fonts. The image is pinned by digest in
+`tools/playwright-image.json`, read by `playwright.config.ts` and the workflows' `docker pull`, so the browser does not
+change when Microsoft republishes the tag. Dependabot leaves `@playwright/test` and the image alone: bump the package
+by hand, then run `node tools/playwright-image.mjs --refresh` (it reads the new tag's digest from the registry, pulls
+nothing) and commit the new pin with the baselines it changes. Until then *Tool tests* and the browser jobs fail: the
+pinned tag must be the version `package-lock.json` locks (`tools/tests/playwright-image.test.mjs`).
 
 ## Symfony Docker (demo only)
 
@@ -50,3 +54,4 @@ images refuse the template's Mercure configuration. Update with the template's o
 | `demo/compose.override.yaml` | mounts the whole repository at `/app` and runs the demo from `/app/demo` (`working_dir`, the `var/` volume, `SERVER_ROOT`) | the demo reads the kit from its parent directory (`app.kit_dir`), its stylesheet imports `kit.css` and scans the kit by relative path, and `tools/sync-demo` runs in the container |
 | `demo/frankenphp/Caddyfile` | `root {$SERVER_ROOT:/app/public}` (was `root /app/public`) | the demo's public directory is `/app/demo/public` in development; the image keeps `/app/public` |
 | `demo/compose.yaml` | ports published on `127.0.0.1` only (`host_ip`) | the demo runs in development, with an open Mercure hub and the template's default JWT key: it must not answer on the machine's other network interfaces |
+| `demo/Dockerfile` | `dunglas/frankenphp:1-php8.5` and `debian:13-slim` pinned by digest (`FROM <image>:<tag>@sha256:…`) | the demo builds from the same base images until a Dependabot pull request (`.github/dependabot.yml`, `docker`) moves the digest, instead of whatever the moving tag points to that day; a `template-sync` that changes these lines must keep the digests |
