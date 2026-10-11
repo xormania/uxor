@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to flowbite-xor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+All notable changes to UXor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y.Z`, no `v`).
 
 ## [Unreleased]
@@ -8,7 +8,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 ### Added
 
 - `data-table`: a server-driven table (search, filters, sortable columns, page size, pages) in a Turbo Frame, with
-  the PHP classes a table extends (`AbstractDataTable`) copied into `src/FlowbiteXor/DataTable/`. A table counts its
+  the PHP classes a table extends (`AbstractDataTable`) copied into `src/UXor/DataTable/`. A table counts its
   rows (`countRows()`), then loads one page once (`loadRows()`); no page starts past `maxRows()` rows (10,000), so a
   request never makes the database skip more. `Filter::choice()` takes `array<int|string, string>` choices. Back and
   Forward walk every state, and the `data-table` controller makes the form show the URL's state in every field; Back
@@ -63,18 +63,18 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   sideways, with the current section in view, on small ones. Its current-link marking is the `navigation` recipe's
   module, which it installs with it.
 - `floating`: the positioning that `dropdown`, `popover` (so `date-picker`) and `tooltip` share, one JavaScript
-  module (`assets/lib/flowbite-xor-floating.js`) that those recipes install with them: placement, flip, shift into
+  module (`assets/lib/uxor-floating.js`) that those recipes install with them: placement, flip, shift into
   the viewport, following the trigger on scroll and resize.
 - `turbo`: what the recipes ask about Turbo's copies of a page, one JavaScript module
-  (`assets/lib/flowbite-xor-turbo.js`) that the recipes using it install with them: whether a `turbo:before-cache`
+  (`assets/lib/uxor-turbo.js`) that the recipes using it install with them: whether a `turbo:before-cache`
   comes from a frame visit promoted to history, whether an element is `data-turbo-permanent`, and whether a controller
   connects in a cached copy.
-- `navigation`: what the navigation recipes share, one JavaScript module (`assets/lib/flowbite-xor-navigation.js`):
+- `navigation`: what the navigation recipes share, one JavaScript module (`assets/lib/uxor-navigation.js`):
   marking the current page's link, giving the rendered `aria-current` back, whether a click on a link navigates this
   tab, closing a navigation opened over the page when the screen grows.
 - `theme`: chart series roles `chart-1` to `chart-6` and `chart-other`, checked for contrast in both themes.
 - A gallery of every recipe and every example of its README, light and dark, with its code and install command, on
-  GitHub Pages (<https://xormania.github.io/flowbite-xor/>), published with each release.
+  GitHub Pages (<https://xormania.github.io/uxor/>), published with each release.
 - `FOR-AGENTS.md`, a page for the coding agent given the repository's URL (setup, which recipe for what, the rules,
   every recipe), and `llms.txt`, every page with one line, linking the files of this release. Both are written from
   `README.md`'s recipe tables and checked in CI.
@@ -82,9 +82,33 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Changed
 
-- Installing without a version (`--kit=https://github.com/xormania/flowbite-xor`) installs `main`, which now holds
-  the last release only; `--kit=https://github.com/xormania/flowbite-xor:dev` installs the work merged since.
-- `theme`: on-fill roles in `flowbite-xor.css`, the color of text on a solid fill (`fg-on-brand`, `fg-on-success`,
+- **Breaking:** the kit is now UXor, at <https://github.com/xormania/uxor> (gallery:
+  <https://xormania.github.io/uxor/>). `ux:install … --kit=` commands that name the old repository
+  (`xormania/flowbite-xor`) stop working: the toolkit expects GitHub's archive to hold a folder named
+  `<repository>-<version>`, and after the rename GitHub names it `uxor-<version>`. Reinstall with
+  `--kit=https://github.com/xormania/uxor` (or `…/uxor:<version>`). The kit's own names change with it:
+  - `theme`: `assets/styles/flowbite-xor.css` is now `assets/styles/uxor.css`. In `assets/styles/app.css`, replace
+    `@import './flowbite-xor.css';` with `@import './uxor.css';`, then delete the old file (it is yours, so carry
+    any change you made to it over first).
+  - `autocomplete`, `dropzone`, `editor`: `assets/styles/flowbite-xor-autocomplete.css`, `flowbite-xor-dropzone.css`
+    and `flowbite-xor-editor.css` are now `uxor-autocomplete.css`, `uxor-dropzone.css` and `uxor-editor.css`: change
+    their `@import` in `app.css` the same way. The spinner's keyframes `flowbite-xor-autocomplete-spin` are now
+    `uxor-autocomplete-spin`.
+  - `floating`, `turbo`, `navigation`: `assets/lib/flowbite-xor-floating.js`, `flowbite-xor-turbo.js` and
+    `flowbite-xor-navigation.js` are now `uxor-floating.js`, `uxor-turbo.js` and `uxor-navigation.js`; the recipes'
+    controllers import the new names. A controller of your own that imports `../lib/flowbite-xor-<name>.js` imports
+    `../lib/uxor-<name>.js`.
+  - PHP: the namespace `App\FlowbiteXor\…` is now `App\UXor\…`, copied into `src/UXor/` instead of
+    `src/FlowbiteXor/` (`data-table`, `data-table-live`, `editor`, `markdown-editor`). Replace every
+    `use App\FlowbiteXor\` with `use App\UXor\` (tables extending `AbstractDataTable` or `AbstractLiveDataTable`,
+    forms using `EditorType` or `MarkdownType`), then delete `src/FlowbiteXor/`.
+
+  0.1.0 shipped only the theme's stylesheet under its old name; the other files above were renamed before their
+  first release and matter only to a project that installed them from `dev`. After reinstalling, delete the old
+  files, which `ux:install` does not remove.
+- Installing without a version (`--kit=https://github.com/xormania/uxor`) installs `main`, which now holds
+  the last release only; `--kit=https://github.com/xormania/uxor:dev` installs the work merged since.
+- `theme`: on-fill roles in `uxor.css`, the color of text on a solid fill (`fg-on-brand`, `fg-on-success`,
   `fg-on-danger`, `fg-on-warning`, `fg-on-dark`) and of the toggle's knob (`knob`). All are white, so nothing looks
   different, and a project with a light brand color can set `fg-on-brand` to a dark one. `button`, `indicator`,
   `calendar`, `tabs` (pill), `tooltip`, `avatar` (group count) and `toggle` use them instead of `text-white` and
@@ -96,7 +120,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without waiting for the fade, and
   the `spinner` and the `skeleton` pulse run three times slower.
 - `dropdown` and `tooltip` place their content with the `floating` recipe's module instead of a copy each, and depend
-  on that recipe (`ux:install` adds `assets/lib/flowbite-xor-floating.js`). Where they place it does not change.
+  on that recipe (`ux:install` adds `assets/lib/uxor-floating.js`). Where they place it does not change.
 - `dropdown`, `modal`, `drawer`, `toast` and `layouts` (`form-reset`) use the `turbo` recipe's module instead of a
   copy of its checks each, and `sidebar` the `navigation` recipe's; each depends on that recipe (`ux:install` adds the
   module). What they do does not change.
@@ -181,5 +205,5 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/flowbite-xor/compare/0.1.0...HEAD
-[0.1.0]: https://github.com/xormania/flowbite-xor/releases/tag/0.1.0
+[Unreleased]: https://github.com/xormania/uxor/compare/0.1.0...HEAD
+[0.1.0]: https://github.com/xormania/uxor/releases/tag/0.1.0

@@ -195,7 +195,8 @@ jobs:
     # test runs. The fresh-install jobs still download for themselves: that is what they check.
     # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
     # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
-    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again.
+    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Then the name check, here
+    # because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
     tools:
         name: Tool tests
         runs-on: ubuntu-latest
@@ -209,6 +210,9 @@ jobs:
 
             - name: The tools' own cases
               run: node --test 'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
+            - name: Every URL of the kit's repository is manifest.json's homepage
+              run: node tools/name-check.mjs
 
     importmap:
         name: Importmap packages
@@ -343,7 +347,7 @@ jobs:
                   composer require --no-interaction --no-progress "phpstan/phpstan:${PHPSTAN_VERSION}" \
                       "phpstan/phpstan-symfony:${PHPSTAN_SYMFONY_VERSION}" "phpstan/phpstan-phpunit:${PHPSTAN_PHPUNIT_VERSION}"
 
-            # The demo's autoloader maps App\FlowbiteXor\… to the recipes' own src/ (demo/composer.json).
+            # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).
             - name: PHPStan
               run: |
                   (cd demo && bin/console cache:warmup --env=test)
@@ -377,7 +381,7 @@ jobs:
                   path: demo/assets/vendor
 
             - name: Build and check the static site
-              run: tools/build-static.sh _site --base-path=/flowbite-xor
+              run: tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}"
 
     fresh-install:
         name: Fresh install
@@ -438,7 +442,7 @@ jobs:
               run: node tools/contrast/check.mjs
 
             - name: The theme recipe ships kit.css unchanged
-              run: cmp kit.css theme/assets/styles/flowbite-xor.css
+              run: cmp kit.css theme/assets/styles/uxor.css
 
             - name: llms.txt matches docs/RECIPES.md's recipe tables
               run: node tools/llms-txt.mjs --check

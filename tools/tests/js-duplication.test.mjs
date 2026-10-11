@@ -72,7 +72,7 @@ test("the kit's recipes are within the budget, and declare no shared name again"
 
 test("a copy of a shared module's code pasted into a recipe fails the kit", () => {
     const scripts = loadRecipeScripts(root);
-    const module = scripts.files['navigation/assets/lib/flowbite-xor-navigation.js'];
+    const module = scripts.files['navigation/assets/lib/uxor-navigation.js'];
     assert.ok(module, 'loadRecipeScripts reads the shared modules');
     const body = module.slice(module.indexOf('    const path'), module.indexOf('\n}\n', module.indexOf('export function markCurrentLinks')));
     scripts.files['sidebar/assets/controllers/sidebar_controller.js'] += `\nfunction marking(links) {\n${body}\n}\n`;

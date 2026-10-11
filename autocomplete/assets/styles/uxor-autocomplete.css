@@ -1,6 +1,6 @@
 /*
  * UX Autocomplete's Tom Select, styled with the theme's color roles. Replaces tom-select.default.css: set its
- * autoimport to false in assets/controllers.json, and import this file after flowbite-xor.css.
+ * autoimport to false in assets/controllers.json, and import this file after uxor.css.
  *
  * Tom Select hides the <select> and puts a .ts-wrapper after it, carrying the select's classes (the kit's Select
  * styles: background, border, padding, radius). The wrapper is the box; .ts-control, inside it, holds the selected
@@ -197,10 +197,10 @@ select[aria-invalid='true'] + .ts-wrapper.focus,
     border: 2px solid var(--color-default-medium);
     border-top-color: var(--color-brand);
     border-radius: 9999px;
-    animation: flowbite-xor-autocomplete-spin 0.8s linear infinite;
+    animation: uxor-autocomplete-spin 0.8s linear infinite;
 }
 
-@keyframes flowbite-xor-autocomplete-spin {
+@keyframes uxor-autocomplete-spin {
     to {
         transform: rotate(360deg);
     }

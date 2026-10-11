@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\DataTable;
+namespace App\UXor\DataTable;
 
 use Symfony\Component\HttpFoundation\Exception\BadRequestException;
 use Symfony\Component\HttpFoundation\Request;

@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isPermanent, isPromotedFrameCache } from '../lib/flowbite-xor-turbo.js';
+import { isPermanent, isPromotedFrameCache } from '../lib/uxor-turbo.js';
 
 // through the prototype: a field named `method` shadows the form's own
 const methodOf = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'method').get;

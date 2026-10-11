@@ -2,12 +2,12 @@
 
 namespace App\Tests\Editor;
 
-use App\FlowbiteXor\Editor\EditorHtmlPolicy;
+use App\UXor\Editor\EditorHtmlPolicy;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The editor's policy (editor/src/FlowbiteXor/Editor/EditorHtmlPolicy.php) on hostile and ordinary HTML: it keeps the
+ * The editor's policy (editor/src/UXor/Editor/EditorHtmlPolicy.php) on hostile and ordinary HTML: it keeps the
  * toolbar's preset, removes everything else, and gives the same output when run on its own output. The browser parses
  * the Editor component given a hostile value in tests/e2e/hostile-props.spec.ts.
  */

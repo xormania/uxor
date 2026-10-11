@@ -8,6 +8,7 @@ use Symfony\Component\Filesystem\Path;
 use Symfony\Component\String\Slugger\AsciiSlugger;
 use Symfony\UX\Toolkit\Kit\Kit;
 use Symfony\UX\Toolkit\Kit\KitFactory;
+use Symfony\UX\Toolkit\Kit\KitManifest;
 use Symfony\UX\Toolkit\Kit\KitSynchronizer;
 use Symfony\UX\Toolkit\Recipe\Recipe;
 use Symfony\UX\Toolkit\Recipe\RecipeSynchronizer;
@@ -20,6 +21,7 @@ use Symfony\UX\Toolkit\Recipe\RecipeSynchronizer;
 final class KitReader
 {
     private ?Kit $kit = null;
+    private ?KitManifest $manifest = null;
 
     public function __construct(
         #[Autowire('%app.kit_dir%')]
@@ -36,6 +38,16 @@ final class KitReader
         }
 
         return $this->kit;
+    }
+
+    /**
+     * The kit's manifest.json alone, without loading its recipes: the name and repository every page prints
+     * (templates/base.html.twig, through the `kit_reader` Twig global).
+     */
+    public function getManifest(): KitManifest
+    {
+        return $this->manifest ??= $this->kit?->manifest
+            ?? KitManifest::fromJson((new Filesystem())->readFile(Path::join($this->kitDir, 'manifest.json')));
     }
 
     /**

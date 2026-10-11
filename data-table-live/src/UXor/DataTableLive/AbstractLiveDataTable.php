@@ -1,10 +1,10 @@
 <?php
 
-namespace App\FlowbiteXor\DataTableLive;
+namespace App\UXor\DataTableLive;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
-use App\FlowbiteXor\DataTable\DataTableView;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\DataTableView;
+use App\UXor\DataTable\TableQuery;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;
 use Symfony\UX\LiveComponent\Attribute\LiveArg;
 use Symfony\UX\LiveComponent\Attribute\LiveProp;

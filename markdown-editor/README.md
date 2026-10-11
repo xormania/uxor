@@ -20,11 +20,11 @@ Then run the `composer require` command `ux:install` prints: `league/commonmark`
 
 ## Usage
 
-In a Symfony form, use the recipe's `MarkdownType` (copied into `src/FlowbiteXor/MarkdownEditor/`). The form theme
+In a Symfony form, use the recipe's `MarkdownType` (copied into `src/UXor/MarkdownEditor/`). The form theme
 renders it, its data is the Markdown source, and too long is an error, never a cut:
 
 ```php
-use App\FlowbiteXor\MarkdownEditor\MarkdownType;
+use App\UXor\MarkdownEditor\MarkdownType;
 use Symfony\Component\Validator\Constraints as Assert;
 
 $builder->add('body', MarkdownType::class, [

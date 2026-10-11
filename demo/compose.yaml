@@ -22,7 +22,7 @@ services:
     volumes:
       - caddy_data:/data
       - caddy_config:/config
-    # flowbite-xor: published on loopback only; the demo runs in development, with an open Mercure hub
+    # UXor: published on loopback only; the demo runs in development, with an open Mercure hub
     ports:
       - name: http
         target: 80

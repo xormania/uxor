@@ -62,7 +62,7 @@ focus is inside it (text typed before the page's scripts ran) and inside a `data
 the same attribute on `<body>`.
 
 `form-reset` leaves a form inside a `data-turbo-permanent` element alone with the check of the `turbo` recipe's module
-(`assets/lib/flowbite-xor-turbo.js`), which `ux:install layouts` installs with it.
+(`assets/lib/uxor-turbo.js`), which `ux:install layouts` installs with it.
 
 ## Content Security Policy
 

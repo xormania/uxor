@@ -1,14 +1,14 @@
 # For agents
 
-You are a coding agent, and your human just gave you this repository's URL. This page tells you what flowbite-xor
+You are a coding agent, and your human just gave you this repository's URL. This page tells you what UXor
 gives you, how to set a Symfony project up for it, and how to build pages with it while writing as little code as
 possible. The same text, as plain markdown:
-<https://raw.githubusercontent.com/xormania/flowbite-xor/main/FOR-AGENTS.md>. Every page of the kit, with one line
+<https://raw.githubusercontent.com/xormania/uxor/main/FOR-AGENTS.md>. Every page of the kit, with one line
 each: [`llms.txt`](llms.txt).
 
 ## What you get
 
-flowbite-xor is a [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
+UXor is a [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
 components, Stimulus controllers, a form theme, page layouts and blocks (ready-made parts of a page), styled with
 Flowbite v4 and Tailwind CSS v4. Each one is a recipe: `php bin/console ux:install <recipe>` copies its files into
 the project, which then owns them.
@@ -34,7 +34,7 @@ composer require symfony/asset-mapper symfony/stimulus-bundle
 composer require symfonycasts/tailwind-bundle
 php bin/console tailwind:init          # keep Tailwind's major version 4
 php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
-php bin/console ux:install theme --kit=https://github.com/xormania/flowbite-xor
+php bin/console ux:install theme --kit=https://github.com/xormania/uxor
 ```
 
 Then make `assets/styles/app.css` start with these imports, in this order:
@@ -42,7 +42,7 @@ Then make `assets/styles/app.css` start with these imports, in this order:
 ```css
 @import 'tailwindcss';
 @import '../vendor/flowbite/dist/flowbite.min.css';
-@import './flowbite-xor.css';
+@import './uxor.css';
 ```
 
 Keep `php bin/console tailwind:build --watch` running while you work, or run `tailwind:build` after each change.
@@ -56,7 +56,7 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
    `composer require` command: run it.
 
    ```bash
-   php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor
+   php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
    ```
 
 3. Read the recipe's README before using it: `<recipe>/README.md` in this repository.
@@ -118,8 +118,8 @@ Every recipe, as [`docs/RECIPES.md`](docs/RECIPES.md) lists it:
 | [`breadcrumb`](breadcrumb/README.md) | A trail of links showing where the current page sits in the site hierarchy. |
 | [`calendar`](calendar/README.md) | Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a `model` prop for Live Components. |
 | [`chart`](chart/README.md) | Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or `ChartBuilderInterface`, updated in place by Live Components. |
-| [`data-table`](data-table/README.md) | A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/FlowbiteXor/`. |
-| [`data-table-live`](data-table-live/README.md) | `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/FlowbiteXor/`. |
+| [`data-table`](data-table/README.md) | A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/UXor/`. |
+| [`data-table-live`](data-table-live/README.md) | `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/UXor/`. |
 | [`date-picker`](date-picker/README.md) | A date or a range picked in a calendar that opens from a button or a typed field; a `DateType` opts in through the form theme. |
 | [`drawer`](drawer/README.md) | A panel sliding over one side of the page, for navigation, filters or details, as a native `<dialog>`. |
 | [`empty-state`](empty-state/README.md) | What a list or page shows when it has nothing yet, with a way forward. |
@@ -215,7 +215,7 @@ Recipes are copies the project owns. Commit first, then reinstall from a newer v
 `git diff`:
 
 ```bash
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor:<version> --force
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
 Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](CHANGELOG.md)). Without a version, `ux:install` takes `main`, the last
@@ -231,6 +231,6 @@ release; `:dev` takes the work merged since.
 | A recipe's props and examples | `<recipe>/README.md` |
 | Each setup step explained | [`INSTALL.md`](INSTALL.md) |
 | Turbo, Live Components, security | [`docs/GUIDE.md`](docs/GUIDE.md#turbo-and-live-components) |
-| Every example rendered, light and dark | <https://xormania.github.io/flowbite-xor/> |
+| Every example rendered, light and dark | <https://xormania.github.io/uxor/> |
 | Testing an app built with the kit (Turbo, Live, CSP, request limits) | [`docs/TESTING.md`](docs/TESTING.md) |
 | Changing the kit itself | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md) |

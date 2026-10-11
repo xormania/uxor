@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\MarkdownEditor;
+namespace App\UXor\MarkdownEditor;
 
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 use Symfony\UX\LiveComponent\Attribute\LiveAction;

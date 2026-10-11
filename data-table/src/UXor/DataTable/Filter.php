@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\DataTable;
+namespace App\UXor\DataTable;
 
 /**
  * A filter of a data table: a select of fixed choices. A value outside the choices is ignored.

@@ -6,8 +6,8 @@
 @import "tailwindcss";
 @import "../vendor/flowbite/dist/flowbite.min.css";
 @import "../../../kit.css";
-@import "../../../autocomplete/assets/styles/flowbite-xor-autocomplete.css";
-@import "../../../dropzone/assets/styles/flowbite-xor-dropzone.css";
-@import "../../../editor/assets/styles/flowbite-xor-editor.css";
+@import "../../../autocomplete/assets/styles/uxor-autocomplete.css";
+@import "../../../dropzone/assets/styles/uxor-dropzone.css";
+@import "../../../editor/assets/styles/uxor-editor.css";
 @import "./xor.css";
 @source "../../..";

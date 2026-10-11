@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\MarkdownEditor;
+namespace App\UXor\MarkdownEditor;
 
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;

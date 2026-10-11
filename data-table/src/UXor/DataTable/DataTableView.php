@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\DataTable;
+namespace App\UXor\DataTable;
 
 /**
  * What the DataTable component renders: the table, the checked query, its page of rows, and the URLs of the other

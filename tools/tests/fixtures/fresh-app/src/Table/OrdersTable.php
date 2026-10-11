@@ -2,10 +2,10 @@
 
 namespace App\Table;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\Filter;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableQuery;
 
 final class OrdersTable extends AbstractDataTable
 {

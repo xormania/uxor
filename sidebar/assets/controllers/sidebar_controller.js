@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { markCurrentLinks, whenMediaMatches } from '../lib/flowbite-xor-navigation.js';
+import { markCurrentLinks, whenMediaMatches } from '../lib/uxor-navigation.js';
 
 /**
  * Collapses the `Sidebar` to its icons (saved in `localStorage`), opens it over the page on small

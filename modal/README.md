@@ -58,7 +58,7 @@ In a Live Component, an open modal stays open and modal across a re-render. A re
 The backdrop appears and goes with the dialog, at once: it does not fade, with or without `prefers-reduced-motion`.
 
 Whether a `turbo:before-cache` leaves the modal open (a frame visit promoted to history, a `data-turbo-permanent`
-element) is answered by the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which `ux:install modal`
+element) is answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install modal`
 installs with it.
 
 ## Examples

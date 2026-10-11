@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\MarkdownEditor;
+namespace App\UXor\MarkdownEditor;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;

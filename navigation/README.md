@@ -9,12 +9,12 @@ What the kit's navigation controllers share, in one JavaScript module: marking t
 ## Usage
 
 `nav-menu`, `sidebar`, `side-nav`, `section-nav` and `mobile-nav` install it with them: install it yourself only
-for a navigation of your own. The recipe copies `assets/lib/flowbite-xor-navigation.js`, a module with no dependency
+for a navigation of your own. The recipe copies `assets/lib/uxor-navigation.js`, a module with no dependency
 that a Stimulus controller imports by its relative path:
 
 ```js
 import { Controller } from '@hotwired/stimulus';
-import { followsInThisTab, markCurrentLinks, rememberCurrent, whenMediaMatches } from '../lib/flowbite-xor-navigation.js';
+import { followsInThisTab, markCurrentLinks, rememberCurrent, whenMediaMatches } from '../lib/uxor-navigation.js';
 
 export default class extends Controller {
     static targets = ['link'];

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\DataTable;
+namespace App\UXor\DataTable;
 
 /**
  * One page of rows and the number of rows matching the query on every page.

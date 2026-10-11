@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\DataTable;
+namespace App\UXor\DataTable;
 
 /**
  * What a data table asks its countRows() and loadRows() for, already checked: values from a URL or a Live request

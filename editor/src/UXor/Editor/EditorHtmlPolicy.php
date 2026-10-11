@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\Editor;
+namespace App\UXor\Editor;
 
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;

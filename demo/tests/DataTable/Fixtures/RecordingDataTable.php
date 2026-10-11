@@ -2,7 +2,7 @@
 
 namespace App\Tests\DataTable\Fixtures;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\AbstractDataTable;
 
 final class RecordingDataTable extends AbstractDataTable
 {

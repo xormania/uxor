@@ -9,7 +9,7 @@
 ## Reporting a vulnerability
 
 Report it privately through GitHub: **Security** › **Report a vulnerability**
-(<https://github.com/xormania/flowbite-xor/security/advisories/new>). Do not open a public issue.
+(<https://github.com/xormania/uxor/security/advisories/new>). Do not open a public issue.
 
 Name the recipe and the kit version, the props or input, and what the browser or the server does with them.
 

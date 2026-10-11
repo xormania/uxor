@@ -50,10 +50,10 @@
     "autoload": {
         "psr-4": {
             "App\\": "src/",
-            "App\\FlowbiteXor\\DataTable\\": "../data-table/src/FlowbiteXor/DataTable/",
-            "App\\FlowbiteXor\\DataTableLive\\": "../data-table-live/src/FlowbiteXor/DataTableLive/",
-            "App\\FlowbiteXor\\Editor\\": "../editor/src/FlowbiteXor/Editor/",
-            "App\\FlowbiteXor\\MarkdownEditor\\": "../markdown-editor/src/FlowbiteXor/MarkdownEditor/"
+            "App\\UXor\\DataTable\\": "../data-table/src/UXor/DataTable/",
+            "App\\UXor\\DataTableLive\\": "../data-table-live/src/UXor/DataTableLive/",
+            "App\\UXor\\Editor\\": "../editor/src/UXor/Editor/",
+            "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/"
         }
     },
     "autoload-dev": {

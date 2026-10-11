@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\FlowbiteXor\MarkdownEditor\MarkdownType;
+use App\UXor\MarkdownEditor\MarkdownType;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;

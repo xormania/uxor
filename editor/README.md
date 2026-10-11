@@ -23,18 +23,18 @@ Then:
 2. Import the recipe's stylesheet after the theme in `assets/styles/app.css`:
 
    ```css
-   @import "./flowbite-xor-editor.css";
+   @import "./uxor-editor.css";
    ```
 
 The editor's controller is lazy: Tiptap downloads only on pages with an editor.
 
 ## Usage
 
-In a Symfony form, use the recipe's `EditorType` (copied into `src/FlowbiteXor/Editor/`). The form theme renders it,
+In a Symfony form, use the recipe's `EditorType` (copied into `src/UXor/Editor/`). The form theme renders it,
 its data is sanitized HTML, and too long is an error, never a cut:
 
 ```php
-use App\FlowbiteXor\Editor\EditorType;
+use App\UXor\Editor\EditorType;
 use Symfony\Component\Validator\Constraints as Assert;
 
 $builder->add('body', EditorType::class, [

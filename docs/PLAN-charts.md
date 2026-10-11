@@ -73,7 +73,7 @@ The axes and chrome use existing roles:
 
 ## Deliverable: a `chart` recipe, plus chart roles in the theme
 
-### Theme (`kit.css` and `theme/assets/styles/flowbite-xor.css`, which stay identical)
+### Theme (`kit.css` and `theme/assets/styles/uxor.css`, which stay identical)
 
 - Add `--color-chart-1` … `--color-chart-6` and `--color-chart-other` to `@theme` and to `.dark`, with the values above and a `/* chart series: categorical order, validated for CVD */` comment.
 - This also gives `bg-chart-N` utilities, which the table swatches use.
@@ -270,7 +270,7 @@ There are no colors in either: the theme supplies them. To use a role, write `'v
 **`## Installation`** holds only `::: installation`. Then:
 1. Run the printed `composer require`. Flex registers the bundle and the controller, and adds `chart.js` to the import map.
 2. If `importmap.php` has no `chart.js`, run `php bin/console importmap:require chart.js`.
-3. No stylesheet: the colors are the theme's `chart-*` roles. Re-install `theme` if `flowbite-xor.css` predates them.
+3. No stylesheet: the colors are the theme's `chart-*` roles. Re-install `theme` if `uxor.css` predates them.
 
 **`## Usage`**:
 - arrays versus `ChartBuilderInterface`;
@@ -449,7 +449,7 @@ There are no colors in either: the theme supplies them. To use a role, write `'v
 
 - Kit lint on the exported archive: no `js.import.undeclared` and no `stimulus.controller.missing`.
 - `ux-toolkit-kit-debug .`.
-- `node tools/contrast/check.mjs` and `cmp kit.css theme/assets/styles/flowbite-xor.css`.
+- `node tools/contrast/check.mjs` and `cmp kit.css theme/assets/styles/uxor.css`.
 - PHPStan on `demo/src/Twig/Lab/LiveChart.php` (the demo's `src/Demo` path is already covered) and the fixture controller.
 - `fresh-install.sh` / `docker-install.sh`.
 - `npx playwright test` (smoke plus examples).

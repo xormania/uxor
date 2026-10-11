@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isPermanent } from '../lib/flowbite-xor-turbo.js';
+import { isPermanent } from '../lib/uxor-turbo.js';
 
 // through the prototypes: a field named `method`, `elements`, `reset`, `closest` or `contains` (a URL parameter kept as
 // a hidden field) shadows the form's own

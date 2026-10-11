@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Form theme parity — flowbite-xor demo{% endblock %}
+{% block title %}Form theme parity — {{ kit_reader.manifest.name }} demo{% endblock %}
 
 {% macro first_error(field) %}{{ (field.vars.errors|first).message }}{% endmacro %}
 

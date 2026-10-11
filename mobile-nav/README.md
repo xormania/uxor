@@ -72,4 +72,4 @@ The `layouts` recipe's `app.html.twig` does this already: its navbar holds a `Mo
 `sidebar` blocks, the same ones the `Sidebar` shows on wide screens.
 
 Telling a link this tab follows and closing the drawer when the screen grows are the `navigation` recipe's module
-(`assets/lib/flowbite-xor-navigation.js`), which `ux:install mobile-nav` installs with it.
+(`assets/lib/uxor-navigation.js`), which `ux:install mobile-nav` installs with it.

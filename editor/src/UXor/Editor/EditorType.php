@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\Editor;
+namespace App\UXor\Editor;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\CallbackTransformer;

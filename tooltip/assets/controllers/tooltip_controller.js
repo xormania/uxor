@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { place, viewportSize } from '../lib/flowbite-xor-floating.js';
+import { place, viewportSize } from '../lib/uxor-floating.js';
 
 /**
  * Shows a `Tooltip` while its trigger is hovered or focused, hides it on leave, blur or Escape,
@@ -65,7 +65,7 @@ export default class extends Controller {
         const tooltip = this.tooltipTarget;
         tooltip.hidden = false;
 
-        // the kit's shared placement and flip (`assets/lib/flowbite-xor-floating.js`, the `floating` recipe), 8px away
+        // the kit's shared placement and flip (`assets/lib/uxor-floating.js`, the `floating` recipe), 8px away
         const reference = this.element.getBoundingClientRect();
         const size = { width: tooltip.offsetWidth, height: tooltip.offsetHeight };
         const viewport = viewportSize();

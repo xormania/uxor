@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\Editor;
+namespace App\UXor\Editor;
 
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;

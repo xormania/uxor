@@ -1,6 +1,6 @@
 # Getting started
 
-flowbite-xor is a Symfony UX Toolkit kit: Twig components, Stimulus controllers, a form theme, layouts and blocks (ready-made parts of a page), styled with [Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with `php bin/console ux:install`, once the project is set up as below.
+UXor is a Symfony UX Toolkit kit: Twig components, Stimulus controllers, a form theme, layouts and blocks (ready-made parts of a page), styled with [Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with `php bin/console ux:install`, once the project is set up as below.
 
 ## Requirements
 
@@ -32,10 +32,10 @@ npm install "flowbite@^4.0.2"
 
 The kit is tested with Flowbite 4. `importmap:update` ignores the version constraint and would install Flowbite's latest version, even a new major: to update the stylesheet, run the `importmap:require` command above again.
 
-2. Install the `theme` recipe. It copies `assets/styles/flowbite-xor.css`: Flowbite's color roles (named colors with a light and a dark value, used as `bg-brand`, `text-heading`, `border-default`…), with this kit's contrast fixes. Then make `assets/styles/app.css` start with these imports, in this order (Flowbite's stylesheet after Tailwind, the theme last):
+2. Install the `theme` recipe. It copies `assets/styles/uxor.css`: Flowbite's color roles (named colors with a light and a dark value, used as `bg-brand`, `text-heading`, `border-default`…), with this kit's contrast fixes. Then make `assets/styles/app.css` start with these imports, in this order (Flowbite's stylesheet after Tailwind, the theme last):
 
 ```
-php bin/console ux:install theme --kit=https://github.com/xormania/flowbite-xor
+php bin/console ux:install theme --kit=https://github.com/xormania/uxor
 ```
 
 ```css
@@ -47,11 +47,11 @@ php bin/console ux:install theme --kit=https://github.com/xormania/flowbite-xor
 /* @import 'flowbite/dist/flowbite.min.css'; */
 
 /* Flowbite's color roles, light and dark, from the `theme` recipe */
-@import './flowbite-xor.css';
+@import './uxor.css';
 ```
 
 3. Install the recipes you need; [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Each `ux:install` prints a `composer require` command for the packages the recipe needs: run it.
 
 ```
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
 ```

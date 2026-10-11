@@ -2,8 +2,8 @@
 
 namespace App\Tests\MarkdownEditor;
 
-use App\FlowbiteXor\MarkdownEditor\MarkdownEditor;
-use App\FlowbiteXor\MarkdownEditor\MarkdownRenderer;
+use App\UXor\MarkdownEditor\MarkdownEditor;
+use App\UXor\MarkdownEditor\MarkdownRenderer;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 use Symfony\UX\LiveComponent\Test\TestLiveComponent;

@@ -1,7 +1,7 @@
 /*
  * The list of files UX Dropzone's controller builds in JavaScript when a Dropzone takes several files, styled with
  * the theme's color roles. The rest of the Dropzone is styled in its template. Replaces UX Dropzone's style.min.css:
- * set its autoimport to false in assets/controllers.json, and import this file after flowbite-xor.css.
+ * set its autoimport to false in assets/controllers.json, and import this file after uxor.css.
  */
 
 .dropzone-preview-list-item {

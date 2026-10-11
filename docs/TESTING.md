@@ -252,7 +252,7 @@ visit promoted to history (Turbo 8). The `turbo` recipe's module holds that chec
 `data-turbo-permanent` element, for every recipe:
 
 ```js
-import { isKeptOnCache, isPromotedFrameCache } from '../lib/flowbite-xor-turbo.js';
+import { isKeptOnCache, isPromotedFrameCache } from '../lib/uxor-turbo.js';
 // isPromotedFrameCache(): false === window.Turbo?.session?.navigator?.currentVisit?.willRender
 ```
 
@@ -1183,7 +1183,7 @@ report says why, instead of showing 0%: PCOV not loaded, no `clover.xml` (the te
 measured line, no Infection log or one without a mutant, no recorded JS coverage. A browser test that fails fails its
 shard as in CI; the coverage it recorded is still reported. Branches are not measured: PCOV measures lines.
 
-**Scope.** The demo's autoloader maps `App\FlowbiteXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
+**Scope.** The demo's autoloader maps `App\UXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
 tests run the recipes' files, not the copies `tools/sync-demo` writes. [`tools/monthly/php-scope.php`](../tools/monthly/php-scope.php)
 writes a PHPUnit configuration (the demo's, with absolute paths and its `<source>` set to every recipe's `src/`) and
 Infection's: the demo's own code, its copies of the recipes and the tests' fixtures are outside both. On the JS side,
