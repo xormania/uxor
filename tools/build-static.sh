@@ -7,8 +7,8 @@
 #   tools/build-static.sh <dir> [--base-path=/<repository name>] [--release-from-tags] [--branch=<name>]
 #
 # --base-path: the URL path the site is served under (none: the root). --release-from-tags: the install commands name
-# the release (X.Y.Z tag) HEAD is, or else the latest release before it; without it, or without tags, they name none.
-# --branch: the branch the banner names when the site is not a release (none: the branch checked out, else main).
+# the release (X.Y.Z tag) HEAD is; otherwise, and without the option or tags, they name the branch (the banner then also
+# names the latest release before HEAD). --branch: the branch the site is built from (none: the branch checked out, else main).
 # PHP=… COMPOSER_BIN=… to use other binaries. It installs the demo (tools/sync-demo, composer install) and compiles its
 # assets into demo/public/assets/: run `rm -rf demo/public/assets` after it, or the local demo serves those copies.
 set -euo pipefail
