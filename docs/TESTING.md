@@ -903,6 +903,19 @@ above fails every other test on a violation, so the whole suite runs under the p
 
 Here: [`csp.spec.ts`](../tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](../demo/src/EventListener/SecurityHeadersListener.php).
 
+## Production boot and route trust boundaries
+
+**Catches:** an accidental public deployment of the dynamic fixture, a new route whose exposure was never decided,
+a read-only route accepting another method, or a public POST route with no named CSRF mechanism.
+
+The demo's kernel refuses production without an explicit opt-in and a unique secret. A kernel test tries the unsafe
+combinations and a real production boot. A second test reads the compiled route collection: every app controller's
+route carries one reviewed category, and its methods and CSRF mechanism agree with that category. The categories and
+the limit of the production opt-in are in [`DEMO-SECURITY.md`](DEMO-SECURITY.md).
+
+Here: [`ProductionConfigurationTest.php`](../demo/tests/Security/ProductionConfigurationTest.php),
+[`RouteSecurityTest.php`](../demo/tests/Security/RouteSecurityTest.php).
+
 ## Accessibility
 
 **Catches:** serious and critical axe violations on every page, in both themes; and, in a component's own specs, the

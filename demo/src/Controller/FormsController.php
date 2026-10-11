@@ -12,10 +12,10 @@ use Symfony\Component\Routing\Attribute\Route;
  * The form-theme recipe on a real Symfony form: every field type, server-side validation errors, and a
  * page comparing theme-rendered rows with the same rows written by hand with the components.
  */
-#[Route('/forms')]
+#[Route('/forms', options: ['uxor_security' => 'public-reference'])]
 final class FormsController extends AbstractController
 {
-    #[Route('', name: 'app_forms')]
+    #[Route('', name: 'app_forms', methods: ['GET', 'POST'], options: ['uxor_csrf' => 'symfony-form'])]
     public function index(Request $request): Response
     {
         $form = $this->createForm(DemoType::class);
@@ -31,7 +31,7 @@ final class FormsController extends AbstractController
         return $this->render('forms/index.html.twig', ['form' => $form], new Response(null, $form->isSubmitted() ? 422 : 200));
     }
 
-    #[Route('/parity', name: 'app_forms_parity')]
+    #[Route('/parity', name: 'app_forms_parity', methods: ['GET'])]
     public function parity(): Response
     {
         $form = $this->createForm(DemoType::class, null, ['csrf_protection' => false]);

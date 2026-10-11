@@ -88,6 +88,10 @@ RUN <<-EOF
 	mkdir -p var/cache var/log var/share
 	composer dump-autoload --classmap-authoritative --no-dev
 	composer dump-env prod
+	# the kernel refuses prod without UXOR_DEMO_ALLOW_PRODUCTION=1 and a strong APP_SECRET (src/Kernel.php): this
+	# step's own console commands get both, after dump-env so neither is written into the image, which still
+	# refuses to serve until the deployment sets them
+	export UXOR_DEMO_ALLOW_PRODUCTION=1 APP_SECRET="$(php -r 'echo bin2hex(random_bytes(32));')"
 	composer run-script --no-dev post-install-cmd
 	if [ -f importmap.php ]; then
 		php bin/console asset-map:compile

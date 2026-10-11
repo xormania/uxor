@@ -21,7 +21,7 @@ use Symfony\UX\Turbo\TurboBundle;
  * Turbo / Live Component scenario pages (one route per scenario under /lab/), each exercised by
  * tests/e2e/lab.*.spec.ts.
  */
-#[Route('/lab')]
+#[Route('/lab', options: ['uxor_security' => 'development-only'])]
 final class LabController extends AbstractController
 {
     /**
