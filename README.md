@@ -1,17 +1,13 @@
-# flowbite-xor
+# UXor
 
 A [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit built on the free
-[Flowbite](https://flowbite.com/) v4 library and Tailwind CSS v4. A kit is a set of recipes. A recipe (not a
-Symfony Flex recipe) is one thing you install with `php bin/console ux:install`: the theme, a Twig component and
-its Stimulus controller, the form theme, the page layouts, or a block, a ready-made part of a page such as a
-login card or a dashboard.
+[Flowbite](https://flowbite.com/) v4 library and Tailwind CSS v4: a theme, Twig components, a form theme, page layouts
+and ready-made blocks such as a login card or a dashboard, each one a recipe. `php bin/console ux:install` copies a
+recipe into your project, where you own it. Every behavior is a Stimulus controller, so components keep working with
+Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
+dark, with its code.
 
-`ux:install` copies a recipe's files into your project, where you own them. Every behavior is a Stimulus
-controller (no Flowbite JavaScript, no global `initFlowbite()`), so components keep working when Turbo
-navigates and when Live Components re-render them.
-
-**Gallery:** <https://xormania.github.io/flowbite-xor/> shows every recipe and every example of its README, in light
-and dark, with its code and its install command. It is a static copy of the demo app, published with each release.
+![The dashboard block in the dark theme](docs/images/dashboard-dark.png)
 
 ## Install
 
@@ -32,246 +28,34 @@ composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client
 composer require symfony/asset-mapper symfony/stimulus-bundle
 ```
 
-With [Symfony Docker](https://github.com/dunglas/symfony-docker), run every `composer` and `php bin/console`
-command of this README and of INSTALL.md inside the container, from the project directory:
-`docker compose exec php composer …` and `docker compose exec php bin/console …`. Its PHP image has the `zip`
-extension. CI installs the kit this way, in a fresh Symfony Docker project.
+With [Symfony Docker](https://github.com/dunglas/symfony-docker), run these commands inside the container
+(`docker compose exec php composer …`, `docker compose exec php bin/console …`); its PHP image has the `zip`
+extension.
 
 Then set up Tailwind CSS, Flowbite's stylesheet and the `theme` recipe as the *Tailwind CSS* and *Installation*
 sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands above). After that, install recipes:
 
 ```bash
 # from main: the last release
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
 
 # from a release tag (`0.1.0`), a branch (`dev`: the work since the last release), or a full 40-character commit
 # SHA (no "/": use the SHA for feat/x)
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor:<version>
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
 
-`ux:install` also installs the recipes a recipe depends on. It then prints the commands that install the
-packages they need: run the `composer require` one. The `importmap:require` and `npm install` lines are for
-Flowbite's stylesheet, already installed if you followed INSTALL.md. `ux:install dashboard-home`, for instance,
-brings the layouts and every component the dashboard uses, but not the `theme`. Its README shows the controller
-and template that render it.
+`ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
+packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
 
 ### Icons
 
-The recipes show icons from the `flowbite` set of [UX Icons](https://symfony.com/bundles/ux-icons/current/index.html).
-An icon that is not in `assets/icons/` is downloaded from the Iconify API the first time a page shows it, which
-needs `symfony/http-client`. Before you deploy, save the icons in the project and commit them:
+The recipes show icons from the `flowbite` set of [UX Icons](https://symfony.com/bundles/ux-icons/current/index.html),
+downloaded from the Iconify API the first time a page shows one. Before you deploy, save them in the project with
+this command and commit them; run it again when your templates use new icons:
 
 ```bash
 php bin/console ux:icons:lock
 ```
-
-Run it again when your templates use new icons.
-
-## Recipes
-
-Recipes marked ✦ come with a Stimulus controller, copied to `assets/controllers/` and loaded by StimulusBundle.
-Each recipe's README has its examples, props and usage.
-
-### Theme
-
-| Recipe | |
-|---|---|
-| [`theme`](theme/README.md) | Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. A role is a named color with a light and a dark value, used as a utility: `bg-brand`, `text-heading`, `border-default`. |
-| [`theme-toggle`](theme-toggle/README.md) ✦ | A button switching between the light and dark themes, remembered in `localStorage` and following the system preference until the user chooses. |
-
-### Shared code
-
-Installed with the recipes that use it; install it yourself only for code of your own.
-
-| Recipe | |
-|---|---|
-| [`floating`](floating/README.md) | The positioning shared by `dropdown`, `popover` (so `date-picker`) and `tooltip`, one JavaScript module: a floating element placed next to the element it belongs to, flipped to the other side when it does not fit, kept in the viewport and following it on scroll and resize. |
-| [`navigation`](navigation/README.md) | What the navigation recipes (`nav-menu`, `sidebar`, `side-nav`, `section-nav`, `mobile-nav`) share, one JavaScript module: the current page's link marked `aria-current="page"`, whether a click on a link navigates this tab, a navigation opened over the page closed once the screen grows. |
-| [`turbo`](turbo/README.md) | What the recipes ask about Turbo's copies of a page, one JavaScript module: whether a `turbo:before-cache` leaves the page on screen (a frame visit promoted to history) or an element is moved into the next page (`data-turbo-permanent`), and whether a controller connects in a cached copy. |
-
-### Basic components
-
-| Recipe | |
-|---|---|
-| [`alert`](alert/README.md) ✦ | A message for information, success, a warning or an error, optionally dismissible. |
-| [`avatar`](avatar/README.md) ✦ | A user's picture, with a fallback, in several sizes, round or with rounded corners. |
-| [`badge`](badge/README.md) | A small label or count next to other content, such as a number of comments. |
-| [`button`](button/README.md) | A button, or a link that looks like one, in several colors, sizes and styles. |
-| [`button-group`](button-group/README.md) | Several buttons or links joined into one control. |
-| [`card`](card/README.md) | A box grouping related content: text, images, a form. |
-| [`checkbox`](checkbox/README.md) | A square box to select one or more options. |
-| [`dropdown`](dropdown/README.md) ✦ | A menu that opens from a button and closes when the user clicks or focuses outside it. |
-| [`indicator`](indicator/README.md) | A dot or number placed on another element: a status, a count, a loading label. |
-| [`input`](input/README.md) | A single-line field for any input type: text, email, number, password, URL… |
-| [`kbd`](kbd/README.md) | A keyboard key or shortcut shown in text. |
-| [`label`](label/README.md) | A text element that identifies form controls and other content. |
-| [`modal`](modal/README.md) ✦ | A dialog over the page, as a native `<dialog>`, with a close button. |
-| [`pagination`](pagination/README.md) | Links to the pages of a long list. |
-| [`radio`](radio/README.md) | A round button to choose one option among several. |
-| [`select`](select/README.md) | A list to choose one or more options. |
-| [`skeleton`](skeleton/README.md) | Placeholders shaped like the content that is loading. |
-| [`spinner`](spinner/README.md) | A spinning indicator for a loading state. |
-| [`table`](table/README.md) | Rows and columns of data. |
-| [`tabs`](tabs/README.md) ✦ | Tabs that switch between panels in place, in a row or a column, with the arrow keys of the WAI-ARIA tabs pattern. |
-| [`textarea`](textarea/README.md) | A multi-line text field, for a comment or a description. |
-| [`toggle`](toggle/README.md) | A switch for an on/off setting. |
-
-### More components
-
-| Recipe | |
-|---|---|
-| [`breadcrumb`](breadcrumb/README.md) | A trail of links showing where the current page sits in the site hierarchy. |
-| [`calendar`](calendar/README.md) ✦ | Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a `model` prop for Live Components. |
-| [`chart`](chart/README.md) ✦ | Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or `ChartBuilderInterface`, updated in place by Live Components. |
-| [`data-table`](data-table/README.md) ✦ | A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/FlowbiteXor/`. |
-| [`data-table-live`](data-table-live/README.md) | `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/FlowbiteXor/`. |
-| [`date-picker`](date-picker/README.md) ✦ | A date or a range picked in a calendar that opens from a button or a typed field; a `DateType` opts in through the form theme. |
-| [`drawer`](drawer/README.md) ✦ | A panel sliding over one side of the page, for navigation, filters or details, as a native `<dialog>`. |
-| [`empty-state`](empty-state/README.md) | What a list or page shows when it has nothing yet, with a way forward. |
-| [`mobile-nav`](mobile-nav/README.md) ✦ | The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit. |
-| [`nav-menu`](nav-menu/README.md) ✦ | The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer. |
-| [`navbar`](navbar/README.md) ✦ | The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens. |
-| [`page-header`](page-header/README.md) | The top of a page: its title, a short description and the page's actions. |
-| [`popover`](popover/README.md) ✦ | Free content anchored to a button (text, links, a small form) in a non-modal dialog that closes on Escape, a click outside or when the focus leaves it. |
-| [`progress`](progress/README.md) | A bar showing how far a task has come. |
-| [`section-nav`](section-nav/README.md) ✦ | Vertical tabs that navigate: one link per page of a group of pages (settings), the current one marked, a column on large screens and a strip that scrolls sideways on small ones. |
-| [`side-nav`](side-nav/README.md) ✦ | A multi-level navigation tree: links in branches that open and close, at any depth, with the keyboard of an ARIA tree view; the open branches hold across Turbo visits, and the branch of the current page opens. |
-| [`sidebar`](sidebar/README.md) ✦ | The app's main navigation: grouped links with icons and counts, collapsible to icons, opened over the page on small screens. |
-| [`stat-card`](stat-card/README.md) | A key figure with its label and, optionally, how it changed over a period. |
-| [`toast`](toast/README.md) ✦ | Short-lived notifications in a fixed region, added on page load or by Turbo Streams, dismissed after a timeout or by the user. |
-| [`tooltip`](tooltip/README.md) ✦ | A short text shown while a control is hovered or focused, also announced as its description. |
-
-### Forms
-
-| Recipe | |
-|---|---|
-| [`form-theme`](form-theme/README.md) | A Symfony form theme that renders every row through `FormField` and every control through the kit's `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Label` and `Button` components. |
-| [`form-field`](form-field/README.md) | A labelled form control with its help text and error message, wired by id (used by the form theme). |
-| [`autocomplete`](autocomplete/README.md) | Searchable selects with Symfony UX Autocomplete (Tom Select), styled with the theme: one choice, several, values typed by the user, options searched on the server. Works through the form theme (`'autocomplete' => true`) and as an `Autocomplete` component outside forms. |
-| [`dropzone`](dropzone/README.md) ✦ | File uploads with Symfony UX Dropzone, styled with the theme: drag and drop or browse, a preview of the picked image, several files that add up across picks, keyboard focus kept after a pick or a removal; a `DropzoneType` renders as one through the form theme. |
-| [`editor`](editor/README.md) ✦ | A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. `EditorType` sanitizes every submit (symfony/html-sanitizer), and `flowbite_editor_html` prints stored HTML. |
-| [`markdown-editor`](markdown-editor/README.md) ✦ | A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. `MarkdownType` limits the source, and `flowbite_markdown_html` prints it. |
-
-### Layouts
-
-| Recipe | |
-|---|---|
-| [`layouts`](layouts/README.md) | Page layouts to extend: an app shell with sidebar, navbar with its menu, and mobile nav, a centered column for login, signup and password reset, settings, errors and a blank page. |
-
-### Blocks
-
-A block is a ready-made part of a page, built from the components above. Each one is a Twig component with
-its own name: `dashboard-home` renders as `<twig:DashboardHome>`, `login` as `<twig:LoginForm>`, `signup` as
-`<twig:SignupForm>`, `forgot-password` as `<twig:ForgotPasswordForm>`, `settings-profile` as
-`<twig:SettingsProfile>` and `not-found` as `<twig:NotFound>`.
-
-| Recipe | |
-|---|---|
-| [`dashboard-home`](dashboard-home/README.md) | A dashboard home: page header, key figures, two cards and a table of recent orders. |
-| [`login`](login/README.md) | A sign-in card rendering a Symfony login form through the form theme, with the last authentication error. |
-| [`signup`](signup/README.md) | A registration card rendering a Symfony form through the form theme. |
-| [`forgot-password`](forgot-password/README.md) | A card asking for an email address to send a password reset link, then confirming it was sent. |
-| [`settings-profile`](settings-profile/README.md) | A profile settings card: avatar, name and a Symfony form rendered through the form theme. |
-| [`not-found`](not-found/README.md) | The content of a 404 (or any error) page: status, title, explanation and a way back. |
-
-## Updating
-
-Recipes are copies you own, so an update is a change you review like any other. Commit first, then reinstall
-the recipe from the newer version with `--force`:
-
-```bash
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor:<version> --force
-```
-
-`--force` replaces every file of the recipe and of every recipe it depends on: `ux:install dashboard-home --force`
-also replaces the layouts and every component the dashboard uses. Without it, the command asks about each existing
-file of those recipes, but a "yes" replaces only files older than the kit's commit: a file you edited, or any file
-of a fresh clone, is kept even though the command lists it as installed. Review the result with `git diff` and
-bring back your own changes where you need them (`git checkout -p`). Pinning a version installs the same files on
-every machine.
-
-## Turbo and Live Components
-
-How the recipes behave with Turbo and Live Components, and what your own pages and controllers must do:
-
-- **Stimulus only.** A controller connects to new markup (Turbo visits, Turbo Frames, Live re-renders,
-  Turbo Streams) and cleans up everything in `disconnect()`: a dropdown stays open through a Live re-render,
-  a `<dialog>` (modal, drawer) stays modal, tooltips and dropdowns keep working in re-sorted Live rows.
-- **`data-turbo-permanent` keeps the node, not its scroll.** The sidebar restores its scroll position and
-  collapsed state itself; the app layout scrolls the document, which Turbo restores on Back/Forward.
-- **Live Components work inside a `data-turbo-permanent` element**: they keep their state and stay live.
-- **Toasts go through Turbo Streams.** The toast region (`<twig:ToastRegion>`, `id="toasts"`) is
-  `data-turbo-permanent`: on a Turbo visit, Turbo keeps the region already on screen and drops the new page's copy,
-  with any toast written inside it. Render each toast with `<twig:Toast:Stream>` instead, in the page or in a Turbo
-  Stream response. The `layouts` recipe does this for flash messages in `templates/layouts/base.html.twig`, so
-  every kit layout shows them.
-- **Your form controllers answer 303 or 422.** Turbo Drive rejects a 200 after a form submit. On success,
-  redirect with `$this->redirectToRoute('…', [], Response::HTTP_SEE_OTHER)` (the default is 302). On errors,
-  render the form with `$this->render(…, ['form' => $form])`, which answers 422 when the submitted form is invalid.
-- **Charts are drawn and destroyed by their controllers** on every Turbo visit, Frame or Stream; inside a Live
-  Component, new data updates a chart in place.
-- **Files are never restored.** After a 422, a Turbo Stream or a Live re-render that replaces a file field, the
-  user picks the files again (`dropzone` says so in the box). In a Live Component, upload through a `files` action
-  first ([`dropzone`](dropzone/README.md#in-a-live-component)).
-- **Editors come back with their content.** Before Turbo caches a page, an `editor` saves its content and selection
-  in the markup; Back builds a new editor from them (not its undo history), also after a frame visit promoted to
-  history. In a Live Component it sits in `data-live-ignore`: re-renders never overwrite typing, and its `reset` prop
-  replaces the content from the server. A `markdown-editor` keeps what was typed across Back too, and its preview
-  renders it.
-- **Navigation trees keep their open branches.** A `side-nav` saves which branches are open in `sessionStorage` and
-  restores them after every Turbo visit, Back and Forward, over the copy Turbo cached; the branch of the current page
-  opens.
-- **Tabs and sections show the page shown.** A `tabs` list keeps its selected tab in an attribute, so Back shows the
-  tab selected when the page was left; a visit or a reload starts from `defaultValue`. A `section-nav` marks the
-  section of the page shown, also inside a `data-turbo-permanent` element.
-- **The mobile nav closes before Turbo caches the page.** A `mobile-nav` drawer closes when a link inside it is
-  followed and before every snapshot, so Back and Forward never show it open; its `side-nav` keeps its branches.
-- **Navbar menus close before Turbo caches the page.** A `nav-menu` closes its submenus when a link inside is
-  followed and before every snapshot, and marks the current page after every visit, in a `data-turbo-permanent`
-  navbar too.
-- **Back shows a GET form as the URL says, a POST form as the user left it.** A GET form reflects the URL, so after
-  Back and Forward it shows the values the server rendered; a POST form keeps what was typed and picked. Autocomplete
-  and date picker fields follow their form. The `form-reset` controller on the layouts' `<body>` does it: with a layout
-  of your own, add `data-controller="form-reset"` to its `<body>` ([`layouts`](layouts/README.md#back-and-forms)).
-- **Overlays come back closed.** A dropdown, modal or drawer left open by a link inside it shows closed after Back,
-  and opens again as before (a dialog as a modal).
-- **Stable ids in re-rendered markup.** Give a `<twig:Tooltip>` an explicit `id` inside a Live Component or a
-  Turbo Frame (`id="stock-{{ row.id }}"`): its generated id would change on every re-render.
-
-## Security
-
-Twig escapes what the components print, but escaping checks neither a tag name nor a URL. Props and attributes are
-template input: give them values your code chose (constants, `path()`, `url()`), never request or stored user data
-unchecked. On top of escaping, the components check what shapes their markup:
-
-- **Tags.** An `as` prop renders only the tags its component lists: `Button` `button`, `a`; `Badge` `div`, `span`,
-  `a`; `Avatar:GroupCount` `div`, `a`, `button`; `Card:Title` `span`, `div`, `p`, `h1`–`h6`; `Dropdown:Item` `a`,
-  `button`; `FormField` `div`, `fieldset`. Any other value renders the default tag, without an error:
-  `<twig:Button as="label">` is a `button`.
-- **Link props.** The links of this kit's own recipes (`Breadcrumb:Item`, `Sidebar:Item`, `SideNav:Item` and `SectionNav:Item` `href`, `LoginForm`
-  `forgotPasswordHref` and `signupHref`, `ForgotPasswordForm` and `SignupForm` `loginHref`, `NotFound` `homeHref`)
-  keep a relative, `http(s)`, `mailto` or `tel` URL, read as browsers read it (in any case, after leading spaces and
-  control characters, with tabs and newlines inside). Any other scheme, `javascript:` and `data:` but also `sms:` or
-  an app's `slack://`, silently renders `#`, and a sidebar, side nav or section nav item linking to `#` is never marked as the current page.
-  The value is printed as text, even a `Markup` one (`|raw`).
-- **Attributes.** Attributes given to a component, and `FormField`'s `labelAttr` and `helpAttr`, render with escaped
-  names and values: a name cannot add another attribute. Otherwise they render as given, an `on…` handler or an
-  `href` included. URLs given as attributes are not checked: the `href` of `Button` or `Badge`
-  with `as="a"`, of `Dropdown:Item` and of `Pagination:Link`, and the `src` of `Avatar:Image`. Check those yourself.
-- **Content Security Policy.** The components print no inline script, style or event handler, so they work under a
-  strict policy (nonces and `'strict-dynamic'`, no `'unsafe-inline'`). The layouts print their inline script and the
-  importmap with your nonces: see *Content Security Policy* in [`layouts/README.md`](layouts/README.md).
-
-`tests/e2e/hostile-props.spec.ts` renders each of these props with hostile values and checks what the browser parses.
-The kit's demo enforces a strict Content Security Policy, and every browser test fails on a violation. Report a
-vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/flowbite-xor/blob/main/SECURITY.md).
-
-## Versioning
-
-Versions are git tags `X.Y.Z`, without a `v`: GitHub names the archive of a `v1.2.3` tag `flowbite-xor-1.2.3`,
-which the toolkit then cannot find. Install one with `--kit=https://github.com/xormania/flowbite-xor:<version>`;
-without a version, `ux:install` downloads `main`, which holds the last release; `:dev` installs the work merged since.
-[`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
 
 ## Requirements
 
@@ -284,18 +68,16 @@ without a version, `ux:install` downloads `main`, which holds the last release; 
 | Tailwind CSS | 4.x |
 | Flowbite | 4.x |
 
-## Coding agents
+## Documentation
 
-Give your agent this repository's URL: [`FOR-AGENTS.md`](FOR-AGENTS.md) is written for it (setup, which recipe for
-what, the rules), and [`llms.txt`](llms.txt) lists every page with one line. Paste the block in
-[`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`: it
-tells agents to use the kit's components, color roles and icons, and how they behave with Turbo.
-
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the repository layout, the checks and the conventions, and
-[`CHANGELOG.md`](CHANGELOG.md) for what changed. [`docs/TESTING.md`](docs/TESTING.md) explains how the kit is tested
-(Turbo, Live Components, the Content Security Policy, request limits), with patterns to reuse in your app's tests.
+- [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
+- [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
+- [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
+- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](llms.txt), and paste
+  [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
+- [`CHANGELOG.md`](CHANGELOG.md): what each version changes.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md): the repository layout, the checks and the conventions.
+- [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
 
 ## License
 

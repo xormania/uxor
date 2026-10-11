@@ -2,9 +2,9 @@
 
 namespace App\Demo;
 
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\Filter;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableQuery;
 use Symfony\Contracts\Service\Attribute\Required;
 
 /**

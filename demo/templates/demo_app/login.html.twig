@@ -1,7 +1,7 @@
 {% extends 'layouts/auth.html.twig' %}
 
-{% block title %}Sign in — Acme{% endblock %}
-{% block brand %}Acme{% endblock %}
+{% block title %}Sign in — xor{% endblock %}
+{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
 {% block content %}
     <twig:LoginForm :form="form" :error="error" forgotPasswordHref="{{ path('app_demo_forgot_password') }}" signupHref="{{ path('app_demo_signup') }}" />
     <p class="mt-4 text-center text-sm text-body">Demo account: demo@example.com / demo</p>

@@ -10,7 +10,7 @@ with the shared PHP), then `data-table-live`._
 
 ## Spike result (2026-10-07, demo on Symfony 8.1.8 under PHP 8.4, browser-driven, files removed after)
 
-- An abstract base class in `App\FlowbiteXor\DataTable\` plus a subclass with an explicit `#[AsLiveComponent(name,
+- An abstract base class in `App\UXor\DataTable\` plus a subclass with an explicit `#[AsLiveComponent(name,
   template)]` loads, renders and runs Live actions.
 - A cell block passed as component content (`{% block cell_name %}…{{ row.name }}…{% endblock %}`) and looked up by
   name in the row loop (`block('cell_' ~ key) is defined`) renders on first load, after Live re-renders, after Back
@@ -20,7 +20,7 @@ with the shared PHP), then `data-table-live`._
 
 ## Shared contract (PR 1)
 
-Kit-owned PHP in `data-table/src/FlowbiteXor/DataTable/`, installed as `src/FlowbiteXor/DataTable/`:
+Kit-owned PHP in `data-table/src/UXor/DataTable/`, installed as `src/UXor/DataTable/`:
 
 | Class | Role |
 |---|---|
@@ -62,7 +62,7 @@ Rules:
 **Demo:**
 - `demo/src/Demo/OrdersTable.php`: about 60 in-memory orders; `loadPage` filters, sorts and slices an array.
 - A preview data provider (like `demo/src/Kit/PreviewForms.php`) for the README examples.
-- `demo/.gitignore`: `/src/FlowbiteXor/`, because sync-demo copies it.
+- `demo/.gitignore`: `/src/UXor/`, because sync-demo copies it.
 
 **Lab** `data-table-frame` (new `SCENARIOS` entry, template, `tests/e2e/lab.data-table-frame.spec.ts`):
 - Search, filter, sort, page and page size each change the frame and the URL. Back/Forward walks each state, and
@@ -73,7 +73,7 @@ Rules:
 - The path goes in `a11y.spec.ts` `labPages`, and the CSP spec covers it.
 
 **CI and checks:**
-- New job: `php -l` on every `*/src/**/*.php`, plus PHPStan (level 8) on the synced `demo/src/FlowbiteXor` with the
+- New job: `php -l` on every `*/src/**/*.php`, plus PHPStan (level 8) on the synced `demo/src/UXor` with the
   demo's autoloader. `phpstan/phpstan` becomes a demo dev dependency.
 - `tools/tests/fresh-install.sh` and the fresh-app fixture install `data-table` and render a table. That is the
   runtime proof on 7.4. `docker-install.sh` covers the latest Symfony.
@@ -84,7 +84,7 @@ Rules:
 - README recipe table: a new row, replacing the "planned" line.
 - `docs/PROJECT-AGENTS-SNIPPET.md`: "for a list page: `ux:install data-table`, extend `AbstractDataTable`, implement
   `columns()` and `loadPage()`".
-- CONTRIBUTING: recipes may ship PHP under `App\FlowbiteXor\`, plus the PHP checks.
+- CONTRIBUTING: recipes may ship PHP under `App\UXor\`, plus the PHP checks.
 - CHANGELOG `### Added`.
 
 ## PR 2: `data-table-live`

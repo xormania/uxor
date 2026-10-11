@@ -1,5 +1,6 @@
 import { test, expect, expectA11y, turboVisitDone } from './fixtures';
 import { turboOperation } from './transitions';
+import { demoPages } from './inventory';
 
 test('the login block signs in through form_login and shows the authentication error', async ({ page }) => {
     await page.goto('/demo/login');
@@ -91,8 +92,8 @@ test('on a phone the drawer holds the sidebar navigation, then the navbar menu',
     await page.getByRole('button', { name: 'Open menu' }).click();
     const drawer = page.getByRole('dialog', { name: 'Main' });
     // the sidebar's navigation, the same tree and brand, focused on the current page
-    await expect(drawer.getByRole('link', { name: 'Acme' })).toBeVisible();
-    const nav = drawer.getByRole('navigation', { name: 'Main' }).getByRole('tree', { name: 'Acme' });
+    await expect(drawer.getByRole('link', { name: 'xor' })).toBeVisible();
+    const nav = drawer.getByRole('navigation', { name: 'Main' }).getByRole('tree', { name: 'xor' });
     await expect(nav.getByRole('treeitem', { name: 'Profile' })).toBeFocused();
     await expect(nav.getByRole('treeitem', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
     const account = drawer.getByRole('button', { name: 'Account' });
@@ -231,4 +232,12 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await expect.poll(() => page.evaluate(() => document.querySelector('script[type="importmap"]')?.textContent ?? '')).toContain('?deploy=2');
     await expect(settings.getByRole('link', { name: 'Billing' })).toHaveAttribute('aria-current', 'page');
     await turboVisitDone(page);
+});
+
+test('every demo page names the brand it shows in its title', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+    for (const path of Object.values(demoPages)) {
+        await page.goto(path);
+        await expect(page, path).toHaveTitle(/ — xor$/);
+    }
 });

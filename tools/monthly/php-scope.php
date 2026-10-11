@@ -3,9 +3,9 @@
 
 /*
  * The scope of the monthly job's PHP coverage and mutation testing (docs/TESTING.md, *Monthly job*): the recipes'
- * own src/ directories, which the demo's autoloader maps App\FlowbiteXor\… to (demo/composer.json), so what the demo's
+ * own src/ directories, which the demo's autoloader maps App\UXor\… to (demo/composer.json), so what the demo's
  * PHPUnit tests run is the recipes' code. The demo's own code, its gitignored copies of the recipes
- * (demo/src/FlowbiteXor/) and the tests' fixtures are left out.
+ * (demo/src/UXor/) and the tests' fixtures are left out.
  *
  * Writes, into <out dir>:
  * - phpunit.xml: demo/phpunit.dist.xml with absolute paths and its <source> replaced by the recipes' src/, so a

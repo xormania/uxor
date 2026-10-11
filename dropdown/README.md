@@ -82,7 +82,7 @@ The dropdown component can be used to show a list of menu items when clicking on
 The menu opens on its `placement` side, `offsetDistance` pixels from the trigger, flips to the other side when it does
 not fit there, and shifts along the trigger to stay in the viewport; while open it follows the trigger on scroll and
 resize, and the final placement is in `data-popper-placement`, as with Flowbite's Popper. The placing is the
-`floating` recipe's module (`assets/lib/flowbite-xor-floating.js`), which `ux:install dropdown` installs with it:
+`floating` recipe's module (`assets/lib/uxor-floating.js`), which `ux:install dropdown` installs with it:
 `popover` and `tooltip` place their content with the same module.
 
 ### Keyboard
@@ -101,7 +101,7 @@ resize, and the final placement is in `data-popper-placement`, as with Flowbite'
 - A Live Component re-render keeps an open menu open. Pass a stable `id` inside Live Components and Turbo Frames.
 
 Whether a `turbo:before-cache` leaves the menu as it is (a frame visit promoted to history, a `data-turbo-permanent`
-element) is answered by the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which `ux:install dropdown`
+element) is answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install dropdown`
 installs with it.
 
 ## Examples

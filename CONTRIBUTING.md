@@ -1,6 +1,6 @@
-# Contributing to flowbite-xor
+# Contributing to UXor
 
-flowbite-xor is a Symfony UX Toolkit kit: `manifest.json` at the root, one recipe per top-level directory
+UXor is a Symfony UX Toolkit kit: `manifest.json` at the root, one recipe per top-level directory
 holding a `manifest.json`. This page covers the repository, the conventions, adding a recipe, and the commit
 and pull request standard.
 
@@ -13,7 +13,7 @@ and pull request standard.
 | `tools/sync-demo` | no | copies every recipe into `demo/` the way `ux:install --force` does |
 | `tools/demo-php` | no | runs PHP in the demo's container, for the Playwright specs (`DEMO_URL`) |
 | `tools/contrast/` | no | WCAG contrast check of the theme's color roles |
-| `tools/llms-txt.mjs` | no | writes `llms.txt` and the recipe table of `FOR-AGENTS.md` from `README.md`'s recipe tables, and checks the plans' status |
+| `tools/llms-txt.mjs` | no | writes `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status |
 | `tools/docs-lint.mjs`, `tools/fence-coverage.mjs` | no | what the markdown examples teach, and a gallery page for every recipe and README example (*Docs*) |
 | `tools/recipe-imports.mjs` | no | every relative import in a recipe's JavaScript names a file the recipe or its recipe dependencies install (*Checks*) |
 | `tools/js-duplication.mjs` | no | the copies of code in the recipes' JavaScript: the duplicated lines stay within a budget, and no recipe declares again a name a shared module exports (*Checks*, *Shared code*) |
@@ -22,10 +22,11 @@ and pull request standard.
 | `tools/ci/playwright-summary.mjs` | no | reads a CI shard's Playwright report: the job summary, annotations, `failed-attempts.json` and `durations.json` ([`docs/TESTING.md`](docs/TESTING.md), *Reading CI results*) |
 | `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/junit-attempts.mjs` | no | the advisory Jev diagnosis of each failed attempt in `failed-attempts.json`, and its policy; `junit-attempts.mjs` writes that file from *Kit PHP*'s PHPUnit report ([`docs/TESTING.md`](docs/TESTING.md), *Jev diagnosis*) |
 | `tools/ci/release-timings.mjs` | no | the release checks' timings against `tests/perf/baseline.json`, report only, and a new baseline from a run ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
+| `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/release-timings.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself) and `tools/release-plan.sh`; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself) and `tools/release-plan.sh`; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
@@ -135,8 +136,9 @@ tmp=$(mktemp -d) && git archive HEAD | tar -x -C "$tmp" && demo/vendor/bin/ux-to
 demo/vendor/bin/ux-toolkit-kit-debug .              # lists each recipe with its files and dependencies: check yours
 
 node tools/contrast/check.mjs                       # every pair in tools/contrast/pairs.json meets its contrast minimum
-cmp kit.css theme/assets/styles/flowbite-xor.css    # the theme recipe ships kit.css unchanged
-node tools/llms-txt.mjs --check                     # llms.txt and FOR-AGENTS.md's recipe table match README.md's recipe tables (without --check: rewrites both; see Docs)
+cmp kit.css theme/assets/styles/uxor.css            # the theme recipe ships kit.css unchanged
+node tools/llms-txt.mjs --check                     # llms.txt and FOR-AGENTS.md's recipe table match docs/RECIPES.md's recipe tables (without --check: rewrites both; see Docs)
+node tools/name-check.mjs                           # no file names a former repository of the kit (tools/kit-former-names.json) by its github.com, raw or gallery URL (see Renaming the kit)
 node tools/docs-lint.mjs                            # no markdown example teaches Flowbite JS, palette colors, dark: overrides, inline handlers or styles; no recipe template uses a palette color (see Docs)
 node tools/icon-lint.mjs                            # every icon in the recipes' templates and the markdown is a flowbite: name written in full; lists the names chosen by a Twig expression (see Docs)
 node tools/fence-coverage.mjs                       # every README example is one the demo reads; with --site _site, after app:export-static: every recipe and example has its pages (see Docs)
@@ -237,21 +239,21 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
   reset then, and reset what Back must not show when the copy connects. The `turbo` recipe's module answers both
   questions (`isPromotedFrameCache()`, `isKeptOnCache(element)`, `isCachedCopy(controller, mark)`): import it.
 - **Shared code.** Logic two recipes need lives once, in an assets-only recipe (`floating`, `navigation`, `turbo`): a
-  `manifest.json` copying `assets/`, a module `assets/lib/flowbite-xor-<name>.js` with no dependency, a README listing
-  its exports. A recipe imports it by its relative path (`../lib/flowbite-xor-turbo.js`) and lists the recipe in
+  `manifest.json` copying `assets/`, a module `assets/lib/uxor-<name>.js` with no dependency, a README listing
+  its exports. A recipe imports it by its relative path (`../lib/uxor-turbo.js`) and lists the recipe in
   `dependencies.recipe` (`tools/recipe-imports.mjs` checks it); add the module to `demo/.gitignore` and a row to
-  `README.md`'s *Shared code* table. A shared function has one meaning wherever it is called: what differs between
-  recipes stays in each controller. `node tools/js-duplication.mjs` fails a new copy of 40 tokens or more beyond the
-  budget it holds, and a declaration of a name a shared module exports; lower its `BUDGET` when a change removes
-  copies.
+  `docs/RECIPES.md`'s *Shared code* table. A shared function has one meaning wherever it is called: what differs
+  between recipes stays in each controller. `node tools/js-duplication.mjs` fails a new copy of 40 tokens or more
+  beyond the budget it holds, and a declaration of a name a shared module exports; lower its `BUDGET` when a change
+  removes copies.
 - **No inline code.** Recipes print no `<style>` element and no `style="…"` or `on…="…"` attribute, and an inline
   `<script>` only in the layouts' `<head>`, with `csp_script_nonce`. A Content Security Policy blocks inline code
   without its nonce, no nonce covers an attribute, and with a nonce per request Turbo reports the `<style>` of every
   page it fetches. Behavior goes in a controller, CSS in the theme, and a size computed from data in an attribute
   other than `style` (`Progress` draws its bar as an `<svg width>`). The demo's policy fails the browser tests on a
   violation (*Checks*).
-- **Props that shape markup are checked** (README, *Security*). A tag prop (`as`) is lower-cased and kept only when
-  it is one of the tags its `##` line lists, right after `{% props %}`:
+- **Props that shape markup are checked** (`docs/GUIDE.md`, *Security*). A tag prop (`as`) is lower-cased and kept
+  only when it is one of the tags its `##` line lists, right after `{% props %}`:
   `{%- set as = as|lower in ['div', 'a'] ? as|lower : 'div' -%}`. An attribute name taken from data is escaped with
   `|e('html_attr_relaxed')`. A link prop goes through the scheme guard of
   `breadcrumb/templates/components/Breadcrumb/Item.html.twig`, and the template prints the guarded variable. Add each
@@ -286,8 +288,8 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
   belong to the component: reach the surrounding template's blocks with `block(outerBlocks.name)`.
 - **Turbo forms.** A submitted form answers with a redirect (303) when it succeeds and 422 when it shows errors;
   Turbo Drive rejects a 200.
-- **PHP in recipes.** A recipe may ship PHP classes, in `<recipe>/src/FlowbiteXor/<Recipe>/`: `ux:install` copies
-  them into the app's `src/` unchanged, so their namespace is `App\FlowbiteXor\<Recipe>` (Symfony's default root
+- **PHP in recipes.** A recipe may ship PHP classes, in `<recipe>/src/UXor/<Recipe>/`: `ux:install` copies
+  them into the app's `src/` unchanged, so their namespace is `App\UXor\<Recipe>` (Symfony's default root
   namespace, and apart from the app's own classes). Apps extend them; the classes themselves stay generic. The demo
   autoloads them from the recipe (a `psr-4` line per recipe in `demo/composer.json`), so it boots before
   `tools/sync-demo` has copied them: add that line with a new recipe's PHP. The kit
@@ -341,7 +343,7 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 
    If the recipe puts a text, icon or bar color on a background that `tools/contrast/pairs.json` does not cover yet,
    add a row there: `fg`, `bg`, `min` (4.5 for text, 3 for icons, bars and focus rings) and `usage`.
-7. Add a row for the recipe to the matching table under *Recipes* in `README.md` (mark it ✦ if it ships a Stimulus
+7. Add a row for the recipe to the matching table in `docs/RECIPES.md` (mark it ✦ if it ships a Stimulus
    controller), run `node tools/llms-txt.mjs` to add it to `llms.txt` and to `FOR-AGENTS.md`'s table, and add an
    entry to `CHANGELOG.md` (see *Changelog*). If it is close to another recipe, say which to pick in the list under
    that table (*Which recipe*). Commit, then run
@@ -350,7 +352,7 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 
 ## Docs
 
-The lists of recipes that agents read are written from `README.md`'s recipe tables by `tools/llms-txt.mjs`: edit a
+The lists of recipes that agents read are written from `docs/RECIPES.md`'s recipe tables by `tools/llms-txt.mjs`: edit a
 row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* job runs
 it with `--check`, which fails when:
 
@@ -432,8 +434,20 @@ recipes: chart      # comma-separated, or none for a plan that adds no recipe
 ```
 
 The roadmap's *Sequence* table has the same two columns per package. `--check` fails an `open` plan or roadmap row
-whose recipes are all in `README.md`'s tables, and a `shipped` one naming a recipe that is not: the pull request
+whose recipes are all in `docs/RECIPES.md`'s tables, and a `shipped` one naming a recipe that is not: the pull request
 that adds a plan's last recipe marks the plan `shipped`. `llms.txt` never links a plan that is not `open`.
+
+**Renaming the kit.** `manifest.json`'s `name` (the display name) and `homepage` (the repository,
+`https://github.com/<owner>/<repo>`) are the only place the tools and the demo read them: `tools/llms-txt.mjs`
+(through `tools/kit-identity.mjs`), the demo's pages (the `kit_reader` Twig global), the browser tests' index heading,
+`tools/tests/docker-install.sh`'s default repository, and `release.yml`'s tag message; the gallery's base path is the
+repository's name (`ci.yml`, `pages.yml`). The markdown keeps literal URLs, because GitHub renders it as written. To
+rename: change `manifest.json`, add the old `owner/repo` to `tools/kit-former-names.json`, rename the repository on
+GitHub, run `node tools/llms-txt.mjs`, then `node tools/name-check.mjs` (CI's *Tool tests* job runs it), which lists
+every URL of a former repository (`github.com/<owner>/<repo>`, its raw files, `<owner>.github.io/<repo>`) in any
+file, and the homepage's repository written in another case; the owner's other repositories pass;
+`CHANGELOG.md`'s released sections are history and are left as written. The display name in prose (`UXor is…`) and
+the code names (`App\UXor`, `uxor-*.js`, `uxor*.css`) are renamed by hand, with a breaking entry in `CHANGELOG.md`.
 
 ## Screenshots
 
@@ -538,7 +552,7 @@ job runs the same dry run, and the script's cases (`tools/tests/release-plan.sh`
 script changes. If GitHub refuses the workflow's tag push
 ("refusing to allow a GitHub App to create or update workflow … without `workflows` permission", as for `0.1.0`,
 whose commit's workflows differed from `main`'s), push the tag by hand
-(`git tag -a X.Y.Z <merge commit> -m "flowbite-xor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
+(`git tag -a X.Y.Z <merge commit> -m "UXor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
 checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`);
 if that part fails, use *Re-run failed jobs* (a full re-run finds the release done and skips the gallery), or run
 `pages.yml` by hand on `main`. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,

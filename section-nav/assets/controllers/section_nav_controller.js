@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { markCurrentLinks, rememberCurrent } from '../lib/flowbite-xor-navigation.js';
+import { markCurrentLinks, rememberCurrent } from '../lib/uxor-navigation.js';
 
 /**
  * A section navigation: one link per page of a group of pages (settings), the current one marked

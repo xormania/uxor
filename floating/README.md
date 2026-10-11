@@ -9,12 +9,12 @@ The positioning that `dropdown`, `popover` (and so `date-picker`) and `tooltip` 
 ## Usage
 
 Those recipes install it with them: install it yourself only to place an element of your own the same way. The
-recipe copies `assets/lib/flowbite-xor-floating.js`, a module with no dependency that a Stimulus controller imports
+recipe copies `assets/lib/uxor-floating.js`, a module with no dependency that a Stimulus controller imports
 by its relative path:
 
 ```js
 import { Controller } from '@hotwired/stimulus';
-import { follow, position } from '../lib/flowbite-xor-floating.js';
+import { follow, position } from '../lib/uxor-floating.js';
 
 export default class extends Controller {
     static targets = ['trigger', 'panel'];

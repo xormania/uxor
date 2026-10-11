@@ -89,5 +89,5 @@ give each top-level item and branch an icon. On small screens, the `Navbar` menu
 page, tree included; or render the same tree, with the same `storageKey`, in a
 [`MobileNav`](../mobile-nav/README.md), a modal drawer, as the `layouts` app layout does.
 
-Marking the current item is the `navigation` recipe's module (`assets/lib/flowbite-xor-navigation.js`), which
+Marking the current item is the `navigation` recipe's module (`assets/lib/uxor-navigation.js`), which
 `ux:install side-nav` installs with it.

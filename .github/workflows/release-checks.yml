@@ -66,11 +66,21 @@ jobs:
                       exit 0
                   fi
                   head=$(gh api "repos/$REPO/commits/dev" --jq .sha)
-                  # a run whose release checks passed uploads release-checks-passed-<the commit it tested>: one that has
-                  # not expired names dev's head when nothing was merged since
-                  passed=$(gh api "repos/$REPO/actions/artifacts?name=release-checks-passed-$head" --jq '[.artifacts[] | select(.expired | not)] | length')
-                  echo "dev is at $head; release checks passed on it before: ${passed:-0} artifact(s)"
-                  if [ "${passed:-0}" -gt 0 ]; then
+                  # a run whose release checks passed uploads release-checks-passed-<the commit it tested>; only one of this
+                  # workflow, run on a schedule or by hand in this repository and ended in success, counts: an artifact of
+                  # that name from a pull request, a fork or another workflow proves nothing
+                  passed=0
+                  ids=$(gh api "repos/$REPO/actions/artifacts?name=release-checks-passed-$head&per_page=100" \
+                      --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_repository_id == .workflow_run.repository_id) | .workflow_run.id')
+                  for id in $ids; do
+                      if [ -n "$(gh api "repos/$REPO/actions/runs/$id" --jq 'select(.path == ".github/workflows/release-checks.yml" and (.event == "schedule" or .event == "workflow_dispatch") and .conclusion == "success") | .id')" ]; then
+                          passed=1
+                          echo "run $id passed the release checks on $head"
+                          break
+                      fi
+                  done
+                  echo "dev is at $head; a trusted pass on it: $passed"
+                  if [ "$passed" = 1 ]; then
                       echo "run=false" >> "$GITHUB_OUTPUT"
                       echo "Nothing was merged into dev since the release checks last passed on it: none today" >> "$GITHUB_STEP_SUMMARY"
                   else
@@ -79,7 +89,7 @@ jobs:
                   echo "ref=$head" >> "$GITHUB_OUTPUT"
 
     checks:
-        name: Release checks
+        name: Release suite
         needs: changed
         if: needs.changed.outputs.run == 'true'
         runs-on: ubuntu-latest
@@ -147,7 +157,17 @@ jobs:
               env:
                   DEMO_URL: https://localhost
                   RELEASE_CHECKS: '1' # adds the smoke-dark@release and harsh@release projects
-              run: npx playwright test --grep @release --workers=1
+              run: npx playwright test --grep @release --workers=1 --project=smoke --project=smoke-dark@release --project=harsh@release
+
+            # Structural evidence (tools/ci/release-evidence.mjs): each release project ran a test, each release spec ran
+            # and skipped none, so a run that exits 0 having run part of the suite fails here
+            - name: Release evidence
+              id: evidence
+              if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+              run: |
+                  node tools/ci/release-evidence.mjs --project smoke --project smoke-dark@release --project harsh@release \
+                      --spec release.timings.spec.ts --spec release.long-session.spec.ts --spec release.fuzz.spec.ts \
+                      playwright-results/results.json
 
             # The PHP properties (demo/tests/Property) with a random seed and more runs than CI's fixed one; the seed is
             # printed, and SEED=<seed> PROPERTY_RUNS=2000 bin/phpunit --group property replays it
@@ -159,7 +179,7 @@ jobs:
                   seed=$(( (RANDOM << 15) | RANDOM ))
                   echo "Property tests: SEED=$seed PROPERTY_RUNS=2000"
                   echo "PHPUnit properties: \`SEED=$seed PROPERTY_RUNS=2000 bin/phpunit --group property\`" >> "$GITHUB_STEP_SUMMARY"
-                  docker compose exec -T -e SEED="$seed" -e PROPERTY_RUNS=2000 -e CREATE_SNAPSHOTS=false php bin/phpunit --group property
+                  docker compose exec -T -e SEED="$seed" -e PROPERTY_RUNS=2000 -e CREATE_SNAPSHOTS=false php bin/phpunit --group property --fail-on-empty-test-suite
 
             # what the tests did, as in CI (tools/ci/playwright-summary.mjs): counts, failed and flaky tests, durations
             - name: Read the results
@@ -190,17 +210,20 @@ jobs:
               env:
                   RECORD: ${{ github.event_name == 'workflow_dispatch' && inputs.record }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
+                  PROPERTIES_OUTCOME: ${{ steps.properties.outcome }}
+                  EVIDENCE_OUTCOME: ${{ steps.evidence.outcome }}
               run: |
                   args=(--baseline tests/perf/baseline.json --out release-timings)
-                  if [ "$RECORD" = true ] && [ "$TESTS_OUTCOME" = success ]; then
+                  if [ "$RECORD" = true ] && [ "$TESTS_OUTCOME" = success ] && [ "$PROPERTIES_OUTCOME" = success ] && [ "$EVIDENCE_OUTCOME" = success ]; then
                       args+=(--record release-timings/baseline.json --commit "$(git rev-parse HEAD)" --date "$(date -u +%F)")
                   elif [ "$RECORD" = true ]; then
-                      echo "::warning::No baseline recorded: the release checks did not all pass (tests: $TESTS_OUTCOME)"
+                      echo "::warning::No baseline recorded: the release checks did not all pass (tests: $TESTS_OUTCOME, properties: $PROPERTIES_OUTCOME, evidence: $EVIDENCE_OUTCOME)"
                   fi
                   node tools/ci/release-timings.mjs "${args[@]}" playwright-results/results.json
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ !cancelled() }}
+              continue-on-error: true # a report, never the verdict
               with:
                   name: release-checks-results
                   path: |
@@ -209,7 +232,7 @@ jobs:
                   retention-days: 30
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.record && steps.tests.outcome == 'success' && steps.timings.outcome == 'success' }}
+              if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.record && steps.tests.outcome == 'success' && steps.properties.outcome == 'success' && steps.evidence.outcome == 'success' && steps.timings.outcome == 'success' }}
               with:
                   name: release-baseline
                   path: release-timings/baseline.json
@@ -223,6 +246,7 @@ jobs:
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
+              continue-on-error: true # a report, never the verdict
               with:
                   name: release-checks-report
                   path: |
@@ -255,10 +279,12 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 30
 
-            # The commit this run tested, read by the next scheduled run's first job (a successful run's only)
+            # The commit this run tested, read by the next scheduled run's first job: a successful scheduled or manual run's
+            # only (never a pull request's), and advisory: without it the next daily run tests again
             - name: Record the tested commit
               id: tested
-              if: ${{ success() }}
+              if: ${{ success() && github.event_name != 'pull_request' }}
+              continue-on-error: true
               run: |
                   mkdir -p "$RUNNER_TEMP/tested"
                   git rev-parse HEAD | tee "$RUNNER_TEMP/tested/commit"
@@ -266,7 +292,8 @@ jobs:
 
             # named by the commit: the next scheduled run asks for this name, one API call, nothing downloaded
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              if: ${{ success() }}
+              if: ${{ success() && github.event_name != 'pull_request' && steps.tested.outcome == 'success' }}
+              continue-on-error: true
               with:
                   name: release-checks-passed-${{ steps.tested.outputs.sha }}
                   path: ${{ runner.temp }}/tested/commit
@@ -278,12 +305,43 @@ jobs:
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
-    # The scheduled run's verdict on one issue labeled release-checks: a failure opens it or comments on the open one; a
-    # green run closes it. Pull requests and runs by hand show their result where they ran.
+    # The required check (main's ruleset: *Release checks*): it runs whatever happened before it and fails unless the
+    # suite passed, so a failed or skipped suite, or a failed What to check, can never read as a pass. Only a scheduled
+    # run that found the checks already passed on dev's head passes without the suite.
+    verdict:
+        name: Release checks
+        needs: [changed, checks]
+        if: ${{ always() }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - env:
+                  EVENT: ${{ github.event_name }}
+                  CHANGED: ${{ needs.changed.result }}
+                  RUN: ${{ needs.changed.outputs.run }}
+                  SUITE: ${{ needs.checks.result }}
+              run: |
+                  if [ "$CHANGED" != success ]; then
+                      echo "::error::What to check ended with $CHANGED: no verdict on the release checks"
+                      exit 1
+                  fi
+                  if [ "$EVENT" = schedule ] && [ "$RUN" = false ]; then
+                      echo "The release checks already passed on dev's head: nothing to run today"
+                      exit 0
+                  fi
+                  if [ "$SUITE" != success ]; then
+                      echo "::error::The release suite ended with ${SUITE:-no result}"
+                      exit 1
+                  fi
+                  echo "The release suite passed"
+
+    # The scheduled run's verdict on one issue labeled release-checks: a failure (of the suite, or of What to check: no
+    # verdict) opens it or comments on the open one; a pass, or the checks found already passed on dev's head, closes
+    # it. Pull requests and runs by hand show their result where they ran.
     issue:
         name: Release checks issue
         needs: [changed, checks]
-        if: ${{ always() && github.event_name == 'schedule' && needs.changed.outputs.run == 'true' && needs.checks.result != 'cancelled' }}
+        if: ${{ always() && github.event_name == 'schedule' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
@@ -292,18 +350,24 @@ jobs:
             - env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
+                  CHANGED: ${{ needs.changed.result }}
+                  RUN: ${{ needs.changed.outputs.run }}
                   RESULT: ${{ needs.checks.result }}
                   COMMIT: ${{ needs.changed.outputs.ref }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
                   open=$(gh issue list --repo "$REPO" --label release-checks --state open --limit 1 --json number --jq '.[0].number // empty')
-                  if [ "$RESULT" = success ]; then
+                  if [ "$CHANGED" = success ] && { [ "$RESULT" = success ] || [ "$RUN" = false ]; }; then
                       if [ -n "$open" ]; then
-                          gh issue close "$open" --repo "$REPO" --comment "The daily release checks passed on dev at $COMMIT: $RUN_URL"
+                          gh issue close "$open" --repo "$REPO" --comment "The release checks passed on dev at $COMMIT: $RUN_URL"
                       fi
                       exit 0
                   fi
-                  body="The daily release checks ended with **$RESULT** on dev at $COMMIT: $RUN_URL (the job summary names the failed tests and the seeds to replay)."
+                  if [ "$CHANGED" != success ]; then
+                      body="The daily release checks could not tell what to check (What to check: **$CHANGED**), so no suite ran: $RUN_URL"
+                  else
+                      body="The daily release checks ended with **$RESULT** on dev at $COMMIT: $RUN_URL (the job summary names the failed tests and the seeds to replay)."
+                  fi
                   if [ -n "$open" ]; then
                       gh issue comment "$open" --repo "$REPO" --body "$body"
                   else

@@ -2,7 +2,7 @@
 
 namespace App\Tests\Editor;
 
-use App\FlowbiteXor\Editor\EditorHtmlPolicy;
+use App\UXor\Editor\EditorHtmlPolicy;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\UX\LiveComponent\Test\InteractsWithLiveComponents;
 

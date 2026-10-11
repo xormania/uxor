@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isCachedCopy, isPermanent } from '../lib/flowbite-xor-turbo.js';
+import { isCachedCopy, isPermanent } from '../lib/uxor-turbo.js';
 
 /**
  * Dismisses a `Toast` after its timeout, pausing while it is hovered or focused, or when its close

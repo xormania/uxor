@@ -82,7 +82,7 @@ Extensions: `@tiptap/core`, `@tiptap/pm`, `@tiptap/extension-{document,text,para
 - A re-render that brings back the value the editor sent (an echo) does nothing.
 - A re-render with `data-editor-reset-value` changed (a counter the component bumps on an explicit reset or a record switch) replaces the content with `setContent(value, { emitUpdate: false })`.
 
-### Server side (kit PHP, `src/FlowbiteXor/Editor/`)
+### Server side (kit PHP, `src/UXor/Editor/`)
 
 - `EditorHtmlPolicy`: builds the `HtmlSanitizer` above (elements of the preset, `ol[start]`, `a[href]`, schemes `https`, `http`, `mailto`, relative links allowed, `rel` forced). Nothing else is allowed: no `style`, `class`, `id`, `data-*`, event attributes or images.
 - `EditorType` (parent `TextareaType`, block prefix `flowbite_editor`), options `max_bytes` and `max_chars`:

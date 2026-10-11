@@ -4,7 +4,7 @@
 # previews' own links and forms reach saved pages, and every recipe and README example has its pages
 # (tools/fence-coverage.mjs). CI's *Static site* job and pages.yml both build with it; Pages then uploads <dir>.
 #
-#   tools/build-static.sh <dir> [--base-path=/flowbite-xor] [--release-from-tags]
+#   tools/build-static.sh <dir> [--base-path=/<repository name>] [--release-from-tags]
 #
 # --base-path: the URL path the site is served under (none: the root). --release-from-tags: the install commands name
 # the release (X.Y.Z tag) HEAD is, or else the latest release before it; without it, or without tags, they name none.

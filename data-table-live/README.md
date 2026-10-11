@@ -11,7 +11,7 @@ The `data-table` recipe as a Live Component: search while typing, filters, sorta
 ::: installation
 
 Run `ux:install` from your project's root directory: this recipe copies `AbstractLiveDataTable` into
-`src/FlowbiteXor/DataTableLive/` (namespace `App\FlowbiteXor\DataTableLive`), and installs the `data-table` recipe,
+`src/UXor/DataTableLive/` (namespace `App\UXor\DataTableLive`), and installs the `data-table` recipe,
 whose classes it extends. If your project's root namespace is not `App`, change the `namespace` and `use` lines of
 those files to match. Run the `composer require` command `ux:install` prints right away: until
 `symfony/ux-live-component` is installed, the copied class stops the app (and its console) from booting.
@@ -27,9 +27,9 @@ the `data-table` README describes: moving a table from one recipe to the other c
 // src/Twig/Components/OrdersTable.php
 namespace App\Twig\Components;
 
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\TableQuery;
-use App\FlowbiteXor\DataTableLive\AbstractLiveDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\TableQuery;
+use App\UXor\DataTableLive\AbstractLiveDataTable;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 
 #[AsLiveComponent(name: 'OrdersTable', template: 'components/DataTableLive.html.twig')]
@@ -123,5 +123,5 @@ rendered). Give a region one owner: let Live re-render the table, or replace it 
 at once. Turbo 8's refresh with morphing is not supported.
 
 Whether a `turbo:before-cache` leaves the table as it is (a frame visit promoted to history, a `data-turbo-permanent`
-element) is answered by the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which `ux:install
+element) is answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install
 data-table-live` installs with it.

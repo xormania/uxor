@@ -2,7 +2,7 @@
 
 namespace App\Tests\DataTable;
 
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\TableQuery;
 use App\Tests\DataTable\Fixtures\ProductsTable;
 use App\Tests\DataTable\Fixtures\RecordingDataTable;
 use PHPUnit\Framework\Attributes\DataProvider;

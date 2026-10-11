@@ -87,6 +87,12 @@ test('no timed step fails (no report, never an empty one); bad usage and an unre
     writeFileSync(join(dir, 'bad.json'), '{');
     writeFileSync(join(dir, 'ok.json'), JSON.stringify(fiveRuns([1, 1, 1, 1, 1])));
     assert.equal(run(['--baseline', join(dir, 'bad.json'), join(dir, 'ok.json')]).status, 64);
+    // --min-runs is a positive whole number, or the partial-run guard would pass anything
+    for (const value of ['nope', '0', '-1', '2.5', 'Infinity', '']) {
+        const bad = run(['--record', join(dir, 'never.json'), '--min-runs', value, join(dir, 'ok.json')]);
+        assert.equal(bad.status, 64, `--min-runs ${JSON.stringify(value)}: ${bad.stdout}${bad.stderr}`);
+        assert.throws(() => readFileSync(join(dir, 'never.json')));
+    }
 });
 
 test('a baseline recorded with another timing harness is not compared with: the report says to re-record it', () => {
@@ -106,4 +112,37 @@ test('a baseline recorded with another timing harness is not compared with: the 
     assert.equal(run(['--record', recorded, '--commit', 'abc', join(dir, 'results.json')]).status, 0);
     assert.equal(JSON.parse(readFileSync(recorded, 'utf8')).harness, 2);
     assert.match(run(['--baseline', recorded, join(dir, 'results.json')]).stdout, /Baseline: commit `abc`/);
+});
+
+test('--record refuses a partial baseline: a step with fewer runs than asked, or one the comparable baseline has', () => {
+    const dir = scratch();
+    const three = report([100, 100, 100].map((value) => ['passed', [timing('table sort', value, 20)]]));
+    writeFileSync(join(dir, 'three.json'), JSON.stringify(three));
+    const few = run(['--record', join(dir, 'few.json'), '--commit', 'abc', join(dir, 'three.json')]);
+    assert.equal(few.status, 2, few.stdout + few.stderr);
+    assert.match(few.stderr, /table sort: 3 runs of durationMs, 5 needed/);
+    assert.throws(() => readFileSync(join(dir, 'few.json')));
+
+    // five runs of one step, against a baseline of the same harness that also has another step
+    const base = baseline(gather([fiveRuns([100, 100, 100, 100, 100])]), { commit: 'abc', date: '2026-10-10' });
+    base.steps['dashboard back'] = base.steps['table sort'];
+    writeFileSync(join(dir, 'base.json'), JSON.stringify(base));
+    writeFileSync(join(dir, 'five.json'), JSON.stringify(fiveRuns([100, 100, 100, 100, 100])));
+    const missing = run(['--baseline', join(dir, 'base.json'), '--record', join(dir, 'partial.json'), '--commit', 'abc', join(dir, 'five.json')]);
+    assert.equal(missing.status, 2, missing.stdout + missing.stderr);
+    assert.match(missing.stderr, /dashboard back: in the baseline, not timed/);
+    assert.throws(() => readFileSync(join(dir, 'partial.json')));
+
+    // a baseline of another harness is not compared with, but its steps still count: none may be left out
+    const old = { ...base };
+    delete old.harness;
+    writeFileSync(join(dir, 'old.json'), JSON.stringify(old));
+    const oldMissing = run(['--baseline', join(dir, 'old.json'), '--record', join(dir, 'old-partial.json'), '--commit', 'abc', join(dir, 'five.json')]);
+    assert.equal(oldMissing.status, 2, oldMissing.stdout + oldMissing.stderr);
+    assert.match(oldMissing.stderr, /dashboard back: in the baseline, not timed/);
+    assert.throws(() => readFileSync(join(dir, 'old-partial.json')));
+
+    // complete: recorded
+    assert.equal(run(['--record', join(dir, 'ok.json'), '--commit', 'abc', join(dir, 'five.json')]).status, 0);
+    assert.equal(JSON.parse(readFileSync(join(dir, 'ok.json'), 'utf8')).steps['table sort'].durationMs.runs, 5);
 });

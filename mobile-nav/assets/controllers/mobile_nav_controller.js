@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { followsInThisTab, whenMediaMatches } from '../lib/flowbite-xor-navigation.js';
+import { followsInThisTab, whenMediaMatches } from '../lib/uxor-navigation.js';
 
 /**
  * The `MobileNav`: the app's navigation in a `Drawer` on small screens, opened by a menu button. The drawer controller

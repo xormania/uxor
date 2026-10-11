@@ -22,9 +22,9 @@ theme and the form theme. Draft: the open questions at the end come first._
 
 ## Deliverable: an `autocomplete` recipe
 
-- `assets/styles/flowbite-xor-autocomplete.css`: Tom Select styled with the theme's roles (`.ts-wrapper`,
+- `assets/styles/uxor-autocomplete.css`: Tom Select styled with the theme's roles (`.ts-wrapper`,
   `.ts-control`, `.ts-dropdown`, options, active, selected items and their remove buttons, loading, no results,
-  disabled, invalid), light and dark, imported after `flowbite-xor.css`.
+  disabled, invalid), light and dark, imported after `uxor.css`.
 - README: install (`composer require symfony/ux-autocomplete`, the CSS import, the `controllers.json` autoimport
   setting), form usage (`'autocomplete' => true`, multiple, `tom_select_options`, remote with
   `AutocompleteChoiceType`/`#[AsEntityAutocompleteField]`), and use outside a form.

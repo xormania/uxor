@@ -252,7 +252,7 @@ visit promoted to history (Turbo 8). The `turbo` recipe's module holds that chec
 `data-turbo-permanent` element, for every recipe:
 
 ```js
-import { isKeptOnCache, isPromotedFrameCache } from '../lib/flowbite-xor-turbo.js';
+import { isKeptOnCache, isPromotedFrameCache } from '../lib/uxor-turbo.js';
 // isPromotedFrameCache(): false === window.Turbo?.session?.navigator?.currentVisit?.willRender
 ```
 
@@ -1183,7 +1183,7 @@ report says why, instead of showing 0%: PCOV not loaded, no `clover.xml` (the te
 measured line, no Infection log or one without a mutant, no recorded JS coverage. A browser test that fails fails its
 shard as in CI; the coverage it recorded is still reported. Branches are not measured: PCOV measures lines.
 
-**Scope.** The demo's autoloader maps `App\FlowbiteXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
+**Scope.** The demo's autoloader maps `App\UXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
 tests run the recipes' files, not the copies `tools/sync-demo` writes. [`tools/monthly/php-scope.php`](../tools/monthly/php-scope.php)
 writes a PHPUnit configuration (the demo's, with absolute paths and its `<source>` set to every recipe's `src/`) and
 Infection's: the demo's own code, its copies of the recipes and the tests' fixtures are outside both. On the JS side,
@@ -1245,11 +1245,18 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 [`PLAN-test-tiers.md`](PLAN-test-tiers.md): Chromium only, and not on every push.
 
 [`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request
-(`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head (a passing run
-uploads a `release-checks-passed-<sha>` artifact; the daily run asks for the one of `dev`'s head, one API call, and
-stops in seconds when it exists), and by hand (Actions › *Release
-checks* › *Run workflow*). It sets up the demo as CI's browser job does and runs `RELEASE_CHECKS=1 npx playwright test --grep @release` (the variable adds the `smoke-dark@release` and `harsh@release` projects),
-then the PHPUnit properties with a random seed. CI's browser job leaves the same tests out (`--grep-invert @release`).
+(`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
+(Actions › *Release checks* › *Run workflow*). A passing scheduled or manual run (never a pull request's) uploads a
+`release-checks-passed-<sha>` artifact; the daily run counts one only from a successful scheduled or manual run of this
+workflow in this repository, and stops in seconds when it finds one. The *Release suite* job sets up the demo as CI's
+browser job does and runs `RELEASE_CHECKS=1 npx playwright test --grep @release` with the `smoke`,
+`smoke-dark@release` and `harsh@release` projects named (a missing one is an error), then checks the structural
+evidence ([`tools/ci/release-evidence.mjs`](../tools/ci/release-evidence.mjs): each project ran a test, each release
+spec ran and skipped none), then the PHPUnit properties with a random seed (`--fail-on-empty-test-suite`). CI's browser
+job leaves the same tests out (`--grep-invert @release`). The required check is the *Release checks* job, which runs
+whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
+reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
+result artifacts and the passed marker are advisory: their upload never decides the verdict.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
 
 | Group | Where | What it checks |
@@ -1271,7 +1278,9 @@ filter by tag, also runs the `smoke` project's `@release` specs.
 ([`tools/ci/release-timings.mjs`](../tools/ci/release-timings.mjs)), until the owner sets a tolerance per metric (the
 plan's step 8). A behavior assertion, a leak counter over its tolerance, a fuzzing or property failure fails the run
 as any test does. `main`'s ruleset requires the *Release checks* check on the release pull request from 0.2.0 (decision 4
-of the plan): every failure above blocks the release; the timings do not until step 8.
+of the plan): every failure above blocks the release; the timings do not until step 8. A recorded baseline comes only
+from a run whose tests, properties and evidence all passed, and `--record` refuses a partial run (a step with fewer
+than 5 runs, or a step of the baseline not timed, whatever harness recorded it) and writes nothing.
 
 A malformed form post (an array where the controller reads a string) is a 400, answered with Symfony's error page,
 whose inline styles the demo's policy blocks: the form fuzzing checks markup and the CSP on the answers the app renders

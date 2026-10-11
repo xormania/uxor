@@ -2,8 +2,8 @@
 
 namespace App\Tests\DataTable\Fixtures;
 
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\TableQuery;
 
 /**
  * A table of $total rows ({id, number}) that records each loader call: `count`, or `rows@<offset>`.

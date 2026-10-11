@@ -174,7 +174,7 @@ test('repeated Turbo visits leave one controller on the tree', async ({ page }) 
 
 test('in the demo\'s data-turbo-permanent sidebar, the tree follows the current page across visits', async ({ page }) => {
     await page.goto('/demo');
-    const nav = page.getByRole('tree', { name: 'Acme' });
+    const nav = page.getByRole('tree', { name: 'xor' });
     await page.evaluate(() => ((window as any).__sidebar = document.getElementById('sidebar')));
     await expect(nav.getByRole('treeitem', { name: 'Dashboard' })).toHaveAttribute('aria-current', 'page');
     await expect(nav.getByRole('treeitem', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'false');
@@ -205,7 +205,7 @@ test('in the demo\'s data-turbo-permanent sidebar, the tree follows the current 
 
 test('collapsing the demo\'s sidebar moves the Tab stop off a hidden current item to its shown branch', async ({ page }) => {
     await page.goto('/demo/settings/profile');
-    const nav = page.getByRole('tree', { name: 'Acme' });
+    const nav = page.getByRole('tree', { name: 'xor' });
     await expect(nav.getByRole('treeitem', { name: 'Profile' })).toHaveAttribute('tabindex', '0');
 
     await page.getByRole('button', { name: 'Collapse sidebar' }).click();

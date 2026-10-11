@@ -120,7 +120,7 @@ async function diagnose({ attempts = [attempt()], data, policy = (value) => valu
                 PATH: process.env.PATH,
                 GITHUB_ACTIONS: 'true',
                 GITHUB_STEP_SUMMARY: stepSummary,
-                GITHUB_REPOSITORY: 'xormania/flowbite-xor',
+                GITHUB_REPOSITORY: 'xormania/uxor',
                 GITHUB_SHA: 'a'.repeat(40),
                 GITHUB_RUN_ID: '123',
                 GITHUB_RUN_ATTEMPT: '2',

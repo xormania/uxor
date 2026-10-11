@@ -54,6 +54,9 @@ while IFS= read -r path; do
 
         # Repository tools, each with the jobs that run it
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs | llms.txt) on contrast ;;
+        # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the
+        # demo reads manifest.json itself
+        tools/kit-identity.mjs) on contrast ;;
         # icon-lint runs in Contrast; its cases in Tool tests, on every run
         tools/icon-lint.mjs) on contrast ;;
         tools/fence-coverage.mjs) on contrast static-site ;;
@@ -71,7 +74,9 @@ while IFS= read -r path; do
         tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json) on php demo ;;
         tools/ci/*) on demo ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run
+        # The name check reads every file, so Tool tests runs it on every run too
         tools/tests/*.test.mjs | tools/tests/fixtures/playwright-results/* | tools/tests/fixtures/junit/* | tools/monthly/*) ;;
+        tools/name-check.mjs) ;;
         # release.yml's plan: Workflows runs its cases and its dry run
         tools/release-plan.sh | tools/tests/release-plan.sh) on workflows ;;
         tools/*) on php static-site demo ;;
@@ -89,13 +94,14 @@ while IFS= read -r path; do
 
         # Anything else is part of the kit (recipes, kit.css, kit.js, manifest.json, README.md, .gitattributes...).
         # Contrast checks the theme's roles, what the markdown teaches and the palette colors of the recipes' templates
-        # (tools/docs-lint.mjs), the README tables and the controllers' rows; it reads every file in a directory (a
+        # (tools/docs-lint.mjs), the recipe tables and the controllers' rows; it reads every file in a directory (a
         # recipe: tools/readme-pairing.mjs pairs its code with its README, tools/readme-versions.mjs its README with its
         # manifest) and the root files below
         *)
             on lint-kit php static-site fresh-install demo
             case "$path" in
-                */* | kit.css | README.md | INSTALL.md) on contrast ;;
+                # manifest.json: llms.txt holds its description, name and homepage (tools/llms-txt.mjs)
+                */* | kit.css | README.md | INSTALL.md | manifest.json) on contrast ;;
             esac
             ;;
     esac

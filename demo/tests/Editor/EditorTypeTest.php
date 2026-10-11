@@ -2,8 +2,8 @@
 
 namespace App\Tests\Editor;
 
-use App\FlowbiteXor\Editor\EditorHtmlPolicy;
-use App\FlowbiteXor\Editor\EditorType;
+use App\UXor\Editor\EditorHtmlPolicy;
+use App\UXor\Editor\EditorType;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Form\FormInterface;
 

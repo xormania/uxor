@@ -2,12 +2,12 @@
 
 namespace App\Tests\MarkdownEditor;
 
-use App\FlowbiteXor\MarkdownEditor\MarkdownRenderer;
+use App\UXor\MarkdownEditor\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * The Markdown renderer (markdown-editor/src/FlowbiteXor/MarkdownEditor/MarkdownRenderer.php) on hostile and ordinary
+ * The Markdown renderer (markdown-editor/src/UXor/MarkdownEditor/MarkdownRenderer.php) on hostile and ordinary
  * Markdown: it keeps what Markdown makes, strips raw HTML and images, refuses unsafe links, limits nesting, and renders
  * HTML far longer than its Markdown whole. The browser parses the MarkdownEditor component given a hostile value in
  * tests/e2e/hostile-props.spec.ts.

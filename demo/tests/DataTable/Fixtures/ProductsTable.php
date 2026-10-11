@@ -2,10 +2,10 @@
 
 namespace App\Tests\DataTable\Fixtures;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\Filter;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableQuery;
 
 /**
  * A table as an app extends it: a sortable column with a server field (`name` sorts by `p.name`), one sorted by its

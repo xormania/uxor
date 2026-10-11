@@ -31,10 +31,10 @@ app_dir="$app"
 require_kit_packages
 
 # the kit as GitHub's archive gives it (export-ignore applies), from the last commit, as a local kit
-kit="vendor/symfony/ux-toolkit/kits/flowbite-xor-local"
+kit="vendor/symfony/ux-toolkit/kits/kit-local"
 mkdir -p "$kit"
 git -C "$root" archive HEAD | tar -x -C "$kit"
-install_kit_recipes flowbite-xor-local "$work"
+install_kit_recipes kit-local "$work"
 add_fresh_app "$root"
 
 $php -S "127.0.0.1:$port" -t public > "$work/server.log" 2>&1 &

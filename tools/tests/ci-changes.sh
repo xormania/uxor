@@ -100,6 +100,11 @@ check_git "$all"                  'git mv .github/workflows/ci.yml .github/workf
 check "$kit_contrast"             new-recipe/manifest.json
 check "$kit_contrast"             tabs/manifest.json
 check "$kit"                      some-new-file.txt
+# the kit's manifest: llms.txt (Contrast) holds its name, homepage and description
+check "$kit_contrast"             manifest.json
+check 'contrast'                  tools/kit-identity.mjs
+# the name check and its cases: Tool tests, on every run
+check ''                          tools/name-check.mjs tools/tests/name-check.test.mjs
 
 check "$all"                      tools/ci-changes.sh
 check 'workflows'                 tools/release-plan.sh
@@ -135,7 +140,7 @@ check "$kit_contrast"             side-nav/assets/controllers/side_nav_controlle
 check "$kit_contrast"             side-nav/README.md
 check "$kit_contrast"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
-check "$kit_contrast"             theme/assets/styles/flowbite-xor.css
+check "$kit_contrast"             theme/assets/styles/uxor.css
 check "$kit_contrast"             button/templates/components/Button.html.twig
 check "$kit_contrast"             layouts/templates/layouts/app.html.twig
 check "$kit"                      .gitattributes

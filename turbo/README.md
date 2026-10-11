@@ -11,12 +11,12 @@ What the kit's controllers ask about Turbo's copies of a page, answered in one J
 The recipes that reset their state before Turbo caches a page, or clean up a cached copy as it connects, install it
 with them: `popover` (so `date-picker`), `dropdown`, `modal`, `drawer`, `toast`, `data-table`, `data-table-live`,
 `dropzone` and `layouts` (`form-reset`). Install it yourself only for a controller of your own. The recipe copies
-`assets/lib/flowbite-xor-turbo.js`, a module with no dependency that a Stimulus controller imports by its relative
+`assets/lib/uxor-turbo.js`, a module with no dependency that a Stimulus controller imports by its relative
 path:
 
 ```js
 import { Controller } from '@hotwired/stimulus';
-import { isCachedCopy, isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
+import { isCachedCopy, isKeptOnCache } from '../lib/uxor-turbo.js';
 
 export default class extends Controller {
     connect() {

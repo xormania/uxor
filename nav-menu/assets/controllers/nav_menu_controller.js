@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { followsInThisTab, markCurrentLinks, rememberCurrent } from '../lib/flowbite-xor-navigation.js';
+import { followsInThisTab, markCurrentLinks, rememberCurrent } from '../lib/uxor-navigation.js';
 
 /**
  * A navigation menu, as the WAI-ARIA disclosure navigation pattern describes it: each submenu is a list of links

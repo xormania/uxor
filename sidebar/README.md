@@ -51,4 +51,4 @@ The app's main navigation: grouped links with icons and counts, collapsible to i
   at once.
 
 Marking the current item and closing the sidebar opened over the page when the screen grows are the `navigation`
-recipe's module (`assets/lib/flowbite-xor-navigation.js`), which `ux:install sidebar` installs with it.
+recipe's module (`assets/lib/uxor-navigation.js`), which `ux:install sidebar` installs with it.
