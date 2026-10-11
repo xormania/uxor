@@ -44,11 +44,14 @@ jobs:
                   coverage: none
             # the same build and checks as CI's Static site job; the install commands name the release (the output also
             # goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
+            # a call from release.yml builds a commit of main; a manual run builds the branch it was started on
             - name: Build and check the site
               id: build
+              env:
+                  BRANCH: ${{ inputs.ref && 'main' || github.ref_name }}
               run: |
                   set -o pipefail
-                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch="$BRANCH" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
             # Advisory diagnosis of a failed build (.github/actions/jev-diagnosis): never the job's verdict. Called from
             # release.yml, the run's workflow is release.yml's, so this one names itself; the key comes from the caller.
             - name: Jev diagnosis (advisory)

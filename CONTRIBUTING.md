@@ -27,14 +27,15 @@ and pull request standard.
 | `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
+| `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself) and `tools/release-plan.sh`; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs` and `tools/release-plan.sh`; `release.yml`'s release job, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
 | `tools/prepare-tests.mjs` | no | what the browser tests need, safe with several Playwright processes in one checkout: the recipe specs' runnable copies and the demo's CSS (*Checks*) |
 | `FOR-AGENTS.md`, `llms.txt` | no | the page for coding agents given the repository's URL, and the list of every page for them ([llms.txt](https://llmstxt.org/)) |
-| `docs/`, `.github/` | no | notes on the toolkit and platform behavior this repository works around ([`docs/NOTES.md`](docs/NOTES.md)), the demo's deployment boundary and route inventory ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)), a snippet that projects using the kit paste into their own `AGENTS.md` ([`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md)), the testing patterns ([`docs/TESTING.md`](docs/TESTING.md)), CI, the gallery on GitHub Pages (`pages.yml`), CodeQL code scanning, the weekly `npm audit`, the monthly coverage, mutation, cross-browser and timings reports (`monthly.yml`), the release checks (`release-checks.yml`: on the release pull request, daily on `dev` and by hand), Dependabot's update pull requests, the pull request template |
+| `docs/`, `.github/` | no | notes on the toolkit and platform behavior this repository works around ([`docs/NOTES.md`](docs/NOTES.md)), the demo's deployment boundary and route inventory ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)), agent assurance and adversarial evaluations ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)), a snippet that projects using the kit paste into their own `AGENTS.md` ([`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md)), the testing patterns ([`docs/TESTING.md`](docs/TESTING.md)), CODEOWNERS, CI, the gallery on GitHub Pages (`pages.yml`), CodeQL code scanning, the weekly `npm audit`, the monthly coverage, mutation, cross-browser and timings reports (`monthly.yml`), the release checks (`release-checks.yml`: on the release pull request, daily on `dev` and by hand), Dependabot's update pull requests, the pull request template |
 
 `ux:install` downloads GitHub's archive of the whole repository; `export-ignore` in `.gitattributes` keeps
 everything else out of it (the demo, tests, tools, and repository files such as this one, `AGENTS.md`,
@@ -123,7 +124,7 @@ change to both paths.
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
-| `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run |
+| `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its release job's steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
 | `.github/workflows/release-checks.yml` | *Workflows*, *Demo + Playwright* (its setup, and the same projects and fixtures); it runs on the release pull request, daily on `dev` and by hand, never on a push |
@@ -156,7 +157,8 @@ node tools/readme-versions.mjs                      # each recipe README renders
 node tools/readme-pairing.mjs [--base <ref>]        # each recipe whose code your commits change has its README changed, or a Docs-waiver trailer; base: where HEAD left origin/dev (see Docs)
 node tools/recipe-imports.mjs                       # every relative import in a recipe's JS names a file the recipe or its dependencies.recipe install (a shared module: floating, navigation, turbo)
 node tools/js-duplication.mjs                       # the recipes' JS copies no run of 40 tokens beyond the budget it lists, and declares no name a shared module exports (see Shared code)
-node --test tools/tests/*.test.mjs                  # the cases of the CI tools (tools/ci/: results summary, CI metrics, shard plan, Jev diagnosis, JUnit and step attempts), of tools/prepare-tests.mjs, of tools/icon-lint.mjs, of the README checks, of tools/recipe-imports.mjs and of tools/js-duplication.mjs, which also run them on the kit
+node tools/security-policy.mjs                      # immutable Actions and read-only defaults; reviewed executable sinks; no generated output; current support and protected agent rules
+node --test tools/tests/*.test.mjs                  # the cases of the CI tools (tools/ci/: results summary, CI metrics, shard plan, Jev diagnosis, JUnit and step attempts), of tools/prepare-tests.mjs, of tools/icon-lint.mjs, of the README checks, of tools/recipe-imports.mjs and of tools/js-duplication.mjs, which also run them on the kit, and the repository security policy
 tools/tests/sync-demo.sh                            # tools/sync-demo copies what ux:install copies, on a test kit (needs demo/vendor)
 find */src -name '*.php' -not -path 'demo/*' -not -path 'tools/*' -print0 | xargs -0 -n1 php -l   # the syntax of the recipes' PHP
 (cd demo && bin/phpunit)                            # the PHP tests (demo/tests/): the data tables' limits, Live and Twig components, snapshots, profiler counts
@@ -268,9 +270,14 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 - **Props that shape markup are checked** (`docs/GUIDE.md`, *Security*). A tag prop (`as`) is lower-cased and kept
   only when it is one of the tags its `##` line lists, right after `{% props %}`:
   `{%- set as = as|lower in ['div', 'a'] ? as|lower : 'div' -%}`. An attribute name taken from data is escaped with
-  `|e('html_attr_relaxed')`. A link prop goes through the scheme guard of
+  `|e('html_attr_relaxed')` and dropped when it starts with `on`. A template that prints its `attributes` on an
+  element checks them first, with the line after `{% props %}` in `button/templates/components/Button.html.twig`
+  (or at the top, without props): no `on…`, `srcset` or `ping`, and `href`, `formaction` and `src`, in any case,
+  through the link and image policies; one that only passes them to another component (`{{ ...attributes }}`)
+  leaves it to that component. A link prop goes through the scheme guard of
   `breadcrumb/templates/components/Breadcrumb/Item.html.twig`, and the template prints the guarded variable. Add each
-  new one to `demo/src/Command/HostilePropsCommand.php`, which `tests/e2e/hostile-props.spec.ts` checks.
+  new one to `demo/src/Command/HostilePropsCommand.php`, which `tests/e2e/hostile-props.spec.ts` checks; it renders
+  every component given `on…` attributes on its own (add the markup of one that does not render alone).
 - **Recipe format** (checked by `ux-toolkit-kit-lint`):
   - `manifest.json` with `type` and `name`;
   - `README.md` opening with `# Title`, then a one-line summary;
@@ -547,10 +554,20 @@ them can fail. `main`'s ruleset requires the *Release checks* check beside *CI r
 A fix that cannot wait for the next release goes to `main` in its own pull request with its version heading (a
 patch), and `main` is then merged into `dev`.
 
+After each release, merge `main` back into `dev` in a pull request of its own (`git checkout -b sync/X.Y.Z origin/dev &&
+git merge --no-ff origin/main`, with nothing else in it). The tag `X.Y.Z` is on the release pull request's merge
+commit, which only `main` holds: until `dev` contains it, `git describe` on `dev` (`tools/build-static.sh` reads it) still
+names the previous release, and the next release pull request may need `main` merged into it before it can merge.
+
 Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: it
 checks that the merge commit installs from GitHub in a fresh Symfony Docker project
-(`tools/tests/docker-install.sh`), tags it `X.Y.Z`, and publishes a GitHub Release with the section as its notes. If
-it fails, fix the cause and re-run it: it skips what is already done.
+(`tools/tests/docker-install.sh`), tags it `X.Y.Z`, and publishes a GitHub Release with the section as its notes,
+marked *Latest*. If it fails, fix the cause and re-run it: it skips what is already done. An older version that is
+tagged but has no Release (a tag pushed by hand, a run that stopped before its Release) gets its Release in the same
+run, after the new one: its notes, not *Latest*, and no install check, since today's check installs today's recipes,
+which an older version lacks. That step is best effort: if it fails, it warns, and the job and the gallery go on. An
+older version with neither tag nor Release is never tagged by the workflow: it warns with the command to tag it by
+hand, and a re-run publishes its Release.
 
 [`tools/release-plan.sh`](tools/release-plan.sh) makes that decision for each version: the commit is the first one of
 `main`'s first-parent history that adds the version's heading (the release pull request's merge commit), the notes
@@ -569,10 +586,10 @@ whose commit's workflows differed from `main`'s), push the tag by hand
 checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`);
 if that part fails, use *Re-run failed jobs* (a full re-run finds the release done and skips the gallery), or run
 `pages.yml` by hand on `main`. To preview the next release's gallery before it, run `pages.yml` by hand on `dev`: the
-live site shows `dev` (its install commands still name the latest release) until a release or a run on `main`
+live site shows `dev` (its install commands name the `dev` branch) until a release or a run on `main`
 deploys again; GitHub only deploys from a branch the `github-pages` environment allows. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
 not the release: both run `tools/build-static.sh <dir> --base-path=/<repository>` (`pages.yml` adds
-`--release-from-tags`, so the install commands name the release), which installs the demo, saves the pages with
+`--release-from-tags` and `--branch`: the install commands name the release, or else the branch), which installs the demo, saves the pages with
 `app:export-static` and checks them. Locally, delete `demo/public/assets/` after it, or the demo serves those copies.
 In that copy, Live Components are switched off and the recipe pages say what needs the server
 (`ExportStaticCommand::SERVER_ONLY`): add a recipe there when its examples need Symfony behind them.

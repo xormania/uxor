@@ -45,10 +45,17 @@ the recipes' templates and PHP for `data-controller`, `symfony--ux-*`, `AsLiveCo
 Left out, with where their guarantees live: the presentational recipes (badge, button, card, table, …) and theme
 (CSS only): screenshots of every README example in both themes (`examples/examples`), axe on every example in both
 themes and every `/r/` page (`a11y`), hostile props (`hostile-props`), markup snapshots for Badge and Breadcrumb only
-(`demo/tests/Twig/ComponentsTest.php`). Pagination: links only, its frame behavior is the data table's. The blocks
+(`demo/tests/Twig/ComponentsTest.php`), the Button keyboard focus outline at 3:1 or more against what it touches, every
+variant in both themes (`button-focus`). Pagination: links only, its frame behavior is the data table's. The blocks
 (login, signup, forgot-password, settings-profile, not-found, dashboard-home): server flows in `demo-app` (E2E demo).
 form-theme: `forms` (rows match the hand-written components in both themes, server errors, the date picker and
-Dropzone opt-ins).
+Dropzone opt-ins). input, select (CSS only): `forms` "every Input pads its text the same, with or without a type",
+"a Select's text stops before its chevron" (ltr and rtl), "a multiple Select shows no chevron and no option cut at the
+bottom".
+
+The gallery (E2E demo, `demo-app`): every `/r/*` and `/demo` page fits at 320px with no Markdown source shown and a
+recipe name of any length wrapping, every page names an icon, the header is one row at 320 and 390px, the hero's two
+secondary links share one style; `StaticExportBannerTest` places the static notice beside the sidebar (functional).
 
 The demo itself has an executable deployment contract outside the recipe matrix:
 `ProductionConfigurationTest` refuses an accidental production boot and proves a deliberate one has no development
@@ -118,6 +125,7 @@ class at first paint and after, `aria-pressed`, the icon shown, the saved choice
 | Storage blocked, Turbo visit | E2E demo | theme-toggle "storage blocked › the toggle switches the theme, and the choice holds across a Turbo visit without localStorage" (moved from smoke) |
 | Storage blocked, Back and reload | | G10 |
 | Theme before paint without a toggle (auth layout), under the CSP nonce | E2E demo | csp "the layout sets the theme before the first paint" |
+| Native controls (menus, list selection, scrollbars) follow the chosen theme, not the system: `color-scheme` on the page and on selects | E2E demo | calendar "system … theme chosen › the month and year options are readable…" (2) |
 | Theme kept by a permanent panel's page | E2E lab | lab.turbo-nav "a data-turbo-permanent panel is kept across Turbo visits (not its scroll) and the theme persists" |
 | Two toggles on one page stay in sync (`aria-pressed` follows the class) | | G10 |
 | One `matchMedia` and one observer per toggle after N visits | | T2 |
@@ -333,7 +341,8 @@ modifiers, locale; the picker closed or open, typed text valid or invalid.
 
 | Recipe | Transition | Scope | Covered by |
 |---|---|---|---|
-| calendar | Keys, month and year dropdowns and their bounds, modifiers gone in a re-render, impossible dates, form submit, one input and one change per pick, ranges over disabled days, multiple mode inputs | E2E demo | calendar (9 tests) |
+| calendar | Keys, month and year dropdowns and their bounds, modifiers gone in a re-render, impossible dates, form submit, one input and one change per pick, ranges over disabled days, multiple mode inputs | E2E demo | calendar (11 tests) |
+| calendar | The month and year menus readable whatever the system scheme: system dark with the light theme chosen and the reverse, the page and the preview `<html>` and both selects compute the chosen `color-scheme`, the options keep >= 4.5:1 against the native menu | E2E demo | calendar "system … theme chosen › the month and year options are readable…" (2; failed before the fix: `colorScheme` "normal", options white on white in the dark case) |
 | calendar | A form reset cancelled by another listener (a capture listener on `form.reset()` and the reset button, a listener after the calendar's on the button) leaves the selection; the next reset brings back the date rendered with `calendar:select` source `reset`; a calendar disconnected while its reset waits does nothing | E2E demo | calendar "a reset another listener cancels leaves the selection…" (failed before the deferred reset: the cancelled reset brought back 2026-03-10) |
 | calendar | Back in a GET form shows the URL's month and selection, not the pick made before (`form-reset`); N visits; permanent (the month kept); frame ×3; Live props, bounds, locale, clear | E2E lab | lab.calendar (5 tests) |
 | calendar | Stream replace and update: the new calendar fresh, one controller, a pick works | E2E lab | lab.value-matrix "a calendar in a GET form › stream-replace, stream-update" |
@@ -475,9 +484,22 @@ of the same rules for a project's `AGENTS.md`; these rows cover its wording too.
 | Toasts go through Turbo Streams | lab.turbo-stream-toast, lab.turbo-nav, `tests/e2e/demo-app.spec.ts` | A toast in a Stream response shows and dismisses itself, also after a visit; a flash written as `<twig:Toast:Stream>` in the page shows once across visits (lab.turbo-nav) and after the signup redirect (demo-app). Not covered: that a toast rendered inside the permanent region on a later page is dropped |
 | Back shows a GET form as the URL says, a POST form as the user left it | lab.value-matrix, lab.form-back, lab.data-table-back | The rule's mechanism: `form-reset` on the layouts' `<body>` (and the demo's), each method × widget kind (lab.value-matrix's `back` and `forward` columns; lab.form-back: the month, typing before the scripts start, Tom Select's sync); the data table's search form resets itself as well (lab.value-matrix's data table row, lab.data-table-back) |
 | One owner per region | advice | How a project divides its own page between Live and Turbo: the kit ships no region with two owners for a test to hold, and a test could only reproduce the conflict the rule warns of |
-| Props and attributes are trusted input | `tests/e2e/hostile-props.spec.ts`, `ComponentsTest::testABadgeTagNotInItsListRendersADiv`, `ComponentsTest::testABreadcrumbLinkKeepsOnlyAllowedSchemes`, `tests/e2e/forms.spec.ts` | Part: what the kit does when the rule is broken. A hostile prop adds no element or handler, `as` falls back to the default tag, a link prop renders `#` for another scheme; the server refuses a date below the picker's bound (forms "the date picker opt-in…"). What a project passes is its own code |
+| Props and attributes are trusted input | `tests/e2e/hostile-props.spec.ts`, `ComponentsTest::testABadgeTagNotInItsListRendersADiv`, `ComponentsTest::testABreadcrumbLinkKeepsOnlyAllowedSchemes`, `tests/e2e/forms.spec.ts` | Part: what the kit does when the rule is broken. A hostile prop adds no element or handler, `as` falls back to the default tag, every declared link prop renders `#` for another scheme, `Avatar:Image` renders no `src`, no component renders an attribute named `on…`, `srcset` or `ping`, and `href`, `formaction` and `src` attributes in any case keep a safe URL; the server refuses a date below the picker's bound (forms "the date picker opt-in…"). Other attributes not declared as props remain the project's code |
 | No inline `<script>`, `<style>`, `style="…"` or `onclick="…"` | `tests/e2e/csp.spec.ts`, `tools/docs-lint.mjs` | The demo enforces a nonce-based policy without `style-src-attr` (csp), and the fixtures fail every test on a violation, so a template the suite renders with an inline script, style, style attribute or handler fails; the layouts' theme script carries the nonce (csp "the layout sets the theme before the first paint"). docs-lint: no markdown shows a `style=` attribute or an `on…=` handler |
 | Check your work in a browser | advice | A step for whoever makes the change, not a property of the code |
+
+## Repository and agent trust controls
+
+These checks cover repository production rather than a recipe's runtime behavior. The operating assumptions and the
+manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| External Actions are immutable; workflows reject `pull_request_target`, remote shell pipes and top-level writes | static policy | `tools/tests/security-policy.test.mjs` (`tools/security-policy.mjs`; the Tool tests job also runs it on every workflow) |
+| Every installable Twig raw-output, browser HTML-write, dynamic JavaScript execution, PHP process or unserialize sink is reviewed explicitly | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-sinks.json` (exact path, line shape, count and rationale) |
+| Dependency, cache, demo build and Playwright result paths never enter the tracked artifact | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-policy.mjs` over `git ls-files` |
+| The current released series stays supported, and xormania owns all changes plus the security policy and agent rules explicitly | static policy, review | `tools/tests/security-policy.test.mjs`; `.github/CODEOWNERS`; branch ruleset requiring code-owner review |
+| Agents resist prompt injection, credential discovery, scope pressure, workflow escalation, path escape, false evidence and self-approval | adversarial evaluation | `docs/AGENT-ASSURANCE.md`; manual disposable-fork protocol with transcript, worktree and network evidence |
 
 ## Pending: branches in flight
 
@@ -524,6 +546,7 @@ where the guarantee stays.
 | ~~`follow(page, name)`: a link followed from the keyboard, so Turbo does not prefetch it~~ **Done** | lab.data-table-interrupt, counts, release.timings | `transitions.ts` |
 | ~~Reading a shard's results with an inline `node -e` (stats only; a JSON error when setup had failed)~~ **Done:** `tools/ci/playwright-summary.mjs`: counts, failed and flaky tests with their errors, annotations, the tested commit and versions, `failed-attempts.json`, report-only durations (`durations.json`); tells setup failure, missing and invalid reports apart | `.github/workflows/ci.yml` (*Demo + Playwright*, *Read the results*) | `tools/ci/playwright-summary.mjs`, its cases in `tools/tests/playwright-summary.test.mjs` ([`TESTING.md`](TESTING.md), *Reading CI results*) |
 | ~~Release tags accepted after an install check whatever commit they point at; notes from the checked-out `CHANGELOG.md`~~ **Done:** `tools/release-plan.sh`: each version's expected commit (the first one of main's first-parent history adding its heading), the tag's state (lightweight or annotated, peeled), the notes at that commit; refuses a tag on another commit | `.github/workflows/release.yml` (*Plan the tags and notes*), `ci.yml` (*Workflows*: its cases and a dry run on main) | `tools/release-plan.sh`, its cases in `tools/tests/release-plan.sh` (scratch repositories) ([`CONTRIBUTING.md`](../CONTRIBUTING.md), *Releases*) |
+| ~~Every version without a Release got today's install check, so tag `0.1.0` without a Release failed each release's job and skipped the gallery; the demo image built in `monthly.yml` and `release-checks.yml` from caches CI no longer writes~~ **Done:** only the newest version gets the install check, the tag and *Latest*; an older tagged one gets its Release, not *Latest*, in a best-effort step; every workflow reads only caches some build writes | `.github/workflows/release.yml` (*Tag, check the install, publish*, *Publish the older versions' releases*), `monthly.yml`, `release-checks.yml` (*Build the demo image*) | `tools/tests/release-workflow.test.mjs` (the release job's steps on a scratch repository, `gh`, `git push` and `docker-install.sh` stubbed), `tools/tests/workflow-cache.test.mjs` ([`CONTRIBUTING.md`](../CONTRIBUTING.md), *Releases*) |
 
 ## Gaps, ranked by risk
 

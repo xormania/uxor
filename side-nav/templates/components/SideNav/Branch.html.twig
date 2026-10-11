@@ -6,6 +6,8 @@
     ## boolean Whether the branch renders open; a branch holding the current page (`aria-current="page"`) renders open anyway, and the controller then restores the state saved during the visit.
     open = false
 -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 {%- set _content %}{##- The branch's children: `SideNav:Item`s and nested `SideNav:Branch`es. -#}{% block content %}{% endblock %}{% endset -%}
 {%- set _icon %}{##- The branch's icon, kept visible when a `Sidebar` around the tree is collapsed. -#}{% block icon %}{% endblock %}{% endset -%}
 {%- set _open = open or 'aria-current="page"' in _content -%}
