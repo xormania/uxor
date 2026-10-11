@@ -39,8 +39,9 @@
     { "fg": "heading", "bg": "neutral-secondary-soft", "min": 4.5, "usage": "page titles on the app ground" },
     { "fg": "fg-brand", "bg": "neutral-primary-soft", "min": 4.5, "usage": "links in cards (login, signup)" },
     { "fg": "fg-brand", "bg": "neutral-secondary-soft", "min": 4.5, "usage": "links and the error status on the page ground" },
-    { "fg": "brand-medium", "bg": "neutral-primary", "min": 3, "usage": "focus ring (button) on the page" },
-    { "fg": "brand-medium", "bg": "neutral-primary-soft", "min": 3, "usage": "focus ring (button) in cards/modals" },
+    { "fg": "brand-medium", "bg": "neutral-primary", "min": 3, "usage": "focus outline (button) on the page" },
+    { "fg": "brand-medium", "bg": "neutral-primary-soft", "min": 3, "usage": "focus outline (button) in cards/modals" },
+    { "fg": "brand-medium", "bg": "neutral-secondary-soft", "min": 3, "usage": "focus outline (button) on the app and auth page ground" },
     { "fg": "brand-medium", "bg": "gray-50", "min": 3, "usage": "focus ring on a gray-50 ground", "themes": [
             "light"
         ] },
