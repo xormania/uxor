@@ -32,8 +32,9 @@ type Cases = {
 };
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+// the command renders every component under several hostile sets: well past PHP's default 128M
 const cases: Cases = JSON.parse(
-    execFileSync(process.env.PHP_BINARY ?? 'php', ['bin/console', 'app:hostile-props'], {
+    execFileSync(process.env.PHP_BINARY ?? 'php', ['-d', 'memory_limit=512M', 'bin/console', 'app:hostile-props'], {
         cwd: join(root, 'demo'),
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
