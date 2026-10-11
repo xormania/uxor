@@ -158,6 +158,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Fixed
 
+- `modal`: the backdrop fades, in as the dialog opens and out before it closes (150 ms); its transition classes never
+  ran before, so it appeared and went at once. The dialog stays open and modal while the backdrop fades out, then
+  closes and gives the focus back. Under `prefers-reduced-motion` it does not fade and the dialog closes at once, as
+  before; before Turbo caches the page it closes at once too. Chromium runs both fades, Safari the fade in only,
+  Firefox neither.
 - `dropdown`, `modal`, `drawer`: one left open when the page was left (a link inside it, Back, Forward) came back
   after Back open but not working (a dialog no longer modal, the page behind it usable), its trigger still
   `aria-expanded="true"`; it now closes and its trigger collapses before Turbo caches the page, and it opens again as

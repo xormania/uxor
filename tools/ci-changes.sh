@@ -49,7 +49,9 @@ while IFS= read -r path; do
         # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
         # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
         tests/e2e/*.spec.ts) on contrast demo ;;
-        tests/* | playwright.config.ts | tools/prepare-tests.mjs) on demo ;;
+        # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
+        # in Tool tests, on every run)
+        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo ;;
         package.json | package-lock.json) on contrast demo ;;
 
         # Repository tools, each with the jobs that run it
@@ -69,8 +71,8 @@ while IFS= read -r path; do
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon) on php ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
-        # the rest (the results summary, the job metrics) is the browser job's. CI result, which runs on every run, also
-        # runs ci-metrics.mjs
+        # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
+        # every run, also runs ci-metrics.mjs and the shard plan's timings
         tools/ci/junit-attempts.mjs) on php ;;
         tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json) on php demo ;;
         tools/ci/*) on demo ;;

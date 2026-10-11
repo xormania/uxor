@@ -2,7 +2,8 @@ name: Pages
 
 # The demo's showcase as a static site on GitHub Pages: the index, every recipe page and every README example in both
 # themes, rendered by `bin/console app:export-static`, with the /demo application's pages. release.yml calls it once
-# it has published a version; a manual run builds main.
+# it has published a version; a manual run builds main, or dev as a preview of the next release (the site then shows
+# dev until a release or a manual run on main deploys it again).
 on:
     workflow_call:
         inputs:
@@ -22,8 +23,8 @@ concurrency:
 jobs:
     build:
         name: Build the site
-        # a manual run only on main (from release.yml, the event is release.yml's own)
-        if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        # a manual run only on main, or on dev as a preview (from release.yml, the event is release.yml's own)
+        if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
         runs-on: ubuntu-latest
         timeout-minutes: 15
         steps:

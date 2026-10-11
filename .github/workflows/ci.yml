@@ -623,7 +623,9 @@ jobs:
                   npm ci
                   echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
                   start=$SECONDS
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
                   echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
@@ -634,6 +636,33 @@ jobs:
                   DEMO_URL: https://localhost
               run: node tools/prepare-tests.mjs
 
+            # The shard's tests, split by recorded test time instead of Playwright's count split (tools/ci/shard-plan.mjs,
+            # tests/shard-timings.json): every shard lists the job's tests with the same projects and filters as the run
+            # below, computes the same plan (longest first to the least loaded shard), and runs its own list
+            # (--test-list), after checking that Playwright selects exactly its planned tests. Missing or stale timings
+            # (under half the listed tests timed) fall back to --shard=N/M in every shard alike. A list that cannot be
+            # read, or a plan that would drop or repeat a test, fails here: a shard never runs a guess.
+            # docs/TESTING.md, *Shard balance*
+            - name: Plan the shard's tests
+              id: plan
+              env:
+                  DEMO_URL: https://localhost
+                  PLAN_DIR: ${{ runner.temp }}/shard-plan
+              # --list also prints every test: kept in a file, shown when the listing fails
+              run: |
+                  mkdir -p "$PLAN_DIR"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                      > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
+                  node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings tests/shard-timings.json \
+                      --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
+                  mkdir -p playwright-results
+                  cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
+                  if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
+                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
+                  fi
+
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks (@release) run in
             # release-checks.yml, not here
@@ -641,7 +670,7 @@ jobs:
               id: tests
               env:
                   DEMO_URL: https://localhost
-              run: npx playwright test ${{ matrix.projects }} --shard=${{ matrix.shard }}/${{ matrix.shards }} --workers=2 --grep-invert @release
+              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2 --grep-invert @release
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
             # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and
@@ -668,6 +697,7 @@ jobs:
                       sync-demo copies what ux:install copies=${{ steps.sync-parity.outcome }}
                       Install Playwright=${{ steps.install.outcome }}
                       Prepare the tests=${{ steps.prepare.outcome }}
+                      Plan the shard's tests=${{ steps.plan.outcome }}
               run: |
                   if [ "$DEMO_STARTED" = success ]; then
                       # the PHP snippet is single-quoted on purpose: its $m is PHP's, not the shell's
@@ -699,7 +729,8 @@ jobs:
             # Every shard keeps its results, green or red: results.json (each test's attempts, durations and outcome:
             # passed, failed, flaky), failed-attempts.json (every failed attempt, retry-recovered ones included),
             # durations.json (wall time, summed test time, slowest tests, per-file totals: report-only, to compare runs),
-            # job-metrics.json (the build cache and setup times above) and summary.md, so a test that failed once and passed on its retry leaves a record
+            # job-metrics.json (the build cache and setup times above), shard-plan.json (how the shard's tests were
+            # chosen, and every shard's planned tests and time) and summary.md, so a test that failed once and passed on its retry leaves a record
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ !cancelled() }}
               with:
@@ -795,12 +826,16 @@ jobs:
             # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
             # every job's queue and step times from GitHub's API, in one summary (the shard balance per browser, each
             # shard's setup, tests and worker use, the run's slowest tests and files, the retried tests, the browser jobs'
-            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*
+            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*. With them,
+            # shard-timings.json: tests/shard-timings.json refreshed from this run's durations (tools/ci/shard-plan.mjs
+            # timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard balance*
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               if: ${{ always() }}
               continue-on-error: true
               with:
-                  sparse-checkout: tools/ci
+                  sparse-checkout: |
+                      tools/ci
+                      tests
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               if: ${{ always() }}
@@ -828,6 +863,14 @@ jobs:
                   gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' \
                       > "$RUNNER_TEMP/jobs.jsonl" || echo "::warning::CI metrics: the run's jobs could not be listed"
                   node tools/ci/ci-metrics.mjs run --shards "$RUNNER_TEMP/shards" --jobs "$RUNNER_TEMP/jobs.jsonl" --out "$RUNNER_TEMP/ci-metrics"
+
+            - name: Shard timings (advisory)
+              if: ${{ always() }}
+              continue-on-error: true
+              timeout-minutes: 1
+              run: |
+                  node tools/ci/shard-plan.mjs timings --shards "$RUNNER_TEMP/shards" --previous tests/shard-timings.json \
+                      --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ always() }}
