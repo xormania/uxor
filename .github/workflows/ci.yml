@@ -646,15 +646,18 @@ jobs:
               env:
                   DEMO_URL: https://localhost
                   PLAN_DIR: ${{ runner.temp }}/shard-plan
+              # --list also prints every test: kept in a file, shown when the listing fails
               run: |
-                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release
+                  mkdir -p "$PLAN_DIR"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                      > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
                   node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings tests/shard-timings.json \
                       --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
                   mkdir -p playwright-results
                   cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
                   if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
                       PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
-                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt"
+                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
                       node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
                   fi
 

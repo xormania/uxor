@@ -1180,8 +1180,12 @@ with the later run's own times (summed test time per shard; the wall time estima
 | Firefox, 3 shards | 659, 781, 664 s | 691, 721, 692 s | 402 s → about 374 s |
 | WebKit, 3 shards | 740, 686, 659 s | 689, 695, 701 s | 384 s → about 363 s |
 
-The test times move between runs (Firefox's by up to a fifth), which is the spread left; a test's time is never a
-verdict, and a slower run only makes the split less even, never incomplete.
+What is left is the runners: the same tests took from 0.78 to 1.16 times as long from one run's shard to the next's
+(the shard's machine, not its tests), which no split decided before the run can even out. A test's time is never a
+verdict, and a slower run only makes the split less even, never incomplete. The first run split this way
+([38107757782](https://github.com/xormania/uxor/actions/runs/38107757782), with three quarters of Chromium's tests
+timed: the screenshot tests' keys did not match yet) had Chromium's walls at 411, 360, 405 and 390 s, against 497, 385,
+364 and 326 s before; its Firefox and WebKit shards ran exactly the split computed here from the same inputs.
 
 **Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
 artifact: the committed file merged with that run's durations (a browser whose every shard reported replaces its
@@ -1196,8 +1200,8 @@ node tools/ci/shard-plan.mjs timings --shards /tmp/shards --previous tests/shard
 ```
 
 A change to the timings runs the browser job, so its pull request shows the new balance. The first file was read from
-run 38103383677's job logs (Playwright's list reporter, to 100 ms), since that run's artifacts were not reachable from
-where it was written. The tool's cases: `node --test tools/tests/*.test.mjs`.
+run 38103383677's job logs (Playwright's list reporter, to 100 ms, the tags it appends to a title removed), since that
+run's artifacts were not reachable from where it was written. The tool's cases: `node --test tools/tests/*.test.mjs`.
 
 ### Worker budget
 
