@@ -20,21 +20,22 @@ and pull request standard.
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | no | each recipe README renders its manifest's dependencies (`::: installation`) and writes no version table, and changes with the recipe's code unless a commit waives it (*Docs*) |
 | `tools/icon-lint.mjs` | no | every icon in the recipes' templates and the markdown is a `flowbite:` name written in full (*Docs*) |
 | `tools/ci/playwright-summary.mjs` | no | reads a CI shard's Playwright report: the job summary, annotations, `failed-attempts.json` and `durations.json` ([`docs/TESTING.md`](docs/TESTING.md), *Reading CI results*) |
-| `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/junit-attempts.mjs` | no | the advisory Jev diagnosis of each failed attempt in `failed-attempts.json`, and its policy; `junit-attempts.mjs` writes that file from *Kit PHP*'s PHPUnit report ([`docs/TESTING.md`](docs/TESTING.md), *Jev diagnosis*) |
+| `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `.github/actions/jev-diagnosis/` | no | the advisory Jev diagnosis of each failed attempt in `failed-attempts.json`, and its policy; `junit-attempts.mjs` writes that file from a JUnit report (*Kit PHP*'s PHPUnit, *Tool tests*' Node), `step-attempts.mjs` from a failed step's captured log; the composite action is the one Jev step every job calls ([`docs/TESTING.md`](docs/TESTING.md), *Jev diagnosis*) |
 | `tools/ci/ci-metrics.mjs` | no | CI's own numbers for later optimizations, report only: each browser shard's build cache and setup times (`job-metrics.json`), and in *CI result* the run's shard balance, setup and test time per shard, slowest tests and files, retried tests and every job's step times (`ci-metrics.json`) ([`docs/TESTING.md`](docs/TESTING.md), *CI metrics*) |
+| `tools/ci/shard-plan.mjs`, `tests/shard-timings.json` | no | splits each browser's CI shards by recorded test time (`--test-list`), checks that the shards hold every test once, falls back to `--shard` without usable timings, and refreshes the timings from a run ([`docs/TESTING.md`](docs/TESTING.md), *Shard balance*) |
 | `tools/ci/release-timings.mjs` | no | the release checks' timings against `tests/perf/baseline.json`, report only, and a new baseline from a run ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs`, `tools/js-duplication.mjs`, `tools/security-policy.mjs` and `tools/release-plan.sh`; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs` and `tools/release-plan.sh`; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
 | `tools/prepare-tests.mjs` | no | what the browser tests need, safe with several Playwright processes in one checkout: the recipe specs' runnable copies and the demo's CSS (*Checks*) |
 | `FOR-AGENTS.md`, `llms.txt` | no | the page for coding agents given the repository's URL, and the list of every page for them ([llms.txt](https://llmstxt.org/)) |
-| `docs/`, `.github/` | no | notes on the toolkit and platform behavior this repository works around ([`docs/NOTES.md`](docs/NOTES.md)), agent assurance and adversarial evaluations ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)), a snippet that projects using the kit paste into their own `AGENTS.md` ([`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md)), the testing patterns ([`docs/TESTING.md`](docs/TESTING.md)), CODEOWNERS, CI, the gallery on GitHub Pages (`pages.yml`), CodeQL code scanning, the weekly `npm audit`, the monthly coverage, mutation, cross-browser and timings reports (`monthly.yml`), the release checks (`release-checks.yml`: on the release pull request, daily on `dev` and by hand), Dependabot's update pull requests, the pull request template |
+| `docs/`, `.github/` | no | notes on the toolkit and platform behavior this repository works around ([`docs/NOTES.md`](docs/NOTES.md)), the demo's deployment boundary and route inventory ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)), agent assurance and adversarial evaluations ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)), a snippet that projects using the kit paste into their own `AGENTS.md` ([`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md)), the testing patterns ([`docs/TESTING.md`](docs/TESTING.md)), CODEOWNERS, CI, the gallery on GitHub Pages (`pages.yml`), CodeQL code scanning, the weekly `npm audit`, the monthly coverage, mutation, cross-browser and timings reports (`monthly.yml`), the release checks (`release-checks.yml`: on the release pull request, daily on `dev` and by hand), Dependabot's update pull requests, the pull request template |
 
 `ux:install` downloads GitHub's archive of the whole repository; `export-ignore` in `.gitattributes` keeps
 everything else out of it (the demo, tests, tools, and repository files such as this one, `AGENTS.md`,
@@ -44,8 +45,9 @@ and `SECURITY.md`). Keep any new path out of the archive the same way unless use
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker): FrankenPHP in worker mode, PHP 8.5,
 HTTPS. You need Docker and Node.js (CI uses 22); no PHP on your machine. Playwright's browser also runs in Docker,
-in the same `mcr.microsoft.com/playwright` image as the Symfony UX Toolkit's own tests, so screenshots match the
-committed baselines.
+in the same `mcr.microsoft.com/playwright` image as the Symfony UX Toolkit's own tests, pinned by digest in
+`tools/playwright-image.json`, so screenshots match the committed baselines. After bumping `@playwright/test`, run
+`node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
 
 ```bash
 cd demo
@@ -78,6 +80,10 @@ pages' cookies and storage. README examples are code: review them as such, and n
 branch or a pull request you do not trust. Sandboxing the preview frames does not help: it stops their Stimulus
 controllers. Previewing untrusted code would need a separate origin and container.
 
+The public gallery is the static export. The dynamic application refuses to boot in production unless its operator
+explicitly opts in and supplies a non-default secret; that is an accident guard, not permission to expose its lab and
+trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md).
+
 ## Checks
 
 CI runs them on every push, each job only when the change could affect what it checks
@@ -97,10 +103,11 @@ change to both paths.
 | `kit.js`, `manifest.json`, `.gitattributes`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, `README.md`, `INSTALL.md`, any file in a directory no other row names | the same and *Contrast* |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
-| any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
+| any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/playwright-image.mjs`, `tools/playwright-image.json`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
 | `tools/ci/junit-attempts.mjs` | *Kit PHP* |
 | `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json` | *Kit PHP*, *Demo + Playwright* |
-| any other file in `tools/ci/` (the browser job's results summary and job metrics; *CI result*, on every run, also runs `ci-metrics.mjs`) | *Demo + Playwright* |
+| `tools/ci/step-attempts.mjs` | nothing else: the jobs run it only after a failure, so its cases (*Tool tests*) check it |
+| any other file in `tools/ci/` (the browser job's results summary, job metrics and shard plan; *CI result*, on every run, also runs `ci-metrics.mjs` and the shard timings) | *Demo + Playwright* |
 | `tools/tests/*.test.mjs`, `tools/tests/fixtures/playwright-results/`, `tools/tests/fixtures/junit/`, `tools/tests/fixtures/ci-metrics/`, `tools/monthly/` (every tool's cases, and the monthly report tools) | nothing else: *Tool tests* runs all the tools' cases on every run, in seconds, with no install |
 | `package.json`, `package-lock.json` | *Contrast*, *Demo + Playwright* |
 | any other markdown file outside `demo/` | *Contrast* (`tools/docs-lint.mjs`, `tools/icon-lint.mjs`), and the jobs its path runs |
@@ -119,8 +126,9 @@ change to both paths.
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
-| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule and by hand, never on a push |
+| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
 | `.github/workflows/release-checks.yml` | *Workflows*, *Demo + Playwright* (its setup, and the same projects and fixtures); it runs on the release pull request, daily on `dev` and by hand, never on a push |
+| `.github/actions/jev-diagnosis/` | *Workflows* (actionlint checks every call's inputs); a passing job never runs the Jev step |
 | `.github/workflows/ci.yml`, `tools/ci-changes.sh`, `tools/tests/ci-changes.sh`, any other file in `.github/` (a new or renamed workflow) | everything |
 
 *Workflows* runs [actionlint](https://github.com/rhysd/actionlint) with ShellCheck on every workflow: YAML, expressions,
@@ -150,7 +158,7 @@ node tools/readme-pairing.mjs [--base <ref>]        # each recipe whose code you
 node tools/recipe-imports.mjs                       # every relative import in a recipe's JS names a file the recipe or its dependencies.recipe install (a shared module: floating, navigation, turbo)
 node tools/js-duplication.mjs                       # the recipes' JS copies no run of 40 tokens beyond the budget it lists, and declares no name a shared module exports (see Shared code)
 node tools/security-policy.mjs                      # immutable Actions and read-only defaults; reviewed executable sinks; no generated output; current support and protected agent rules
-node --test tools/tests/*.test.mjs                  # the cases of the CI tools (tools/ci/: results summary, CI metrics, Jev diagnosis, JUnit attempts), of tools/prepare-tests.mjs, of tools/icon-lint.mjs, of the README checks, recipe import and duplication checks, and the repository security policy
+node --test tools/tests/*.test.mjs                  # the cases of the CI tools (tools/ci/: results summary, CI metrics, shard plan, Jev diagnosis, JUnit and step attempts), of tools/prepare-tests.mjs, of tools/icon-lint.mjs, of the README checks, of tools/recipe-imports.mjs and of tools/js-duplication.mjs, which also run them on the kit, and the repository security policy
 tools/tests/sync-demo.sh                            # tools/sync-demo copies what ux:install copies, on a test kit (needs demo/vendor)
 find */src -name '*.php' -not -path 'demo/*' -not -path 'tools/*' -print0 | xargs -0 -n1 php -l   # the syntax of the recipes' PHP
 (cd demo && bin/phpunit)                            # the PHP tests (demo/tests/): the data tables' limits, Live and Twig components, snapshots, profiler counts
@@ -196,8 +204,12 @@ each shard checks that its install left the packages as downloaded. The *Fresh i
 themselves: that is part of what they check.
 A shard with a failed or flaky test then asks Jev (TypeSafe) for a likely cause of each failed attempt, at most 10 per
 shard: a warning per attempt and the `jev-<browser>-<shard>-<run>-<attempt>` artifact, kept 30 days. It is advisory: it cannot
-fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. *Kit PHP* does the same
-when PHPUnit fails (`jev-phpunit-<run>-<attempt>`). See *Jev diagnosis* in the same section.
+fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. Every other job that can
+fail does the same on a failure: *Kit PHP* (each failed PHPUnit test, `jev-phpunit-<run>-<attempt>`), *Tool tests*
+(each failed case, from Node's JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap
+packages*, *Static site*, both *Fresh install* jobs, *Contrast*, *Workflows*, the release's install check and the
+gallery's build (`jev-<job>-<run>-<attempt>`). They all call one composite action,
+[`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml). See *Jev diagnosis* in the same section.
 
 - `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
   Components, the components given hostile prop values (`hostile-props.spec.ts`), the demo's security headers and
@@ -558,7 +570,9 @@ whose commit's workflows differed from `main`'s), push the tag by hand
 (`git tag -a X.Y.Z <merge commit> -m "UXor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
 checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`);
 if that part fails, use *Re-run failed jobs* (a full re-run finds the release done and skips the gallery), or run
-`pages.yml` by hand on `main`. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
+`pages.yml` by hand on `main`. To preview the next release's gallery before it, run `pages.yml` by hand on `dev`: the
+live site shows `dev` (its install commands still name the latest release) until a release or a run on `main`
+deploys again; GitHub only deploys from a branch the `github-pages` environment allows. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
 not the release: both run `tools/build-static.sh <dir> --base-path=/<repository>` (`pages.yml` adds
 `--release-from-tags`, so the install commands name the release), which installs the demo, saves the pages with
 `app:export-static` and checks them. Locally, delete `demo/public/assets/` after it, or the demo serves those copies.

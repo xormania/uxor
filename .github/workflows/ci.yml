@@ -114,7 +114,7 @@ jobs:
         needs: changes
         if: needs.changes.outputs.workflows == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         env:
             ACTIONLINT_VERSION: '1.7.12'
             ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 # actionlint_1.7.12_linux_amd64.tar.gz
@@ -136,22 +136,43 @@ jobs:
                   tar -xJf shellcheck.tar.xz -C bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
             # the runner's own ShellCheck and Python are not used: only the pinned tools decide
+            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: actionlint
-              run: '"$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes='
+              id: actionlint
+              run: |
+                  set -o pipefail
+                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-actionlint.log"
 
             - name: The release plan's own cases
-              run: tools/tests/release-plan.sh
+              id: release-plan
+              run: |
+                  set -o pipefail
+                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-release-plan.log"
 
             # what release.yml would tag and publish from main, with this commit's script; it creates nothing
             - name: Release dry run on main
-              run: tools/release-plan.sh --dry-run --ref origin/main
+              id: dry-run
+              run: |
+                  set -o pipefail
+                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-dry-run.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Workflows
 
     lint-kit:
         name: Lint kit
         needs: changes
         if: needs.changes.outputs.lint-kit == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -180,13 +201,27 @@ jobs:
                       if [ -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is not export-ignored"; exit 1; fi
                   done
 
+            # (its output also goes to $RUNNER_TEMP/jev-lint.log, for the Jev step)
             - name: Lint
+              id: lint
               run: |
-                  "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit"
+                  set -o pipefail
+                  "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit" 2>&1 | tee "$RUNNER_TEMP/jev-lint.log"
 
             - name: Debug (what the toolkit sees in the repository)
               run: |
                   "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-debug" "$GITHUB_WORKSPACE"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Lint kit
 
     # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
     # an artifact with every job that installs the demo: the browser shards, Kit PHP and the static site. AssetMapper
@@ -195,13 +230,14 @@ jobs:
     # test runs. The fresh-install jobs still download for themselves: that is what they check.
     # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
     # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
-    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. The repository security
-    # policy then reads the workflows, executable sinks, tracked paths and ownership controls. The name check is here
-    # too because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
+    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Node's JUnit report, beside
+    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. The repository
+    # security policy then reads the workflows, executable sinks, tracked paths and ownership controls. Then the name
+    # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
     tools:
         name: Tool tests
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -210,7 +246,23 @@ jobs:
                   node-version: 22
 
             - name: The tools' own cases
-              run: node --test 'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+              id: cases
+              run: >-
+                  node --test --test-reporter=tap --test-reporter-destination=stdout
+                  --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
+                  'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
+            # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: ${{ failure() && steps.cases.outcome == 'failure' }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  junit: ${{ runner.temp }}/node-tests.xml
+                  junit-project: node
+                  job: Tool tests
 
             - name: Repository security policy
               run: node tools/security-policy.mjs
@@ -223,7 +275,7 @@ jobs:
         needs: changes
         if: needs.changes.outputs.demo == 'true' || needs.changes.outputs.php == 'true' || needs.changes.outputs.static-site == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -235,24 +287,32 @@ jobs:
                   coverage: none
 
             # without the auto-scripts, whose importmap:install would download once, unretried
+            # (its output, and the download's, also go to $RUNNER_TEMP/jev-<id>.log, for the Jev step)
             - name: Install the demo's dependencies
-              working-directory: demo
-              run: composer install --no-interaction --no-progress --no-scripts
-
-            - name: Download the importmap packages (3 attempts)
+              id: deps
               working-directory: demo
               run: |
-                  for attempt in 1 2 3; do
-                      if bin/console importmap:install; then
-                          exit 0
-                      fi
-                      if [ "$attempt" -lt 3 ]; then
-                          echo "::warning::importmap:install failed (attempt $attempt of 3); retrying in $((attempt * 20)) s"
-                          sleep $((attempt * 20))
-                      fi
-                  done
-                  echo "::error::importmap:install failed 3 times: the CDN did not answer"
-                  exit 1
+                  set -o pipefail
+                  composer install --no-interaction --no-progress --no-scripts 2>&1 | tee "$RUNNER_TEMP/jev-deps.log"
+
+            - name: Download the importmap packages (3 attempts)
+              id: download
+              working-directory: demo
+              run: |
+                  set -o pipefail
+                  {
+                      for attempt in 1 2 3; do
+                          if bin/console importmap:install; then
+                              exit 0
+                          fi
+                          if [ "$attempt" -lt 3 ]; then
+                              echo "::warning::importmap:install failed (attempt $attempt of 3); retrying in $((attempt * 20)) s"
+                              sleep $((attempt * 20))
+                          fi
+                      done
+                      echo "::error::importmap:install failed 3 times: the CDN did not answer"
+                      exit 1
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-download.log"
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               with:
@@ -261,12 +321,23 @@ jobs:
                   if-no-files-found: error
                   retention-days: 1
 
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Importmap packages
+
     php:
         name: Kit PHP
         needs: [changes, importmap]
         if: needs.changes.outputs.php == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 15
+        timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         env:
             PHPSTAN_VERSION: '2.3.0'
             PHPSTAN_SYMFONY_VERSION: '2.1.0'
@@ -319,27 +390,17 @@ jobs:
             # becomes the same failed-attempts.json (tools/ci/junit-attempts.mjs), with the test log as the server log. It
             # never changes the verdict (continue-on-error, and it exits 0 without the key or when the provider fails).
             - name: Jev diagnosis (advisory)
-              id: jev
               if: ${{ failure() && steps.phpunit.outcome == 'failure' }}
               continue-on-error: true
-              timeout-minutes: 2
-              env:
-                  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-                  JEV_DIR: ${{ runner.temp }}/jev-phpunit
-              run: |
-                  mkdir -p "$JEV_DIR"
-                  node tools/ci/junit-attempts.mjs "$RUNNER_TEMP/phpunit.xml" "$JEV_DIR/failed-attempts.json"
-                  node tools/ci/jev-diagnosis.mjs --attempts "$JEV_DIR/failed-attempts.json" \
-                      --server-log demo/var/log/test.log --output "$JEV_DIR/assessment" --job "Kit PHP"
-
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              if: ${{ always() && steps.jev.outcome != 'skipped' }}
-              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
               with:
-                  name: jev-phpunit-${{ github.run_id }}-${{ github.run_attempt }}
-                  path: ${{ runner.temp }}/jev-phpunit/assessment/
-                  if-no-files-found: warn
-                  retention-days: 30
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  junit: ${{ runner.temp }}/phpunit.xml
+                  server-log: demo/var/log/test.log
+                  job: Kit PHP
+                  dir: ${{ runner.temp }}/jev-phpunit
+                  artifact: jev-phpunit-${{ github.run_id }}-${{ github.run_attempt }}
 
             # PHPStan reads the classes the kit's PHP uses (Symfony) from the demo's dependencies, and also checks the
             # demo's tables and tests; it is installed in a scratch directory with its Symfony and PHPUnit extensions
@@ -364,7 +425,7 @@ jobs:
         needs: [changes, importmap]
         if: needs.changes.outputs.static-site == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 15
+        timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         # The GitHub Pages copy (pages.yml) is built only on release: this builds it on every push, so a page that does
         # not render fails here instead of after the tag. The same build as pages.yml (tools/build-static.sh, with its
         # checks), without release metadata or the upload.
@@ -384,15 +445,30 @@ jobs:
                   name: importmap-packages
                   path: demo/assets/vendor
 
+            # (its output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
             - name: Build and check the static site
-              run: tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}"
+              id: build
+              run: |
+                  set -o pipefail
+                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Static site
 
     fresh-install:
         name: Fresh install
         needs: changes
         if: needs.changes.outputs.fresh-install == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -404,32 +480,61 @@ jobs:
                   coverage: none
 
             # a fresh Symfony skeleton, set up as README.md says: `ux:install` of a page block and a form block works
+            # (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
             - name: ux:install dashboard-home on a fresh Symfony skeleton
-              run: tools/tests/fresh-install.sh
+              id: install
+              run: |
+                  set -o pipefail
+                  tools/tests/fresh-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Fresh install
 
     docker-install:
         name: Fresh install (Symfony Docker, from GitHub)
         needs: changes
         if: needs.changes.outputs.fresh-install == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 20
+        timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             # the kit as users get it: GitHub's archive of this commit, installed in a fresh Symfony Docker project on
-            # the latest Symfony
+            # the latest Symfony (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
             - name: ux:install from GitHub in a fresh Symfony Docker project
+              id: install
               env:
                   KIT_REPOSITORY: ${{ github.repository }}
                   KIT_REF: ${{ github.sha }}
-              run: tools/tests/docker-install.sh
+              run: |
+                  set -o pipefail
+                  tools/tests/docker-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Fresh install (Symfony Docker, from GitHub)
 
     contrast:
         name: Contrast
         needs: changes
         if: needs.changes.outputs.contrast == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -442,35 +547,74 @@ jobs:
 
             - run: npm ci
 
+            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: Token contrast (tools/contrast/pairs.json, both themes)
-              run: node tools/contrast/check.mjs
+              id: tokens
+              run: |
+                  set -o pipefail
+                  node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-tokens.log"
 
             - name: The theme recipe ships kit.css unchanged
-              run: cmp kit.css theme/assets/styles/uxor.css
+              id: theme-css
+              run: |
+                  set -o pipefail
+                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-theme-css.log"
 
             - name: llms.txt matches docs/RECIPES.md's recipe tables
-              run: node tools/llms-txt.mjs --check
+              id: llms
+              run: |
+                  set -o pipefail
+                  node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-llms.log"
 
             - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
-              run: node tools/docs-lint.mjs
+              id: docs-lint
+              run: |
+                  set -o pipefail
+                  node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-docs-lint.log"
 
             - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
-              run: node tools/icon-lint.mjs
+              id: icons
+              run: |
+                  set -o pipefail
+                  node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-icons.log"
 
             - name: Every README example is one the demo reads
-              run: node tools/fence-coverage.mjs
+              id: fences
+              run: |
+                  set -o pipefail
+                  node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-fences.log"
 
             - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
-              run: node tools/test-inventory.mjs
+              id: inventory
+              run: |
+                  set -o pipefail
+                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-inventory.log"
 
             - name: Each recipe README renders its manifest's dependencies and writes no version table
-              run: node tools/readme-versions.mjs
+              id: readme-versions
+              run: |
+                  set -o pipefail
+                  node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-readme-versions.log"
 
             # The Changes job's base: none for main, dev or a run by hand, which compares nothing
             - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
+              id: readme-pairing
               env:
                   BASE: ${{ needs.changes.outputs.base }}
-              run: node tools/readme-pairing.mjs --base "$BASE"
+              run: |
+                  set -o pipefail
+                  node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-readme-pairing.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Contrast
 
     demo:
         name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
@@ -480,8 +624,8 @@ jobs:
         permissions:
             contents: read
             packages: write # the demo image's build cache (ghcr.io/<owner>/<repo>-cache), written by Chromium's shard 1
-        # 25 for the tests, plus 3 for the advisory Jev step (2) and its upload: a diagnosis must never be what
-        # times the job out
+        # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
+        # must never be what times the job out
         timeout-minutes: 28
         # the browser suite is most of CI's time: four shards for Chromium, three for Firefox and WebKit, each with its own
         # demo and browser (Chromium's shard 1 writes the image cache the others read). Chromium runs every test, the
@@ -627,7 +771,9 @@ jobs:
                   npm ci
                   echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
                   start=$SECONDS
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
                   echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
@@ -638,6 +784,33 @@ jobs:
                   DEMO_URL: https://localhost
               run: node tools/prepare-tests.mjs
 
+            # The shard's tests, split by recorded test time instead of Playwright's count split (tools/ci/shard-plan.mjs,
+            # tests/shard-timings.json): every shard lists the job's tests with the same projects and filters as the run
+            # below, computes the same plan (longest first to the least loaded shard), and runs its own list
+            # (--test-list), after checking that Playwright selects exactly its planned tests. Missing or stale timings
+            # (under half the listed tests timed) fall back to --shard=N/M in every shard alike. A list that cannot be
+            # read, or a plan that would drop or repeat a test, fails here: a shard never runs a guess.
+            # docs/TESTING.md, *Shard balance*
+            - name: Plan the shard's tests
+              id: plan
+              env:
+                  DEMO_URL: https://localhost
+                  PLAN_DIR: ${{ runner.temp }}/shard-plan
+              # --list also prints every test: kept in a file, shown when the listing fails
+              run: |
+                  mkdir -p "$PLAN_DIR"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                      > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
+                  node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings tests/shard-timings.json \
+                      --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
+                  mkdir -p playwright-results
+                  cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
+                  if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
+                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
+                  fi
+
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks (@release) run in
             # release-checks.yml, not here
@@ -645,7 +818,7 @@ jobs:
               id: tests
               env:
                   DEMO_URL: https://localhost
-              run: npx playwright test ${{ matrix.projects }} --shard=${{ matrix.shard }}/${{ matrix.shards }} --workers=2 --grep-invert @release
+              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2 --grep-invert @release
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
             # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and
@@ -672,6 +845,7 @@ jobs:
                       sync-demo copies what ux:install copies=${{ steps.sync-parity.outcome }}
                       Install Playwright=${{ steps.install.outcome }}
                       Prepare the tests=${{ steps.prepare.outcome }}
+                      Plan the shard's tests=${{ steps.plan.outcome }}
               run: |
                   if [ "$DEMO_STARTED" = success ]; then
                       # the PHP snippet is single-quoted on purpose: its $m is PHP's, not the shell's
@@ -703,7 +877,8 @@ jobs:
             # Every shard keeps its results, green or red: results.json (each test's attempts, durations and outcome:
             # passed, failed, flaky), failed-attempts.json (every failed attempt, retry-recovered ones included),
             # durations.json (wall time, summed test time, slowest tests, per-file totals: report-only, to compare runs),
-            # job-metrics.json (the build cache and setup times above) and summary.md, so a test that failed once and passed on its retry leaves a record
+            # job-metrics.json (the build cache and setup times above), shard-plan.json (how the shard's tests were
+            # chosen, and every shard's planned tests and time) and summary.md, so a test that failed once and passed on its retry leaves a record
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ !cancelled() }}
               with:
@@ -728,33 +903,22 @@ jobs:
 
             # Advisory diagnosis of each failed attempt, retry-recovered ones included, by Jev (TypeSafe):
             # tools/ci/jev-diagnosis.mjs sends each attempt's sanitized error and the server log lines of its time span,
-            # and shows the likely cause and the excerpt it selects as a warning. It never changes the verdict: it may
-            # fail or time out (continue-on-error), it exits 0 when the key is missing or the provider fails, and it
-            # runs after the tests. The key is given to this step only.
+            # and shows the likely cause and the excerpt it selects as a warning; one assessment.json per failed attempt
+            # and the summary are kept like the results, 30 days (.github/actions/jev-diagnosis). It never changes the
+            # verdict: it may fail or time out (continue-on-error), it exits 0 when the key is missing or the provider
+            # fails, and it runs after the tests. The key is given to this step only.
             - name: Jev diagnosis (advisory)
-              id: jev
               if: ${{ always() && (steps.results.outputs.failed > 0 || steps.results.outputs.flaky > 0) }}
               continue-on-error: true
-              timeout-minutes: 2
-              env:
-                  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-                  SHARD: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
-                  JEV_DIR: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
-              run: |
-                  mkdir -p "$JEV_DIR"
-                  (cd demo && timeout 15 docker compose logs --no-color --timestamps php > "$JEV_DIR/server.log" 2>/dev/null) || true
-                  node tools/ci/jev-diagnosis.mjs --attempts playwright-results/failed-attempts.json \
-                      --server-log "$JEV_DIR/server.log" --output "$JEV_DIR/assessment"
-
-            # One assessment.json per failed attempt and the summary, kept like the results: 30 days
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              if: ${{ always() && steps.jev.outcome != 'skipped' }}
-              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
               with:
-                  name: jev-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
-                  path: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}/assessment/
-                  if-no-files-found: warn
-                  retention-days: 30
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  attempts: playwright-results/failed-attempts.json
+                  compose-logs: demo
+                  shard: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
+                  dir: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
+                  artifact: jev-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             # Last, so the end of the job log names what failed (after the demo's logs): the summary written above
             - name: Playwright summary
@@ -799,12 +963,16 @@ jobs:
             # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
             # every job's queue and step times from GitHub's API, in one summary (the shard balance per browser, each
             # shard's setup, tests and worker use, the run's slowest tests and files, the retried tests, the browser jobs'
-            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*
+            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*. With them,
+            # shard-timings.json: tests/shard-timings.json refreshed from this run's durations (tools/ci/shard-plan.mjs
+            # timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard balance*
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               if: ${{ always() }}
               continue-on-error: true
               with:
-                  sparse-checkout: tools/ci
+                  sparse-checkout: |
+                      tools/ci
+                      tests
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               if: ${{ always() }}
@@ -832,6 +1000,14 @@ jobs:
                   gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' \
                       > "$RUNNER_TEMP/jobs.jsonl" || echo "::warning::CI metrics: the run's jobs could not be listed"
                   node tools/ci/ci-metrics.mjs run --shards "$RUNNER_TEMP/shards" --jobs "$RUNNER_TEMP/jobs.jsonl" --out "$RUNNER_TEMP/ci-metrics"
+
+            - name: Shard timings (advisory)
+              if: ${{ always() }}
+              continue-on-error: true
+              timeout-minutes: 1
+              run: |
+                  node tools/ci/shard-plan.mjs timings --shards "$RUNNER_TEMP/shards" --previous tests/shard-timings.json \
+                      --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ always() }}
