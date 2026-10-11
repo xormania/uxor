@@ -11,7 +11,7 @@
 {#- one row of 4rem. On a phone the brand takes the room left between the menu button and the actions (a long one wraps), and the
     search a row of its own below them: nothing pushes the actions out of the bar. `!` on basis-full: Flowbite's stylesheet
     compiles its own `flex-1` after Tailwind's variants (docs/NOTES.md). -#}
-<header {{ attributes.defaults({class: 'flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-default bg-neutral-primary-soft px-4 max-sm:py-2.5'|tailwind_classes, 'data-controller': 'navbar'}) }}>
+<header {{ attributes.defaults({class: 'flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-default bg-neutral-primary-soft px-4 max-sm:py-2'|tailwind_classes, 'data-controller': 'navbar'}) }}>
     {%- if sidebarId %}
         <button type="button" data-action="navbar#toggleSidebar" data-navbar-sidebar-param="{{ sidebarId }}" data-sidebar-trigger="{{ sidebarId }}" aria-controls="{{ sidebarId }}" aria-expanded="false" aria-label="{{ menuLabel }}"
                 class="inline-flex size-11 shrink-0 items-center justify-center rounded-base text-body hover:bg-neutral-secondary-medium hover:text-heading focus:outline-none focus:ring-2 focus:ring-brand-medium md:hidden">
