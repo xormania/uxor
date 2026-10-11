@@ -1320,6 +1320,11 @@ own update.
 workflow and its tools, so a change to them is tried by running it on its own branch. There is no input naming another
 ref: a run on one would execute that ref's code in the default branch's context, where it could poison the cache.
 
+**On the release.** When the owner marks the release pull request (`dev` into `main`) ready for review, the
+workflow runs on its own (`pull_request`, `ready_for_review`), on the pull request's merge of `dev` into `main`: the
+release's coverage, mutants, other engines and timings sit beside its other checks, and its numbers are compared with
+the last successful run on `dev`. Any other pull request into `main` skips every job.
+
 **Locally**, from the repository root, with the demo installed (*PHP tests*); the reports go to `coverage/`
 (gitignored). PCOV or Xdebug (`XDEBUG_MODE=coverage`) can measure; Infection runs as its PHAR, outside the demo's
 dependencies:
