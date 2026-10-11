@@ -1,6 +1,6 @@
 import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
 import { turboOperation } from './transitions';
-import { demoPages } from './inventory';
+import { demoPages, previewUrl, recipes } from './inventory';
 
 test('the login block signs in through form_login and shows the authentication error', async ({ page }) => {
     await page.goto('/demo/login');
@@ -263,3 +263,62 @@ for (const colorScheme of ['light', 'dark'] as const) {
         }
     });
 }
+
+// the narrowest phone: every page of the gallery and of the demo fits, its heading wraps instead of overflowing, and a
+// recipe's description shows its Markdown rendered, not as source
+test.describe('at 320px', () => {
+    test.use({ viewport: { width: 320, height: 640 } });
+
+    for (const path of ['/', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
+            allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+            await page.goto(path);
+            const heading = page.getByRole('heading', { level: 1 }).first();
+            await expect(heading).toBeVisible();
+            const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+            expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+            const box = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, scroll: element.scrollWidth, client: element.clientWidth }));
+            expect(box.right, 'the heading ends inside the page').toBeLessThanOrEqual(widths.client);
+            expect(box.scroll, 'the heading wraps its text').toBeLessThanOrEqual(box.client);
+            const text = await page.locator('body').innerText();
+            expect(text).not.toMatch(/\]\(https?:/);
+            expect(text).not.toMatch(/`[^`\n]+`/);
+            if (path.startsWith('/r/')) {
+                // a recipe's name is one word as long as the recipe wants (ForgotPasswordForm): one wider than any
+                // font makes it still breaks inside the page
+                await heading.evaluate((element) => (element.textContent = 'ForgotPasswordForm'.repeat(3)));
+                const wide = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, page: document.documentElement.scrollWidth }));
+                expect(wide.right, 'a long name breaks inside the page').toBeLessThanOrEqual(widths.client);
+                expect(wide.page, 'a long name does not widen the page').toBeLessThanOrEqual(widths.client);
+            }
+        });
+    }
+});
+
+test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+    for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...Object.values(demoPages)]) {
+        await page.goto(path);
+        await expect(page.locator('head link[rel~="icon"]'), path).toHaveCount(1);
+    }
+});
+
+test("the gallery's header keeps one row on a phone, its GitHub link named", async ({ page }) => {
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    const row = (await nav.boundingBox())!.height;
+    for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        await expect.poll(async () => (await nav.boundingBox())!.height, `${width}px`).toBe(row);
+        await expect(nav.getByRole('link', { name: 'GitHub' })).toBeVisible();
+        const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+        expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+    }
+});
+
+test("the hero's two secondary links share one style", async ({ page }) => {
+    await page.goto('/');
+    const hero = page.locator('.xor-hero');
+    const install = await hero.getByRole('link', { name: 'Install' }).getAttribute('class');
+    expect(await hero.getByRole('link', { name: 'Open the demo app' }).getAttribute('class')).toBe(install);
+});

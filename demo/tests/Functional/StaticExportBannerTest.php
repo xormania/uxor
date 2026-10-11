@@ -2,6 +2,7 @@
 
 namespace App\Tests\Functional;
 
+use App\Command\ExportStaticCommand;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -55,6 +56,35 @@ final class StaticExportBannerTest extends WebTestCase
     public function testTheInstallCommandNamesTheReleaseOrElseTheBranch(string $path, array $context, string $expected): void
     {
         self::assertStringContainsString($expected, self::banner($context, $path));
+    }
+
+    /**
+     * The app layout's sidebar sticks at the top of the window, as tall as the window: the notice of a /demo page goes
+     * in the column beside it, above the content, so the whole sidebar shows with it. Above the sidebar, it pushed the
+     * sidebar's bottom out of the window.
+     */
+    public function testTheDemoNoticeLeavesTheSidebarTheWholeWindowHeight(): void
+    {
+        $html = ExportStaticCommand::addDemoNotice(self::banner([], '/demo'), '/uxor');
+
+        $notice = strpos($html, 'A static copy of the demo application');
+        $sidebar = strpos($html, 'id="sidebar"');
+        $main = strpos($html, '<main id="main"');
+        self::assertNotFalse($notice);
+        self::assertNotFalse($sidebar);
+        self::assertNotFalse($main);
+        self::assertGreaterThan($sidebar, $notice, 'the notice comes after the sidebar');
+        self::assertLessThan($main, $notice, 'the notice comes before the content');
+        self::assertSame(1, substr_count($html, 'A static copy of the demo application'));
+        self::assertStringContainsString('<a href="/uxor/" class="underline hover:text-heading">Back to the gallery</a>', $html);
+    }
+
+    public function testTheDemoNoticeOpensAPageWithoutSidebar(): void
+    {
+        $html = ExportStaticCommand::addDemoNotice(self::banner([], '/demo/login'), '');
+
+        self::assertMatchesRegularExpression('#<body\b[^>]*><div [^>]*>A static copy of the demo application#', $html);
+        self::assertSame(1, substr_count($html, 'A static copy of the demo application'));
     }
 
     public function testTheLiveDemoNamesNoRef(): void

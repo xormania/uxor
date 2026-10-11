@@ -1,6 +1,8 @@
 {#- The demo's settings pages: the settings layout with one section per page. -#}
 {% extends 'layouts/settings.html.twig' %}
 
+{% block head %}<link rel="icon" href="data:,">{% endblock %}
+
 {% block title %}Settings — xor{% endblock %}
 {% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
 {% block sidebar %}{{ include('demo_app/_sidebar.html.twig') }}{% endblock %}
