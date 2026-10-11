@@ -953,10 +953,10 @@ ours in it is news from upstream: read the versions it resolved before looking f
 |---|---|---|---|
 | *Importmap packages* | `importmap.php`; the demo's `composer.lock` for the command | the CDN's answer (three attempts); the files are shared with the jobs below | the download step's log |
 | *Kit PHP*, *Static site* | the demo's `composer.lock`; PHP 8.4 (`PHP_VERSION`); PHPStan and its extensions by version | the PHP patch release; PHPStan's own dependencies | the composer and PHPStan steps' logs |
-| *Demo + Playwright* | `composer.lock`, `importmap.php`, `package-lock.json`, Playwright and its image by version | the FrankenPHP base image (`dunglas/frankenphp:1-php8.5`, a moving tag pulled at build) | the job summary: PHP, Symfony, Turbo, Node, Playwright |
+| *Demo + Playwright* | `composer.lock`, `importmap.php`, `package-lock.json`; Playwright's image by digest (`tools/playwright-image.json`, its tag the locked `@playwright/test`); the demo's base images by digest (`demo/Dockerfile`: `dunglas/frankenphp:1-php8.5`, `debian:13-slim`, moved by Dependabot pull requests) | the Debian packages and PHP extensions the demo's image installs as it builds (`apt-get`, `install-php-extensions`), when the build cache misses | the job summary: PHP, Symfony, Turbo, Node, Playwright |
 | *Lint kit* | `symfony/ux-toolkit` by version (`UX_TOOLKIT_VERSION`) | its dependencies, in a scratch project | the install step's log |
 | *Fresh install* | `symfony/ux-toolkit` by version | `symfony/skeleton` 7.4.\* and every other package, as for a new user | the composer steps' logs |
-| *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image, every other package | the last line (`ok: Symfony …`) and the logs |
+| *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image (its own `Dockerfile`, by tag, pulled at build: not the demo's pinned one), every other package | the last line (`ok: Symfony …`) and the logs |
 | *Workflows*, *Contrast* | actionlint and ShellCheck by version and SHA-256; `package-lock.json` | Node 22's patch release | the job's log |
 
 The moving parts are on purpose: the install jobs are the kit as a user installs it, and the toolkit is pinned
@@ -1066,7 +1066,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1086,8 +1086,8 @@ each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summa
   reached or report not written* (Playwright ran but left no report), *report invalid* (it does not parse).
 - **Kept 30 days** in `playwright-results-<browser>-<shard>`: `results.json` (every test's attempts), `summary.md`, and
   `failed-attempts.json`, one entry per failed attempt, retry-recovered ones included (test id, file, line, title,
-  project, shard, retry, status, error, duration, error location), for tools that read them one by one, and
-  `durations.json` (below).
+  project, shard, retry, status, error, duration, error location), for tools that read them one by one,
+  `durations.json` (below) and `shard-plan.json` (how the shard's tests were chosen: *Shard balance*).
 - **Durations, report-only:** the summary ends with the shard's wall time (Playwright's, start to end) and workers,
   the summed time of every attempt (retries included; workers overlap, so it is larger than the wall time and the two
   are not compared), the 10 slowest tests (a test's time is the sum of its attempts) and each file's total.
@@ -1128,12 +1128,80 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mj
   - the browser jobs' mean time per step and browser (checkout, image build, the demo's start, Playwright's install,
     the tests' preparation, the tests, the uploads);
   - the 20 slowest tests and 15 slowest files of the run, with their browser and shard, and every retried test;
-  - every job's queue time, duration and steps, the run's wall time and its longest job.
+  - every job's queue time, duration and steps, the run's wall time and its longest job;
+  - beside them, `shard-timings.json`: `tests/shard-timings.json` refreshed from this run (*Shard balance*).
 
 What it cannot see: the runner's CPU and memory use (no sampler runs), the time inside a test spent in fixtures or a
 worker's start (Playwright's report does not split it; idle worker time is the bound), the bytes the image cache
 moves, and the *CI result* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
+
+### Shard balance
+
+**Catches:** one shard holding the slow tests (the axe scans, the value matrix, the heavy recipes) and setting CI's
+critical path while the others idle, and a split that drops or repeats a test.
+
+Playwright's `--shard=N/M` splits by test count. On the last count-split run on dev
+([38103383677](https://github.com/xormania/uxor/actions/runs/38103383677)) Chromium's four shards summed 971, 746,
+699 and 626 s of test time (wall 498, 384, 366, 324 s), so the first ran almost three minutes longer than the last.
+CI now splits by time instead, with [`tools/ci/shard-plan.mjs`](../tools/ci/shard-plan.mjs) in each browser job's
+*Plan the shard's tests* step:
+
+1. Playwright lists the job's tests (`--list --reporter=json`, the same projects and `--grep-invert @release` as the
+   run), so the plan follows `playwright.config.ts`: the screenshot and `a11y.spec.ts` tests in Chromium only, the
+   release checks nowhere, a new spec at once.
+2. Each listed test gets its time from the committed `tests/shard-timings.json` (its last attempt in a recent run, to
+   100 ms; a test with none gets its file's mean, then its project's), and the tests go longest first to the least
+   loaded shard (greedy LPT; ties to the lowest shard, so every shard job computes the same plan from the same inputs).
+   The unit is the test: every project is `fullyParallel`, so Playwright schedules each test on its own. A whole file
+   goes to one shard when it cannot be split by test: one that runs serially (`describe.serial`, mode `serial` or
+   `default`), a title `--test-list` cannot name (holding `›` or surrounding spaces), or a title that is a prefix of
+   another's in the file (the list matches title prefixes).
+3. The plan must hold every listed test exactly once, or the step fails. The shard writes its list and runs it with
+   `--test-list`, after listing it once more through Playwright and checking that it selects exactly the planned tests
+   (*verify*: none dropped, none of another shard's); each shard checks its own, so together they check every one.
+   A list that cannot be read (a spec that fails to load, no test listed) fails the step as well: a shard never runs
+   a guess, and the error is in the step's log.
+4. Without usable timings (the file missing or unreadable, or fewer than half the listed tests timed) every shard
+   falls back to `--shard=N/M` alike, since every shard reads the same inputs. Below 90% timed, the plan still
+   balances and asks for a refresh (a notice on the run).
+
+The job's summary says how the shard was split and every shard's recorded test time; the plan, with every shard's
+tests, is `shard-plan.json` in the shard's results. The recorded time is summed over the shard's tests, so with two
+workers its wall time is about half of it (0.52 in that run, in every shard).
+
+Measured on that run's tests, with the timings taken from the run before it on dev
+([38102452994](https://github.com/xormania/uxor/actions/runs/38102452994), three Chromium shards then) and priced
+with the later run's own times (summed test time per shard; the wall time estimated at that run's ratio):
+
+| Browser | `--shard` (measured) | By time (same tests) | Slowest shard's wall |
+|---|---|---|---|
+| Chromium, 4 shards | 971, 746, 699, 626 s | 760, 756, 760, 766 s | 498 s → about 396 s |
+| Firefox, 3 shards | 659, 781, 664 s | 691, 721, 692 s | 402 s → about 374 s |
+| WebKit, 3 shards | 740, 686, 659 s | 689, 695, 701 s | 384 s → about 363 s |
+
+What is left is the runners: the same tests took from 0.78 to 1.16 times as long from one run's shard to the next's
+(the shard's machine, not its tests), which no split decided before the run can even out. A test's time is never a
+verdict, and a slower run only makes the split less even, never incomplete. The first run with every test timed
+([38108411984](https://github.com/xormania/uxor/actions/runs/38108411984)) had Chromium's walls at 387, 392, 394 and
+416 s (497, 385, 364 and 326 s before), WebKit's at 364, 257 and 364 s (383, 356, 344 s) and Firefox's at 403, 300 and
+375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
+
+**Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
+artifact: the committed file merged with that run's durations (a browser whose every shard reported replaces its
+times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Refresh when
+the shard balance in *CI metrics* drifts or the plan asks for it, from a green run on `dev`:
+
+```bash
+gh run download <run> --pattern 'ci-metrics-*' --dir /tmp/ci-metrics
+cp /tmp/ci-metrics/ci-metrics-*/shard-timings.json tests/shard-timings.json
+# or from the shards' results: gh run download <run> --pattern 'playwright-results-*' --dir /tmp/shards
+node tools/ci/shard-plan.mjs timings --shards /tmp/shards --previous tests/shard-timings.json --out tests/shard-timings.json
+```
+
+A change to the timings runs the browser job, so its pull request shows the new balance. The first file was read from
+run 38103383677's job logs (Playwright's list reporter, to 100 ms, the tags it appends to a title removed), since that
+run's artifacts were not reachable from where it was written. The tool's cases: `node --test tools/tests/*.test.mjs`.
 
 ### Worker budget
 

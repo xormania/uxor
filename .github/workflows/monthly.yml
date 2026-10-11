@@ -197,7 +197,9 @@ jobs:
               id: install
               run: |
                   npm ci
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
 
             - name: Prepare the tests
               id: prepare
