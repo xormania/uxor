@@ -30,7 +30,7 @@
         {%- for filter in view.table.filters %}
             <div>
                 <label for="{{ id }}-filter-{{ filter.key }}" class="mb-1 block text-sm font-medium text-heading">{{ filter.label }}</label>
-                <select id="{{ id }}-filter-{{ filter.key }}" class="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="filterValues.{{ filter.key }}">
+                <select id="{{ id }}-filter-{{ filter.key }}" class="block w-full ps-3 pe-10 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="filterValues.{{ filter.key }}">
                     <option value="">All</option>
                     {%- for value, choice in filter.choices %}
                         <option value="{{ value }}"{{ (query.filters[filter.key] ?? null) is same as(value ~ '') ? ' selected' }}>{{ choice }}</option>
@@ -41,7 +41,7 @@
         {%- if view.table.pageSizes|length > 1 %}
             <div>
                 <label for="{{ id }}-size" class="mb-1 block text-sm font-medium text-heading">Rows per page</label>
-                <select id="{{ id }}-size" class="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="pageSize">
+                <select id="{{ id }}-size" class="block w-full ps-3 pe-10 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="pageSize">
                     {%- for size in view.table.pageSizes %}
                         <option value="{{ size }}"{{ size == query.pageSize ? ' selected' }}>{{ size }}</option>
                     {%- endfor %}

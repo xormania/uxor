@@ -48,7 +48,9 @@ themes and every `/r/` page (`a11y`), hostile props (`hostile-props`), markup sn
 (`demo/tests/Twig/ComponentsTest.php`). Pagination: links only, its frame behavior is the data table's. The blocks
 (login, signup, forgot-password, settings-profile, not-found, dashboard-home): server flows in `demo-app` (E2E demo).
 form-theme: `forms` (rows match the hand-written components in both themes, server errors, the date picker and
-Dropzone opt-ins).
+Dropzone opt-ins). input, select (CSS only): `forms` "every Input pads its text the same, with or without a type",
+"a Select's text stops before its chevron" (ltr and rtl), "a multiple Select shows no chevron and no option cut at the
+bottom".
 
 The demo itself has an executable deployment contract outside the recipe matrix:
 `ProductionConfigurationTest` refuses an accidental production boot and proves a deliberate one has no development
@@ -118,6 +120,7 @@ class at first paint and after, `aria-pressed`, the icon shown, the saved choice
 | Storage blocked, Turbo visit | E2E demo | theme-toggle "storage blocked › the toggle switches the theme, and the choice holds across a Turbo visit without localStorage" (moved from smoke) |
 | Storage blocked, Back and reload | | G10 |
 | Theme before paint without a toggle (auth layout), under the CSP nonce | E2E demo | csp "the layout sets the theme before the first paint" |
+| Native controls (menus, list selection, scrollbars) follow the chosen theme, not the system: `color-scheme` on the page and on selects | E2E demo | calendar "system … theme chosen › the month and year options are readable…" (2) |
 | Theme kept by a permanent panel's page | E2E lab | lab.turbo-nav "a data-turbo-permanent panel is kept across Turbo visits (not its scroll) and the theme persists" |
 | Two toggles on one page stay in sync (`aria-pressed` follows the class) | | G10 |
 | One `matchMedia` and one observer per toggle after N visits | | T2 |
@@ -333,7 +336,8 @@ modifiers, locale; the picker closed or open, typed text valid or invalid.
 
 | Recipe | Transition | Scope | Covered by |
 |---|---|---|---|
-| calendar | Keys, month and year dropdowns and their bounds, modifiers gone in a re-render, impossible dates, form submit, one input and one change per pick, ranges over disabled days, multiple mode inputs | E2E demo | calendar (9 tests) |
+| calendar | Keys, month and year dropdowns and their bounds, modifiers gone in a re-render, impossible dates, form submit, one input and one change per pick, ranges over disabled days, multiple mode inputs | E2E demo | calendar (11 tests) |
+| calendar | The month and year menus readable whatever the system scheme: system dark with the light theme chosen and the reverse, the page and the preview `<html>` and both selects compute the chosen `color-scheme`, the options keep >= 4.5:1 against the native menu | E2E demo | calendar "system … theme chosen › the month and year options are readable…" (2; failed before the fix: `colorScheme` "normal", options white on white in the dark case) |
 | calendar | A form reset cancelled by another listener (a capture listener on `form.reset()` and the reset button, a listener after the calendar's on the button) leaves the selection; the next reset brings back the date rendered with `calendar:select` source `reset`; a calendar disconnected while its reset waits does nothing | E2E demo | calendar "a reset another listener cancels leaves the selection…" (failed before the deferred reset: the cancelled reset brought back 2026-03-10) |
 | calendar | Back in a GET form shows the URL's month and selection, not the pick made before (`form-reset`); N visits; permanent (the month kept); frame ×3; Live props, bounds, locale, clear | E2E lab | lab.calendar (5 tests) |
 | calendar | Stream replace and update: the new calendar fresh, one controller, a pick works | E2E lab | lab.value-matrix "a calendar in a GET form › stream-replace, stream-update" |
