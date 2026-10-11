@@ -19,7 +19,7 @@
     {%- endfor -%}
 {%- endfor -%}
 {#- data-table-live: leaving the page drops the selection, which Turbo's copy of the page would show again on Back -#}
-<div {{ attributes.defaults({class: 'block'|tailwind_classes, 'data-controller': 'data-table-live', 'data-action': 'turbo:before-cache@document->data-table-live#cache'}) }}>
+<div {{ attributes.defaults({class: 'block min-w-0'|tailwind_classes, 'data-controller': 'data-table-live', 'data-action': 'turbo:before-cache@document->data-table-live#cache'}) }}>
     <div class="mb-4 flex flex-wrap items-end gap-3" role="search" aria-label="{{ table.label ? table.label ~ ': search and filters' : 'Search and filters' }}">
         <div class="min-w-48 grow">
             <label for="{{ id }}-search" class="mb-1 block text-sm font-medium text-heading">Search</label>

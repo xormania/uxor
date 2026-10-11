@@ -194,6 +194,23 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
+- `pagination`: in the dark theme the current page's number read at 2.7:1 (`text-fg-brand` on
+  `bg-neutral-tertiary-medium`); the current page now takes `text-fg-brand-strong` on `bg-brand-softer`, as the kit's
+  other current items, at 4.5:1 or more in both themes. axe passed it, as it passes all one-character text: the
+  accessibility scan now also measures every text of every README example in both themes. The data tables' pagers
+  show the same fix.
+- `stat-card`, `dashboard-home`: at tablet widths, beside the sidebar, the values spilled out of their cards
+  ("$3,141,592" in 182px of text in a 94px card). The dashboard's cards now take three columns once the block is 42rem
+  wide (a container query), each value a step smaller (`text-2xl`) in a narrow column, and a value still too long
+  wraps inside its card. The stat card example lays its grid out the same way.
+- `navbar`: at 320px the search was crushed to a sliver over the brand and the actions pushed out of the bar, the page
+  scrolling sideways. On a phone the search now takes a row of its own under the brand and the actions, a long brand
+  wraps, and the menu button keeps its size.
+- `data-table`, `data-table-live`: in a flex or grid parent (the gallery's preview, a grid cell) the table's minimum
+  width set the component's, so the toolbar and the pager ran off a phone's screen; the component now shrinks to its
+  parent and the table scrolls in its own frame.
+- `badge`, `table`: README examples that overflowed a phone's width: the badge rows wrap, and the table without border
+  sits in a horizontally scrolling wrapper like the other table examples.
 
 ## [0.1.0] - 2026-10-06
 

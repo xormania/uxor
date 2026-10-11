@@ -22,6 +22,7 @@ A Live table is the class a `data-table` table would be, extending `AbstractLive
 `AbstractDataTable`, with the `#[AsLiveComponent]` attribute naming the component and this recipe's template.
 `columns()`, `filters()`, `pageSizes()`, `defaultSort()`, `rowId()`, `countRows()`, `loadRows()` and `maxRows()` work as
 the `data-table` README describes: moving a table from one recipe to the other changes its parent class and its attribute only.
+It fits its parent the same way too: never wider than it, the table scrolling sideways in its own box on a phone.
 
 ```php
 // src/Twig/Components/OrdersTable.php

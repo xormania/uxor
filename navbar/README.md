@@ -33,6 +33,10 @@ The `nav` block, after the brand, holds the site's navigation, typically a [`Nav
 its submenus. The bar wraps it in a `<nav>` named by `navLabel` (`Site` by default) and shows it from Tailwind's `md`
 breakpoint up; on smaller screens, render the same menu in a `MobileNav` (below).
 
+On a phone (below Tailwind's `sm` breakpoint) the `search` block takes a row of its own under the brand and the
+actions, so the field stays wide enough to type in; a brand too long for the bar wraps to a second line. The actions
+always stay inside the bar, on its right.
+
 With `sidebarId`, a menu button (small screens only) opens that `Sidebar` over the page. For a modal drawer holding the
 navigation instead, put a [`MobileNav`](../mobile-nav/README.md) in the `menu` block, at the start of the bar, and
 leave `sidebarId` out:

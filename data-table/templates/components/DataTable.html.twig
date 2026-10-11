@@ -23,7 +23,7 @@
     id="{{ id }}"
     data-turbo-action="advance"
     {{ attributes.defaults({
-        class: 'block'|tailwind_classes,
+        class: 'block min-w-0'|tailwind_classes,
         'data-controller': 'data-table',
         'data-action': 'turbo:before-cache@document->data-table#cancelLoading turbo:submit-start->data-table#submitStarted turbo:before-fetch-response->data-table#responseReceived turbo:submit-end->data-table#submitEnded',
     }) }}
