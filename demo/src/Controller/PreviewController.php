@@ -19,11 +19,12 @@ use Twig\Environment;
  * The example is Twig code from the repository, compiled and run with the app's services: trusted code
  * (CONTRIBUTING.md, *Setup*). A request only picks a recipe and an example among those KitReader finds.
  */
+#[Route(options: ['uxor_security' => 'trusted-code-preview'])]
 final class PreviewController extends AbstractController
 {
     private const THEMES = ['light', 'dark'];
 
-    #[Route('/preview/{recipe}/{example}', name: 'app_preview', requirements: ['recipe' => '[a-z0-9][a-z0-9-]*', 'example' => '[a-z0-9][a-z0-9-]*'])]
+    #[Route('/preview/{recipe}/{example}', name: 'app_preview', requirements: ['recipe' => '[a-z0-9][a-z0-9-]*', 'example' => '[a-z0-9][a-z0-9-]*'], methods: ['GET'])]
     public function __invoke(
         string $recipe,
         string $example,

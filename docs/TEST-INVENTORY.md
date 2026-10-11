@@ -50,6 +50,11 @@ themes and every `/r/` page (`a11y`), hostile props (`hostile-props`), markup sn
 form-theme: `forms` (rows match the hand-written components in both themes, server errors, the date picker and
 Dropzone opt-ins).
 
+The demo itself has an executable deployment contract outside the recipe matrix:
+`ProductionConfigurationTest` refuses an accidental production boot and proves a deliberate one has no development
+toolkit or profiler; `RouteSecurityTest` requires every app route to declare its trust category, allowed methods and,
+for a public POST route, its CSRF mechanism ([`DEMO-SECURITY.md`](DEMO-SECURITY.md)).
+
 ## The matrix: common transitions
 
 Columns are the plan's transitions. **Back** is a restoration visit from Turbo's cached copy; **Back, slow** is the

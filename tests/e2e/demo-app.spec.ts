@@ -190,17 +190,17 @@ test('every layout keeps the same toast region: a toast closed on another layout
     await expect(page.getByText('Profile saved.')).toHaveCount(0);
 });
 
-test('signing out needs a same-origin request: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/demo\/logout$/, 403);
+test('signing out requires POST: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/demo\/logout$/, 405);
     await page.goto('/demo/login');
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 
-    // a typed URL or a link from another site: Sec-Fetch-Site is not same-origin, the stateless logout token fails
+    // A typed URL is always GET. The route rejects it before the firewall can consider a logout request.
     const response = await page.goto('/demo/logout');
-    expect(response?.status()).toBe(403);
+    expect(response?.status()).toBe(405);
     await page.goto('/demo');
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 });
