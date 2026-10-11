@@ -27,6 +27,8 @@ The recipe copies `assets/styles/uxor.css`, Flowbite's theme with every color ro
 
 Dark mode is class based: the `.dark` overrides and the `dark:` variant apply below an element with the `dark` class, normally `<html class="dark">`. The `theme-toggle` recipe switches it and documents a snippet that sets it before the first paint.
 
+The browser's own controls follow the theme too: the file sets `color-scheme: light` on the page and `color-scheme: dark` on the `dark` element, so a native select's menu, a date field's picker and the scrollbars match the theme on screen, not the system's, when the user chose the other one.
+
 ### On-fill roles
 
 Text on a solid fill, such as a brand button, an indicator, a calendar's selected day, the active pill tab, a tooltip

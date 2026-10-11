@@ -194,6 +194,21 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
+- `theme`: native controls follow the theme on screen, not the system's: `uxor.css` sets `color-scheme: light` on the
+  page and `color-scheme: dark` under `.dark`. With the system dark and the light theme chosen, the calendar's month
+  and year menus showed dark text on a dark menu (and light text on a light one the other way round); select menus,
+  date fields and scrollbars now match the theme. `calendar`: its month and year selects give their options the
+  menu's colors (`bg-neutral-primary-medium`, `text-heading`), so Flowbite's white select background no longer sits
+  under white option text in the dark theme.
+- `input`: an `Input` with no `type` (a text field all the same) had no inline padding, its text against the left
+  border, as in the `form-field` example's username: Flowbite's base rule pads only typed fields. It is now padded
+  like `type="text"`.
+- `select`: a long option ran under the chevron: the Select's `px-3` replaced the room Flowbite's base rule leaves for
+  it. The Select now pads its inline end (`pe-10`), so right to left keeps the room on the chevron's side; the same
+  in `data-table-live`'s filter and page size selects. A multiple Select (a list box) no longer shows the chevron
+  (Flowbite's rule removing it loses to its own `select:not([size])`), and the "Multiple" example drops its
+  "Choose a country" option, which pushed a fifth row half into the bottom of the box. In the dark theme its
+  selected row is dark (the `theme` fix above), not light gray.
 
 ### Security
 
