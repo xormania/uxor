@@ -1182,10 +1182,10 @@ with the later run's own times (summed test time per shard; the wall time estima
 
 What is left is the runners: the same tests took from 0.78 to 1.16 times as long from one run's shard to the next's
 (the shard's machine, not its tests), which no split decided before the run can even out. A test's time is never a
-verdict, and a slower run only makes the split less even, never incomplete. The first run split this way
-([38107757782](https://github.com/xormania/uxor/actions/runs/38107757782), with three quarters of Chromium's tests
-timed: the screenshot tests' keys did not match yet) had Chromium's walls at 411, 360, 405 and 390 s, against 497, 385,
-364 and 326 s before; its Firefox and WebKit shards ran exactly the split computed here from the same inputs.
+verdict, and a slower run only makes the split less even, never incomplete. The first run with every test timed
+([38108411984](https://github.com/xormania/uxor/actions/runs/38108411984)) had Chromium's walls at 387, 392, 394 and
+416 s (497, 385, 364 and 326 s before), WebKit's at 364, 257 and 364 s (383, 356, 344 s) and Firefox's at 403, 300 and
+375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
 
 **Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
 artifact: the committed file merged with that run's durations (a browser whose every shard reported replaces its
