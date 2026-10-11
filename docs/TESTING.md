@@ -995,8 +995,8 @@ baselines are Chromium's, rendered in upstream's Playwright image. A new screens
 the other engines compare it with a baseline that is not theirs (`examples-*`) or that does not exist (`smoke-*`), and
 fail.
 
-In CI, *Demo + Playwright* is one job per browser and shard: three shards for each browser, side by side, so the
-other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
+In CI, *Demo + Playwright* is one job per browser and shard: four shards for Chromium, which also runs the
+screenshots, and three each for Firefox and WebKit, side by side, so the other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
 tagged tests only, compared with the Chromium baselines, to report how far the other engines render from them. Any
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
@@ -1066,7 +1066,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in three shards per browser (*Browsers*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1099,6 +1099,42 @@ The script's exit status says what it found: 0 a report it read (whatever its te
 report, 4 tests not reached. Run it on a local report with `node tools/ci/playwright-summary.mjs` after
 `CI=1 npx playwright test` (CI writes the JSON report); its cases: `node --test tools/tests/*.test.mjs`.
 
+### CI metrics
+
+The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
+every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
+branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
+write never fails the build. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+`.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
+public once, in the package's settings, so it does not count against private package storage.
+
+CI records its own numbers, report only, so a later change to the shards, workers, caches or setup can be measured
+instead of guessed. Nothing here has a threshold or changes a verdict: each step is `continue-on-error`, and the tool
+exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mjs)).
+
+- **Each browser shard** writes `job-metrics.json` next to its results (`playwright-results-<browser>-<shard>`, 30
+  days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the build
+  cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
+  the Playwright image's pull. The Playwright browsers come from that image, pulled on every run: there is no browser
+  cache to hit.
+- **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
+  run's jobs from GitHub's API (each job's queue time and each step's start and end, to the second), and writes one
+  section on the run's *Summary* page and `ci-metrics.json` in the `ci-metrics-<run>-<attempt>` artifact (90 days):
+  - per browser, the shard balance: the shards' wall times (max, min, mean), the imbalance ((max − min) / mean), the
+    tests, the mean job and setup time, and the shards that left no results or did not reach their tests;
+  - per shard, its tests, retries, failed and flaky tests, wall and summed test time, worker use (summed test time
+    over wall time × workers; the rest is idle worker time: worker start, waits, an unbalanced tail), and its job's
+    queue, setup (up to the Playwright step), tests step and the rest (reports, uploads), with its cache hits;
+  - the browser jobs' mean time per step and browser (checkout, image build, the demo's start, Playwright's install,
+    the tests' preparation, the tests, the uploads);
+  - the 20 slowest tests and 15 slowest files of the run, with their browser and shard, and every retried test;
+  - every job's queue time, duration and steps, the run's wall time and its longest job.
+
+What it cannot see: the runner's CPU and memory use (no sampler runs), the time inside a test spent in fixtures or a
+worker's start (Playwright's report does not split it; idle worker time is the bound), the bytes the image cache
+moves, and the *CI result* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
+(`gh run download <run> --pattern 'ci-metrics-*'`).
+
 ### Worker budget
 
 Each CI shard runs two Playwright workers: `--workers=2` in `ci.yml` (*Playwright* step). Before that was set, CI
@@ -1106,7 +1142,7 @@ ran Playwright's default, half the machine's CPUs (`'50%'` of `os.cpus().length`
 `resolveWorkers`), which is 2 on GitHub's 4-vCPU `ubuntu-latest` runners and matches the two workers the sampled CI
 runs reported. Stating it keeps the budget from changing with the runner, and makes a change to it a reviewed one.
 
-The local study behind it (October 2026): shard 2/3 (392 smoke tests: the `lab.*` specs, CSP, theme, data table),
+The local study behind it (October 2026, when Chromium ran three shards): shard 2/3 (392 smoke tests: the `lab.*` specs, CSP, theme, data table),
 `--retries=0`, runs interleaved (1, 2, 3, 2, 3, 1, ...), on a 4-CPU machine where the demo (PHP's built-in server
 with 4 workers, `PHP_CLI_SERVER_WORKERS=4`) and the browser also run:
 
@@ -1123,7 +1159,8 @@ fails its run). Two, the default CI already ran, is kept.
 
 These are local timings, not CI's: the demo runs in FrankenPHP there, the runner's CPUs differ, and the a11y (shard 1)
 and screenshot (shard 3) shards were not measured. Three workers in CI is untested; the shards' `durations.json`
-(*Reading CI results*) is where a later change would be measured, against the same run with two.
+and the run's `ci-metrics.json` (*Reading CI results*) are where a later change would be measured, against the same
+run with two.
 
 ### Jev diagnosis (advisory)
 
