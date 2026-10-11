@@ -203,8 +203,12 @@ Where two recipes are close:
 - **Back shows a GET form as the URL says, a POST form as the user left it**: the layouts' `<body>` carries
   `data-controller="form-reset"`; keep it in a layout of your own. Use GET for filters and searches, POST for edits.
 - **One owner per region**: a Live Component or a Turbo Frame or Stream, not both.
-- **Props and attributes are trusted input**: give `as`, attribute names and URLs values the code chose, never
-  request or user data unchecked. Validate dates and bounds on the server: the calendar's only guide the user.
+- **Props and attributes are trusted input**: give `as` and attribute names values the code chose, never request or
+  user data unchecked. The kit's declared link props keep relative, http(s), mailto and tel URLs, and
+  `Avatar:Image src` keeps relative and http(s) URLs; check any other URL attribute yourself. An attribute named
+  `on…`, `srcset` or `ping` renders nothing (wire behavior with `data-action`), and `href`, `formaction` and `src`
+  attributes, in any case, follow the same URL rules. Validate dates and bounds on the server: the calendar's
+  only guide the user.
 - **No inline `<script>`, `<style>`, `style="…"` or `onclick="…"`** in templates: behavior goes in Stimulus
   controllers, styles in Tailwind classes.
 - **Check your work in a browser** in light and dark: the recipes' READMEs show what each example should look like.

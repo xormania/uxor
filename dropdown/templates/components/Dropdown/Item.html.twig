@@ -1,9 +1,15 @@
 
 {%- props
     ## 'a'|'button' The item tag; any other value renders an `a`.
-    as = 'a'
+    as = 'a',
+    ## string|null The link when `as="a"`; a URL other than relative, http(s), mailto or tel renders `#`.
+    href = null
 -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 {%- set as = as|lower in ['a', 'button'] ? as|lower : 'a' -%}
+{#- Read links as browsers do: ignore leading spaces/C0 controls and tabs/newlines in a scheme. -#}
+{%- set _href = href is not null ? ((href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#') : null -%}
 
 {% set _attributes_defaults = {} %}
 {% if as == 'button' %}
@@ -14,6 +20,7 @@
     <{{ as }}
         role="menuitem"
         tabindex="-1"
+        {%- if as == 'a' and _href is not null %} href="{{ _href }}"{% endif %}
         {{ attributes.defaults(_attributes_defaults).defaults({class: 'inline-flex items-center w-full p-2 text-sm font-medium text-body hover:bg-neutral-tertiary-medium hover:text-heading rounded'|tailwind_classes}) }}
     >
         {##- The item label. -#}

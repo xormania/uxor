@@ -936,10 +936,15 @@ What it reports is data captured from the app, not instructions. `demo/mate/AGEN
 
 ## Hostile values in markup
 
-**Catches:** a prop that lets a value add an element, an event handler or a `javascript:` link.
+**Catches:** a prop that lets a value add an element, an event handler, a `javascript:` link or another active URL.
 
 Render every component with hostile values through the app's own Twig (a console command), then let the browser
-parse each rendering and check the DOM: no extra element, no `on*` attribute, links only with allowed schemes.
+parse each rendering and check the DOM: no extra element, no `on*` attribute, links only with their allowed schemes,
+and image sources only when relative or http(s). Every component whose template reads its attributes is rendered
+given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes, then with `HREF`, `FormAction`, `Src`,
+`srcset` and `ping` carrying hostile URLs, found by listing the templates, so a new component is covered without a new
+case. The URL corpus includes case and whitespace changes, C0 controls,
+character references, attribute breakouts, `Markup` values and stringable objects.
 
 Here: [`hostile-props.spec.ts`](../tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](../demo/src/Command/HostilePropsCommand.php).
 

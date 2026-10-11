@@ -30,6 +30,8 @@ The dropdown component can be used to show a list of menu items when clicking on
 
 ## Usage
 
+`Dropdown:Item href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
+
 ```twig
 <twig:Dropdown
     id="string"

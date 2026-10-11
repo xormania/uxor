@@ -21,6 +21,8 @@ Use the button component inside forms, as links, social login, payment options w
 
 ## Usage
 
+When `as="a"`, `href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
+
 ```twig
 <twig:Button
     variant="brand | secondary | tertiary | success | danger | warning | dark | ghost | outline | outline-brand | outline-success | outline-danger | outline-warning"
