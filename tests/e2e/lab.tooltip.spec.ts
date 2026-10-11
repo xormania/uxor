@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
-import { test, expect, trackGlobalListeners, turboVisitDone } from './fixtures';
-import { back, forward, shown } from './transitions';
+import { test, expect, trackGlobalListeners, turboVisitDone, markDocument } from './fixtures';
+import { back, forward, reloadFrames, sendStream, shown } from './transitions';
 
 /*
  * A tooltip is shown only while its trigger is hovered or focused. Turbo copies the page as it is when it is left,
@@ -32,7 +32,7 @@ test.beforeEach(async ({ page }) => {
 
 test('a tooltip shown on the link that visits is hidden after Back, Forward and a reload, and still works', async ({ page }) => {
     await page.goto('/lab/tooltip-turbo');
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     const toTwo = page.getByRole('link', { name: 'Go to page two' });
     const toOne = page.getByRole('link', { name: 'Go to page one' });
 
@@ -52,7 +52,7 @@ test('a tooltip shown on the link that visits is hidden after Back, Forward and 
     await forward(page, 'Page two');
     await expect(tooltip(page, 'Opens page one')).toBeHidden();
     await expectWorks(page, toOne, 'Opens page one');
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 
     await toOne.focus();
     await page.reload();
@@ -119,12 +119,13 @@ test('inside a data-turbo-permanent element, a tooltip shown by the focus stays 
 
 test('inside a Turbo Frame reloaded three times from a link with a tooltip, the tooltips work', async ({ page }) => {
     await page.goto('/lab/tooltip-turbo');
-    for (let load = 1; load <= 3; load++) {
-        await page.getByRole('link', { name: 'Reload the frame' }).focus();
-        await expect(tooltip(page, 'Loads the frame again')).toBeVisible();
-        await page.keyboard.press('Enter');
-        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-    }
+    await reloadFrames(page, {
+        activate: async (link) => {
+            await link.focus();
+            await expect(tooltip(page, 'Loads the frame again')).toBeVisible();
+            await page.keyboard.press('Enter');
+        },
+    });
     await expect(tooltip(page, 'Loads the frame again')).toBeHidden();
     await expect(page.locator('[data-controller~="tooltip"]')).toHaveCount(6);
     await expectWorks(page, page.getByRole('button', { name: 'Framed' }), 'In a frame, load 3');
@@ -137,12 +138,11 @@ test('replaced or updated by a Turbo Stream while shown, the new tooltip is hidd
     const streamed = page.getByRole('button', { name: 'Streamed' });
     let baseline = {};
 
-    for (const action of ['replace', 'update', 'replace', 'update']) {
+    for (const action of ['replace', 'update', 'replace', 'update'] as const) {
         await streamed.focus();
         await expect(tooltip(page, /^Version /)).toBeVisible();
         // sent while the trigger keeps the focus, until the Stream removes it
-        await page.locator('form').evaluate((form: HTMLFormElement, value) => form.requestSubmit(form.querySelector<HTMLButtonElement>(`button[value="${value}"]`)), action);
-        await expect(page.getByTestId('stream-action')).toHaveText(action);
+        await sendStream(page, action, { from: 'code' });
         await expect(tooltip(page, `Version ${action}.`)).toBeHidden();
         await expectWorks(page, streamed, `Version ${action}.`);
         await expect(page.getByRole('tooltip', { includeHidden: true })).toHaveCount(1);

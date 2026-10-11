@@ -1,6 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, listenerChanges, stimulusControllers, trackGlobalListeners, turboVisitDone } from './fixtures';
+import { test, expect, listenerChanges, stimulusControllers, trackGlobalListeners, turboVisitDone, dialogState } from './fixtures';
 import { advanceFrame, back, forward, observeTurbo, shown, turboOperation } from './transitions';
+import { day } from './calendar';
+import { selectionStatus, tableStatus } from './data-table';
+import { png } from './files';
 
 /*
  * The value matrix: what each widget holding a value or a state the user changes shows after each transition, as the
@@ -130,9 +133,6 @@ const group = (scope: Locator, name: 'get' | 'post' | 'ui') => scope.locator(`[d
 const leaveField = (scope: Locator) => scope.page().evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
 const pick = <T>(state: State, values: Record<State, T>) => values[state];
 
-// a 1×1 PNG
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-
 function textField(method: 'get' | 'post'): Pick<Component, 'change' | 'shows'> {
     const field = (scope: Locator) => group(scope, method).getByRole('textbox', { name: 'Name', exact: true });
     return {
@@ -181,7 +181,6 @@ function autocomplete(method: 'get' | 'post'): Pick<Component, 'change' | 'shows
     };
 }
 
-const day = (calendar: Locator, date: string) => calendar.locator(`[data-slot="calendar-day"][data-day="${date}"] button`);
 const DATES: Record<State, [string, string]> = { rendered: ['2026-03-10', 'Mar 10, 2026'], changed: ['2026-03-12', 'Mar 12, 2026'], server: ['2026-03-20', 'Mar 20, 2026'] };
 
 /** The calendar shows `state`'s date selected, and its hidden input holds it. */
@@ -271,7 +270,7 @@ const markdownEditor: Pick<Component, 'change' | 'shows' | 'undo'> = {
 
 const dropzone: Pick<Component, 'change' | 'shows' | 'undo'> = {
     change: async (scope) => {
-        await group(scope, 'post').locator('input[type="file"]').setInputFiles({ name: 'changed.png', mimeType: 'image/png', buffer: PNG });
+        await group(scope, 'post').locator('input[type="file"]').setInputFiles(png('changed.png'));
         await expect(group(scope, 'post').getByRole('button', { name: 'Remove changed.png' })).toBeVisible();
         await leaveField(scope);
     },
@@ -348,7 +347,7 @@ function dialog(trigger: string, text: string): Pick<Component, 'change' | 'show
         },
         shows: async (scope, state) => {
             await base.shows(scope, state);
-            expect(await element(scope).evaluate((node: HTMLDialogElement) => ({ open: node.open, modal: node.matches(':modal') }))).toEqual(
+            expect(await dialogState(element(scope))).toEqual(
                 'rendered' === state ? { open: false, modal: false } : { open: true, modal: true },
             );
         },
@@ -751,9 +750,6 @@ const dataTableLiveSite: Site = {
     },
 };
 
-const rowsShown = (scope: Locator) => scope.getByRole('status').filter({ hasText: /Showing|No rows/ });
-const selectedCount = (scope: Locator) => scope.getByRole('status').filter({ hasText: 'selected' });
-
 const LIVE_TABLE_ADVANCE = 'a frame beside it whose visits are promoted to history writes its own URL over the one the Live table wrote: two owners of one URL, which no recipe documents';
 
 const GET_IN_LIVE = 'a Live Component binds its fields to properties, whatever form holds them: the POST row\'s Live cell runs this widget';
@@ -829,10 +825,10 @@ const COMPONENTS: Component[] = [
         url: 'changed',
         change: async (scope) => {
             await scope.getByRole('link', { name: 'Page 2' }).click();
-            await expect(rowsShown(scope)).toHaveText('Showing 11–20 of 57');
+            await expect(tableStatus(scope)).toHaveText('Showing 11–20 of 57');
             await expect.poll(() => new URL(scope.page().url()).searchParams.get('page')).toBe('2');
         },
-        shows: async (scope, state) => expect(rowsShown(scope)).toHaveText(pick(state, { rendered: 'Showing 1–10 of 57', changed: 'Showing 11–20 of 57', server: 'Showing 1–25 of 57' })),
+        shows: async (scope, state) => expect(tableStatus(scope)).toHaveText(pick(state, { rendered: 'Showing 1–10 of 57', changed: 'Showing 11–20 of 57', server: 'Showing 1–25 of 57' })),
         // the table is still live: its pager loads the first page
         undo: async (scope) => {
             await scope.getByRole('link', { name: 'Page 1', exact: true }).click();
@@ -852,16 +848,16 @@ const COMPONENTS: Component[] = [
         na: { 'frame-advance': LIVE_TABLE_ADVANCE },
         change: async (scope) => {
             await scope.getByRole('checkbox', { name: 'Select row 57' }).check();
-            await expect(selectedCount(scope)).toHaveText('1 selected');
+            await expect(selectionStatus(scope)).toHaveText('1 selected');
         },
         shows: async (scope, state) => {
             const selected = 'changed' === state;
-            await expect(selectedCount(scope)).toHaveText(selected ? '1 selected' : '0 selected');
+            await expect(selectionStatus(scope)).toHaveText(selected ? '1 selected' : '0 selected');
             await expect(scope.getByRole('checkbox', { name: 'Select row 57' })).toBeChecked({ checked: selected });
         },
         undo: async (scope) => {
             await scope.getByRole('checkbox', { name: 'Select row 57' }).uncheck();
-            await expect(selectedCount(scope)).toHaveText('0 selected');
+            await expect(selectionStatus(scope)).toHaveText('0 selected');
         },
         // the server clears the selection
         rerender: (page) => liveAction(liveTable(page), 'clearSelection'),

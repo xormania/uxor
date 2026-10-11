@@ -11,6 +11,7 @@
 import { expect, test as base, type Page } from '@playwright/test';
 import { startJsCoverage } from '../coverage';
 import { guardPage } from '../fixtures';
+import { previewUrl } from '../inventory';
 
 export type Theme = 'light' | 'dark';
 
@@ -80,7 +81,7 @@ export const test = base.extend<Fixtures>({
                 await page.clock.install({ time: FIXED_TIME });
             }
 
-            await page.goto(`/preview/${recipe}/${example}?theme=${theme}`);
+            await page.goto(previewUrl(recipe, example, theme));
             await page.evaluate(async () => {
                 await document.fonts.ready;
             });

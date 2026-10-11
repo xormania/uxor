@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, markDocument, dialogState } from './fixtures';
 import { back, forward, holdUntilCopied, recordFirstFrames, visit, visitAndBack } from './transitions';
 
 /*
@@ -16,9 +16,6 @@ type Overlay = {
     expectOpen: (page: Page) => Promise<void>;
     expectClosed: (page: Page) => Promise<void>;
 };
-
-const dialogState = (page: Page, id: string) =>
-    page.locator(`dialog#${id}`).evaluate((dialog: HTMLDialogElement) => ({ open: dialog.open, modal: dialog.matches(':modal') }));
 
 const overlays: Overlay[] = [
     {
@@ -38,9 +35,9 @@ const overlays: Overlay[] = [
         name: 'a modal',
         open: (page) => page.getByRole('button', { name: 'Open the modal' }).click(),
         link: (page) => page.getByRole('link', { name: 'Page two from the modal' }),
-        expectOpen: async (page) => expect.poll(() => dialogState(page, 'modal-restore-modal')).toEqual({ open: true, modal: true }),
+        expectOpen: async (page) => expect.poll(() => dialogState(page.locator('dialog#modal-restore-modal'))).toEqual({ open: true, modal: true }),
         expectClosed: async (page) => {
-            await expect.poll(() => dialogState(page, 'modal-restore-modal')).toEqual({ open: false, modal: false });
+            await expect.poll(() => dialogState(page.locator('dialog#modal-restore-modal'))).toEqual({ open: false, modal: false });
             await expect(page.getByRole('button', { name: 'Open the modal' })).toHaveAttribute('aria-expanded', 'false');
         },
     },
@@ -48,9 +45,9 @@ const overlays: Overlay[] = [
         name: 'a drawer',
         open: (page) => page.getByRole('button', { name: 'Open the drawer' }).click(),
         link: (page) => page.getByRole('link', { name: 'Page two from the drawer' }),
-        expectOpen: async (page) => expect.poll(() => dialogState(page, 'drawer-restore-drawer')).toEqual({ open: true, modal: true }),
+        expectOpen: async (page) => expect.poll(() => dialogState(page.locator('dialog#drawer-restore-drawer'))).toEqual({ open: true, modal: true }),
         expectClosed: async (page) => {
-            await expect.poll(() => dialogState(page, 'drawer-restore-drawer')).toEqual({ open: false, modal: false });
+            await expect.poll(() => dialogState(page.locator('dialog#drawer-restore-drawer'))).toEqual({ open: false, modal: false });
             await expect(page.getByRole('button', { name: 'Open the drawer' })).toHaveAttribute('aria-expanded', 'false');
         },
     },
@@ -78,7 +75,7 @@ for (const slow of [false, true]) {
         test(`${overlay.name} left open by a visit is closed after Back, and opens again${slow ? ', the next page waiting for a stylesheet' : ''}`, async ({ page }) => {
             const held = slow ? await holdUntilCopied(page, '**/lab/slow.css') : null;
             await page.goto('/lab/turbo-restore');
-            await page.evaluate(() => ((window as any).__sameDocument = true));
+            const sameDocument = await markDocument(page);
             await overlay.open(page);
             await overlay.expectOpen(page);
 
@@ -91,7 +88,7 @@ for (const slow of [false, true]) {
             await overlay.expectClosed(page);
             await overlay.open(page);
             await overlay.expectOpen(page);
-            expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+            await sameDocument.expectKept();
         });
     }
 }
@@ -109,14 +106,14 @@ test('a toast outside the permanent region is not shown again on Back', async ({
 
 test('a toast moved into the permanent region stays across visits', async ({ page }) => {
     await page.goto('/lab/turbo-restore');
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     const toast = page.getByTestId('page-toast');
     await toast.evaluate((element) => document.getElementById('toasts')!.append(element));
     await visit(page, 'Go to page two', 'Page two');
     await expect(toast).toHaveText('Saved on page one.');
     await back(page, 'Page one');
     await expect(toast).toHaveCount(1);
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 });
 
 test('a toast outside the permanent region stays shown while a frame visit is promoted to history, and Back does not show it again', async ({ page }) => {
