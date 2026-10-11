@@ -3,15 +3,46 @@
  * logo and avatar images (CSS backgrounds: the demo has no symfony/asset, and AssetMapper rewrites these url()s). The hero carries the `dark` class, so the kit's color roles inside it are the dark ones.
  */
 .xor-hero {
+    position: relative;
+    isolation: isolate;
     background-color: var(--color-gray-950, #030712);
-    background-image:
-        linear-gradient(90deg, rgb(3 7 18) 0%, rgb(3 7 18) 34%, rgb(3 7 18 / 0.55) 50%, rgb(3 7 18 / 0) 64%),
-        linear-gradient(0deg, rgb(3 7 18) 0%, rgb(3 7 18 / 0) 28%),
-        linear-gradient(180deg, rgb(3 7 18) 6%, rgb(3 7 18 / 0) 22%),
-        url("../images/xor/hero.jpg");
     background-repeat: no-repeat;
-    background-position: center, center, center, right -330px center;
-    background-size: auto, auto, auto, auto 92%;
+}
+
+/* the artwork sits in a layer as wide as the content column (max-w-7xl, 80rem), so on a wide screen it stays beside the
+   text instead of at the viewport's edge; below 80rem the layer is the whole width */
+@media (min-width: 768px) {
+    .xor-hero::before {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        top: 0;
+        bottom: 0;
+        left: max(0px, calc(50% - 40rem));
+        right: max(0px, calc(50% - 40rem));
+        background-image:
+            linear-gradient(90deg, rgb(3 7 18) 0%, rgb(3 7 18) 34%, rgb(3 7 18 / 0.55) 50%, rgb(3 7 18 / 0) 64%),
+            linear-gradient(0deg, rgb(3 7 18) 0%, rgb(3 7 18 / 0) 28%),
+            linear-gradient(180deg, rgb(3 7 18) 6%, rgb(3 7 18 / 0) 22%),
+            url("../images/xor/hero.jpg");
+        background-repeat: no-repeat;
+        background-position: center, center, center, right -330px center;
+        background-size: auto, auto, auto, auto 92%;
+    }
+}
+
+/* wider than the column the layer ends before the viewport does: fade its right edge into the section's color */
+@media (min-width: 1281px) {
+    .xor-hero::before {
+        background-image:
+            linear-gradient(270deg, rgb(3 7 18) 0%, rgb(3 7 18 / 0) 12%),
+            linear-gradient(90deg, rgb(3 7 18) 0%, rgb(3 7 18) 34%, rgb(3 7 18 / 0.55) 50%, rgb(3 7 18 / 0) 64%),
+            linear-gradient(0deg, rgb(3 7 18) 0%, rgb(3 7 18 / 0) 28%),
+            linear-gradient(180deg, rgb(3 7 18) 6%, rgb(3 7 18 / 0) 22%),
+            url("../images/xor/hero.jpg");
+        background-position: center, center, center, center, right -330px center;
+        background-size: auto, auto, auto, auto, auto 92%;
+    }
 }
 
 /* a phone: the word sits behind the text, dimmed, so the text keeps its contrast */
