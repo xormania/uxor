@@ -5,7 +5,8 @@
 version: 2
 updates:
     - package-ecosystem: github-actions
-      directory: /
+      # the workflows, and the composite action they share (its upload-artifact pin)
+      directories: [/, /.github/actions/jev-diagnosis]
       target-branch: dev
       schedule:
           interval: weekly
