@@ -33,13 +33,13 @@ Get started with the select component to allow the user to choose from one or mo
 
 ### Multiple
 
-Apply the `multiple` attribute to the select component to allow users to select one or more options.
+Apply the `multiple` attribute to the select component to allow users to select one or more options. It shows as a
+list box, without the chevron; give it no placeholder option, which would be a choice like any other.
 
 ```twig {"preview":true}
 <form class="w-full max-w-sm">
     <twig:Label for="countries" class="mb-2.5">Select an option</twig:Label>
     <twig:Select id="countries" multiple>
-        <option selected>Choose a country</option>
         <option value="US">United States</option>
         <option value="CA">Canada</option>
         <option value="FR">France</option>

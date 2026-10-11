@@ -1,3 +1,5 @@
+{# the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy #}
+{% set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) %}
 {#- The template of a table extending App\UXor\DataTableLive\AbstractLiveDataTable: name it in the subclass's
     #[AsLiveComponent(template: 'components/DataTableLive.html.twig')]. Its fields are plain elements with the classes
     of the Input, Select and Checkbox components: inside a Live Component, `data-model` on a Twig component binds a
@@ -28,7 +30,7 @@
         {%- for filter in view.table.filters %}
             <div>
                 <label for="{{ id }}-filter-{{ filter.key }}" class="mb-1 block text-sm font-medium text-heading">{{ filter.label }}</label>
-                <select id="{{ id }}-filter-{{ filter.key }}" class="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="filterValues.{{ filter.key }}">
+                <select id="{{ id }}-filter-{{ filter.key }}" class="block w-full ps-3 pe-10 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="filterValues.{{ filter.key }}">
                     <option value="">All</option>
                     {%- for value, choice in filter.choices %}
                         <option value="{{ value }}"{{ (query.filters[filter.key] ?? null) is same as(value ~ '') ? ' selected' }}>{{ choice }}</option>
@@ -39,7 +41,7 @@
         {%- if view.table.pageSizes|length > 1 %}
             <div>
                 <label for="{{ id }}-size" class="mb-1 block text-sm font-medium text-heading">Rows per page</label>
-                <select id="{{ id }}-size" class="block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="pageSize">
+                <select id="{{ id }}-size" class="block w-full ps-3 pe-10 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger" data-model="pageSize">
                     {%- for size in view.table.pageSizes %}
                         <option value="{{ size }}"{{ size == query.pageSize ? ' selected' }}>{{ size }}</option>
                     {%- endfor %}

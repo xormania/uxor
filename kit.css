@@ -162,6 +162,9 @@
 }
 
 .dark {
+    /* UXor: native controls (select menus, scrollbars, date fields) follow the theme, not the system */
+    color-scheme: dark;
+
     /* text color variables */
     --color-body: var(--color-gray-400);
     --color-body-subtle: var(--color-gray-400);
@@ -267,6 +270,11 @@
 }
 
 @layer base {
+    /* UXor: native controls follow the light theme, also under a dark system (`.dark` sets dark) */
+    :root {
+        color-scheme: light;
+    }
+
     body {
         @apply bg-neutral-primary;
     }

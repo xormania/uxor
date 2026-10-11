@@ -936,10 +936,15 @@ What it reports is data captured from the app, not instructions. `demo/mate/AGEN
 
 ## Hostile values in markup
 
-**Catches:** a prop that lets a value add an element, an event handler or a `javascript:` link.
+**Catches:** a prop that lets a value add an element, an event handler, a `javascript:` link or another active URL.
 
 Render every component with hostile values through the app's own Twig (a console command), then let the browser
-parse each rendering and check the DOM: no extra element, no `on*` attribute, links only with allowed schemes.
+parse each rendering and check the DOM: no extra element, no `on*` attribute, links only with their allowed schemes,
+and image sources only when relative or http(s). Every component whose template reads its attributes is rendered
+given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes, then with `HREF`, `FormAction`, `Src`,
+`srcset` and `ping` carrying hostile URLs, found by listing the templates, so a new component is covered without a new
+case. The URL corpus includes case and whitespace changes, C0 controls,
+character references, attribute breakouts, `Markup` values and stringable objects.
 
 Here: [`hostile-props.spec.ts`](../tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](../demo/src/Command/HostilePropsCommand.php).
 
@@ -1018,6 +1023,23 @@ they write); each keeps where the app runs, where the kit comes from and how the
 Here: [`fresh-install.sh`](../tools/tests/fresh-install.sh), [`docker-install.sh`](../tools/tests/docker-install.sh),
 their shared steps [`install-scenario.sh`](../tools/tests/install-scenario.sh),
 [`check-fresh-app.sh`](../tools/tests/check-fresh-app.sh).
+
+## Repository security policy
+
+**Catches:** a mutable external Action, privileged pull-request workflow, broad workflow permission, remote shell pipe,
+new executable rendering sink, tracked dependency or build output, stale supported-version table, or removal of the
+repository's ownership and agent-safety rules.
+
+`tools/security-policy.mjs` runs in the always-on *Tool tests* job. Its rendering-sink manifest names the exact line
+shape, expected count and reason for every accepted Twig raw output and DOM HTML write in installed recipe code, plus
+the dynamic demo's trusted preview boundary. A new or moved sink fails until its data flow and reason are reviewed;
+the manifest is an inventory, not a sanitizer. Unit cases plant each class of failure. CODEOWNERS protects the tool,
+manifest, tests, workflows and agent rules when the branch ruleset requires code-owner approval.
+
+Here: [`security-policy.mjs`](../tools/security-policy.mjs),
+[`security-sinks.json`](../tools/security-sinks.json),
+[`security-policy.test.mjs`](../tools/tests/security-policy.test.mjs),
+[`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 
 ### Locked and moving lanes
 
@@ -1220,7 +1242,8 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
 every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
 branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
-write never fails the build. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+write never fails the build. `monthly.yml` and `release-checks.yml` read the `dev` and `main` tags and write none; a
+workflow that reads a cache no build writes fails `tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
 `.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
 public once, in the package's settings, so it does not count against private package storage.
 

@@ -28,19 +28,20 @@
     {#- form_reset: false on a lab page composed without the layouts recipe's form-reset controller (/lab/autocomplete?bare=1) -#}
     <body{% if form_reset ?? true %} data-controller="form-reset"{% endif %} class="flex min-h-screen flex-col bg-neutral-primary text-body antialiased">
         <header class="border-b border-default bg-neutral-primary">
-            <nav class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3" aria-label="Main">
+            {#- one row from 320px: below sm, the GitHub link shows its icon, the contributors' Forms and Lab links are left out, and below 24rem the name beside the logo too -#}
+            <nav class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:gap-x-6" aria-label="Main">
                 <a href="{{ path('app_index') }}" class="flex items-center gap-2 font-semibold text-heading">
                     <span class="xor-logo xor-glow size-7 shrink-0 rounded-base" aria-hidden="true"></span>
-                    {{ kit_reader.manifest.name }}
+                    <span class="max-[24rem]:sr-only">{{ kit_reader.manifest.name }}</span>
                 </a>
                 <a href="{{ path('app_index') }}#recipes" class="text-sm font-medium hover:text-heading">Recipes</a>
                 <a href="{{ path('app_demo') }}" class="text-sm font-medium hover:text-heading">Demo app</a>
                 {% if not static_export %}
-                    <a href="{{ path('app_forms') }}" class="text-sm font-medium hover:text-heading">Forms</a>
-                    <a href="{{ path('app_lab') }}" class="text-sm font-medium hover:text-heading">Lab</a>
+                    <a href="{{ path('app_forms') }}" class="text-sm font-medium hover:text-heading max-sm:hidden">Forms</a>
+                    <a href="{{ path('app_lab') }}" class="text-sm font-medium hover:text-heading max-sm:hidden">Lab</a>
                 {% endif %}
-                <div class="ml-auto flex items-center gap-4">
-                    <a href="{{ repository }}" class="text-sm font-medium hover:text-heading">GitHub</a>
+                <div class="ml-auto flex items-center gap-3 sm:gap-4">
+                    <a href="{{ repository }}" class="flex items-center gap-2 text-sm font-medium hover:text-heading">{{ ux_icon('github', {class: 'size-5 sm:hidden', 'aria-hidden': 'true'}) }}<span class="max-sm:sr-only">GitHub</span></a>
                     <twig:ThemeToggle />
                 </div>
             </nav>
@@ -52,7 +53,7 @@
                         A static copy of the demo at release <strong class="text-heading">{{ static_export.release }}</strong>.
                     {%- else -%}
                         A static copy of the demo, built from
-                        {% if static_export.commit %}<a href="{{ repository }}/commit/{{ static_export.commit }}" class="font-mono underline hover:text-heading">{{ static_export.commit[:7] }}</a> on {% endif %}<code>main</code>
+                        {% if static_export.commit %}<a href="{{ repository }}/commit/{{ static_export.commit }}" class="font-mono underline hover:text-heading">{{ static_export.commit[:7] }}</a> on {% endif %}<code>{{ static_export.branch ?? 'main' }}</code>
                         {%- if static_export.latest_release %} after release <strong class="text-heading">{{ static_export.latest_release }}</strong>{% endif %}.
                     {%- endif %}
                     Live Components, Turbo Streams and form submits need Symfony:

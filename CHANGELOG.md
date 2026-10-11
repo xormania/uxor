@@ -117,10 +117,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   `bg-white`. **Upgrading:** reinstall `theme` with those recipes, or those components lose their white text.
 - Motion: transitions name the properties they animate and stop under `prefers-reduced-motion`. `tabs` triggers fade
   their colors only (was `transition-all`), the `toggle` knob animates `translate` and its border color (was
-  `transition-all`), and the `modal` backdrop its color (was every property); these, the `sidebar` width and chevron,
-  the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once under reduced motion.
-  There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without waiting for the fade, and
-  the `spinner` and the `skeleton` pulse run three times slower.
+  `transition-all`), and the `modal` backdrop's transition names its color (was every property); these, the `sidebar`
+  width and chevron, the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once
+  under reduced motion. There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without
+  waiting for the fade, and the `spinner` and the `skeleton` pulse run three times slower.
 - `dropdown` and `tooltip` place their content with the `floating` recipe's module instead of a copy each, and depend
   on that recipe (`ux:install` adds `assets/lib/uxor-floating.js`). Where they place it does not change.
 - `dropdown`, `modal`, `drawer`, `toast` and `layouts` (`form-reset`) use the `turbo` recipe's module instead of a
@@ -192,8 +192,28 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `theme-toggle`: with the system in dark mode and the light theme chosen, the button showed no icon
   (`flowbite.min.css` gates its own `dark:hidden` on `prefers-color-scheme`); it now shows the moon. A switch no
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
+- `button`: the keyboard focus was a 4px ring right against the fill, in a tint of it (`brand-medium` on `brand`:
+  1.8:1, 1.4:1 in the dark theme; the outline variants' gray ring 1.1:1 on the page), so hard to see. Every variant
+  now shows a 2px `brand-medium` outline 2px apart from the button, on `:focus-visible` only (no ring after a click),
+  at 3:1 or more against the page in both themes (WCAG 1.4.11).
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
+- `theme`: native controls follow the theme on screen, not the system's: `uxor.css` sets `color-scheme: light` on the
+  page and `color-scheme: dark` under `.dark`. With the system dark and the light theme chosen, the calendar's month
+  and year menus showed dark text on a dark menu (and light text on a light one the other way round); select menus,
+  date fields and scrollbars now match the theme. `calendar`: its month and year selects give their options the
+  menu's colors (`bg-neutral-primary-medium`, `text-heading`), so Flowbite's white select background no longer sits
+  under white option text in the dark theme.
+- `input`: an `Input` with no `type` (a text field all the same) had no inline padding, its text against the left
+  border, as in the `form-field` example's username: Flowbite's base rule pads only typed fields. It is now padded
+  like `type="text"`.
+- `select`: a long option ran under the chevron: the Select's `px-3` replaced the room Flowbite's base rule leaves for
+  it. The Select now pads its inline end (`pe-10`), so right to left keeps the room on the chevron's side; the same
+  in `data-table-live`'s filter and page size selects. A multiple Select (a list box) no longer shows the chevron
+  (Flowbite's rule removing it loses to its own `select:not([size])`), and the "Multiple" example drops its
+  "Choose a country" option, which pushed a fifth row half into the bottom of the box. In the dark theme its
+  selected row is dark (the `theme` fix above), not light gray.
+
 - `pagination`: in the dark theme the current page's number read at 2.7:1 (`text-fg-brand` on
   `bg-neutral-tertiary-medium`); the current page now takes `text-fg-brand-strong` on `bg-brand-softer`, as the kit's
   other current items, at 4.5:1 or more in both themes. axe passed it, as it passes all one-character text: the
@@ -211,6 +231,22 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   parent and the table scrolls in its own frame.
 - `badge`, `table`: README examples that overflowed a phone's width: the badge rows wrap, and the table without border
   sits in a horizontally scrolling wrapper like the other table examples.
+### Security
+
+- `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe
+  scheme cannot be introduced through their `href` or `src` attributes. **Upgrading:** an `href` on `Button`,
+  `Badge`, `Dropdown:Item` or `Pagination:Link` with a scheme other than `http(s)`, `mailto` or `tel` (or a relative
+  URL) now renders `#`; an `Avatar:Image` `src` other than relative or `http(s)` (`data:`, `blob:`) renders no `src`,
+  so the fallback shows; an `href` on a `Button`, `Badge` or `Dropdown:Item` that is not `as="a"` is no longer
+  rendered; and `Pagination:Link`'s `href` defaults to `#`.
+- Every component, and `form-field`'s `labelAttr` and `helpAttr`, leaves out an attribute whose name starts with
+  `on` (in any case, after leading spaces): an inline event handler given to a component renders nothing. Behavior
+  goes through `data-action` and a Stimulus controller. **Upgrading:** an `onclick` or other handler passed to a
+  component no longer renders; move it to a controller.
+- Every component reads the URL attributes given to it as a browser reads their names, in any case (`HREF`,
+  `FormAction`, `Src`): `href` and `formaction` keep a relative, `http(s)`, `mailto` or `tel` URL, any other
+  rendering `#`, and `src` a relative or `http(s)` URL, any other rendering no `src`. **Upgrading:** a `srcset` or
+  `ping` attribute given to a component no longer renders.
 
 ## [0.1.0] - 2026-10-06
 

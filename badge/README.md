@@ -19,6 +19,8 @@ The badge component can be used to complement other elements such as buttons or 
 
 ## Usage
 
+When `as="a"`, `href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
+
 ```twig
 <twig:Badge
     variant="brand | alternative | gray | danger | success | warning"

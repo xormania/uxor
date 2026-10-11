@@ -30,6 +30,8 @@ Use the Tailwind CSS pagination element to indicate a series of content across v
 
 ## Usage
 
+`Pagination:Link href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
+
 ```twig
 <twig:Pagination>
     <twig:Pagination:Content>

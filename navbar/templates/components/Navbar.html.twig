@@ -6,6 +6,8 @@
     ## string The accessible name of the navigation in the `nav` block.
     navLabel = 'Site'
 -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 {%- set _navbar_nav %}{##- The site's navigation, typically a `NavMenu`, shown from Tailwind's `md` breakpoint up (render it in a `MobileNav` for small screens). -#}{% block nav %}{% endblock %}{% endset -%}
 {%- set _navbar_search %}{##- A search form or other central content; below Tailwind's `sm` breakpoint, a row of its own under the brand and actions. -#}{% block search %}{% endblock %}{% endset -%}
 {#- one row of 4rem. On a phone the brand takes the room left between the menu button and the actions (a long one wraps), and the
