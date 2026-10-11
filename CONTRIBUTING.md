@@ -543,6 +543,11 @@ them can fail. `main`'s ruleset requires the *Release checks* check beside *CI r
 A fix that cannot wait for the next release goes to `main` in its own pull request with its version heading (a
 patch), and `main` is then merged into `dev`.
 
+After each release, merge `main` back into `dev` in a pull request of its own (`git checkout -b sync/X.Y.Z origin/dev &&
+git merge --no-ff origin/main`, with nothing else in it). The tag `X.Y.Z` is on the release pull request's merge
+commit, which only `main` holds: until `dev` contains it, `git describe` on `dev` (`tools/build-static.sh` reads it) still
+names the previous release, and the next release pull request may need `main` merged into it before it can merge.
+
 Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: it
 checks that the merge commit installs from GitHub in a fresh Symfony Docker project
 (`tools/tests/docker-install.sh`), tags it `X.Y.Z`, and publishes a GitHub Release with the section as its notes,
