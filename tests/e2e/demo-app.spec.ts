@@ -295,11 +295,14 @@ test.describe('at 320px', () => {
     }
 });
 
-test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
+    // the markup is what matters, so each page is fetched rather than visited: a visit from page to page cancels the
+    // last page's late requests (lazy controllers, their imports), which the page guard counts as failed
     for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...Object.values(demoPages)]) {
-        await page.goto(path);
-        await expect(page.locator('head link[rel~="icon"]'), path).toHaveCount(1);
+        const response = await page.request.get(path);
+        expect(response.status(), path).toBe(path.endsWith('/demo/not-found') ? 404 : 200); // the error page answers 404 on purpose
+        const head = (await response.text()).match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
+        expect(head.match(/<link\b[^>]*\brel=["'][^"']*\bicon\b/gi) ?? [], path).toHaveLength(1);
     }
 });
 
