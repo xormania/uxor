@@ -387,7 +387,8 @@ jobs:
                   node tools/monthly/screenshots.mjs --merge --browsers firefox,webkit --out coverage/screenshots "${files[@]}"
 
             # The latest successful run of this workflow, other than this one, whose monthly-trends artifact exists and
-            # was made on the same ref; none on the first run, or once the artifact expired
+            # was made on the same ref; none on the first run, or once the artifact expired. The release pull request
+            # compares with dev's runs (its head), since each release has a new number in its report's label
             - name: The previous run's numbers
               id: previous
               if: ${{ !cancelled() }}
@@ -395,7 +396,7 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
-                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && format('{0} into {1} (#{2})', github.head_ref, github.base_ref, github.event.pull_request.number) || github.ref_name }}
+                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
               run: |
                   note="no earlier successful run of this workflow on $REF"
                   file=
