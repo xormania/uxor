@@ -1220,7 +1220,8 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
 every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
 branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
-write never fails the build. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+write never fails the build. `monthly.yml` and `release-checks.yml` read the `dev` and `main` tags and write none; a
+workflow that reads a cache no build writes fails `tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
 `.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
 public once, in the package's settings, so it does not count against private package storage.
 
