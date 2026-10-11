@@ -1,5 +1,5 @@
 import type { CDPSession, Page, Request } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, test, trackListeners } from './fixtures';
 
 /*
  * Tier 2 of docs/PLAN-test-tiers.md: what one key interaction costs, counted. Counts give the same numbers on every
@@ -59,38 +59,14 @@ export type RendererMetrics = { recalcStyleMs: number; layoutMs: number; scriptM
 export type Timing = { step: string; durationMs: number; inpMs: number | null; metrics?: Partial<Record<'tbtMs' | keyof RendererMetrics, number>> };
 
 /*
- * The listeners every script of the page adds and removes, on document, window and every element, kept per target.
- * Playwright's own (added by scripts without a URL: the test's init scripts and evaluations) are left out, and so are
- * `{ once: true }` listeners (they remove themselves when they run); a listener added with an `AbortSignal` is removed
- * when the signal aborts.
+ * The step's timings the page observes: the longest interaction and the total blocking time (below). The listeners
+ * are fixtures.ts's tracker (`trackListeners`), read through `__listenerCounts()`.
  */
-function installListenerTracker() {
+function installTimingObservers() {
     const w = window as any;
-    if (w.__countListeners) {
+    if (w.__readInp) {
         return;
     }
-    const add = EventTarget.prototype.addEventListener;
-    const remove = EventTarget.prototype.removeEventListener;
-    const byTarget = new Map<EventTarget, Map<string, Set<unknown>>>();
-    const keyOf = (type: string, options?: boolean | AddEventListenerOptions) =>
-        `${type}${('boolean' === typeof options ? options : Boolean(options?.capture)) ? ' capture' : ''}`;
-    const fromPage = () => /\bhttps?:\/\//.test(new Error().stack ?? '');
-    const forget = (target: EventTarget, key: string, listener: unknown) => byTarget.get(target)?.get(key)?.delete(listener);
-
-    EventTarget.prototype.addEventListener = function (type: string, listener: any, options?: any) {
-        if (listener && !(options && 'object' === typeof options && options.once) && fromPage()) {
-            const key = keyOf(type, options);
-            const keys = byTarget.get(this) ?? byTarget.set(this, new Map()).get(this)!;
-            (keys.get(key) ?? keys.set(key, new Set()).get(key)!).add(listener);
-            const signal: AbortSignal | undefined = options && 'object' === typeof options ? options.signal : undefined;
-            signal?.addEventListener('abort', () => forget(this, key, listener), { once: true });
-        }
-        return add.call(this, type, listener, options);
-    };
-    EventTarget.prototype.removeEventListener = function (type: string, listener: any, options?: any) {
-        forget(this, keyOf(type, options), listener);
-        return remove.call(this, type, listener, options);
-    };
     // the longest interaction (Event Timing, `interactionId` set) since the step was armed; where the engine has no
     // Event Timing, null
     if (PerformanceObserver.supportedEntryTypes?.includes('event')) {
@@ -129,21 +105,6 @@ function installListenerTracker() {
     } else {
         w.__readTbt = () => null;
     }
-    w.__countListeners = () => {
-        const counts: Record<string, number> = {};
-        for (const [target, keys] of byTarget) {
-            const name = target === document ? 'document' : target === window ? 'window' : target instanceof Element && target.isConnected ? target.localName : null;
-            if (null === name) {
-                continue;
-            }
-            for (const [key, listeners] of keys) {
-                if (listeners.size) {
-                    counts[`${name} ${key}`] = (counts[`${name} ${key}`] ?? 0) + listeners.size;
-                }
-            }
-        }
-        return counts;
-    };
 }
 
 /*
@@ -169,7 +130,7 @@ function armStep() {
         };
     }
     app.__countsLog.length = 0;
-    w.__countsListenersBefore = w.__countListeners();
+    w.__countsListenersBefore = w.__listenerCounts();
     w.__stepArmedAt = performance.now();
     w.__stepInp = null;
     w.__stepTbt = 0;
@@ -190,7 +151,7 @@ function readStep() {
         return counts;
     };
     const before: Record<string, number> = w.__countsListenersBefore;
-    const after: Record<string, number> = w.__countListeners();
+    const after: Record<string, number> = w.__listenerCounts();
     const listeners: Record<string, number> = {};
     for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
         const change = (after[key] ?? 0) - (before[key] ?? 0);
@@ -215,7 +176,8 @@ const sorted = (counts: Record<string, number>) => Object.fromEntries(Object.ent
  * test, which the monthly job's timings report reads (tools/monthly/timings.mjs); they never fail a test.
  */
 export async function trackCounts(page: Page) {
-    await page.addInitScript(installListenerTracker);
+    await trackListeners(page);
+    await page.addInitScript(installTimingObservers);
 
     const measure = async (action: () => Promise<unknown>): Promise<Measured> => {
         await page.evaluate(armStep);

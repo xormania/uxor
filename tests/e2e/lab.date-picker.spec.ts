@@ -1,18 +1,14 @@
-import type { Locator, Page } from '@playwright/test';
-import { test, expect, turboVisitDone } from './fixtures';
-import { back, recordFirstFrames, stepFromCode, visit } from './transitions';
+import type { Page } from '@playwright/test';
+import { test, expect, turboVisitDone, countEvents } from './fixtures';
+import { back, recordFirstFrames, reloadFrames, stepFromCode, visit } from './transitions';
+import { day } from './calendar';
 
-const day = (scope: Locator, date: string) => scope.locator(`[data-slot="calendar-day"][data-day="${date}"] button`);
 const pick = async (page: Page, label: string, date: string) => {
     await page.getByRole('button', { name: `${label}: choose date` }).click();
     await day(page.getByRole('dialog', { name: 'Choose a date' }), date).click();
 };
-const countChanges = (page: Page) =>
-    page.evaluate(() => {
-        (window as any).__changes = 0;
-        document.addEventListener('change', (event) => (event.target as HTMLElement).matches('[data-calendar-target="input"]') && (window as any).__changes++);
-    });
-const changes = (page: Page) => page.evaluate(() => (window as any).__changes as number);
+// the change events of the calendars' hidden inputs, from now on
+const countChanges = (page: Page) => countEvents(page, ['change'], '[data-calendar-target="input"]');
 
 test('a pick is submitted by the form; the day buttons never submit it', async ({ page }) => {
     await page.goto('/lab/date-picker-turbo');
@@ -32,10 +28,10 @@ test('repeated Turbo visits leave one controller per picker and one change per p
         await turboVisitDone(page);
     }
     await expect(page.locator('[data-controller~="date-picker"]')).toHaveCount(3);
-    await countChanges(page);
+    const changes = await countChanges(page);
     await pick(page, 'Due date', '2026-03-11');
     await expect(page.locator('input[name="due"]')).toHaveValue('2026-03-11');
-    expect(await changes(page)).toBe(1);
+    expect(await changes()).toEqual({ change: 1 });
 });
 
 test('inside a data-turbo-permanent element and a Turbo Frame reloaded three times, the pickers work', async ({ page }) => {
@@ -44,10 +40,7 @@ test('inside a data-turbo-permanent element and a Turbo Frame reloaded three tim
     await pick(page, 'Kept date', '2026-03-05');
     await expect(page.getByLabel('Kept date', { exact: true })).toHaveValue('Mar 5, 2026');
 
-    for (let load = 1; load <= 3; load++) {
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-    }
+    await reloadFrames(page);
     await pick(page, 'Framed date', '2026-03-06');
     await expect(page.getByLabel('Framed date', { exact: true })).toHaveValue('Mar 6, 2026');
 });
@@ -119,14 +112,14 @@ test('a date picker open during a Live re-render stays the same open dialog with
     await expect(page.locator('[data-calendar-target="input"]')).toHaveCount(2);
 
     // the keys and a pick still work: one change, sent to the server
-    await countChanges(page);
+    const changes = await countChanges(page);
     await page.keyboard.press('ArrowRight');
     await expect(day(dialog, '2026-03-18')).toBeFocused();
     await page.keyboard.press('Enter');
     await expect(dialog).toBeHidden();
     await expect(endField).toHaveValue('Mar 18, 2026');
     await expect(page.getByTestId('end')).toHaveText('2026-03-18');
-    expect(await changes(page)).toBe(1);
+    expect(await changes()).toEqual({ change: 1 });
 });
 
 test('a date picker open while the page code steps a frame promoted to history stays open on its day; Back shows it closed with the date of the URL', async ({ page }) => {

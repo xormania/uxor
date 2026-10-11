@@ -1,5 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y } from './fixtures';
+import { day } from './calendar';
+import { png, text } from './files';
 
 const pairs = ['name', 'email', 'country', 'bio', 'photo', 'startsOn', 'plan', 'terms', 'save'];
 
@@ -99,12 +101,12 @@ test('the date picker opt-in submits the pick; a date the server refuses comes b
     const hidden = page.locator('input[name="demo[startsOn]"]');
     // empty, with a past minimum: the calendar opens on today's month, not the minimum's
     const now = new Date();
-    const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
     await page.getByRole('button', { name: 'Choose date' }).click();
     await expect(page.getByRole('dialog').getByRole('grid')).toHaveAccessibleName(new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(now));
-    await page.getByRole('dialog').locator(`[data-slot="calendar-day"][data-day="${day}"] button`).click();
-    await expect(hidden).toHaveValue(day);
-    await expect(field).toHaveValue(new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`)));
+    await day(page.getByRole('dialog'), date).click();
+    await expect(hidden).toHaveValue(date);
+    await expect(field).toHaveValue(new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`)));
 
     // below the bound, as a script could send it: the constraint decides
     await hidden.evaluate((input) => ((input as HTMLInputElement).value = '2025-06-01'));
@@ -114,11 +116,6 @@ test('the date picker opt-in submits the pick; a date the server refuses comes b
     await expect(field).toHaveAccessibleDescription(/^The first day of your subscription\. This value should be greater than or equal to/);
     await expect(page.locator('input[name="demo[startsOn]"]')).toHaveValue('');
 });
-
-// a 1×1 PNG
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-const png = (name: string, size = PNG.length) => ({ name, mimeType: 'image/png', buffer: Buffer.concat([PNG, Buffer.alloc(Math.max(0, size - PNG.length))]) });
-const text = (name: string) => ({ name, mimeType: 'text/plain', buffer: Buffer.from(`${name}\n`) });
 
 /** Fills every required field of /forms with a valid value. */
 async function fillValid(page: Page) {

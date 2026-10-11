@@ -1,5 +1,5 @@
 import { test, expect, listenerChanges, stimulusControllers, trackGlobalListeners, turboVisitDone } from './fixtures';
-import { back, recordFirstFrames, shown, stepFromCode, visit } from './transitions';
+import { back, recordFirstFrames, reloadFrames, shown, stepFromCode, visit } from './transitions';
 
 /*
  * The popover beyond what one transition leaves of it (lab.value-matrix, `a popover left open`: Back, Forward, a promoted
@@ -48,11 +48,7 @@ test('repeated Turbo visits leave one controller per popover and no document or 
 
 test('inside a Turbo Frame reloaded three times, the popover works', async ({ page }) => {
     await page.goto('/lab/popover-turbo');
-    for (let load = 1; load <= 3; load++) {
-        await page.getByRole('button', { name: 'Framed' }).click();
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-    }
+    await reloadFrames(page, { before: () => page.getByRole('button', { name: 'Framed' }).click() });
     await page.getByRole('button', { name: 'Framed' }).click();
     await expect(page.getByLabel('Note')).toBeFocused();
     await expect(page.locator('[data-controller~="popover"]')).toHaveCount(6);

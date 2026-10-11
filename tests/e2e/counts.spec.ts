@@ -1,7 +1,9 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { day } from './calendar';
+import { tableStatus } from './data-table';
 import { trackCounts } from './counts';
-import { turboOperation } from './transitions';
+import { follow, turboOperation } from './transitions';
 
 /*
  * Tier 2 of docs/PLAN-test-tiers.md, the gates on what each key interaction costs: the requests it makes, by kind, the
@@ -10,15 +12,9 @@ import { turboOperation } from './transitions';
  * test runs its steps once uncounted (warmUp), then counts them; the numbers are the same on every run of the same
  * build (docs/TESTING.md, *Interaction counts*, says how to read and update them).
  *
- * Links are followed from the keyboard: a pointer over a link makes Turbo prefetch it, and the click would then reuse
- * that request, or not, depending on timing.
+ * Links are followed from the keyboard (`follow`): a pointer over a link makes Turbo prefetch it, and the click would
+ * then reuse that request, or not, depending on timing.
  */
-
-const follow = async (page: Page, name: string) => {
-    await page.getByRole('link', { name, exact: true }).focus();
-    await page.keyboard.press('Enter');
-};
-const tableStatus = (page: Page) => page.getByRole('status').filter({ hasText: /Showing|No rows/ });
 
 // what an open dropdown or date picker (a popover) adds to the document and the window, and closing it removes: the
 // outside click, and repositioning on scroll and resize (dropdown_controller.js, popover_controller.js)
@@ -126,7 +122,7 @@ test('date-picker: opening and picking a date make no request and leave no liste
         await expect(dialog).toBeVisible();
     };
     const pick = (date: string) => async () => {
-        await dialog.locator(`[data-slot="calendar-day"][data-day="${date}"] button`).click();
+        await day(dialog, date).click();
         await expect(dialog).toBeHidden();
         await expect(page.locator('input[name="due"]')).toHaveValue(date);
     };

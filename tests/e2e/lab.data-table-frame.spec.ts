@@ -1,19 +1,17 @@
 import type { Page } from '@playwright/test';
-import { test, expect, turboVisitDone } from './fixtures';
+import { test, expect, turboVisitDone, markDocument } from './fixtures';
+import { tableParams, tableStatus } from './data-table';
 import { turboOperation } from './transitions';
 
-const status = (page: Page) => page.getByRole('status').filter({ hasText: /Showing|No rows/ });
 const firstOrder = (page: Page) => page.getByTestId('order-number').first();
-// the table's URL parameters, in any order
-const params = (page: Page) => Object.fromEntries(new URL(page.url()).searchParams);
 
 type TableState = { params: Record<string, string>; status: string; current?: number };
 const tableUrl = (state: TableState) => `/lab/data-table-frame${Object.keys(state.params).length ? `?${new URLSearchParams(state.params)}` : ''}`;
 
 /** The URL, the rows and every control of the table show `state`: the search, filter and page size fields, the sort. */
 async function expectTable(page: Page, { params: expected, status: text, current }: TableState) {
-    expect(params(page)).toEqual(expected);
-    await expect(status(page)).toHaveText(text);
+    expect(tableParams(page)).toEqual(expected);
+    await expect(tableStatus(page)).toHaveText(text);
     // Turbo's copy of the page keeps the text typed before the search was submitted; the data-table controller
     // resets restored fields, so Back to the page before the search shows no search
     await expect(page.getByLabel('Search', { exact: true }), 'the search field shows the URL\'s search').toHaveValue(expected.q ?? '');
@@ -38,7 +36,7 @@ test('search, filter, sort, page and page size each add a history entry that Bac
     const resized: TableState = { params: { ...filtered.params, size: '25' }, status: 'Showing 1–2 of 2' };
 
     await page.goto('/lab/data-table-frame');
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     await expectTable(page, initial);
     await expect(firstOrder(page)).toHaveText('#1057');
 
@@ -80,7 +78,7 @@ test('search, filter, sort, page and page size each add a history entry that Bac
     await restored(sorted, () => page.goForward());
     await restored(paged, () => page.goForward());
 
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 });
 
 // what the server renders for a URL the table does not accept, a page number too large for an offset and a search
@@ -108,5 +106,5 @@ test('Turbo visits away and back keep a single working table', async ({ page }) 
     await expect(page.locator('turbo-frame#orders')).toHaveCount(1);
     await expect(page.getByRole('table')).toHaveCount(1);
     await page.getByRole('link', { name: 'Page 3' }).click();
-    await expect(status(page)).toHaveText('Showing 21–30 of 57');
+    await expect(tableStatus(page)).toHaveText('Showing 21–30 of 57');
 });

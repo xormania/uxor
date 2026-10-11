@@ -1,29 +1,16 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectA11y } from './fixtures';
+import { test, expect, expectA11y, countEvents } from './fixtures';
+import { png, text } from './files';
+import { previewUrl } from './inventory';
 
 /*
  * The Dropzone component: UX Dropzone's controller with the kit's markup, and the kit's dropzone-assist controller
  * (focus after a pick, Remove and a removed file; drag-over state; drops outside the input refused).
  */
-const preview = (id: string) => `/preview/dropzone/${id}?theme=light`;
-
-// a 1×1 PNG
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-const png = (name: string) => ({ name, mimeType: 'image/png', buffer: PNG });
-const text = (name: string) => ({ name, mimeType: 'text/plain', buffer: Buffer.from(`${name}\n`) });
-
 const zone = (page: Page) => page.locator('[data-controller~="dropzone-assist"]');
 const input = (page: Page) => page.locator('input[type="file"]');
 const listItems = (page: Page) => page.locator('.dropzone-preview-list-item');
 const fileCount = (page: Page) => input(page).evaluate((element: HTMLInputElement) => element.files?.length ?? 0);
-
-/** Counts the `dropzone:change` events from now on. */
-const countChanges = (page: Page) =>
-    page.evaluate(() => {
-        (window as any).__changes = 0;
-        document.addEventListener('dropzone:change', () => (window as any).__changes++);
-    });
-const changes = (page: Page) => page.evaluate(() => (window as any).__changes as number);
 
 /** Dispatches a drag event, with no file, on `target`; returns whether it was cancelled. */
 const drag = (target: Locator, type: string) =>
@@ -35,7 +22,7 @@ const drag = (target: Locator, type: string) =>
     }, type);
 
 test('the keyboard reaches the input, opens the chooser, moves to Remove after a pick and back after Remove', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropzone', 'default'));
     // connecting moves no focus
     await expect(page.locator('body')).toBeFocused();
 
@@ -66,8 +53,8 @@ test('the keyboard reaches the input, opens the chooser, moves to Remove after a
 });
 
 test('a picked image shows its name and its preview; a text file shows no image', async ({ page }) => {
-    await page.goto(preview('default'));
-    await countChanges(page);
+    await page.goto(previewUrl('dropzone', 'default'));
+    const changes = await countEvents(page, ['dropzone:change']);
     await input(page).setInputFiles(png('tiny.png'));
 
     await expect(page.getByText('tiny.png')).toBeVisible();
@@ -75,7 +62,7 @@ test('a picked image shows its name and its preview; a text file shows no image'
     const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
     await expect(image).toBeVisible();
     expect(await image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("data:image\/png/);
-    expect(await changes(page)).toBe(1);
+    expect(await changes()).toEqual({ 'dropzone:change': 1 });
     // picked without the input focused: the focus stays where it was
     await expect(page.locator('body')).toBeFocused();
 
@@ -84,19 +71,19 @@ test('a picked image shows its name and its preview; a text file shows no image'
     await input(page).setInputFiles(text('notes.txt'));
     await expect(page.getByText('notes.txt')).toBeVisible();
     await expect(image).toBeHidden();
-    expect(await changes(page)).toBe(2);
+    expect(await changes()).toEqual({ 'dropzone:change': 2 });
     await expectA11y(page, { impact: 'serious' });
 });
 
 test('several files add up across picks, once each; Remove focuses the next file, then the input', async ({ page }) => {
-    await page.goto(preview('multiple-files'));
-    await countChanges(page);
+    await page.goto(previewUrl('dropzone', 'multiple-files'));
+    const changes = await countEvents(page, ['dropzone:change']);
     await input(page).setInputFiles([text('a.txt'), text('b.txt')]);
     await expect(listItems(page)).toHaveCount(2);
     await input(page).setInputFiles(png('c.png'));
     await expect(listItems(page)).toHaveCount(3);
     expect(await fileCount(page)).toBe(3);
-    expect(await changes(page)).toBe(2);
+    expect(await changes()).toEqual({ 'dropzone:change': 2 });
 
     // a file picked again (same name, size and date) is kept once
     await input(page).evaluate((element: HTMLInputElement) => {
@@ -131,7 +118,7 @@ test('several files add up across picks, once each; Remove focuses the next file
 });
 
 test('a drag over the zone marks it until it leaves or drops; a drop outside the input is refused', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropzone', 'default'));
     const fileInput = input(page);
     await drag(fileInput, 'dragenter');
     await expect(zone(page)).toHaveAttribute('data-dragging', '');
@@ -148,7 +135,7 @@ test('a drag over the zone marks it until it leaves or drops; a drop outside the
     expect(await drag(fileInput, 'drop')).toBe(false);
     await expect(zone(page)).not.toHaveAttribute('data-dragging');
 
-    await page.goto(preview('multiple-files'));
+    await page.goto(previewUrl('dropzone', 'multiple-files'));
     const list = page.locator('[data-dropzone-assist-target="list"]');
     expect(await drag(list, 'dragover')).toBe(true);
     expect(await drag(list, 'drop')).toBe(true);
@@ -156,7 +143,7 @@ test('a drag over the zone marks it until it leaves or drops; a drop outside the
 });
 
 test('an invalid zone is red and described by its error', async ({ page }) => {
-    await page.goto(preview('invalid'));
+    await page.goto(previewUrl('dropzone', 'invalid'));
     const fileInput = page.getByLabel('Profile picture');
     await expect(fileInput).toHaveAttribute('aria-invalid', 'true');
     await expect(fileInput).toHaveAccessibleDescription(/PNG or JPG, up to 1 MB\. The file is too large/);
@@ -176,7 +163,7 @@ test('an invalid zone is red and described by its error', async ({ page }) => {
 });
 
 test('a disabled zone is disabled and described by its hint', async ({ page }) => {
-    await page.goto(preview('disabled'));
+    await page.goto(previewUrl('dropzone', 'disabled'));
     await expect(page.getByLabel('Contract')).toBeDisabled();
     await expect(page.getByLabel('Contract')).toHaveAccessibleDescription('Uploads are closed');
 });

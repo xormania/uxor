@@ -1,4 +1,4 @@
-import { test, expect, expectA11y, turboVisitDone } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
 import { turboOperation } from './transitions';
 import { demoPages } from './inventory';
 
@@ -211,11 +211,11 @@ test('signing out needs a same-origin request: a direct GET to the logout URL do
 test('a page whose tracked importmap changed between two visits, as after a deploy, is loaded in full', async ({ page }) => {
     await page.goto('/demo/settings/profile');
     const settings = page.getByRole('navigation', { name: 'Settings' });
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
 
     // the same assets: Turbo renders the next page in the same document
     await turboOperation(page, { url: '/demo/settings/notifications' }, () => settings.getByRole('link', { name: 'Notifications' }).click());
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 
     // the billing page names another URL for the app's entrypoint (a new digest after a deploy), a URL that loads
     await page.route('**/demo/settings/billing', async (route) => {
@@ -227,7 +227,7 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await settings.getByRole('link', { name: 'Billing' }).click();
 
     await expect(page).toHaveURL(/\/demo\/settings\/billing$/);
-    await expect.poll(() => page.evaluate(() => (window as any).__sameDocument)).toBeUndefined();
+    await sameDocument.expectReplaced();
     // the new document, as it parses, carries the new importmap
     await expect.poll(() => page.evaluate(() => document.querySelector('script[type="importmap"]')?.textContent ?? '')).toContain('?deploy=2');
     await expect(settings.getByRole('link', { name: 'Billing' })).toHaveAttribute('aria-current', 'page');
