@@ -143,7 +143,7 @@
                     {%- if 'dropdown' == captionLayout -%}
                         <div data-slot="calendar-dropdowns" class="flex h-(--cell-size) w-full items-center justify-center gap-1.5 font-medium text-heading">
                             <span data-slot="calendar-dropdown-root" class="{{ _dropdownClass }}">
-                                <select aria-label="Month" data-action="change->calendar#goToMonth" data-calendar-index-param="{{ monthOffset }}" class="absolute inset-0 size-full cursor-pointer opacity-0">
+                                <select aria-label="Month" data-action="change->calendar#goToMonth" data-calendar-index-param="{{ monthOffset }}" class="absolute inset-0 size-full cursor-pointer bg-neutral-primary-medium text-heading opacity-0">
                                     {%- for monthNumber in 1..12 -%}
                                         <option value="{{ monthNumber }}"{% if monthNumber == _current|date('n') %} selected{% endif %}>{{ ('2024-' ~ '%02d'|format(monthNumber) ~ '-01')|format_date(pattern: 'LLL', locale: _locale) }}</option>
                                     {%- endfor -%}
@@ -154,7 +154,7 @@
                                 </span>
                             </span>
                             <span data-slot="calendar-dropdown-root" class="{{ _dropdownClass }}">
-                                <select aria-label="Year" data-action="change->calendar#goToMonth" data-calendar-index-param="{{ monthOffset }}" class="absolute inset-0 size-full cursor-pointer opacity-0">
+                                <select aria-label="Year" data-action="change->calendar#goToMonth" data-calendar-index-param="{{ monthOffset }}" class="absolute inset-0 size-full cursor-pointer bg-neutral-primary-medium text-heading opacity-0">
                                     {%- for year in _startMonth|date('Y')..(_endMonth|date('Y')) -%}
                                         <option value="{{ year }}"{% if year == _current|date('Y') %} selected{% endif %}>{{ year }}</option>
                                     {%- endfor -%}

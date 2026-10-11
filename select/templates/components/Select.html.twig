@@ -1,6 +1,6 @@
 <select
     {{ attributes.defaults({
-        class: 'block w-full px-3 py-2.5 bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger'|tailwind_classes,
+        class: 'block w-full ps-3 pe-10 py-2.5 [&:is([multiple],[size])]:pe-3 [&:is([multiple],[size])]:bg-none bg-neutral-secondary-medium border border-default-medium text-heading text-sm rounded-base focus:ring-brand focus:border-brand shadow-xs placeholder:text-body disabled:text-fg-disabled aria-invalid:bg-danger-soft aria-invalid:border-danger-subtle aria-invalid:text-fg-danger-strong aria-invalid:focus:ring-danger aria-invalid:focus:border-danger'|tailwind_classes,
     }) }}
 >
     {##- The select options (`<option>` elements). -#}

@@ -254,3 +254,80 @@ test('a reset another listener cancels leaves the selection; the next one brings
     await expectSelected('2026-03-12', '2026-03-10');
     expect(await sources()).toEqual(['reset', 'reset']);
 });
+
+/*
+ * The native month and year menus follow the page's theme, not the system's: with the system dark and the light theme
+ * chosen (and the other way round), each document and each select uses the page's color scheme, and every option's
+ * text contrasts with the menu behind it. A menu shows the option's background, else the select's, else the canvas of
+ * the select's color scheme; under `normal` that canvas is the system's (macOS draws the menu natively in the system's
+ * appearance), which is how the light theme under a dark system showed dark text on a dark menu.
+ */
+for (const system of ['dark', 'light'] as const) {
+    const theme = 'dark' === system ? 'light' : 'dark';
+
+    test.describe(`system ${system}, ${theme} theme chosen`, () => {
+        test.use({ colorScheme: system });
+
+        test(`the month and year options are readable: the page and the ${theme} preview use the ${theme} color scheme`, async ({ page }) => {
+            await page.goto('/');
+            await page.evaluate((theme) => localStorage.setItem('theme', theme), theme);
+            await page.goto('/r/calendar');
+            await expect(page.locator('html')).toHaveClass('dark' === theme ? /\bdark\b/ : /^(?!.*\bdark\b)/);
+            expect.soft(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'page color-scheme').toBe(theme);
+
+            const example = page.getByTestId('example').first();
+            const frame = example.locator(`iframe[title$="(${theme})"]`).contentFrame();
+            const calendar = frame.getByRole('group', { name: 'Calendar' });
+            await expect(calendar.getByLabel('Month', { exact: true })).toBeAttached();
+
+            const result = await frame.locator('html').evaluate((html, system) => {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', { willReadFrequently: true })!;
+                // any CSS color (oklch included) as sRGB with alpha, through a canvas
+                const rgba = (color: string) => {
+                    context.clearRect(0, 0, 1, 1);
+                    context.fillStyle = '#00000000';
+                    context.fillStyle = color;
+                    context.fillRect(0, 0, 1, 1);
+                    const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+                    return { r, g, b, a };
+                };
+                const luminance = ({ r, g, b }: { r: number; g: number; b: number }) => {
+                    const [R, G, B] = [r, g, b].map((v) => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+                    return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+                };
+                const canvasOf = (scheme: string) => {
+                    const probe = document.createElement('div');
+                    probe.style.colorScheme = 'light' === scheme || 'dark' === scheme ? scheme : system;
+                    probe.style.backgroundColor = 'Canvas';
+                    document.body.append(probe);
+                    const color = getComputedStyle(probe).backgroundColor;
+                    probe.remove();
+                    return color;
+                };
+                const selects = [...document.querySelectorAll<HTMLSelectElement>('[data-slot="calendar-dropdown-root"] select')];
+                return {
+                    html: getComputedStyle(html).colorScheme,
+                    selects: selects.map((select) => {
+                        const selectStyle = getComputedStyle(select);
+                        const options = [...select.options].map((option) => {
+                            const style = getComputedStyle(option);
+                            const background = [style.backgroundColor, selectStyle.backgroundColor].find((color) => 255 === rgba(color).a) ?? canvasOf(selectStyle.colorScheme);
+                            const [l1, l2] = [luminance(rgba(style.color)), luminance(rgba(background))].sort((a, b) => b - a);
+                            return { ratio: Math.round(((l1 + 0.05) / (l2 + 0.05)) * 100) / 100, colors: `${style.color} on ${background}` };
+                        });
+                        const worst = options.reduce((a, b) => (b.ratio < a.ratio ? b : a));
+                        return { label: select.getAttribute('aria-label'), colorScheme: selectStyle.colorScheme, minRatio: worst.ratio, colors: worst.colors };
+                    }),
+                };
+            }, system);
+
+            expect.soft(result.html, 'preview color-scheme').toBe(theme);
+            expect(result.selects.map(({ label }) => label)).toEqual(['Month', 'Year']);
+            for (const select of result.selects) {
+                expect.soft(select.colorScheme, `${select.label} color-scheme`).toBe(theme);
+                expect.soft(select.minRatio, `${select.label} options' contrast: ${select.colors}`).toBeGreaterThanOrEqual(4.5);
+            }
+        });
+    });
+}
