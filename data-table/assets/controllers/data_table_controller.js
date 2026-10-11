@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isPromotedFrameCache } from '../lib/flowbite-xor-turbo.js';
+import { isPromotedFrameCache } from '../lib/uxor-turbo.js';
 
 /**
  * Keeps a `DataTable`'s Turbo Frame and the URL on screen in agreement after Back and Forward, even when they are

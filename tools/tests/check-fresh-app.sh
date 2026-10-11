@@ -53,7 +53,7 @@ grep -qE '<p id="form_plainPassword_help"[^>]*>[[:space:]]*At least 12 character
     || { echo "FAIL: the signup password help is not FormField's" >&2; exit 1; }
 echo "ok: the signup form renders through the form theme (HTTP 200)"
 
-# the data-table recipe's PHP (src/FlowbiteXor/DataTable/) works in the app: the table reads its page, sort and filter
+# the data-table recipe's PHP (src/UXor/DataTable/) works in the app: the table reads its page, sort and filter
 # from the URL, and its links keep them
 page="$(fetch '/orders?page=2&sort=number&dir=desc&f%5Bstatus%5D=paid' "$@")"
 grep -qE 'Showing <span[^>]*>11–12</span> of <span[^>]*>12</span>' <<< "$page" \

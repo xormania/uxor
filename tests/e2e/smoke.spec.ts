@@ -1,12 +1,12 @@
 import type { Page } from '@playwright/test';
 import { test, expect, guardPage } from './fixtures';
-import { recipes } from './inventory';
+import { kitName, recipes } from './inventory';
 
 // Every page answering 200 with its heading: a11y.spec.ts, which opens each of them. The theme toggle: theme-toggle.spec.ts.
 
 test('the index lists every recipe of the kit', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Flowbite xor');
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(kitName);
     await expect(page.getByTestId('recipe-count')).toHaveText(`(${recipes.length})`);
     // grouped by type (components, then blocks), each group sorted by name
     expect((await page.getByTestId('recipe-list').getByRole('link').allTextContents()).sort()).toEqual(recipes);
@@ -277,7 +277,7 @@ test.describe('the page guard', () => {
             await leave(page);
             await rejected;
             release();
-            await expect(page.getByRole('heading', { level: 1, name: 'Flowbite xor' })).toBeVisible();
+            await expect(page.getByRole('heading', { level: 1, name: kitName })).toBeVisible();
             if ('firefox' === browserName) {
                 expect(errorsOf(guard)).toContain(`pageerror: ${PREFETCH_MESSAGE}`);
             }

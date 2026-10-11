@@ -1,12 +1,12 @@
 {#- Set by app:export-static on the pages it saves for GitHub Pages: {release, latest_release, commit}; null when served by Symfony. -#}
 {%- set static_export = app.request.attributes.get('_static_export') -%}
-{%- set repository = 'https://github.com/xormania/flowbite-xor' -%}
+{%- set repository = kit_reader.manifest.homepage -%}
 <!DOCTYPE html>
 <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{% block title %}flowbite-xor demo{% endblock %}</title>
+        <title>{% block title %}{{ kit_reader.manifest.name }} demo{% endblock %}</title>
         <meta name="description" content="Flowbite 4 and Tailwind CSS 4 components, layouts, blocks and a form theme for the Symfony UX Toolkit, with all behavior in Stimulus controllers.">
         <link rel="icon" href="data:,">
         {# The request's Content Security Policy nonces, as the layouts recipe prints them (Turbo gives this one to the <style> of its progress bar). #}
@@ -31,7 +31,7 @@
             <nav class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3" aria-label="Main">
                 <a href="{{ path('app_index') }}" class="flex items-center gap-2 font-semibold text-heading">
                     <span class="xor-logo xor-glow size-7 shrink-0 rounded-base" aria-hidden="true"></span>
-                    flowbite-xor
+                    {{ kit_reader.manifest.name }}
                 </a>
                 <a href="{{ path('app_index') }}#recipes" class="text-sm font-medium hover:text-heading">Recipes</a>
                 <a href="{{ path('app_demo') }}" class="text-sm font-medium hover:text-heading">Demo app</a>

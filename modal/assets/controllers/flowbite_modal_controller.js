@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
+import { isKeptOnCache } from '../lib/uxor-turbo.js';
 
 /**
  * The mark a controller leaves on the dialog it showed as a modal, removed when it closes it: state of the dialog
@@ -7,7 +7,7 @@ import { isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
  * without it (WebKit) it leaves the top layer, open but no longer modal. A dialog with the mark is that same element,
  * to show as a modal again; Turbo's copy of a page holds clones, which copy attributes, never properties.
  */
-const SHOWN_AS_MODAL = Symbol.for('flowbite-xor.modal.shownAsModal');
+const SHOWN_AS_MODAL = Symbol.for('uxor.modal.shownAsModal');
 
 export default class extends Controller {
     static targets = ['trigger', 'modal'];

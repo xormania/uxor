@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { markCurrentLinks } from '../lib/flowbite-xor-navigation.js';
+import { markCurrentLinks } from '../lib/uxor-navigation.js';
 
 /**
  * A navigation tree, as the WAI-ARIA tree view pattern describes it: branches open and close (`aria-expanded`), one

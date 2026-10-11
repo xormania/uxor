@@ -2,8 +2,8 @@
 
 namespace App\Tests\Property;
 
-use App\FlowbiteXor\Editor\EditorHtmlPolicy;
-use App\FlowbiteXor\MarkdownEditor\MarkdownRenderer;
+use App\UXor\Editor\EditorHtmlPolicy;
+use App\UXor\MarkdownEditor\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use Random\Randomizer;

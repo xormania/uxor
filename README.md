@@ -1,10 +1,10 @@
-# flowbite-xor
+# UXor
 
 A [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit built on the free
 [Flowbite](https://flowbite.com/) v4 library and Tailwind CSS v4: a theme, Twig components, a form theme, page layouts
 and ready-made blocks such as a login card or a dashboard, each one a recipe. `php bin/console ux:install` copies a
 recipe into your project, where you own it. Every behavior is a Stimulus controller, so components keep working with
-Turbo and Live Components. The [Gallery](https://xormania.github.io/flowbite-xor/) shows every recipe in light and
+Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
 
 ![The dashboard block in the dark theme](docs/images/dashboard-dark.png)
@@ -37,11 +37,11 @@ sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands
 
 ```bash
 # from main: the last release
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
 
 # from a release tag (`0.1.0`), a branch (`dev`: the work since the last release), or a full 40-character commit
 # SHA (no "/": use the SHA for feat/x)
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor:<version>
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
 
 `ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the

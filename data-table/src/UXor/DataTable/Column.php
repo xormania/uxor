@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\DataTable;
+namespace App\UXor\DataTable;
 
 /**
  * A column of a data table: its public key (in the URL and the cell block name `cell_<key>`), its label and, when

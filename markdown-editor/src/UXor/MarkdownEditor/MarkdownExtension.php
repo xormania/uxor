@@ -1,6 +1,6 @@
 <?php
 
-namespace App\FlowbiteXor\MarkdownEditor;
+namespace App\UXor\MarkdownEditor;
 
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;

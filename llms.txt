@@ -1,104 +1,104 @@
-# flowbite-xor
+# UXor
 
 > Flowbite v4 and Tailwind CSS v4 components, layouts, blocks and a form theme for Symfony UX, with all behavior in Stimulus controllers so they keep working under Turbo and Live Components.
 
-A Symfony UX Toolkit kit: install a recipe with `php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.
+A Symfony UX Toolkit kit: install a recipe with `php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.
 
-The links below point at `dev`, the work merged since the last release: install with `--kit=https://github.com/xormania/flowbite-xor:dev` to get what they describe.
+The links below point at `dev`, the work merged since the last release: install with `--kit=https://github.com/xormania/uxor:dev` to get what they describe.
 
 ## Start here
 
-- [For agents](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/FOR-AGENTS.md): what the kit gives you, how to set a project up, which recipe to install for what, and the rules to follow
-- [Project agents snippet](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/docs/PROJECT-AGENTS-SNIPPET.md): the block to paste into a project's AGENTS.md or CLAUDE.md
-- [Install](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/INSTALL.md): each setup step explained, AssetMapper or Webpack Encore
-- [README](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/README.md): what the kit is, how to install it, requirements
-- [Recipes](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/docs/RECIPES.md): every recipe, one line each
-- [Guide](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning
+- [For agents](https://raw.githubusercontent.com/xormania/uxor/dev/FOR-AGENTS.md): what the kit gives you, how to set a project up, which recipe to install for what, and the rules to follow
+- [Project agents snippet](https://raw.githubusercontent.com/xormania/uxor/dev/docs/PROJECT-AGENTS-SNIPPET.md): the block to paste into a project's AGENTS.md or CLAUDE.md
+- [Install](https://raw.githubusercontent.com/xormania/uxor/dev/INSTALL.md): each setup step explained, AssetMapper or Webpack Encore
+- [README](https://raw.githubusercontent.com/xormania/uxor/dev/README.md): what the kit is, how to install it, requirements
+- [Recipes](https://raw.githubusercontent.com/xormania/uxor/dev/docs/RECIPES.md): every recipe, one line each
+- [Guide](https://raw.githubusercontent.com/xormania/uxor/dev/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning
 
 ## Theme
 
-- [theme](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/theme/README.md): Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. A role is a named color with a light and a dark value, used as a utility: `bg-brand`, `text-heading`, `border-default`.
-- [theme-toggle](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/theme-toggle/README.md): A button switching between the light and dark themes, remembered in `localStorage` and following the system preference until the user chooses.
+- [theme](https://raw.githubusercontent.com/xormania/uxor/dev/theme/README.md): Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. A role is a named color with a light and a dark value, used as a utility: `bg-brand`, `text-heading`, `border-default`.
+- [theme-toggle](https://raw.githubusercontent.com/xormania/uxor/dev/theme-toggle/README.md): A button switching between the light and dark themes, remembered in `localStorage` and following the system preference until the user chooses.
 
 ## Shared code
 
-- [floating](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/floating/README.md): The positioning shared by `dropdown`, `popover` (so `date-picker`) and `tooltip`, one JavaScript module: a floating element placed next to the element it belongs to, flipped to the other side when it does not fit, kept in the viewport and following it on scroll and resize.
-- [navigation](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/navigation/README.md): What the navigation recipes (`nav-menu`, `sidebar`, `side-nav`, `section-nav`, `mobile-nav`) share, one JavaScript module: the current page's link marked `aria-current="page"`, whether a click on a link navigates this tab, a navigation opened over the page closed once the screen grows.
-- [turbo](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/turbo/README.md): What the recipes ask about Turbo's copies of a page, one JavaScript module: whether a `turbo:before-cache` leaves the page on screen (a frame visit promoted to history) or an element is moved into the next page (`data-turbo-permanent`), and whether a controller connects in a cached copy.
+- [floating](https://raw.githubusercontent.com/xormania/uxor/dev/floating/README.md): The positioning shared by `dropdown`, `popover` (so `date-picker`) and `tooltip`, one JavaScript module: a floating element placed next to the element it belongs to, flipped to the other side when it does not fit, kept in the viewport and following it on scroll and resize.
+- [navigation](https://raw.githubusercontent.com/xormania/uxor/dev/navigation/README.md): What the navigation recipes (`nav-menu`, `sidebar`, `side-nav`, `section-nav`, `mobile-nav`) share, one JavaScript module: the current page's link marked `aria-current="page"`, whether a click on a link navigates this tab, a navigation opened over the page closed once the screen grows.
+- [turbo](https://raw.githubusercontent.com/xormania/uxor/dev/turbo/README.md): What the recipes ask about Turbo's copies of a page, one JavaScript module: whether a `turbo:before-cache` leaves the page on screen (a frame visit promoted to history) or an element is moved into the next page (`data-turbo-permanent`), and whether a controller connects in a cached copy.
 
 ## Basic components
 
-- [alert](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/alert/README.md): A message for information, success, a warning or an error, optionally dismissible.
-- [avatar](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/avatar/README.md): A user's picture, with a fallback, in several sizes, round or with rounded corners.
-- [badge](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/badge/README.md): A small label or count next to other content, such as a number of comments.
-- [button](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/button/README.md): A button, or a link that looks like one, in several colors, sizes and styles.
-- [button-group](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/button-group/README.md): Several buttons or links joined into one control.
-- [card](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/card/README.md): A box grouping related content: text, images, a form.
-- [checkbox](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/checkbox/README.md): A square box to select one or more options.
-- [dropdown](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/dropdown/README.md): A menu that opens from a button and closes when the user clicks or focuses outside it.
-- [indicator](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/indicator/README.md): A dot or number placed on another element: a status, a count, a loading label.
-- [input](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/input/README.md): A single-line field for any input type: text, email, number, password, URL…
-- [kbd](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/kbd/README.md): A keyboard key or shortcut shown in text.
-- [label](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/label/README.md): A text element that identifies form controls and other content.
-- [modal](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/modal/README.md): A dialog over the page, as a native `<dialog>`, with a close button.
-- [pagination](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/pagination/README.md): Links to the pages of a long list.
-- [radio](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/radio/README.md): A round button to choose one option among several.
-- [select](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/select/README.md): A list to choose one or more options.
-- [skeleton](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/skeleton/README.md): Placeholders shaped like the content that is loading.
-- [spinner](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/spinner/README.md): A spinning indicator for a loading state.
-- [table](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/table/README.md): Rows and columns of data.
-- [tabs](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/tabs/README.md): Tabs that switch between panels in place, in a row or a column, with the arrow keys of the WAI-ARIA tabs pattern.
-- [textarea](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/textarea/README.md): A multi-line text field, for a comment or a description.
-- [toggle](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/toggle/README.md): A switch for an on/off setting.
+- [alert](https://raw.githubusercontent.com/xormania/uxor/dev/alert/README.md): A message for information, success, a warning or an error, optionally dismissible.
+- [avatar](https://raw.githubusercontent.com/xormania/uxor/dev/avatar/README.md): A user's picture, with a fallback, in several sizes, round or with rounded corners.
+- [badge](https://raw.githubusercontent.com/xormania/uxor/dev/badge/README.md): A small label or count next to other content, such as a number of comments.
+- [button](https://raw.githubusercontent.com/xormania/uxor/dev/button/README.md): A button, or a link that looks like one, in several colors, sizes and styles.
+- [button-group](https://raw.githubusercontent.com/xormania/uxor/dev/button-group/README.md): Several buttons or links joined into one control.
+- [card](https://raw.githubusercontent.com/xormania/uxor/dev/card/README.md): A box grouping related content: text, images, a form.
+- [checkbox](https://raw.githubusercontent.com/xormania/uxor/dev/checkbox/README.md): A square box to select one or more options.
+- [dropdown](https://raw.githubusercontent.com/xormania/uxor/dev/dropdown/README.md): A menu that opens from a button and closes when the user clicks or focuses outside it.
+- [indicator](https://raw.githubusercontent.com/xormania/uxor/dev/indicator/README.md): A dot or number placed on another element: a status, a count, a loading label.
+- [input](https://raw.githubusercontent.com/xormania/uxor/dev/input/README.md): A single-line field for any input type: text, email, number, password, URL…
+- [kbd](https://raw.githubusercontent.com/xormania/uxor/dev/kbd/README.md): A keyboard key or shortcut shown in text.
+- [label](https://raw.githubusercontent.com/xormania/uxor/dev/label/README.md): A text element that identifies form controls and other content.
+- [modal](https://raw.githubusercontent.com/xormania/uxor/dev/modal/README.md): A dialog over the page, as a native `<dialog>`, with a close button.
+- [pagination](https://raw.githubusercontent.com/xormania/uxor/dev/pagination/README.md): Links to the pages of a long list.
+- [radio](https://raw.githubusercontent.com/xormania/uxor/dev/radio/README.md): A round button to choose one option among several.
+- [select](https://raw.githubusercontent.com/xormania/uxor/dev/select/README.md): A list to choose one or more options.
+- [skeleton](https://raw.githubusercontent.com/xormania/uxor/dev/skeleton/README.md): Placeholders shaped like the content that is loading.
+- [spinner](https://raw.githubusercontent.com/xormania/uxor/dev/spinner/README.md): A spinning indicator for a loading state.
+- [table](https://raw.githubusercontent.com/xormania/uxor/dev/table/README.md): Rows and columns of data.
+- [tabs](https://raw.githubusercontent.com/xormania/uxor/dev/tabs/README.md): Tabs that switch between panels in place, in a row or a column, with the arrow keys of the WAI-ARIA tabs pattern.
+- [textarea](https://raw.githubusercontent.com/xormania/uxor/dev/textarea/README.md): A multi-line text field, for a comment or a description.
+- [toggle](https://raw.githubusercontent.com/xormania/uxor/dev/toggle/README.md): A switch for an on/off setting.
 
 ## More components
 
-- [breadcrumb](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/breadcrumb/README.md): A trail of links showing where the current page sits in the site hierarchy.
-- [calendar](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/calendar/README.md): Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a `model` prop for Live Components.
-- [chart](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/chart/README.md): Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or `ChartBuilderInterface`, updated in place by Live Components.
-- [data-table](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/data-table/README.md): A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/FlowbiteXor/`.
-- [data-table-live](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/data-table-live/README.md): `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/FlowbiteXor/`.
-- [date-picker](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/date-picker/README.md): A date or a range picked in a calendar that opens from a button or a typed field; a `DateType` opts in through the form theme.
-- [drawer](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/drawer/README.md): A panel sliding over one side of the page, for navigation, filters or details, as a native `<dialog>`.
-- [empty-state](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/empty-state/README.md): What a list or page shows when it has nothing yet, with a way forward.
-- [mobile-nav](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/mobile-nav/README.md): The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit.
-- [nav-menu](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/nav-menu/README.md): The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer.
-- [navbar](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/navbar/README.md): The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens.
-- [page-header](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/page-header/README.md): The top of a page: its title, a short description and the page's actions.
-- [popover](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/popover/README.md): Free content anchored to a button (text, links, a small form) in a non-modal dialog that closes on Escape, a click outside or when the focus leaves it.
-- [progress](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/progress/README.md): A bar showing how far a task has come.
-- [section-nav](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/section-nav/README.md): Vertical tabs that navigate: one link per page of a group of pages (settings), the current one marked, a column on large screens and a strip that scrolls sideways on small ones.
-- [side-nav](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/side-nav/README.md): A multi-level navigation tree: links in branches that open and close, at any depth, with the keyboard of an ARIA tree view; the open branches hold across Turbo visits, and the branch of the current page opens.
-- [sidebar](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/sidebar/README.md): The app's main navigation: grouped links with icons and counts, collapsible to icons, opened over the page on small screens.
-- [stat-card](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/stat-card/README.md): A key figure with its label and, optionally, how it changed over a period.
-- [toast](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/toast/README.md): Short-lived notifications in a fixed region, added on page load or by Turbo Streams, dismissed after a timeout or by the user.
-- [tooltip](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/tooltip/README.md): A short text shown while a control is hovered or focused, also announced as its description.
+- [breadcrumb](https://raw.githubusercontent.com/xormania/uxor/dev/breadcrumb/README.md): A trail of links showing where the current page sits in the site hierarchy.
+- [calendar](https://raw.githubusercontent.com/xormania/uxor/dev/calendar/README.md): Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a `model` prop for Live Components.
+- [chart](https://raw.githubusercontent.com/xormania/uxor/dev/chart/README.md): Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or `ChartBuilderInterface`, updated in place by Live Components.
+- [data-table](https://raw.githubusercontent.com/xormania/uxor/dev/data-table/README.md): A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/UXor/`.
+- [data-table-live](https://raw.githubusercontent.com/xormania/uxor/dev/data-table-live/README.md): `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/UXor/`.
+- [date-picker](https://raw.githubusercontent.com/xormania/uxor/dev/date-picker/README.md): A date or a range picked in a calendar that opens from a button or a typed field; a `DateType` opts in through the form theme.
+- [drawer](https://raw.githubusercontent.com/xormania/uxor/dev/drawer/README.md): A panel sliding over one side of the page, for navigation, filters or details, as a native `<dialog>`.
+- [empty-state](https://raw.githubusercontent.com/xormania/uxor/dev/empty-state/README.md): What a list or page shows when it has nothing yet, with a way forward.
+- [mobile-nav](https://raw.githubusercontent.com/xormania/uxor/dev/mobile-nav/README.md): The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit.
+- [nav-menu](https://raw.githubusercontent.com/xormania/uxor/dev/nav-menu/README.md): The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer.
+- [navbar](https://raw.githubusercontent.com/xormania/uxor/dev/navbar/README.md): The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens.
+- [page-header](https://raw.githubusercontent.com/xormania/uxor/dev/page-header/README.md): The top of a page: its title, a short description and the page's actions.
+- [popover](https://raw.githubusercontent.com/xormania/uxor/dev/popover/README.md): Free content anchored to a button (text, links, a small form) in a non-modal dialog that closes on Escape, a click outside or when the focus leaves it.
+- [progress](https://raw.githubusercontent.com/xormania/uxor/dev/progress/README.md): A bar showing how far a task has come.
+- [section-nav](https://raw.githubusercontent.com/xormania/uxor/dev/section-nav/README.md): Vertical tabs that navigate: one link per page of a group of pages (settings), the current one marked, a column on large screens and a strip that scrolls sideways on small ones.
+- [side-nav](https://raw.githubusercontent.com/xormania/uxor/dev/side-nav/README.md): A multi-level navigation tree: links in branches that open and close, at any depth, with the keyboard of an ARIA tree view; the open branches hold across Turbo visits, and the branch of the current page opens.
+- [sidebar](https://raw.githubusercontent.com/xormania/uxor/dev/sidebar/README.md): The app's main navigation: grouped links with icons and counts, collapsible to icons, opened over the page on small screens.
+- [stat-card](https://raw.githubusercontent.com/xormania/uxor/dev/stat-card/README.md): A key figure with its label and, optionally, how it changed over a period.
+- [toast](https://raw.githubusercontent.com/xormania/uxor/dev/toast/README.md): Short-lived notifications in a fixed region, added on page load or by Turbo Streams, dismissed after a timeout or by the user.
+- [tooltip](https://raw.githubusercontent.com/xormania/uxor/dev/tooltip/README.md): A short text shown while a control is hovered or focused, also announced as its description.
 
 ## Forms
 
-- [form-theme](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/form-theme/README.md): A Symfony form theme that renders every row through `FormField` and every control through the kit's `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Label` and `Button` components.
-- [form-field](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/form-field/README.md): A labelled form control with its help text and error message, wired by id (used by the form theme).
-- [autocomplete](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/autocomplete/README.md): Searchable selects with Symfony UX Autocomplete (Tom Select), styled with the theme: one choice, several, values typed by the user, options searched on the server. Works through the form theme (`'autocomplete' => true`) and as an `Autocomplete` component outside forms.
-- [dropzone](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/dropzone/README.md): File uploads with Symfony UX Dropzone, styled with the theme: drag and drop or browse, a preview of the picked image, several files that add up across picks, keyboard focus kept after a pick or a removal; a `DropzoneType` renders as one through the form theme.
-- [editor](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/editor/README.md): A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. `EditorType` sanitizes every submit (symfony/html-sanitizer), and `flowbite_editor_html` prints stored HTML.
-- [markdown-editor](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/markdown-editor/README.md): A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. `MarkdownType` limits the source, and `flowbite_markdown_html` prints it.
+- [form-theme](https://raw.githubusercontent.com/xormania/uxor/dev/form-theme/README.md): A Symfony form theme that renders every row through `FormField` and every control through the kit's `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Label` and `Button` components.
+- [form-field](https://raw.githubusercontent.com/xormania/uxor/dev/form-field/README.md): A labelled form control with its help text and error message, wired by id (used by the form theme).
+- [autocomplete](https://raw.githubusercontent.com/xormania/uxor/dev/autocomplete/README.md): Searchable selects with Symfony UX Autocomplete (Tom Select), styled with the theme: one choice, several, values typed by the user, options searched on the server. Works through the form theme (`'autocomplete' => true`) and as an `Autocomplete` component outside forms.
+- [dropzone](https://raw.githubusercontent.com/xormania/uxor/dev/dropzone/README.md): File uploads with Symfony UX Dropzone, styled with the theme: drag and drop or browse, a preview of the picked image, several files that add up across picks, keyboard focus kept after a pick or a removal; a `DropzoneType` renders as one through the form theme.
+- [editor](https://raw.githubusercontent.com/xormania/uxor/dev/editor/README.md): A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. `EditorType` sanitizes every submit (symfony/html-sanitizer), and `flowbite_editor_html` prints stored HTML.
+- [markdown-editor](https://raw.githubusercontent.com/xormania/uxor/dev/markdown-editor/README.md): A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. `MarkdownType` limits the source, and `flowbite_markdown_html` prints it.
 
 ## Layouts
 
-- [layouts](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/layouts/README.md): Page layouts to extend: an app shell with sidebar, navbar with its menu, and mobile nav, a centered column for login, signup and password reset, settings, errors and a blank page.
+- [layouts](https://raw.githubusercontent.com/xormania/uxor/dev/layouts/README.md): Page layouts to extend: an app shell with sidebar, navbar with its menu, and mobile nav, a centered column for login, signup and password reset, settings, errors and a blank page.
 
 ## Blocks
 
-- [dashboard-home](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/dashboard-home/README.md): A dashboard home: page header, key figures, two cards and a table of recent orders.
-- [login](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/login/README.md): A sign-in card rendering a Symfony login form through the form theme, with the last authentication error.
-- [signup](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/signup/README.md): A registration card rendering a Symfony form through the form theme.
-- [forgot-password](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/forgot-password/README.md): A card asking for an email address to send a password reset link, then confirming it was sent.
-- [settings-profile](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/settings-profile/README.md): A profile settings card: avatar, name and a Symfony form rendered through the form theme.
-- [not-found](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/not-found/README.md): The content of a 404 (or any error) page: status, title, explanation and a way back.
+- [dashboard-home](https://raw.githubusercontent.com/xormania/uxor/dev/dashboard-home/README.md): A dashboard home: page header, key figures, two cards and a table of recent orders.
+- [login](https://raw.githubusercontent.com/xormania/uxor/dev/login/README.md): A sign-in card rendering a Symfony login form through the form theme, with the last authentication error.
+- [signup](https://raw.githubusercontent.com/xormania/uxor/dev/signup/README.md): A registration card rendering a Symfony form through the form theme.
+- [forgot-password](https://raw.githubusercontent.com/xormania/uxor/dev/forgot-password/README.md): A card asking for an email address to send a password reset link, then confirming it was sent.
+- [settings-profile](https://raw.githubusercontent.com/xormania/uxor/dev/settings-profile/README.md): A profile settings card: avatar, name and a Symfony form rendered through the form theme.
+- [not-found](https://raw.githubusercontent.com/xormania/uxor/dev/not-found/README.md): The content of a 404 (or any error) page: status, title, explanation and a way back.
 
 ## Optional
 
-- [Changelog](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/CHANGELOG.md): what each version changes
-- [Security](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/SECURITY.md): reporting a vulnerability
-- [Testing patterns](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/docs/TESTING.md): how this repository tests Turbo, Live Components, the CSP and request limits, to reuse in an app
-- [Contributing](https://raw.githubusercontent.com/xormania/flowbite-xor/dev/CONTRIBUTING.md): changing the kit itself: layout, conventions, checks
+- [Changelog](https://raw.githubusercontent.com/xormania/uxor/dev/CHANGELOG.md): what each version changes
+- [Security](https://raw.githubusercontent.com/xormania/uxor/dev/SECURITY.md): reporting a vulnerability
+- [Testing patterns](https://raw.githubusercontent.com/xormania/uxor/dev/docs/TESTING.md): how this repository tests Turbo, Live Components, the CSP and request limits, to reuse in an app
+- [Contributing](https://raw.githubusercontent.com/xormania/uxor/dev/CONTRIBUTING.md): changing the kit itself: layout, conventions, checks

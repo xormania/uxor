@@ -6,7 +6,7 @@ services:
     build:
       context: .
       target: frankenphp_dev
-    # flowbite-xor: the whole repository, so the demo sits in /app/demo as it does on disk; it reads the kit
+    # UXor: the whole repository, so the demo sits in /app/demo as it does on disk; it reads the kit
     # from its parent directory, and its stylesheet imports the kit's files by relative path
     working_dir: /app/demo
     volumes:
@@ -25,7 +25,7 @@ services:
       # See https://xdebug.org/docs/all_settings#mode
       XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
       APP_ENV: "${APP_ENV:-dev}"
-      # flowbite-xor: the demo's public directory (frankenphp/Caddyfile)
+      # UXor: the demo's public directory (frankenphp/Caddyfile)
       SERVER_ROOT: /app/demo/public
     extra_hosts:
       # Ensure that host.docker.internal is correctly defined on Linux

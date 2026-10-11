@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ recipe.manifest.name }}: flowbite-xor{% endblock %}
+{% block title %}{{ recipe.manifest.name }}: {{ kit.manifest.name }}{% endblock %}
 
 {% block body %}
     {%- set static_export = app.request.attributes.get('_static_export') -%}

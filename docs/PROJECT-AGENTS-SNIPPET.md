@@ -1,18 +1,18 @@
-# Snippet for projects using flowbite-xor
+# Snippet for projects using UXor
 
 Paste the block below into a project's `AGENTS.md` or `CLAUDE.md`. It tells agents (and people) working
 on the project how to use the kit's recipes.
 
 ````markdown
-## UI: flowbite-xor
+## UI: UXor
 
-The UI is built from the [flowbite-xor](https://github.com/xormania/flowbite-xor) Symfony UX Toolkit kit.
+The UI is built from the [UXor](https://github.com/xormania/uxor) Symfony UX Toolkit kit.
 Its recipes are copied into `templates/components/`, `templates/layouts/`, `templates/form/`,
-`assets/controllers/` and `assets/styles/flowbite-xor.css` (the theme's color roles); we own those files.
+`assets/controllers/` and `assets/styles/uxor.css` (the theme's color roles); we own those files.
 
 - **Use the kit's components, not raw Flowbite HTML.** `<twig:Button>`, `<twig:Modal>`, `<twig:Dropdown>`,
   `<twig:Toast:Stream>`, `<twig:FormField>`… A missing one is installed with
-  `php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor` (the kit's
+  `php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor` (the kit's
   `docs/RECIPES.md` lists them), not written by hand.
 - **No Flowbite JavaScript.** Never `import 'flowbite'` or call `initFlowbite()`: behavior lives in the
   recipes' Stimulus controllers, which survive Turbo visits and Live Component re-renders.
@@ -30,12 +30,12 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
   `<twig:Toast:Stream>` in the page body (every kit layout does it for flash messages) or in a Turbo Stream
   response.
 - **Lists of records: `ux:install data-table`**, then one class per table extending
-  `App\FlowbiteXor\DataTable\AbstractDataTable` with `columns()`, `countRows(TableQuery): int` and
+  `App\UXor\DataTable\AbstractDataTable` with `columns()`, `countRows(TableQuery): int` and
   `loadRows(TableQuery): array` (the page's rows, from `$query->offset()`); the
   controller passes `$table->handleRequest($request)` to `<twig:DataTable :table="table" id="…" />`. The query is
   already checked: sort by `$query->sortField`, never by a raw request value. Custom cells go in
   `<twig:block name="cell_<key>">` (not `{% block %}`, which does not compile `<twig:…>` inside a component).
-  Keep `src/FlowbiteXor/` as the recipe installed it. For row selection, bulk actions or search while typing,
+  Keep `src/UXor/` as the recipe installed it. For row selection, bulk actions or search while typing,
   `ux:install data-table-live`: the same class extends `AbstractLiveDataTable` with
   `#[AsLiveComponent(name: '…', template: 'components/DataTableLive.html.twig')]`, rendered as
   `<twig:Name tableId="…" />` with no controller code; a bulk action is a `#[LiveAction]` reading `$this->selectedIds`
@@ -75,13 +75,13 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
   `data-live-ignore`, a wrapper id and an input id that change after each upload, and a `files(name)|action` button.
   Image previews need `img-src data:` in a Content Security Policy.
 - **Rich text: `ux:install editor`**, run the printed `composer require` and `importmap:require` commands, and do the
-  README's CSS import. In a form, `EditorType` (from `App\FlowbiteXor\Editor`; `max_chars`, `max_bytes`): its data is
+  README's CSS import. In a form, `EditorType` (from `App\UXor\Editor`; `max_chars`, `max_bytes`): its data is
   sanitized HTML or `null`. Print stored HTML with `|flowbite_editor_html`, never `|raw`; HTML from another path
   goes through `EditorHtmlPolicy::sanitize()` before it is stored. Change the toolbar's formatting and the policy
   together. In a Live Component, `<twig:Editor model="on(change)|field">`, and bump its `reset` prop to replace the
   content from the server.
 - **Markdown: `ux:install markdown-editor`**, and run the printed `composer require` command. In a form,
-  `MarkdownType` (from `App\FlowbiteXor\MarkdownEditor`; `max_chars`, `max_bytes`): its data is the Markdown or
+  `MarkdownType` (from `App\UXor\MarkdownEditor`; `max_chars`, `max_bytes`): its data is the Markdown or
   `null`. Print it with `|flowbite_markdown_html`, never `|raw` or another Markdown filter: the preview and the page
   render the same. The editor is its own Live Component: keep it out of another Live Component's re-rendered markup.
 - **Navigation more than one level deep: `ux:install side-nav`**, then `<twig:SideNav label="…" storageKey="…">`

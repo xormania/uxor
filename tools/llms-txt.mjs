@@ -18,6 +18,7 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { kitIdentity } from './kit-identity.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path) => readFileSync(join(root, path), 'utf8');
@@ -35,9 +36,10 @@ if (!ref) {
     console.error('CHANGELOG.md has no unreleased entry and no `## [X.Y.Z]` heading: no ref for the links.');
     process.exit(1);
 }
-const raw = `https://raw.githubusercontent.com/xormania/flowbite-xor/${ref}`;
-
 const manifest = JSON.parse(read('manifest.json'));
+// the kit's name and repository: manifest.json's name and homepage (tools/kit-identity.mjs)
+const kit = kitIdentity(manifest);
+const raw = kit.raw(ref);
 const recipes = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && existsSync(join(root, entry.name, 'manifest.json')))
     .map((entry) => entry.name)
@@ -75,15 +77,15 @@ const ships = (name) => recipes.includes(name) && listed.includes(name);
 
 // --- llms.txt
 const lines = [
-    '# flowbite-xor',
+    `# ${kit.name}`,
     '',
     `> ${manifest.description}`,
     '',
-    'A Symfony UX Toolkit kit: install a recipe with `php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor`, which copies its files into the project. Each recipe\'s README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.',
+    `A Symfony UX Toolkit kit: install a recipe with \`php bin/console ux:install <recipe> --kit=${kit.homepage}\`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.`,
     '',
     ref === 'dev'
-        ? 'The links below point at `dev`, the work merged since the last release: install with `--kit=https://github.com/xormania/flowbite-xor:dev` to get what they describe.'
-        : `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=https://github.com/xormania/flowbite-xor:${ref}\`.`,
+        ? `The links below point at \`dev\`, the work merged since the last release: install with \`--kit=${kit.homepage}:dev\` to get what they describe.`
+        : `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=${kit.homepage}:${ref}\`.`,
     '',
     '## Start here',
     '',

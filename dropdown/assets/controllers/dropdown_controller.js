@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
-import { follow, position } from '../lib/flowbite-xor-floating.js';
-import { isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
+import { follow, position } from '../lib/uxor-floating.js';
+import { isKeptOnCache } from '../lib/uxor-turbo.js';
 
 /**
  * Opens a `Dropdown` menu on click or hover, places it next to its trigger and handles the keyboard.
@@ -131,7 +131,7 @@ export default class extends Controller {
     /**
      * Places the content like Popper does for Flowbite (absolute, `translate(x, y)`, offset, flip,
      * shift along the trigger within the viewport), so menus land on the same pixels: the kit's shared
-     * positioning (`assets/lib/flowbite-xor-floating.js`, the `floating` recipe).
+     * positioning (`assets/lib/uxor-floating.js`, the `floating` recipe).
      */
     position() {
         this.contentTarget.dataset.popperPlacement = position(this.contentTarget, this.triggerTarget, {

@@ -114,5 +114,5 @@ their own and include them in both menus, each `NavMenu` with its own `id`, so n
 ```
 
 Marking the current link, giving the links their rendered `aria-current` back on disconnect and telling a link this
-tab follows are the `navigation` recipe's module (`assets/lib/flowbite-xor-navigation.js`), which `ux:install
+tab follows are the `navigation` recipe's module (`assets/lib/uxor-navigation.js`), which `ux:install
 nav-menu` installs with it.

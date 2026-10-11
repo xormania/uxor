@@ -2,7 +2,7 @@
 
 namespace App\Tests\DataTable\Fixtures;
 
-use App\FlowbiteXor\DataTableLive\AbstractLiveDataTable;
+use App\UXor\DataTableLive\AbstractLiveDataTable;
 
 /**
  * Not registered as a component: tests call its methods directly, the way a Live request would.

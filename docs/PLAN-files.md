@@ -83,7 +83,7 @@ Markup (no `style`, no inline handler):
   - `previewClearButton` target: `type="button"`, `relative z-20`, a kit `Button` ghost/icon look, `aria-labelledby="<id>_remove <id>_filename"` (so it reads "Remove photo.png", as multiple mode does), containing `<span id="<id>_remove" class="sr-only">{{ removeLabel }}</span>` and the `flowbite:close-outline` icon. Assist target `clearButton`.
 - **List**, when multiple (package target `previewList`, assist target `list`): a `<ul>` **after the box** (not inside it, so drops there hit the guard), with `mt-3 space-y-2` and `aria-live="polite"`.
 
-**`dropzone/assets/styles/flowbite-xor-dropzone.css`** styles only the elements the controller builds in JavaScript (fixed class names), with the theme's CSS variables, as the autocomplete stylesheet does:
+**`dropzone/assets/styles/uxor-dropzone.css`** styles only the elements the controller builds in JavaScript (fixed class names), with the theme's CSS variables, as the autocomplete stylesheet does:
 - `.dropzone-preview-list-item`: flex row, gap, `--color-neutral-secondary-medium` background, `--color-default-medium` border, `--radius-base`, padding.
 - `.dropzone-preview-image`: 2.5rem, `contain`, centered. It is empty until the controller sets `display:block` and the background.
 - `.dropzone-preview-filename`: `--color-heading`, `overflow-wrap: anywhere`, flex 1.
@@ -92,7 +92,7 @@ Markup (no `style`, no inline handler):
   - hover `--color-neutral-tertiary-medium`;
   - `:focus-visible` outline in `--color-brand-medium`;
   - the icon through `::before { mask: url("data:image/svg+xml,…close…") }` filled with `currentColor`. The kit's `Select` chevron already needs `data:` images.
-- The README makes the import (after `flowbite-xor.css`) and the `controllers.json` change (`"@symfony/ux-dropzone/dist/style.min.css": false`) mandatory, as for autocomplete.
+- The README makes the import (after `uxor.css`) and the `controllers.json` change (`"@symfony/ux-dropzone/dist/style.min.css": false`) mandatory, as for autocomplete.
 
 **`dropzone/assets/controllers/dropzone_assist_controller.js`** (identifier `dropzone-assist`). It is kit behavior next to the package controller, which it never patches. It has `@target`, `@value` and `@action` docs, takes no global state, and its `connect()` can run again.
 - Targets: `input`, `clearButton`, `list`.
@@ -205,7 +205,7 @@ Risk: in dark mode, gray-400 on gray-700 may miss 4.5. If it does, hover uses `n
 ## Demo
 
 - `demo/composer.json` and `composer.lock`: add `symfony/ux-dropzone: ^3.5`. Also update `config/bundles.php` (`Symfony\UX\Dropzone\DropzoneBundle`), `importmap.php` (`@symfony/ux-dropzone` path) and `assets/controllers.json` (`dropzone` enabled, style autoimport `false`).
-- `demo/assets/styles/app.css`: `@import "../../../dropzone/assets/styles/flowbite-xor-dropzone.css";`.
+- `demo/assets/styles/app.css`: `@import "../../../dropzone/assets/styles/uxor-dropzone.css";`.
 - **Deterministic PHP limits:**
   - Playwright's `php -S` command gets `-d upload_max_filesize=2M -d post_max_size=8M`;
   - `demo/frankenphp/conf.d/10-app.ini` gets the same two lines.

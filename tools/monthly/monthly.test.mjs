@@ -97,8 +97,8 @@ test('js-coverage fails, not reports 0%, when nothing was recorded', () => {
 
 const clover = (statements, covered) => `<?xml version="1.0"?>
 <coverage><project><package name="App">
-<file name="/repo/data-table/src/FlowbiteXor/DataTable/Filter.php">
-<class name="App\\FlowbiteXor\\DataTable\\Filter" namespace="App"><metrics methods="2" coveredmethods="1" statements="${statements}" coveredstatements="${covered}"/></class>
+<file name="/repo/data-table/src/UXor/DataTable/Filter.php">
+<class name="App\\UXor\\DataTable\\Filter" namespace="App"><metrics methods="2" coveredmethods="1" statements="${statements}" coveredstatements="${covered}"/></class>
 <line num="10" type="method" name="choices" visibility="public" count="3"/>
 <line num="11" type="stmt" count="3"/>
 <line num="15" type="method" name="label" visibility="public" count="0"/>
@@ -108,8 +108,8 @@ const clover = (statements, covered) => `<?xml version="1.0"?>
 
 test('parseClover reports each recipe file relative to the repository, with the methods no test runs', () => {
     const result = parseClover(clover(4, 3), '/repo');
-    assert.deepEqual(result.files['data-table/src/FlowbiteXor/DataTable/Filter.php'], {
-        classes: ['App\\FlowbiteXor\\DataTable\\Filter'],
+    assert.deepEqual(result.files['data-table/src/UXor/DataTable/Filter.php'], {
+        classes: ['App\\UXor\\DataTable\\Filter'],
         lines: { covered: 3, total: 4, pct: 75 },
         methods: { run: 1, total: 2 },
         neverRun: ['label'],

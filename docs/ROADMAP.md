@@ -1,4 +1,4 @@
-# Roadmap: rich components for flowbite-xor
+# Roadmap: rich components for UXor
 
 _2026-10-07. Decisions made with the user, item by item. Roadmap only: no code. Each package gets its own
 detailed plan before it is built._
@@ -21,7 +21,7 @@ building **Turbo-driven apps** get rich UX from installed recipes with as little
   they are credited: `NOTICE` names shadcn/ui and the Symfony UX Toolkit shadcn kit, each derived recipe's README
   (`popover`, `calendar`, `date-picker`) names the recipe it was built from, and so do the `calendar` and
   `date-picker` controllers.
-- **Kit PHP:** recipes may copy PHP into `src/` under `App\FlowbiteXor\…`. The research tested this at runtime on
+- **Kit PHP:** recipes may copy PHP into `src/` under `App\UXor\…`. The research tested this at runtime on
   7.4.20 and 8.1.8 with Toolkit 3.5.1, and it passes lint and debug.
 - **Turbo gate (required for every package with behavior):**
   - Cache snapshot and Back.
@@ -57,7 +57,7 @@ D and C can run in parallel because they touch different recipes.
   - `data-table-live`: Live state, `url: true` (replaceState). Back leaves the page, and the URL restores the last
     state.
   - The README tells agents which to choose.
-- **Kit PHP** in `App\FlowbiteXor\DataTable\`: `AbstractDataTable`, `Column`, `TableQuery`, `TableResult` and a
+- **Kit PHP** in `App\UXor\DataTable\`: `AbstractDataTable`, `Column`, `TableQuery`, `TableResult` and a
   page-window helper, plus one shared template.
 - **App code per table:** one subclass in `App\Twig\Components\` with an explicit
   `#[AsLiveComponent(name, template)]`, `columns()` (label, sortable, field mapping) and
@@ -77,7 +77,7 @@ D and C can run in parallel because they touch different recipes.
   3. Live table: repeated visits away and back.
   4. Live table inside a Frame and inside `data-turbo-permanent`.
   5. A Stream `replace` and `update` on the table.
-  6. The `App\FlowbiteXor` subnamespace works at runtime.
+  6. The `App\UXor` subnamespace works at runtime.
 - **CI and docs:** PHP syntax checking plus PHPStan on kit PHP. The contract is written by hand in the README and in
   `docs/PROJECT-AGENTS-SNIPPET.md`.
 

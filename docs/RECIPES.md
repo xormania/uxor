@@ -1,7 +1,7 @@
 # Recipes
 
 Every recipe of the kit, by group: install one with
-`php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor`, after the setup in the
+`php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor`, after the setup in the
 [README](../README.md#install).
 
 Recipes marked ✦ come with a Stimulus controller, copied to `assets/controllers/` and loaded by StimulusBundle.
@@ -58,8 +58,8 @@ Installed with the recipes that use it; install it yourself only for code of you
 | [`breadcrumb`](../breadcrumb/README.md) | A trail of links showing where the current page sits in the site hierarchy. |
 | [`calendar`](../calendar/README.md) ✦ | Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a `model` prop for Live Components. |
 | [`chart`](../chart/README.md) ✦ | Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or `ChartBuilderInterface`, updated in place by Live Components. |
-| [`data-table`](../data-table/README.md) ✦ | A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/FlowbiteXor/`. |
-| [`data-table-live`](../data-table-live/README.md) | `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/FlowbiteXor/`. |
+| [`data-table`](../data-table/README.md) ✦ | A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into `src/UXor/`. |
+| [`data-table-live`](../data-table-live/README.md) | `data-table` as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into `src/UXor/`. |
 | [`date-picker`](../date-picker/README.md) ✦ | A date or a range picked in a calendar that opens from a button or a typed field; a `DateType` opts in through the form theme. |
 | [`drawer`](../drawer/README.md) ✦ | A panel sliding over one side of the page, for navigation, filters or details, as a native `<dialog>`. |
 | [`empty-state`](../empty-state/README.md) | What a list or page shows when it has nothing yet, with a way forward. |

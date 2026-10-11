@@ -64,7 +64,7 @@
     --color-fg-pink: var(--color-pink-600);
     --color-fg-lime: var(--color-lime-600);
 
-    /* flowbite-xor: on-fill roles, the kit's own addition to Flowbite's theme: the color of text (and of the toggle's
+    /* UXor: on-fill roles, the kit's own addition to Flowbite's theme: the color of text (and of the toggle's
        knob) on a solid fill, such as a brand button, the selected day of a calendar or a tooltip. All white, like the
        text Flowbite puts there; a project with a light brand color sets fg-on-brand to a dark color. */
     --color-fg-on-brand: var(--color-white);
@@ -96,7 +96,7 @@
     --color-brand-softer: var(--color-blue-50);
     --color-brand-soft: var(--color-blue-100);
     --color-brand: var(--color-blue-700);
-    --color-brand-medium: var(--color-blue-500); /* flowbite-xor: was blue-200 (focus ring 1.4:1 → 3.8:1) */
+    --color-brand-medium: var(--color-blue-500); /* UXor: was blue-200 (focus ring 1.4:1 → 3.8:1) */
     --color-brand-strong: var(--color-blue-800);
 
     /* used for status colors */
@@ -109,9 +109,9 @@
     --color-danger-medium: var(--color-rose-100);
     --color-danger-strong: var(--color-rose-800);
     --color-warning-soft: var(--color-orange-50);
-    --color-warning: var(--color-orange-700); /* flowbite-xor: was orange-500 (white text 2.9:1 → 5.2:1) */
+    --color-warning: var(--color-orange-700); /* UXor: was orange-500 (white text 2.9:1 → 5.2:1) */
     --color-warning-medium: var(--color-orange-100);
-    --color-warning-strong: var(--color-orange-800); /* flowbite-xor: was orange-700 (hover darker than warning) */
+    --color-warning-strong: var(--color-orange-800); /* UXor: was orange-700 (hover darker than warning) */
     --color-dark-soft: var(--color-gray-800);
     --color-dark: var(--color-gray-800);
     --color-dark-strong: var(--color-gray-900);
@@ -125,7 +125,7 @@
     --color-indigo: var(--color-indigo-600);
     --color-orange: var(--color-orange-400);
 
-    /* flowbite-xor: chart series, in this order (chart recipe); validated for contrast and color vision deficiency */
+    /* UXor: chart series, in this order (chart recipe); validated for contrast and color vision deficiency */
     --color-chart-1: var(--color-blue-700);
     --color-chart-2: var(--color-orange-600);
     --color-chart-3: var(--color-teal-600);
@@ -168,7 +168,7 @@
     --color-heading: var(--color-white);
     --color-fg-brand-subtle: var(--color-blue-200);
     --color-fg-brand: var(--color-blue-500);
-    --color-fg-brand-strong: var(--color-blue-300); /* flowbite-xor: was blue-400 (3.9:1 on brand-soft → 5.7:1) */
+    --color-fg-brand-strong: var(--color-blue-300); /* UXor: was blue-400 (3.9:1 on brand-soft → 5.7:1) */
     --color-fg-success: var(--color-emerald-600);
     --color-fg-success-strong: var(--color-emerald-300);
     --color-fg-danger: var(--color-rose-500);
@@ -182,7 +182,7 @@
     --color-fg-indigo: var(--color-indigo-500);
     --color-fg-pink: var(--color-pink-500);
     --color-fg-lime: var(--color-lime-500);
-    /* flowbite-xor: on-fill roles (see @theme) */
+    /* UXor: on-fill roles (see @theme) */
     --color-fg-on-brand: var(--color-white);
     --color-fg-on-success: var(--color-white);
     --color-fg-on-danger: var(--color-white);
@@ -209,20 +209,20 @@
     --color-brand-softer: var(--color-blue-950);
     --color-brand-soft: var(--color-blue-900);
     --color-brand: var(--color-blue-600);
-    --color-brand-medium: var(--color-blue-500); /* flowbite-xor: was blue-900 (focus ring 1.9:1 → 5.4:1) */
+    --color-brand-medium: var(--color-blue-500); /* UXor: was blue-900 (focus ring 1.9:1 → 5.4:1) */
     --color-brand-strong: var(--color-blue-700);
     --color-success-soft: var(--color-emerald-950);
-    --color-success: var(--color-emerald-700); /* flowbite-xor: was emerald-600 (white text 3.7:1 → 5.4:1) */
+    --color-success: var(--color-emerald-700); /* UXor: was emerald-600 (white text 3.7:1 → 5.4:1) */
     --color-success-medium: var(--color-emerald-900);
-    --color-success-strong: var(--color-emerald-800); /* flowbite-xor: was emerald-700 (hover darker than success) */
+    --color-success-strong: var(--color-emerald-800); /* UXor: was emerald-700 (hover darker than success) */
     --color-danger-soft: var(--color-rose-950);
     --color-danger: var(--color-rose-700);
     --color-danger-medium: var(--color-rose-900);
     --color-danger-strong: var(--color-rose-800);
     --color-warning-soft: var(--color-orange-950);
-    --color-warning: var(--color-orange-700); /* flowbite-xor: was orange-600 (white text 3.6:1 → 5.2:1) */
+    --color-warning: var(--color-orange-700); /* UXor: was orange-600 (white text 3.6:1 → 5.2:1) */
     --color-warning-medium: var(--color-orange-900);
-    --color-warning-strong: var(--color-orange-800); /* flowbite-xor: was orange-700 (hover darker than warning) */
+    --color-warning-strong: var(--color-orange-800); /* UXor: was orange-700 (hover darker than warning) */
     --color-dark-soft: var(--color-gray-700);
     --color-dark: var(--color-gray-800);
     --color-dark-strong: var(--color-gray-700);
@@ -236,7 +236,7 @@
     --color-indigo: var(--color-indigo-500);
     --color-orange: var(--color-orange-400);
 
-    /* flowbite-xor: chart series (chart recipe) */
+    /* UXor: chart series (chart recipe) */
     --color-chart-1: var(--color-blue-500);
     --color-chart-2: var(--color-orange-600);
     --color-chart-3: var(--color-teal-600);

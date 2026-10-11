@@ -86,7 +86,7 @@ jobs:
                           untagged)
                               # check the install of the commit from GitHub before any tag makes it a version
                               KIT_REF="$commit" tools/tests/docker-install.sh
-                              git tag -a "$version" "$commit" -m "flowbite-xor $version"
+                              git tag -a "$version" "$commit" -m "$(jq -r .name manifest.json) $version"
                               git push origin "refs/tags/$version"
                               ;;
                           *) echo "::error::$version: $state"; exit 1 ;;

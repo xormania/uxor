@@ -22,7 +22,7 @@ Then:
 2. Import the stylesheet after the kit's, in `assets/styles/app.css`:
 
    ```css
-   @import "./flowbite-xor-dropzone.css";
+   @import "./uxor-dropzone.css";
    ```
 
 3. Turn off UX Dropzone's own stylesheet in `assets/controllers.json`: this recipe's replaces it.
@@ -208,7 +208,7 @@ The markup has no `style` attribute and no inline handler. UX Dropzone shows and
 which a policy allows, and shows an image preview as a `data:` URL: the policy's `img-src` needs `data:`.
 
 Whether a zone is inside a `data-turbo-permanent` element, and whether a `turbo:before-cache` comes from a frame visit
-promoted to history, are answered by the `turbo` recipe's module (`assets/lib/flowbite-xor-turbo.js`), which
+promoted to history, are answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which
 `ux:install dropzone` installs with it.
 
 ## Examples

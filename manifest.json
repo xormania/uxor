@@ -1,9 +1,9 @@
 {
     "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-v1.json",
-    "name": "Flowbite xor",
+    "name": "UXor",
     "description": "Flowbite v4 and Tailwind CSS v4 components, layouts, blocks and a form theme for Symfony UX, with all behavior in Stimulus controllers so they keep working under Turbo and Live Components.",
     "license": "MIT",
-    "homepage": "https://github.com/xormania/flowbite-xor",
+    "homepage": "https://github.com/xormania/uxor",
     "color": "hsl(221,79%,48%)",
     "icon": "icon.svg",
     "dependencies": {

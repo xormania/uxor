@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\FlowbiteXor\Editor\EditorType;
+use App\UXor\Editor\EditorType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\SubmitType;
 use Symfony\Component\Form\FormBuilderInterface;

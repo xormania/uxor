@@ -1,6 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
 import { getComponent } from '@symfony/ux-live-component';
-import { isKeptOnCache } from '../lib/flowbite-xor-turbo.js';
+import { isKeptOnCache } from '../lib/uxor-turbo.js';
 
 /**
  * The row selection of a `DataTableLive` belongs to the visit, not to the URL: leaving the page drops it. Back and

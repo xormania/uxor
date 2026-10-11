@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # On a fresh Symfony Docker project (dunglas/symfony-docker: FrankenPHP in worker mode, its PHP image, the latest
 # Symfony by default), README.md's install steps with the kit downloaded from GitHub, the archive users get
-# (`--kit=https://github.com/xormania/flowbite-xor:<ref>`), give the same pages as fresh-install.sh.
+# (`--kit=https://github.com/xormania/uxor:<ref>`), give the same pages as fresh-install.sh.
 #
 #   KIT_REF=<tag or full commit SHA> tools/tests/docker-install.sh
-#   (SYMFONY_VERSION=… default 8.1.*, KIT_REPOSITORY=… default xormania/flowbite-xor; needs Docker and git)
+#   (SYMFONY_VERSION=… default 8.1.*, KIT_REPOSITORY=… default the owner/name of manifest.json's
+#   homepage; needs Docker and git)
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 ref="${KIT_REF:?set KIT_REF to a tag or a full commit SHA of the kit}"
-repository="${KIT_REPOSITORY:-xormania/flowbite-xor}"
+# the repository manifest.json's homepage names (https://github.com/<owner>/<name>)
+repository="${KIT_REPOSITORY:-$(sed -n 's#^ *"homepage": *"https://github\.com/\([^/"]*/[^/"]*\)".*#\1#p' "$root/manifest.json")}"
+[ -n "$repository" ] || { echo "manifest.json has no https://github.com/<owner>/<name> homepage: set KIT_REPOSITORY" >&2; exit 1; }
 export SYMFONY_VERSION="${SYMFONY_VERSION:-8.1.*}"
 # the template commit docs/NOTES.md records for the demo
 template_commit=422756611d61e0108600ed7ec1370ec677d0e8d0
