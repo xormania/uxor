@@ -10,7 +10,7 @@
     aria-labelledby="{{ _modal_title_id }}"
     tabindex="-1"
     aria-hidden="true"
-    class="{{ ('relative bg-neutral-primary-soft text-body border border-default rounded-base shadow-sm p-4 md:p-6 m-auto z-50 backdrop:transition-colors backdrop:transition-discrete backdrop:duration-150 motion-reduce:backdrop:transition-none! open:backdrop:bg-dark-backdrop/70 ' ~ attributes.render('class'))|tailwind_merge }}"
+    class="{{ ('relative bg-neutral-primary-soft text-body border border-default rounded-base shadow-sm p-4 md:p-6 m-auto z-50 backdrop:transition-colors backdrop:duration-150 motion-reduce:backdrop:transition-none! open:backdrop:bg-dark-backdrop/70 starting:open:backdrop:bg-transparent data-closing:backdrop:bg-transparent ' ~ attributes.render('class'))|tailwind_merge }}"
     data-flowbite-modal-target="modal"
     data-action="keydown.esc->flowbite-modal#close:prevent {{ backdrop is not same as('static') ? 'click->flowbite-modal#closeOnClickOutside' }}"
 >
