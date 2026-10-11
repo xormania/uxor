@@ -54,6 +54,9 @@ Use the Tailwind CSS pagination element to indicate a series of content across v
 </twig:Pagination>
 ```
 
+The `active` link is the current page: it gets `aria-current="page"` and the brand's soft background, its number in
+`text-fg-brand-strong` (at least 4.5:1 in both themes, as the kit's other current items).
+
 ## Examples
 
 ### As icon

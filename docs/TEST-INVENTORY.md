@@ -162,6 +162,7 @@ navigation's scroll; the current item.
 | Scroll and current item across visits | E2E lab | same test |
 | Navbar button opens it over the page, Escape and a visit close it | E2E lab | lab.turbo-nav "on a small screen the navbar button opens the sidebar over the page" |
 | The app layout at phone width: the sidebar hidden, its navigation in the MobileNav drawer, focused on the current page in its open branch (the drawer's own behavior: mobile-nav below) | E2E demo | demo-app "on a phone the drawer holds the sidebar navigation, then the navbar menu" (R4) |
+| The navbar at 320px: no part outside the bar, no sideways scroll, the search on a row of its own wide enough to type in | E2E demo | `tests/e2e/examples/fit.spec.ts` "the navbar keeps its brand, search and actions inside the bar" (found a bug, fixed: the search crushed, the actions past the bar) |
 | Collapsed side-nav moves the Tab stop | E2E demo | lab.side-nav "collapsing the demo's sidebar moves the Tab stop off a hidden current item to its shown branch" |
 | Current item after Back and Forward, one controller | E2E lab | lab.turbo-nav "Back and Forward mark the current item of the page shown in the permanent sidebar" (failed with the marking skipped on a restoration visit) |
 | Storage blocked: the collapse holds across visits, Back and Forward, a reload expands it | E2E lab | lab.turbo-nav "with localStorage blocked, the sidebar stays collapsed across Turbo visits, Back and Forward, until a reload" (found a bug, fixed: a visit expanded it, the failed read taken for "expanded") |
@@ -447,6 +448,8 @@ States: search, filter, sort and direction, page, page size (in the URL); data-t
 | Counts (tier 2): sort, page and filter each make one request (the frame's, or the Live action's), connect no controller and leave no listener, their responses under a budget | E2E lab | counts "data-table in a Turbo Frame: …", "data-table-live: …" |
 | Selection cut to `maxSelection` (the first entries read, then cleaned), ids cleaned, "Select this page" bounded; a full selection offers no row more until cleared | unit; Live component | `SelectionTest` (6 tests); `OrdersTableTest` (4 tests) (R2) |
 | Stable row ids, cell blocks | E2E lab | lab.data-table-frame "rows have stable ids and render the page cell blocks" |
+| The pager's current page reads at 4.5:1 or more in both themes (one character: axe passes it as "incomplete") | E2E demo | `tests/e2e/contrast.spec.ts` (with the pagination examples; found a bug, fixed: 2.7:1 in dark); `tests/e2e/a11y.spec.ts` measures every text of every README example the same way (`tests/e2e/contrast.ts`) |
+| The table fits a phone: the toolbar and the pager wrap, the table scrolls in its own box, nothing past the page's edge | E2E demo | `tests/e2e/examples/fit.spec.ts` "the README example data-table/default fits" (and data-table-live; every README example at 390px; found a bug, fixed: the frame took the table's width in a flex parent) |
 
 ### motion (every recipe that moves)
 

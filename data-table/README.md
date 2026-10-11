@@ -152,6 +152,9 @@ its search form reload only the frame and add a history entry, so Back and Forwa
 page, and a copied URL opens the same state. The URL's other parameters are kept. Without Turbo, the links and the
 form load whole pages and still work.
 
+The frame takes the width of its parent and never more, even in a flex or grid parent (`min-w-0`): on a phone the
+toolbar and the pager wrap, and a table wider than the screen scrolls sideways in its own bordered box.
+
 The search, filters and page size apply when the form is submitted (the Apply button, or Enter in the search field).
 After Back or Forward, the form shows the state of the URL on screen, never an edit made before leaving: its
 `data-table` controller resets the fields to the values the server rendered when a copy Turbo restores connects.

@@ -21,7 +21,7 @@
     { "fg": "fg-success", "bg": "neutral-primary", "min": 4.5, "usage": "outline-success button text" },
     { "fg": "fg-warning", "bg": "neutral-primary", "min": 4.5, "usage": "outline-warning button text" },
     { "fg": "fg-danger", "bg": "neutral-primary", "min": 4.5, "usage": "outline-danger button text" },
-    { "fg": "fg-brand-strong", "bg": "brand-softer", "min": 4.5, "usage": "brand badge, brand alert" },
+    { "fg": "fg-brand-strong", "bg": "brand-softer", "min": 4.5, "usage": "brand badge, brand alert, the current page of a pager" },
     { "fg": "fg-brand-strong", "bg": "brand-soft", "min": 4.5, "usage": "brand badge/alert on the stronger soft ground" },
     { "fg": "fg-danger-strong", "bg": "danger-soft", "min": 4.5, "usage": "danger alert/badge" },
     { "fg": "fg-success-strong", "bg": "success-soft", "min": 4.5, "usage": "success alert/badge" },

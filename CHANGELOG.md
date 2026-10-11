@@ -214,6 +214,23 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   "Choose a country" option, which pushed a fifth row half into the bottom of the box. In the dark theme its
   selected row is dark (the `theme` fix above), not light gray.
 
+- `pagination`: in the dark theme the current page's number read at 2.7:1 (`text-fg-brand` on
+  `bg-neutral-tertiary-medium`); the current page now takes `text-fg-brand-strong` on `bg-brand-softer`, as the kit's
+  other current items, at 4.5:1 or more in both themes. axe passed it, as it passes all one-character text: the
+  accessibility scan now also measures every text of every README example in both themes. The data tables' pagers
+  show the same fix.
+- `stat-card`, `dashboard-home`: at tablet widths, beside the sidebar, the values spilled out of their cards
+  ("$3,141,592" in 182px of text in a 94px card). The dashboard's cards now take three columns once the block is 42rem
+  wide (a container query), each value a step smaller (`text-2xl`) in a narrow column, and a value still too long
+  wraps inside its card. The stat card example lays its grid out the same way.
+- `navbar`: at 320px the search was crushed to a sliver over the brand and the actions pushed out of the bar, the page
+  scrolling sideways. On a phone the search now takes a row of its own under the brand and the actions, a long brand
+  wraps, and the menu button keeps its size.
+- `data-table`, `data-table-live`: in a flex or grid parent (the gallery's preview, a grid cell) the table's minimum
+  width set the component's, so the toolbar and the pager ran off a phone's screen; the component now shrinks to its
+  parent and the table scrolls in its own frame.
+- `badge`, `table`: README examples that overflowed a phone's width: the badge rows wrap, and the table without border
+  sits in a horizontally scrolling wrapper like the other table examples.
 - `floating` (so `dropdown`, `popover`, `date-picker` and `tooltip`): an element placed `left` or `right` with room
   on neither side, as on a phone, stayed on its side past the viewport's edge and pushed the page sideways (the
   "Placements" popover at 390 pixels); it now opens below its trigger, or above it, and when no side has room it is
@@ -222,6 +239,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `tooltip`: in a wrapper with a border (the dashboard's "+9k" avatar), the tooltip was placed from the border's
   outer edge, 2 pixels off, and at the right edge of a phone pushed the page sideways; it is now placed inside the
   border, 8 pixels from its trigger and within the viewport.
+
 ### Security
 
 - `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe

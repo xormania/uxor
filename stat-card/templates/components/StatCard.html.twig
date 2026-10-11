@@ -12,9 +12,11 @@
 -%}
 {#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
 {%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
-<div {{ attributes.defaults({class: 'rounded-base border border-default bg-neutral-primary-soft p-6 shadow-xs'|tailwind_classes}) }}>
+<div {{ attributes.defaults({class: 'min-w-0 rounded-base border border-default bg-neutral-primary-soft p-6 shadow-xs'|tailwind_classes}) }}>
     <p class="text-sm font-medium text-body">{{ label }}</p>
-    <p class="mt-2 text-3xl font-semibold tracking-tight text-heading">{{ value }}</p>
+    {#- a step smaller in a narrow container (a grid cell marked `@container`); a value still too long wraps rather than spill out of
+        the card. `!`: Flowbite's stylesheet compiles its own `text-3xl` after Tailwind's variants (docs/NOTES.md). -#}
+    <p class="mt-2 text-3xl font-semibold tracking-tight wrap-break-word text-heading @max-3xs:text-2xl!">{{ value }}</p>
     {%- if change or period %}
         <p class="mt-2 flex flex-wrap items-center gap-1 text-sm text-body">
             {%- if change %}
