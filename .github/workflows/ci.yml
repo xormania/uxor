@@ -195,8 +195,9 @@ jobs:
     # test runs. The fresh-install jobs still download for themselves: that is what they check.
     # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
     # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
-    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Then the name check, here
-    # because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
+    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. The repository security
+    # policy then reads the workflows, executable sinks, tracked paths and ownership controls. The name check is here
+    # too because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
     tools:
         name: Tool tests
         runs-on: ubuntu-latest
@@ -210,6 +211,9 @@ jobs:
 
             - name: The tools' own cases
               run: node --test 'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
+            - name: Repository security policy
+              run: node tools/security-policy.mjs
 
             - name: Every URL of the kit's repository is manifest.json's homepage
               run: node tools/name-check.mjs

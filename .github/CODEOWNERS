@@ -1,0 +1,10 @@
+# Code ownership becomes an enforcement boundary when the dev and main rulesets require a code-owner review and
+# prevent authors, automation and administrators from bypassing it. The broad rule keeps agent-authored changes under
+# human ownership; the explicit rules make changes to the trust controls conspicuous in review.
+* @xormania
+/.github/ @xormania
+/AGENTS.md @xormania
+/SECURITY.md @xormania
+/tools/security-policy.mjs @xormania
+/tools/security-sinks.json @xormania
+/tools/tests/security-policy.test.mjs @xormania
