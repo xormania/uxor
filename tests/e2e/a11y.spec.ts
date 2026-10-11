@@ -1,5 +1,6 @@
 import { test, expect, expectA11y, controllersConnected } from './fixtures';
 import { examples, recipes } from './inventory';
+import { lowContrastText } from './contrast';
 
 // Every page of the demo: the shell pages, every lab scenario, and every README example in both themes.
 const labPages = ['live-dropdown', 'live-modal', 'live-table', 'live-drawer', 'live-form', 'turbo-stream-toast', 'turbo-nav', 'turbo-nav/two', 'turbo-frame-detail', 'turbo-frame-detail/apple', 'permanent-plus-live', 'form-back/get', 'form-back/post', 'data-table-frame', 'data-table-live', 'data-table-live-frame', 'data-table-live-permanent', 'data-table-live-stream', 'autocomplete', 'autocomplete-frame', 'autocomplete-stream', 'live-autocomplete', 'popover-turbo', 'popover-turbo/two', 'popover-stream', 'live-popover', 'calendar-turbo', 'calendar-turbo/two', 'calendar-stream', 'live-calendar', 'date-picker-turbo', 'date-picker-turbo/two', 'date-picker-stream', 'live-date-picker', 'chart-turbo', 'chart-turbo/two', 'chart-stream', 'live-chart', 'chart-points', 'dropzone-turbo', 'dropzone-turbo/two', 'dropzone-stream', 'dropzone-events', 'dropzone-form', 'live-dropzone', 'editor-turbo', 'editor-turbo/two', 'editor-stream', 'live-editor', 'markdown-turbo', 'markdown-turbo/two', 'markdown-stream', 'turbo-restore', 'turbo-restore/two', 'side-nav', 'side-nav/three', 'mobile-nav', 'mobile-nav/three', 'nav-menu', 'nav-menu/three', 'tooltip-turbo', 'tooltip-turbo/two', 'tooltip-stream', 'dropdown-turbo', 'dropdown-turbo/two', 'dropdown-stream', 'modal-turbo', 'modal-turbo/two', 'modal-stream', 'drawer-turbo', 'drawer-turbo/two', 'drawer-stream', 'section-nav', 'section-nav/integrations', 'value-matrix', 'live-values'];
@@ -40,5 +41,10 @@ for (const path of pages) {
         await controllersConnected(page);
         // the /r/ pages embed the previews, scanned on their own
         await expectA11y(page, { impact: 'serious', exclude: 'iframe' });
+        // axe passes the contrast of short text it cannot judge (a one-character page number): every text of a README
+        // example, in both themes, measured from its computed colors (contrast.ts)
+        if (path.startsWith('/preview/')) {
+            expect(await lowContrastText(page), 'text below WCAG AA contrast').toEqual([]);
+        }
     });
 }
