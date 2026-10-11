@@ -49,6 +49,30 @@ final class ProductionConfigurationTest extends TestCase
         });
     }
 
+    /**
+     * The prod image's build boots the kernel in prod (post-install-cmd's cache:clear, asset-map:compile): its step must
+     * give those commands the opt-in and a secret, after dump-env so neither is written into the image.
+     */
+    public function testTheProdImageBuildGivesItsConsoleCommandsTheOptInWithoutBakingIt(): void
+    {
+        $dockerfile = (string) file_get_contents(\dirname(__DIR__, 2).'/Dockerfile');
+        self::assertMatchesRegularExpression('/AS frankenphp_prod_builder\b(.*?)\nFROM /s', $dockerfile);
+        preg_match('/AS frankenphp_prod_builder\b(.*?)\nFROM /s', $dockerfile, $stage);
+        $builder = $stage[1];
+
+        $export = strpos($builder, 'export UXOR_DEMO_ALLOW_PRODUCTION=1 APP_SECRET="$(php -r \'echo bin2hex(random_bytes(32));\')"');
+        self::assertNotFalse($export, 'the prod builder exports the opt-in and a random secret for its console step');
+        $dumpEnv = strpos($builder, 'composer dump-env prod');
+        self::assertNotFalse($dumpEnv);
+        self::assertGreaterThan($dumpEnv, $export, 'after dump-env, so neither value is written into the image');
+        foreach (['post-install-cmd', 'asset-map:compile'] as $command) {
+            $at = strpos($builder, $command);
+            self::assertNotFalse($at, $command);
+            self::assertLessThan($at, $export, "before {$command}, which boots the kernel in prod");
+        }
+        self::assertStringNotContainsString('ENV UXOR_DEMO_ALLOW_PRODUCTION', $dockerfile, 'never a persistent opt-in');
+    }
+
     private static function hasService(ContainerInterface $container, string $id): bool
     {
         return $container->has($id);
