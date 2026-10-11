@@ -173,10 +173,25 @@ final class ExportStaticCommand
 
         // The /demo pages come from the kit's layouts, which know nothing of this copy: say it there too.
         if (str_starts_with($path, '/demo')) {
-            $notice = \sprintf('<div class="border-b border-default bg-neutral-secondary-medium px-4 py-2 text-center text-sm text-body">A static copy of the demo application: its forms do not submit. <a href="%s/" class="underline hover:text-heading">Back to the gallery</a></div>', $basePath);
-            $html = preg_replace('#<body\b[^>]*>#', '$0'.$notice, $html, 1);
+            $html = self::addDemoNotice($html, $basePath);
         }
 
         return $html;
+    }
+
+    /**
+     * A /demo page of the static copy, with the notice that its forms do not submit: at the top of the page, or with
+     * the app layout, at the top of the column beside the sidebar, which sticks as tall as the window (above it, the
+     * notice would push the sidebar's bottom out of the window).
+     */
+    public static function addDemoNotice(string $html, string $basePath): string
+    {
+        $notice = \sprintf('<div class="border-b border-default bg-neutral-secondary-medium px-4 py-2 text-center text-sm text-body">A static copy of the demo application: its forms do not submit. <a href="%s/" class="underline hover:text-heading">Back to the gallery</a></div>', $basePath);
+
+        if (str_contains($html, '<main id="main"')) {
+            return preg_replace('#<main id="main"#', $notice.'$0', $html, 1) ?? $html;
+        }
+
+        return preg_replace('#<body\b[^>]*>#', '$0'.$notice, $html, 1) ?? $html;
     }
 }
