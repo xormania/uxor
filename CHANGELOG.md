@@ -5,11 +5,6 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
-### Fixed
-
-- `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe
-  scheme cannot be introduced through their `href` or `src` attributes.
-
 ## [0.2.0] - 2026-10-11
 
 ### Added
@@ -194,6 +189,15 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
+
+### Security
+
+- `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe
+  scheme cannot be introduced through their `href` or `src` attributes.
+- Every component, and `form-field`'s `labelAttr` and `helpAttr`, leaves out an attribute whose name starts with
+  `on` (in any case, after leading spaces): an inline event handler given to a component renders nothing. Behavior
+  goes through `data-action` and a Stimulus controller. **Upgrading:** an `onclick` or other handler passed to a
+  component no longer renders; move it to a controller.
 
 ## [0.1.0] - 2026-10-06
 
