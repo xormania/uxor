@@ -119,7 +119,7 @@ change to both paths.
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
-| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule and by hand, never on a push |
+| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
 | `.github/workflows/release-checks.yml` | *Workflows*, *Demo + Playwright* (its setup, and the same projects and fixtures); it runs on the release pull request, daily on `dev` and by hand, never on a push |
 | `.github/workflows/ci.yml`, `tools/ci-changes.sh`, `tools/tests/ci-changes.sh`, any other file in `.github/` (a new or renamed workflow) | everything |
 
