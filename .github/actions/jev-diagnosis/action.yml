@@ -1,0 +1,127 @@
+# The advisory Jev (TypeSafe) diagnosis of a failed job, in one place for every job that has it (docs/TESTING.md, *Jev
+# diagnosis*): build the job's failed-attempts.json, run tools/ci/jev-diagnosis.mjs (its summary goes to the job's
+# summary page, a warning per assessed attempt), and upload the assessments, kept 30 days.
+#
+# The failed attempts come from one of:
+#   attempts  a failed-attempts.json already written (the browser shards: tools/ci/playwright-summary.mjs);
+#   junit     a JUnit report (tools/ci/junit-attempts.mjs: PHPUnit, or Node's junit reporter with junit-project: node);
+#   steps     the caller's toJSON(steps): each step that failed the job and captured its log in
+#             $RUNNER_TEMP/jev-<id>.log (tools/ci/step-attempts.mjs). No such step (the job failed elsewhere): nothing
+#             runs, nothing is written to the summary or uploaded.
+#
+# It never changes the job's verdict. The caller gives it `continue-on-error: true`, its condition (failure() or the
+# job's own) and `timeout-minutes: 3`, which the job's own timeout-minutes counts; inside, the diagnosis is bounded to
+# 110 s (the server log 15 s more) so the upload still runs, and both steps continue on error. Pass the key as
+# `api-key: ${{ secrets.TYPESAFE_API_KEY }}`: it reaches the diagnosis step alone, as the TYPESAFE_API_KEY its
+# script reads; without it every attempt is *unavailable (missing_credential)*.
+name: Jev diagnosis (advisory)
+description: Advisory diagnosis of a failed job's attempts by Jev (TypeSafe); never changes the job's verdict.
+inputs:
+    api-key:
+        description: The TypeSafe API key (secrets.TYPESAFE_API_KEY); empty, every attempt is unavailable
+        required: false
+        default: ''
+    attempts:
+        description: A failed-attempts.json to read as it is
+        required: false
+        default: ''
+    junit:
+        description: A JUnit report to turn into failed attempts
+        required: false
+        default: ''
+    junit-project:
+        description: The attempts' project for a JUnit report (junit-attempts.mjs --project; default phpunit)
+        required: false
+        default: ''
+    steps:
+        description: The caller's toJSON(steps), for the steps that captured their log in $RUNNER_TEMP/jev-<id>.log
+        required: false
+        default: ''
+    workflow:
+        description: The caller's workflow file, where step-attempts.mjs reads a step's name and command (default the run's, GITHUB_WORKFLOW_REF; a reusable workflow names its own)
+        required: false
+        default: ''
+    server-log:
+        description: A server log whose lines in each attempt's time span are evidence
+        required: false
+        default: ''
+    compose-logs:
+        description: A Compose project's directory whose php service log (docker compose logs --timestamps) is the server log
+        required: false
+        default: ''
+    job:
+        description: The job's name in the assessments (jev-diagnosis.mjs --job; default "Demo + Playwright (<shard>)")
+        required: false
+        default: ''
+    shard:
+        description: The shard, for the summary's heading (SHARD)
+        required: false
+        default: ''
+    dir:
+        description: The working directory; the artifact is its assessment/ (default $RUNNER_TEMP/jev)
+        required: false
+        default: ''
+    artifact:
+        description: The artifact's name
+        required: false
+        default: jev-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+runs:
+    using: composite
+    steps:
+        - name: Jev diagnosis
+          id: jev
+          shell: bash
+          continue-on-error: true
+          env:
+              TYPESAFE_API_KEY: ${{ inputs.api-key }}
+              JEV_DIR: ${{ inputs.dir }}
+              JEV_ATTEMPTS: ${{ inputs.attempts }}
+              JEV_JUNIT: ${{ inputs.junit }}
+              JEV_JUNIT_PROJECT: ${{ inputs.junit-project }}
+              JEV_STEPS: ${{ inputs.steps }}
+              JEV_WORKFLOW: ${{ inputs.workflow }}
+              JEV_SERVER_LOG: ${{ inputs.server-log }}
+              JEV_COMPOSE: ${{ inputs.compose-logs }}
+              JEV_JOB: ${{ inputs.job }}
+              JEV_SHARD: ${{ inputs.shard }}
+          run: |
+              JEV_DIR=${JEV_DIR:-$RUNNER_TEMP/jev}
+              echo "dir=$JEV_DIR" >> "$GITHUB_OUTPUT"
+              mkdir -p "$JEV_DIR"
+              attempts=$JEV_DIR/failed-attempts.json
+              if [ -n "$JEV_ATTEMPTS" ]; then
+                  attempts=$JEV_ATTEMPTS
+              elif [ -n "$JEV_JUNIT" ]; then
+                  node tools/ci/junit-attempts.mjs "$JEV_JUNIT" "$attempts" ${JEV_JUNIT_PROJECT:+--project "$JEV_JUNIT_PROJECT"}
+              elif [ -n "$JEV_STEPS" ]; then
+                  node tools/ci/step-attempts.mjs --steps "$JEV_STEPS" --logs "$RUNNER_TEMP" ${JEV_WORKFLOW:+--workflow "$JEV_WORKFLOW"} "$attempts"
+                  if [ "$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).attempts.length' "$attempts")" = 0 ]; then
+                      echo "skip=true" >> "$GITHUB_OUTPUT"
+                      echo "No step that failed the job captured its log: nothing for Jev to diagnose"
+                      exit 0
+                  fi
+              else
+                  echo "::warning::jev-diagnosis: give it attempts, junit or steps"
+                  exit 1
+              fi
+              server_log=$JEV_SERVER_LOG
+              if [ -n "$JEV_COMPOSE" ]; then
+                  server_log=$JEV_DIR/server.log
+                  (cd "$JEV_COMPOSE" && timeout 15 docker compose logs --no-color --timestamps php > "$server_log" 2>/dev/null) || true
+              fi
+              args=(--attempts "$attempts")
+              if [ -n "$server_log" ]; then args+=(--server-log "$server_log"); fi
+              args+=(--output "$JEV_DIR/assessment")
+              if [ -n "$JEV_JOB" ]; then args+=(--job "$JEV_JOB"); fi
+              if [ -n "$JEV_SHARD" ]; then export SHARD=$JEV_SHARD; fi
+              timeout 110 node tools/ci/jev-diagnosis.mjs "${args[@]}"
+
+        # One assessment.json per failed attempt and the summary
+        - if: ${{ always() && steps.jev.outputs.skip != 'true' }}
+          uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+          continue-on-error: true
+          with:
+              name: ${{ inputs.artifact }}
+              path: ${{ steps.jev.outputs.dir || inputs.dir || format('{0}/jev', runner.temp) }}/assessment/
+              if-no-files-found: warn
+              retention-days: 30

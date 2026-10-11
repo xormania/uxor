@@ -1232,14 +1232,31 @@ run with two.
 
 ### Jev diagnosis (advisory)
 
-When a shard has a failed or flaky test (in CI and in the monthly *Browsers* jobs), or *Kit PHP*'s PHPUnit fails, a
+When a job fails (for the browser shards, in CI and in the monthly *Browsers* jobs: when a test failed or was flaky), a
 later step, [`tools/ci/jev-diagnosis.mjs`](../tools/ci/jev-diagnosis.mjs), asks Jev (TypeSafe's model, pinned in
 [`tools/ci/jev-ci.json`](../tools/ci/jev-ci.json)) two questions about each failed attempt in
 `failed-attempts.json`, retry-recovered ones included: which category of the policy's rubric the cause likely belongs
 to (`environment_failure`, `product_defect`, `test_defect`, `timing_assertion`, or `unknown`), and which of the
 supplied excerpts best helps investigate it (or none). It is a starting hypothesis for whoever investigates, not a
-verdict: the test result decides, the step may fail or time out (2 minutes) without changing the job, and a missing
-key, a provider error or an answer that does not validate gives an *unavailable* assessment, never a failure.
+verdict: the test result decides, the step may fail or time out (110 seconds, 3 minutes with its upload, which each
+job's `timeout-minutes` counts) without changing the job, and a missing key, a provider error or an answer that does
+not validate gives an *unavailable* assessment, never a failure.
+
+Every job calls the same step, the composite action
+[`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml): it builds the job's
+`failed-attempts.json`, runs the diagnosis and uploads the assessments. The attempts come from one of three places:
+
+| Job | Its failed attempts | Server log | Artifact |
+|---|---|---|---|
+| *Demo + Playwright*, monthly *Browsers* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-<browser>-<shard>-<run>-<attempt>`, `monthly-jev-<kind>-<browser>-<shard>` |
+| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-phpunit-<run>-<attempt>` |
+| *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-tools-<run>-<attempt>` |
+| *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-<job id>-<run>-<attempt>` |
+
+A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
+`run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
+What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
+log (a checkout, a tool's download) gets no diagnosis: the step writes nothing to the summary and uploads nothing.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*
@@ -1250,20 +1267,21 @@ key, a provider error or an answer that does not validate gives an *unavailable*
   shown as `unknown` and no excerpt is selected; the answer itself stays in `assessment.json`. The threshold decides
   what is shown, it is not a measured accuracy: nothing here says how often Jev is right on this repository's
   failures. A timeout or an assertion alone does not prove a timing problem, and neither does a pass on retry.
-- **Bounds:** at most 10 attempts per shard, first attempts of every test before their retries; the rest are listed as
+- **Bounds:** at most 10 attempts per job, first attempts of every test before their retries; the rest are listed as
   *not assessed: cap*. Attempts left when the 90-second budget runs out are *not assessed: deadline*. Each request
   holds at most 8 excerpts and 28,000 bytes (server log excerpts are dropped first, then error excerpts, and the
   omissions are recorded); one retry on 429 or 529, 8 seconds per request.
 - **What leaves the runner:** the attempt's identity (file, line, title, project, retry, outcome), excerpts of its
   error and of the demo's server log during the attempt (`docker compose logs --timestamps php`, ±5 seconds), sent to
-  TypeSafe. They are filtered first: the key and every environment value whose name looks like a secret, bearer
+  TypeSafe. For a failed step, its error is its name, its command as the workflow writes it (not the values of its
+  variables) and the selected lines of its log. They are filtered first: the key and every environment value whose name looks like a secret, bearer
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is given to this step alone; without it (a fork's run, for instance) every attempt is
-*unavailable (missing_credential)*. For *Kit PHP*, [`tools/ci/junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)
-first turns PHPUnit's JUnit report (`--log-junit`) into the same `failed-attempts.json`, one attempt per failed test,
-with `demo/var/log/test.log` as its server log; that job's artifact is `jev-phpunit-<run>-<attempt>`. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
+The `TYPESAFE_API_KEY` secret is given to this step alone (`pages.yml` receives it from `release.yml` for its build's
+step, and for nothing else); without it (a fork's run, for instance) every attempt is *unavailable
+(missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
+them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
 
 ## Monthly job
