@@ -57,7 +57,7 @@ final class ProductionConfigurationTest extends TestCase
     {
         $dockerfile = (string) file_get_contents(\dirname(__DIR__, 2).'/Dockerfile');
         self::assertSame(1, preg_match('/AS frankenphp_prod_builder\b(.*?)\nFROM /s', $dockerfile, $stage), 'the prod builder stage');
-        $builder = $stage[1] ?? '';
+        $builder = $stage[1];
 
         $export = strpos($builder, 'export UXOR_DEMO_ALLOW_PRODUCTION=1 APP_SECRET="$(php -r \'echo bin2hex(random_bytes(32));\')"');
         self::assertNotFalse($export, 'the prod builder exports the opt-in and a random secret for its console step');
