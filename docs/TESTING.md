@@ -1024,6 +1024,23 @@ Here: [`fresh-install.sh`](../tools/tests/fresh-install.sh), [`docker-install.sh
 their shared steps [`install-scenario.sh`](../tools/tests/install-scenario.sh),
 [`check-fresh-app.sh`](../tools/tests/check-fresh-app.sh).
 
+## Repository security policy
+
+**Catches:** a mutable external Action, privileged pull-request workflow, broad workflow permission, remote shell pipe,
+new executable rendering sink, tracked dependency or build output, stale supported-version table, or removal of the
+repository's ownership and agent-safety rules.
+
+`tools/security-policy.mjs` runs in the always-on *Tool tests* job. Its rendering-sink manifest names the exact line
+shape, expected count and reason for every accepted Twig raw output and DOM HTML write in installed recipe code, plus
+the dynamic demo's trusted preview boundary. A new or moved sink fails until its data flow and reason are reviewed;
+the manifest is an inventory, not a sanitizer. Unit cases plant each class of failure. CODEOWNERS protects the tool,
+manifest, tests, workflows and agent rules when the branch ruleset requires code-owner approval.
+
+Here: [`security-policy.mjs`](../tools/security-policy.mjs),
+[`security-sinks.json`](../tools/security-sinks.json),
+[`security-policy.test.mjs`](../tools/tests/security-policy.test.mjs),
+[`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
+
 ### Locked and moving lanes
 
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of

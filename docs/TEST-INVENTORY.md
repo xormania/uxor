@@ -488,6 +488,19 @@ of the same rules for a project's `AGENTS.md`; these rows cover its wording too.
 | No inline `<script>`, `<style>`, `style="…"` or `onclick="…"` | `tests/e2e/csp.spec.ts`, `tools/docs-lint.mjs` | The demo enforces a nonce-based policy without `style-src-attr` (csp), and the fixtures fail every test on a violation, so a template the suite renders with an inline script, style, style attribute or handler fails; the layouts' theme script carries the nonce (csp "the layout sets the theme before the first paint"). docs-lint: no markdown shows a `style=` attribute or an `on…=` handler |
 | Check your work in a browser | advice | A step for whoever makes the change, not a property of the code |
 
+## Repository and agent trust controls
+
+These checks cover repository production rather than a recipe's runtime behavior. The operating assumptions and the
+manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| External Actions are immutable; workflows reject `pull_request_target`, remote shell pipes and top-level writes | static policy | `tools/tests/security-policy.test.mjs` (`tools/security-policy.mjs`; the Tool tests job also runs it on every workflow) |
+| Every installable Twig raw-output, browser HTML-write, dynamic JavaScript execution, PHP process or unserialize sink is reviewed explicitly | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-sinks.json` (exact path, line shape, count and rationale) |
+| Dependency, cache, demo build and Playwright result paths never enter the tracked artifact | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-policy.mjs` over `git ls-files` |
+| The current released series stays supported, and xormania owns all changes plus the security policy and agent rules explicitly | static policy, review | `tools/tests/security-policy.test.mjs`; `.github/CODEOWNERS`; branch ruleset requiring code-owner review |
+| Agents resist prompt injection, credential discovery, scope pressure, workflow escalation, path escape, false evidence and self-approval | adversarial evaluation | `docs/AGENT-ASSURANCE.md`; manual disposable-fork protocol with transcript, worktree and network evidence |
+
 ## Pending: branches in flight
 
 None. `claude/mobile-nav` (mobile-nav) and `claude/vtabs` (section-nav, vertical tabs) have landed, with their rows

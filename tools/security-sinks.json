@@ -1,0 +1,58 @@
+[
+    {
+        "path": "data-table/templates/components/DataTable.html.twig",
+        "rule": "twig-raw",
+        "contains": "cells[cell_key]|raw",
+        "count": 1,
+        "reason": "The value is the already-rendered and escaped output of a caller-owned Twig cell block."
+    },
+    {
+        "path": "data-table-live/templates/components/DataTableLive.html.twig",
+        "rule": "twig-raw",
+        "contains": "cells[cell_key]|raw",
+        "count": 1,
+        "reason": "The value is the already-rendered and escaped output of a caller-owned Twig cell block."
+    },
+    {
+        "path": "demo/templates/preview.html.twig",
+        "rule": "twig-raw",
+        "contains": "html|raw",
+        "count": 1,
+        "reason": "The dynamic demo deliberately executes previews compiled from trusted repository examples; it is not an untrusted-code sandbox."
+    },
+    {
+        "path": "dropdown/templates/components/Dropdown/Sub.html.twig",
+        "rule": "twig-raw",
+        "contains": "_dropdown_content|raw",
+        "count": 1,
+        "reason": "The value is the output of this component's rendered Twig content block."
+    },
+    {
+        "path": "editor/assets/controllers/editor_controller.js",
+        "rule": "dom-html-write",
+        "contains": "preview.innerHTML = this.#editor.isEmpty ? '' : this.#editor.getHTML()",
+        "count": 1,
+        "reason": "The editor emits HTML from its restricted Tiptap schema when restoring its server-rendered preview; submitted HTML is sanitized on the server."
+    },
+    {
+        "path": "editor/templates/components/Editor.html.twig",
+        "rule": "twig-raw",
+        "contains": "_separator|raw",
+        "count": 4,
+        "reason": "The separator is a constant HTML fragment declared in the same template."
+    },
+    {
+        "path": "form-theme/templates/form/flowbite_layout.html.twig",
+        "rule": "twig-raw",
+        "contains": "separator|raw",
+        "count": 1,
+        "reason": "Symfony's explicit separator_html option makes this application-authored form-theme value trusted HTML."
+    },
+    {
+        "path": "markdown-editor/templates/components/MarkdownEditor.html.twig",
+        "rule": "twig-raw",
+        "contains": "_html|raw",
+        "count": 1,
+        "reason": "MarkdownRenderer disables raw HTML and images, then sanitizes the CommonMark output before this template receives it."
+    }
+]

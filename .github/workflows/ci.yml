@@ -231,7 +231,8 @@ jobs:
     # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
     # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
     # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Node's JUnit report, beside
-    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. Then the name
+    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. The repository
+    # security policy then reads the workflows, executable sinks, tracked paths and ownership controls. Then the name
     # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
     tools:
         name: Tool tests
@@ -262,6 +263,9 @@ jobs:
                   junit: ${{ runner.temp }}/node-tests.xml
                   junit-project: node
                   job: Tool tests
+
+            - name: Repository security policy
+              run: node tools/security-policy.mjs
 
             - name: Every URL of the kit's repository is manifest.json's homepage
               run: node tools/name-check.mjs
