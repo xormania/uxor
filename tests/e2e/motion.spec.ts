@@ -135,6 +135,92 @@ for (const motion of ['reduce', 'no-preference'] as const) {
     });
 }
 
+/*
+ * The modal's backdrop fades: in as the dialog opens, and out before it closes, the dialog still open (and modal) while
+ * it fades. A transition the browser never runs (a ::backdrop that appears and goes with its dialog in one frame) fires
+ * no event: the check is the transitionrun on the dialog's ::backdrop, and whether the dialog was still open then.
+ * Engines differ in what they run on a ::backdrop: Chromium both fades; WebKit the fade in (its events name no pseudo-
+ * element, and the controller waits only for a transition it knows is the backdrop's, so it closes at once); Firefox
+ * neither, so its backdrop comes and goes at once, as before.
+ */
+const BACKDROP_FADES: Record<string, { in: boolean; out: boolean }> = {
+    chromium: { in: true, out: true },
+    webkit: { in: true, out: false },
+    firefox: { in: false, out: false },
+};
+
+const recordBackdropTransitions = (dialog: Locator) =>
+    dialog.evaluate((element: HTMLDialogElement) => {
+        const seen: string[] = [];
+        (window as unknown as { backdropTransitions: string[] }).backdropTransitions = seen;
+        for (const type of ['transitionrun', 'transitionend', 'transitioncancel']) {
+            element.addEventListener(type, (event) => {
+                const { pseudoElement, propertyName, target } = event as TransitionEvent;
+                // the dialog itself transitions nothing: a background-color transition targeting it is its backdrop's
+                if (target === element && 'background-color' === propertyName && ['::backdrop', ''].includes(pseudoElement)) {
+                    seen.push(`${type} ${element.open ? 'open' : 'closed'}`);
+                }
+            });
+        }
+        element.addEventListener('close', () => seen.push('close'));
+    });
+const backdropTransitions = (page: Page) => page.evaluate(() => [...(window as unknown as { backdropTransitions: string[] }).backdropTransitions]);
+const forgetBackdropTransitions = (page: Page) => page.evaluate(() => void ((window as unknown as { backdropTransitions: string[] }).backdropTransitions.length = 0));
+
+/** Clicks the dialog's Decline button and says, within the click, whether the dialog is still open and fading out. */
+const declineWithinTheClick = (dialog: Locator) =>
+    dialog.evaluate((element: HTMLDialogElement) => {
+        [...element.querySelectorAll('button')].find((button) => 'Decline' === button.textContent?.trim())!.click();
+        return { open: element.open, closing: element.hasAttribute('data-closing') };
+    });
+
+test('the modal backdrop fades in as the dialog opens and out before it closes', async ({ page, browserName }) => {
+    const fades = BACKDROP_FADES[browserName];
+    await open(page, 'modal/default', 'no-preference');
+    const trigger = page.getByRole('button', { name: 'Open Modal' });
+    const dialog = page.locator('dialog').first();
+    await recordBackdropTransitions(dialog);
+
+    for (const time of ['first', 'again after a fade out']) {
+        await forgetBackdropTransitions(page);
+        await trigger.click();
+        await expect(dialog).toBeVisible();
+        if (fades.in) {
+            await expect.poll(() => backdropTransitions(page), `the backdrop fades in (${time})`).toContain('transitionrun open');
+        }
+
+        await forgetBackdropTransitions(page);
+        expect(await declineWithinTheClick(dialog), 'within the click: still open while the backdrop fades out').toEqual({ open: fades.out, closing: fades.out });
+        if (fades.out) {
+            // the fade out runs while the dialog is open, then the dialog closes
+            await expect.poll(() => backdropTransitions(page), `the backdrop fades out, then the dialog closes (${time})`).toContain('close');
+            // a fade in still running when the close starts is cancelled first, and the fade out starts from its color
+            const seen = await backdropTransitions(page);
+            const fadeOut = seen.indexOf('transitionrun open');
+            expect(fadeOut, `the fade out ran while the dialog was open: ${seen}`).toBeGreaterThanOrEqual(0);
+            expect(fadeOut, `before the dialog closed: ${seen}`).toBeLessThan(seen.indexOf('close'));
+        }
+        await expect(dialog).toBeHidden();
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        await expect(dialog).toHaveAttribute('aria-hidden', 'true');
+        await expect(trigger).toBeFocused();
+        expect(await dialog.evaluate((element) => element.hasAttribute('data-closing')), 'no closing state left behind').toBe(false);
+    }
+});
+
+test('under reduced motion the modal backdrop does not fade, and the dialog closes at once', async ({ page }) => {
+    await open(page, 'modal/default', 'reduce');
+    const trigger = page.getByRole('button', { name: 'Open Modal' });
+    const dialog = page.locator('dialog').first();
+    await recordBackdropTransitions(dialog);
+
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+    expect(await declineWithinTheClick(dialog), 'closed within the click').toEqual({ open: false, closing: false });
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    await expect.poll(() => backdropTransitions(page), 'closed, with no backdrop transition').toEqual(['close']);
+});
+
 test('under reduced motion an alert hides at once, without waiting for a fade', async ({ page }) => {
     await open(page, 'alert/dismissing', 'reduce');
     const hidden = await page.getByRole('alert').filter({ hasText: 'A simple info alert' }).evaluate((alert) => {

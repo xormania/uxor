@@ -5,6 +5,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Fixed
+
+- `modal`: the backdrop fades, in as the dialog opens and out before it closes (150 ms); its transition classes never
+  ran before, so it appeared and went at once. The dialog stays open and modal while the backdrop fades out, then
+  closes and gives the focus back. Under `prefers-reduced-motion` it does not fade and the dialog closes at once, as
+  before; before Turbo caches the page it closes at once too. Chromium runs both fades, Safari the fade in only,
+  Firefox neither.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added
@@ -117,7 +125,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   `bg-white`. **Upgrading:** reinstall `theme` with those recipes, or those components lose their white text.
 - Motion: transitions name the properties they animate and stop under `prefers-reduced-motion`. `tabs` triggers fade
   their colors only (was `transition-all`), the `toggle` knob animates `translate` and its border color (was
-  `transition-all`), and the `modal` backdrop its color (was every property); these, the `sidebar` width and chevron,
+  `transition-all`), and the `modal` backdrop's transition names its color (was every property); these, the `sidebar` width and chevron,
   the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once under reduced motion.
   There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without waiting for the fade, and
   the `spinner` and the `skeleton` pulse run three times slower.

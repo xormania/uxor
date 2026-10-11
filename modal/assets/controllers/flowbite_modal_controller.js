@@ -9,6 +9,9 @@ import { isKeptOnCache } from '../lib/uxor-turbo.js';
  */
 const SHOWN_AS_MODAL = Symbol.for('uxor.modal.shownAsModal');
 
+/** The attribute that fades the backdrop out (`data-closing:backdrop:bg-transparent`) while a close waits for it. */
+const CLOSING = 'data-closing';
+
 export default class extends Controller {
     static targets = ['trigger', 'modal'];
 
@@ -18,7 +21,15 @@ export default class extends Controller {
 
     #wasOpen = null;
 
+    /** The close waiting for the backdrop's fade, or null. */
+    #closing = null;
+
     connect() {
+        // a dialog whose close was still waiting for its fade when its controller went (moved by a Live re-render, a
+        // copy of the page): closed now
+        if (this.modalTarget.hasAttribute(CLOSING)) {
+            this.#closeNow();
+        }
         const demoted = this.modalTarget.open && !this.modalTarget.matches(':modal');
         // moved by a morph without `moveBefore` (WebKit) while open: shown as a modal again
         const moved = demoted && true === this.modalTarget[SHOWN_AS_MODAL];
@@ -41,13 +52,16 @@ export default class extends Controller {
         document.removeEventListener('turbo:before-cache', this.#closeBeforeCache);
         // A <dialog> taken out of the DOM comes back open but no longer modal, so reopen it on reconnect. A Live
         // re-render that replaces the container may have moved the dialog to a new controller already: nothing to close.
-        this.#wasOpen = this.hasModalTarget && this.modalTarget.open;
-        if (this.#wasOpen) {
+        // A dialog fading out was being closed: it stays closed.
+        this.#wasOpen = this.hasModalTarget && this.modalTarget.open && null === this.#closing;
+        this.#closing = null;
+        if (this.hasModalTarget && this.modalTarget.open) {
             this.#closeNow();
         }
     }
 
     open() {
+        this.#cancelFade();
         this.modalTarget.showModal();
         this.modalTarget[SHOWN_AS_MODAL] = true;
         this.#syncAfterTransition(true);
@@ -59,8 +73,41 @@ export default class extends Controller {
         }
     }
 
+    // Fades the backdrop out, then closes the dialog: it stays open and modal while it fades. Without a fade to wait
+    // for (prefers-reduced-motion, a dialog not shown as a modal) it closes at once.
     close() {
+        if (null !== this.#closing) {
+            return;
+        }
+        const fades = this.modalTarget.open ? this.#fadeOutBackdrop() : [];
+        if (0 === fades.length) {
+            this.#hide();
+            return;
+        }
+        // a fade cancelled (its attribute removed by a morph) closes the dialog all the same; a newer open or close
+        // replaced this one
+        const closing = Promise.allSettled(fades.map((fade) => fade.finished)).then(() => {
+            if (this.#closing === closing) {
+                this.#hide();
+            }
+        });
+        this.#closing = closing;
+    }
+
+    // Starts the backdrop's fade out and returns its transitions: none under prefers-reduced-motion.
+    #fadeOutBackdrop() {
+        this.modalTarget.setAttribute(CLOSING, '');
+        return this.modalTarget.getAnimations({ subtree: true }).filter((animation) => '::backdrop' === animation.effect?.pseudoElement);
+    }
+
+    #cancelFade() {
+        this.#closing = null;
+        this.modalTarget.removeAttribute(CLOSING);
+    }
+
+    #hide() {
         this.modalTarget.close();
+        this.#cancelFade();
         delete this.modalTarget[SHOWN_AS_MODAL];
         this.#syncAfterTransition(false);
     }
@@ -102,6 +149,7 @@ export default class extends Controller {
     // before it ends.
     #closeNow() {
         this.modalTarget.close();
+        this.#cancelFade();
         delete this.modalTarget[SHOWN_AS_MODAL];
         if (this.hasTriggerTarget) {
             this.triggerTarget.setAttribute('aria-expanded', 'false');
