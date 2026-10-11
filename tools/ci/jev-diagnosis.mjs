@@ -91,7 +91,7 @@ function cleanLine(line, secrets) {
     return clean(line, secrets);
 }
 
-// --- the policy (.github/jev-ci.json + devtools/configuration.cue bounds) ------------------------------------------
+// --- the policy (tools/ci/jev-ci.json + devtools/configuration.cue bounds) -----------------------------------------
 
 const number = (value, low = 0, high = 1) => typeof value === 'number' && Number.isFinite(value) && value >= low && value <= high;
 const integer = (value, low, high) => Number.isInteger(value) && value >= low && value <= high;
