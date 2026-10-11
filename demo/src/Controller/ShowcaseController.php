@@ -12,6 +12,7 @@ use Symfony\UX\Toolkit\Dependency\PhpPackageDependency;
 use Symfony\UX\Toolkit\Dependency\RecipeDependency;
 use Symfony\UX\Toolkit\Recipe\Recipe;
 
+#[Route(options: ['uxor_security' => 'public-read'])]
 final class ShowcaseController extends AbstractController
 {
     public function __construct(
@@ -19,7 +20,7 @@ final class ShowcaseController extends AbstractController
     ) {
     }
 
-    #[Route('/', name: 'app_index')]
+    #[Route('/', name: 'app_index', methods: ['GET'])]
     public function index(): Response
     {
         $exampleCounts = array_map(fn (Recipe $recipe): int => \count($this->kit->getExamples($recipe)), $this->kit->getRecipes());
@@ -32,7 +33,7 @@ final class ShowcaseController extends AbstractController
         ]);
     }
 
-    #[Route('/r/{recipe}', name: 'app_recipe', requirements: ['recipe' => '[a-z0-9][a-z0-9-]*'])]
+    #[Route('/r/{recipe}', name: 'app_recipe', requirements: ['recipe' => '[a-z0-9][a-z0-9-]*'], methods: ['GET'])]
     public function recipe(string $recipe): Response
     {
         if (null === $found = $this->kit->getRecipe($recipe)) {
