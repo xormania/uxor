@@ -102,8 +102,11 @@ unchecked. On top of escaping, the components check what shapes their markup:
 - **Attributes.** Attributes given to a component, and `FormField`'s `labelAttr` and `helpAttr`, render with escaped
   names and values: a name cannot add another attribute. An inline event handler, any name starting with `on` (in
   any case, after leading spaces and control characters), silently renders nothing: behavior goes in a Stimulus
-  controller, wired with `data-action`. Other attributes render as given. The URL attributes named above become
-  guarded props; another component's URL attribute is not checked. Check attributes not declared as props yourself.
+  controller, wired with `data-action`. A component's attributes are also read as a browser reads their names, in
+  any case: `href` and `formaction` (`HREF`, `FormAction`…) keep a relative, `http(s)`, `mailto` or `tel` URL, any
+  other rendering `#`; `src` keeps a relative or `http(s)` URL, any other rendering no `src`; `srcset` and `ping`
+  render nothing, and a nested name such as `xlink:href` is never printed. Other attributes render as given: check
+  another URL attribute (`action`, `data`, `poster`…) yourself.
 - **Content Security Policy.** The components print no inline script, style or event handler, so they work under a
   strict policy (nonces and `'strict-dynamic'`, no `'unsafe-inline'`). The layouts print their inline script and the
   importmap with your nonces: see *Content Security Policy* in [`layouts/README.md`](../layouts/README.md).

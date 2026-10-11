@@ -16,7 +16,7 @@ import { test, expect } from './fixtures';
 type TagCase = { component: string; input: string; expected: string; html: string };
 type UrlCase = { component: string; prop: string; link: string; input: string; text: string; hostile: boolean; html: string };
 type ImageCase = { component: string; prop: string; input: string; text: string; html: string };
-type HandlerCase = { component: string; bag: boolean; html: string };
+type HandlerCase = { component: string; set: number; bag: boolean; html: string };
 type LegitCase = { component: string; expected: Record<string, string>; html: string };
 type Cases = {
     tags: TagCase[];
@@ -240,7 +240,7 @@ test('image props keep only relative and http(s) URLs', async ({ page }) => {
     expect(dialogs).toEqual([]);
 });
 
-test('components drop attributes named on… and render the others', async ({ page }) => {
+test('components drop attributes named on…, check URL attributes in any case, and render the others', async ({ page }) => {
     test.setTimeout(180_000);
     const dialogs = recordDialogs(page);
     const failures: string[] = [];
@@ -250,11 +250,34 @@ test('components drop attributes named on… and render the others', async ({ pa
 
             return root ? Object.fromEntries(root.getAttributeNames().map((name) => [name, root.getAttribute(name)!])) : null;
         });
-    for (const { component, bag, html } of cases.handlers.cases) {
+    // every URL attribute in the page, whatever the case of its name, read as the browser resolves it
+    const urlAttributes = () =>
+        page.evaluate(() =>
+            [...document.querySelectorAll('*')].flatMap((element) =>
+                element
+                    .getAttributeNames()
+                    .filter((name) => ['href', 'formaction', 'src', 'srcset', 'ping', 'xlink:href'].includes(name))
+                    .map((name) => {
+                        let protocol = 'invalid';
+                        try {
+                            protocol = new URL(element.getAttribute(name)!, document.baseURI).protocol;
+                        } catch {}
+
+                        return { tag: element.localName, name, value: element.getAttribute(name)!, protocol };
+                    }),
+            ),
+        );
+    for (const { component, set, bag, html } of cases.handlers.cases) {
         const found = await parse(page, `<base href="${BASE}">${html}`);
         const problems: string[] = [];
         if (found.handlers.length) {
             problems.push(`renders ${found.handlers.join(', ')}`);
+        }
+        for (const { tag, name, value, protocol } of await urlAttributes()) {
+            const allowed = 'src' === name ? ['http:', 'https:'] : ['srcset', 'ping'].includes(name) ? [] : SAFE_PROTOCOLS;
+            if (!allowed.includes(protocol)) {
+                problems.push(`<${tag} ${name}=${JSON.stringify(value)}>`);
+            }
         }
         // the ordinary attributes given with them still land, on the element taking the attributes
         const root = await rootAttributes();
@@ -265,7 +288,7 @@ test('components drop attributes named on… and render the others', async ({ pa
             problems.push(`ran a payload (${found.ran})`);
         }
         if (problems.length) {
-            failures.push(`${component}: ${problems.join('; ')}`);
+            failures.push(`${component} (set ${set}): ${problems.join('; ')}`);
         }
     }
     for (const { component, expected, html } of cases.handlers.legit) {
@@ -284,7 +307,7 @@ test('components drop attributes named on… and render the others', async ({ pa
         }
     }
 
-    expect(cases.handlers.cases.length).toBeGreaterThan(100);
+    expect(cases.handlers.cases.length).toBeGreaterThan(400);
     expect(failures).toEqual([]);
     expect(dialogs).toEqual([]);
 });

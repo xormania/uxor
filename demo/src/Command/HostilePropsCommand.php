@@ -90,6 +90,18 @@ final class HostilePropsCommand
         'aria-keyshortcuts' => 'k',
     ];
 
+    /**
+     * URL attributes in the attribute bag, under names in any case, one set per rendering (HTML reads names in any
+     * case, so `HREF` is a link): `href` and `formaction` keep a relative, http(s), mailto or tel URL, else `#`; `src`
+     * a relative or http(s) one, else nothing; `srcset` and `ping` never render; `xlink:href` is a nested attribute,
+     * which a bag never prints.
+     */
+    private const URL_ATTRIBUTE_SETS = [
+        ['HREF' => 'javascript:window.__xss=1', 'FORMACTION' => 'javascript:window.__xss=1', 'SRC' => 'javascript:window.__xss=1', 'SrcSet' => 'javascript:window.__xss=1 1x', 'Ping' => 'https://tracker.example/', 'xlink:href' => 'javascript:window.__xss=1'],
+        ['Href' => " JaVaScRiPt:window.__xss=1", 'FormAction' => 'data:text/html,<script>window.__xss=1</script>', 'Src' => 'data:image/svg+xml,<svg onload="window.__xss=1"/>', 'srcset' => '/a.png 1x', 'PING' => '/track'],
+        ['href' => "java\tscript:window.__xss=1", 'formaction' => 'vbscript:msgbox(1)', 'src' => 'blob:https://app.example/1', 'ping' => '/track'],
+    ];
+
     /** Attributes the link and image components render as given (`class` and `data-action` merged with their own). */
     private const LEGIT = [
         'id' => 'given-id',
@@ -107,6 +119,7 @@ final class HostilePropsCommand
         'Badge' => '<twig:Badge as="a" href="/x" {{ ...handlers }}>Badge</twig:Badge>',
         'Dropdown:Item' => '<ul role="menu"><twig:Dropdown:Item href="/x" {{ ...handlers }}>Item</twig:Dropdown:Item></ul>',
         'Pagination:Link' => '<twig:Pagination:Link href="/x" {{ ...handlers }}>2</twig:Pagination:Link>',
+        'Avatar:GroupCount' => '<twig:Avatar:GroupCount as="a" HREF="/x" FormAction="/f" {{ ...handlers }}>+9</twig:Avatar:GroupCount>',
         'Avatar:Image' => '<twig:Avatar><twig:Avatar:Image src="/a.png" {{ ...handlers }} /></twig:Avatar>',
     ];
 
@@ -361,9 +374,10 @@ final class HostilePropsCommand
 
     /**
      * Every component whose template reads the attributes given to it, rendered with inline event handlers next to
-     * ordinary attributes; `bag` is false for the two that take only `class` from them.
+     * ordinary attributes, alone (set 0) and with each URL_ATTRIBUTE_SETS (sets 1 to 3); `bag` is false for the two
+     * that take only `class` from them.
      *
-     * @return array{cases: list<array{component: string, bag: bool, html: string}>, legit: list<array{component: string, expected: array<string, string>, html: string}>}
+     * @return array{cases: list<array{component: string, set: int, bag: bool, html: string}>, legit: list<array{component: string, expected: array<string, string>, html: string}>}
      */
     private function handlers(): array
     {
@@ -378,16 +392,25 @@ final class HostilePropsCommand
         $cases = [];
         foreach ($templates as $component) {
             [$markup, $recipe] = self::HANDLER_MARKUP[$component] ?? ['<twig:%1$s %2$s>Text</twig:%1$s>', null];
-            $cases[] = [
-                'component' => $component,
-                'bag' => !\in_array($component, ['Drawer:Content', 'Modal:Content'], true),
-                'html' => $this->render(\sprintf($markup, $component, '{{ ...handlers }}'), ['handlers' => self::HANDLERS] + (null === $recipe ? [] : $this->forms->contextFor($recipe))),
-            ];
+            foreach ([[], ...self::URL_ATTRIBUTE_SETS] as $set => $urls) {
+                // a fresh form view each time: a form renders once
+                $context = null === $recipe ? [] : $this->forms->contextFor($recipe);
+                $cases[] = [
+                    'component' => $component,
+                    'set' => $set,
+                    'bag' => !\in_array($component, ['Drawer:Content', 'Modal:Content'], true),
+                    'html' => $this->render(\sprintf($markup, $component, '{{ ...handlers }}'), ['handlers' => self::HANDLERS + $urls] + $context),
+                ];
+            }
         }
         $legit = [];
         foreach (self::LEGIT_MARKUP as $component => $markup) {
-            // Pagination:Link takes its class from `active` alone
-            $expected = 'Pagination:Link' === $component ? array_diff_key(self::LEGIT, ['class' => true]) : self::LEGIT;
+            // Pagination:Link takes its class from `active` alone; a URL attribute given in any case keeps a safe URL
+            $expected = match ($component) {
+                'Pagination:Link' => array_diff_key(self::LEGIT, ['class' => true]),
+                'Avatar:GroupCount' => self::LEGIT + ['href' => '/x', 'formaction' => '/f'],
+                default => self::LEGIT,
+            };
             $legit[] = ['component' => $component, 'expected' => $expected, 'html' => $this->render($markup, ['handlers' => self::HANDLERS + self::LEGIT])];
         }
 

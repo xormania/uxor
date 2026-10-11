@@ -71,6 +71,44 @@ final class ComponentsTest extends KernelTestCase
         yield 'data' => ['data:text/html,<script>alert(1)</script>', '#'];
     }
 
+    /**
+     * @return iterable<string, array{string, array<string, mixed>}>
+     */
+    public static function attributeBags(): iterable
+    {
+        $hostile = ['ONCLICK' => 'x()', ' onfocus' => 'x()', 'HREF' => 'javascript:alert(1)', 'FormAction' => " JaVa\tScRiPt:alert(1)", 'Src' => 'data:image/svg+xml,x', 'srcset' => 'x.png 1x', 'Ping' => '/t'];
+        foreach (['Button' => ['as' => 'a'], 'Button as button' => [], 'Badge' => ['as' => 'a'], 'Dropdown:Item' => [], 'Avatar:GroupCount' => ['as' => 'a'], 'Avatar:Image' => [], 'Input' => ['type' => 'submit']] as $name => $props) {
+            yield $name => [explode(' ', $name)[0], $props + $hostile];
+        }
+    }
+
+    /**
+     * The attributes given to a component, read as a browser reads their names (in any case): no `on…`, `srcset` or
+     * `ping`; `href` and `formaction` with an unsafe scheme render `#`, such a `src` renders nothing.
+     *
+     * @param array<string, mixed> $props
+     */
+    #[DataProvider('attributeBags')]
+    public function testAComponentChecksTheUrlAndHandlerAttributesGivenInAnyCase(string $component, array $props): void
+    {
+        $html = $this->renderTwigComponent($component, $props, 'x')->toString();
+        $document = new \DOMDocument();
+        @$document->loadHTML('<!doctype html><body>'.$html);
+        $found = [];
+        foreach ((new \DOMXPath($document))->query('//body//*') ?: [] as $element) {
+            \assert($element instanceof \DOMElement);
+            foreach ($element->attributes as $attribute) {
+                $name = strtolower(ltrim(html_entity_decode($attribute->name), "\x00..\x20"));
+                if (str_starts_with($name, 'on') || \in_array($name, ['srcset', 'ping', 'src'], true)
+                    || (\in_array($name, ['href', 'formaction'], true) && '#' !== $attribute->value)) {
+                    $found[] = $attribute->name.'="'.$attribute->value.'"';
+                }
+            }
+        }
+
+        self::assertSame([], $found, $html);
+    }
+
     #[DataProvider('links')]
     public function testABreadcrumbLinkKeepsOnlyAllowedSchemes(string $href, string $expected): void
     {

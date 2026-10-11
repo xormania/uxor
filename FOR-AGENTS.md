@@ -206,7 +206,8 @@ Where two recipes are close:
 - **Props and attributes are trusted input**: give `as` and attribute names values the code chose, never request or
   user data unchecked. The kit's declared link props keep relative, http(s), mailto and tel URLs, and
   `Avatar:Image src` keeps relative and http(s) URLs; check any other URL attribute yourself. An attribute named
-  `on…` renders nothing: wire behavior with `data-action`. Validate dates and bounds on the server: the calendar's
+  `on…`, `srcset` or `ping` renders nothing (wire behavior with `data-action`), and `href`, `formaction` and `src`
+  attributes, in any case, follow the same URL rules. Validate dates and bounds on the server: the calendar's
   only guide the user.
 - **No inline `<script>`, `<style>`, `style="…"` or `onclick="…"`** in templates: behavior goes in Stimulus
   controllers, styles in Tailwind classes.

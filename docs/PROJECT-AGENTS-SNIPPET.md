@@ -118,7 +118,8 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
   `path()`, `url()`), never request or user data unchecked. `as` falls back to the component's default tag; the
   kit's declared link props render `#` for a URL that is not relative, http(s), mailto or tel, and
   `Avatar:Image src` keeps only relative or http(s) URLs. Check any other URL attribute yourself. An attribute
-  named `on…` renders nothing: wire behavior with `data-action`.
+  named `on…`, `srcset` or `ping` renders nothing (wire behavior with `data-action`), and `href`, `formaction` and
+  `src` attributes, in any case, follow the same URL rules.
 - **No inline script, style or event handler** (`<script>`, `<style>`, `style="…"`, `onclick="…"`) in
   templates: a Content Security Policy blocks them unless they carry its nonce or hash, and no nonce covers an
   attribute. Behavior goes in Stimulus controllers, styles in Tailwind classes or the stylesheet. Under a policy,

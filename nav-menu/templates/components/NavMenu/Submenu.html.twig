@@ -6,8 +6,8 @@
     ## string|null The name in the submenu's id (`<parent id>-<name>`, lower-cased, spaces as `-`), unique among its siblings; defaults to the label.
     name = null
 -%}
-{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
-{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 {%- set _vertical = _nav_menu_vertical ?? false -%}
 {%- set _level = _nav_menu_level ?? 0 -%}
 {%- set _submenu_id = (_nav_menu_id ?? 'nav-menu') ~ '-' ~ ((name ?? label) ~ '')|replace({"\t": ' ', "\n": ' ', "\r": ' ', "\f": ' '})|lower|split(' ')|filter((part) => part is not empty)|join('-') -%}
