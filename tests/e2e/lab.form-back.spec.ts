@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { back, turboOperation, visit } from './transitions';
+import { day } from './calendar';
 
 /*
  * What Back shows in a form (the `form-reset` controller of the layouts, on the demo's <body>) beyond the value matrix
@@ -9,8 +10,6 @@ import { back, turboOperation, visit } from './transitions';
  */
 
 const rendered = '/lab/form-back/%s?name=Ada&fruit=apple&due=2026-03-10';
-
-const day = (page: Page, date: string) => page.locator(`form [data-slot="calendar-day"][data-day="${date}"] button`);
 
 const autocomplete = {
     change: async (page: Page) => {
@@ -33,7 +32,7 @@ test('a date picker in a GET form also goes back to the month rendered', async (
     await page.goto(rendered.replace('%s', 'get'));
     await page.getByRole('button', { name: 'Due date: choose date' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Next month' }).click();
-    await day(page, '2026-04-08').click();
+    await day(page.locator('form'), '2026-04-08').click();
     await expect(page.locator('input[name="due"]')).toHaveValue('2026-04-08');
 
     await visit(page, 'Go to page two', 'Page two');
@@ -42,7 +41,7 @@ test('a date picker in a GET form also goes back to the month rendered', async (
     await expect(page.locator('input[name="due"]')).toHaveValue('2026-03-10');
     await page.getByRole('button', { name: 'Due date: choose date' }).click();
     await expect(page.getByRole('dialog').getByRole('grid')).toHaveAccessibleName('March 2026');
-    await expect(day(page, '2026-03-10')).toBeFocused();
+    await expect(day(page.locator('form'), '2026-03-10')).toBeFocused();
 });
 
 // The page's scripts held back, so the user types before the controllers connect, as on a slow first load

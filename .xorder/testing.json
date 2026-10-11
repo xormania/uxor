@@ -1,0 +1,351 @@
+{
+    "schema_version": 1,
+    "sync": {
+        "command": [
+            "php",
+            "tools/sync-demo"
+        ],
+        "check": {
+            "command": [
+                "php",
+                "tools/sync-demo",
+                "--dry-run"
+            ],
+            "absent": "[dry-run]"
+        }
+    },
+    "plants": {
+        "calendar-select-nothing": {
+            "description": "A click or Enter on a day selects nothing. Moved: day, dayCell (calendar.ts).",
+            "edits": [
+                {
+                    "path": "calendar/assets/controllers/calendar_controller.js",
+                    "search": "if (!this.canSelect(date)) {",
+                    "replace": "if (true || !this.canSelect(date)) {"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/calendar_controller.js"
+                ],
+                "contains": "if (true || !this.canSelect(date)) {"
+            }
+        },
+        "calendar-change-twice": {
+            "description": "A pick dispatches its change event twice. Moved: countEvents (fixtures.ts).",
+            "edits": [
+                {
+                    "path": "calendar/assets/controllers/calendar_controller.js",
+                    "search": "element.dispatchEvent(new Event('change', { bubbles: true }));",
+                    "replace": "element.dispatchEvent(new Event('change', { bubbles: true })); element.dispatchEvent(new Event('change', { bubbles: true, composed: false }));"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/calendar_controller.js"
+                ],
+                "contains": "composed: false"
+            }
+        },
+        "calendar-silent-removal": {
+            "description": "Deselecting the last date of a multiple calendar dispatches no change event. Moved: countEvents (fixtures.ts), the calendar's root listener now on document.",
+            "edits": [
+                {
+                    "path": "calendar/assets/controllers/calendar_controller.js",
+                    "search": "surplus[0].dispatchEvent(new Event('change', { bubbles: true }));",
+                    "replace": "surplus[0].dispatchEvent(new Event('planted-no-change', { bubbles: true }));"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/calendar_controller.js"
+                ],
+                "contains": "planted-no-change"
+            }
+        },
+        "dropzone-remove-name": {
+            "description": "The Remove button's name loses the file name. Moved: png, text (files.ts), previewUrl (inventory.ts).",
+            "edits": [
+                {
+                    "path": "dropzone/templates/components/Dropzone.html.twig",
+                    "search": "aria-labelledby=\"{{ _id }}_remove {{ _id }}_filename\"",
+                    "replace": "aria-labelledby=\"{{ _id }}_remove\""
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/preview/dropzone/default?theme=light"
+                ],
+                "contains": "aria-labelledby=\"dropzone-default_remove\""
+            }
+        },
+        "popover-escape-focus": {
+            "description": "Escape closes the popover without returning the focus to the trigger. Moved: previewUrl (inventory.ts).",
+            "edits": [
+                {
+                    "path": "popover/assets/controllers/popover_controller.js",
+                    "search": "this.hasTriggerTarget && this.triggerTarget.focus();",
+                    "replace": "this.hasTriggerTarget && this.triggerTarget.blur();"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/popover_controller.js"
+                ],
+                "contains": "this.hasTriggerTarget && this.triggerTarget.blur();"
+            }
+        },
+        "data-table-status-short": {
+            "description": "The DataTable status line counts one row less. Moved: tableStatus, tableParams (data-table.ts).",
+            "edits": [
+                {
+                    "path": "data-table/templates/components/DataTable.html.twig",
+                    "search": "{{ view.from }}–{{ view.to }}</span>",
+                    "replace": "{{ view.from }}–{{ view.to - 1 }}</span>"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/lab/data-table-frame"
+                ],
+                "contains": ">1–9</span>"
+            }
+        },
+        "data-table-live-selection": {
+            "description": "DataTableLive counts one selected row too many. Moved: selectionStatus (data-table.ts).",
+            "edits": [
+                {
+                    "path": "data-table-live/templates/components/DataTableLive.html.twig",
+                    "search": "{{ table.selectedIds|length }}</span> selected",
+                    "replace": "{{ table.selectedIds|length + 1 }}</span> selected"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/lab/data-table-live"
+                ],
+                "contains": ">1</span> selected"
+            }
+        },
+        "data-table-live-status-short": {
+            "description": "The DataTableLive status line counts one row less. Moved: tableStatus, tableParams (data-table.ts).",
+            "edits": [
+                {
+                    "path": "data-table-live/templates/components/DataTableLive.html.twig",
+                    "search": "{{ view.from }}–{{ view.to }}</span>",
+                    "replace": "{{ view.from }}–{{ view.to - 1 }}</span>"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/lab/data-table-live"
+                ],
+                "contains": ">1–9</span>"
+            }
+        },
+        "data-table-page-link-next": {
+            "description": "Each page link of the DataTable goes to the page after it. Moved: follow (transitions.ts), tableStatus (data-table.ts).",
+            "edits": [
+                {
+                    "path": "data-table/templates/components/DataTable.html.twig",
+                    "search": "href=\"{{ view.url({page: page}) }}\"",
+                    "replace": "href=\"{{ view.url({page: page + 1}) }}\""
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/lab/data-table-frame"
+                ],
+                "contains": "page=3\" aria-label=\"Page 2\""
+            }
+        },
+        "dropdown-disconnect-leak": {
+            "description": "A disconnected dropdown keeps its listeners (turbo:before-cache on document among them). Moved: reloadFrames, sendStream (transitions.ts), the global view of the listener tracker (fixtures.ts).",
+            "edits": [
+                {
+                    "path": "dropdown/assets/controllers/dropdown_controller.js",
+                    "search": "this.listeners.forEach((remove) => remove());",
+                    "replace": "this.listeners.forEach((remove) => remove.length);"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/dropdown_controller.js"
+                ],
+                "contains": "this.listeners.forEach((remove) => remove.length);"
+            }
+        },
+        "dropdown-close-leak": {
+            "description": "Closing a dropdown leaves its capture click listener on document. Moved: the listener tracker's two views (fixtures.ts, read by trackCounts and trackGlobalListeners).",
+            "edits": [
+                {
+                    "path": "dropdown/assets/controllers/dropdown_controller.js",
+                    "search": "document.removeEventListener('click', this.onClickOutside, true);",
+                    "replace": "document.removeEventListener('click', this.onClickOutside, false);"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/dropdown_controller.js"
+                ],
+                "contains": "this.onClickOutside, false);"
+            }
+        },
+        "modal-not-modal": {
+            "description": "The modal opens with show(): open, not modal. Moved: dialogState (fixtures.ts).",
+            "edits": [
+                {
+                    "path": "modal/assets/controllers/flowbite_modal_controller.js",
+                    "search": "this.modalTarget.showModal();",
+                    "replace": "this.modalTarget.show();"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/flowbite_modal_controller.js"
+                ],
+                "contains": "this.modalTarget.show();"
+            }
+        },
+        "drawer-not-modal": {
+            "description": "A modal drawer opens with show(): open, not modal. Moved: dialogState (fixtures.ts).",
+            "edits": [
+                {
+                    "path": "drawer/assets/controllers/drawer_controller.js",
+                    "search": "this.modalValue ? this.dialogTarget.showModal() : this.dialogTarget.show()",
+                    "replace": "this.modalValue ? this.dialogTarget.show() : this.dialogTarget.show()"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "php",
+                    "-r",
+                    "$c = stream_context_create([\"ssl\" => [\"verify_peer\" => false, \"verify_peer_name\" => false]]); $html = file_get_contents(\"https://localhost/lab\", false, $c); preg_match(\"~<script type=\\\"importmap\\\"[^>]*>(.*?)</script>~s\", $html, $m); echo file_get_contents(\"https://localhost\" . json_decode($m[1], true)[\"imports\"][\"/assets/\" . $argv[1]], false, $c);",
+                    "controllers/drawer_controller.js"
+                ],
+                "contains": "this.modalValue ? this.dialogTarget.show() : this.dialogTarget.show()"
+            }
+        },
+        "theme-after-first-paint": {
+            "description": "The layouts set the saved or system theme on DOMContentLoaded, after the first paint. Moved: recordDarkAtFirstBody (fixtures.ts).",
+            "edits": [
+                {
+                    "path": "layouts/templates/layouts/base.html.twig",
+                    "search": "document.documentElement.classList.toggle('dark', 'dark' === theme || ('light' !== theme && matchMedia('(prefers-color-scheme: dark)').matches));",
+                    "replace": "addEventListener('DOMContentLoaded', () => document.documentElement.classList.toggle('dark', 'dark' === theme || ('light' !== theme && matchMedia('(prefers-color-scheme: dark)').matches)));"
+                },
+                {
+                    "path": "demo/templates/base.html.twig",
+                    "search": "document.documentElement.classList.toggle('dark', 'dark' === theme || ('light' !== theme && matchMedia('(prefers-color-scheme: dark)').matches));",
+                    "replace": "addEventListener('DOMContentLoaded', () => document.documentElement.classList.toggle('dark', 'dark' === theme || ('light' !== theme && matchMedia('(prefers-color-scheme: dark)').matches)));"
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/demo/login"
+                ],
+                "contains": "addEventListener('DOMContentLoaded', () => document.documentElement"
+            }
+        },
+        "lab-link-full-load": {
+            "description": "The demo's Main navigation links to the lab with data-turbo=\"false\": a full page load, the page right. Moved: markDocument (fixtures.ts).",
+            "edits": [
+                {
+                    "path": "demo/templates/base.html.twig",
+                    "search": "<a href=\"{{ path('app_lab') }}\" class=",
+                    "replace": "<a href=\"{{ path('app_lab') }}\" data-turbo=\"false\" class="
+                }
+            ],
+            "confirm": {
+                "command": [
+                    "curl",
+                    "--fail",
+                    "--silent",
+                    "--show-error",
+                    "--insecure",
+                    "--noproxy",
+                    "*",
+                    "--max-time",
+                    "30",
+                    "https://localhost/"
+                ],
+                "contains": "href=\"/lab\" data-turbo=\"false\""
+            }
+        }
+    }
+}

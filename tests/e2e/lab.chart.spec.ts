@@ -1,5 +1,5 @@
 import { test, expect, turboVisitDone } from './fixtures';
-import { advanceFrame, back, turboOperation, visit } from './transitions';
+import { advanceFrame, back, reloadFrames, sendStream, turboOperation, visit } from './transitions';
 import { chartCount, chartState, roleColor, toggleDark } from './chart-helpers';
 
 // counts the charts the theme redraws (chart:themed bubbles to the document)
@@ -62,10 +62,7 @@ test('a server color is kept through theme switches, and its swatch shows it', a
 
 test('inside a Turbo Frame reloaded three times, one chart is left and it is drawn', async ({ page }) => {
     await page.goto('/lab/chart-turbo');
-    for (let load = 1; load <= 3; load++) {
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-    }
+    await reloadFrames(page);
     await expect.poll(() => chartCount(page)).toBe(4);
     await expect.poll(async () => (await chartState(page, 'lab-framed'))?.labels).toEqual(['A', 'B']);
 });
@@ -112,11 +109,9 @@ test('beside a frame visit promoted to history, Back and Forward draw each chart
 
 test('replaced or updated by a Turbo Stream, the new chart is drawn and the old one destroyed', async ({ page }) => {
     await page.goto('/lab/chart-stream');
-    await page.getByRole('button', { name: 'Replace the chart' }).click();
-    await expect(page.getByTestId('stream-action')).toHaveText('replace');
+    await sendStream(page, 'replace');
     await expect.poll(() => chartCount(page)).toBe(1);
-    await page.getByRole('button', { name: 'Update the chart' }).click();
-    await expect(page.getByTestId('stream-action')).toHaveText('update');
+    await sendStream(page, 'update');
     await expect.poll(() => chartCount(page)).toBe(1);
     expect((await chartState(page, 'streamed'))!.colors).toEqual([await roleColor(page, 'chart-1')]);
 });

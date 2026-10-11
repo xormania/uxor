@@ -1,5 +1,6 @@
 import type { APIResponse, Page, Response } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, recordDarkAtFirstBody } from './fixtures';
+import { png } from './files';
 
 /*
  * The demo's browser hardening headers and its enforced Content Security Policy
@@ -77,17 +78,10 @@ test.describe('system in dark mode', () => {
     test.use({ colorScheme: 'dark' });
 
     test('the layout sets the theme before the first paint', async ({ page }) => {
-        await page.addInitScript(() => {
-            new MutationObserver((_, observer) => {
-                if (document.body) {
-                    (window as any).__darkAtFirstBody = document.documentElement.classList.contains('dark');
-                    observer.disconnect();
-                }
-            }).observe(document, { childList: true, subtree: true });
-        });
+        const darkAtFirstBody = await recordDarkAtFirstBody(page);
         // the auth layout has no theme toggle: only the inline script sets the theme
         await page.goto('/demo/login');
-        expect(await page.evaluate(() => (window as any).__darkAtFirstBody)).toBe(true);
+        expect(await darkAtFirstBody()).toBe(true);
     });
 });
 
@@ -151,8 +145,7 @@ test("the Editor's markup has no style attribute, and the mounted editor adds no
 test('a picked image shows its preview under the policy (img-src data:)', async ({ page }) => {
     const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=light');
     expect(policy.get('img-src')).toContain('data:');
-    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-    await page.locator('input[type="file"]').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: png });
+    await page.locator('input[type="file"]').setInputFiles(png('tiny.png'));
     const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
     await expect(image).toBeVisible();
     // the image loads: its natural size, read the way the browser loads a CSS background (the fixtures fail on a violation)

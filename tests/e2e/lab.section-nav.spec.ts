@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, stimulusControllers, turboVisitDone } from './fixtures';
+import { test, expect, expectA11y, stimulusControllers, turboVisitDone, markDocument } from './fixtures';
 import { viewports } from './inventory';
 
 /*
@@ -75,7 +75,7 @@ for (const [viewportName, viewport] of Object.entries(viewports)) {
 
         test('Turbo visits, Back, Forward and a reload show the section and the tab of the page shown', async ({ page }) => {
             await page.goto('/lab/section-nav');
-            await page.evaluate(() => ((window as any).__sameDocument = true));
+            const sameDocument = await markDocument(page);
             await expectState(page, 'Profile', 'General');
 
             await tab(page, 'Privacy').click();
@@ -108,7 +108,7 @@ for (const [viewportName, viewport] of Object.entries(viewports)) {
             await turboVisitDone(page);
             await expectState(page, 'Notifications', 'General');
             expect(await page.evaluate(() => (window as any).__permanent === document.getElementById('lab-permanent-section-nav'))).toBe(true);
-            expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+            await sameDocument.expectKept();
 
             // a reload starts from the server's default tab
             await tab(page, 'Advanced').click();
@@ -255,7 +255,7 @@ test('a controller disconnected from a navigation that stays gives the links bac
 
 test('the section nav is plain links in the Tab order, and Enter follows one as a Turbo visit', async ({ page }) => {
     await page.goto('/lab/section-nav');
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     await nav(page).getByRole('link', { name: 'Profile' }).focus();
     for (const name of sections.slice(1)) {
         await page.keyboard.press('Tab');
@@ -268,7 +268,7 @@ test('the section nav is plain links in the Tab order, and Enter follows one as 
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('page')).toHaveText('Section security');
     await turboVisitDone(page);
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
     await expectState(page, 'Security', 'General');
 });
 
@@ -312,7 +312,7 @@ test('on a desktop the section nav is a column', async ({ page }) => {
 test('the demo\'s settings pages mark their section on the server and visit each other', async ({ page }) => {
     await page.goto('/demo/settings/profile');
     const settings = page.getByRole('navigation', { name: 'Settings' });
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     await expect(settings.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
     for (const [name, heading] of [['Notifications', 'Notifications'], ['Billing', 'Billing']]) {
         await settings.getByRole('link', { name }).click();
@@ -323,7 +323,7 @@ test('the demo\'s settings pages mark their section on the server and visit each
     await page.goBack();
     await turboVisitDone(page);
     await expect(settings.locator('[aria-current="page"]')).toHaveText(['Notifications']);
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 
     // the notification preferences save through Turbo (303)
     await page.getByRole('checkbox', { name: 'Product news' }).check();

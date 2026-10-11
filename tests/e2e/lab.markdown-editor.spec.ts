@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { visit } from './transitions';
+import { reloadFrames, visit } from './transitions';
 
 /*
  * Markdown editors under Turbo: a form posts the Markdown (303) or shows its errors (422), and the stored rendering is
@@ -55,14 +55,14 @@ test('repeated visits leave one markdown editor per field', async ({ page }) => 
 
 test('a Turbo Frame reloaded three times gives a fresh markdown editor each time', async ({ page }) => {
     await page.goto('/lab/markdown-turbo');
-    for (const load of ['1', '2', '3']) {
-        await page.getByRole('textbox', { name: 'Framed notes' }).fill('changed');
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(load);
-        await expect(page.getByRole('textbox', { name: 'Framed notes' })).toHaveValue('In a **frame**.');
-        await tab(page, 'framed', 'Preview').click();
-        await expect(panel(page, 'framed').locator('strong')).toHaveText('frame');
-        await tab(page, 'framed', 'Write').click();
-        await expect(editors(page)).toHaveCount(3);
-    }
+    await reloadFrames(page, {
+        before: () => page.getByRole('textbox', { name: 'Framed notes' }).fill('changed'),
+        after: async () => {
+            await expect(page.getByRole('textbox', { name: 'Framed notes' })).toHaveValue('In a **frame**.');
+            await tab(page, 'framed', 'Preview').click();
+            await expect(panel(page, 'framed').locator('strong')).toHaveText('frame');
+            await tab(page, 'framed', 'Write').click();
+            await expect(editors(page)).toHaveCount(3);
+        },
+    });
 });

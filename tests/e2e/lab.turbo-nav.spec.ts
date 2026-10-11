@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { stimulusControllers, test, expect } from './fixtures';
+import { stimulusControllers, test, expect, markDocument } from './fixtures';
 import { back, forward, reload, shown, visit, visitAndBack } from './transitions';
 
 const phone = { width: 600, height: 800 };
@@ -15,10 +15,10 @@ test('a data-turbo-permanent panel is kept across Turbo visits (not its scroll) 
         element.scrollTop = 200;
         (element as any).__marker = 'kept';
     });
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
 
     await visit(page, 'Go to page two', 'Page two');
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
     // Turbo moves the same node into the new page, but Chromium resets the scroll of a re-inserted
     // element: a permanent element that must keep its scroll restores it itself (sidebar controller).
     expect(await panel.evaluate((element) => [(element as any).__marker, element.scrollTop])).toEqual(['kept', 0]);
@@ -61,7 +61,7 @@ test('the permanent sidebar keeps its scroll, collapsed state and current item a
 
 test('a flash toast written as a Turbo Stream shows once across Turbo visits', async ({ page }) => {
     await page.goto('/lab/turbo-nav');
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     const toasts = page.getByRole('region', { name: 'Notifications' }).locator('[data-controller="toast"]');
 
     await page.getByRole('button', { name: 'Save settings' }).click();
@@ -72,7 +72,7 @@ test('a flash toast written as a Turbo Stream shows once across Turbo visits', a
     await visit(page, 'Go to page one', 'Page one');
     await visitAndBack(page);
     await expect(toasts).toHaveCount(1);
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 });
 
 test('on a small screen the navbar button opens the sidebar over the page', async ({ page }) => {

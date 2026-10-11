@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { back, visit, visitAndBack } from './transitions';
+import { back, reloadFrames, visit, visitAndBack } from './transitions';
 
 /*
  * Editors under Turbo and Live: a form posts sanitized HTML (303) or shows its errors (422); Back shows the content and
@@ -83,16 +83,18 @@ test('repeated visits leave one editor per field', async ({ page }) => {
 
 test('a Turbo Frame reloaded three times gives a fresh editor each time', async ({ page }) => {
     await page.goto('/lab/editor-turbo');
-    for (const load of ['1', '2', '3']) {
-        await mounted(page);
-        await page.getByRole('textbox', { name: 'Framed notes' }).click();
-        await page.keyboard.type('changed ');
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(load);
-        await mounted(page);
-        await expect(page.getByRole('textbox', { name: 'Framed notes' })).toHaveText('In a frame.');
-        await expect(editors(page)).toHaveCount(3);
-    }
+    await reloadFrames(page, {
+        before: async () => {
+            await mounted(page);
+            await page.getByRole('textbox', { name: 'Framed notes' }).click();
+            await page.keyboard.type('changed ');
+        },
+        after: async () => {
+            await mounted(page);
+            await expect(page.getByRole('textbox', { name: 'Framed notes' })).toHaveText('In a frame.');
+            await expect(editors(page)).toHaveCount(3);
+        },
+    });
 });
 
 test('in a Live Component, re-renders leave the typing alone, a save reads it and a reset replaces it', async ({ page }) => {

@@ -1,11 +1,12 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y } from './fixtures';
+import { previewUrl } from './inventory';
 
 /*
  * The MarkdownEditor component: a native textarea, a toolbar writing Markdown, Write and Preview tabs (the preview is
  * rendered by the server, raw HTML, images and unsafe links never reach it), the counter, read-only.
  */
-const open = (page: Page, id: string) => page.goto(`/preview/markdown-editor/${id}?theme=light`);
+const open = (page: Page, id: string) => page.goto(previewUrl('markdown-editor', id));
 const tab = (page: Page, name: string) => page.getByRole('tab', { name });
 const preview = (page: Page) => page.getByRole('tabpanel', { name: 'Preview' });
 

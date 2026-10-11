@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
-import { test, expect, stimulusControllers, trackGlobalListeners, turboVisitDone } from './fixtures';
-import { back, forward, holdUntilCopied, recordFirstFrames, stepFromCode, visit } from './transitions';
+import { test, expect, stimulusControllers, trackGlobalListeners, turboVisitDone, markDocument } from './fixtures';
+import { back, forward, holdUntilCopied, recordFirstFrames, reloadFrames, sendStream, stepFromCode, visit } from './transitions';
 
 /*
  * The dropdown, modal and drawer beyond Back and Live (lab.turbo-restore, lab.live-*): what Turbo Drive, Frames and
@@ -126,7 +126,7 @@ for (const overlay of overlays) {
             );
             const held = await holdUntilCopied(page, '**/lab/slow.css');
             await page.goto(turboPage('one'));
-            await page.evaluate(() => ((window as any).__sameDocument = true));
+            const sameDocument = await markDocument(page);
 
             // left open by a visit from the page's code: page two waits for its stylesheet, Turbo copies page one first
             await trigger(page, overlay.main.name).click();
@@ -156,7 +156,7 @@ for (const overlay of overlays) {
             const rendered = await page.evaluate(() => (window as any).__rendered as { open: boolean; expanded: string | null }[]);
             // (a modal's trigger has no aria-expanded until the modal first opens)
             expect(rendered.map(({ open, expanded }) => ({ open, expanded: 'true' === expanded }))).toEqual(Array(3).fill({ open: false, expanded: false }));
-            expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+            await sameDocument.expectKept();
         });
 
         for (const from of ['a link inside it', "the page's code"] as const) {
@@ -227,16 +227,19 @@ for (const overlay of overlays) {
             const listeners = await trackGlobalListeners(page);
             await page.goto(turboPage('one'));
             let baseline = {};
-            for (let load = 1; load <= 3; load++) {
-                await trigger(page, 'Framed').click();
-                await expectOpen(page, overlay, 'Framed');
-                await overlay.reloadLink(page).click();
-                await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-                await expectClosed(page, overlay, 'Framed');
-                if (1 === load) {
-                    baseline = await listeners();
-                }
-            }
+            await reloadFrames(page, {
+                link: overlay.reloadLink,
+                before: async () => {
+                    await trigger(page, 'Framed').click();
+                    await expectOpen(page, overlay, 'Framed');
+                },
+                after: async (load) => {
+                    await expectClosed(page, overlay, 'Framed');
+                    if (1 === load) {
+                        baseline = await listeners();
+                    }
+                },
+            });
             expect(await stimulusControllers(page, overlay.controller)).toEqual({ controllers: 3, elements: 3, distinctElements: 3 });
             expect(await listeners()).toEqual(baseline);
             await expectWorks(page, overlay, 'Framed', 'In a frame, load 3');
@@ -248,12 +251,11 @@ for (const overlay of overlays) {
             const listeners = await trackGlobalListeners(page);
             await page.goto(`/lab/${overlay.recipe}-stream`);
             let baseline = {};
-            for (const action of ['replace', 'update', 'replace', 'update']) {
+            for (const action of ['replace', 'update', 'replace', 'update'] as const) {
                 await trigger(page, 'Streamed').click();
                 await expectOpen(page, overlay, 'Streamed');
                 // sent while it stays open (a click on the page would close a menu, and a modal leaves it inert)
-                await page.locator('form').evaluate((form: HTMLFormElement, value) => form.requestSubmit(form.querySelector<HTMLButtonElement>(`button[value="${value}"]`)), action);
-                await expect(page.getByTestId('stream-action')).toHaveText(action);
+                await sendStream(page, action, { from: 'code' });
                 await expectWorks(page, overlay, 'Streamed', `Version ${action}`);
                 expect(await stimulusControllers(page, overlay.controller)).toEqual({ controllers: 1, elements: 1, distinctElements: 1 });
                 if ('replace' === action && 0 === Object.keys(baseline).length) {

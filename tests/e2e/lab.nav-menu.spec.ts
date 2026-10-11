@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectA11y } from './fixtures';
+import { test, expect, expectA11y, markDocument } from './fixtures';
 import { holdUntilCopied, shown } from './transitions';
 
 /*
@@ -212,13 +212,13 @@ test.describe('on a desktop', () => {
 
     test('a link inside visits its page and closes the submenus; a link to a fragment closes them too', async ({ page }) => {
         await page.goto('/lab/nav-menu');
-        await page.evaluate(() => ((window as any).__sameDocument = true));
+        const sameDocument = await markDocument(page);
         const menu = barMenu(page);
         await button(menu, 'Guides').click();
         await link(menu, 'Getting started').click();
         await shown(page, 'Page two');
         await expectMenu(menu, { expanded: [], shown: [], current: ['Getting started'], highlighted: ['Guides'] });
-        expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+        await sameDocument.expectKept();
 
         await button(menu, 'Guides').click();
         await button(menu, 'Advanced').click();
@@ -328,7 +328,7 @@ test.describe('on a desktop', () => {
 
     test('repeated Turbo visits leave one controller on each menu', async ({ page }) => {
         await page.goto('/lab/nav-menu');
-        await page.evaluate(() => ((window as any).__sameDocument = true));
+        const sameDocument = await markDocument(page);
         const menu = barMenu(page);
         for (const [name, heading] of [['Go to page two', 'Page two'], ['Go to page three', 'Page three'], ['Go to page one', 'Page one']]) {
             await page.getByRole('link', { name }).click();
@@ -344,7 +344,7 @@ test.describe('on a desktop', () => {
         await shown(page, 'Page two');
         await page.goForward();
         await shown(page, 'Page four');
-        expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+        await sameDocument.expectKept();
         await expect(page.locator('[data-controller~="nav-menu"]')).toHaveCount(3);
 
         // a click toggles once: a second controller would close what the first opened
