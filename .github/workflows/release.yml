@@ -68,31 +68,48 @@ jobs:
                   # shellcheck disable=SC2086
                   tools/release-plan.sh --notes-dir "$RUNNER_TEMP/notes" $VERSIONS > "$RUNNER_TEMP/plan"
 
+            # (its output also goes to $RUNNER_TEMP/jev-publish.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: Tag, check the install, publish
+              id: publish
               if: steps.versions.outputs.versions != ''
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  git config user.name 'github-actions[bot]'
-                  git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-                  # the plan on its own descriptor: the install check's commands cannot read it from stdin
-                  while read -r -u 3 version commit state; do
-                      echo "$version: $state, $(git log -1 --format='%h %s' "$commit")"
-                      case "$state" in
-                          tagged)
-                              # tagged by hand or by an earlier run, on the expected commit: check the tag's install
-                              KIT_REF="$version" tools/tests/docker-install.sh
-                              ;;
-                          untagged)
-                              # check the install of the commit from GitHub before any tag makes it a version
-                              KIT_REF="$commit" tools/tests/docker-install.sh
-                              git tag -a "$version" "$commit" -m "$(jq -r .name manifest.json) $version"
-                              git push origin "refs/tags/$version"
-                              ;;
-                          *) echo "::error::$version: $state"; exit 1 ;;
-                      esac
-                      gh release create "$version" --verify-tag --title "$version" --notes-file "$RUNNER_TEMP/notes/$version.md"
-                  done 3< "$RUNNER_TEMP/plan"
+                  set -o pipefail
+                  {
+                      git config user.name 'github-actions[bot]'
+                      git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+                      # the plan on its own descriptor: the install check's commands cannot read it from stdin
+                      while read -r -u 3 version commit state; do
+                          echo "$version: $state, $(git log -1 --format='%h %s' "$commit")"
+                          case "$state" in
+                              tagged)
+                                  # tagged by hand or by an earlier run, on the expected commit: check the tag's install
+                                  KIT_REF="$version" tools/tests/docker-install.sh
+                                  ;;
+                              untagged)
+                                  # check the install of the commit from GitHub before any tag makes it a version
+                                  KIT_REF="$commit" tools/tests/docker-install.sh
+                                  git tag -a "$version" "$commit" -m "$(jq -r .name manifest.json) $version"
+                                  git push origin "refs/tags/$version"
+                                  ;;
+                              *) echo "::error::$version: $state"; exit 1 ;;
+                          esac
+                          gh release create "$version" --verify-tag --title "$version" --notes-file "$RUNNER_TEMP/notes/$version.md"
+                      done 3< "$RUNNER_TEMP/plan"
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-publish.log"
+
+            # Advisory diagnosis of the failed install check, tag or release (.github/actions/jev-diagnosis): never the
+            # job's verdict. This job runs only for this repository's main, like the key.
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Tag and publish new versions
 
     pages:
         name: Publish the gallery
@@ -105,3 +122,5 @@ jobs:
         uses: ./.github/workflows/pages.yml
         with:
             ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+        secrets:
+            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }} # the build's advisory Jev diagnosis, and nothing else
