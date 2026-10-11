@@ -39,7 +39,7 @@ function caches() {
             previous = i;
             // format('*.cache-to=…{0}:{1}…', a, b): the arguments in place
             let text = line;
-            const format = /format\('([^']*)'((?:,\s*[^,)]+)*)\)/.exec(line);
+            const format = /format\('([^']*)'((?:,[^,)]+)*)\)/.exec(line);
             if (format) {
                 const args = format[2].split(',').slice(1).map((arg) => arg.trim());
                 text = format[1].replace(/\{(\d)\}/g, (_, n) => args[Number(n)]);
