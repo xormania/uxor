@@ -247,3 +247,19 @@ test('every demo page names the brand it shows in its title', async ({ page, all
         await expect(page, path).toHaveTitle(/ — xor$/);
     }
 });
+
+// a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
+for (const colorScheme of ['light', 'dark'] as const) {
+    test.describe(`${colorScheme} theme at phone width`, () => {
+        test.use({ viewport: { width: 390, height: 844 }, colorScheme });
+
+        for (const path of ['/', '/r/button', '/r/data-table', '/demo', '/demo/login', '/demo/settings/profile']) {
+            test(`${path} does not scroll sideways`, async ({ page }) => {
+                await page.goto(path);
+                await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+                const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+                expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+            });
+        }
+    });
+}

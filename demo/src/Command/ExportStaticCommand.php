@@ -61,6 +61,8 @@ final class ExportStaticCommand
         ?string $latestRelease = null,
         #[Option(description: 'The commit the site is built from')]
         ?string $commit = null,
+        #[Option(description: 'The branch the commit is on, named in the banner of a site that is not a release')]
+        string $branch = 'main',
     ): int {
         $basePath = rtrim($basePath, '/');
         if ('' !== $basePath && !preg_match('#^(/[A-Za-z0-9._-]+)+$#', $basePath)) {
@@ -81,7 +83,7 @@ final class ExportStaticCommand
         $filesystem->remove($dir);
         $filesystem->mirror($assets, $dir.'/assets');
 
-        $context = ['release' => $release ?: null, 'latest_release' => $latestRelease ?: null, 'commit' => $commit ?: null, 'server_only' => self::SERVER_ONLY];
+        $context = ['release' => $release ?: null, 'latest_release' => $latestRelease ?: null, 'commit' => $commit ?: null, 'branch' => $branch ?: 'main', 'server_only' => self::SERVER_ONLY];
         $pages = 0;
         foreach ($this->getPaths() as $path => $file) {
             $html = $this->render($basePath, $path, $context);
@@ -117,7 +119,7 @@ final class ExportStaticCommand
     }
 
     /**
-     * @param array{release: ?string, latest_release: ?string, commit: ?string, server_only: array<string, string>} $context
+     * @param array{release: ?string, latest_release: ?string, commit: ?string, branch: string, server_only: array<string, string>} $context
      */
     private function render(string $basePath, string $path, array $context): string
     {
