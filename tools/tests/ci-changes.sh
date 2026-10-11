@@ -115,6 +115,8 @@ check 'contrast demo'             tests/e2e/lab.side-nav.spec.ts
 check 'demo'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
 check 'demo'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
+check 'demo'                      tools/playwright-image.mjs tools/playwright-image.json
+check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php static-site contrast demo' demo/tests/Editor/EditorTypeTest.php
 check 'php static-site contrast demo' demo/src/Controller/LabController.php
@@ -130,11 +132,21 @@ check 'demo'                      tools/tests/fixtures/sync-kit/manifest.json
 check 'demo'                      tools/ci/playwright-summary.mjs
 # the job metrics run in the browser job (job) and in CI result, which runs on every run (run)
 check 'demo'                      tools/ci/ci-metrics.mjs
+# the shard plan runs in the browser job (plan, verify) and in CI result (timings); the timings it reads are a test file
+check 'demo'                      tools/ci/shard-plan.mjs
+check 'demo'                      tests/shard-timings.json
+check ''                          tools/tests/shard-plan.test.mjs
 check 'php'                       tools/ci/junit-attempts.mjs
 check 'php demo'                  tools/ci/jev-diagnosis.mjs tools/ci/jev-ci.json
+# a failed step's log as Jev's attempts: the jobs run it only after a failure, so only its cases (Tool tests) check it
+check ''                          tools/ci/step-attempts.mjs
+# a failed step's log as Jev's attempts: the jobs run it only after a failure, so only its cases (Tool tests) check it
+check ''                          tools/ci/step-attempts.mjs
+# the Jev step's composite action: a passing job never runs it; actionlint (Workflows) checks every call's inputs
+check 'workflows'                 .github/actions/jev-diagnosis/action.yml
 # tools' cases and their fixtures run in Tool tests, on every run: no other job
 check ''                          tools/tests/playwright-summary.test.mjs tools/tests/fixtures/playwright-results/timed.json
-check ''                          tools/tests/fixtures/junit/phpunit.xml
+check ''                          tools/tests/fixtures/junit/phpunit.xml tools/tests/fixtures/junit/node-test.xml
 check ''                          tools/tests/ci-metrics.test.mjs tools/tests/fixtures/ci-metrics/jobs.jsonl
 check 'php static-site demo'      tools/sync-demo
 check 'php static-site fresh-install demo' demo/compose.yaml
@@ -157,6 +169,7 @@ check_git "$kit_contrast"         'mkdir -p alert/templates && echo a > alert/te
 check 'contrast'                  tools/readme-pairing.mjs tools/readme-versions.mjs
 check ''                          tools/tests/readme-pairing.test.mjs
 check ''                          tools/tests/jev-diagnosis.test.mjs
+check ''                          tools/tests/step-attempts.test.mjs
 check "$kit_contrast"             docs/NOTES.md kit.css
 
 if [ "$failures" -gt 0 ]; then

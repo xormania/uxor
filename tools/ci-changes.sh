@@ -40,6 +40,9 @@ while IFS= read -r path; do
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
         .github/workflows/monthly.yml) on workflows ;;
+        # The advisory Jev step every job calls on a failure (.github/actions/jev-diagnosis): a passing job never runs
+        # it, so no job checks it by passing; actionlint checks each call's inputs against it
+        .github/actions/jev-diagnosis/*) on workflows ;;
         # release-checks.yml runs on the release pull request, daily on dev and by hand, never on a push: the browser
         # job runs its setup (the demo's image and start, the sync, Playwright in the pinned image) and the tests it
         # runs (the @release ones, left out there, run with the same projects and fixtures)
@@ -49,7 +52,9 @@ while IFS= read -r path; do
         # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
         # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
         tests/e2e/*.spec.ts) on contrast demo ;;
-        tests/* | playwright.config.ts | tools/prepare-tests.mjs) on demo ;;
+        # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
+        # in Tool tests, on every run)
+        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo ;;
         package.json | package-lock.json) on contrast demo ;;
 
         # Repository tools, each with the jobs that run it
@@ -69,10 +74,12 @@ while IFS= read -r path; do
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon) on php ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
-        # the rest (the results summary, the job metrics) is the browser job's. CI result, which runs on every run, also
-        # runs ci-metrics.mjs
+        # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
+        # every run, also runs ci-metrics.mjs and the shard plan's timings
         tools/ci/junit-attempts.mjs) on php ;;
         tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json) on php demo ;;
+        # A failed step's log as failed attempts: the jobs run it only after a failure, so its cases (Tool tests) check it
+        tools/ci/step-attempts.mjs) ;;
         tools/ci/*) on demo ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run
         # The name check reads every file, so Tool tests runs it on every run too
