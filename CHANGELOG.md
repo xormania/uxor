@@ -214,6 +214,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   "Choose a country" option, which pushed a fifth row half into the bottom of the box. In the dark theme its
   selected row is dark (the `theme` fix above), not light gray.
 
+- `floating` (so `dropdown`, `popover`, `date-picker` and `tooltip`): an element placed `left` or `right` with room
+  on neither side, as on a phone, stayed on its side past the viewport's edge and pushed the page sideways (the
+  "Placements" popover at 390 pixels); it now opens below its trigger, or above it, and when no side has room it is
+  kept inside the viewport's width. Where it fits, it lands where it did. `floating` exports `origin()`, the
+  containing block's start in viewport coordinates.
+- `tooltip`: in a wrapper with a border (the dashboard's "+9k" avatar), the tooltip was placed from the border's
+  outer edge, 2 pixels off, and at the right edge of a phone pushed the page sideways; it is now placed inside the
+  border, 8 pixels from its trigger and within the viewport.
 ### Security
 
 - `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe

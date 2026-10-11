@@ -169,3 +169,22 @@ test('a tooltip stays shown, in place, while the theme changes', async ({ page }
     await page.keyboard.press('Escape');
     await expect(tooltip(page, 'Delete the draft')).toBeHidden();
 });
+
+test('a tooltip in a bordered wrapper at the right edge stays inside the viewport, 8 pixels from its trigger', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/lab/tooltip-turbo');
+    const remove = page.getByRole('button', { name: 'Delete' });
+    // the wrapper with a 2px border (as an avatar group draws one around `+9k`), against the right edge
+    const wrapper = remove.locator('xpath=..');
+    await wrapper.evaluate((element: HTMLElement) => Object.assign(element.style, { position: 'fixed', top: '200px', right: '0px', border: '2px solid' }));
+    await remove.hover();
+    await expect(tooltip(page, 'Delete the draft')).toBeVisible();
+
+    const box = (await tooltip(page, 'Delete the draft').boundingBox())!;
+    const reference = (await wrapper.boundingBox())!;
+    const { clientWidth, scrollWidth } = await page.evaluate(() => ({ clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth }));
+    expect(box.x + box.width).toBeLessThanOrEqual(clientWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth);
+    await expect(tooltip(page, 'Delete the draft')).toHaveAttribute('data-placement', 'top');
+    expect(Math.round(reference.y - (box.y + box.height))).toBe(8);
+});
