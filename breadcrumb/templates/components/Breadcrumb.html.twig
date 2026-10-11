@@ -2,6 +2,8 @@
     ## string The accessible name of the navigation landmark.
     label = 'Breadcrumb'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 <nav aria-label="{{ label }}" {{ attributes.defaults({class: 'flex'|tailwind_classes}) }}>
     <ol class="inline-flex flex-wrap items-center gap-1 text-sm font-medium">
         {##- The trail, one `Breadcrumb:Item` per level, the current page last. -#}

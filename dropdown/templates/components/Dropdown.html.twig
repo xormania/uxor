@@ -13,6 +13,8 @@
     ## int The dropdown content offset.
     offsetDistance = 10
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 
 {%- set _dropdown_id = 'dropdown-' ~ id -%}
 {%- set _dropdown_trigger_id = _dropdown_id ~ '-trigger' -%}

@@ -8,18 +8,22 @@ import { test, expect } from './fixtures';
  * The props that shape markup, given hostile values: `bin/console app:hostile-props`
  * (demo/src/Command/HostilePropsCommand.php) renders the components through the demo's Twig, and the browser
  * parses each rendering. No value may add an element or an event handler, `as` renders only the tags a component
- * accepts, and a link prop keeps a relative, http(s), mailto or tel URL, any other rendering `#` (README, Security).
+ * accepts, a link prop keeps a relative, http(s), mailto or tel URL, any other rendering `#`, and no component renders
+ * an attribute named `on…` (docs/GUIDE.md, Security).
  * The server-only rules behind the Editor and the MarkdownEditor (what EditorHtmlPolicy and MarkdownRenderer return)
  * are PHPUnit tests: demo/tests/Editor/EditorHtmlPolicyTest.php, demo/tests/MarkdownEditor/MarkdownRendererTest.php.
  */
 type TagCase = { component: string; input: string; expected: string; html: string };
 type UrlCase = { component: string; prop: string; link: string; input: string; text: string; hostile: boolean; html: string };
 type ImageCase = { component: string; prop: string; input: string; text: string; html: string };
+type HandlerCase = { component: string; bag: boolean; html: string };
+type LegitCase = { component: string; expected: Record<string, string>; html: string };
 type Cases = {
     tags: TagCase[];
     attributes: { expected: Record<string, string>; absent: string[]; html: string };
     urls: UrlCase[];
     images: ImageCase[];
+    handlers: { cases: HandlerCase[]; legit: LegitCase[] };
     calendar: { html: string };
     chart: { html: string };
     editor: { html: string };
@@ -72,8 +76,12 @@ async function parse(page: Page, html: string, link = '', text = ''): Promise<Pa
 
             return {
                 ran: ran ?? null,
+                // an event handler, or a name that would be one but for leading spaces (printed escaped, `&#x20;on…`)
                 handlers: elements.flatMap((element) =>
-                    element.getAttributeNames().filter((name) => /^on[a-z]+$/i.test(name)).map((name) => `<${element.localName} ${name}>`),
+                    element
+                        .getAttributeNames()
+                        .filter((name) => /^(?:&#x?[0-9a-f]+;|[\x00-\x20])*on/i.test(name))
+                        .map((name) => `<${element.localName} ${name}>`),
                 ),
                 urlAttributes: elements.flatMap((element) =>
                     ['href', 'src', 'action', 'formaction', 'data', 'xlink:href'].filter((name) => element.hasAttribute(name)).map((name) => `<${element.localName} ${name}>`),
@@ -154,7 +162,7 @@ test('FormField label and help attribute names cannot add attributes', async ({ 
     for (const element of [label, help]) {
         const attributes = await element.evaluate((node) => Object.fromEntries(node.getAttributeNames().map((name) => [name, node.getAttribute(name)])));
         expect(attributes).toMatchObject(expected);
-        expect(Object.keys(attributes).filter((name) => absent.includes(name) || /^on[a-z]+$/i.test(name))).toEqual([]);
+        expect(Object.keys(attributes).filter((name) => absent.includes(name) || /^(?:&#x?[0-9a-f]+;|[\x00-\x20])*on/i.test(name))).toEqual([]);
     }
     expect(found.handlers).toEqual([]);
     expect(found.elements.filter((element) => UNSAFE_ELEMENTS.includes(element))).toEqual([]);
@@ -228,6 +236,55 @@ test('image props keep only relative and http(s) URLs', async ({ page }) => {
         }
     }
 
+    expect(failures).toEqual([]);
+    expect(dialogs).toEqual([]);
+});
+
+test('components drop attributes named on… and render the others', async ({ page }) => {
+    test.setTimeout(180_000);
+    const dialogs = recordDialogs(page);
+    const failures: string[] = [];
+    const rootAttributes = () =>
+        page.evaluate(() => {
+            const root = document.querySelector('[data-testid="root"]');
+
+            return root ? Object.fromEntries(root.getAttributeNames().map((name) => [name, root.getAttribute(name)!])) : null;
+        });
+    for (const { component, bag, html } of cases.handlers.cases) {
+        const found = await parse(page, `<base href="${BASE}">${html}`);
+        const problems: string[] = [];
+        if (found.handlers.length) {
+            problems.push(`renders ${found.handlers.join(', ')}`);
+        }
+        // the ordinary attributes given with them still land, on the element taking the attributes
+        const root = await rootAttributes();
+        if (bag && (root?.['data-extra'] !== 'ok' || root?.['aria-keyshortcuts'] !== 'k')) {
+            problems.push(`renders the ordinary attributes as ${JSON.stringify(root)}`);
+        }
+        if (null !== found.ran) {
+            problems.push(`ran a payload (${found.ran})`);
+        }
+        if (problems.length) {
+            failures.push(`${component}: ${problems.join('; ')}`);
+        }
+    }
+    for (const { component, expected, html } of cases.handlers.legit) {
+        const found = await parse(page, `<base href="${BASE}">${html}`);
+        const root = await rootAttributes();
+        const problems: string[] = found.handlers.length ? [`renders ${found.handlers.join(', ')}`] : [];
+        for (const [name, value] of Object.entries(expected)) {
+            const given = root?.[name] ?? null;
+            // `class` and `data-action` are merged with the component's own
+            if (['class', 'data-action'].includes(name) ? !given?.split(' ').includes(value) : given !== value) {
+                problems.push(`${name}=${JSON.stringify(given)}, expected ${JSON.stringify(value)}`);
+            }
+        }
+        if (problems.length) {
+            failures.push(`${component} (ordinary attributes): ${problems.join('; ')}`);
+        }
+    }
+
+    expect(cases.handlers.cases.length).toBeGreaterThan(100);
     expect(failures).toEqual([]);
     expect(dialogs).toEqual([]);
 });

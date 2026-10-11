@@ -1,3 +1,5 @@
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 <ul
     {{ attributes.defaults({
         class: 'flex -space-x-px text-sm rounded-base [&_a]:h-10 [&_*]:rounded-none [&>*:first-child]:[&_*]:rounded-s-base [&>*:last-child]:[&_*]:rounded-e-base'|tailwind_classes,

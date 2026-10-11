@@ -1,3 +1,5 @@
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 <label class="inline-flex items-center cursor-pointer">
     <input type="checkbox" {{ attributes.defaults({class: 'sr-only peer'|tailwind_classes}) }}>
     <div class="relative w-9 h-5 bg-neutral-quaternary peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-soft dark:peer-focus:ring-brand-soft rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-buffer after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-knob after:rounded-full after:h-4 after:w-4 after:transition-[translate,border-color] motion-reduce:after:transition-none! peer-disabled:bg-neutral-tertiary peer-checked:bg-brand"></div>

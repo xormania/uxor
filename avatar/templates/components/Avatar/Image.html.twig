@@ -2,6 +2,8 @@
     ## string|null The image URL; a URL other than relative or http(s) renders no `src`.
     src = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {#- Read image URLs as browsers do. Unlike links, mailto and tel are not image sources. -#}
 {%- set _src = src is not null and (src ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' ? src ~ '' : null -%}
 <img

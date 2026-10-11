@@ -46,6 +46,8 @@
     ## string The accessible name of the next month button.
     nextLabel = 'Next month'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {#- a date is a `Y-m-d` string that names a real day: anything else (a typo, a raw form submission) is dropped, never parsed -#}
 {%- set _isDate = '/^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/' -%}
 {%- set _locale = locale ?? app.request.locale|default(null) -%}

@@ -1,3 +1,5 @@
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 <kbd
     {{ attributes.defaults({
         class: 'inline-flex items-center px-2 py-1.5 text-xs font-semibold text-heading bg-neutral-tertiary border border-default-medium rounded-base'|tailwind_classes,

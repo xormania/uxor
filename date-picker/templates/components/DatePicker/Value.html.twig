@@ -2,6 +2,8 @@
     ## string The text shown while nothing is selected.
     placeholder = 'Pick a date'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _empty = inject('datePicker.empty', true) -%}
 <span
     data-date-picker-target="value"

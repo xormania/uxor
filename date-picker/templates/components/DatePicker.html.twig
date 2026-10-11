@@ -16,6 +16,8 @@
     ## 'bottom'|'top'|'left'|'right'|'bottom-start'|'bottom-end'|'top-start'|'top-end'|'left-start'|'left-end'|'right-start'|'right-end' Where the calendar opens.
     placement = 'bottom-start'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _isDate = '/^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/' -%}
 {%- set _locale = locale ?? app.request.locale|default(null) -%}
 {%- set _selected = null == selected ? [] : ((selected is iterable ? selected : [selected])|filter(value => value is not null and value matches _isDate and value|date('Y-m-d') == value)) -%}

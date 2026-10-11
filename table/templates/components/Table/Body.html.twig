@@ -2,6 +2,8 @@
     ## 'none'|'hover'|'striped' The visual row style highlight.
     highlight = 'hover'
 %}
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 {%- set style = html_cva(
     base: '[&>tr]:bg-neutral-primary-soft group-data-[border=bordered]/table:[&>tr]:border-b group-data-[border=bordered]/table:[&>tr]:border-default [&>tr]:transition-colors motion-reduce:[&>tr]:transition-none!',
     variants: {

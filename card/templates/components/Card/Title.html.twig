@@ -2,6 +2,8 @@
     ## 'span'|'div'|'p'|'h1'|'h2'|'h3'|'h4'|'h5'|'h6' The HTML tag used to render the title; any other value renders a `span`.
     as = 'span'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set as = as|lower in ['span', 'div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'] ? as|lower : 'span' -%}
 <{{ as }}
     {{ attributes.defaults({

@@ -100,9 +100,10 @@ unchecked. On top of escaping, the components check what shapes their markup:
 - **Image props.** `Avatar:Image` keeps a relative or `http(s)` `src`; another scheme renders no `src`, so the
   fallback stays shown.
 - **Attributes.** Attributes given to a component, and `FormField`'s `labelAttr` and `helpAttr`, render with escaped
-  names and values: a name cannot add another attribute. Otherwise they render as given, an `on…` handler or an
-  `href` included. The URL attributes named above become guarded props; another component's URL attribute is not
-  checked. Check attributes not declared as props yourself.
+  names and values: a name cannot add another attribute. An inline event handler, any name starting with `on` (in
+  any case, after leading spaces and control characters), silently renders nothing: behavior goes in a Stimulus
+  controller, wired with `data-action`. Other attributes render as given. The URL attributes named above become
+  guarded props; another component's URL attribute is not checked. Check attributes not declared as props yourself.
 - **Content Security Policy.** The components print no inline script, style or event handler, so they work under a
   strict policy (nonces and `'strict-dynamic'`, no `'unsafe-inline'`). The layouts print their inline script and the
   importmap with your nonces: see *Content Security Policy* in [`layouts/README.md`](../layouts/README.md).

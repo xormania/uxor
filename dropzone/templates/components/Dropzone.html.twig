@@ -10,6 +10,8 @@
     ## string|null A note in the box, such as a file that was not kept after a form error; the file input is described by it.
     reselect = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set controller = 'symfony--ux-dropzone--dropzone' -%}
 {#- `class`, `data-controller`, `data-action` and the attributes of the controllers passed (but their targets) go to the
     wrapper, where UX Dropzone dispatches its events; every other attribute goes to the file input. Pass a stable `id`,

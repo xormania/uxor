@@ -2,6 +2,8 @@
     ## string Unique suffix identifier for generating Tabs internal IDs.
     value
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 
 {%- set _tab_id = (idPrefix ?? 'tab') ~ '-' ~ value -%}
 {%- set _tab_content_id = _tab_id ~ '-description' -%}

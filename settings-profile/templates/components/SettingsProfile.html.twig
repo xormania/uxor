@@ -14,6 +14,8 @@
     ## string The label of the submit button.
     submitLabel = 'Save changes'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {#- the block renders its form through the form-theme recipe, whatever twig.form_themes says -#}
 {%- form_theme form 'form/flowbite_layout.html.twig' -%}
 <div {{ attributes.defaults({class: 'w-full'|tailwind_classes}) }}>

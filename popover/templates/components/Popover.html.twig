@@ -10,6 +10,8 @@
     ## int The gap between the trigger and the content, in pixels.
     offsetDistance = 8
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- do provide('popover.id', id) -%}
 {%- do provide('popover.open', open) -%}
 <div

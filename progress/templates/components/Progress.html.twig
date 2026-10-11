@@ -12,6 +12,8 @@
     ## boolean Whether the bar shows a measure (a share, a quota) rather than the progress of a task: `role="meter"`.
     meter = false
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {#- cast to a number: the value ends up in the bar's width attribute -#}
 {%- set _value = max(0, min(100, value|round(2))) -%}
 {%- set track = html_cva(

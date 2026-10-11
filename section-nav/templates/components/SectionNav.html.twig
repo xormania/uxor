@@ -4,6 +4,8 @@
     ## 'responsive'|'vertical'|'horizontal' A strip that scrolls sideways below the `lg` breakpoint and a column from it, always a column, or always a strip.
     orientation = 'responsive'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set style = html_cva(
     base: 'flex gap-1 overflow-x-auto',
     variants: {

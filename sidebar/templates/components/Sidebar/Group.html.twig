@@ -2,6 +2,8 @@
     ## string|null The heading of the group, hidden while the sidebar is collapsed.
     label = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 <div {{ attributes }}>
     {%- if label %}
         <p class="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-body-subtle group-data-collapsed/sidebar:sr-only">{{ label }}</p>

@@ -6,6 +6,8 @@
     ## boolean Whether the alert can be dismissible.
     dismissible = false
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set style = html_cva(
     base: "flex gap-2 text-sm p-4 rounded-base border-transparent *:[svg:not([class*='size-'])]:size-4 [&_a]:hover:no-underline [&_a]:underline group/alert",
     variants: {

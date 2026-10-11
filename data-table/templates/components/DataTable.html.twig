@@ -6,6 +6,8 @@
     ## string|null The table's accessible name, also shown as its caption.
     label = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set view = table -%}
 {%- set query = view.query -%}
 {#- The cell blocks render here, in the component's own scope: inside the content of the nested Table components below,

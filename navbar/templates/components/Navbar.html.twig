@@ -6,6 +6,8 @@
     ## string The accessible name of the navigation in the `nav` block.
     navLabel = 'Site'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _navbar_nav %}{##- The site's navigation, typically a `NavMenu`, shown from Tailwind's `md` breakpoint up (render it in a `MobileNav` for small screens). -#}{% block nav %}{% endblock %}{% endset -%}
 <header {{ attributes.defaults({class: 'flex h-16 items-center gap-3 border-b border-default bg-neutral-primary-soft px-4'|tailwind_classes, 'data-controller': 'navbar'}) }}>
     {%- if sidebarId %}

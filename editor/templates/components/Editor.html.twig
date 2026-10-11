@@ -26,6 +26,8 @@
     ## string|null Bumped by a Live Component to replace the content with the textarea's value (an explicit reset or another record).
     reset = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {#- `aria-describedby`, `aria-invalid` and `aria-required` go to the editable element; everything else to the root. The textarea holds the sanitized HTML escaped: its text is the HTML -#}
 {%- set _describedby = attributes.all['aria-describedby'] ?? null -%}
 {%- set _invalid = attributes.all['aria-invalid'] ?? null -%}

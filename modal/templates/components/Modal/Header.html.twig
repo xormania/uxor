@@ -1,3 +1,5 @@
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 <header
     {{ attributes.defaults({
         class: 'flex items-center justify-between border-b border-default pb-4 md:pb-5'|tailwind_classes,

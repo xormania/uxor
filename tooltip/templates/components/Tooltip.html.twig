@@ -6,6 +6,8 @@
     ## string Unique identifier, used for the tooltip's id.
     id = 'tooltip-' ~ random()
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 <span
     data-tooltip-placement-value="{{ placement }}"
     {{ attributes.defaults({

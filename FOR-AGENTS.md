@@ -205,8 +205,9 @@ Where two recipes are close:
 - **One owner per region**: a Live Component or a Turbo Frame or Stream, not both.
 - **Props and attributes are trusted input**: give `as` and attribute names values the code chose, never request or
   user data unchecked. The kit's declared link props keep relative, http(s), mailto and tel URLs, and
-  `Avatar:Image src` keeps relative and http(s) URLs; check any other URL attribute yourself. Validate dates and
-  bounds on the server: the calendar's only guide the user.
+  `Avatar:Image src` keeps relative and http(s) URLs; check any other URL attribute yourself. An attribute named
+  `on…` renders nothing: wire behavior with `data-action`. Validate dates and bounds on the server: the calendar's
+  only guide the user.
 - **No inline `<script>`, `<style>`, `style="…"` or `onclick="…"`** in templates: behavior goes in Stimulus
   controllers, styles in Tailwind classes.
 - **Check your work in a browser** in light and dark: the recipes' READMEs show what each example should look like.

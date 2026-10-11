@@ -10,6 +10,8 @@
     ## string|null The link when `as="a"`; a URL other than relative, http(s), mailto or tel renders `#`.
     href = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set as = as|lower in ['button', 'a'] ? as|lower : 'button' -%}
 {#- Read links as browsers do: ignore leading spaces/C0 controls and tabs/newlines in a scheme. -#}
 {%- set _href = href is not null ? ((href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#') : null -%}

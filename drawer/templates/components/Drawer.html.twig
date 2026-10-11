@@ -8,6 +8,8 @@
     ## 'left'|'right'|'top'|'bottom' The side of the viewport the drawer is docked to.
     placement = 'left'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _drawer_id = 'drawer-' ~ id -%}
 {%- set _drawer_title_id = _drawer_id ~ '-title' -%}
 {%- set _drawer_placement = placement -%}

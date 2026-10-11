@@ -7,6 +7,8 @@
     ## 'horizontal'|'vertical' How the menu lays out: `horizontal`, a bar whose submenus open over the page under their button; `vertical`, a list whose submenus open in place, for a drawer. Any other value renders `horizontal`.
     orientation = 'horizontal'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set orientation = orientation in ['horizontal', 'vertical'] ? orientation : 'horizontal' -%}
 {#- read by the parts inside: the prefix of their ids, the orientation and the depth -#}
 {%- set _nav_menu_id = id -%}

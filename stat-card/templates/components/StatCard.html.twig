@@ -10,6 +10,8 @@
     ## string|null The period the change compares to (e.g. "vs last month").
     period = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 <div {{ attributes.defaults({class: 'rounded-base border border-default bg-neutral-primary-soft p-6 shadow-xs'|tailwind_classes}) }}>
     <p class="text-sm font-medium text-body">{{ label }}</p>
     <p class="mt-2 text-3xl font-semibold tracking-tight text-heading">{{ value }}</p>

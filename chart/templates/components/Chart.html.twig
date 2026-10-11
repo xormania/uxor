@@ -26,6 +26,8 @@
     ## boolean Whether the title is for screen readers only.
     hideTitle = false
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _id = id ?: 'chart-' ~ random() -%}
 {%- set _types = ['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea', 'scatter', 'bubble'] -%}
 {%- set _type = chart ? chart.type : type -%}

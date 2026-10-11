@@ -6,6 +6,8 @@
     ## boolean Whether the branch renders open; a branch holding the current page (`aria-current="page"`) renders open anyway, and the controller then restores the state saved during the visit.
     open = false
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _content %}{##- The branch's children: `SideNav:Item`s and nested `SideNav:Branch`es. -#}{% block content %}{% endblock %}{% endset -%}
 {%- set _icon %}{##- The branch's icon, kept visible when a `Sidebar` around the tree is collapsed. -#}{% block icon %}{% endblock %}{% endset -%}
 {%- set _open = open or 'aria-current="page"' in _content -%}

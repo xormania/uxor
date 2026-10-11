@@ -9,6 +9,8 @@
     ## boolean|null Forces the current-page state; when null, `route` or the controller (on the current URL) decide.
     active = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {#- a link prop keeps a relative, http(s), mailto or tel URL, read as browsers read it (case, leading spaces and C0 controls, tabs and newlines anywhere); any other renders "#" -#}
 {%- set _href = (href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#' -%}
 {%- set _active = active ?? (route is not null and app.current_route == route) -%}

@@ -4,6 +4,8 @@
     ## string|null The `sessionStorage` key of the branches' open state, kept across Turbo visits; null keeps it in the page only.
     storageKey = 'side-nav'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 <ul role="tree" aria-label="{{ label }}"
     {%- if storageKey %} data-side-nav-storage-key-value="{{ storageKey }}"{% endif %}
     {{ attributes.defaults({

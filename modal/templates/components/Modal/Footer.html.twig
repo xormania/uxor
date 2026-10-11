@@ -1,3 +1,5 @@
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 <footer
     {{ attributes.defaults({
         class: 'flex items-center border-t border-default space-x-4 pt-4 md:pt-5'|tailwind_classes,

@@ -29,6 +29,8 @@
         {id: '#1039', customer: 'Lana Byrd', status: 'refunded', total: '$45.00'},
     ]
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _status_variant = {paid: 'success', pending: 'warning', refunded: 'gray'} -%}
 <div {{ attributes.defaults({class: 'space-y-6'|tailwind_classes}) }}>
     {%- set _actions %}{##- Buttons on the right of the page header. -#}{% block actions %}{% endblock %}{% endset %}

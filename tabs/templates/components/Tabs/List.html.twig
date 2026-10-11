@@ -2,6 +2,8 @@
     ## 'default'|'line' The visual style variant.
     variant = 'default'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set style = html_cva(
     base: 'group/tabs-list flex flex-wrap -mb-px text-sm font-medium text-center text-body group-data-[orientation=vertical]/tabs:space-y-4 group-data-[orientation=vertical]/tabs:flex-col',
     variants: {

@@ -6,6 +6,8 @@
     ## string|null The name in the submenu's id (`<parent id>-<name>`, lower-cased, spaces as `-`), unique among its siblings; defaults to the label.
     name = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set _vertical = _nav_menu_vertical ?? false -%}
 {%- set _level = _nav_menu_level ?? 0 -%}
 {%- set _submenu_id = (_nav_menu_id ?? 'nav-menu') ~ '-' ~ ((name ?? label) ~ '')|replace({"\t": ' ', "\n": ' ', "\r": ' ', "\f": ' '})|lower|split(' ')|filter((part) => part is not empty)|join('-') -%}

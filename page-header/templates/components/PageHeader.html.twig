@@ -4,6 +4,8 @@
     ## string|null A line describing the page.
     description = null
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 <header {{ attributes.defaults({class: 'flex flex-col gap-4 border-b border-default pb-5 sm:flex-row sm:items-end sm:justify-between'|tailwind_classes}) }}>
     <div class="min-w-0">
         {##- Content above the title, typically a `Breadcrumb`. -#}

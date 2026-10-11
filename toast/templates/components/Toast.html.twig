@@ -6,6 +6,8 @@
     ## string The accessible name of the close button.
     closeLabel = 'Close'
 -%}
+{#- drop every attribute named on…: behavior goes through data-action, never an inline handler -#}
+{%- set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) -%}
 {%- set style = html_cva(
     base: 'pointer-events-auto flex w-full items-start gap-3 rounded-base border border-default bg-neutral-primary-soft p-4 text-sm text-body shadow-lg transition-opacity duration-300 motion-reduce:transition-none!',
     variants: {variant: {info: '', success: '', warning: '', danger: ''}},

@@ -1,3 +1,5 @@
+{# drop every attribute named on…: behavior goes through data-action, never an inline handler #}
+{% set attributes = attributes.without(...attributes.all|keys|filter((name) => (name ~ '')|trim("\x00..\x20", 'left')|lower starts with 'on')) %}
 <header {{ attributes.defaults({class: 'mb-4 flex items-center justify-between pe-8'|tailwind_classes}) }}>
     {##- The header, typically a `Drawer:Title`. -#}
     {%- block content %}{% endblock -%}
