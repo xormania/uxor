@@ -282,7 +282,7 @@ test('a report whose times cannot be read is still read: the durations say so, t
     assert.equal(run.durations.wallMs, null);
 });
 
-test('BROWSER names the engine with the report\'s shard: summary, failed attempts and durations tell the nine jobs apart', () => {
+test('BROWSER names the engine with the report\'s shard: summary, failed attempts and durations tell the browser jobs apart', () => {
     const run = summarize('failed.json', { BROWSER: 'firefox' });
     assert.equal(run.code, EXIT.valid, run.stderr);
     assert.match(run.summary, /Playwright, shard firefox 1\/3: 2 failed/);
