@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { previewUrl } from './inventory';
 
 /*
  * The dropdown's keyboard beyond ArrowDown and Escape (recipe:dropdown has those), its submenus, and where the menu
@@ -7,7 +8,6 @@ import { test, expect } from './fixtures';
  * the trigger on scroll. On the README previews, rendered open.
  */
 
-const preview = (id: string) => `/preview/dropdown/${id}?theme=light`;
 const trigger = (page: Page) => page.getByRole('button', { name: 'Dropdown button' });
 const menu = (page: Page) => page.getByRole('menu', { name: 'Dropdown button' });
 const item = (page: Page, name: string) => page.getByRole('menuitem', { name, exact: true });
@@ -21,7 +21,7 @@ async function openWithKeyboard(page: Page): Promise<void> {
 }
 
 test('Home and End move to the first and last item, the arrows wrap, ArrowUp on the trigger opens on the last item', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropdown', 'default'));
     await openWithKeyboard(page);
 
     await page.keyboard.press('End');
@@ -40,7 +40,7 @@ test('Home and End move to the first and last item, the arrows wrap, ArrowUp on 
 });
 
 test('Tab and Shift+Tab from an item close the menu and move on from its trigger', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropdown', 'default'));
     // a control on each side of the dropdown, so where the focus goes is the page's next and previous Tab stop
     await page.locator('[data-controller="dropdown"]').evaluate((dropdown) => {
         const button = (name: string) => Object.assign(document.createElement('button'), { type: 'button', textContent: name });
@@ -64,7 +64,7 @@ test('Tab and Shift+Tab from an item close the menu and move on from its trigger
 });
 
 test('a submenu opens with ArrowRight on its item, keeps the arrows to its own items, and closes with ArrowLeft and Escape', async ({ page }) => {
-    await page.goto(preview('multi-level-dropdown'));
+    await page.goto(previewUrl('dropdown', 'multi-level-dropdown'));
     const settings = item(page, 'Settings');
     const submenu = page.getByRole('menu', { name: 'Settings' });
     const subItems = submenu.getByRole('menuitem');
@@ -110,7 +110,7 @@ test('a submenu opens with ArrowRight on its item, keeps the arrows to its own i
 });
 
 test('ArrowRight on the item of a submenu already open by a click moves into it, and does not close it', async ({ page }) => {
-    await page.goto(preview('multi-level-dropdown'));
+    await page.goto(previewUrl('dropdown', 'multi-level-dropdown'));
     const settings = item(page, 'Settings');
     const submenu = page.getByRole('menu', { name: 'Settings' });
 
@@ -128,7 +128,7 @@ test('ArrowRight on the item of a submenu already open by a click moves into it,
 const box = async (page: Page) => (await menu(page).boundingBox())!;
 
 test('the menu flips above its trigger when it does not fit below', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropdown', 'default'));
     await expect(menu(page)).toHaveAttribute('data-popper-placement', 'bottom');
     const below = await box(page);
     expect(below.y).toBeGreaterThan((await trigger(page).boundingBox())!.y);
@@ -144,7 +144,7 @@ test('the menu flips above its trigger when it does not fit below', async ({ pag
 });
 
 test('the menu follows its trigger when a scrolling box around them scrolls', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropdown', 'default'));
     // a box that scrolls and is not the menu's containing block: the menu does not move with it on its own
     await page.locator('[data-controller="dropdown"]').evaluate((dropdown) => {
         const scroller = Object.assign(document.createElement('div'), { tabIndex: 0 });
@@ -167,7 +167,7 @@ test('the menu follows its trigger when a scrolling box around them scrolls', as
 });
 
 test('a menu wider than the room beside its trigger is shifted back into the viewport, along the trigger', async ({ page }) => {
-    await page.goto(preview('default'));
+    await page.goto(previewUrl('dropdown', 'default'));
     const width = await page.evaluate(() => document.documentElement.clientWidth);
     // a menu wider than its trigger, centered under it (`bottom`), with the trigger at either edge of the viewport
     const place = (edge: 'left' | 'right') =>

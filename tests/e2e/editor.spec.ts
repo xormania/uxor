@@ -1,16 +1,16 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y } from './fixtures';
+import { previewUrl } from './inventory';
 
 /*
  * The Editor component: Tiptap mounted over the server-rendered content, the toolbar (one tab stop, arrow keys,
  * aria-pressed), the link dialog and its URL policy, the hidden textarea's HTML, the counter, and pasted HTML reduced
  * to the preset.
  */
-const preview = (id: string) => `/preview/editor/${id}?theme=light`;
 
 /** Opens a preview and waits for its editors to mount (the controller is lazy: Tiptap loads after the page). */
 async function open(page: Page, id: string) {
-    await page.goto(preview(id));
+    await page.goto(previewUrl('editor', id));
     await expect(page.locator('[data-editor-target="preview"]')).toHaveCount(0);
 }
 const value = (page: Page, name: string) => page.locator(`textarea[name="${name}"]`).inputValue();
@@ -30,7 +30,7 @@ const paste = (page: Page, html: string) =>
     }, html);
 
 test('the editor replaces the server-rendered content, named by its label, with no style element added', async ({ page }) => {
-    const before = await page.request.get(preview('default')).then((response) => response.text());
+    const before = await page.request.get(previewUrl('editor', 'default')).then((response) => response.text());
     expect(before).toContain('<strong>spring collection</strong>');
     await open(page, 'default');
     const editor = page.getByRole('textbox', { name: 'Description' });

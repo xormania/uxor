@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, guardPage } from './fixtures';
+import { test, expect, guardPage, markDocument } from './fixtures';
 import { kitName, recipes } from './inventory';
 
 // Every page answering 200 with its heading: a11y.spec.ts, which opens each of them. The theme toggle: theme-toggle.spec.ts.
@@ -15,12 +15,12 @@ test('the index lists every recipe of the kit', async ({ page }) => {
 test('links navigate with Turbo Drive (no full page load)', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => 'Turbo' in window);
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
 
     await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Lab' }).click();
     await expect(page).toHaveURL(/\/lab$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Lab');
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 });
 
 test('unknown recipes are 404', async ({ page, allowHttpError }) => {

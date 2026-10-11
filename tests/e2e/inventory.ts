@@ -24,6 +24,12 @@ export const examples: { recipe: string; id: string }[] = JSON.parse(
     execFileSync(process.env.PHP_BINARY ?? 'php', ['bin/console', 'app:examples'], { cwd: join(root, 'demo'), encoding: 'utf8' }),
 );
 
+/**
+ * The page rendering README example `id` of `recipe` alone (demo/src/Controller/PreviewController.php), in `theme`:
+ * what the examples' screenshots and the recipe specs open.
+ */
+export const previewUrl = (recipe: string, id: string, theme: 'light' | 'dark' = 'light') => `/preview/${recipe}/${id}?theme=${theme}`;
+
 // The layouts and blocks as pages of the /demo application (examples/pages.spec.ts)
 export const demoPages = {
     dashboard: '/demo',

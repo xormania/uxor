@@ -1,17 +1,9 @@
-import type { Locator, Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
+import { test, expect, countEvents } from './fixtures';
+import { day, dayCell } from './calendar';
 
-const day = (calendar: Locator, date: string) => calendar.locator(`[data-slot="calendar-day"][data-day="${date}"] button`);
-// counts the input and change events the calendar dispatches on its hidden inputs
-const countEvents = (page: Page, selector: string) =>
-    page.evaluate((selector) => {
-        const counts = { input: 0, change: 0 };
-        const root = document.querySelector(selector)!;
-        root.addEventListener('input', (event) => (event.target as HTMLElement).matches('[data-calendar-target="input"]') && counts.input++);
-        root.addEventListener('change', (event) => (event.target as HTMLElement).matches('[data-calendar-target="input"]') && counts.change++);
-        (window as any).__counts = counts;
-    }, selector);
-const counts = (page: Page) => page.evaluate(() => (window as any).__counts as { input: number; change: number });
+// counts the input and change events the calendar in `selector` dispatches on its hidden inputs
+const countInputEvents = (page: Page, selector: string) => countEvents(page, ['input', 'change'], `${selector} [data-calendar-target="input"]`);
 
 test('arrow, Home, End and Page keys move the focus; right to left swaps the arrows', async ({ page }) => {
     await page.goto('/preview/calendar/default?theme=light');
@@ -101,18 +93,18 @@ test('each mode submits its inputs; day buttons never submit the form', async ({
 
 test('a pick dispatches one input and one change event on the hidden input', async ({ page }) => {
     await page.goto('/lab/calendar-turbo');
-    await countEvents(page, '#cal-day');
+    const counts = await countInputEvents(page, '#cal-day');
     const calendar = page.getByRole('group', { name: 'Day' });
     await day(calendar, '2026-03-12').click();
-    await expect.poll(() => counts(page)).toEqual({ input: 1, change: 1 });
+    await expect.poll(() => counts()).toEqual({ input: 1, change: 1 });
     await expect(calendar.locator('input[name="day"]')).toHaveValue('2026-03-12');
     // the keyboard selects too, and a second pick of the same day clears it
     await day(calendar, '2026-03-12').press('Enter');
-    await expect.poll(() => counts(page)).toEqual({ input: 2, change: 2 });
+    await expect.poll(() => counts()).toEqual({ input: 2, change: 2 });
     await expect(calendar.locator('input[name="day"]')).toHaveValue('');
     // a disabled day takes no click
     await day(calendar, '2026-03-20').click({ force: true });
-    await expect.poll(() => counts(page)).toEqual({ input: 2, change: 2 });
+    await expect.poll(() => counts()).toEqual({ input: 2, change: 2 });
 });
 
 test('a range never spans a disabled day: a click past one starts a new range', async ({ page }) => {
@@ -142,10 +134,10 @@ test('in multiple mode, the inputs keep their attributes and order as dates come
     ]);
 
     // deselecting the last date changes no remaining input: the events come from the removed one
-    await countEvents(page, '#cal-dates');
+    const counts = await countInputEvents(page, '#cal-dates');
     await day(dates, '2026-03-17').click();
     await expect(inputs).toHaveCount(1);
-    expect(await counts(page)).toEqual({ input: 1, change: 1 });
+    expect(await counts()).toEqual({ input: 1, change: 1 });
 });
 
 test('a calendar whose inputs belong to a form outside it, with no date yet, follows that form\'s reset', async ({ page }) => {
@@ -168,7 +160,7 @@ test('a calendar whose inputs belong to a form outside it, with no date yet, fol
 
     await page.evaluate(() => (document.getElementById('external-dates-form') as HTMLFormElement).reset());
     await expect(inputs).toHaveCount(0);
-    await expect(dates.locator('[data-slot="calendar-day"][data-day="2026-03-10"]')).toHaveAttribute('aria-selected', 'false');
+    await expect(dayCell(dates, '2026-03-10')).toHaveAttribute('aria-selected', 'false');
 });
 
 // the `reset` event is cancelable and comes before the fields are reset: the calendar acts on the window, after the
@@ -203,8 +195,8 @@ test('a reset another listener cancels leaves the selection; the next one brings
     const resetOver = () => page.evaluate(() => (window as any).__resetOver);
     const expectSelected = async (date: string, other: string) => {
         await expect(input).toHaveValue(date);
-        await expect(calendar.locator(`[data-slot="calendar-day"][data-day="${date}"]`)).toHaveAttribute('aria-selected', 'true');
-        await expect(calendar.locator(`[data-slot="calendar-day"][data-day="${other}"]`)).toHaveAttribute('aria-selected', 'false');
+        await expect(dayCell(calendar, date)).toHaveAttribute('aria-selected', 'true');
+        await expect(dayCell(calendar, other)).toHaveAttribute('aria-selected', 'false');
     };
 
     // cancelled in a capture listener, from form.reset() and from the reset button

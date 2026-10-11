@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, dialogState } from './fixtures';
 
 test('a non-modal drawer leaves the page usable', async ({ page }) => {
     await page.goto('/lab/live-drawer');
@@ -6,7 +6,7 @@ test('a non-modal drawer leaves the page usable', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Open side panel' }).click();
     await expect(drawer).toBeVisible();
-    expect(await drawer.evaluate((element) => element.matches(':modal'))).toBe(false);
+    expect(await dialogState(drawer)).toEqual({ open: true, modal: false });
 
     await page.getByRole('button', { name: 'Re-render from the page' }).click();
     await expect(page.getByTestId('renders')).toHaveText('1');
@@ -45,7 +45,8 @@ test('a drawer whose container a Live re-render replaces is torn down cleanly, a
     await trigger.click();
     await expect(drawer).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(await drawer.evaluate((element) => element.matches(':modal') && element.contains(document.activeElement))).toBe(true);
+    expect(await dialogState(drawer)).toEqual({ open: true, modal: true });
+    expect(await drawer.evaluate((element) => element.contains(document.activeElement))).toBe(true);
     await page.keyboard.press('Escape');
     await expect(drawer).toBeHidden();
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');
