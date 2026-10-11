@@ -17,7 +17,7 @@
             <div class="mt-6 flex flex-wrap gap-3">
                 <twig:Button as="a" href="#recipes" size="lg">Browse the recipes</twig:Button>
                 <twig:Button as="a" href="#install" variant="secondary" size="lg">Install</twig:Button>
-                <twig:Button as="a" href="{{ path('app_demo') }}" variant="tertiary" size="lg">Open the demo app</twig:Button>
+                <twig:Button as="a" href="{{ path('app_demo') }}" variant="secondary" size="lg">Open the demo app</twig:Button>
             </div>
             <dl class="mt-8 grid max-w-xl grid-cols-[repeat(2,minmax(0,1fr))] gap-4">
                 {% for stat in [
@@ -90,7 +90,8 @@ composer require symfony/asset-mapper symfony/stimulus-bundle</code></pre>
                         <li class="relative flex flex-col rounded-base border border-default p-4 hover:border-brand hover:bg-neutral-secondary-soft">
                             <a href="{{ path('app_recipe', {recipe: recipe.name}) }}" class="font-semibold text-heading after:absolute after:inset-0">{{ recipe.name }}</a>
                             {% if recipe.description %}
-                                <p class="mt-1 line-clamp-3 text-sm">{{ recipe.description }}</p>
+                                {#- Markdown from the README: its links as text, inside this card that is a link -#}
+                                <p class="mt-1 line-clamp-3 text-sm break-words">{{ recipe.description|inline_markdown(false) }}</p>
                             {% endif %}
                             <p class="mt-auto pt-3 text-xs">{{ example_counts[recipe.name] ?: 'No' }} live {{ 1 == example_counts[recipe.name] ? 'example' : 'examples' }}</p>
                         </li>

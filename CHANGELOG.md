@@ -192,6 +192,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `theme-toggle`: with the system in dark mode and the light theme chosen, the button showed no icon
   (`flowbite.min.css` gates its own `dark:hidden` on `prefers-color-scheme`); it now shows the moon. A switch no
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
+- `button`: the keyboard focus was a 4px ring right against the fill, in a tint of it (`brand-medium` on `brand`:
+  1.8:1, 1.4:1 in the dark theme; the outline variants' gray ring 1.1:1 on the page), so hard to see. Every variant
+  now shows a 2px `brand-medium` outline 2px apart from the button, on `:focus-visible` only (no ring after a click),
+  at 3:1 or more against the page in both themes (WCAG 1.4.11).
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
 - `theme`: native controls follow the theme on screen, not the system's: `uxor.css` sets `color-scheme: light` on the

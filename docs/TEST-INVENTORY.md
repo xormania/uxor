@@ -45,12 +45,17 @@ the recipes' templates and PHP for `data-controller`, `symfony--ux-*`, `AsLiveCo
 Left out, with where their guarantees live: the presentational recipes (badge, button, card, table, …) and theme
 (CSS only): screenshots of every README example in both themes (`examples/examples`), axe on every example in both
 themes and every `/r/` page (`a11y`), hostile props (`hostile-props`), markup snapshots for Badge and Breadcrumb only
-(`demo/tests/Twig/ComponentsTest.php`). Pagination: links only, its frame behavior is the data table's. The blocks
+(`demo/tests/Twig/ComponentsTest.php`), the Button keyboard focus outline at 3:1 or more against what it touches, every
+variant in both themes (`button-focus`). Pagination: links only, its frame behavior is the data table's. The blocks
 (login, signup, forgot-password, settings-profile, not-found, dashboard-home): server flows in `demo-app` (E2E demo).
 form-theme: `forms` (rows match the hand-written components in both themes, server errors, the date picker and
 Dropzone opt-ins). input, select (CSS only): `forms` "every Input pads its text the same, with or without a type",
 "a Select's text stops before its chevron" (ltr and rtl), "a multiple Select shows no chevron and no option cut at the
 bottom".
+
+The gallery (E2E demo, `demo-app`): every `/r/*` and `/demo` page fits at 320px with no Markdown source shown and a
+recipe name of any length wrapping, every page names an icon, the header is one row at 320 and 390px, the hero's two
+secondary links share one style; `StaticExportBannerTest` places the static notice beside the sidebar (functional).
 
 The demo itself has an executable deployment contract outside the recipe matrix:
 `ProductionConfigurationTest` refuses an accidental production boot and proves a deliberate one has no development
