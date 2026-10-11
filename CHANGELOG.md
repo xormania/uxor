@@ -117,10 +117,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   `bg-white`. **Upgrading:** reinstall `theme` with those recipes, or those components lose their white text.
 - Motion: transitions name the properties they animate and stop under `prefers-reduced-motion`. `tabs` triggers fade
   their colors only (was `transition-all`), the `toggle` knob animates `translate` and its border color (was
-  `transition-all`), and the `modal` backdrop its color (was every property); these, the `sidebar` width and chevron,
-  the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once under reduced motion.
-  There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without waiting for the fade, and
-  the `spinner` and the `skeleton` pulse run three times slower.
+  `transition-all`), and the `modal` backdrop's transition names its color (was every property); these, the `sidebar`
+  width and chevron, the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once
+  under reduced motion. There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without
+  waiting for the fade, and the `spinner` and the `skeleton` pulse run three times slower.
 - `dropdown` and `tooltip` place their content with the `floating` recipe's module instead of a copy each, and depend
   on that recipe (`ux:install` adds `assets/lib/uxor-floating.js`). Where they place it does not change.
 - `dropdown`, `modal`, `drawer`, `toast` and `layouts` (`form-reset`) use the `turbo` recipe's module instead of a
