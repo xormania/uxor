@@ -558,7 +558,9 @@ whose commit's workflows differed from `main`'s), push the tag by hand
 (`git tag -a X.Y.Z <merge commit> -m "UXor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
 checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`);
 if that part fails, use *Re-run failed jobs* (a full re-run finds the release done and skips the gallery), or run
-`pages.yml` by hand on `main`. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
+`pages.yml` by hand on `main`. To preview the next release's gallery before it, run `pages.yml` by hand on `dev`: the
+live site shows `dev` (its install commands still name the latest release) until a release or a run on `main`
+deploys again; GitHub only deploys from a branch the `github-pages` environment allows. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
 not the release: both run `tools/build-static.sh <dir> --base-path=/<repository>` (`pages.yml` adds
 `--release-from-tags`, so the install commands name the release), which installs the demo, saves the pages with
 `app:export-static` and checks them. Locally, delete `demo/public/assets/` after it, or the demo serves those copies.
