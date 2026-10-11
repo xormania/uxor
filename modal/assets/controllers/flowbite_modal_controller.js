@@ -94,10 +94,13 @@ export default class extends Controller {
         this.#closing = closing;
     }
 
-    // Starts the backdrop's fade out and returns its transitions: none under prefers-reduced-motion.
+    // Starts the backdrop's fade out and returns its color transition: none under prefers-reduced-motion. Another
+    // animation on the backdrop (an app's own, which may never end) is not waited for.
     #fadeOutBackdrop() {
         this.modalTarget.setAttribute(CLOSING, '');
-        return this.modalTarget.getAnimations({ subtree: true }).filter((animation) => '::backdrop' === animation.effect?.pseudoElement);
+        return this.modalTarget
+            .getAnimations({ subtree: true })
+            .filter((animation) => '::backdrop' === animation.effect?.pseudoElement && 'background-color' === animation.transitionProperty);
     }
 
     #cancelFade() {

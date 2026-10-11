@@ -221,6 +221,27 @@ test('under reduced motion the modal backdrop does not fade, and the dialog clos
     await expect.poll(() => backdropTransitions(page), 'closed, with no backdrop transition').toEqual(['close']);
 });
 
+test('a modal whose backdrop runs an endless animation of its own still closes', async ({ page }) => {
+    await open(page, 'modal/default', 'no-preference');
+    const trigger = page.getByRole('button', { name: 'Open Modal' });
+    const dialog = page.locator('dialog').first();
+
+    await trigger.click();
+    await expect(dialog).toBeVisible();
+    // an app's own backdrop animation (as `backdrop:animate-pulse` would give) never finishes: the close waits for the
+    // backdrop's fade only. Firefox animates no ::backdrop (it throws here), so there it closes as it always does.
+    await dialog.evaluate((element) => {
+        try {
+            element.animate({ opacity: [1, 0.5] }, { duration: 1000, iterations: Infinity, pseudoElement: '::backdrop' });
+        } catch {
+            // no ::backdrop animation in this engine
+        }
+    });
+    await dialog.getByRole('button', { name: 'Decline' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('under reduced motion an alert hides at once, without waiting for a fade', async ({ page }) => {
     await open(page, 'alert/dismissing', 'reduce');
     const hidden = await page.getByRole('alert').filter({ hasText: 'A simple info alert' }).evaluate((alert) => {
