@@ -111,7 +111,16 @@ jobs:
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-            # reads the image cache CI writes for dev and main; writes none
+            # reads the image cache CI writes for dev and main (ci.yml, *Name the build cache*: a public package, so no
+            # login), then the GitHub Actions caches CI keeps as fallbacks; writes none
+            - name: Name the build cache
+              id: cache
+              env:
+                  REPO: ${{ github.repository }}
+              run: |
+                  image="ghcr.io/${REPO,,}-cache"
+                  echo "image=$image" >> "$GITHUB_OUTPUT"
+
             - name: Build the demo image
               id: image
               uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
@@ -123,6 +132,8 @@ jobs:
                   load: true
                   pull: true
                   set: |
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-refs/heads/dev
                       *.cache-from=type=gha,scope=demo-refs/heads/main
 
