@@ -1,4 +1,4 @@
-import { test, expect, expectA11y, turboVisitDone } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
 import { turboOperation } from './transitions';
 import { demoPages } from './inventory';
 
@@ -217,11 +217,11 @@ test('signing out requires POST: a direct GET to the logout URL does not sign th
 test('a page whose tracked importmap changed between two visits, as after a deploy, is loaded in full', async ({ page }) => {
     await page.goto('/demo/settings/profile');
     const settings = page.getByRole('navigation', { name: 'Settings' });
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
 
     // the same assets: Turbo renders the next page in the same document
     await turboOperation(page, { url: '/demo/settings/notifications' }, () => settings.getByRole('link', { name: 'Notifications' }).click());
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 
     // the billing page names another URL for the app's entrypoint (a new digest after a deploy), a URL that loads
     await page.route('**/demo/settings/billing', async (route) => {
@@ -233,7 +233,7 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await settings.getByRole('link', { name: 'Billing' }).click();
 
     await expect(page).toHaveURL(/\/demo\/settings\/billing$/);
-    await expect.poll(() => page.evaluate(() => (window as any).__sameDocument)).toBeUndefined();
+    await sameDocument.expectReplaced();
     // the new document, as it parses, carries the new importmap
     await expect.poll(() => page.evaluate(() => document.querySelector('script[type="importmap"]')?.textContent ?? '')).toContain('?deploy=2');
     await expect(settings.getByRole('link', { name: 'Billing' })).toHaveAttribute('aria-current', 'page');
@@ -247,3 +247,19 @@ test('every demo page names the brand it shows in its title', async ({ page, all
         await expect(page, path).toHaveTitle(/ — xor$/);
     }
 });
+
+// a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
+for (const colorScheme of ['light', 'dark'] as const) {
+    test.describe(`${colorScheme} theme at phone width`, () => {
+        test.use({ viewport: { width: 390, height: 844 }, colorScheme });
+
+        for (const path of ['/', '/r/button', '/r/data-table', '/demo', '/demo/login', '/demo/settings/profile']) {
+            test(`${path} does not scroll sideways`, async ({ page }) => {
+                await page.goto(path);
+                await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+                const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+                expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+            });
+        }
+    });
+}

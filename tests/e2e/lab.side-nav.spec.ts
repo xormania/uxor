@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, turboVisitDone } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
 import { back, forward, shown, visit } from './transitions';
 
 /*
@@ -107,18 +107,18 @@ test('the keyboard moves through the shown treeitems, opens and closes branches 
     expect((await treeState(page)).tabStops).toEqual(['Guides']);
 
     // Enter follows a link, as a Turbo visit
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     await press('ArrowRight', 'Guides');
     await press('ArrowRight', 'Getting started');
     await page.keyboard.press('Enter');
     await shown(page, 'Page two');
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
     await expectTree(page, { open: ['Guides'], current: ['Getting started'], tabStop: 'Getting started' });
 });
 
 test('the open branches hold across Turbo visits, Back, Forward and a reload, over the cached copy of the page', async ({ page }) => {
     await page.goto('/lab/side-nav');
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     await treeitem(page, 'Reference').locator(':scope > [data-side-nav-toggle]').click();
     await expectTree(page, { open: ['Reference'], current: ['Overview'], tabStop: 'Reference' });
 
@@ -134,7 +134,7 @@ test('the open branches hold across Turbo visits, Back, Forward and a reload, ov
 
     await forward(page, 'Page two');
     await expectTree(page, { open: ['Guides'], current: ['Getting started'], tabStop: 'Getting started' });
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 
     await page.reload();
     await expectTree(page, { open: ['Guides'], current: ['Getting started'], tabStop: 'Getting started' });

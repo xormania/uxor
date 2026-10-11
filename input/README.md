@@ -56,6 +56,8 @@ The input field is an important part of the form element that can be used to cre
 <twig:Input />
 ```
 
+Without a `type`, the browser's default, it is a text field and is padded like one (`type="text"`).
+
 ## Examples
 
 ### Disabled

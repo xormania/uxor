@@ -1,5 +1,6 @@
 import type { Page, Request, Route } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, markDocument, type SameDocument } from './fixtures';
+import { follow } from './transitions';
 
 /*
  * Back pressed while a change of the data table is still on its way: the table's frame visit is promoted to history
@@ -63,11 +64,6 @@ const changes: Change[] = [
         apply: (page) => follow(page, 'Page 3'),
     },
 ];
-
-async function follow(page: Page, name: string) {
-    await page.getByRole('link', { name, exact: true }).focus();
-    await page.keyboard.press('Enter');
-}
 
 /*
  * Records, in order, Turbo's events, the history changes and popstate in `window.__log`, and holds a phase when asked:
@@ -241,23 +237,23 @@ const frameVisitRequest = (request: Request, [key, value]: [string, string]) =>
     new URL(request.url()).searchParams.get(key) === value;
 
 /** Opens the table and moves to page 2 with a promoted frame visit: Back from the change has an entry to go to. */
-async function start(page: Page): Promise<{ first: string; second: string }> {
+async function start(page: Page): Promise<{ first: string; second: string; sameDocument: SameDocument }> {
     trackRequests(page);
     await instrument(page);
     await page.goto(PATH);
-    await page.evaluate(() => ((window as any).__sameDocument = true));
+    const sameDocument = await markDocument(page);
     const first = page.url();
     await promoted(page, () => follow(page, 'Page 2'), ['page', '2']);
     await quiet(page);
     await expectConsistent(page);
-    return { first, second: page.url() };
+    return { first, second: page.url(), sameDocument };
 }
 
 /*
  * After the interruption: Forward goes to `forward` (the entry after the one Back went to) and Back returns to
- * `back`, each consistent; then the table takes another change (rows per page 50).
+ * `back`, each consistent; then the table takes another change (rows per page 50), all in the document `start` marked.
  */
-async function afterwards(page: Page, { back, forward }: { back: string; forward: string }) {
+async function afterwards(page: Page, { back, forward, sameDocument }: { back: string; forward: string; sameDocument: SameDocument }) {
     await page.goForward();
     await quiet(page);
     await expectConsistent(page, forward);
@@ -276,7 +272,7 @@ async function afterwards(page: Page, { back, forward }: { back: string; forward
     await quiet(page);
     await expectConsistent(page);
     await expect(page.getByLabel('Rows per page')).toHaveValue('50');
-    expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+    await sameDocument.expectKept();
 }
 
 for (const change of changes) {
@@ -290,7 +286,7 @@ for (const change of changes) {
         // A link: the cancelled src load is right, but the page left by Back is cached with the frame's pending `src`;
         // Forward restores it, the frame reconnects, loads that src and shows page 3 at the page 2 URL. The controller
         // removes a pending `src` on turbo:before-cache, which also cancels its request.
-        const { first, second } = await start(page);
+        const { first, second, sameDocument } = await start(page);
 
         let held: { route: Route; request: Request } | undefined;
         const arrived = new Promise<void>((resolve) =>
@@ -323,7 +319,7 @@ for (const change of changes) {
         await quiet(page);
         // Back wins: the change is lost, the user is where Back took them
         await expectConsistent(page, first);
-        await afterwards(page, { back: first, forward: second });
+        await afterwards(page, { back: first, forward: second, sameDocument });
     });
 
     test(`${change.name}: Back after history changed, before the frame rendered, leaves a consistent table`, async ({ page }) => {
@@ -334,7 +330,7 @@ for (const change of changes) {
         // response). FetchRequest#receive does not await the delegate, so the AbortError is uncaught: a page error.
         // The controller removes the frame's `src` before (a load still pending on turbo:before-cache, and a frame that
         // left the document), and the promotion proposes no visit without one.
-        const { second } = await start(page);
+        const { second, sameDocument } = await start(page);
         await page.evaluate(() => ((window as any).__hold = 'frame-render'));
         const from = (await log(page)).length;
         await change.apply(page);
@@ -351,12 +347,12 @@ for (const change of changes) {
         await quiet(page);
         await expectConsistent(page, second);
         // the change entered history before Back: Forward shows it
-        await afterwards(page, { back: second, forward: changed });
+        await afterwards(page, { back: second, forward: changed, sameDocument });
     });
 
     test(`${change.name}: Back after the frame rendered, before the promotion's turbo:load, leaves a consistent table`, async ({ page }) => {
         // the copy Back restores was cached as the promotion started, before the hold: the same as the control below
-        const { second } = await start(page);
+        const { second, sameDocument } = await start(page);
         await page.evaluate(() => ((window as any).__hold = 'promotion'));
         const from = (await log(page)).length;
         await change.apply(page);
@@ -372,7 +368,7 @@ for (const change of changes) {
         await page.evaluate(() => (window as any).__resume());
         await quiet(page);
         await expectConsistent(page, second);
-        await afterwards(page, { back: second, forward: changed });
+        await afterwards(page, { back: second, forward: changed, sameDocument });
     });
 }
 

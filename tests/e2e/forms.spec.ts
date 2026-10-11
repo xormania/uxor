@@ -1,5 +1,8 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y } from './fixtures';
+import { day } from './calendar';
+import { png, text } from './files';
+import { examples } from './inventory';
 
 const pairs = ['name', 'email', 'country', 'bio', 'photo', 'startsOn', 'plan', 'terms', 'save'];
 
@@ -99,12 +102,12 @@ test('the date picker opt-in submits the pick; a date the server refuses comes b
     const hidden = page.locator('input[name="demo[startsOn]"]');
     // empty, with a past minimum: the calendar opens on today's month, not the minimum's
     const now = new Date();
-    const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`;
     await page.getByRole('button', { name: 'Choose date' }).click();
     await expect(page.getByRole('dialog').getByRole('grid')).toHaveAccessibleName(new Intl.DateTimeFormat('en', { month: 'long', year: 'numeric' }).format(now));
-    await page.getByRole('dialog').locator(`[data-slot="calendar-day"][data-day="${day}"] button`).click();
-    await expect(hidden).toHaveValue(day);
-    await expect(field).toHaveValue(new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${day}T00:00:00Z`)));
+    await day(page.getByRole('dialog'), date).click();
+    await expect(hidden).toHaveValue(date);
+    await expect(field).toHaveValue(new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeZone: 'UTC' }).format(new Date(`${date}T00:00:00Z`)));
 
     // below the bound, as a script could send it: the constraint decides
     await hidden.evaluate((input) => ((input as HTMLInputElement).value = '2025-06-01'));
@@ -114,11 +117,6 @@ test('the date picker opt-in submits the pick; a date the server refuses comes b
     await expect(field).toHaveAccessibleDescription(/^The first day of your subscription\. This value should be greater than or equal to/);
     await expect(page.locator('input[name="demo[startsOn]"]')).toHaveValue('');
 });
-
-// a 1×1 PNG
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-const png = (name: string, size = PNG.length) => ({ name, mimeType: 'image/png', buffer: Buffer.concat([PNG, Buffer.alloc(Math.max(0, size - PNG.length))]) });
-const text = (name: string) => ({ name, mimeType: 'text/plain', buffer: Buffer.from(`${name}\n`) });
 
 /** Fills every required field of /forms with a valid value. */
 async function fillValid(page: Page) {
@@ -197,4 +195,70 @@ test('a file over upload_max_filesize gives its field the size error', async ({ 
     await expect(attachments).toHaveAttribute('aria-invalid', 'true');
     await expect(attachments).toHaveAccessibleDescription(/too large/);
     await expect(page.getByText(/CSRF token/i)).toHaveCount(0);
+});
+
+/*
+ * The Input component's text starts at the same inline padding with or without a `type`: Flowbite's base rule pads
+ * only `[type=text]`, `[type=email]` and the other typed fields, so an Input with no `type` (a text field all the
+ * same) showed its text against the left border. Every text-like Input of every README example that renders one.
+ */
+test('every Input pads its text the same, with or without a type', async ({ page }) => {
+    const recipes = ['input', 'form-field', 'date-picker', 'label', 'card', 'navbar', 'popover'];
+    const measured: { example: string; id: string; type: string | null; start: number; end: number }[] = [];
+    for (const { recipe, id } of examples.filter(({ recipe }) => recipes.includes(recipe))) {
+        await page.goto(`/preview/${recipe}/${id}?theme=light`);
+        const inputs = await page.locator('input.bg-neutral-secondary-medium.border-default-medium:is(:not([type]), [type=text], [type=email], [type=password], [type=search], [type=number], [type=tel], [type=url])').evaluateAll((inputs) =>
+            inputs.map((input) => {
+                const style = getComputedStyle(input);
+                return { id: input.id, type: input.getAttribute('type'), start: parseFloat(style.paddingInlineStart), end: parseFloat(style.paddingInlineEnd) };
+            }),
+        );
+        measured.push(...inputs.map((input) => ({ example: `${recipe}/${id}`, ...input })));
+    }
+    expect(measured.some(({ type }) => null === type), 'an Input with no type is measured').toBe(true);
+    expect(measured.some(({ type }) => 'text' === type), 'an Input of type text is measured').toBe(true);
+    expect(measured.filter(({ start, end }) => 12 !== start || 12 !== end)).toEqual([]);
+});
+
+/*
+ * A Select's text stops before its chevron, on either side: Flowbite draws the chevron as the background image at
+ * 0.75rem from the inline end, and the Select's own inline padding replaced the room Flowbite's base rule leaves for it,
+ * so a long option ran under the chevron. In right to left the chevron and the room move to the left.
+ */
+for (const dir of ['ltr', 'rtl'] as const) {
+    test(`a Select's text stops before its chevron (${dir})`, async ({ page }) => {
+        await page.goto('/preview/select/default?theme=light');
+        await page.evaluate((dir) => document.documentElement.setAttribute('dir', dir), dir);
+        const select = page.locator('select:not([multiple])').first();
+        const room = await select.evaluate((select) => {
+            const style = getComputedStyle(select);
+            const px = (value: string) => [...value.matchAll(/(-?[\d.]+)px/g)].map((match) => parseFloat(match[1]));
+            const offset = px(style.backgroundPositionX).at(-1) ?? 0;
+            const size = px(style.backgroundSize)[0] ?? 0;
+            return { image: style.backgroundImage, offset, size, end: parseFloat(style.paddingInlineEnd), side: style.backgroundPositionX };
+        });
+        expect(room.image).toContain('svg');
+        expect(room.size).toBeGreaterThan(0);
+        expect(room.end, `padding-inline-end against the chevron at ${room.side}, ${room.size}px wide`).toBeGreaterThanOrEqual(room.offset + room.size + 4);
+    });
+}
+
+/*
+ * A multiple Select is a list box: no chevron (Flowbite's `[multiple]` rule that removes it loses to its own
+ * `select:not([size])`), and its height shows whole rows, never an option cut in half at the bottom.
+ */
+test('a multiple Select shows no chevron and no option cut at the bottom', async ({ page }) => {
+    await page.goto('/preview/select/multiple?theme=light');
+    const select = page.locator('select[multiple]').first();
+    const box = await select.evaluate((select: HTMLSelectElement) => {
+        const style = getComputedStyle(select);
+        // the options scroll inside the padding box: a row past the content shows in the bottom padding, cut at its edge
+        const top = select.getBoundingClientRect().top + select.clientTop;
+        const bottom = top + select.clientHeight;
+        const rows = [...select.options].map((option) => option.getBoundingClientRect()).map(({ top, bottom }) => ({ top, bottom }));
+        return { image: style.backgroundImage, top, bottom, rows };
+    });
+    expect.soft(box.image).toBe('none');
+    const cut = box.rows.filter(({ top, bottom }) => top < box.bottom - 0.5 && bottom > box.bottom + 0.5);
+    expect(cut, `rows ${JSON.stringify(box.rows)} in ${box.top}..${box.bottom}`).toEqual([]);
 });

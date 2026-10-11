@@ -378,3 +378,56 @@ export async function recordFirstFrames(page: Page, selectors: Record<string, st
         return records.map(({ render, url, visible }) => ({ render, url, visible }));
     };
 }
+
+/**
+ * Follows the link named `name` (exactly) from the keyboard: focused, then Enter. A pointer over a link makes Turbo
+ * prefetch it, and a click would then reuse that request, or not, depending on timing. Only follows it: the caller
+ * waits for what the visit must show (`turboOperation`).
+ */
+export async function follow(page: Page, name: string): Promise<void> {
+    await page.getByRole('link', { name, exact: true }).focus();
+    await page.keyboard.press('Enter');
+}
+
+/** One reload of the lab's reloading frame, as `reloadFrames` runs it, with what a spec does around it. */
+export type FrameReload = {
+    /** How many times, 3 by default: the first reload connects new controllers, the next ones replace them. */
+    times?: number;
+    /** The link reloading the frame, `Reload the frame` by default (a menu item inside a dropdown). */
+    link?: (page: Page) => Locator;
+    /** How the link is activated, a click by default. */
+    activate?: (link: Locator) => Promise<unknown>;
+    /** Runs before each reload, `load` being the load it starts (1 to `times`): opens what must be open meanwhile. */
+    before?: (load: number) => Promise<unknown>;
+    /** Runs once the frame shows `load`. */
+    after?: (load: number) => Promise<unknown>;
+};
+
+/**
+ * Reloads the lab's reloading frame `times` times from its own link: a frame visit not promoted to history, the URL
+ * kept. Each lab `<recipe>-turbo` page holds one, showing its `?load=<n>` in `data-testid="frame-load"` (0 as the page
+ * loads); each reload waits until the frame shows its load.
+ */
+export async function reloadFrames(page: Page, { times = 3, link = (page) => page.getByRole('link', { name: 'Reload the frame' }), activate = (link) => link.click(), before, after }: FrameReload = {}): Promise<void> {
+    for (let load = 1; load <= times; load++) {
+        await before?.(load);
+        await activate(link(page));
+        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
+        await after?.(load);
+    }
+}
+
+/**
+ * Sends the lab's Turbo Stream `action` from a `<recipe>-stream` page and waits until the region it rendered shows it
+ * (`data-testid="stream-action"`). By default its button is clicked (`Replace the chart`, `Update the chart`); `from:
+ * 'code'` submits the form with that button from the page's code instead, so no click or focus change reaches what is
+ * open on the page (an open menu, a shown tooltip).
+ */
+export async function sendStream(page: Page, action: 'replace' | 'update', { from = 'click' }: { from?: 'click' | 'code' } = {}): Promise<void> {
+    if ('code' === from) {
+        await page.locator('form').evaluate((form: HTMLFormElement, value) => form.requestSubmit(form.querySelector<HTMLButtonElement>(`button[value="${value}"]`)), action);
+    } else {
+        await page.getByRole('button', { name: new RegExp(`^${action[0].toUpperCase()}${action.slice(1)} the `) }).click();
+    }
+    await expect(page.getByTestId('stream-action')).toHaveText(action);
+}

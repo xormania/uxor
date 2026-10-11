@@ -4,7 +4,8 @@
 # `## [X.Y.Z]` heading) is tagged `X.Y.Z` on the first commit of <ref>'s first-parent history that adds the heading:
 # on main, the release pull request's merge commit. Its notes are its section of CHANGELOG.md at that commit, so a
 # later edit to an old section changes no published notes. An existing tag, lightweight or annotated, must point at
-# that commit: a tag that points elsewhere is refused, and so is a version no commit adds.
+# that commit: a tag that points elsewhere is refused, and so is a version no commit adds. release.yml checks the
+# install of an untagged version before it tags it; a tagged one only gets its Release ("Latest" only for the newest).
 #
 # Usage: tools/release-plan.sh [--dry-run] [--ref <rev>] [--notes-dir <dir>] [<version>...]
 #   <version>...       the versions to plan; default: every version heading of CHANGELOG.md at <ref>
@@ -68,7 +69,7 @@ for version in "${versions[@]}"; do
         decision="check the install of $commit, tag it $version, publish the release"
     elif [ "$tagged" = "$commit" ]; then
         state=tagged
-        decision="the tag is right: check its install, publish the release"
+        decision="the tag is right: publish the release (no install check: only an untagged version gets one)"
     else
         state=refused
         decision="refused: tag $version points at $tagged, not at $commit, the commit that adds its heading"

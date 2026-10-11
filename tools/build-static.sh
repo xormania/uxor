@@ -4,10 +4,11 @@
 # previews' own links and forms reach saved pages, and every recipe and README example has its pages
 # (tools/fence-coverage.mjs). CI's *Static site* job and pages.yml both build with it; Pages then uploads <dir>.
 #
-#   tools/build-static.sh <dir> [--base-path=/<repository name>] [--release-from-tags]
+#   tools/build-static.sh <dir> [--base-path=/<repository name>] [--release-from-tags] [--branch=<name>]
 #
 # --base-path: the URL path the site is served under (none: the root). --release-from-tags: the install commands name
-# the release (X.Y.Z tag) HEAD is, or else the latest release before it; without it, or without tags, they name none.
+# the release (X.Y.Z tag) HEAD is; otherwise, and without the option or tags, they name the branch (the banner then also
+# names the latest release before HEAD). --branch: the branch the site is built from (none: the branch checked out, else main).
 # PHP=… COMPOSER_BIN=… to use other binaries. It installs the demo (tools/sync-demo, composer install) and compiles its
 # assets into demo/public/assets/: run `rm -rf demo/public/assets` after it, or the local demo serves those copies.
 set -euo pipefail
@@ -15,14 +16,15 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 php="${PHP:-php}"
 composer="${COMPOSER_BIN:-composer}"
-usage() { echo "usage: $0 <dir> [--base-path=/path] [--release-from-tags]" >&2; exit 2; }
+usage() { echo "usage: $0 <dir> [--base-path=/path] [--release-from-tags] [--branch=name]" >&2; exit 2; }
 
 [ $# -ge 1 ] && [ -n "$1" ] && [ "${1#-}" = "$1" ] || usage
 dir="$1"; shift
-base_path='' release='' latest_release=''
+base_path='' release='' latest_release='' branch=''
 for arg in "$@"; do
     case "$arg" in
         --base-path=*) base_path="${arg#--base-path=}" ;;
+        --branch=*) branch="${arg#--branch=}" ;;
         --release-from-tags)
             # release tags only (X.Y.Z)
             match='[0-9]*.[0-9]*.[0-9]*'
@@ -35,7 +37,8 @@ done
 mkdir -p "$dir"
 dir="$(cd "$dir" && pwd)"
 commit=$(git -C "$root" rev-parse --short HEAD)
-echo "Static site: $dir, base path '${base_path}', release '${release}', latest release '${latest_release}', commit $commit"
+branch="${branch:-$(git -C "$root" symbolic-ref --short -q HEAD || echo main)}"
+echo "Static site: $dir, base path '${base_path}', release '${release}', latest release '${latest_release}', commit $commit on '$branch'"
 
 # every console command without debug, from composer's cache:clear on, so the assets compile with Stimulus's debug
 # logging off (a compiled asset is cached whatever the debug mode)
@@ -49,7 +52,7 @@ cd "$root"
     "$php" bin/console asset-map:compile
     # app:export-static fails on any page that does not answer 200
     "$php" bin/console app:export-static "$dir" --base-path="$base_path" --release="$release" \
-        --latest-release="$latest_release" --commit="$commit"
+        --latest-release="$latest_release" --commit="$commit" --branch="$branch"
 )
 
 # the previews' own links and forms reach saved pages

@@ -1,7 +1,5 @@
-import type { Locator } from '@playwright/test';
 import { test, expect } from './fixtures';
-
-const day = (scope: Locator, date: string) => scope.locator(`[data-slot="calendar-day"][data-day="${date}"] button`);
+import { day } from './calendar';
 
 test('the trigger opens the calendar on the selected day; a pick closes it and shows the date', async ({ page }) => {
     await page.goto('/preview/date-picker/default?theme=light');

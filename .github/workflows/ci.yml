@@ -197,7 +197,7 @@ jobs:
                   mkdir "$RUNNER_TEMP/kit"
                   git archive HEAD | tar -x -C "$RUNNER_TEMP/kit"
                   echo "Exported:" && ls -A "$RUNNER_TEMP/kit"
-                  for path in demo docs tests tools .github package.json package-lock.json playwright.config.ts alert/tests; do
+                  for path in demo docs tests tools .github .xorder package.json package-lock.json playwright.config.ts alert/tests; do
                       if [ -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is not export-ignored"; exit 1; fi
                   done
 
