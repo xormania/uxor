@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
-import { previewUrl } from './inventory';
+import { previewUrl, viewports } from './inventory';
 
 test('the trigger toggles the popover; opening focuses its first field, Escape closes it and focuses the trigger', async ({ page }) => {
     await page.goto(previewUrl('popover', 'default'));
@@ -105,4 +105,19 @@ test('opening skips hidden controls, and a canceled popover:focus leaves the foc
     await trigger.click();
     await expect(page.getByRole('dialog', { name: 'Dimensions' })).toBeVisible();
     await expect(trigger).toBeFocused();
+});
+
+test('on a phone, a right-placed popover that fits on neither side opens below its trigger, inside the viewport', async ({ page }) => {
+    await page.setViewportSize(viewports.mobile);
+    await page.goto(previewUrl('popover', 'placements'));
+    const dialog = page.getByRole('dialog', { name: 'Right' });
+    await expect(dialog).toBeVisible();
+    const trigger = (await page.getByRole('button', { name: 'Right' }).boundingBox())!;
+    const content = (await dialog.boundingBox())!;
+    const { innerWidth, scrollWidth } = await page.evaluate(() => ({ innerWidth: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
+    expect(content.x).toBeGreaterThanOrEqual(0);
+    expect(content.x + content.width).toBeLessThanOrEqual(innerWidth);
+    expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
+    await expect(dialog).toHaveAttribute('data-placement', 'bottom');
+    expect(content.y).toBeGreaterThanOrEqual(trigger.y + trigger.height);
 });

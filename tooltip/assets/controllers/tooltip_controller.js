@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { place, viewportSize } from '../lib/uxor-floating.js';
+import { origin, place, viewportSize } from '../lib/uxor-floating.js';
 
 /**
  * Shows a `Tooltip` while its trigger is hovered or focused, hides it on leave, blur or Escape,
@@ -75,9 +75,10 @@ export default class extends Controller {
         point.x = Math.min(Math.max(point.x, 0), Math.max(0, viewport.width - size.width));
         point.y = Math.min(Math.max(point.y, 0), Math.max(0, viewport.height - size.height));
 
-        // relative to the wrapper (position: relative)
-        tooltip.style.left = `${Math.round(point.x - reference.left)}px`;
-        tooltip.style.top = `${Math.round(point.y - reference.top)}px`;
+        // relative to the wrapper (position: relative), inside its border; never rounded past the viewport's edge
+        const box = origin(this.element);
+        tooltip.style.left = `${Math.min(Math.round(point.x - box.x), Math.floor(Math.max(0, viewport.width - size.width) - box.x))}px`;
+        tooltip.style.top = `${Math.round(point.y - box.y)}px`;
         tooltip.dataset.placement = point.side;
     }
 

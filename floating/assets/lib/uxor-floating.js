@@ -14,14 +14,15 @@ export function viewportSize() {
 
 /**
  * Where an element of `size` goes on `side` of `reference` (a viewport rect), `offset` pixels away and aligned on
- * `align` (`start`, `end` or `center`), flipped to the opposite side when it overflows the viewport on `side` and
- * fits on the other one. Viewport coordinates: `{ side, x, y }`, `side` the one chosen.
+ * `align` (`start`, `end` or `center`): on `side` when it fits there, else on the opposite side when it fits there;
+ * an element on the left or right that fits on neither (a phone) goes below the reference, else above it, when it
+ * fits there; when nothing fits it stays on `side`. Viewport coordinates: `{ side, x, y }`, `side` the one chosen.
  */
 export function place(reference, size, { side, align = 'center', offset = 0, viewport = viewportSize() }) {
     const vertical = 'top' === side || 'bottom' === side;
     const at = (s) => {
         const point = { x: 0, y: 0 };
-        if (vertical) {
+        if ('top' === s || 'bottom' === s) {
             point.y = 'bottom' === s ? reference.bottom + offset : reference.top - size.height - offset;
             point.x = 'start' === align ? reference.left : 'end' === align ? reference.right - size.width : reference.left + reference.width / 2 - size.width / 2;
         } else {
@@ -33,12 +34,10 @@ export function place(reference, size, { side, align = 'center', offset = 0, vie
     const overflows = (s, point) =>
         ({ top: -point.y, bottom: point.y + size.height - viewport.height, left: -point.x, right: point.x + size.width - viewport.width })[s] > 0;
 
-    let point = at(side);
-    if (overflows(side, point) && !overflows(OPPOSITE[side], at(OPPOSITE[side]))) {
-        side = OPPOSITE[side];
-        point = at(side);
-    }
-    return { side, ...point };
+    // Popper's flip, then the other axis for a side placement: a page scrolls down, not sideways
+    const candidates = vertical ? [side, OPPOSITE[side]] : [side, OPPOSITE[side], 'bottom', 'top'];
+    const fits = candidates.find((s) => !overflows(s, at(s))) ?? side;
+    return { side: fits, ...at(fits) };
 }
 
 /**
@@ -54,8 +53,8 @@ export function position(floating, reference, { placement, offset }) {
     const rect = reference.getBoundingClientRect();
     const size = { width: floating.offsetWidth, height: floating.offsetHeight };
     const viewport = viewportSize();
-    const vertical = 'top' === side || 'bottom' === side;
     const point = place(rect, size, { side, align, offset, viewport });
+    const vertical = 'top' === point.side || 'bottom' === point.side;
 
     // shift along the reference to stay in the viewport, without leaving the reference
     const axis = vertical ? 'x' : 'y';
@@ -64,19 +63,30 @@ export function position(floating, reference, { placement, offset }) {
     const limit = vertical ? viewport.width : viewport.height;
     point[axis] = Math.min(Math.max(point[axis], 0), limit - length);
     point[axis] = Math.min(Math.max(point[axis], refStart - length), refEnd);
-
-    // viewport coordinates -> coordinates of the element's containing block
-    const parent = floating.offsetParent;
-    let origin = { x: -window.scrollX, y: -window.scrollY };
-    if (parent && parent !== document.body && parent !== document.documentElement) {
-        const box = parent.getBoundingClientRect();
-        origin = { x: box.left + parent.clientLeft - parent.scrollLeft, y: box.top + parent.clientTop - parent.scrollTop };
+    // fitting on no side, a left or right element still never pushes the page sideways: over its reference instead
+    if (!vertical) {
+        point.x = Math.min(Math.max(point.x, 0), Math.max(0, viewport.width - size.width));
     }
+
+    const box = origin(floating.offsetParent);
     const dpr = window.devicePixelRatio || 1;
     const round = (value) => Math.round(value * dpr) / dpr || 0;
 
-    floating.style.transform = `translate(${round(point.x - origin.x)}px, ${round(point.y - origin.y)}px)`;
+    floating.style.transform = `translate(${round(point.x - box.x)}px, ${round(point.y - box.y)}px)`;
     return 'center' === align ? point.side : `${point.side}-${align}`;
+}
+
+/**
+ * Where `container`, an element's containing block, starts in viewport coordinates: its padding edge, inside its
+ * border and less its scroll, or the page's origin for the body, the root or none. A floating element
+ * placed in viewport coordinates goes at `point - origin(container)` in its containing block's.
+ */
+export function origin(container) {
+    if (!container || container === document.body || container === document.documentElement) {
+        return { x: -window.scrollX, y: -window.scrollY };
+    }
+    const box = container.getBoundingClientRect();
+    return { x: box.left + container.clientLeft - container.scrollLeft, y: box.top + container.clientTop - container.scrollTop };
 }
 
 /**
