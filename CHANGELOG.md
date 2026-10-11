@@ -194,6 +194,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
+- `floating` (so `dropdown`, `popover`, `date-picker` and `tooltip`): an element placed `left` or `right` with room
+  on neither side, as on a phone, stayed on its side past the viewport's edge and pushed the page sideways (the
+  "Placements" popover at 390 pixels); it now opens below its trigger, or above it, and when no side has room it is
+  kept inside the viewport's width. Where it fits, it lands where it did. `floating` exports `origin()`, the
+  containing block's start in viewport coordinates.
+- `tooltip`: in a wrapper with a border (the dashboard's "+9k" avatar), the tooltip was placed from the border's
+  outer edge, 2 pixels off, and at the right edge of a phone pushed the page sideways; it is now placed inside the
+  border, 8 pixels from its trigger and within the viewport.
 
 ## [0.1.0] - 2026-10-06
 

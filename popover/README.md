@@ -48,8 +48,9 @@ Free content anchored to a button: text, links or a small form, in a non-modal d
 - Opening moves the focus to the content's `[autofocus]` element, else its first focusable element, else the content
   itself. Escape closes it and focuses the trigger; a click outside or the focus leaving it closes it.
 - `placement` sets the side (`top`, `bottom`, `left`, `right`, optionally `-start` or `-end`). The content flips to the
-  other side when it does not fit, shifts along the trigger to stay in the viewport, and follows the trigger on
-  scroll and resize; `offsetDistance` is the gap in pixels (8). The final placement is in the content's
+  other side when it does not fit (`left` or `right` with room on neither side, as on a phone, opens below the
+  trigger, or above it, rather than pushing the page sideways), shifts along the trigger to stay in the viewport, and
+  follows the trigger on scroll and resize; `offsetDistance` is the gap in pixels (8). The final placement is in the content's
   `data-placement`. The placing is the `floating` recipe's module (`assets/lib/uxor-floating.js`), shared with
   `dropdown` and `tooltip`, which `ux:install popover` installs with it.
 - Popovers with the same `name` close each other.
