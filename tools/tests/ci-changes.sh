@@ -115,6 +115,8 @@ check 'contrast demo'             tests/e2e/lab.side-nav.spec.ts
 check 'demo'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
 check 'demo'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
+check 'demo'                      tools/playwright-image.mjs tools/playwright-image.json
+check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php static-site contrast demo' demo/tests/Editor/EditorTypeTest.php
 check 'php static-site contrast demo' demo/src/Controller/LabController.php

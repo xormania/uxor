@@ -43,8 +43,9 @@ and `SECURITY.md`). Keep any new path out of the archive the same way unless use
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker): FrankenPHP in worker mode, PHP 8.5,
 HTTPS. You need Docker and Node.js (CI uses 22); no PHP on your machine. Playwright's browser also runs in Docker,
-in the same `mcr.microsoft.com/playwright` image as the Symfony UX Toolkit's own tests, so screenshots match the
-committed baselines.
+in the same `mcr.microsoft.com/playwright` image as the Symfony UX Toolkit's own tests, pinned by digest in
+`tools/playwright-image.json`, so screenshots match the committed baselines. After bumping `@playwright/test`, run
+`node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
 
 ```bash
 cd demo
@@ -96,7 +97,7 @@ change to both paths.
 | `kit.js`, `manifest.json`, `.gitattributes`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, `README.md`, `INSTALL.md`, any file in a directory no other row names | the same and *Contrast* |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
-| any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
+| any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/playwright-image.mjs`, `tools/playwright-image.json`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
 | `tools/ci/junit-attempts.mjs` | *Kit PHP* |
 | `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json` | *Kit PHP*, *Demo + Playwright* |
 | any other file in `tools/ci/` (the browser job's results summary and job metrics; *CI result*, on every run, also runs `ci-metrics.mjs`) | *Demo + Playwright* |

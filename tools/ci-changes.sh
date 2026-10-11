@@ -49,7 +49,9 @@ while IFS= read -r path; do
         # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
         # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
         tests/e2e/*.spec.ts) on contrast demo ;;
-        tests/* | playwright.config.ts | tools/prepare-tests.mjs) on demo ;;
+        # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
+        # in Tool tests, on every run)
+        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo ;;
         package.json | package-lock.json) on contrast demo ;;
 
         # Repository tools, each with the jobs that run it

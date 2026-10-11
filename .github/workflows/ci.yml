@@ -623,7 +623,9 @@ jobs:
                   npm ci
                   echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
                   start=$SECONDS
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
                   echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
