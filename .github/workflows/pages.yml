@@ -39,8 +39,11 @@ jobs:
                   tools: composer
                   coverage: none
             # the same build and checks as CI's Static site job; the install commands name the release
+            # a call from release.yml builds a commit of main; a manual run builds the branch it was started on
             - name: Build and check the site
-              run: tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags
+              env:
+                  BRANCH: ${{ inputs.ref && 'main' || github.ref_name }}
+              run: tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch="$BRANCH"
             - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
               with:
                   path: _site
