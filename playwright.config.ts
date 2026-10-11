@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
+import { playwrightImage } from './tools/playwright-image.mjs';
 import { syncRecipeSpecs } from './tools/prepare-tests.mjs';
 
 const require = createRequire(import.meta.url);
@@ -21,14 +22,15 @@ if (demoURL) {
 
 /*
  * The browser runs in the same Docker image as upstream's toolkit tests (symfony/ux
- * src/Toolkit/assets/playwright.config.ts), so screenshots match the baselines copied from upstream.
+ * src/Toolkit/assets/playwright.config.ts), so screenshots match the baselines copied from upstream. It is pinned by
+ * digest in tools/playwright-image.json, whose tag must be this @playwright/test version (tools/playwright-image.mjs).
  * PW_BROWSER_SERVER overrides the command (e.g. `--network host` where port publishing is unavailable).
  */
 const browserServer =
     process.env.PW_BROWSER_SERVER ??
     [
         'docker run --rm --init -p 127.0.0.1:3000:3000',
-        `mcr.microsoft.com/playwright:v${version}-noble`,
+        playwrightImage(version),
         `npx -y playwright@${version} run-server --port 3000 --host 0.0.0.0`,
     ].join(' ');
 
