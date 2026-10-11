@@ -117,10 +117,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   `bg-white`. **Upgrading:** reinstall `theme` with those recipes, or those components lose their white text.
 - Motion: transitions name the properties they animate and stop under `prefers-reduced-motion`. `tabs` triggers fade
   their colors only (was `transition-all`), the `toggle` knob animates `translate` and its border color (was
-  `transition-all`), and the `modal` backdrop its color (was every property); these, the `sidebar` width and chevron,
-  the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once under reduced motion.
-  There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without waiting for the fade, and
-  the `spinner` and the `skeleton` pulse run three times slower.
+  `transition-all`), and the `modal` backdrop's transition names its color (was every property); these, the `sidebar`
+  width and chevron, the `nav-menu` and `side-nav` chevrons, `table` row hovers and the `toast` fade change at once
+  under reduced motion. There, a dismissed `alert` hides and a closed `toast` leaves the page at once, without
+  waiting for the fade, and the `spinner` and the `skeleton` pulse run three times slower.
 - `dropdown` and `tooltip` place their content with the `floating` recipe's module instead of a copy each, and depend
   on that recipe (`ux:install` adds `assets/lib/uxor-floating.js`). Where they place it does not change.
 - `dropdown`, `modal`, `drawer`, `toast` and `layouts` (`form-reset`) use the `turbo` recipe's module instead of a
@@ -194,6 +194,23 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   longer fades table rows into the new theme: the color transitions it starts are finished at once.
 - `input`: the "With Button" example shows the `flowbite` set's search icon (`flowbite:search-outline`), not
   `tabler:search`.
+
+### Security
+
+- `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe
+  scheme cannot be introduced through their `href` or `src` attributes. **Upgrading:** an `href` on `Button`,
+  `Badge`, `Dropdown:Item` or `Pagination:Link` with a scheme other than `http(s)`, `mailto` or `tel` (or a relative
+  URL) now renders `#`; an `Avatar:Image` `src` other than relative or `http(s)` (`data:`, `blob:`) renders no `src`,
+  so the fallback shows; an `href` on a `Button`, `Badge` or `Dropdown:Item` that is not `as="a"` is no longer
+  rendered; and `Pagination:Link`'s `href` defaults to `#`.
+- Every component, and `form-field`'s `labelAttr` and `helpAttr`, leaves out an attribute whose name starts with
+  `on` (in any case, after leading spaces): an inline event handler given to a component renders nothing. Behavior
+  goes through `data-action` and a Stimulus controller. **Upgrading:** an `onclick` or other handler passed to a
+  component no longer renders; move it to a controller.
+- Every component reads the URL attributes given to it as a browser reads their names, in any case (`HREF`,
+  `FormAction`, `Src`): `href` and `formaction` keep a relative, `http(s)`, `mailto` or `tel` URL, any other
+  rendering `#`, and `src` a relative or `http(s)` URL, any other rendering no `src`. **Upgrading:** a `srcset` or
+  `ping` attribute given to a component no longer renders.
 
 ## [0.1.0] - 2026-10-06
 

@@ -78,6 +78,19 @@ expect_out "0.2.0 $rel2 untagged
 0.1.0 $rel1 tagged"
 teardown
 
+setup 'the dry run after 0.2.0 merged, 0.1.0 tagged by hand: only the untagged version gets an install check'
+g tag -a 0.1.0 "$rel1" -m 'UXor 0.1.0'
+run 0 --dry-run
+case "$out" in *"decision:       check the install of $rel2, tag it 0.2.0, publish the release"*) ;;
+    *) fail "the dry run does not plan 0.2.0's install check: $out" ;; esac
+decision=$(printf '%s\n' "$out" | sed -n '/^tag: *0\.1\.0$/,/^decision:/p' | sed -n 's/^decision: *//p')
+case "$decision" in
+    *'check its install'*|*'check the install'*) fail "0.1.0 is tagged, so it gets no install check: $decision" ;;
+    'the tag is right: publish the release'*) ;;
+    *) fail "0.1.0's decision: $decision" ;;
+esac
+teardown
+
 setup 'an annotated tag on the expected commit (peeled)'
 g tag -a 0.1.0 "$rel1" -m 'UXor 0.1.0'
 run 0 0.1.0

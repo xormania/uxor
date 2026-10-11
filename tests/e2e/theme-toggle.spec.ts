@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, markDocument, recordDarkAtFirstBody } from './fixtures';
 
 /*
  * The theme on screen for every system preference and saved choice, and how it moves: the toggle, the system
@@ -27,18 +27,11 @@ async function expectTheme(page: Page, theme: Scheme) {
 }
 
 const saved = (page: Page) => page.evaluate(() => localStorage.getItem('theme'));
-const darkAtFirstBody = (page: Page) => page.evaluate(() => (window as any).__darkAtFirstBody);
+// whether <html> is already dark when <body> starts parsing, i.e. before the first paint (set in the first beforeEach)
+let darkAtFirstBody: () => Promise<boolean | undefined>;
 
 test.beforeEach(async ({ page }) => {
-    // whether <html> is already dark when <body> starts parsing, i.e. before the first paint
-    await page.addInitScript(() => {
-        new MutationObserver((_, observer) => {
-            if (document.body) {
-                (window as any).__darkAtFirstBody = document.documentElement.classList.contains('dark');
-                observer.disconnect();
-            }
-        }).observe(document, { childList: true, subtree: true });
-    });
+    darkAtFirstBody = await recordDarkAtFirstBody(page);
 });
 
 for (const system of ['light', 'dark'] as const) {
@@ -60,7 +53,7 @@ for (const system of ['light', 'dark'] as const) {
             });
 
             test('shows the expected theme from the first paint', async ({ page }) => {
-                expect(await darkAtFirstBody(page)).toBe('dark' === expected);
+                expect(await darkAtFirstBody()).toBe('dark' === expected);
                 await expectTheme(page, expected);
                 expect(await saved(page)).toBe(choice);
             });
@@ -82,17 +75,17 @@ for (const system of ['light', 'dark'] as const) {
                 await expectTheme(page, flipped);
                 await page.emulateMedia({ colorScheme: system });
 
-                await page.evaluate(() => ((window as any).__sameDocument = true));
+                const sameDocument = await markDocument(page);
                 await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Lab' }).click();
                 await expect(page).toHaveURL(/\/lab$/);
                 await expectTheme(page, flipped);
                 await page.goBack();
                 await expect(page).toHaveURL(/\/$/);
                 await expectTheme(page, flipped);
-                expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+                await sameDocument.expectKept();
 
                 await page.reload();
-                expect(await darkAtFirstBody(page)).toBe('dark' === flipped);
+                expect(await darkAtFirstBody()).toBe('dark' === flipped);
                 await expectTheme(page, flipped);
 
                 await toggle(page).click();

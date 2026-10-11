@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, dialogState } from './fixtures';
 
 // the fixtures fail the test on any console or page error: the old controller must disconnect without its targets
 test('a modal whose container a Live re-render replaces is torn down cleanly, and the new one opens and closes', async ({ page }) => {
@@ -15,7 +15,7 @@ test('a modal whose container a Live re-render replaces is torn down cleanly, an
     await expect(page.locator('#replaced-modal-1')).toBeAttached();
     await expect(page.locator('#replaced-modal-0')).toHaveCount(0);
     await expect(dialog).toBeVisible();
-    expect(await dialog.evaluate((element) => element.matches(':modal'))).toBe(true);
+    expect(await dialogState(dialog)).toEqual({ open: true, modal: true });
     // the new container's trigger, rendered anew, says the modal it now holds is open (the page behind is inert)
     const newTrigger = page.locator('#replaced-modal-1 [data-flowbite-modal-target="trigger"]');
     await expect(newTrigger).toHaveAttribute('aria-expanded', 'true');
@@ -34,7 +34,7 @@ test('a modal whose container a Live re-render replaces is torn down cleanly, an
     await trigger.click();
     await expect(dialog).toBeVisible();
     await expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(await dialog.evaluate((element) => element.matches(':modal'))).toBe(true);
+    expect(await dialogState(dialog)).toEqual({ open: true, modal: true });
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(trigger).toHaveAttribute('aria-expanded', 'false');

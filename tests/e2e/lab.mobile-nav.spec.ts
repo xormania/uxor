@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y } from './fixtures';
+import { test, expect, expectA11y, markDocument } from './fixtures';
 import { shown } from './transitions';
 
 /*
@@ -106,14 +106,14 @@ test.describe('on a phone', () => {
 
     test('a link inside closes the drawer and visits the page; Back, Forward and a reload show it closed, its tree on the current page', async ({ page }) => {
         await page.goto('/lab/mobile-nav');
-        await page.evaluate(() => ((window as any).__sameDocument = true));
+        const sameDocument = await markDocument(page);
         await menu(page).click();
         await expectDrawer(page, true, 'drawer: Overview');
         await toggle(drawerTree(page), 'Guides').click();
         await drawerTree(page).getByRole('treeitem', { name: 'Getting started' }).click();
         await shown(page, 'Page two');
         await expectDrawer(page, false);
-        expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+        await sameDocument.expectKept();
 
         await menu(page).click();
         await expectDrawer(page, true, 'drawer: Getting started');
@@ -141,7 +141,7 @@ test.describe('on a phone', () => {
         await menu(page).click();
         await expectDrawer(page, true, 'drawer: Getting started');
         expect(await treeState(drawerTree(page))).toEqual({ open: ['Guides', 'Reference'], current: ['Getting started'] });
-        expect(await page.evaluate(() => (window as any).__sameDocument)).toBeUndefined(); // the reload was a full load
+        await sameDocument.expectReplaced(); // the reload was a full load
     });
 
     test('a link opening another tab or window, a download or a modifier click leaves the drawer open', async ({ page }) => {
@@ -215,7 +215,7 @@ test.describe('on a phone', () => {
             };
         });
         await page.goto('/lab/mobile-nav');
-        await page.evaluate(() => ((window as any).__sameDocument = true));
+        const sameDocument = await markDocument(page);
         for (const [link, heading] of [['Go to page two', 'Page two'], ['Go to page three', 'Page three'], ['Go to page one', 'Page one']]) {
             await page.getByRole('link', { name: link }).click();
             await shown(page, heading);
@@ -229,7 +229,7 @@ test.describe('on a phone', () => {
         await shown(page, 'Page two');
         await page.goForward();
         await shown(page, 'Page one');
-        expect(await page.evaluate(() => (window as any).__sameDocument)).toBe(true);
+        await sameDocument.expectKept();
         await expect(page.locator('[data-controller~="mobile-nav"]')).toHaveCount(1);
         await expect(page.locator('dialog')).toHaveCount(1);
 

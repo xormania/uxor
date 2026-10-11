@@ -28,7 +28,7 @@ and pull request standard.
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself) and `tools/release-plan.sh`; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself) and `tools/release-plan.sh`; `release.yml`'s release job, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
@@ -123,7 +123,7 @@ change to both paths.
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
-| `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run |
+| `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its release job's steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
 | `.github/workflows/release-checks.yml` | *Workflows*, *Demo + Playwright* (its setup, and the same projects and fixtures); it runs on the release pull request, daily on `dev` and by hand, never on a push |
@@ -268,9 +268,14 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 - **Props that shape markup are checked** (`docs/GUIDE.md`, *Security*). A tag prop (`as`) is lower-cased and kept
   only when it is one of the tags its `##` line lists, right after `{% props %}`:
   `{%- set as = as|lower in ['div', 'a'] ? as|lower : 'div' -%}`. An attribute name taken from data is escaped with
-  `|e('html_attr_relaxed')`. A link prop goes through the scheme guard of
+  `|e('html_attr_relaxed')` and dropped when it starts with `on`. A template that prints its `attributes` on an
+  element checks them first, with the line after `{% props %}` in `button/templates/components/Button.html.twig`
+  (or at the top, without props): no `on…`, `srcset` or `ping`, and `href`, `formaction` and `src`, in any case,
+  through the link and image policies; one that only passes them to another component (`{{ ...attributes }}`)
+  leaves it to that component. A link prop goes through the scheme guard of
   `breadcrumb/templates/components/Breadcrumb/Item.html.twig`, and the template prints the guarded variable. Add each
-  new one to `demo/src/Command/HostilePropsCommand.php`, which `tests/e2e/hostile-props.spec.ts` checks.
+  new one to `demo/src/Command/HostilePropsCommand.php`, which `tests/e2e/hostile-props.spec.ts` checks; it renders
+  every component given `on…` attributes on its own (add the markup of one that does not render alone).
 - **Recipe format** (checked by `ux-toolkit-kit-lint`):
   - `manifest.json` with `type` and `name`;
   - `README.md` opening with `# Title`, then a one-line summary;
@@ -547,10 +552,20 @@ them can fail. `main`'s ruleset requires the *Release checks* check beside *CI r
 A fix that cannot wait for the next release goes to `main` in its own pull request with its version heading (a
 patch), and `main` is then merged into `dev`.
 
+After each release, merge `main` back into `dev` in a pull request of its own (`git checkout -b sync/X.Y.Z origin/dev &&
+git merge --no-ff origin/main`, with nothing else in it). The tag `X.Y.Z` is on the release pull request's merge
+commit, which only `main` holds: until `dev` contains it, `git describe` on `dev` (`tools/build-static.sh` reads it) still
+names the previous release, and the next release pull request may need `main` merged into it before it can merge.
+
 Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: it
 checks that the merge commit installs from GitHub in a fresh Symfony Docker project
-(`tools/tests/docker-install.sh`), tags it `X.Y.Z`, and publishes a GitHub Release with the section as its notes. If
-it fails, fix the cause and re-run it: it skips what is already done.
+(`tools/tests/docker-install.sh`), tags it `X.Y.Z`, and publishes a GitHub Release with the section as its notes,
+marked *Latest*. If it fails, fix the cause and re-run it: it skips what is already done. An older version that is
+tagged but has no Release (a tag pushed by hand, a run that stopped before its Release) gets its Release in the same
+run, after the new one: its notes, not *Latest*, and no install check, since today's check installs today's recipes,
+which an older version lacks. That step is best effort: if it fails, it warns, and the job and the gallery go on. An
+older version with neither tag nor Release is never tagged by the workflow: it warns with the command to tag it by
+hand, and a re-run publishes its Release.
 
 [`tools/release-plan.sh`](tools/release-plan.sh) makes that decision for each version: the commit is the first one of
 `main`'s first-parent history that adds the version's heading (the release pull request's merge commit), the notes

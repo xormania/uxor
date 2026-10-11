@@ -1,7 +1,8 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { trackCounts } from './counts';
-import { turboOperation } from './transitions';
+import { tableStatus } from './data-table';
+import { follow, turboOperation } from './transitions';
 
 /*
  * Release checks (docs/PLAN-test-tiers.md, tier 3), timings: the key transitions of each scenario, each run RUNS times
@@ -19,12 +20,6 @@ const RUNS = Number(process.env.TIMING_RUNS ?? 5);
 test.describe('release timings', { tag: '@release' }, () => {
     test.skip(({ browserName }) => 'chromium' !== browserName, 'the renderer metrics are Chromium\'s');
     test.describe.configure({ timeout: 180_000 });
-
-    const follow = async (page: Page, name: string) => {
-        await page.getByRole('link', { name, exact: true }).focus();
-        await page.keyboard.press('Enter');
-    };
-    const tableStatus = (page: Page) => page.getByRole('status').filter({ hasText: /Showing|No rows/ });
 
     /** RUNS fresh pages: `open` loads one, `steps` warm up once uncounted, then are timed in order. */
     async function timeRuns(page: Page, open: () => Promise<void>, steps: [string, () => Promise<unknown>][], warmUp = true) {

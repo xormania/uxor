@@ -114,10 +114,12 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
 - **Layouts:** pages extend `layouts/app.html.twig` (or `auth`, `settings`, `error`, `blank`). Inside a
   component's content (`<twig:Card>…</twig:Card>`), `block('x')` means the component's block: reach the
   page's own blocks with `block(outerBlocks.x)`.
-- **Props and attributes are trusted input.** Give `as`, attribute names and URLs values the code chose
-  (constants, `path()`, `url()`), never request or user data unchecked. `as` falls back to the component's default
-  tag, and the kit's link props (`Sidebar:Item href`, `LoginForm forgotPasswordHref`…) render `#` for a URL that is
-  not relative, http(s), mailto or tel; an `href` or `src` given as an attribute is not checked.
+- **Props and attributes are trusted input.** Give `as` and attribute names values the code chose (constants,
+  `path()`, `url()`), never request or user data unchecked. `as` falls back to the component's default tag; the
+  kit's declared link props render `#` for a URL that is not relative, http(s), mailto or tel, and
+  `Avatar:Image src` keeps only relative or http(s) URLs. Check any other URL attribute yourself. An attribute
+  named `on…`, `srcset` or `ping` renders nothing (wire behavior with `data-action`), and `href`, `formaction` and
+  `src` attributes, in any case, follow the same URL rules.
 - **No inline script, style or event handler** (`<script>`, `<style>`, `style="…"`, `onclick="…"`) in
   templates: a Content Security Policy blocks them unless they carry its nonce or hash, and no nonce covers an
   attribute. Behavior goes in Stimulus controllers, styles in Tailwind classes or the stylesheet. Under a policy,
