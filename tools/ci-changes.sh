@@ -69,13 +69,14 @@ while IFS= read -r path; do
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon) on php ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
-        # the rest (the results summary) is the browser job's
+        # the rest (the results summary, the job metrics) is the browser job's. CI result, which runs on every run, also
+        # runs ci-metrics.mjs
         tools/ci/junit-attempts.mjs) on php ;;
         tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json) on php demo ;;
         tools/ci/*) on demo ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run
         # The name check reads every file, so Tool tests runs it on every run too
-        tools/tests/*.test.mjs | tools/tests/fixtures/playwright-results/* | tools/tests/fixtures/junit/* | tools/monthly/*) ;;
+        tools/tests/*.test.mjs | tools/tests/fixtures/playwright-results/* | tools/tests/fixtures/junit/* | tools/tests/fixtures/ci-metrics/* | tools/monthly/*) ;;
         tools/name-check.mjs) ;;
         # release.yml's plan: Workflows runs its cases and its dry run
         tools/release-plan.sh | tools/tests/release-plan.sh) on workflows ;;
