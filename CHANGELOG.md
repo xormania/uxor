@@ -193,11 +193,19 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 ### Security
 
 - `button`, `badge`, `dropdown`, `pagination` and `avatar`: link and image URLs are guarded props, so an unsafe
-  scheme cannot be introduced through their `href` or `src` attributes.
+  scheme cannot be introduced through their `href` or `src` attributes. **Upgrading:** an `href` on `Button`,
+  `Badge`, `Dropdown:Item` or `Pagination:Link` with a scheme other than `http(s)`, `mailto` or `tel` (or a relative
+  URL) now renders `#`; an `Avatar:Image` `src` other than relative or `http(s)` (`data:`, `blob:`) renders no `src`,
+  so the fallback shows; an `href` on a `Button`, `Badge` or `Dropdown:Item` that is not `as="a"` is no longer
+  rendered; and `Pagination:Link`'s `href` defaults to `#`.
 - Every component, and `form-field`'s `labelAttr` and `helpAttr`, leaves out an attribute whose name starts with
   `on` (in any case, after leading spaces): an inline event handler given to a component renders nothing. Behavior
   goes through `data-action` and a Stimulus controller. **Upgrading:** an `onclick` or other handler passed to a
   component no longer renders; move it to a controller.
+- Every component reads the URL attributes given to it as a browser reads their names, in any case (`HREF`,
+  `FormAction`, `Src`): `href` and `formaction` keep a relative, `http(s)`, `mailto` or `tel` URL, any other
+  rendering `#`, and `src` a relative or `http(s)` URL, any other rendering no `src`. **Upgrading:** a `srcset` or
+  `ping` attribute given to a component no longer renders.
 
 ## [0.1.0] - 2026-10-06
 
