@@ -226,6 +226,9 @@ jobs:
             - name: Build the demo image
               id: image
               uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+              env:
+                  DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
+                  DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
                   source: ./demo
                   files: |
