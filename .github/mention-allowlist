@@ -1,0 +1,3 @@
+# GitHub accounts and teams that outbound text (pull request titles and descriptions, commit messages) may name,
+# one per line, without the at-sign; case does not matter. Read by tools/check-github-mentions.mjs (--allow-file).
+# Empty by default: name an account here only when a pull request is meant to notify it.

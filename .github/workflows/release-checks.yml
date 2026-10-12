@@ -2,9 +2,9 @@ name: Release checks
 
 # Tier 3 of docs/PLAN-test-tiers.md (docs/TESTING.md, *Release checks*): the heavier behavior and performance tests a
 # release needs, in CI's setup (the demo's FrankenPHP container, Chromium in the pinned Playwright image), Chromium only:
-# every Playwright test tagged @release (`npx playwright test --grep @release`: the timings, a long session, fuzzing,
-# the overlay and editor specs in the dark theme, the heavy recipes under harsh conditions) and the PHPUnit property
-# tests with a random seed and more runs. CI (ci.yml) leaves the @release tests out.
+# the Playwright projects `release`, `release-dark` and `release-harsh` (the timings, a long session, fuzzing, the
+# overlay and editor specs in the dark theme, the heavy recipes under harsh conditions) and the PHPUnit property tests
+# with a random seed and more runs. Those projects exist only with RELEASE_CHECKS set, so CI (ci.yml) never runs them.
 #
 # - On the release pull request (dev to main): main's ruleset requires this check from 0.2.0 (decision 4 of the plan;
 #   its timings report and fail nothing until their tolerances are set, step 8).
@@ -162,15 +162,15 @@ jobs:
                   DEMO_URL: https://localhost
               run: node tools/prepare-tests.mjs
 
-            # Every @release test, Chromium only (playwright.config.ts: the smoke project's @release specs, the
-            # smoke-dark@release and harsh@release projects). One worker: the timings must not share the machine with
+            # Every release check, Chromium only (playwright.config.ts: the release, release-dark and release-harsh
+            # projects). One worker: the timings must not share the machine with
             # another test (two workers made them up to 3 times slower). Fuzzing prints its seed; SEED=<seed> replays it.
             - name: Playwright (release checks)
               id: tests
               env:
                   DEMO_URL: https://localhost
-                  RELEASE_CHECKS: '1' # adds the smoke-dark@release and harsh@release projects
-              run: npx playwright test --grep @release --workers=1 --project=smoke --project=smoke-dark@release --project=harsh@release
+                  RELEASE_CHECKS: '1' # adds the release, release-dark and release-harsh projects
+              run: npx playwright test --workers=1 --project=release --project=release-dark --project=release-harsh
 
             # Structural evidence (tools/ci/release-evidence.mjs): each release project ran a test, each release spec ran
             # and skipped none, so a run that exits 0 having run part of the suite fails here
@@ -178,7 +178,7 @@ jobs:
               id: evidence
               if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
               run: |
-                  node tools/ci/release-evidence.mjs --project smoke --project smoke-dark@release --project harsh@release \
+                  node tools/ci/release-evidence.mjs --project release --project release-dark --project release-harsh \
                       --spec release.timings.spec.ts --spec release.long-session.spec.ts --spec release.fuzz.spec.ts \
                       playwright-results/results.json
 

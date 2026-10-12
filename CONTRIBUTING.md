@@ -27,9 +27,10 @@ and pull request standard.
 | `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
+| `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | outbound GitHub text names no account or team the allowlist does not: the *Metadata* workflow on every pull request, the hook before each commit (*Commits and pull requests*) |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs` and `tools/release-plan.sh`; `release.yml`'s release job, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s release job, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
@@ -55,6 +56,7 @@ docker compose up --wait                            # builds the image the first
 docker compose exec php php ../tools/sync-demo      # copy every recipe into demo/ (safe to re-run; deletes nothing)
 docker compose exec php bin/console tailwind:build  # add --watch to rebuild the CSS as you edit
 cd .. && npm ci
+cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it: refuse a commit message that names a GitHub account
 ```
 
 Open https://localhost (the demo listens on this machine only) and accept the certificate of Caddy's local
@@ -167,7 +169,7 @@ tools/tests/fresh-install.sh                        # a new Symfony app installs
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below
 npx playwright test --project=smoke --project=examples   # Chromium only, the screenshots included: the quicker loop
-npx playwright test --grep-invert @release                # what CI's browser job runs; RELEASE_CHECKS=1 … --grep @release runs the release checks (docs/TESTING.md, Release checks)
+RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # the release checks (docs/TESTING.md, Release checks); CI's browser job runs `npx playwright test`, sharded
 node --test 'tools/monthly/*.test.mjs'              # the cases of the monthly job's report tools (tools/monthly/)
 php tools/monthly/php-scope.php coverage/php        # the monthly job's PHP scope: coverage/php/phpunit.xml and infection.json5 (the recipes' src/)
 (cd demo && bin/phpunit -c ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml) && node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml   # PHP coverage per recipe class (needs PCOV, or Xdebug with XDEBUG_MODE=coverage)
@@ -526,6 +528,17 @@ a work order (below); a single change stays one branch and one pull request into
   (see [`docs/TESTING.md`](docs/TESTING.md)), and updates the rows it changes in the suite-wide map,
   [`docs/TEST-INVENTORY.md`](docs/TEST-INVENTORY.md). A pull request with no behavior or test change says so.
 - *Checks* says whether CI passed on the last commit and what you verified by hand.
+
+**No account references:** a title, a description, a commit message or a comment names no GitHub account or team:
+no at-sign directly followed by a name, in backticks or not. On GitHub that text links, and may notify, whoever holds
+the name, now or after they register it; a test tag, a package scope or a bot command copied from the code is enough.
+Describe the thing in words instead ("the release checks", "the Playwright test package"). The *Metadata* workflow
+checks every pull request's title, description and commit messages ([`tools/check-github-mentions.mjs`](tools/check-github-mentions.mjs)),
+the `commit-msg` hook (*Setup*) each commit before it is made. The hook is a self-contained copy in `.git/hooks`, never
+`core.hooksPath` pointed at the repository: hooks in a tracked folder run whatever the branch checked out holds. A clone
+set up the earlier way runs `git config --unset core.hooksPath` once; a name meant to be notified goes in
+[`.github/mention-allowlist`](.github/mention-allowlist) first. Dependabot's pull requests are left out: GitHub writes
+their text.
 
 Use plain words throughout, and no AI attribution lines (`Co-Authored-By`, "Generated with" footers). Pull requests
 are merged with a merge commit (no squash, no rebase), so every commit of the branch lands on `dev`, then on

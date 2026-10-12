@@ -498,6 +498,7 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 
 | Guarantee | Scope | Covered by |
 |---|---|---|
+| Outbound GitHub text (pull request title, description, every commit message) names no account or team outside `.github/mention-allowlist`, inside code spans too, offline | static policy | `tools/tests/check-github-mentions.test.mjs` (`tools/check-github-mentions.mjs`; the *Metadata* workflow on every pull request, `tools/hooks/commit-msg` locally) |
 | External Actions are immutable; workflows reject `pull_request_target`, remote shell pipes and top-level writes | static policy | `tools/tests/security-policy.test.mjs` (`tools/security-policy.mjs`; the Tool tests job also runs it on every workflow) |
 | Every installable Twig raw-output, browser HTML-write, dynamic JavaScript execution, PHP process or unserialize sink is reviewed explicitly | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-sinks.json` (exact path, line shape, count and rationale) |
 | Dependency, cache, demo build and Playwright result paths never enter the tracked artifact | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-policy.mjs` over `git ls-files` |
@@ -576,8 +577,8 @@ Tier 2 (step 5) gates the key interactions on their counts (`counts`, [`TESTING.
 counts*): the dropdown, modal and drawer opening and closing, the data table's sort, page and filter in a Turbo Frame
 and in Live, a Live action re-sorting rows, a date pick and typing in the editor. The "N visits" cells shown by their
 effect (and the T2 cells) are still to become Stimulus instance counts. Tier 3 (step 7, [`TESTING.md`](TESTING.md),
-*Release checks*) runs the overlay and editor specs again in the dark theme (the `smoke-dark@release` project), the
-heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) under harsh conditions (`harsh@release`),
+*Release checks*) runs the overlay and editor specs again in the dark theme (the `release-dark` project), the
+heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) under harsh conditions (`release-harsh`),
 and random clicks, keys, Back, Forward and theme switches on the lab pages (`tests/e2e/release.fuzz.spec.ts`: no error,
 one controller per element), which switch the theme at random moments but assert no overlay's state after it: an
 overlay open while the theme switches, which this map marks T3, is not covered yet.

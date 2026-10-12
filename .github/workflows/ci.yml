@@ -799,26 +799,26 @@ jobs:
               # --list also prints every test: kept in a file, shown when the listing fails
               run: |
                   mkdir -p "$PLAN_DIR"
-                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} \
                       > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
                   node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings tests/shard-timings.json \
                       --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
                   mkdir -p playwright-results
                   cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
                   if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
-                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} \
                           --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
                       node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
                   fi
 
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
-            # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks (@release) run in
-            # release-checks.yml, not here
+            # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks run in
+            # release-checks.yml, not here (their projects exist only with RELEASE_CHECKS set)
             - name: Playwright (smoke + every README example + upstream recipe specs)
               id: tests
               env:
                   DEMO_URL: https://localhost
-              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2 --grep-invert @release
+              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
             # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and

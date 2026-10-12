@@ -94,15 +94,17 @@ taken in the browser after the response, so FrankenPHP (CI) and `php -S` (local)
 
 ## Workflows
 
-- **`ci.yml` (tiers 1 and 2):** unchanged in shape. Tier 3 specs are tagged `@release` and excluded with
-  `--grep-invert @release`.
+- **`ci.yml` (tiers 1 and 2):** unchanged in shape. Tier 3 runs in its own Playwright projects, which exist only
+  with `RELEASE_CHECKS` set, so CI never selects them. (They were first selected by a Playwright tag; a tag starts
+  with an at-sign, which reads as a GitHub account reference when copied into a commit message, so selection moved to
+  files and projects.)
 - **`release-checks.yml` (tier 3), new:**
   - `pull_request` targeting `main`: the release pull request from `dev`. `main`'s ruleset requires this check, so
     merging the release pull request needs it green;
   - `schedule` once a day, on `dev`: first asks whether the release checks already passed on `dev`'s head (a
     `release-checks-passed-<sha>` artifact, GitHub API) and stops in seconds when they did;
   - `workflow_dispatch`, with a `record` input to write a new baseline as an artifact;
-  - Runs `npx playwright test --grep @release` in the same setup as CI.
+  - Runs the release projects (`RELEASE_CHECKS=1 npx playwright test --project=release …`) in the same setup as CI.
   - A failed daily run opens one issue (label `release-checks`), or comments on the open one, instead of failing
     anyone's pull request after the fact. A green run closes it.
 - **`release.yml`:** unchanged: it tags and publishes once the release pull request is merged and CI passed on
@@ -130,7 +132,7 @@ One pull request each, in order:
 5. **Tier 2:** the count checks and the byte budgets, in the existing specs.
 6. **Tier 1 gaps:** the missing state × transition specs from the inventory, a recipe group per pull request.
 7. **Tier 3 and the release gate:** harsh conditions, long sessions, wide matrices, fuzz and property tests, the daily
-   schedule and its issue, the check on the release pull request. _Done, report only: `@release` specs (timings, long
+   schedule and its issue, the check on the release pull request. _Done, report only: the release specs (timings, long
    session, fuzzing of queries, Live props, form posts and UI runs) and projects (dark theme, harsh conditions with the
    chart), `demo/tests/Property/` ([`TESTING.md`](TESTING.md), *Release checks*). `main`'s ruleset requires the
    check from 0.2.0. Not yet: an overlay open while the theme switches._

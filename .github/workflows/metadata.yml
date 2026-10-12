@@ -1,0 +1,48 @@
+name: Metadata
+
+# Outbound text on GitHub names no account or team unless .github/mention-allowlist does (CONTRIBUTING.md, *Commits and
+# pull requests*; tools/check-github-mentions.mjs): a pull request's title, its description and every commit message it
+# brings. GitHub copies the title and the description into the merge commit, so checking them here checks the merge
+# commit before it exists. Dependabot's pull requests are left out: GitHub writes their text, and it names the npm
+# packages it updates (a scope reads like an account).
+on:
+    pull_request:
+        types: [opened, edited, reopened, synchronize]
+
+permissions:
+    contents: read
+
+jobs:
+    mentions:
+        name: Mentions
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 22
+            # the text reaches the script through the environment, never through the command line
+            - name: Title and description
+              env:
+                  TITLE: ${{ github.event.pull_request.title }}
+                  BODY: ${{ github.event.pull_request.body }}
+              run: |
+                  status=0
+                  printf '%s\n' "$TITLE" | node tools/check-github-mentions.mjs --allow-file .github/mention-allowlist --surface pull-request-title || status=1
+                  printf '%s\n' "$BODY" | node tools/check-github-mentions.mjs --allow-file .github/mention-allowlist --surface pull-request-description || status=1
+                  exit $status
+            - name: Commit messages
+              env:
+                  BASE: ${{ github.event.pull_request.base.sha }}
+                  HEAD: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  status=0
+                  for commit in $(git rev-list "$BASE..$HEAD"); do
+                      git log -1 --format=%B "$commit" |
+                          node tools/check-github-mentions.mjs --allow-file .github/mention-allowlist --surface "commit $commit" || status=1
+                  done
+                  exit $status

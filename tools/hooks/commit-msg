@@ -1,0 +1,28 @@
+#!/bin/sh
+# Refuses a commit message that names a GitHub account or team not in .github/mention-allowlist (CONTRIBUTING.md,
+# *Commits and pull requests*). Install a copy once per clone, after reading it:
+#   cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"
+# The copy is self-contained: it runs no tracked code, so a branch checked out later cannot change what it executes
+# (the pull request check, .github/workflows/metadata.yml, runs tools/check-github-mentions.mjs; the pattern below is
+# the same, tools/tests/check-github-mentions.test.mjs). The whole message is checked, comment lines included: git
+# keeps a line starting with # when the message is not edited (git commit -m). Only the diff of git commit -v, below
+# the scissors line, is left out: git always drops it.
+allow="$(git rev-parse --show-toplevel 2>/dev/null)/.github/mention-allowlist"
+exec node -e '
+const fs = require("node:fs");
+const [message, allowFile] = process.argv.slice(1);
+const LOGIN = "[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?";
+const MENTION = new RegExp(`(^|[^A-Za-z0-9_])@(${LOGIN})(?:\\/(${LOGIN}))?(?![A-Za-z0-9-])`, "gm");
+const allowed = new Set((fs.existsSync(allowFile) ? fs.readFileSync(allowFile, "utf8") : "").split(/\r?\n/)
+    .map((line) => line.trim()).filter((line) => line && !line.startsWith("#")).map((line) => line.replace(/^@/, "").toLowerCase()));
+const text = fs.readFileSync(message, "utf8").split(/^# -{24} >8 -{24}$/m)[0];
+let found = 0;
+for (const match of text.matchAll(MENTION)) {
+    const name = match[3] ? `${match[2]}/${match[3]}` : match[2];
+    if (allowed.has(name.toLowerCase())) continue;
+    const before = text.slice(0, match.index + match[1].length).split("\n");
+    process.stderr.write(`commit message:${before.length}:${before.at(-1).length + 1}: disallowed GitHub mention @${name}\n`);
+    found += 1;
+}
+process.exit(found ? 1 : 0);
+' "$1" "$allow"
