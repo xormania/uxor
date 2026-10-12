@@ -53,6 +53,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   fetch-depth: 0
 
             - name: The script's own cases
@@ -123,6 +124,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   fetch-depth: 0 # the release dry run reads main's history and the tags
 
             - name: Install actionlint and ShellCheck
@@ -163,9 +165,9 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Workflows
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     lint-kit:
         name: Lint kit
@@ -175,6 +177,8 @@ jobs:
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
@@ -219,9 +223,9 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Lint kit
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
     # an artifact with every job that installs the demo: the browser shards, Kit PHP and the static site. AssetMapper
@@ -240,6 +244,8 @@ jobs:
         timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
@@ -259,10 +265,10 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   junit: ${{ runner.temp }}/node-tests.xml
                   junit-project: node
                   job: Tool tests
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             - name: Repository security policy
               run: node tools/security-policy.mjs
@@ -278,6 +284,8 @@ jobs:
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
@@ -328,9 +336,9 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Importmap packages
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     php:
         name: Kit PHP
@@ -344,6 +352,8 @@ jobs:
             PHPSTAN_PHPUNIT_VERSION: '2.1.1'
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
@@ -395,12 +405,11 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   junit: ${{ runner.temp }}/phpunit.xml
                   server-log: demo/var/log/test.log
                   job: Kit PHP
                   dir: ${{ runner.temp }}/jev-phpunit
-                  artifact: jev-phpunit-${{ github.run_id }}-${{ github.run_attempt }}
+                  artifact: jev-input-ci-phpunit-${{ github.run_id }}-${{ github.run_attempt }}
 
             # PHPStan reads the classes the kit's PHP uses (Symfony) from the demo's dependencies, and also checks the
             # demo's tables and tests; it is installed in a scratch directory with its Symfony and PHPUnit extensions
@@ -431,6 +440,8 @@ jobs:
         # checks), without release metadata or the upload.
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
@@ -459,9 +470,9 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Static site
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     fresh-install:
         name: Fresh install
@@ -471,6 +482,8 @@ jobs:
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
               with:
@@ -494,9 +507,9 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Fresh install
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     docker-install:
         name: Fresh install (Symfony Docker, from GitHub)
@@ -506,6 +519,8 @@ jobs:
         timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             # the kit as users get it: GitHub's archive of this commit, installed in a fresh Symfony Docker project on
             # the latest Symfony (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
@@ -525,9 +540,9 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Fresh install (Symfony Docker, from GitHub)
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     contrast:
         name: Contrast
@@ -538,6 +553,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   fetch-depth: 0 # the README pairing reads the branch's commits since its base
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -612,9 +628,60 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Contrast
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    # The demo image's build cache (ghcr.io/<owner>/<repo>-cache:dev and :main), which every run's demo build reads. It
+    # is the only job that can write a package, and it runs only on dev and main, whose code changes only through
+    # reviewed pull requests (the rulesets): a branch's run, and any package or test code a run executes, never holds a
+    # token that can write one. It builds the image and exports its layers, nothing else (no tests, no install), and
+    # never decides CI result: a cache it fails to write only makes the next builds slower.
+    cache:
+        name: Build cache
+        needs: changes
+        if: needs.changes.outputs.demo == 'true' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        permissions:
+            contents: read
+            packages: write # the build cache's image, nothing else
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            - name: Name the build cache
+              id: cache
+              env:
+                  REPO: ${{ github.repository }}
+              run: |
+                  image="ghcr.io/${REPO,,}-cache"
+                  echo "image=$image" >> "$GITHUB_OUTPUT"
+
+            - name: Log in to the build cache's registry
+              env:
+                  TOKEN: ${{ github.token }}
+              run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+            - name: Build the demo image into the cache
+              uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+              with:
+                  source: ./demo
+                  files: |
+                      compose.yaml
+                      compose.override.yaml
+                  pull: true
+                  set: |
+                      *.output=type=cacheonly
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }}
+                      *.cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
+
+            - name: Log out
+              if: always()
+              run: docker logout ghcr.io
 
     demo:
         name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
@@ -622,13 +689,12 @@ jobs:
         if: needs.changes.outputs.demo == 'true'
         runs-on: ubuntu-latest
         permissions:
-            contents: read
-            packages: write # the demo image's build cache (ghcr.io/<owner>/<repo>-cache), written by Chromium's shard 1
+            contents: read # no packages: write: the build cache is written by the cache job alone, on dev and main
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
         # the browser suite is most of CI's time: four shards for Chromium, three for Firefox and WebKit, each with its own
-        # demo and browser (Chromium's shard 1 writes the image cache the others read). Chromium runs every test, the
+        # demo and browser (each reads the image cache the cache job writes on dev and main). Chromium runs every test, the
         # screenshots included, so it has the extra shard; Firefox and WebKit run every behavior test, without the
         # @screenshot ones (playwright.config.ts, browserProjects()), in jobs of their own beside Chromium's:
         # docs/TESTING.md, *Browsers*
@@ -658,6 +724,8 @@ jobs:
                       projects: --project=smoke-webkit --project=examples-webkit
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               id: node # its cache-hit output, for the job's metrics
@@ -668,28 +736,18 @@ jobs:
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-            # The demo image's build cache is an image in this repository's GitHub packages
-            # (ghcr.io/<owner>/<repo>-cache:<branch>), not the GitHub Actions cache: a push run reads Actions caches only
-            # from its own branch and main, so a new branch rebuilt from main's stale cache (~100 s instead of ~17 s);
-            # every branch reads the registry's dev and main tags. Only CI writes it (Chromium's shard 1, below); the
-            # package holds the public demo's layers and nothing else: docs/TESTING.md, *CI metrics*
+            # The demo image's build cache is an image in this repository's GitHub packages (ghcr.io/<owner>/<repo>-cache,
+            # tags dev and main), not the GitHub Actions cache: a push run reads Actions caches only from its own branch
+            # and main, so a new branch rebuilt from main's stale cache (~100 s instead of ~17 s); every branch reads the
+            # registry's dev and main tags. The cache job below writes them, on dev and main only: no branch's run, and no
+            # code a test or package runs here, holds a token that can write a package: docs/TESTING.md, *CI metrics*
             - name: Name the build cache
               id: cache
               env:
                   REPO: ${{ github.repository }}
-                  BRANCH: ${{ github.ref_name }}
               run: |
                   image="ghcr.io/${REPO,,}-cache"
-                  tag=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-120)
                   echo "image=$image" >> "$GITHUB_OUTPUT"
-                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-            - name: Log in to the build cache's registry
-              if: matrix.browser == 'chromium' && matrix.shard == 1
-              continue-on-error: true # no login: the build still runs, it only does not write the cache
-              env:
-                  TOKEN: ${{ github.token }}
-              run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
             - name: Build the demo image
               id: image
@@ -702,12 +760,10 @@ jobs:
                   load: true
                   pull: true
                   set: |
-                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ steps.cache.outputs.tag }}
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
-                      ${{ matrix.browser == 'chromium' && matrix.shard == 1 && format('*.cache-to=type=registry,ref={0}:{1},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true', steps.cache.outputs.image, steps.cache.outputs.tag) || '' }}
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none
@@ -917,18 +973,31 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
                   shard: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
                   dir: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
-                  artifact: jev-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  artifact: jev-input-ci-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             # Last, so the end of the job log names what failed (after the demo's logs): the summary written above
             - name: Playwright summary
               if: ${{ !cancelled() }}
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
+
+    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
+    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
+    jev:
+        name: Jev
+        needs: [workflows, lint-kit, tools, importmap, php, static-site, fresh-install, docker-install, contrast, demo]
+        if: ${{ !cancelled() }}
+        permissions:
+            contents: read
+        uses: ./.github/workflows/jev.yml
+        with:
+            workflow: ci
+        secrets:
+            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 
     # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
     # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
@@ -974,6 +1043,7 @@ jobs:
               if: ${{ always() }}
               continue-on-error: true
               with:
+                  persist-credentials: false
                   sparse-checkout: |
                       tools/ci
                       tests

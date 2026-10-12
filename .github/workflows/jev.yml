@@ -1,0 +1,109 @@
+name: Jev diagnosis
+
+# The advisory Jev (TypeSafe) diagnosis of the failed attempts a workflow's jobs collected (.github/actions/jev-diagnosis,
+# docs/TESTING.md, *Jev diagnosis*), in a job of its own. The key reaches this job alone: a fresh runner, where no
+# package, demo image or other third-party code has run, and where the code that runs with the key is
+# tools/ci/jev-diagnosis.mjs and its policy as the trusted branch holds them, never the run's own copy: the pull
+# request's base branch, else main on main and dev everywhere else. Both branches change only through reviewed pull
+# requests (the rulesets). What the jobs collected is read as data. It never changes a verdict: callers do not wait for
+# it, and every step continues on error.
+on:
+    workflow_call:
+        inputs:
+            workflow:
+                description: The workflow's key in its jobs' artifact names, jev-input-<workflow>-<job>-<run>-<attempt> (jev-diagnosis's `artifact`)
+                type: string
+                required: true
+        secrets:
+            TYPESAFE_API_KEY:
+                description: The key of the diagnosis; without it, every attempt is unavailable (missing_credential)
+                required: false
+
+permissions:
+    contents: read
+
+jobs:
+    diagnose:
+        name: Jev diagnosis (advisory)
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            # this run attempt's artifacts only: a re-run diagnoses what it ran again
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              id: inputs
+              continue-on-error: true
+              with:
+                  pattern: jev-input-${{ inputs.workflow }}-*-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/jev-inputs
+
+            - name: Anything to diagnose
+              id: found
+              continue-on-error: true
+              env:
+                  INPUTS: ${{ runner.temp }}/jev-inputs
+              run: |
+                  if compgen -G "$INPUTS/*/failed-attempts.json" > /dev/null; then
+                      echo "any=true" >> "$GITHUB_OUTPUT"
+                      ls "$INPUTS"
+                  else
+                      echo "No job collected failed attempts: nothing for Jev to diagnose"
+                  fi
+
+            - name: The trusted branch
+              id: trusted
+              if: steps.found.outputs.any == 'true'
+              continue-on-error: true
+              env:
+                  BASE_REF: ${{ github.base_ref }}
+                  REF_NAME: ${{ github.ref_name }}
+              run: |
+                  ref=${BASE_REF:-$REF_NAME}
+                  case "$ref" in main|dev) ;; *) ref=dev ;; esac
+                  echo "ref=$ref" >> "$GITHUB_OUTPUT"
+                  echo "The diagnosis runs tools/ci from $ref"
+
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: steps.trusted.outputs.ref != ''
+              continue-on-error: true
+              with:
+                  ref: ${{ steps.trusted.outputs.ref }}
+                  path: trusted
+                  persist-credentials: false
+                  sparse-checkout: tools/ci
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              if: steps.trusted.outputs.ref != ''
+              continue-on-error: true
+              with:
+                  node-version: 22
+
+            # one diagnosis per collected job, 110 s each at most (the script's own budget is 90 s), as the jobs ran it
+            - name: Jev diagnosis
+              id: jev
+              if: steps.trusted.outputs.ref != ''
+              continue-on-error: true
+              env:
+                  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+                  INPUTS: ${{ runner.temp }}/jev-inputs
+                  OUT: ${{ runner.temp }}/jev
+              run: |
+                  for dir in "$INPUTS"/*/; do
+                      name=$(basename "$dir")
+                      [ -f "$dir/failed-attempts.json" ] || continue
+                      job=$(jq -r '.job // ""' "$dir/meta.json" 2>/dev/null || true)
+                      shard=$(jq -r '.shard // ""' "$dir/meta.json" 2>/dev/null || true)
+                      args=(--attempts "$dir/failed-attempts.json" --output "$OUT/$name/assessment")
+                      if [ -f "$dir/server.log" ]; then args+=(--server-log "$dir/server.log"); fi
+                      if [ -n "$job" ]; then args+=(--job "$job"); fi
+                      SHARD=$shard timeout 110 node trusted/tools/ci/jev-diagnosis.mjs "${args[@]}" || echo "::warning::Jev diagnosis of $name ended early"
+                  done
+
+            # One assessment.json per failed attempt and the summary, per collected job
+            - if: ${{ always() && steps.jev.outcome != 'skipped' }}
+              uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              continue-on-error: true
+              with:
+                  name: jev-${{ inputs.workflow }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/jev/
+                  if-no-files-found: warn
+                  retention-days: 30

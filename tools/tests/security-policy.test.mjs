@@ -20,6 +20,8 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@${sha}
+              with:
+                  persist-credentials: false
 `;
 
 test('accepts an immutable action and read-only workflow permissions', () => {
@@ -42,6 +44,45 @@ test('rejects a remote response piped into a shell and missing permissions', () 
     const output = workflowProblems('pipe.yml', 'on: push\njobs:\n    x:\n        run: curl https://example.test/install | bash\n').join('\n');
     assert.match(output, /piped directly/);
     assert.match(output, /declare top-level permissions/);
+});
+
+test('rejects a checkout that keeps its token, a write no job is allowed, a secret read outside the Jev workflow and an untrusted expression in a script', () => {
+    const unsafe = workflow
+        .replace('              with:\n                  persist-credentials: false\n', '')
+        .replace('        runs-on: ubuntu-latest\n', `        runs-on: ubuntu-latest
+        permissions:
+            packages: write
+        env:
+            KEY: \${{ secrets.KEY }}
+`)
+        + `            - run: echo "\${{ github.event.pull_request.title }}"
+            - uses: ./.github/workflows/jev.yml
+              secrets: inherit
+`;
+    const output = workflowProblems('.github/workflows/ci.yml', unsafe).join('\n');
+    assert.match(output, /persist-credentials: false/);
+    assert.match(output, /job test may not hold packages: write/);
+    assert.match(output, /a secret is read outside jev\.yml/);
+    assert.match(output, /untrusted expression expanded inside a run: script/);
+    assert.match(output, /secrets: inherit/);
+});
+
+test('accepts a secret handed on to a reusable workflow, the allowed cache write, and a secret read by the Jev workflow', () => {
+    const caller = workflow.replace('        runs-on: ubuntu-latest\n', `        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+`).replace('    test:', '    cache:') + `    jev:
+        uses: ./.github/workflows/jev.yml
+        secrets:
+            KEY: \${{ secrets.KEY }}
+`;
+    assert.deepEqual(workflowProblems('.github/workflows/ci.yml', caller), []);
+    const reader = workflow + `            - env:
+                  KEY: \${{ secrets.KEY }}
+              run: echo ok
+`;
+    assert.deepEqual(workflowProblems('.github/workflows/jev.yml', reader), []);
 });
 
 test('requires every executable rendering sink to have a narrow reviewed allowance', () => {

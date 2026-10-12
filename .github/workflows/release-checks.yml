@@ -100,6 +100,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   ref: ${{ needs.changed.outputs.ref }} # empty: the pull request's or the branch's own commit
 
             # no npm cache: the scheduled run executes dev's code in the default branch's context, so a cache it saved would
@@ -271,30 +272,19 @@ jobs:
                       test-results/
                   retention-days: 7
 
-            # Advisory diagnosis of each failed attempt by Jev (TypeSafe), as in CI (ci.yml): it never changes the verdict
+            # Advisory diagnosis of each failed attempt by Jev (TypeSafe), as in CI: collected here, without the key, and
+            # diagnosed by the jev job below (.github/actions/jev-diagnosis, .github/workflows/jev.yml)
             - name: Jev diagnosis (advisory)
-              id: jev
               if: ${{ always() && (steps.results.outputs.failed > 0 || steps.results.outputs.flaky > 0) }}
               continue-on-error: true
               timeout-minutes: 2
-              env:
-                  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-                  SHARD: release-checks chromium
-                  JEV_DIR: ${{ runner.temp }}/jev-release-checks
-              run: |
-                  mkdir -p "$JEV_DIR"
-                  (cd demo && timeout 15 docker compose logs --no-color --timestamps php > "$JEV_DIR/server.log" 2>/dev/null) || true
-                  node tools/ci/jev-diagnosis.mjs --attempts playwright-results/failed-attempts.json \
-                      --server-log "$JEV_DIR/server.log" --output "$JEV_DIR/assessment"
-
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-              if: ${{ always() && steps.jev.outcome != 'skipped' }}
-              continue-on-error: true
+              uses: ./.github/actions/jev-diagnosis
               with:
-                  name: jev-release-checks-${{ github.run_id }}-${{ github.run_attempt }}
-                  path: ${{ runner.temp }}/jev-release-checks/assessment/
-                  if-no-files-found: warn
-                  retention-days: 30
+                  attempts: playwright-results/failed-attempts.json
+                  compose-logs: demo
+                  shard: release-checks chromium
+                  dir: ${{ runner.temp }}/jev-release-checks
+                  artifact: jev-input-release-checks-chromium-${{ github.run_id }}-${{ github.run_attempt }}
 
             # The commit this run tested, read by the next scheduled run's first job: a successful scheduled or manual run's
             # only (never a pull request's), and advisory: without it the next daily run tests again
@@ -321,6 +311,20 @@ jobs:
               if: ${{ !cancelled() }}
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
+
+    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
+    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
+    jev:
+        name: Jev
+        needs: [checks]
+        if: ${{ !cancelled() }}
+        permissions:
+            contents: read
+        uses: ./.github/workflows/jev.yml
+        with:
+            workflow: release-checks
+        secrets:
+            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 
     # The required check (main's ruleset: *Release checks*): it runs whatever happened before it and fails unless the
     # suite passed, so a failed or skipped suite, or a failed What to check, can never read as a pass. Only a scheduled

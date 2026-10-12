@@ -56,6 +56,24 @@ const sinkRules = [
 
 const normalize = (path) => path.split(sep).join('/');
 
+// The only jobs that may hold a write permission, and which (a new one is a trust-boundary change, reviewed here)
+const jobWrites = {
+    'ci.yml': { cache: ['packages'] },
+    'codeql.yml': { analyze: ['security-events'] },
+    'pages.yml': { deploy: ['pages', 'id-token'] },
+    'release.yml': { release: ['contents'], pages: ['pages', 'id-token'] },
+    'release-checks.yml': { issue: ['issues'] },
+};
+
+// The workflow that alone reads a secret into a step; every other workflow may only hand one on to a local
+// reusable workflow (a job's `secrets:` mapping)
+const secretReader = 'jev.yml';
+
+// Expressions that carry text an outsider can choose, never expanded inside a shell script (pass them through env:)
+const untrustedExpression = /\$\{\{[^}]*\b(?:github\.event\.|github\.head_ref\b|inputs\.)/;
+
+const indentOf = (line) => line.length - line.trimStart().length;
+
 export function workflowProblems(file, source) {
     const problems = [];
     const lines = source.split('\n');
@@ -109,6 +127,66 @@ export function workflowProblems(file, source) {
         }
     }
 
+    problems.push(...credentialProblems(file, lines));
+    return problems;
+}
+
+// Checkouts that keep no token, write permissions only where jobWrites allows, secrets read only by the Jev workflow,
+// and no untrusted expression inside a `run:` script.
+function credentialProblems(file, lines) {
+    const problems = [];
+    const name = file.split('/').pop();
+    let job = null;
+    let inJobs = false;
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        const content = line.replace(/\s+#.*$/, '');
+        if (/^jobs:\s*$/.test(line)) inJobs = true;
+        else if (/^\S/.test(line) && line.trim()) inJobs = false;
+        const jobMatch = inJobs && /^ {4}([A-Za-z0-9_-]+):\s*$/.exec(line);
+        if (jobMatch) job = jobMatch[1];
+
+        if (/^\s*(?:-\s*)?uses:\s*actions\/checkout@/.test(line)) {
+            const body = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
+            let end = index + 1;
+            while (end < lines.length && (!lines[end].trim() || (indentOf(lines[end]) >= body && !lines[end].trimStart().startsWith('- ')))) end++;
+            if (!lines.slice(index + 1, end).some((l) => /^\s+persist-credentials:\s*false\b/.test(l))) {
+                problems.push(`${file}:${index + 1}: actions/checkout must set persist-credentials: false (the token stays out of .git/config)`);
+            }
+        }
+
+        const write = job && /^\s+([\w-]+):\s*write\s*$/.exec(content);
+        if (write && indentOf(line) === 12) {
+            if (!(jobWrites[name]?.[job] ?? []).includes(write[1])) {
+                problems.push(`${file}:${index + 1}: job ${job} may not hold ${write[1]}: write (tools/security-policy.mjs, jobWrites)`);
+            }
+        }
+
+        if (/\bsecrets:\s*inherit\b/.test(content)) {
+            problems.push(`${file}:${index + 1}: secrets: inherit hands every secret on; name the one the workflow needs`);
+        }
+        if (/\$\{\{\s*secrets\./.test(content) && name !== secretReader) {
+            let parent = index - 1;
+            while (parent >= 0 && (!lines[parent].trim() || indentOf(lines[parent]) >= indentOf(line))) parent--;
+            const passedOn = parent >= 0 && /^\s+secrets:\s*$/.test(lines[parent])
+                && /^\s+[A-Z0-9_]+:\s*\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}\s*$/.test(content);
+            if (!passedOn) {
+                problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; hand it on in a job's secrets: mapping only`);
+            }
+        }
+
+        const run = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);
+        if (run) {
+            const key = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
+            const script = [run[2]];
+            for (let next = index + 1; next < lines.length && (!lines[next].trim() || indentOf(lines[next]) > key); next++) script.push(lines[next]);
+            script.forEach((text, offset) => {
+                if (untrustedExpression.test(text)) {
+                    problems.push(`${file}:${index + 1 + offset}: an untrusted expression expanded inside a run: script; pass it through env:`);
+                }
+            });
+        }
+    }
     return problems;
 }
 

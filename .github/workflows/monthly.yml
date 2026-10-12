@@ -47,6 +47,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
             - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
@@ -158,6 +159,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
             # no npm cache: the scheduled run executes dev's code in the default branch's context, so a cache it saved would
@@ -263,12 +265,11 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
                   shard: monthly ${{ matrix.kind }} ${{ matrix.browser }} ${{ matrix.shard }}
                   dir: ${{ runner.temp }}/jev-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
-                  artifact: monthly-jev-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  artifact: jev-input-monthly-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ !cancelled() && matrix.kind == 'coverage' }}
@@ -337,6 +338,20 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 7
 
+    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
+    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
+    jev:
+        name: Jev
+        needs: [browsers]
+        if: ${{ !cancelled() }}
+        permissions:
+            contents: read
+        uses: ./.github/workflows/jev.yml
+        with:
+            workflow: monthly
+        secrets:
+            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+
     # The JS shards merged (tools/monthly/js-coverage.mjs) and the screenshot shards (tools/monthly/screenshots.mjs),
     # then every number, the timings and the screenshots included, against the previous successful run's
     # (tools/monthly/trends.mjs), downloaded with this run's token: its monthly-trends artifact, kept 90 days. It runs
@@ -353,6 +368,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
