@@ -1555,7 +1555,7 @@ whose inline styles the demo's policy blocks: the form fuzzing checks markup and
 (a 2xx, a redirect, the form's 422) and the status alone on the others; the browser gets a 400's status with an empty
 page.
 
-**Replaying.** Fuzzing and the properties print their seed: `SEED=<seed> npx playwright test tests/e2e/release.fuzz.spec.ts`
+**Replaying.** Fuzzing and the properties print their seed: `RELEASE_CHECKS=1 SEED=<seed> npx playwright test tests/e2e/release.fuzz.spec.ts --project=release`
 or `SEED=<seed> PROPERTY_RUNS=2000 bin/phpunit --group property` (in `demo/`) runs the same values again. A failure
 found becomes a tier 1 test once fixed (the first: `EditorHtmlPolicyTest`'s "a heading in an unwrapped block in a
 heading", from `MarkupPropertyTest`).
@@ -1574,7 +1574,7 @@ RELEASE_CHECKS=1 npx playwright test tests/e2e/release.long-session.spec.ts --pr
 RELEASE_CHECKS=1 FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=release
 (cd demo && SEED=$RANDOM PROPERTY_RUNS=2000 bin/phpunit --group property)
 # the timings against the baseline, and a baseline recorded from them (one worker: the timings are the point)
-PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/timings.json npx playwright test tests/e2e/release.timings.spec.ts --project=smoke --workers=1 --reporter=json
+RELEASE_CHECKS=1 PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/timings.json npx playwright test tests/e2e/release.timings.spec.ts --project=release --workers=1 --reporter=json
 node tools/ci/release-timings.mjs --baseline tests/perf/baseline.json test-results/timings.json
 node tools/ci/release-timings.mjs --record tests/perf/baseline.json --commit "$(git rev-parse HEAD)" test-results/timings.json
 ```
