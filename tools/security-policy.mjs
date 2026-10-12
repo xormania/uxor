@@ -155,10 +155,21 @@ function credentialProblems(file, lines) {
             }
         }
 
-        const write = job && /^\s+([\w-]+):\s*write\s*$/.exec(content);
-        if (write && indentOf(line) === 12) {
-            if (!(jobWrites[name]?.[job] ?? []).includes(write[1])) {
-                problems.push(`${file}:${index + 1}: job ${job} may not hold ${write[1]}: write (tools/security-policy.mjs, jobWrites)`);
+        // a job's permissions: a block mapping, each write scope listed for the job; a flow mapping is refused, since
+        // this check reads block mappings only
+        const permissionsKey = job && /^(\s+)permissions:\s*(\S.*)?$/.exec(content);
+        if (permissionsKey && indentOf(line) > 4) {
+            const value = (permissionsKey[2] ?? '').trim();
+            if (value.startsWith('{')) {
+                problems.push(`${file}:${index + 1}: job ${job} declares permissions as a flow mapping; write them one per line`);
+            } else if (value !== '' && value !== 'read-all') {
+                problems.push(`${file}:${index + 1}: job ${job} may not hold permissions: ${value}`);
+            }
+            for (let next = index + 1; next < lines.length && (!lines[next].trim() || indentOf(lines[next]) > indentOf(line)); next++) {
+                const write = /^\s+([\w-]+):\s*write\s*(?:#.*)?$/.exec(lines[next]);
+                if (write && !(jobWrites[name]?.[job] ?? []).includes(write[1])) {
+                    problems.push(`${file}:${next + 1}: job ${job} may not hold ${write[1]}: write (tools/security-policy.mjs, jobWrites)`);
+                }
             }
         }
 
