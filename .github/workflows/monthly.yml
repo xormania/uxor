@@ -227,7 +227,7 @@ jobs:
                   SHARD: ${{ matrix.shard }}
               run: |
                   case "$KIND" in
-                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --shard="$SHARD/3" --workers=2 ;;
+                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --shard="$SHARD/3" --workers=2 --grep-invert @release ;;
                       engines) npx playwright test --project="smoke-$BROWSER" --project="examples-$BROWSER" --shard="$SHARD/3" --workers=2 ;;
                       timings) PW_TIMINGS=1 npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 ;;
                   esac
@@ -320,10 +320,22 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 90
 
+            # the end of the server log here, after the test results; the whole log as an artifact
             - name: Demo logs
               if: failure()
               working-directory: demo
-              run: docker compose logs php
+              run: |
+                  mkdir -p ../demo-logs
+                  docker compose logs php > ../demo-logs/demo-php.log
+                  tail -n 300 ../demo-logs/demo-php.log
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: failure()
+              with:
+                  name: monthly-demo-logs-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  path: demo-logs/
+                  if-no-files-found: warn
+                  retention-days: 7
 
     # The JS shards merged (tools/monthly/js-coverage.mjs) and the screenshot shards (tools/monthly/screenshots.mjs),
     # then every number, the timings and the screenshots included, against the previous successful run's
