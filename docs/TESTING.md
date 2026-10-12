@@ -1492,7 +1492,7 @@ php tools/monthly/php-scope.php coverage/php
 node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml
 (cd demo && php /path/to/infection.phar --configuration=../coverage/php/infection.json5 --threads=max)
 node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json
-JS_COVERAGE=$PWD/coverage/js/raw DEMO_URL=https://localhost npx playwright test --project=smoke --project=examples   # Chromium projects; add --shard as in CI
+JS_COVERAGE=$PWD/coverage/js/raw DEMO_URL=https://localhost npx playwright test --project=smoke --project=examples --grep-invert @release   # Chromium projects; add --shard as in CI
 node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw
 node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-coverage.json \
     --infection coverage/php/infection-summary.json --js coverage/js/js-coverage.json [--previous monthly.json]
@@ -1537,8 +1537,9 @@ A daily run that fails opens one issue labeled `release-checks`, or comments on 
 
 A project's name is part of its tests' titles, so `@release` in `harsh@release` and `smoke-dark@release` tags every
 test they run; Firefox's and WebKit's projects leave `@release` out. Neither project compares screenshots: the
-baselines are the light theme's, at desktop and example sizes. The monthly job's Chromium coverage run, which does not
-filter by tag, also runs the `smoke` project's `@release` specs.
+baselines are the light theme's, at desktop and example sizes. The monthly job's Chromium coverage run leaves
+`@release` out, as CI does: with V8 coverage recording, the long session's first visit never loaded and the test
+ran out of its five minutes (monthly run 1, twice).
 
 **Report only, for now.** The timings never fail a run: each timed step's metrics are printed against
 [`tests/perf/baseline.json`](../tests/perf/baseline.json) in the job summary
