@@ -61,10 +61,9 @@ const desktop = { chromium: 'Desktop Chrome', firefox: 'Desktop Firefox', webkit
 function browserProjects(browser: keyof typeof desktop) {
     const suffix = 'chromium' === browser ? '' : `-${browser}`;
     const other = 'chromium' !== browser;
-    // the release checks (@release) are Chromium's: CDP, and the timings' metrics
     const select = {
         grep: other && crossBrowserScreenshots ? /@screenshot/ : undefined,
-        grepInvert: other && !crossBrowserScreenshots ? /@screenshot|@release/ : undefined,
+        grepInvert: other && !crossBrowserScreenshots ? /@screenshot/ : undefined,
     };
 
     return [
@@ -73,8 +72,9 @@ function browserProjects(browser: keyof typeof desktop) {
             testDir: './tests/e2e',
             // each test is its own unit for the shards (no spec shares state between its tests), so they balance
             fullyParallel: true,
-            // the broad axe scans (a11y.spec.ts) run in Chromium only: Firefox and WebKit run the behavior
-            testIgnore: other ? ['examples/**', 'a11y.spec.ts'] : 'examples/**',
+            // the broad axe scans (a11y.spec.ts) run in Chromium only: Firefox and WebKit run the behavior; the
+            // release checks' own specs (release.*.spec.ts) run in the `release` project only (below)
+            testIgnore: other ? ['examples/**', 'a11y.spec.ts', 'release.*.spec.ts'] : ['examples/**', 'release.*.spec.ts'],
             ...select,
             use: { ...devices[desktop[browser]] },
         },
@@ -90,20 +90,30 @@ function browserProjects(browser: keyof typeof desktop) {
 }
 
 /*
- * The release checks (docs/PLAN-test-tiers.md, tier 3; docs/TESTING.md, *Release checks*), Chromium only: specs tagged
- * @release in `smoke` (timings, long session, fuzzing), and two projects running existing behavior specs again in
- * other conditions. A project's name is part of each of its tests' titles, so `@release` in the name tags them all:
- * `npx playwright test --grep @release` runs the release checks, CI's `--grep-invert @release` leaves them out.
- * - `smoke-dark@release`: the overlay and editor specs in the dark theme (the system's, which the theme follows when
- *   nothing is chosen; `smoke` runs them in the light one);
- * - `harsh@release`: the heavy recipes' transitions (data tables, editor, date picker, autocomplete, chart) with the CPU
- *   4 times slower, a slow network (tests/e2e/fixtures.ts, `harshConditions`) and a phone's viewport: their behavior still holds.
- * Neither compares screenshots: the baselines are the light theme's, at desktop and example sizes.
+ * The release checks (docs/PLAN-test-tiers.md, tier 3; docs/TESTING.md, *Release checks*), Chromium only (CDP, and the
+ * timings' metrics), in three projects that exist only with RELEASE_CHECKS set, so CI and a plain local run never
+ * select them. They are chosen by file and project, never by a tag: a tag starts with an at-sign, and that text, copied
+ * into a commit message or a pull request, reads as a GitHub account reference.
+ * - `release`: the release checks' own specs (release.*.spec.ts: timings, long session, fuzzing), which `smoke` ignores;
+ * - `release-dark`: the overlay and editor specs in the dark theme (the system's, which the theme follows when nothing
+ *   is chosen; `smoke` runs them in the light one);
+ * - `release-harsh`: the heavy recipes' transitions (data tables, editor, date picker, autocomplete, chart) with the
+ *   CPU 4 times slower, a slow network (tests/e2e/fixtures.ts, `harshConditions`) and a phone's viewport: their
+ *   behavior still holds.
+ * None compares screenshots: the baselines are the light theme's, at desktop and example sizes.
  */
 const releaseSpecs = (names: string[]) => names.map((name) => `${name}.spec.ts`);
 const releaseProjects = [
     {
-        name: 'smoke-dark@release',
+        name: 'release',
+        testDir: './tests/e2e',
+        testMatch: 'release.*.spec.ts',
+        fullyParallel: true,
+        grepInvert: /@screenshot/,
+        use: { ...devices['Desktop Chrome'] },
+    },
+    {
+        name: 'release-dark',
         testDir: './tests/e2e',
         testMatch: releaseSpecs([
             'lab.overlays', 'dropdown', 'lab.popover', 'popover', 'lab.tooltip', 'lab.live-modal', 'lab.live-drawer',
@@ -114,7 +124,7 @@ const releaseProjects = [
         use: { ...devices['Desktop Chrome'], colorScheme: 'dark' as const },
     },
     {
-        name: 'harsh@release',
+        name: 'release-harsh',
         testDir: './tests/e2e',
         testMatch: releaseSpecs(['lab.data-table-frame', 'lab.data-table-live', 'lab.editor', 'lab.date-picker', 'date-picker', 'lab.autocomplete', 'chart', 'lab.chart']),
         fullyParallel: true,
@@ -163,8 +173,8 @@ export default defineConfig({
         // Firefox and WebKit: every behavior test, no screenshot comparison
         ...browserProjects('firefox'),
         ...browserProjects('webkit'),
-        // the release checks' other conditions (above): only with RELEASE_CHECKS set, so a plain local run stays the
-        // behavior suite (release-checks.yml sets it)
+        // the release checks (above): only with RELEASE_CHECKS set, so a plain local run stays the behavior suite
+        // (release-checks.yml sets it)
         ...(process.env.RELEASE_CHECKS ? releaseProjects : []),
     ],
 

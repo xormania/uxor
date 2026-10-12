@@ -18,17 +18,17 @@ const report = (tests) => ({
         suites: [],
     })),
 });
-const required = { projects: ['smoke', 'harsh@release'], specs: ['release.timings.spec.ts'] };
+const required = { projects: ['release', 'release-harsh'], specs: ['release.timings.spec.ts'] };
 
 test('every required project ran a test, every release spec ran and skipped none: no problem', () => {
-    const r = report([['smoke', 'release.timings.spec.ts', 'expected'], ['harsh@release', 'chart.spec.ts', 'flaky'], ['harsh@release', 'chart.spec.ts', 'skipped']]);
+    const r = report([['release', 'release.timings.spec.ts', 'expected'], ['release-harsh', 'chart.spec.ts', 'flaky'], ['release-harsh', 'chart.spec.ts', 'skipped']]);
     assert.deepEqual(evidence(r, required), []);
 });
 
 test('a project that ran nothing, a release spec missing or skipping a test: each one named', () => {
-    const r = report([['smoke', 'release.timings.spec.ts', 'expected'], ['smoke', 'release.timings.spec.ts', 'skipped'], ['harsh@release', 'chart.spec.ts', 'skipped']]);
+    const r = report([['release', 'release.timings.spec.ts', 'expected'], ['release', 'release.timings.spec.ts', 'skipped'], ['release-harsh', 'chart.spec.ts', 'skipped']]);
     assert.deepEqual(evidence(r, { ...required, specs: [...required.specs, 'release.fuzz.spec.ts'] }), [
-        'project harsh@release ran no test',
+        'project release-harsh ran no test',
         'release.timings.spec.ts skipped 1 test',
         'release.fuzz.spec.ts ran no test',
     ]);
@@ -37,12 +37,12 @@ test('a project that ran nothing, a release spec missing or skipping a test: eac
 test('the command line: exit 1 naming each gap, 0 when complete, 1 on a missing report', () => {
     const dir = mkdtempSync(join(tmpdir(), 'release-evidence-'));
     const file = join(dir, 'results.json');
-    const args = ['--project', 'smoke', '--project', 'harsh@release', '--spec', 'release.timings.spec.ts', file];
-    writeFileSync(file, JSON.stringify(report([['smoke', 'release.timings.spec.ts', 'expected']])));
+    const args = ['--project', 'release', '--project', 'release-harsh', '--spec', 'release.timings.spec.ts', file];
+    writeFileSync(file, JSON.stringify(report([['release', 'release.timings.spec.ts', 'expected']])));
     const gap = spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
     assert.equal(gap.status, 1);
-    assert.match(gap.stdout, /project harsh@release ran no test/);
-    writeFileSync(file, JSON.stringify(report([['smoke', 'release.timings.spec.ts', 'expected'], ['harsh@release', 'x.spec.ts', 'expected']])));
+    assert.match(gap.stdout, /project release-harsh ran no test/);
+    writeFileSync(file, JSON.stringify(report([['release', 'release.timings.spec.ts', 'expected'], ['release-harsh', 'x.spec.ts', 'expected']])));
     assert.equal(spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' }).status, 0);
     assert.equal(spawnSync(process.execPath, [script, ...args.slice(0, -1), join(dir, 'none.json')], { encoding: 'utf8' }).status, 1);
 });

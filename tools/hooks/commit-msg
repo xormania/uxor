@@ -1,0 +1,7 @@
+#!/bin/sh
+# Refuses a commit message that names a GitHub account or team not in .github/mention-allowlist
+# (tools/check-github-mentions.mjs; CONTRIBUTING.md, *Commits and pull requests*). Install once per clone:
+#   git config core.hooksPath tools/hooks
+root=$(git rev-parse --show-toplevel) || exit 1
+# git's own comment lines (#) are left out, as git leaves them out of the commit
+grep -v '^#' "$1" | node "$root/tools/check-github-mentions.mjs" --allow-file "$root/.github/mention-allowlist" --surface commit-message

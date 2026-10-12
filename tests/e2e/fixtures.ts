@@ -238,7 +238,7 @@ export const test = base.extend<{
     harsh: void;
 }>({
     /**
-     * The release checks' harsh conditions (docs/PLAN-test-tiers.md, tier 3; the `harsh@release` project of
+     * The release checks' harsh conditions (docs/PLAN-test-tiers.md, tier 3; the `release-harsh` project of
      * playwright.config.ts): the page's CPU 4 times slower and a slow network (HARSH_NETWORK), set before the test
      * starts, in Chromium (CDP). The project adds a phone's viewport and touch.
      */

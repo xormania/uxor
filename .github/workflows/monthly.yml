@@ -227,7 +227,7 @@ jobs:
                   SHARD: ${{ matrix.shard }}
               run: |
                   case "$KIND" in
-                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --shard="$SHARD/3" --workers=2 --grep-invert @release ;;
+                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --shard="$SHARD/3" --workers=2 ;;
                       engines) npx playwright test --project="smoke-$BROWSER" --project="examples-$BROWSER" --shard="$SHARD/3" --workers=2 ;;
                       timings) PW_TIMINGS=1 npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 ;;
                   esac

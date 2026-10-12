@@ -1286,9 +1286,9 @@ Playwright's `--shard=N/M` splits by test count. On the last count-split run on 
 CI now splits by time instead, with [`tools/ci/shard-plan.mjs`](../tools/ci/shard-plan.mjs) in each browser job's
 *Plan the shard's tests* step:
 
-1. Playwright lists the job's tests (`--list --reporter=json`, the same projects and `--grep-invert @release` as the
-   run), so the plan follows `playwright.config.ts`: the screenshot and `a11y.spec.ts` tests in Chromium only, the
-   release checks nowhere, a new spec at once.
+1. Playwright lists the job's tests (`--list --reporter=json`, the same projects as the run), so the plan follows
+   `playwright.config.ts`: the screenshot and `a11y.spec.ts` tests in Chromium only, the release checks nowhere (their
+   projects exist only with `RELEASE_CHECKS` set), a new spec at once.
 2. Each listed test gets its time from the committed `tests/shard-timings.json` (its last attempt in a recent run, to
    100 ms; a test with none gets its file's mean, then its project's), and the tests go longest first to the least
    loaded shard (greedy LPT; ties to the lowest shard, so every shard job computes the same plan from the same inputs).
@@ -1492,7 +1492,7 @@ php tools/monthly/php-scope.php coverage/php
 node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml
 (cd demo && php /path/to/infection.phar --configuration=../coverage/php/infection.json5 --threads=max)
 node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json
-JS_COVERAGE=$PWD/coverage/js/raw DEMO_URL=https://localhost npx playwright test --project=smoke --project=examples --grep-invert @release   # Chromium projects; add --shard as in CI
+JS_COVERAGE=$PWD/coverage/js/raw DEMO_URL=https://localhost npx playwright test --project=smoke --project=examples   # Chromium projects; add --shard as in CI
 node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw
 node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-coverage.json \
     --infection coverage/php/infection-summary.json --js coverage/js/js-coverage.json [--previous monthly.json]
@@ -1516,11 +1516,12 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 (Actions › *Release checks* › *Run workflow*). A passing scheduled or manual run (never a pull request's) uploads a
 `release-checks-passed-<sha>` artifact; the daily run counts one only from a successful scheduled or manual run of this
 workflow in this repository, and stops in seconds when it finds one. The *Release suite* job sets up the demo as CI's
-browser job does and runs `RELEASE_CHECKS=1 npx playwright test --grep @release` with the `smoke`,
-`smoke-dark@release` and `harsh@release` projects named (a missing one is an error), then checks the structural
+browser job does and runs `RELEASE_CHECKS=1 npx playwright test` with the `release`, `release-dark` and
+`release-harsh` projects named (a missing one is an error), then checks the structural
 evidence ([`tools/ci/release-evidence.mjs`](../tools/ci/release-evidence.mjs): each project ran a test, each release
 spec ran and skipped none), then the PHPUnit properties with a random seed (`--fail-on-empty-test-suite`). CI's browser
-job leaves the same tests out (`--grep-invert @release`). The required check is the *Release checks* job, which runs
+job never runs them: those projects exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
+The required check is the *Release checks* job, which runs
 whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
 reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
 result artifacts and the passed marker are advisory: their upload never decides the verdict.
@@ -1530,16 +1531,15 @@ A daily run that fails opens one issue labeled `release-checks`, or comments on 
 |---|---|---|
 | Timings | [`release.timings.spec.ts`](../tests/e2e/release.timings.spec.ts) | The key transitions of the data table in a frame and in Live (sort, page, filter), the editor (typing, bold), the Markdown editor (typing, the preview), the forms page (an invalid submit) and the `/demo` dashboard (a Turbo visit and Back), each run 5 times on a fresh page, timed by the interaction-count harness (`trackCounts().time()`, [`counts.ts`](../tests/e2e/counts.ts)): the duration until the update it waits for has landed, the longest interaction (INP), the total blocking time, and Chromium's style, layout and script time over the step |
 | Long session | [`release.long-session.spec.ts`](../tests/e2e/release.long-session.spec.ts) | 50 Turbo visits and Backs across eight lab and form pages in one document; then, after the caches are dropped and a forced collection, `Memory.getDOMCounters` (documents, nodes, listeners) and the JS heap back at their level after two warm-up rounds, within the tolerance the spec states, the numbers in its `long-session` annotation |
-| Harsh conditions | the `harsh@release` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](../tests/e2e/fixtures.ts)): their behavior holds |
-| Wide matrices | the `smoke-dark@release` project | The overlay specs (dropdown, modal, drawer, popover, tooltip, their Live labs) and the editor specs again in the dark theme; `smoke` runs them in the light one |
+| Harsh conditions | the `release-harsh` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](../tests/e2e/fixtures.ts)): their behavior holds |
+| Wide matrices | the `release-dark` project | The overlay specs (dropdown, modal, drawer, popover, tooltip, their Live labs) and the editor specs again in the dark theme; `smoke` runs them in the light one |
 | Fuzzing | [`release.fuzz.spec.ts`](../tests/e2e/release.fuzz.spec.ts) | Seeded, 30 s per target (`FUZZ_BUDGET_MS`). Random query strings on the data table pages and random values for the Live data table's writable props, sent as the live controller sends them; random form posts on `/forms` and the lab's POST forms (long strings, unicode, markup, arrays where a value is expected, fields left out; the CSRF field kept, and one post in three through the page's own form in the browser): no 5xx, no slow answer, no injected element or handler, no CSP violation or console error. UI runs on the lab pages: random clicks (on controls and links that stay in the lab), keys, Back, Forward, the theme toggle and the system theme, each followed by a wait for the page to settle: no console or page error, and one Stimulus controller per element and identifier |
 | Properties | [`demo/tests/Property/`](../demo/tests/Property/) (`--group property`) | `TableQuery::fromValues()` on any values and any table: the offset stays below `maxRows()`; the editor's HTML policy and the Markdown renderer on random hostile markup: no `<script>`, `on*` attribute or unsafe link, and the output is stable when sanitized again. CI runs them with a fixed seed and 300 runs; the release checks with a random seed and 2000 |
 
-A project's name is part of its tests' titles, so `@release` in `harsh@release` and `smoke-dark@release` tags every
-test they run; Firefox's and WebKit's projects leave `@release` out. Neither project compares screenshots: the
-baselines are the light theme's, at desktop and example sizes. The monthly job's Chromium coverage run leaves
-`@release` out, as CI does: with V8 coverage recording, the long session's first visit never loaded and the test
-ran out of its five minutes (monthly run 1, twice).
+The release checks are selected by file and project, never by a Playwright tag: a tag starts with an at-sign, and
+that text, copied into a commit message or a pull request, reads as a GitHub account reference (`CONTRIBUTING.md`,
+*Commits and pull requests*). No release project compares screenshots: the baselines are the light theme's, at desktop
+and example sizes. The monthly job's coverage run, like CI, has no release project to run.
 
 **Report only, for now.** The timings never fail a run: each timed step's metrics are printed against
 [`tests/perf/baseline.json`](../tests/perf/baseline.json) in the job summary
@@ -1569,9 +1569,9 @@ page of its own and, where it fails, drops the same caches with `Memory.simulate
 **Locally**, with the demo up (`DEMO_URL=https://localhost` for the Docker demo):
 
 ```sh
-RELEASE_CHECKS=1 npx playwright test --grep @release --workers=1     # every release check (RELEASE_CHECKS adds the dark and harsh projects), Chromium, as CI runs them (one worker: the timings must not share the machine)
-npx playwright test tests/e2e/release.long-session.spec.ts --project=smoke
-FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=smoke
+RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # every release check, Chromium, as CI runs them (one worker: the timings must not share the machine)
+RELEASE_CHECKS=1 npx playwright test tests/e2e/release.long-session.spec.ts --project=release
+RELEASE_CHECKS=1 FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=release
 (cd demo && SEED=$RANDOM PROPERTY_RUNS=2000 bin/phpunit --group property)
 # the timings against the baseline, and a baseline recorded from them (one worker: the timings are the point)
 PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/timings.json npx playwright test tests/e2e/release.timings.spec.ts --project=smoke --workers=1 --reporter=json

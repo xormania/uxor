@@ -45,7 +45,7 @@ while IFS= read -r path; do
         .github/actions/jev-diagnosis/*) on workflows ;;
         # release-checks.yml runs on the release pull request, daily on dev and by hand, never on a push: the browser
         # job runs its setup (the demo's image and start, the sync, Playwright in the pinned image) and the tests it
-        # runs (the @release ones, left out there, run with the same projects and fixtures)
+        # runs (the release projects, absent there, run with the same fixtures)
         .github/workflows/release-checks.yml) on demo workflows ;;
         .github/*) all ;;
 
