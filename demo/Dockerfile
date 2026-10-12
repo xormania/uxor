@@ -1,7 +1,8 @@
 #syntax=docker/dockerfile:1
 
 # Versions
-FROM dunglas/frankenphp:1-php8.5 AS frankenphp_upstream
+# UXor: both base images pinned by digest (the tag's multi-platform index), bumped by Dependabot (docs/NOTES.md)
+FROM dunglas/frankenphp:1-php8.5@sha256:a052ae7cccd4a025eca17767e7acac57a4fc660a4f3dfc790be9b9cd5182d6e6 AS frankenphp_upstream
 
 # The different stages of this Dockerfile are meant to be built into separate images
 # https://docs.docker.com/build/building/multi-stage/#stop-at-a-specific-build-stage
@@ -87,6 +88,10 @@ RUN <<-EOF
 	mkdir -p var/cache var/log var/share
 	composer dump-autoload --classmap-authoritative --no-dev
 	composer dump-env prod
+	# the kernel refuses prod without UXOR_DEMO_ALLOW_PRODUCTION=1 and a strong APP_SECRET (src/Kernel.php): this
+	# step's own console commands get both, after dump-env so neither is written into the image, which still
+	# refuses to serve until the deployment sets them
+	export UXOR_DEMO_ALLOW_PRODUCTION=1 APP_SECRET="$(php -r 'echo bin2hex(random_bytes(32));')"
 	composer run-script --no-dev post-install-cmd
 	if [ -f importmap.php ]; then
 		php bin/console asset-map:compile
@@ -113,7 +118,7 @@ RUN <<-'EOF'
 EOF
 
 # Prod FrankenPHP image
-FROM debian:13-slim AS frankenphp_prod
+FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS frankenphp_prod
 
 SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 

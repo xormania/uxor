@@ -1,0 +1,76 @@
+{#- The value matrix's widgets outside forms, their ids prefixed with `r`: a tab list, the overlays, a tree whose open
+    branches are saved under a key of the region, and a theme toggle; `only` renders one of them alone. -#}
+{%- set only = only|default('') -%}
+<div data-vm-group="ui" class="mt-6 flex flex-wrap items-start gap-6">
+    {%- if only in ['', 'tabs'] %}
+    <twig:Tabs defaultValue="first" idPrefix="{{ r }}-tab">
+        <twig:Tabs:List aria-label="Sections">
+            <twig:Tabs:Trigger value="first">First</twig:Tabs:Trigger>
+            <twig:Tabs:Trigger value="second">Second</twig:Tabs:Trigger>
+        </twig:Tabs:List>
+        <twig:Tabs:Content value="first"><p class="p-2 text-sm">First panel.</p></twig:Tabs:Content>
+        <twig:Tabs:Content value="second"><p class="p-2 text-sm">Second panel.</p></twig:Tabs:Content>
+    </twig:Tabs>
+    {%- endif %}
+    {%- if only in ['', 'menu'] %}
+    <twig:Dropdown id="{{ r }}-menu">
+        <twig:Dropdown:Trigger>
+            <twig:Button variant="outline" {{ ...dropdown_trigger_attrs }}>Menu</twig:Button>
+        </twig:Dropdown:Trigger>
+        <twig:Dropdown:Content>
+            <twig:Dropdown:Group>
+                <twig:Dropdown:Item as="button">Menu item</twig:Dropdown:Item>
+            </twig:Dropdown:Group>
+        </twig:Dropdown:Content>
+    </twig:Dropdown>
+    {%- endif %}
+    {%- if only in ['', 'popover'] %}
+    <twig:Popover id="{{ r }}-popover">
+        <twig:Popover:Trigger>
+            <twig:Button variant="outline" {{ ...popover_trigger_attrs }}>Popover</twig:Button>
+        </twig:Popover:Trigger>
+        <twig:Popover:Content label="Popover">
+            <label for="{{ r }}-popover-note" class="mb-2 block text-heading">Popover note</label>
+            <twig:Input type="text" id="{{ r }}-popover-note" />
+        </twig:Popover:Content>
+    </twig:Popover>
+    {%- endif %}
+    {%- if only in ['', 'dialog'] %}
+    <twig:Modal id="{{ r }}-dialog">
+        <twig:Modal:Trigger>
+            <twig:Button variant="outline" {{ ...modal_trigger_attrs }}>Dialog</twig:Button>
+        </twig:Modal:Trigger>
+        <twig:Modal:Content>
+            <twig:Modal:Header>
+                <twig:Modal:Title>Dialog</twig:Modal:Title>
+            </twig:Modal:Header>
+            <twig:Modal:Body><p>In a modal.</p></twig:Modal:Body>
+        </twig:Modal:Content>
+    </twig:Modal>
+    {%- endif %}
+    {%- if only in ['', 'drawer'] %}
+    <twig:Drawer id="{{ r }}-drawer">
+        <twig:Drawer:Trigger>
+            <twig:Button variant="outline" {{ ...drawer_trigger_attrs }}>Drawer</twig:Button>
+        </twig:Drawer:Trigger>
+        <twig:Drawer:Content>
+            <twig:Drawer:Header>
+                <twig:Drawer:Title>Drawer</twig:Drawer:Title>
+            </twig:Drawer:Header>
+            <twig:Drawer:Body><p>In a drawer.</p></twig:Drawer:Body>
+        </twig:Drawer:Content>
+    </twig:Drawer>
+    {%- endif %}
+    {%- if only in ['', 'tree'] %}
+    <nav aria-label="{{ r }} tree" class="w-56 rounded-base border border-default p-2">
+        <twig:SideNav label="Tree" storageKey="lab-value-matrix-{{ r }}">
+            <twig:SideNav:Branch label="Branch">
+                <twig:SideNav:Item href="#{{ r }}-leaf">Leaf</twig:SideNav:Item>
+            </twig:SideNav:Branch>
+        </twig:SideNav>
+    </nav>
+    {%- endif %}
+    {%- if only in ['', 'theme'] %}
+    <twig:ThemeToggle />
+    {%- endif %}
+</div>

@@ -3,11 +3,12 @@
     "type": "component",
     "name": "DataTable",
     "copy-files": {
+        "assets/": "assets/",
         "src/": "src/",
         "templates/": "templates/"
     },
     "dependencies": {
-        "recipe": ["table", "pagination", "input", "select", "button", "empty-state"],
+        "recipe": ["table", "pagination", "input", "select", "button", "empty-state", "turbo"],
         "composer": [
             "symfony/http-foundation",
             "symfony/ux-icons",

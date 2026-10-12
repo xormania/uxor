@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 
-export type ChartState = { id: number; labels: unknown[]; colors: unknown[]; grid: unknown; animation: unknown } | null;
+export type ChartState = { id: number; labels: unknown[]; data: unknown[][]; colors: unknown[]; grid: unknown; animation: unknown } | null;
 
 // the chart drawn on the canvas inside #<id>, read through Chart.js's own registry
 export const chartState = (page: Page, id: string) =>
@@ -16,6 +16,7 @@ export const chartState = (page: Page, id: string) =>
         return {
             id: chart.id,
             labels: [...(chart.data.labels ?? [])],
+            data: chart.data.datasets.map((dataset) => [...dataset.data]),
             colors: chart.data.datasets.map((dataset) => dataset.backgroundColor),
             grid: scales.x?.grid?.color ?? scales.r?.grid?.color,
             animation: chart.config.options?.animation,

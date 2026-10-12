@@ -2,14 +2,16 @@
     ## string Unique suffix identifier for generating Tabs internal IDs.
     value
 -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 
-{%- set _tab_id = 'tab-' ~ value -%}
+{%- set _tab_id = (idPrefix ?? 'tab') ~ '-' ~ value -%}
 {%- set _tab_content_id = _tab_id ~ '-description' -%}
 {%- set open = defaultValue is same as(value) -%}
 <li class="me-2" role="presentation">
     <button
         id="{{ _tab_id }}"
-        data-action="click->tabs#open"
+        data-action="click->tabs#open keydown->tabs#keydown"
         data-tabs-target="trigger"
         data-tab-id="{{ value }}"
         role="tab"
@@ -17,7 +19,7 @@
         aria-selected="{{ open ? 'true' : 'false' }}"
         data-state="{{ open ? 'active' : 'inactive' }}"
         {{ attributes.defaults({
-            class: ('inline-flex items-center p-4 disabled:text-fg-disabled disabled:cursor-not-allowed group-data-[variant=default]/tabs-list:hover:text-heading group-data-[variant=default]/tabs-list:hover:bg-neutral-secondary-soft group-data-[variant=default]/tabs-list:rounded-t-base data-[state=active]:text-fg-brand group-data-[variant=default]/tabs-list:data-[state=active]:bg-neutral-secondary-soft group-data-[variant=line]/tabs-list:hover:text-fg-brand group-data-[variant=line]/tabs-list:border-b group-data-[variant=line]/tabs-list:border-transparent group-data-[variant=line]/tabs-list:hover:border-fg-brand group-data-[variant=line]/tabs-list:data-[state=active]:border-brand group-data-[variant=pill]/tabs-list:rounded-base group-data-[variant=pill]/tabs-list:py-2.5 group-data-[variant=pill]/tabs-list:hover:bg-neutral-secondary-soft group-data-[variant=pill]/tabs-list:hover:text-heading group-data-[variant=pill]/tabs-list:data-[state=active]:bg-brand group-data-[variant=pill]/tabs-list:data-[state=active]:text-white [&_svg:not([class*=\'size-\'])]:size-4 whitespace-nowrap transition-all group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 ')|tailwind_classes,
+            class: ('inline-flex items-center p-4 disabled:text-fg-disabled disabled:cursor-not-allowed group-data-[variant=default]/tabs-list:hover:text-heading group-data-[variant=default]/tabs-list:hover:bg-neutral-secondary-soft group-data-[variant=default]/tabs-list:rounded-t-base data-[state=active]:text-fg-brand group-data-[variant=default]/tabs-list:data-[state=active]:bg-neutral-secondary-soft group-data-[variant=line]/tabs-list:hover:text-fg-brand group-data-[variant=line]/tabs-list:border-b group-data-[variant=line]/tabs-list:border-transparent group-data-[variant=line]/tabs-list:hover:border-fg-brand group-data-[variant=line]/tabs-list:data-[state=active]:border-brand group-data-[variant=pill]/tabs-list:rounded-base group-data-[variant=pill]/tabs-list:py-2.5 group-data-[variant=pill]/tabs-list:hover:bg-neutral-secondary-soft group-data-[variant=pill]/tabs-list:hover:text-heading group-data-[variant=pill]/tabs-list:data-[state=active]:bg-brand group-data-[variant=pill]/tabs-list:data-[state=active]:text-fg-on-brand [&_svg:not([class*=\'size-\'])]:size-4 whitespace-nowrap transition-colors motion-reduce:transition-none! group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 ')|tailwind_classes,
         }) }}
     >
         {##- The default block. -#}

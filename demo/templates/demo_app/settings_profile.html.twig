@@ -1,16 +1,4 @@
-{% extends 'layouts/settings.html.twig' %}
-
-{% block title %}Settings — Acme{% endblock %}
-{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
-{% block sidebar %}{{ include('demo_app/_sidebar.html.twig') }}{% endblock %}
-{% block page_title %}Settings{% endblock %}
-{% block page_description %}Manage your account.{% endblock %}
-
-{% block settings_nav %}
-    {% for route, name in {app_demo_settings_profile: 'Profile', app_demo: 'Notifications', app_demo_blank: 'Billing'} %}
-        <li><a href="{{ path(route) }}"{% if route == app.current_route %} aria-current="page"{% endif %} class="block rounded-base px-3 py-2 text-sm font-medium whitespace-nowrap text-body hover:bg-neutral-secondary-medium hover:text-heading aria-[current=page]:bg-brand-softer aria-[current=page]:text-fg-brand-strong">{{ name }}</a></li>
-    {% endfor %}
-{% endblock %}
+{% extends 'demo_app/_settings.html.twig' %}
 
 {% block settings_content %}
     <twig:SettingsProfile :form="form" name="Bonnie Green" email="bonnie@example.com" />

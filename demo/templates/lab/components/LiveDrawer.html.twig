@@ -35,4 +35,26 @@
         </twig:Drawer>
         <twig:Button variant="ghost" data-action="live#action" data-live-action-param="rerender">Re-render from the page</twig:Button>
     </div>
+    {#- a container whose id changes on each render: the morph moves the dialog into a new container and drops the old one, with its controller -#}
+    <div id="replaced-drawer-{{ renders }}" class="mt-4">
+        <twig:Drawer id="replaced">
+            <twig:Drawer:Trigger>
+                <twig:Button variant="outline" {{ ...drawer_trigger_attrs }}>Open replaced drawer</twig:Button>
+            </twig:Drawer:Trigger>
+            <twig:Drawer:Content>
+                <twig:Drawer:Header>
+                    <twig:Drawer:Title>Replaced drawer</twig:Drawer:Title>
+                </twig:Drawer:Header>
+                <twig:Drawer:Body>
+                    <p>Its container is rendered anew on each action.</p>
+                    <div class="mt-4 flex gap-3">
+                        <twig:Button data-action="live#action" data-live-action-param="rerender">Re-render and replace</twig:Button>
+                        <twig:Drawer:Close>
+                            <twig:Button variant="outline" {{ ...drawer_close_attrs }}>Done</twig:Button>
+                        </twig:Drawer:Close>
+                    </div>
+                </twig:Drawer:Body>
+            </twig:Drawer:Content>
+        </twig:Drawer>
+    </div>
 </div>

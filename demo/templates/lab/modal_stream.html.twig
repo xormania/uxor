@@ -1,0 +1,12 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}modal-stream — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'modal-stream'}) }}
+    <form method="post" action="{{ path('app_lab_modal_stream') }}" class="mb-4 flex gap-3">
+        <twig:Button type="submit" name="action" value="replace" variant="secondary">Replace the modal</twig:Button>
+        <twig:Button type="submit" name="action" value="update" variant="secondary">Update the modal</twig:Button>
+    </form>
+    <div id="modal-region">{{ include('lab/_modal_streamed.html.twig') }}</div>
+{% endblock %}

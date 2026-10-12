@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Project Test Suite" tests="4" assertions="5" errors="1" failures="1" skipped="0" time="0.20">
+    <testsuite name="App\Tests\DataTable\TableQueryTest" file="/runner/work/flowbite-xor/flowbite-xor/demo/tests/DataTable/TableQueryTest.php" tests="3" assertions="4" errors="0" failures="1" skipped="0" time="0.10">
+      <testcase name="testClampsThePage" file="/runner/work/flowbite-xor/flowbite-xor/demo/tests/DataTable/TableQueryTest.php" line="21" class="App\Tests\DataTable\TableQueryTest" classname="App.Tests.DataTable.TableQueryTest" assertions="1" time="0.01"/>
+      <testcase name="testRejectsAnUnknownSort" file="/runner/work/flowbite-xor/flowbite-xor/demo/tests/DataTable/TableQueryTest.php" line="34" class="App\Tests\DataTable\TableQueryTest" classname="App.Tests.DataTable.TableQueryTest" assertions="1" time="0.02">
+        <failure type="PHPUnit\Framework\ExpectationFailedException">App\Tests\DataTable\TableQueryTest::testRejectsAnUnknownSort
+Failed asserting that 'price' is identical to 'name'.
+
+/runner/work/flowbite-xor/flowbite-xor/demo/tests/DataTable/TableQueryTest.php:40</failure>
+      </testcase>
+      <testcase name="testKeepsTheFilter with data set &quot;empty&quot;" file="/runner/work/flowbite-xor/flowbite-xor/demo/tests/DataTable/TableQueryTest.php" line="50" class="App\Tests\DataTable\TableQueryTest" classname="App.Tests.DataTable.TableQueryTest" assertions="2" time="0.07"/>
+    </testsuite>
+    <testsuite name="App\Tests\Editor\HtmlPolicyTest" file="/runner/work/flowbite-xor/flowbite-xor/demo/tests/Editor/HtmlPolicyTest.php" tests="1" assertions="1" errors="1" failures="0" skipped="0" time="0.10">
+      <testcase name="testStripsScript" file="/runner/work/flowbite-xor/flowbite-xor/demo/tests/Editor/HtmlPolicyTest.php" line="12" class="App\Tests\Editor\HtmlPolicyTest" classname="App.Tests.Editor.HtmlPolicyTest" assertions="1" time="0.10">
+        <error type="TypeError">App\Tests\Editor\HtmlPolicyTest::testStripsScript
+TypeError: App\FlowbiteXor\Editor\HtmlPolicy::clean(): Argument #1 ($html) must be of type string, null given
+
+/runner/work/flowbite-xor/flowbite-xor/editor/src/HtmlPolicy.php:30
+/runner/work/flowbite-xor/flowbite-xor/demo/tests/Editor/HtmlPolicyTest.php:15</error>
+      </testcase>
+    </testsuite>
+  </testsuite>
+</testsuites>

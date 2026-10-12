@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}value-matrix ({{ page }}) — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'value-matrix'}) }}
+    {%- set other = page == 'one' ? 'two' : 'one' %}
+    {%- set keep = only ? {only: only} : {} %}
+    <h2 class="mb-2 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
+    <p class="mb-6"><a href="{{ path('app_lab_value_matrix', {page: other}|merge(keep)) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a></p>
+
+    <section data-testid="region-plain" aria-labelledby="region-plain-title" class="mb-10">
+        <h3 id="region-plain-title" class="mb-4 font-semibold text-heading">Rendered by the page</h3>
+        {{ include('lab/_value_matrix_widgets.html.twig', {r: 'plain', only: only}) }}
+    </section>
+
+    <turbo-frame id="value-matrix-frame" data-testid="region-framed" class="mb-10 block">
+        <h3 class="mb-4 font-semibold text-heading">In a Turbo Frame, load <span data-testid="frame-load">{{ load }}</span></h3>
+        <p class="mb-4"><a href="{{ path('app_lab_value_matrix', {page: page, load: load + 1}|merge(keep)) }}" class="text-fg-brand hover:underline">Reload the frame</a></p>
+        {{ include('lab/_value_matrix_widgets.html.twig', {r: 'framed', only: only}) }}
+    </turbo-frame>
+
+    <form method="post" action="{{ path('app_lab_value_matrix', {page: page}) }}" class="mb-4 flex gap-3">
+        {%- if only %}<input type="hidden" name="only" value="{{ only }}">{% endif %}
+        <twig:Button type="submit" name="action" value="replace" variant="secondary">Replace the streamed region</twig:Button>
+        <twig:Button type="submit" name="action" value="update" variant="secondary">Update the streamed region</twig:Button>
+    </form>
+    <div id="value-matrix-stream" data-testid="region-streamed" class="mb-10">
+        {{ include('lab/_value_matrix_streamed.html.twig') }}
+    </div>
+
+    <div id="lab-permanent-value-matrix" data-turbo-permanent data-testid="region-kept" class="rounded-base border border-default p-4">
+        <h3 class="mb-4 font-semibold text-heading">Inside a data-turbo-permanent element</h3>
+        {{ include('lab/_value_matrix_widgets.html.twig', {r: 'kept', only: only}) }}
+    </div>
+{% endblock %}

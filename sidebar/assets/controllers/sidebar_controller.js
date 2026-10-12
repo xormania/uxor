@@ -1,17 +1,21 @@
 import { Controller } from '@hotwired/stimulus';
+import { markCurrentLinks, whenMediaMatches } from '../lib/uxor-navigation.js';
 
 /**
  * Collapses the `Sidebar` to its icons (saved in `localStorage`), opens it over the page on small
  * screens (`sidebar:toggle` window event, sent by the `Navbar` toggle) and marks the current item.
  *
- * Meant to be `data-turbo-permanent`: Turbo then keeps the same element across visits, so the
+ * Meant to be `data-turbo-permanent`: Turbo then keeps the same element across visits, Back and Forward, so the
  * controller re-marks the current item on every reconnect and restores the scroll position, which the
- * browser resets when the element is re-inserted.
+ * browser resets when the element is re-inserted. With `localStorage` unavailable the collapse lasts until the next
+ * page load. Opened over the page, it closes on a visit, Back and Forward (the menu buttons of the page shown are
+ * collapsed on reconnect, a cached copy's included) and when the screen grows to where it sits beside the page.
  *
  * @target toggle      The collapse button, kept in sync through `aria-expanded` and its label.
  * @target scroll      The scrolling navigation, whose position survives Turbo visits.
  * @target item        The item links; the one matching the current URL's path gets `aria-current="page"`, never a `#…` link.
  * @value  storageKey  The `localStorage` key of the collapsed state.
+ * @value  media       The media query where the sidebar sits beside the page (Tailwind's `md`); opened over the page, it closes there.
  * @action toggle      Collapses or expands the sidebar and saves the state.
  * @action rememberScroll Remembers the navigation's scroll position, restored on reconnect.
  * @action toggleMobile Opens or closes the sidebar over the page on small screens.
@@ -19,23 +23,35 @@ import { Controller } from '@hotwired/stimulus';
  */
 export default class extends Controller {
     static targets = ['toggle', 'scroll', 'item'];
-    static values = { storageKey: { type: String, default: 'sidebar-collapsed' } };
+    static values = {
+        storageKey: { type: String, default: 'sidebar-collapsed' },
+        media: { type: String, default: '(min-width: 48rem)' },
+    };
 
     connect() {
-        let collapsed = false;
-        try {
-            collapsed = 'true' === localStorage.getItem(this.storageKeyValue);
-        } catch {
-            // storage unavailable: start expanded
+        // storage unavailable: a permanent sidebar reconnecting after a visit keeps its state, a new page starts expanded
+        // a collapse that could not be saved (storage blocked or full) lasts until the next page load: the element's own
+        // state wins over a stale stored value
+        let collapsed = this.element.hasAttribute('data-collapsed');
+        if (!this.unsaved) {
+            try {
+                collapsed = 'true' === localStorage.getItem(this.storageKeyValue);
+            } catch {
+                // storage unavailable: keep the element's state
+            }
         }
         this.setCollapsed(collapsed);
         this.markCurrentItem();
         if (undefined !== this.savedScroll && this.hasScrollTarget) {
             this.scrollTarget.scrollTop = this.savedScroll;
         }
+        // the page shown may be a copy Turbo took with the sidebar open over it: its menu buttons follow the sidebar
+        this.syncMobileTriggers();
+        this.stopClosingWhenWide = whenMediaMatches(this.mediaValue, () => this.setMobileOpen(false));
     }
 
     disconnect() {
+        this.stopClosingWhenWide();
         this.setMobileOpen(false);
     }
 
@@ -49,8 +65,10 @@ export default class extends Controller {
         this.setCollapsed(collapsed);
         try {
             localStorage.setItem(this.storageKeyValue, String(collapsed));
+            this.unsaved = false;
         } catch {
-            // storage unavailable: the state lasts until the next page load
+            // storage unavailable or full: the state lasts until the next page load
+            this.unsaved = true;
         }
     }
 
@@ -85,10 +103,15 @@ export default class extends Controller {
             return;
         }
         this.element.toggleAttribute('data-mobile-open', open);
-        this.mobileTriggers().forEach((trigger) => trigger.setAttribute('aria-expanded', String(open)));
+        this.syncMobileTriggers();
         if (open && this.hasScrollTarget) {
             this.scrollTarget.querySelector('a')?.focus();
         }
+    }
+
+    syncMobileTriggers() {
+        const open = String(this.element.hasAttribute('data-mobile-open'));
+        this.mobileTriggers().forEach((trigger) => trigger.setAttribute('aria-expanded', open));
     }
 
     mobileTriggers() {
@@ -97,13 +120,7 @@ export default class extends Controller {
 
     markCurrentItem() {
         if (!this.itemTargets.some((item) => item.hasAttribute('data-sidebar-active-fixed'))) {
-            const path = window.location.pathname;
-            this.itemTargets.forEach((item) => {
-                // a link to a fragment of the page ("#", what Sidebar:Item renders for a rejected URL) is not a page
-                const isFragment = (item.getAttribute('href') ?? '').trim().startsWith('#');
-                const isCurrent = !isFragment && new URL(item.href, window.location.href).pathname === path;
-                isCurrent ? item.setAttribute('aria-current', 'page') : item.removeAttribute('aria-current');
-            });
+            markCurrentLinks(this.itemTargets);
         }
     }
 }

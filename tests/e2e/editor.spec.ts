@@ -1,32 +1,36 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, expectA11y } from './fixtures';
+import { previewUrl } from './inventory';
 
 /*
  * The Editor component: Tiptap mounted over the server-rendered content, the toolbar (one tab stop, arrow keys,
  * aria-pressed), the link dialog and its URL policy, the hidden textarea's HTML, the counter, and pasted HTML reduced
  * to the preset.
  */
-const preview = (id: string) => `/preview/editor/${id}?theme=light`;
 
 /** Opens a preview and waits for its editors to mount (the controller is lazy: Tiptap loads after the page). */
 async function open(page: Page, id: string) {
-    await page.goto(preview(id));
+    await page.goto(previewUrl('editor', id));
     await expect(page.locator('[data-editor-target="preview"]')).toHaveCount(0);
 }
 const value = (page: Page, name: string) => page.locator(`textarea[name="${name}"]`).inputValue();
 
-/** Pastes `html` into the focused editor, as a browser clipboard paste. */
+/**
+ * Pastes `html` into the focused editor, as a browser clipboard paste. The data is set on the event as its own
+ * property: Firefox gives a constructed ClipboardEvent an empty clipboardData of its own, whatever the init passes.
+ */
 const paste = (page: Page, html: string) =>
     page.evaluate((html) => {
         const data = new DataTransfer();
         data.setData('text/html', html);
         data.setData('text/plain', 'pasted');
-        document.activeElement!.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+        const event = new ClipboardEvent('paste', { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'clipboardData', { value: data });
+        document.activeElement!.dispatchEvent(event);
     }, html);
 
 test('the editor replaces the server-rendered content, named by its label, with no style element added', async ({ page }) => {
-    const before = await page.request.get(preview('default')).then((response) => response.text());
+    const before = await page.request.get(previewUrl('editor', 'default')).then((response) => response.text());
     expect(before).toContain('<strong>spring collection</strong>');
     await open(page, 'default');
     const editor = page.getByRole('textbox', { name: 'Description' });
@@ -172,11 +176,7 @@ test('the editor has no serious accessibility issue, invalid or not', async ({ p
     for (const id of ['default', 'invalid']) {
         await open(page, id);
         await expect(page.locator('.ProseMirror')).toHaveCount(1);
-        const results = await new AxeBuilder({ page }).analyze();
-        const serious = results.violations
-            .filter((violation) => 'serious' === violation.impact || 'critical' === violation.impact)
-            .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
-        expect(serious, id).toEqual([]);
+        await expectA11y(page, { impact: 'serious' }, id);
     }
     await expect(page.getByRole('textbox', { name: 'Summary' })).toHaveAccessibleDescription('This value should not be blank.');
 });

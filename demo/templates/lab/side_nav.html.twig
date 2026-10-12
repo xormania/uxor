@@ -1,0 +1,39 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}side-nav ({{ page }}) — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'side-nav'}) }}
+    <div class="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
+        {#- rendered by every page, not data-turbo-permanent: the open branches come back from sessionStorage; the controller marks the current page from the URL -#}
+        <nav aria-label="Guide" class="rounded-base border border-default p-2">
+            <twig:SideNav label="Guide" storageKey="lab-side-nav">
+                <twig:SideNav:Item href="{{ path('app_lab_side_nav', {page: 'one'}) }}">
+                    <twig:block name="icon"><twig:ux:icon name="flowbite:home-solid" class="size-5" /></twig:block>
+                    Overview
+                </twig:SideNav:Item>
+                <twig:SideNav:Branch label="Guides">
+                    <twig:block name="icon"><twig:ux:icon name="flowbite:file-code-outline" class="size-5" /></twig:block>
+                    <twig:SideNav:Item href="{{ path('app_lab_side_nav', {page: 'two'}) }}">Getting started</twig:SideNav:Item>
+                    <twig:SideNav:Branch label="Advanced">
+                        <twig:SideNav:Item href="{{ path('app_lab_side_nav', {page: 'three'}) }}">Deep page</twig:SideNav:Item>
+                    </twig:SideNav:Branch>
+                </twig:SideNav:Branch>
+                <twig:SideNav:Branch label="Reference">
+                    <twig:block name="icon"><twig:ux:icon name="flowbite:list-outline" class="size-5" /></twig:block>
+                    <twig:SideNav:Item href="{{ path('app_lab_side_nav', {page: 'four'}) }}">API</twig:SideNav:Item>
+                    <twig:SideNav:Item href="#glossary">Glossary</twig:SideNav:Item>
+                </twig:SideNav:Branch>
+            </twig:SideNav>
+        </nav>
+        <section>
+            <h2 class="text-lg font-semibold text-heading" data-testid="page">Page {{ page }}</h2>
+            <ul class="mt-2 flex flex-wrap gap-4">
+                {% for other in ['one', 'two', 'three', 'four']|filter((other) => other != page) %}
+                    <li><a href="{{ path('app_lab_side_nav', {page: other}) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a></li>
+                {% endfor %}
+            </ul>
+            <p id="glossary" class="mt-6">The glossary, a fragment of this page.</p>
+        </section>
+    </div>
+{% endblock %}

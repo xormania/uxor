@@ -1,0 +1,64 @@
+{
+  "config": {
+    "rootDir": "/runner/work/flowbite-xor/flowbite-xor",
+    "version": "1.58.2",
+    "shard": { "current": 3, "total": 3 },
+    "projects": [{ "id": "smoke", "name": "smoke" }, { "id": "examples", "name": "examples" }]
+  },
+  "suites": [
+    {
+      "title": "tests/e2e/lab.data-table-frame.spec.ts",
+      "file": "tests/e2e/lab.data-table-frame.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "search, filter, sort, page and page size each add a history entry",
+          "ok": true,
+          "id": "eee-111",
+          "file": "tests/e2e/lab.data-table-frame.spec.ts",
+          "line": 31,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "flaky",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "failed",
+                  "duration": 9100,
+                  "error": { "message": "Error: expect(page).toHaveURL(expected) failed\n\nExpected pattern: /size=10/\nReceived string: \"https://localhost/lab/data-table-frame?size=25\"" },
+                  "errors": [{ "message": "Error: expect(page).toHaveURL(expected) failed\n\nExpected pattern: /size=10/\nReceived string: \"https://localhost/lab/data-table-frame?size=25\"" }],
+                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/lab.data-table-frame.spec.ts", "line": 52, "column": 9 }
+                },
+                { "retry": 1, "status": "passed", "duration": 4200, "errors": [] }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "renders the first page",
+          "ok": true,
+          "id": "eee-222",
+          "file": "tests/e2e/lab.data-table-frame.spec.ts",
+          "line": 10,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [{ "retry": 0, "status": "passed", "duration": 900, "errors": [] }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": { "startTime": "2026-10-09T08:00:00.000Z", "duration": 15000, "expected": 1, "skipped": 0, "unexpected": 0, "flaky": 1 }
+}

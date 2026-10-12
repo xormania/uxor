@@ -18,6 +18,8 @@ An indicator that can be used to show a loading state.
 </twig:Button>
 ```
 
+Under `prefers-reduced-motion`, the spinner turns three times slower (3 s a turn instead of 1 s).
+
 ## Examples
 
 ### Size

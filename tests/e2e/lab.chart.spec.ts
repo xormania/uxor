@@ -1,4 +1,5 @@
 import { test, expect, turboVisitDone } from './fixtures';
+import { advanceFrame, back, reloadFrames, sendStream, turboOperation, visit } from './transitions';
 import { chartCount, chartState, roleColor, toggleDark } from './chart-helpers';
 
 // counts the charts the theme redraws (chart:themed bubbles to the document)
@@ -14,15 +15,11 @@ const charts = (page: import('@playwright/test').Page) => page.locator('canvas[d
 test('after a Turbo visit and Back, every chart is drawn once and none is left behind', async ({ page }) => {
     await page.goto('/lab/chart-turbo');
     await expect.poll(() => chartCount(page)).toBe(4);
-    await page.getByRole('link', { name: 'Go to page two' }).click();
-    await expect(page.getByTestId('page')).toHaveText('Page two');
-    await turboVisitDone(page);
+    await visit(page, 'Go to page two', 'Page two');
     // page two: the line, the permanent one, the framed one
     await expect.poll(() => chartCount(page)).toBe(3);
 
-    await page.goBack();
-    await expect(page.getByTestId('page')).toHaveText('Page one');
-    await turboVisitDone(page);
+    await back(page, 'Page one');
     await expect.poll(() => chartCount(page)).toBe(4);
     for (const id of ['lab-bar', 'lab-doughnut', 'lab-kept', 'lab-framed']) {
         expect(await chartState(page, id), id).not.toBeNull();
@@ -46,8 +43,7 @@ test('inside a data-turbo-permanent element the chart keeps its canvas and follo
     await page.goto('/lab/chart-turbo');
     await page.locator('#lab-kept canvas').evaluate((canvas) => ((canvas as any).__kept = true));
     const { id } = (await chartState(page, 'lab-kept'))!;
-    await page.getByRole('link', { name: 'Go to page two' }).click();
-    await turboVisitDone(page);
+    await visit(page, 'Go to page two', 'Page two');
     expect(await page.locator('#lab-kept canvas').evaluate((canvas) => (canvas as any).__kept)).toBe(true);
     await toggleDark(page);
     const line = await roleColor(page, 'chart-1');
@@ -66,21 +62,56 @@ test('a server color is kept through theme switches, and its swatch shows it', a
 
 test('inside a Turbo Frame reloaded three times, one chart is left and it is drawn', async ({ page }) => {
     await page.goto('/lab/chart-turbo');
-    for (let load = 1; load <= 3; load++) {
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-    }
+    await reloadFrames(page);
     await expect.poll(() => chartCount(page)).toBe(4);
     await expect.poll(async () => (await chartState(page, 'lab-framed'))?.labels).toEqual(['A', 'B']);
 });
 
+// Turbo copies the page as the frame visit starts, the charts drawn: Back and Forward show copies whose canvases each get
+// one new chart, with the data of their markup and the theme of the page now
+test('beside a frame visit promoted to history, Back and Forward draw each chart once, with its data and the current theme', async ({ page }) => {
+    await page.goto('/lab/chart-turbo');
+    await expect.poll(() => chartCount(page)).toBe(4);
+    const before = page.url();
+    const bar = (await chartState(page, 'lab-bar'))!;
+
+    await advanceFrame(page, 'chart-frame');
+    const advanced = page.url();
+    await expect.poll(async () => (await chartState(page, 'lab-framed'))?.data).toEqual([[2, 2]]);
+    // the chart beside the frame is left alone
+    expect((await chartState(page, 'lab-bar'))!.id).toBe(bar.id);
+    // the theme changes on the new history entry, the choice saved as the theme toggle saves it
+    await page.evaluate(() => localStorage.setItem('theme', 'dark'));
+    await toggleDark(page);
+
+    for (const [action, url, framed] of [[() => page.goBack(), before, [1, 2]], [() => page.goForward(), advanced, [2, 2]]] as const) {
+        await turboOperation(page, { url }, action);
+        await turboVisitDone(page);
+        await expect(page.locator('html')).toHaveClass(/\bdark\b/);
+        // one chart per canvas, none left behind
+        await expect.poll(() => chartCount(page), url).toBe(4);
+        expect(await charts(page)).toBe(4);
+        await expect.poll(async () => (await chartState(page, 'lab-framed'))?.data).toEqual([framed]);
+        const restored = (await chartState(page, 'lab-bar'))!;
+        expect(restored.id).not.toBe(bar.id);
+        expect(restored.labels).toEqual(['Jan', 'Feb', 'Mar']);
+        expect(restored.data).toEqual([[12, 19, 14], [15, 21, 18]]);
+        // drawn in the dark theme, the server's color kept
+        expect(restored.colors).toEqual([await roleColor(page, 'chart-1'), 'rgb(0, 128, 0)']);
+    }
+
+    // the restored charts still follow the theme: a switch redraws each once
+    const switched = await themed(page);
+    await toggleDark(page);
+    await expect.poll(() => themed(page)).toBe(switched + 4);
+    await expect.poll(async () => (await chartState(page, 'lab-bar'))?.colors?.[0]).toBe(await roleColor(page, 'chart-1'));
+});
+
 test('replaced or updated by a Turbo Stream, the new chart is drawn and the old one destroyed', async ({ page }) => {
     await page.goto('/lab/chart-stream');
-    await page.getByRole('button', { name: 'Replace the chart' }).click();
-    await expect(page.getByTestId('stream-action')).toHaveText('replace');
+    await sendStream(page, 'replace');
     await expect.poll(() => chartCount(page)).toBe(1);
-    await page.getByRole('button', { name: 'Update the chart' }).click();
-    await expect(page.getByTestId('stream-action')).toHaveText('update');
+    await sendStream(page, 'update');
     await expect.poll(() => chartCount(page)).toBe(1);
     expect((await chartState(page, 'streamed'))!.colors).toEqual([await roleColor(page, 'chart-1')]);
 });

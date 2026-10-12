@@ -9,4 +9,9 @@
         <twig:block name="cell_number"><span data-testid="order-number">{{ row.number }}</span></twig:block>
         <twig:block name="selection_actions"><span data-testid="selected-ids" class="text-body">{{ this.selectedIds|join(',') }}</span></twig:block>
     </twig:OrdersTable>
+    {#- beside the table, for the value matrix: a frame that reloads and a region Turbo Streams replace leave the table alone -#}
+    <turbo-frame id="beside-table-frame" class="mt-6 block">
+        <p class="text-sm">A frame beside the table, load <span data-testid="frame-load">{{ load }}</span></p>
+    </turbo-frame>
+    <div id="beside-table-stream" class="mt-2">{{ include('lab/_data_table_live_beside.html.twig') }}</div>
 {% endblock %}

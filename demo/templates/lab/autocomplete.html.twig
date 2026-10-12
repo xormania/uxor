@@ -13,7 +13,10 @@
             {{ form_row(form.country) }}
             {{ form_row(form.languages) }}
             {{ form_row(form.customer) }}
-            <twig:Button type="submit">Send</twig:Button>
+            <div class="flex gap-3">
+                <twig:Button type="submit">Send</twig:Button>
+                <twig:Button type="reset" variant="outline">Reset</twig:Button>
+            </div>
         {{ form_end(form) }}
         <div>
             <label for="fruit" class="mb-2 block text-sm font-medium text-heading">Fruit (outside a form)</label>
@@ -22,6 +25,35 @@
                 <option value="apple">Apple</option>
                 <option value="banana">Banana</option>
                 <option value="cherry">Cherry</option>
+            </twig:Autocomplete>
+        </div>
+        {#- Autocomplete components with values rendered, in a form and outside it (the form attribute): a reset puts them back -#}
+        <form id="pets-form" class="grid gap-6" aria-label="Pets">
+            <div>
+                <twig:Label for="pet" class="mb-2.5">Pet</twig:Label>
+                <twig:Autocomplete id="pet" name="pet">
+                    <option value="">Choose a pet</option>
+                    <option value="cat">Cat</option>
+                    <option value="dog" selected>Dog</option>
+                    <option value="fish">Fish</option>
+                </twig:Autocomplete>
+            </div>
+            <div>
+                <twig:Label for="colors" class="mb-2.5">Colors</twig:Label>
+                <twig:Autocomplete id="colors" name="colors[]" multiple>
+                    <option value="red" selected>Red</option>
+                    <option value="green">Green</option>
+                    <option value="blue" selected>Blue</option>
+                </twig:Autocomplete>
+            </div>
+            <div><twig:Button type="reset" variant="outline">Reset the pets</twig:Button></div>
+        </form>
+        <div>
+            <twig:Label for="size" class="mb-2.5">Size (outside the form)</twig:Label>
+            <twig:Autocomplete id="size" name="size" form="pets-form">
+                <option value="small">Small</option>
+                <option value="medium" selected>Medium</option>
+                <option value="large">Large</option>
             </twig:Autocomplete>
         </div>
     </div>

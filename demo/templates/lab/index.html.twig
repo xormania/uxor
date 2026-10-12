@@ -1,19 +1,19 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Lab — flowbite-xor{% endblock %}
+{% block title %}Lab — {{ kit_reader.manifest.name }}{% endblock %}
 
 {% block body %}
     <h1 class="text-2xl font-bold">Lab</h1>
-    <p class="mt-2 text-gray-600 dark:text-gray-400">Turbo Drive / Turbo Frame / Turbo Stream / Live Component scenarios, each exercised by a Playwright spec.</p>
+    <p class="mt-2 text-body">Turbo Drive / Turbo Frame / Turbo Stream / Live Component scenarios, each exercised by a Playwright spec.</p>
 
-    <ul class="mt-6 divide-y divide-gray-200 dark:divide-gray-800" data-testid="scenario-list">
+    <ul class="mt-6 divide-y divide-default" data-testid="scenario-list">
         {% for name, description in scenarios %}
             <li class="py-3">
                 <a href="{{ path('app_lab_' ~ name|replace({'-': '_'})) }}" class="font-medium hover:underline">{{ name }}</a>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ description }}</p>
+                <p class="mt-1 text-sm text-body">{{ description }}</p>
             </li>
         {% else %}
-            <li class="py-3 text-gray-600 dark:text-gray-400">No scenarios yet.</li>
+            <li class="py-3 text-body">No scenarios yet.</li>
         {% endfor %}
     </ul>
 {% endblock %}

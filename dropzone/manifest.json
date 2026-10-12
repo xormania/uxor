@@ -7,7 +7,7 @@
         "templates/": "templates/"
     },
     "dependencies": {
-        "recipe": ["form-theme"],
+        "recipe": ["form-theme", "turbo"],
         "composer": [
             "symfony/ux-dropzone:^3.5",
             "symfony/ux-icons",

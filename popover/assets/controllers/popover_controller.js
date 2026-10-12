@@ -1,4 +1,6 @@
 import { Controller } from '@hotwired/stimulus';
+import { follow, position } from '../lib/uxor-floating.js';
+import { isCachedCopy, isKeptOnCache } from '../lib/uxor-turbo.js';
 
 /**
  * Opens a `Popover`, a non-modal dialog anchored to its trigger: a click on the trigger toggles it,
@@ -6,7 +8,13 @@ import { Controller } from '@hotwired/stimulus';
  * closes it. Opening moves the focus into the content, places the content next to the trigger (flipping
  * and shifting like `Dropdown`) and keeps it there on scroll and resize. Popovers sharing a `name` close
  * each other. The open state is the `open` value, an attribute, so Live Components keep it across
- * re-renders; before Turbo caches the page, an open popover closes, so Back never restores it open.
+ * re-renders. Before Turbo caches the page, an open popover closes, so Back never restores it open; one inside a
+ * `data-turbo-permanent` element stays open, as Turbo moves it into the next page (a copy of it shown later is
+ * closed as it connects). A frame visit promoted to history (`data-turbo-action="advance"`, a data table's pages) dispatches
+ * `turbo:before-cache` too, but keeps the page on screen and caches a copy taken when it started: the
+ * popover then stays open, with the focus, and the copy is closed as it connects (while it is open on
+ * screen, rendered open or opened since, the element carries `data-popover-opened`; a new controller on
+ * an element carrying it is a copy, while the same controller reconnecting after a DOM move stays open).
  * The document listeners exist only while it is open, and are removed when it closes or disconnects.
  * Before moving the focus, it dispatches a cancelable `popover:focus` on its element (detail: `content`):
  * cancel it to place the focus yourself; the popover stays open.
@@ -23,7 +31,7 @@ import { Controller } from '@hotwired/stimulus';
  * @action closeIfGrouped Closes the popover when another popover of its group opens.
  * @action escape         Closes the popover and focuses the trigger.
  * @action closeOnFocusOut Closes the popover when the focus moves to an element outside it.
- * @action closeSilently  Closes the popover without moving the focus or dispatching events, before Turbo caches the page.
+ * @action closeSilently  Closes the popover without moving the focus or dispatching events; on `turbo:before-cache`, only when the page is about to be replaced and the popover is not inside a `data-turbo-permanent` element.
  */
 export default class extends Controller {
     static targets = ['trigger', 'content'];
@@ -39,6 +47,11 @@ export default class extends Controller {
 
     connect() {
         this.#connected = true;
+        // open in this browser before, but not by this controller: a copy of the page Turbo cached, shown closed. A
+        // reconnect of the same element (moved in the DOM, a morph) keeps its controller, and stays open
+        if (isCachedCopy(this, 'data-popover-opened')) {
+            this.openValue = false;
+        }
         this.#render();
     }
 
@@ -109,7 +122,11 @@ export default class extends Controller {
         }
     }
 
-    closeSilently() {
+    closeSilently(event) {
+        // the page stays on screen; or Turbo moves the popover into the next page, open, as the user left it
+        if ('turbo:before-cache' === event?.type && isKeptOnCache(this.element)) {
+            return;
+        }
         this.openValue = false;
     }
 
@@ -126,6 +143,8 @@ export default class extends Controller {
         const content = this.contentTarget;
         content.dataset.state = state;
         content.hidden = !open;
+        // open on screen, whether rendered open or opened since: a copy of the page taken now connects closed
+        this.element.toggleAttribute('data-popover-opened', open);
         if (open) {
             this.#listen();
             this.position();
@@ -144,10 +163,8 @@ export default class extends Controller {
                 this.openValue = false;
             }
         };
-        this.onReposition = () => this.position();
         document.addEventListener('click', this.onClickOutside, true);
-        window.addEventListener('scroll', this.onReposition, true);
-        window.addEventListener('resize', this.onReposition);
+        this.stopFollowing = follow(() => this.position());
     }
 
     #unlisten() {
@@ -156,68 +173,22 @@ export default class extends Controller {
         }
         this.#listening = false;
         document.removeEventListener('click', this.onClickOutside, true);
-        window.removeEventListener('scroll', this.onReposition, true);
-        window.removeEventListener('resize', this.onReposition);
+        this.stopFollowing();
+        this.stopFollowing = null;
     }
 
     /**
-     * Copied from `dropdown_controller.js` (`position()`), with `data-placement` for the final side:
-     * absolute, `translate(x, y)`, offset, flip, shift along the trigger within the viewport.
+     * Places the content next to the trigger with the kit's shared positioning (`assets/lib/uxor-floating.js`,
+     * the `floating` recipe, as `Dropdown`), with `data-placement` for the final side: absolute, `translate(x, y)`,
+     * offset, flip, shift along the trigger within the viewport.
      */
     position() {
         if (!this.hasTriggerTarget || !this.hasContentTarget) {
             return;
         }
-        const content = this.contentTarget;
-        // absolute first: the size to place is the content's own, not the width it takes in flow
-        Object.assign(content.style, { position: 'absolute', inset: '0px auto auto 0px', margin: '0px' });
-        const [side, align = 'center'] = (this.placementValue || 'bottom').split('-');
-        const reference = this.triggerTarget.getBoundingClientRect();
-        const size = { width: content.offsetWidth, height: content.offsetHeight };
-        const viewport = { width: document.documentElement.clientWidth, height: document.documentElement.clientHeight };
-        const vertical = 'top' === side || 'bottom' === side;
-        const opposite = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
-
-        const place = (s) => {
-            const point = { x: 0, y: 0 };
-            if (vertical) {
-                point.y = 'bottom' === s ? reference.bottom + this.offsetDistanceValue : reference.top - size.height - this.offsetDistanceValue;
-                point.x = 'start' === align ? reference.left : 'end' === align ? reference.right - size.width : reference.left + reference.width / 2 - size.width / 2;
-            } else {
-                point.x = 'right' === s ? reference.right + this.offsetDistanceValue : reference.left - size.width - this.offsetDistanceValue;
-                point.y = 'start' === align ? reference.top : 'end' === align ? reference.bottom - size.height : reference.top + reference.height / 2 - size.height / 2;
-            }
-            return point;
-        };
-        const overflows = (s, point) =>
-            ({ top: -point.y, bottom: point.y + size.height - viewport.height, left: -point.x, right: point.x + size.width - viewport.width })[s] > 0;
-
-        let finalSide = side;
-        let point = place(side);
-        if (overflows(side, point) && !overflows(opposite[side], place(opposite[side]))) {
-            finalSide = opposite[side];
-            point = place(finalSide);
-        }
-
-        // shift along the trigger to stay in the viewport, without leaving the trigger
-        const axis = vertical ? 'x' : 'y';
-        const length = vertical ? size.width : size.height;
-        const [refStart, refEnd] = vertical ? [reference.left, reference.right] : [reference.top, reference.bottom];
-        const limit = vertical ? viewport.width : viewport.height;
-        point[axis] = Math.min(Math.max(point[axis], 0), limit - length);
-        point[axis] = Math.min(Math.max(point[axis], refStart - length), refEnd);
-
-        // viewport coordinates -> coordinates of the content's containing block
-        const parent = content.offsetParent;
-        let origin = { x: -window.scrollX, y: -window.scrollY };
-        if (parent && parent !== document.body && parent !== document.documentElement) {
-            const rect = parent.getBoundingClientRect();
-            origin = { x: rect.left + parent.clientLeft - parent.scrollLeft, y: rect.top + parent.clientTop - parent.scrollTop };
-        }
-        const dpr = window.devicePixelRatio || 1;
-        const round = (value) => Math.round(value * dpr) / dpr || 0;
-
-        content.style.transform = `translate(${round(point.x - origin.x)}px, ${round(point.y - origin.y)}px)`;
-        content.dataset.placement = 'center' === align ? finalSide : `${finalSide}-${align}`;
+        this.contentTarget.dataset.placement = position(this.contentTarget, this.triggerTarget, {
+            placement: this.placementValue,
+            offset: this.offsetDistanceValue,
+        });
     }
 }

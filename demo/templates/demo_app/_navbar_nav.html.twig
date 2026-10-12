@@ -1,0 +1,22 @@
+{#- The navbar's menu, in the bar from md and in the mobile nav's drawer below: the account, then the kit's own pages. The /lab and /forms pages need the server and are left out of the static copy. -#}
+{%- set static_export = app.request.attributes.get('_static_export') -%}
+<twig:NavMenu:Submenu label="Account">
+    <twig:NavMenu:Link href="{{ path('app_demo_settings_profile') }}" route="app_demo_settings_profile">Profile</twig:NavMenu:Link>
+    <twig:NavMenu:Submenu label="Sign-in pages">
+        <twig:NavMenu:Link href="{{ path('app_demo_login') }}">Sign in</twig:NavMenu:Link>
+        <twig:NavMenu:Link href="{{ path('app_demo_signup') }}">Sign up</twig:NavMenu:Link>
+        <twig:NavMenu:Link href="{{ path('app_demo_forgot_password') }}">Forgot password</twig:NavMenu:Link>
+    </twig:NavMenu:Submenu>
+</twig:NavMenu:Submenu>
+<twig:NavMenu:Submenu label="Showcase">
+    <twig:NavMenu:Link href="{{ path('app_index') }}">Recipes</twig:NavMenu:Link>
+    {%- if not static_export %}
+        <twig:NavMenu:Link href="{{ path('app_forms') }}">Forms</twig:NavMenu:Link>
+        <twig:NavMenu:Submenu label="Lab">
+            <twig:NavMenu:Link href="{{ path('app_lab') }}">All scenarios</twig:NavMenu:Link>
+            <twig:NavMenu:Link href="{{ path('app_lab_side_nav') }}">Side nav</twig:NavMenu:Link>
+            <twig:NavMenu:Link href="{{ path('app_lab_mobile_nav') }}">Mobile nav</twig:NavMenu:Link>
+            <twig:NavMenu:Link href="{{ path('app_lab_nav_menu') }}">Navbar menus</twig:NavMenu:Link>
+        </twig:NavMenu:Submenu>
+    {%- endif %}
+</twig:NavMenu:Submenu>

@@ -6,6 +6,9 @@ twig:
         # the request's Content Security Policy nonces, which the layouts print (layouts/README.md)
         csp_script_nonce: '@app.csp_nonce.script'
         csp_style_nonce: '@app.csp_nonce.style'
+        # the kit's manifest.json (kit_reader.manifest.name, kit_reader.manifest.homepage): the name and repository
+        # every page prints, so the templates hardcode neither
+        kit_reader: '@App\Kit\KitReader'
 
 when@test:
     twig:

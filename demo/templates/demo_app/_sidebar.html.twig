@@ -1,18 +1,23 @@
-    <twig:Sidebar:Group label="Overview">
-        <twig:Sidebar:Item href="{{ path('app_demo') }}">
-            <twig:block name="icon"><twig:ux:icon name="flowbite:chart-pie-outline" class="size-5" /></twig:block>
-            Dashboard
-        </twig:Sidebar:Item>
-        <twig:Sidebar:Item href="{{ path('app_demo_settings_profile') }}">
-            <twig:block name="icon"><twig:ux:icon name="flowbite:user-outline" class="size-5" /></twig:block>
-            Settings
-        </twig:Sidebar:Item>
-    </twig:Sidebar:Group>
-    <twig:Sidebar:Group label="Pages">
-        {% for route, name in {app_demo_login: 'Login', app_demo_signup: 'Signup', app_demo_forgot_password: 'Forgot password', app_demo_not_found: 'Not found', app_demo_blank: 'Blank'} %}
-            <twig:Sidebar:Item href="{{ path(route) }}">
-                <twig:block name="icon"><twig:ux:icon name="flowbite:inbox-outline" class="size-5" /></twig:block>
-                {{ name }}
-            </twig:Sidebar:Item>
-        {% endfor %}
-    </twig:Sidebar:Group>
+{#- The application's pages; the kit's own pages are in the navbar's menu (_navbar_nav.html.twig). -#}
+<twig:SideNav label="xor" storageKey="demo-nav">
+    <twig:SideNav:Item href="{{ path('app_demo') }}" route="app_demo">
+        <twig:block name="icon"><twig:ux:icon name="flowbite:chart-pie-outline" class="size-5" /></twig:block>
+        Dashboard
+    </twig:SideNav:Item>
+    <twig:SideNav:Branch label="Settings">
+        <twig:block name="icon"><twig:ux:icon name="flowbite:user-outline" class="size-5" /></twig:block>
+        <twig:SideNav:Item href="{{ path('app_demo_settings_profile') }}" route="app_demo_settings_profile">Profile</twig:SideNav:Item>
+    </twig:SideNav:Branch>
+    <twig:SideNav:Branch label="Pages">
+        <twig:block name="icon"><twig:ux:icon name="flowbite:grid-outline" class="size-5" /></twig:block>
+        <twig:SideNav:Branch label="Account">
+            <twig:SideNav:Item href="{{ path('app_demo_login') }}">Sign in</twig:SideNav:Item>
+            <twig:SideNav:Item href="{{ path('app_demo_signup') }}">Sign up</twig:SideNav:Item>
+            <twig:SideNav:Item href="{{ path('app_demo_forgot_password') }}">Forgot password</twig:SideNav:Item>
+        </twig:SideNav:Branch>
+        <twig:SideNav:Branch label="Errors">
+            <twig:SideNav:Item href="{{ path('app_demo_not_found') }}">Not found</twig:SideNav:Item>
+        </twig:SideNav:Branch>
+        <twig:SideNav:Item href="{{ path('app_demo_blank') }}">Blank page</twig:SideNav:Item>
+    </twig:SideNav:Branch>
+</twig:SideNav>

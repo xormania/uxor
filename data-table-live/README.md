@@ -11,7 +11,7 @@ The `data-table` recipe as a Live Component: search while typing, filters, sorta
 ::: installation
 
 Run `ux:install` from your project's root directory: this recipe copies `AbstractLiveDataTable` into
-`src/FlowbiteXor/DataTableLive/` (namespace `App\FlowbiteXor\DataTableLive`), and installs the `data-table` recipe,
+`src/UXor/DataTableLive/` (namespace `App\UXor\DataTableLive`), and installs the `data-table` recipe,
 whose classes it extends. If your project's root namespace is not `App`, change the `namespace` and `use` lines of
 those files to match. Run the `composer require` command `ux:install` prints right away: until
 `symfony/ux-live-component` is installed, the copied class stops the app (and its console) from booting.
@@ -22,14 +22,15 @@ A Live table is the class a `data-table` table would be, extending `AbstractLive
 `AbstractDataTable`, with the `#[AsLiveComponent]` attribute naming the component and this recipe's template.
 `columns()`, `filters()`, `pageSizes()`, `defaultSort()`, `rowId()`, `countRows()`, `loadRows()` and `maxRows()` work as
 the `data-table` README describes: moving a table from one recipe to the other changes its parent class and its attribute only.
+It fits its parent the same way too: never wider than it, the table scrolling sideways in its own box on a phone.
 
 ```php
 // src/Twig/Components/OrdersTable.php
 namespace App\Twig\Components;
 
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\TableQuery;
-use App\FlowbiteXor\DataTableLive\AbstractLiveDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\TableQuery;
+use App\UXor\DataTableLive\AbstractLiveDataTable;
 use Symfony\UX\LiveComponent\Attribute\AsLiveComponent;
 
 #[AsLiveComponent(name: 'OrdersTable', template: 'components/DataTableLive.html.twig')]
@@ -109,8 +110,11 @@ Its button goes in the `selection_actions` block, shown while rows are selected:
 The search, filters, sort, page and page size are in the URL, with the parameter names of `data-table` (`q`, `f`,
 `sort`, `dir`, `page`, `size`), and every value is checked as `data-table` checks it. Live Components replace the URL
 without adding a history entry: Back leaves the page, and coming back, or reloading, or opening a copied URL, shows
-the same state. The selection is not in the URL. For Back and Forward through every state, use the `data-table`
-recipe in its Turbo Frame.
+the same state, in every field too: a search typed and not yet sent when the page was left is not shown (the live
+controller sets the fields from the component's state as it connects). The selection is not in the URL: leaving the
+page drops it, so Back and Forward show no row selected (the recipe's `data-table-live` controller clears the
+selection of the copy Turbo shows, through the table's `clearSelection` action). For Back and Forward through every
+state, use the `data-table` recipe in its Turbo Frame.
 
 One table per page: the URL parameters are not prefixed (`paramPrefix()` does not apply to a Live table).
 
@@ -118,3 +122,7 @@ The table keeps working through Turbo visits, inside a Turbo Frame, inside a `da
 its state across visits) and after a Turbo Stream replaces or updates it (it starts again from the state the stream
 rendered). Give a region one owner: let Live re-render the table, or replace it with a Turbo Frame or Stream, not both
 at once. Turbo 8's refresh with morphing is not supported.
+
+Whether a `turbo:before-cache` leaves the table as it is (a frame visit promoted to history, a `data-turbo-permanent`
+element) is answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install
+data-table-live` installs with it.

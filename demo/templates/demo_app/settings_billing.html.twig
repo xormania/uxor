@@ -1,0 +1,35 @@
+{% extends 'demo_app/_settings.html.twig' %}
+
+{% block settings_content %}
+    <twig:Card>
+        <twig:Card:Header>
+            <twig:Card:Title as="h2" class="text-lg">Billing</twig:Card:Title>
+            <p class="mt-1 text-sm text-body">Your plan and your last invoices.</p>
+        </twig:Card:Header>
+        <twig:Card:Content>
+            <p class="flex flex-wrap items-center gap-2 text-heading"><span class="font-medium">Team plan</span> <twig:Badge as="span" variant="success">Active</twig:Badge></p>
+            <p class="mt-1 text-sm text-body">$49 a month, renewed on November 1.</p>
+            <div class="mt-6 overflow-x-auto rounded-base border border-default">
+                <twig:Table>
+                    <twig:Table:Caption class="sr-only">Invoices</twig:Table:Caption>
+                    <twig:Table:Header>
+                        <twig:Table:Row>
+                            <twig:Table:Head class="px-4">Invoice</twig:Table:Head>
+                            <twig:Table:Head class="px-4">Date</twig:Table:Head>
+                            <twig:Table:Head class="px-4">Amount</twig:Table:Head>
+                        </twig:Table:Row>
+                    </twig:Table:Header>
+                    <twig:Table:Body>
+                        {% for invoice in [{number: 'INV-1042', date: 'October 1', amount: '$49.00'}, {number: 'INV-0987', date: 'September 1', amount: '$49.00'}, {number: 'INV-0931', date: 'August 1', amount: '$49.00'}] %}
+                            <twig:Table:Row>
+                                <twig:Table:Head scope="row" class="px-4 font-medium text-heading whitespace-nowrap">{{ invoice.number }}</twig:Table:Head>
+                                <twig:Table:Cell class="px-4 whitespace-nowrap">{{ invoice.date }}</twig:Table:Cell>
+                                <twig:Table:Cell class="px-4">{{ invoice.amount }}</twig:Table:Cell>
+                            </twig:Table:Row>
+                        {% endfor %}
+                    </twig:Table:Body>
+                </twig:Table>
+            </div>
+        </twig:Card:Content>
+    </twig:Card>
+{% endblock %}

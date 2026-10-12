@@ -1,25 +1,26 @@
-# Snippet for projects using flowbite-xor
+# Snippet for projects using UXor
 
 Paste the block below into a project's `AGENTS.md` or `CLAUDE.md`. It tells agents (and people) working
 on the project how to use the kit's recipes.
 
 ````markdown
-## UI: flowbite-xor
+## UI: UXor
 
-The UI is built from the [flowbite-xor](https://github.com/xormania/flowbite-xor) Symfony UX Toolkit kit.
+The UI is built from the [UXor](https://github.com/xormania/uxor) Symfony UX Toolkit kit.
 Its recipes are copied into `templates/components/`, `templates/layouts/`, `templates/form/`,
-`assets/controllers/` and `assets/styles/flowbite-xor.css` (the theme's color roles); we own those files.
+`assets/controllers/` and `assets/styles/uxor.css` (the theme's color roles); we own those files.
 
 - **Use the kit's components, not raw Flowbite HTML.** `<twig:Button>`, `<twig:Modal>`, `<twig:Dropdown>`,
   `<twig:Toast:Stream>`, `<twig:FormField>`… A missing one is installed with
-  `php bin/console ux:install <recipe> --kit=https://github.com/xormania/flowbite-xor` (the kit's README
-  lists them), not written by hand.
+  `php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor` (the kit's
+  `docs/RECIPES.md` lists them), not written by hand.
 - **No Flowbite JavaScript.** Never `import 'flowbite'` or call `initFlowbite()`: behavior lives in the
   recipes' Stimulus controllers, which survive Turbo visits and Live Component re-renders.
 - **Colors through the theme's roles only**: `bg-brand`, `text-heading`, `text-body`, `border-default`,
-  `bg-neutral-primary-soft`, `text-fg-danger-strong`… Never raw palette colors (`bg-blue-700`,
-  `text-gray-500`) or `dark:` color overrides: the roles already switch with the theme and pass the
-  contrast checks.
+  `bg-neutral-primary-soft`, `text-fg-danger-strong`… Text on a solid fill uses that fill's on-fill role:
+  `text-fg-on-brand` on `bg-brand`, `fg-on-success`, `fg-on-danger`, `fg-on-warning`, `fg-on-dark`. Never raw palette
+  colors (`bg-blue-700`, `text-gray-500`, `text-white`) or `dark:` color overrides: the roles already switch with the
+  theme and pass the contrast checks.
 - **Icons with UX Icons from the `flowbite` set**: `<twig:ux:icon name="flowbite:check-circle-outline" />` or
   `ux_icon('flowbite:check-circle-outline')`. Write each name in full: `php bin/console ux:icons:lock` finds only
   those, downloads them into `assets/icons/`, and you commit that folder. A name built from a variable
@@ -29,12 +30,12 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
   `<twig:Toast:Stream>` in the page body (every kit layout does it for flash messages) or in a Turbo Stream
   response.
 - **Lists of records: `ux:install data-table`**, then one class per table extending
-  `App\FlowbiteXor\DataTable\AbstractDataTable` with `columns()`, `countRows(TableQuery): int` and
+  `App\UXor\DataTable\AbstractDataTable` with `columns()`, `countRows(TableQuery): int` and
   `loadRows(TableQuery): array` (the page's rows, from `$query->offset()`); the
   controller passes `$table->handleRequest($request)` to `<twig:DataTable :table="table" id="…" />`. The query is
   already checked: sort by `$query->sortField`, never by a raw request value. Custom cells go in
   `<twig:block name="cell_<key>">` (not `{% block %}`, which does not compile `<twig:…>` inside a component).
-  Keep `src/FlowbiteXor/` as the recipe installed it. For row selection, bulk actions or search while typing,
+  Keep `src/UXor/` as the recipe installed it. For row selection, bulk actions or search while typing,
   `ux:install data-table-live`: the same class extends `AbstractLiveDataTable` with
   `#[AsLiveComponent(name: '…', template: 'components/DataTableLive.html.twig')]`, rendered as
   `<twig:Name tableId="…" />` with no controller code; a bulk action is a `#[LiveAction]` reading `$this->selectedIds`
@@ -74,15 +75,35 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
   `data-live-ignore`, a wrapper id and an input id that change after each upload, and a `files(name)|action` button.
   Image previews need `img-src data:` in a Content Security Policy.
 - **Rich text: `ux:install editor`**, run the printed `composer require` and `importmap:require` commands, and do the
-  README's CSS import. In a form, `EditorType` (from `App\FlowbiteXor\Editor`; `max_chars`, `max_bytes`): its data is
+  README's CSS import. In a form, `EditorType` (from `App\UXor\Editor`; `max_chars`, `max_bytes`): its data is
   sanitized HTML or `null`. Print stored HTML with `|flowbite_editor_html`, never `|raw`; HTML from another path
   goes through `EditorHtmlPolicy::sanitize()` before it is stored. Change the toolbar's formatting and the policy
   together. In a Live Component, `<twig:Editor model="on(change)|field">`, and bump its `reset` prop to replace the
   content from the server.
 - **Markdown: `ux:install markdown-editor`**, and run the printed `composer require` command. In a form,
-  `MarkdownType` (from `App\FlowbiteXor\MarkdownEditor`; `max_chars`, `max_bytes`): its data is the Markdown or
+  `MarkdownType` (from `App\UXor\MarkdownEditor`; `max_chars`, `max_bytes`): its data is the Markdown or
   `null`. Print it with `|flowbite_markdown_html`, never `|raw` or another Markdown filter: the preview and the page
   render the same. The editor is its own Live Component: keep it out of another Live Component's re-rendered markup.
+- **Navigation more than one level deep: `ux:install side-nav`**, then `<twig:SideNav label="…" storageKey="…">`
+  holding `SideNav:Item`s (links: `href`, plus `route` so the server marks the current page and opens its branches)
+  and `SideNav:Branch`es (`label`, nested at any depth), inside a `<nav>` or the `Sidebar`. It is an ARIA tree: the
+  controller handles the keyboard and keeps the open branches across Turbo visits; never add click or key handlers
+  of your own. One `storageKey` per tree; give a branch `name` when its label changes (a count).
+- **Sections of one area, each its own page (settings): `ux:install section-nav`**, then
+  `<twig:SectionNav label="…">` holding `SectionNav:Item`s (`href`, plus `route` so the server marks the current
+  section). They are links, not tabs: never give them `role="tab"` or arrow keys. The `settings` layout renders one:
+  fill its `settings_nav` block with the items. Panels switched in place on one page are `tabs`
+  (`orientation="vertical"` for a column), with a distinct `idPrefix` per `Tabs` of a page.
+- **The navigation on phones: `ux:install mobile-nav`** (the `layouts` app layout already has it): a
+  `<twig:MobileNav>` in the `Navbar`'s `menu` block, holding the same `SideNav` as the `Sidebar`, with the same
+  `storageKey`, and the brand in its `header` block. It is a modal `Drawer`; the controller focuses the current page
+  and closes it on links, Escape, the backdrop and Turbo visits: add no handlers of your own, and no fixed `id`s in
+  the navigation, which renders twice.
+- **Menus in the top bar: `ux:install nav-menu`**: `<twig:NavMenu id="…">` in the `Navbar`'s `nav` block (with the
+  `layouts` app layout, fill its `navbar_nav` block with the items only), holding `NavMenu:Link`s (`href`, plus
+  `route` so the server marks the current page) and `NavMenu:Submenu`s (`label`, nested at any depth). It is a
+  disclosure navigation, not an ARIA menu: never add `role="menu"`, click or key handlers of your own. On phones,
+  include the same items in a `<twig:NavMenu orientation="vertical">` with another `id`, in the `MobileNav`.
 - **Live Components may sit inside `data-turbo-permanent` elements**: they keep their state and stay live
   across visits. A permanent element keeps its node but not its scroll position: if it scrolls, restore the
   position yourself, as the kit's `Sidebar` does.
@@ -93,10 +114,12 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
 - **Layouts:** pages extend `layouts/app.html.twig` (or `auth`, `settings`, `error`, `blank`). Inside a
   component's content (`<twig:Card>…</twig:Card>`), `block('x')` means the component's block: reach the
   page's own blocks with `block(outerBlocks.x)`.
-- **Props and attributes are trusted input.** Give `as`, attribute names and URLs values the code chose
-  (constants, `path()`, `url()`), never request or user data unchecked. `as` falls back to the component's default
-  tag, and the kit's link props (`Sidebar:Item href`, `LoginForm forgotPasswordHref`…) render `#` for a URL that is
-  not relative, http(s), mailto or tel; an `href` or `src` given as an attribute is not checked.
+- **Props and attributes are trusted input.** Give `as` and attribute names values the code chose (constants,
+  `path()`, `url()`), never request or user data unchecked. `as` falls back to the component's default tag; the
+  kit's declared link props render `#` for a URL that is not relative, http(s), mailto or tel, and
+  `Avatar:Image src` keeps only relative or http(s) URLs. Check any other URL attribute yourself. An attribute
+  named `on…`, `srcset` or `ping` renders nothing (wire behavior with `data-action`), and `href`, `formaction` and
+  `src` attributes, in any case, follow the same URL rules.
 - **No inline script, style or event handler** (`<script>`, `<style>`, `style="…"`, `onclick="…"`) in
   templates: a Content Security Policy blocks them unless they carry its nonce or hash, and no nonce covers an
   attribute. Behavior goes in Stimulus controllers, styles in Tailwind classes or the stylesheet. Under a policy,

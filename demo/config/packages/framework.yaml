@@ -8,8 +8,16 @@ framework:
     #esi: true
     #fragments: true
 
+# Off unless PROFILER_COLLECT=1 (in .env.dev.local): each request then leaves a profile in var/cache/dev/profiler for
+# `vendor/bin/mate tools:call symfony-profiler-*` to read. No toolbar is installed, so pages stay as CI renders them.
+when@dev:
+    framework:
+        profiler: { collect: '%env(bool:PROFILER_COLLECT)%' }
+
 when@test:
     framework:
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
+        # off until a test calls $client->enableProfiler(), which turns it on for its next request
+        profiler: { collect: false }

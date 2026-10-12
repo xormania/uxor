@@ -5,6 +5,9 @@
 /playwright-results/
 /blob-report/
 /playwright/.cache/
+# The monthly job's reports (tools/monthly/), and JS_COVERAGE's recordings when run locally
+/coverage/
 
 # The demo app keeps its own .gitignore (vendor/, var/, public/assets/, assets/vendor/)
 /tests/e2e/examples/recipes/
+/tests/.prepare/

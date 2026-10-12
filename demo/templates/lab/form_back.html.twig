@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}form-back ({{ method }}, {{ page }}) — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'form-back'}) }}
+    <h2 class="mb-2 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
+    <p class="mb-4"><a href="{{ path('app_lab_form_back', {method: method, page: page == 'one' ? 'two' : 'one'}) }}" class="text-fg-brand hover:underline">Go to page {{ page == 'one' ? 'two' : 'one' }}</a></p>
+    <form method="{{ method }}" action="{{ path('app_lab_form_back', {method: method}) }}" class="grid max-w-md gap-6" aria-label="{{ method|upper }} form">
+        <div>
+            <twig:Label for="name" class="mb-2.5">Name</twig:Label>
+            <twig:Input id="name" name="name" value="{{ values.name }}" />
+        </div>
+        <div>
+            <twig:Label for="fruit" class="mb-2.5">Fruit</twig:Label>
+            <twig:Autocomplete id="fruit" name="fruit">
+                <option value="">Choose a fruit</option>
+                {% for value, label in {apple: 'Apple', banana: 'Banana', cherry: 'Cherry'} %}
+                    <option value="{{ value }}"{% if value == values.fruit %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </twig:Autocomplete>
+        </div>
+        <div>
+            <twig:Label for="due" class="mb-2.5">Due date</twig:Label>
+            <twig:DatePicker id="due-picker" :selected="values.due ?: null">
+                <div class="flex gap-2">
+                    <twig:DatePicker:Input>
+                        <twig:Input id="due" {{ ...date_picker_input_attrs }} />
+                    </twig:DatePicker:Input>
+                    <twig:DatePicker:Trigger>
+                        <twig:Button variant="outline" size="icon" aria-label="Due date: choose date" {{ ...date_picker_trigger_attrs }}>
+                            <twig:ux:icon name="flowbite:calendar-month-outline" class="size-5" aria-hidden="true" />
+                        </twig:Button>
+                    </twig:DatePicker:Trigger>
+                </div>
+                <twig:DatePicker:Content>
+                    <twig:Calendar name="due" :selected="values.due ?: null" today="2026-03-15" month="2026-03-01" />
+                </twig:DatePicker:Content>
+            </twig:DatePicker>
+        </div>
+        <div><twig:Button type="submit">Send</twig:Button></div>
+    </form>
+{% endblock %}

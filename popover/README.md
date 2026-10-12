@@ -48,8 +48,11 @@ Free content anchored to a button: text, links or a small form, in a non-modal d
 - Opening moves the focus to the content's `[autofocus]` element, else its first focusable element, else the content
   itself. Escape closes it and focuses the trigger; a click outside or the focus leaving it closes it.
 - `placement` sets the side (`top`, `bottom`, `left`, `right`, optionally `-start` or `-end`). The content flips to the
-  other side when it does not fit, shifts along the trigger to stay in the viewport, and follows the trigger on
-  scroll and resize.
+  other side when it does not fit (`left` or `right` with room on neither side, as on a phone, opens below the
+  trigger, or above it, rather than pushing the page sideways), shifts along the trigger to stay in the viewport, and
+  follows the trigger on scroll and resize; `offsetDistance` is the gap in pixels (8). The final placement is in the content's
+  `data-placement`. The placing is the `floating` recipe's module (`assets/lib/uxor-floating.js`), shared with
+  `dropdown` and `tooltip`, which `ux:install popover` installs with it.
 - Popovers with the same `name` close each other.
 - `open` renders it open, without taking the focus.
 - `Popover:Content` takes `label` for the dialog's name; without it, the trigger's text names it.
@@ -63,9 +66,13 @@ anything else next to a control.
 
 - The open state is an attribute: a Live Component re-render keeps an open popover open, and an action inside it
   (a button with `data-action="live#action"`) does not close it.
-- Before Turbo caches a page, open popovers close: Back shows them closed.
+- Before Turbo caches a page, open popovers close: Back shows them closed. One inside a `data-turbo-permanent` element stays open: Turbo moves it into the next page as the user left it. Beside a frame whose visits are promoted to history (a data table's pages), an open popover stays open, with the focus, when the frame changes, and Back still shows it closed.
 - Without `id`, the popover gets a random one on every render. Inside a Live Component or a Turbo Frame, pass a stable
   `id` (e.g. `id="row-{{ row.id }}-details"`).
+
+Whether a `turbo:before-cache` leaves the popover as it is (a frame visit promoted to history, a
+`data-turbo-permanent` element) and whether it connects in a cached copy are answered by the `turbo` recipe's module
+(`assets/lib/uxor-turbo.js`), which `ux:install popover` installs with it.
 
 ## Examples
 
@@ -116,5 +123,5 @@ Opening one popover of the group closes the other.
 - The popover is not modal: the page stays reachable, and the focus is not trapped. Use `modal` when the user must
   deal with the content first.
 
-Built from the `popover` recipe of the Symfony UX Toolkit shadcn kit (3.5.1, MIT), with this kit's colors and the
-`dropdown` recipe's positioning.
+Built from the `popover` recipe of the Symfony UX Toolkit shadcn kit (3.5.1, MIT), with this kit's colors and its
+shared positioning (the `floating` recipe).

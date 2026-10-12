@@ -1,3 +1,8 @@
+---
+status: shipped
+recipes: popover, calendar, date-picker
+---
+
 # Plan: C. Dates
 
 _2026-10-07. This plan implements the C decisions in [`ROADMAP.md`](ROADMAP.md). It adds three recipes of our own, `popover`, `calendar` and `date-picker`, built from the Symfony UX Toolkit 3.5.1 shadcn kit and themed with this kit's color roles and `flowbite:` icons. It also adds a form-theme block and a Live bridge. Delivery is three pull requests: `popover`, then `calendar`, then `date-picker` with the form theme._

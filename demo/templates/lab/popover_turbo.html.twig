@@ -6,6 +6,7 @@
     {{ include('lab/_header.html.twig', {name: 'popover-turbo'}) }}
     <h2 class="mb-4 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
     <p class="mb-6"><a href="{{ path('app_lab_popover_turbo', {page: page == 'one' ? 'two' : 'one'}) }}" class="text-fg-brand hover:underline">Go to page {{ page == 'one' ? 'two' : 'one' }}</a></p>
+    {{ include('lab/_history_steps.html.twig', {route: 'app_lab_popover_turbo', params: {page: page}, step: step}) }}
     <div class="flex flex-wrap items-start gap-6">
         <twig:Popover id="plain" placement="bottom-start">
             <twig:Popover:Trigger>
@@ -27,6 +28,15 @@
                 <twig:Button variant="outline" {{ ...popover_trigger_attrs }}>Status</twig:Button>
             </twig:Popover:Trigger>
             <twig:Popover:Content label="Status">Paid.</twig:Popover:Content>
+        </twig:Popover>
+        {#- its link steps the frame above, so the frame visit starts with the popover open -#}
+        <twig:Popover id="steps" :open="open">
+            <twig:Popover:Trigger>
+                <twig:Button variant="outline" {{ ...popover_trigger_attrs }}>Steps</twig:Button>
+            </twig:Popover:Trigger>
+            <twig:Popover:Content label="Steps">
+                <a href="{{ path('app_lab_popover_turbo', {page: page, step: 5}) }}" data-turbo-frame="history-steps" class="text-fg-brand hover:underline">Go to step 5</a>
+            </twig:Popover:Content>
         </twig:Popover>
         <div id="lab-permanent-popover" data-turbo-permanent class="rounded-base border border-default p-3">
             <twig:Popover id="kept">

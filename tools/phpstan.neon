@@ -1,0 +1,14 @@
+# PHPStan for the recipes' PHP, the demo's tables and the demo's tests (CI's Kit PHP job). The paths are given on the
+# command line (CONTRIBUTING.md, *Checks*). phpstan/phpstan-symfony and phpstan/phpstan-phpunit are installed next to
+# PHPStan; the Symfony extension reads the demo's test container, which the tests or
+# `bin/console cache:warmup --env=test` (in demo/) write.
+includes:
+    - %rootDir%/../phpstan-symfony/extension.neon
+    - %rootDir%/../phpstan-symfony/rules.neon
+    - %rootDir%/../phpstan-phpunit/extension.neon
+    - %rootDir%/../phpstan-phpunit/rules.neon
+
+parameters:
+    level: 8
+    symfony:
+        containerXmlPath: %currentWorkingDirectory%/demo/var/cache/test/App_KernelTestDebugContainer.xml

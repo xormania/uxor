@@ -1,12 +1,14 @@
 name: Audit
 
-# Known advisories in the locked npm packages of the Playwright tests: weekly, as advisories appear without any change
-# here, and on every pull request that changes the lockfile.
+# Known advisories in the locked npm packages of the Playwright tests and the demo's locked Composer packages (the
+# Symfony and UX packages the recipes install, and the PHP test tools): weekly, as advisories appear without any change
+# here, and on every pull request that changes a lockfile. On a pull request each audit runs only when its own files
+# changed, so an advisory in one ecosystem does not fail a pull request that only touches the other.
 on:
     schedule:
         - cron: '17 6 * * 1'
     pull_request:
-        paths: [package.json, package-lock.json, .github/workflows/audit.yml]
+        paths: [package.json, package-lock.json, demo/composer.json, demo/composer.lock, .github/workflows/audit.yml]
     workflow_dispatch:
 
 permissions:
@@ -18,5 +20,39 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
+            # the pull request's merge commit and its first parent, the base branch
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-            - run: npm audit --package-lock-only
+              with:
+                  fetch-depth: 2
+
+            - id: changed
+              if: github.event_name == 'pull_request'
+              run: git diff --quiet HEAD^1 HEAD -- package.json package-lock.json .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
+
+            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              run: npm audit --package-lock-only
+
+    composer-audit:
+        name: composer audit
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 2
+
+            - id: changed
+              if: github.event_name == 'pull_request'
+              run: git diff --quiet HEAD^1 HEAD -- demo/composer.json demo/composer.lock .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
+
+            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: '8.4'
+                  tools: composer:v2
+                  coverage: none
+
+            # the lock file only: nothing is installed
+            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              run: composer audit --locked
+              working-directory: demo

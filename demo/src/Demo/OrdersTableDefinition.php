@@ -2,9 +2,10 @@
 
 namespace App\Demo;
 
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\Filter;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableQuery;
+use Symfony\Contracts\Service\Attribute\Required;
 
 /**
  * The demo's orders table, shared by its plain (OrdersTable) and Live (LiveOrdersTable) versions: 57 made-up orders
@@ -14,6 +15,17 @@ trait OrdersTableDefinition
 {
     private const CUSTOMERS = ['Bonnie Green', 'Jese Leos', 'Neil Sims', 'Lana Byrd', 'Thomas Lean', 'Roberta Casas', 'Michael Gough', 'Karen Nelson'];
     private const STATUSES = ['paid' => 'Paid', 'pending' => 'Pending', 'refunded' => 'Refunded'];
+
+    private ?DataTableCollector $collector = null;
+
+    /**
+     * The profiler's record of the loader calls (DataTableCollector), set by the container.
+     */
+    #[Required]
+    public function setCollector(DataTableCollector $collector): void
+    {
+        $this->collector = $collector;
+    }
 
     public function columns(): array
     {
@@ -42,11 +54,14 @@ trait OrdersTableDefinition
 
     protected function countRows(TableQuery $query): int
     {
+        $this->collector?->record((new \ReflectionClass($this))->getShortName(), 'count');
+
         return \count(self::matching($query));
     }
 
     protected function loadRows(TableQuery $query): array
     {
+        $this->collector?->record((new \ReflectionClass($this))->getShortName(), 'rows@'.$query->offset());
         $rows = self::matching($query);
         if (null !== $query->sortField) {
             $field = $query->sortField;

@@ -1,0 +1,66 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}modal-turbo ({{ page }}) — Lab{% endblock %}
+
+{% block stylesheets %}
+    {#- a stylesheet page one does not have: Turbo waits for it before rendering, and copies page one before its controllers disconnect -#}
+    {%- if page == 'two' %}<link rel="stylesheet" href="/lab/slow.css">{% endif -%}
+{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'modal-turbo'}) }}
+    {%- set other = page == 'one' ? 'two' : 'one' %}
+    <h2 class="mb-4 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
+    <p class="mb-6"><a href="{{ path('app_lab_modal_turbo', {page: other}) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a></p>
+    {{ include('lab/_history_steps.html.twig', {route: 'app_lab_modal_turbo', params: {page: page}, step: step}) }}
+    <div class="flex flex-wrap items-start gap-6">
+        <twig:Modal id="details">
+            <twig:Modal:Trigger>
+                <twig:Button {{ ...modal_trigger_attrs }}>Details</twig:Button>
+            </twig:Modal:Trigger>
+            <twig:Modal:Content>
+                <twig:Modal:Header>
+                    <twig:Modal:Title>Details</twig:Modal:Title>
+                </twig:Modal:Header>
+                <twig:Modal:Body>
+                    <label for="details-note" class="mb-2 block text-heading">Note</label>
+                    <twig:Input type="text" id="details-note" />
+                    <p class="mt-4"><a href="{{ path('app_lab_modal_turbo', {page: other}) }}" class="text-fg-brand hover:underline">Page {{ other }} from the dialog</a></p>
+                    <p class="mt-4"><a href="{{ path('app_lab_modal_turbo', {page: page, step: 5}) }}" data-turbo-frame="history-steps" class="text-fg-brand hover:underline">Step 5 from the dialog</a></p>
+                </twig:Modal:Body>
+            </twig:Modal:Content>
+        </twig:Modal>
+        <div id="lab-permanent-modal" data-turbo-permanent class="rounded-base border border-default p-3">
+            <twig:Modal id="kept">
+                <twig:Modal:Trigger>
+                    <twig:Button variant="outline" {{ ...modal_trigger_attrs }}>Kept</twig:Button>
+                </twig:Modal:Trigger>
+                <twig:Modal:Content>
+                    <twig:Modal:Header>
+                        <twig:Modal:Title>Kept</twig:Modal:Title>
+                    </twig:Modal:Header>
+                    <twig:Modal:Body>
+                        <p>In a permanent element.</p>
+                    </twig:Modal:Body>
+                </twig:Modal:Content>
+            </twig:Modal>
+        </div>
+    </div>
+    <turbo-frame id="modal-frame" class="mt-8 block">
+        <p class="mb-4">Frame load <span data-testid="frame-load">{{ load }}</span></p>
+        <twig:Modal id="framed">
+            <twig:Modal:Trigger>
+                <twig:Button variant="outline" {{ ...modal_trigger_attrs }}>Framed</twig:Button>
+            </twig:Modal:Trigger>
+            <twig:Modal:Content>
+                <twig:Modal:Header>
+                    <twig:Modal:Title>Framed</twig:Modal:Title>
+                </twig:Modal:Header>
+                <twig:Modal:Body>
+                    <p>In a frame, load {{ load }}.</p>
+                    <p class="mt-4"><a href="{{ path('app_lab_modal_turbo', {page: page, load: load + 1}) }}" class="text-fg-brand hover:underline">Reload the frame</a></p>
+                </twig:Modal:Body>
+            </twig:Modal:Content>
+        </twig:Modal>
+    </turbo-frame>
+{% endblock %}

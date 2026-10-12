@@ -1,0 +1,383 @@
+{
+  "config": {
+    "rootDir": "/runner/work/flowbite-xor/flowbite-xor",
+    "version": "1.58.2",
+    "workers": 2,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "shard": {
+      "current": 1,
+      "total": 3
+    },
+    "projects": [
+      {
+        "id": "smoke",
+        "name": "smoke"
+      },
+      {
+        "id": "examples",
+        "name": "examples"
+      }
+    ]
+  },
+  "suites": [
+    {
+      "title": "tests/e2e/a11y.spec.ts",
+      "file": "tests/e2e/a11y.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "page 1 passes axe",
+          "ok": true,
+          "id": "a-1",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 1000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 2 passes axe",
+          "ok": true,
+          "id": "a-2",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 2000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 3 passes axe",
+          "ok": true,
+          "id": "a-3",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 3000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 4 passes axe",
+          "ok": true,
+          "id": "a-4",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 4000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 5 passes axe",
+          "ok": true,
+          "id": "a-5",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 5000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 6 passes axe",
+          "ok": true,
+          "id": "a-6",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 6000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 7 passes axe",
+          "ok": true,
+          "id": "a-7",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 7000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 8 passes axe",
+          "ok": true,
+          "id": "a-8",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 8000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "page 9 passes axe",
+          "ok": true,
+          "id": "a-9",
+          "file": "tests/e2e/a11y.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 9000
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/e2e/lab.turbo-stream-toast.spec.ts",
+      "file": "tests/e2e/lab.turbo-stream-toast.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "pauses while hovered",
+          "ok": true,
+          "id": "t-1",
+          "file": "tests/e2e/lab.turbo-stream-toast.spec.ts",
+          "line": 19,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "flaky",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "failed",
+                  "duration": 4000,
+                  "errors": [
+                    {
+                      "message": "Error: boom"
+                    }
+                  ],
+                  "error": {
+                    "message": "Error: boom"
+                  }
+                },
+                {
+                  "retry": 1,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 6000
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "closes from its button",
+          "ok": true,
+          "id": "t-2",
+          "file": "tests/e2e/lab.turbo-stream-toast.spec.ts",
+          "line": 40,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "is skipped",
+          "ok": true,
+          "id": "t-3",
+          "file": "tests/e2e/lab.turbo-stream-toast.spec.ts",
+          "line": 60,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "skipped",
+              "status": "skipped",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "skipped",
+                  "duration": 0,
+                  "errors": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+      "file": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "dismisses \\| each alert",
+          "ok": true,
+          "id": "g-1",
+          "file": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+          "line": 9,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "examples",
+              "projectName": "examples",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "errors": [],
+                  "duration": 12500
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-09T08:00:00.000Z",
+    "duration": 40250.7,
+    "expected": 11,
+    "skipped": 1,
+    "unexpected": 0,
+    "flaky": 1
+  }
+}

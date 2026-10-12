@@ -5,7 +5,7 @@ name: CodeQL
 # Results: Security › Code scanning, and annotations on pull requests.
 on:
     push:
-        branches: [main]
+        branches: [main, dev]
     pull_request:
     schedule:
         - cron: '23 5 * * 2'

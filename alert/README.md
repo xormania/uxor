@@ -60,6 +60,8 @@ The alert component can be used to provide information to your users such as suc
 </twig:Alert>
 ```
 
+Under `prefers-reduced-motion`, a dismissed alert hides at once, without its 300 ms fade.
+
 ## Examples
 
 ### Alerts with icon

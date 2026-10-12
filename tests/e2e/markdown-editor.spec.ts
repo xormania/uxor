@@ -1,12 +1,12 @@
-import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, expectA11y } from './fixtures';
+import { previewUrl } from './inventory';
 
 /*
  * The MarkdownEditor component: a native textarea, a toolbar writing Markdown, Write and Preview tabs (the preview is
  * rendered by the server, raw HTML, images and unsafe links never reach it), the counter, read-only.
  */
-const open = (page: Page, id: string) => page.goto(`/preview/markdown-editor/${id}?theme=light`);
+const open = (page: Page, id: string) => page.goto(previewUrl('markdown-editor', id));
 const tab = (page: Page, name: string) => page.getByRole('tab', { name });
 const preview = (page: Page) => page.getByRole('tabpanel', { name: 'Preview' });
 
@@ -128,16 +128,14 @@ test('a read-only editor has no toolbar, and its preview works', async ({ page }
 });
 
 test('the markdown editor has no serious accessibility issue, invalid or not, in either tab', async ({ page }) => {
+    // four axe scans of the page and two loads: 2-5 s each scan in Firefox, more on a loaded runner, past the 30 s budget
+    test.slow(true, 'four axe scans in one test');
     for (const id of ['default', 'invalid']) {
         await open(page, id);
         for (const name of ['Write', 'Preview']) {
             await tab(page, name).click();
             await expect(tab(page, name)).toHaveAttribute('aria-selected', 'true');
-            const results = await new AxeBuilder({ page }).analyze();
-            const serious = results.violations
-                .filter((violation) => 'serious' === violation.impact || 'critical' === violation.impact)
-                .map((violation) => `${violation.id}: ${violation.nodes.map((node) => node.target.join(' ')).join(', ')}`);
-            expect(serious, `${id} ${name}`).toEqual([]);
+            await expectA11y(page, { impact: 'serious' }, `${id} ${name}`);
         }
     }
     await tab(page, 'Write').click();

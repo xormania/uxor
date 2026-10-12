@@ -1,13 +1,13 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Form theme parity — flowbite-xor demo{% endblock %}
+{% block title %}Form theme parity — {{ kit_reader.manifest.name }} demo{% endblock %}
 
 {% macro first_error(field) %}{{ (field.vars.errors|first).message }}{% endmacro %}
 
 {% block body %}
     {% from _self import first_error %}
     <h1 class="text-2xl font-bold">Form theme parity</h1>
-    <p class="mt-2 mb-6 text-gray-600 dark:text-gray-400">Left: rows rendered by the form theme from a submitted Symfony form. Right: the same rows written by hand with the components. Playwright compares each pair pixel for pixel.</p>
+    <p class="mt-2 mb-6 text-body">Left: rows rendered by the form theme from a submitted Symfony form. Right: the same rows written by hand with the components. Playwright compares each pair pixel for pixel.</p>
     <div class="grid grid-cols-[24rem_24rem] gap-8">
         <h2 class="font-semibold">Form theme</h2>
         <h2 class="font-semibold">Components</h2>

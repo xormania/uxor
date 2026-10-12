@@ -1,0 +1,17 @@
+{#- The demo's settings pages: the settings layout with one section per page. -#}
+{% extends 'layouts/settings.html.twig' %}
+
+{% block head %}<link rel="icon" href="data:,">{% endblock %}
+
+{% block title %}Settings — xor{% endblock %}
+{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block sidebar %}{{ include('demo_app/_sidebar.html.twig') }}{% endblock %}
+{% block navbar_nav %}{{ include('demo_app/_navbar_nav.html.twig') }}{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block page_description %}Manage your account.{% endblock %}
+
+{% block settings_nav %}
+    {% for route, name in {app_demo_settings_profile: 'Profile', app_demo_settings_notifications: 'Notifications', app_demo_settings_billing: 'Billing'} %}
+        <twig:SectionNav:Item href="{{ path(route) }}" :route="route">{{ name }}</twig:SectionNav:Item>
+    {% endfor %}
+{% endblock %}

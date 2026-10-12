@@ -16,7 +16,7 @@ A server-driven table: search, filters, sortable columns, a page size and pages,
 ::: installation
 
 Run `ux:install` from your project's root directory: besides its template, this recipe copies PHP classes into
-`src/FlowbiteXor/DataTable/`, in the `App\FlowbiteXor\DataTable` namespace. If your project's root namespace is not
+`src/UXor/DataTable/`, in the `App\UXor\DataTable` namespace. If your project's root namespace is not
 `App`, change the `namespace` and `use` lines of those files to match.
 
 ## Usage
@@ -31,10 +31,10 @@ page past the end loads the last one, and `loadRows()` runs once per request at 
 // src/Table/OrdersTable.php
 namespace App\Table;
 
-use App\FlowbiteXor\DataTable\AbstractDataTable;
-use App\FlowbiteXor\DataTable\Column;
-use App\FlowbiteXor\DataTable\Filter;
-use App\FlowbiteXor\DataTable\TableQuery;
+use App\UXor\DataTable\AbstractDataTable;
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableQuery;
 use Doctrine\ORM\QueryBuilder;
 
 final class OrdersTable extends AbstractDataTable
@@ -152,6 +152,16 @@ its search form reload only the frame and add a history entry, so Back and Forwa
 page, and a copied URL opens the same state. The URL's other parameters are kept. Without Turbo, the links and the
 form load whole pages and still work.
 
+The frame takes the width of its parent and never more, even in a flex or grid parent (`min-w-0`): on a phone the
+toolbar and the pager wrap, and a table wider than the screen scrolls sideways in its own bordered box.
+
 The search, filters and page size apply when the form is submitted (the Apply button, or Enter in the search field).
+After Back or Forward, the form shows the state of the URL on screen, never an edit made before leaving: its
+`data-table` controller resets the fields to the values the server rendered when a copy Turbo restores connects.
+Back pressed while a change is still loading drops the change: the URL, the rows and the controls stay those of the
+entry Back went to.
 
 Changing the search, a filter, the sort or the page size goes back to the first page.
+
+Whether a `turbo:before-cache` comes from a frame visit promoted to history (nothing is cancelled then) is answered by
+the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install data-table` installs with it.

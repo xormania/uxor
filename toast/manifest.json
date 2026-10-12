@@ -7,6 +7,7 @@
         "templates/": "templates/"
     },
     "dependencies": {
+        "recipe": ["turbo"],
         "composer": [
             "symfony/ux-icons",
             "twig/extra-bundle",

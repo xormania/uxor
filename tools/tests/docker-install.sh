@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # On a fresh Symfony Docker project (dunglas/symfony-docker: FrankenPHP in worker mode, its PHP image, the latest
 # Symfony by default), README.md's install steps with the kit downloaded from GitHub, the archive users get
-# (`--kit=https://github.com/xormania/flowbite-xor:<ref>`), give the same pages as fresh-install.sh.
+# (`--kit=https://github.com/xormania/uxor:<ref>`), give the same pages as fresh-install.sh.
 #
 #   KIT_REF=<tag or full commit SHA> tools/tests/docker-install.sh
-#   (SYMFONY_VERSION=… default 8.1.*, KIT_REPOSITORY=… default xormania/flowbite-xor; needs Docker and git)
+#   (SYMFONY_VERSION=… default 8.1.*, KIT_REPOSITORY=… default the owner/name of manifest.json's
+#   homepage; needs Docker and git)
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 ref="${KIT_REF:?set KIT_REF to a tag or a full commit SHA of the kit}"
-repository="${KIT_REPOSITORY:-xormania/flowbite-xor}"
-toolkit_version="${UX_TOOLKIT_VERSION:-3.5.1}"
+# the repository manifest.json's homepage names (https://github.com/<owner>/<name>)
+repository="${KIT_REPOSITORY:-$(sed -n 's#^ *"homepage": *"https://github\.com/\([^/"]*/[^/"]*\)".*#\1#p' "$root/manifest.json")}"
+[ -n "$repository" ] || { echo "manifest.json has no https://github.com/<owner>/<name> homepage: set KIT_REPOSITORY" >&2; exit 1; }
 export SYMFONY_VERSION="${SYMFONY_VERSION:-8.1.*}"
 # the template commit docs/NOTES.md records for the demo
 template_commit=422756611d61e0108600ed7ec1370ec677d0e8d0
@@ -45,28 +47,18 @@ docker compose up --wait --wait-timeout 600 || { docker compose logs php; exit 1
 
 x() { docker compose exec -T php "$@"; }
 
-# README.md's install steps, inside the container (see fresh-install.sh for why each package)
-x composer config extra.symfony.allow-contrib true
-x composer require --no-interaction --no-progress symfony/twig-bundle "symfony/ux-twig-component:^3.5"
-x composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:$toolkit_version" symfony/http-client
-x composer require --no-interaction --no-progress symfony/asset-mapper symfony/stimulus-bundle
+# the shared steps (install-scenario.sh), run in the container
+app() { x "$@"; }
+app_console() { x bin/console "$@"; }
+app_composer=composer
+app_dir=/app
+# shellcheck source=tools/tests/install-scenario.sh
+. "$root/tools/tests/install-scenario.sh"
+require_kit_packages
+install_kit_recipes "https://github.com/$repository:$ref" "$work"
+add_fresh_app "$root"
 
-# each recipe's printed `composer require` runs before the next recipe installs (see fresh-install.sh)
-for recipe in dashboard-home signup data-table data-table-live autocomplete date-picker chart dropzone editor markdown-editor; do
-    x bin/console ux:install "$recipe" --kit="https://github.com/$repository:$ref" --no-interaction > "$work/install-$recipe.log" 2>&1 \
-        || { cat "$work/install-$recipe.log"; echo "FAIL: ux:install $recipe"; exit 1; }
-    grep -h '^ *\$ composer require ' "$work/install-$recipe.log" | sed 's/^ *\$ composer //' | while IFS= read -r arguments; do
-        echo "ux:install $recipe suggested: composer $arguments"
-        x sh -c "composer $arguments --no-interaction --no-progress" < /dev/null
-    done
-done
-
-# the app a user writes (tools/tests/fixtures/fresh-app); the container owns the project files
-tar -C "$root/tools/tests/fixtures/fresh-app" -c . | x tar -x -C /app
-
-# a cache built from scratch (see fresh-install.sh), then fresh workers for the new code
-x rm -rf var/cache
-x bin/console cache:warmup --no-interaction > /dev/null
+# fresh workers for the new code
 docker compose restart php
 docker compose up --wait --wait-timeout 300
 

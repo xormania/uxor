@@ -1,0 +1,12 @@
+{#- rendered twice, in the navbar and in the drawer: each NavMenu prefixes the submenus' ids with its own id -#}
+<twig:NavMenu:Link href="{{ path('app_lab_nav_menu', {page: 'one'}) }}">Overview</twig:NavMenu:Link>
+<twig:NavMenu:Submenu label="Guides">
+    <twig:NavMenu:Link href="{{ path('app_lab_nav_menu', {page: 'two'}) }}">Getting started</twig:NavMenu:Link>
+    <twig:NavMenu:Submenu label="Advanced">
+        <twig:NavMenu:Link href="{{ path('app_lab_nav_menu', {page: 'three'}) }}">Deep page</twig:NavMenu:Link>
+        <twig:NavMenu:Link href="#glossary">Glossary</twig:NavMenu:Link>
+    </twig:NavMenu:Submenu>
+</twig:NavMenu:Submenu>
+<twig:NavMenu:Submenu label="Reference">
+    <twig:NavMenu:Link href="{{ path('app_lab_nav_menu', {page: 'four'}) }}">API</twig:NavMenu:Link>
+</twig:NavMenu:Submenu>

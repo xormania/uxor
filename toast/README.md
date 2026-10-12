@@ -31,8 +31,14 @@ Add a toast with `<twig:Toast:Stream>`. It renders a Turbo Stream that appends t
 
 A toast closes itself after 5 seconds. Set `timeout` in milliseconds, or `timeout="0"` to keep it until the user closes it. In the region, a toast stays across Turbo visits until then.
 
-A toast placed outside a region belongs to its page: it is marked `data-turbo-temporary`, so Turbo removes it before caching the page, and Back never shows it again.
+A toast placed outside a region belongs to its page: Back and Forward never show it again, and a frame visit promoted to history (`data-turbo-action="advance"`, a data table's pages) leaves it on screen.
 
 Toasts written inside `<twig:ToastRegion>` show on a full page load only: on a Turbo Drive visit, Turbo keeps the region already on screen and drops the new page's copy, with its toasts. Use `<twig:Toast:Stream>` instead.
 
 The region is a polite live region, so new toasts are announced (`danger` ones interrupt, with `role="alert"`). Toasts pause while hovered or focused and never move focus.
+
+A closed toast fades out (`opacity`), then leaves the page; under `prefers-reduced-motion` it leaves at once.
+
+Whether a toast connects in a cached copy of the page, and whether it sits in a `data-turbo-permanent` region, are
+answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which `ux:install toast` installs with
+it.

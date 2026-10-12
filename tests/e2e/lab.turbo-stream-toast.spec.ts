@@ -1,4 +1,5 @@
-import { test, expect, turboVisitDone } from './fixtures';
+import { test, expect } from './fixtures';
+import { visit } from './transitions';
 
 test('a toast pushed by a Turbo Stream appears, dismisses itself and leaves focus alone', async ({ page }) => {
     await page.goto('/lab/turbo-stream-toast');
@@ -15,17 +16,23 @@ test('a toast pushed by a Turbo Stream appears, dismisses itself and leaves focu
     await expect(region.locator('[data-controller="toast"]')).toHaveCount(0);
 });
 
+/*
+ * The pause tests run the toast's countdown on Playwright's clock (`page.clock`): time passes as it does, and
+ * `runFor()` moves it on at once, firing every timer due in between. The others keep the real clock.
+ */
 test('a toast pauses while hovered and closes from its button', async ({ page }) => {
+    await page.clock.install();
     await page.goto('/lab/turbo-stream-toast');
     const region = page.getByRole('region', { name: 'Notifications' });
 
     await page.getByRole('button', { name: 'Notify' }).click();
     const first = region.locator('[data-controller="toast"]', { hasText: 'Notification 1 sent.' });
     await first.hover();
-    await page.waitForTimeout(2000);
+    await page.clock.runFor(2000); // past its 1500 ms timeout
     await expect(first).toBeVisible();
     await page.mouse.move(0, 0);
-    await expect(first).toBeHidden({ timeout: 4000 });
+    await page.clock.runFor(2000); // the time left, and the fade
+    await expect(first).toBeHidden();
 
     await page.getByLabel('Timeout (ms)').fill('0');
     await page.getByRole('button', { name: 'Notify' }).click();
@@ -36,6 +43,7 @@ test('a toast pauses while hovered and closes from its button', async ({ page })
 });
 
 test('a toast stays paused while it is still hovered or focused', async ({ page }) => {
+    await page.clock.install();
     await page.goto('/lab/turbo-stream-toast');
     const region = page.getByRole('region', { name: 'Notifications' });
 
@@ -45,16 +53,17 @@ test('a toast stays paused while it is still hovered or focused', async ({ page 
     await close.hover();
     await close.focus();
     await page.mouse.move(0, 0);
-    await page.waitForTimeout(2000);
+    await page.clock.runFor(2000);
     await expect(toast).toBeVisible();
 
     await toast.hover();
     await page.getByLabel('Timeout (ms)').focus();
-    await page.waitForTimeout(2000);
+    await page.clock.runFor(2000);
     await expect(toast).toBeVisible();
 
     await page.mouse.move(0, 0);
-    await expect(toast).toBeHidden({ timeout: 4000 });
+    await page.clock.runFor(2000);
+    await expect(toast).toBeHidden();
 });
 
 test('a toast in the permanent region still dismisses itself after a Turbo visit', async ({ page }) => {
@@ -66,9 +75,7 @@ test('a toast in the permanent region still dismisses itself after a Turbo visit
     const toast = region.locator('[data-controller="toast"]', { hasText: 'Notification 1 sent.' });
     await expect(toast).toBeVisible();
 
-    await page.getByRole('link', { name: 'Go to turbo-nav' }).click();
-    await expect(page.getByTestId('page')).toHaveText('Page one');
-    await turboVisitDone(page);
+    await visit(page, 'Go to turbo-nav', 'Page one');
     await expect(toast).toBeVisible();
     await expect(toast).toBeHidden({ timeout: 4000 });
 });

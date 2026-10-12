@@ -3,10 +3,11 @@
     "type": "component",
     "name": "Layouts",
     "copy-files": {
+        "assets/": "assets/",
         "templates/": "templates/"
     },
     "dependencies": {
-        "recipe": ["theme-toggle", "toast", "sidebar", "navbar", "page-header"],
+        "recipe": ["theme-toggle", "toast", "sidebar", "navbar", "page-header", "section-nav", "mobile-nav", "nav-menu", "turbo"],
         "composer": [
             "symfony/asset-mapper",
             "symfony/ux-turbo:^3.5"

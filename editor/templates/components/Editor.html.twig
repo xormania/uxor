@@ -3,7 +3,7 @@
     id,
     ## string The name the HTML submits under (a hidden textarea).
     name,
-    ## string The initial content, HTML; it is sanitized with the editor's policy before it is shown.
+    ## string The initial content, HTML; it is sanitized with the editor's policy before it is shown. Longer than the policy reads (`EditorHtmlPolicy::MAX_INPUT_BYTES`, a submit refused for its bytes), it is shown empty: never cut.
     value = '',
     ## string|null The editor's accessible name, when no label points at it (`labelledBy`).
     label = null,
@@ -26,11 +26,15 @@
     ## string|null Bumped by a Live Component to replace the content with the textarea's value (an explicit reset or another record).
     reset = null
 -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 {#- `aria-describedby`, `aria-invalid` and `aria-required` go to the editable element; everything else to the root. The textarea holds the sanitized HTML escaped: its text is the HTML -#}
 {%- set _describedby = attributes.all['aria-describedby'] ?? null -%}
 {%- set _invalid = attributes.all['aria-invalid'] ?? null -%}
 {%- set _required = attributes.all['aria-required'] ?? (attributes.all.required ?? false ? 'true' : null) -%}
 {%- set _editable = not readonly and not disabled -%}
+{#- a value longer than the policy reads (a submit refused for its bytes) is shown empty, never cut: the field's error says why -#}
+{%- set _readable = value is flowbite_editor_readable -%}
 {%- set _content_class = 'relative min-h-40 max-h-[32rem] overflow-y-auto px-4 py-3 text-sm text-heading focus:outline-none [&_a]:font-medium [&_a]:text-heading [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-s-4 [&_blockquote]:border-default-medium [&_blockquote]:ps-4 [&_blockquote]:text-body [&_code]:rounded-sm [&_code]:bg-neutral-tertiary [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.875em] [&_h2]:mt-4 [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:mb-2 [&_h3]:text-lg [&_h3]:font-semibold [&_hr]:my-4 [&_hr]:border-default-medium [&_li]:my-1 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:ps-6 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:ps-6 [&>:first-child]:mt-0 [&>:last-child]:mb-0' -%}
 {%- set _button = 'inline-flex h-8 min-w-8 items-center justify-center rounded-base px-1.5 text-sm font-semibold text-body hover:bg-neutral-tertiary-medium hover:text-heading focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-medium disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:bg-brand-softer aria-pressed:text-fg-brand-strong' -%}
 {%- set _separator = '<span class="mx-1 h-5 w-px bg-default-medium" aria-hidden="true"></span>' -%}
@@ -104,8 +108,8 @@
             {%- if _required %} aria-required="true"{% endif %}
             class="{{ _content_class }}"
             data-editor-target="preview"
-        >{{ value|flowbite_editor_html }}</div>
+        >{{ _readable ? value|flowbite_editor_html : '' }}</div>
         <p class="border-t border-default-medium px-4 py-1.5 text-end text-xs text-body data-over:font-medium data-over:text-fg-danger-strong" data-editor-target="counter" data-template="{{ counterText }}"></p>
     </div>
-    <textarea name="{{ name }}" hidden data-editor-target="value"{% if model %} data-model="{{ model }}"{% endif %}{% if disabled %} disabled{% endif %}>{{ value|flowbite_editor_html|e }}</textarea>
+    <textarea name="{{ name }}" hidden data-editor-target="value"{% if model %} data-model="{{ model }}"{% endif %}{% if disabled %} disabled{% endif %}>{{ (_readable ? value|flowbite_editor_html : '')|e }}</textarea>
 </div>

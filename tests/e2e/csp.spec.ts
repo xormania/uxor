@@ -1,5 +1,6 @@
 import type { APIResponse, Page, Response } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, recordDarkAtFirstBody } from './fixtures';
+import { png } from './files';
 
 /*
  * The demo's browser hardening headers and its enforced Content Security Policy
@@ -7,7 +8,7 @@ import { test, expect } from './fixtures';
  * whole suite runs the kit under this policy; these tests check the policy itself, and what a blocked inline script
  * or style would silently break: the theme before the first paint, Turbo's progress bar, the Progress bars.
  */
-const pages = ['/', '/r/button', '/preview/button/default?theme=light', '/preview/dropdown/default?theme=light', '/demo', '/demo/login', '/lab/live-table', '/lab/popover-turbo', '/preview/popover/default?theme=light', '/lab/calendar-turbo', '/preview/calendar/default?theme=light', '/lab/date-picker-turbo', '/preview/date-picker/default?theme=light', '/lab/chart-turbo', '/preview/chart/default?theme=light', '/lab/dropzone-turbo', '/preview/dropzone/default?theme=light', '/forms', '/lab/dropzone-form', '/lab/live-dropzone', '/lab/editor-turbo', '/preview/editor/default?theme=light', '/lab/markdown-turbo', '/preview/markdown-editor/default?theme=light'];
+const pages = ['/', '/r/button', '/preview/button/default?theme=light', '/preview/dropdown/default?theme=light', '/demo', '/demo/login', '/lab/live-table', '/lab/popover-turbo', '/preview/popover/default?theme=light', '/lab/calendar-turbo', '/preview/calendar/default?theme=light', '/lab/date-picker-turbo', '/preview/date-picker/default?theme=light', '/lab/chart-turbo', '/preview/chart/default?theme=light', '/lab/dropzone-turbo', '/preview/dropzone/default?theme=light', '/forms', '/lab/dropzone-form', '/lab/live-dropzone', '/lab/editor-turbo', '/preview/editor/default?theme=light', '/lab/markdown-turbo', '/preview/markdown-editor/default?theme=light', '/lab/side-nav', '/preview/side-nav/default?theme=light', '/lab/mobile-nav', '/preview/mobile-nav/default?theme=light', '/lab/nav-menu', '/preview/nav-menu/default?theme=light', '/lab/dropdown-turbo', '/lab/modal-turbo', '/lab/drawer-turbo', '/lab/section-nav', '/preview/section-nav/default?theme=light', '/preview/tabs/vertical?theme=light', '/demo/settings/notifications'];
 
 type Policy = Map<string, string[]>;
 
@@ -53,13 +54,8 @@ for (const path of pages) {
     test(`${path} answers with the hardening headers and a nonce-based policy its scripts carry`, async ({ page }) => {
         const { script, style, policy } = await gotoAndCheckPolicy(page, path);
         expect(script).not.toEqual(style);
-        // style attributes: none at all, except the README examples' few, by hash, on their previews
-        if (path.startsWith('/preview/')) {
-            expect(policy.get('style-src-attr')?.[0]).toBe("'unsafe-hashes'");
-            expect(policy.get('style-src-attr')?.slice(1).every((source) => /^'sha256-[\w+/]+=*'$/.test(source))).toBe(true);
-        } else {
-            expect(policy.has('style-src-attr')).toBe(false);
-        }
+        // style attributes: none at all, README previews included (tools/docs-lint.mjs keeps them out of the examples)
+        expect(policy.has('style-src-attr')).toBe(false);
 
         const inPage = await page.evaluate(() => ({
             scripts: [...document.scripts].map((element) => element.nonce),
@@ -82,17 +78,10 @@ test.describe('system in dark mode', () => {
     test.use({ colorScheme: 'dark' });
 
     test('the layout sets the theme before the first paint', async ({ page }) => {
-        await page.addInitScript(() => {
-            new MutationObserver((_, observer) => {
-                if (document.body) {
-                    (window as any).__darkAtFirstBody = document.documentElement.classList.contains('dark');
-                    observer.disconnect();
-                }
-            }).observe(document, { childList: true, subtree: true });
-        });
+        const darkAtFirstBody = await recordDarkAtFirstBody(page);
         // the auth layout has no theme toggle: only the inline script sets the theme
         await page.goto('/demo/login');
-        expect(await page.evaluate(() => (window as any).__darkAtFirstBody)).toBe(true);
+        expect(await darkAtFirstBody()).toBe(true);
     });
 });
 
@@ -156,8 +145,7 @@ test("the Editor's markup has no style attribute, and the mounted editor adds no
 test('a picked image shows its preview under the policy (img-src data:)', async ({ page }) => {
     const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=light');
     expect(policy.get('img-src')).toContain('data:');
-    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-    await page.locator('input[type="file"]').setInputFiles({ name: 'tiny.png', mimeType: 'image/png', buffer: png });
+    await page.locator('input[type="file"]').setInputFiles(png('tiny.png'));
     const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
     await expect(image).toBeVisible();
     // the image loads: its natural size, read the way the browser loads a CSS background (the fixtures fail on a violation)

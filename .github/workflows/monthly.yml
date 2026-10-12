@@ -1,0 +1,478 @@
+name: Monthly
+
+# The periodic checks CI does not run (docs/TESTING.md, *Monthly job*): once a month on `dev`, and by hand before a
+# release (Actions › Monthly › Run workflow, from the branch to check), and on its own when the release pull request is marked
+# ready for review. Report-only, each number against the previous
+# successful run: PHP line coverage of the recipes' src/ (PCOV) and Infection's surviving mutants, V8 coverage of the
+# kit's Stimulus controllers in Chromium with the methods no test runs, the whole suite in Firefox and WebKit with every
+# screenshot compared with the Chromium baselines, and the timings of the key interactions. A report that cannot be
+# made (no coverage driver, no recorded coverage, Infection not run, no timing, no screenshot compared) fails its job
+# instead of reporting 0; a low number fails nothing, and neither does a screenshot difference or a timing. A behavior
+# test that fails fails its job, in every engine, as in CI. The schedule runs the workflow as the default branch has it. Actions are pinned by commit;
+# Dependabot proposes their updates (.github/dependabot.yml).
+on:
+    schedule:
+        - cron: '37 4 3 * *' # the 3rd of each month, 04:37 UTC
+    # by hand, a run checks the branch it is started from ("Use workflow from"), with that branch's copy of this file:
+    # no input chooses another ref, so no run executes a ref it was handed in the default branch's context (CodeQL:
+    # cache poisoning)
+    workflow_dispatch:
+    # and on the release pull request (dev into main) when the owner marks it ready for review, so the release's run
+    # sits beside its other checks: the run tests the pull request's merge of dev into main (a pull_request event from
+    # this repository, never pull_request_target); the jobs' `if` skips any other pull request into main
+    pull_request:
+        types: [ready_for_review]
+        branches: [main]
+
+permissions:
+    contents: read
+
+concurrency:
+    group: monthly-${{ github.event_name == 'schedule' && 'dev' || github.ref_name }}
+    cancel-in-progress: false
+
+env:
+    PHP_VERSION: '8.4'
+    INFECTION_VERSION: '0.35.4'
+    INFECTION_SHA256: 24e9d2ab5fc5613be6b9fea99cfd2c689234d6e6053f339b8f5e05136246070a # infection.phar
+
+jobs:
+    # The demo's PHPUnit tests (demo/tests) with PCOV over the recipes' src/ only (tools/monthly/php-scope.php: not the
+    # demo's code, its copies of the recipes or the tests' fixtures), then Infection on the same directories and tests.
+    php:
+        name: PHP coverage and mutants
+        if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
+
+            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  extensions: intl # the calendar formats dates with twig/intl-extra
+                  tools: composer:v2
+                  coverage: pcov
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 22
+
+            - name: The report tools' own cases
+              run: node --test 'tools/monthly/*.test.mjs'
+
+            # without a driver PHPUnit writes no coverage and Infection cannot run: say so here, before anything else
+            - name: PCOV is loaded
+              run: |
+                  php -r 'exit(extension_loaded("pcov") ? 0 : 1);' || { echo "::error::PCOV is not loaded: no PHP coverage can be measured"; exit 1; }
+                  php --ri pcov
+
+            - name: Install the demo
+              run: |
+                  php tools/sync-demo
+                  (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+
+            - name: Coverage scope (the recipes' src/)
+              run: php tools/monthly/php-scope.php coverage/php
+
+            # PCOV watches pcov.directory only, by default the working directory's src/ (demo/src): the recipes' src/
+            # are next to demo/, so it watches the whole checkout, minus the dependencies and caches
+            - name: PHPUnit with coverage
+              working-directory: demo
+              env:
+                  CREATE_SNAPSHOTS: 'false'
+              run: |
+                  php -d pcov.directory="$GITHUB_WORKSPACE" -d 'pcov.exclude=~/(vendor|var|node_modules)/~' bin/phpunit \
+                      --configuration ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml --coverage-html ../coverage/php/html
+
+            - name: PHP coverage report
+              env:
+                  COVERAGE_DRIVER: pcov
+              run: node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml
+
+            # the PHAR, pinned by version and SHA-256: nothing is added to the demo's dependencies
+            - name: Install Infection
+              working-directory: ${{ runner.temp }}
+              run: |
+                  curl -fsSLo infection.phar "https://github.com/infection/infection/releases/download/${INFECTION_VERSION}/infection.phar"
+                  printf '%s  %s\n' "$INFECTION_SHA256" infection.phar | sha256sum --check --strict
+
+            # A mutant gets 30 seconds (php-scope.php's --timeout); the run as a whole is bounded by the step. Its exit
+            # status fails the step only when it cannot run (the initial tests fail, a bad configuration): there is no
+            # minimum MSI.
+            - name: Infection
+              working-directory: demo
+              timeout-minutes: 30
+              env:
+                  CREATE_SNAPSHOTS: 'false'
+              run: |
+                  php "$RUNNER_TEMP/infection.phar" --configuration=../coverage/php/infection.json5 --threads=max --no-progress --no-interaction \
+                      --initial-tests-php-options="-d pcov.directory=$GITHUB_WORKSPACE -d pcov.exclude=~/(vendor|var|node_modules)/~"
+
+            - name: Mutation testing report
+              run: node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() }}
+              with:
+                  name: php-coverage
+                  path: |
+                      coverage/php/
+                      !coverage/php/phpunit-cache/
+                      !coverage/php/infection/tmp/
+                  if-no-files-found: warn
+                  retention-days: 90
+
+    # Every browser run of the month, one job per kind and shard, each with its own demo, set up once here:
+    # - coverage: the suite in Chromium as CI runs it, with JS_COVERAGE set (tests/e2e/coverage.ts records each test's
+    #   V8 coverage of the scripts under /assets/controllers/);
+    # - engines: the whole suite in Firefox and WebKit (decision 6c, A2): the behavior tests, then every @screenshot test
+    #   against the Chromium baselines (PW_SCREENSHOTS=all, without retries), whose differences fail that step only and
+    #   are read for the report (tools/monthly/screenshots.mjs), which compares them with last month's;
+    # - timings: the interaction-count specs in Chromium, 5 runs on one worker with PW_TIMINGS set (decision 6d, report
+    #   only; tools/monthly/timings.mjs).
+    # A behavior test or a count that fails fails its job, as in CI; Jev diagnoses each failed attempt, as in CI.
+    browsers:
+        name: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
+        if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
+        runs-on: ubuntu-latest
+        timeout-minutes: 45
+        env:
+            XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - { kind: coverage, browser: chromium, shard: 1 }
+                    - { kind: coverage, browser: chromium, shard: 2 }
+                    - { kind: coverage, browser: chromium, shard: 3 }
+                    - { kind: engines, browser: firefox, shard: 1 }
+                    - { kind: engines, browser: firefox, shard: 2 }
+                    - { kind: engines, browser: firefox, shard: 3 }
+                    - { kind: engines, browser: webkit, shard: 1 }
+                    - { kind: engines, browser: webkit, shard: 2 }
+                    - { kind: engines, browser: webkit, shard: 3 }
+                    - { kind: timings, browser: chromium, shard: 1 }
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
+
+            # no npm cache: the scheduled run executes dev's code in the default branch's context, so a cache it saved would
+            # come from code main has not taken yet; once a month, the install costs little
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 22
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # reads the image cache CI writes for dev and main (ci.yml, *Name the build cache*: a public package, so no
+            # login), then the GitHub Actions caches CI keeps as fallbacks; writes none
+            - name: Name the build cache
+              id: cache
+              env:
+                  REPO: ${{ github.repository }}
+              run: |
+                  image="ghcr.io/${REPO,,}-cache"
+                  echo "image=$image" >> "$GITHUB_OUTPUT"
+
+            - name: Build the demo image
+              id: image
+              uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
+              with:
+                  source: ./demo
+                  files: |
+                      compose.yaml
+                      compose.override.yaml
+                  load: true
+                  pull: true
+                  set: |
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
+                      *.cache-from=type=gha,scope=demo-refs/heads/dev
+                      *.cache-from=type=gha,scope=demo-refs/heads/main
+
+            - name: Start the demo (composer install on first start)
+              id: start
+              working-directory: demo
+              run: docker compose up --wait --no-build
+
+            - name: Sync recipes into the demo
+              id: sync
+              working-directory: demo
+              run: docker compose exec -T php php ../tools/sync-demo
+
+            - name: Install Playwright
+              id: install
+              run: |
+                  npm ci
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
+
+            - name: Prepare the tests
+              id: prepare
+              env:
+                  DEMO_URL: https://localhost
+              run: node tools/prepare-tests.mjs
+
+            - name: Playwright
+              id: tests
+              env:
+                  DEMO_URL: https://localhost
+                  KIND: ${{ matrix.kind }}
+                  BROWSER: ${{ matrix.browser }}
+                  SHARD: ${{ matrix.shard }}
+              run: |
+                  case "$KIND" in
+                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --shard="$SHARD/3" --workers=2 --grep-invert @release ;;
+                      engines) npx playwright test --project="smoke-$BROWSER" --project="examples-$BROWSER" --shard="$SHARD/3" --workers=2 ;;
+                      timings) PW_TIMINGS=1 npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 ;;
+                  esac
+
+            - name: Read the results
+              id: results
+              if: ${{ !cancelled() }}
+              env:
+                  SHARD: ${{ matrix.kind == 'timings' && '1/1' || format('{0}/3', matrix.shard) }}
+                  BROWSER: ${{ matrix.browser }}
+                  RESULTS_ARTIFACT: monthly-playwright-results-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  TESTS_OUTCOME: ${{ steps.tests.outcome }}
+                  SETUP_STEPS: |
+                      Build the demo image=${{ steps.image.outcome }}
+                      Start the demo=${{ steps.start.outcome }}
+                      Sync recipes into the demo=${{ steps.sync.outcome }}
+                      Install Playwright=${{ steps.install.outcome }}
+                      Prepare the tests=${{ steps.prepare.outcome }}
+              run: node tools/ci/playwright-summary.mjs playwright-results/results.json
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() }}
+              with:
+                  name: monthly-playwright-results-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  path: playwright-results/
+                  retention-days: 30
+
+            # Advisory diagnosis of each failed attempt by Jev (TypeSafe), as in CI (ci.yml, .github/actions/jev-diagnosis):
+            # it never changes the verdict
+            - name: Jev diagnosis (advisory)
+              if: ${{ always() && (steps.results.outputs.failed > 0 || steps.results.outputs.flaky > 0) }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  attempts: playwright-results/failed-attempts.json
+                  compose-logs: demo
+                  shard: monthly ${{ matrix.kind }} ${{ matrix.browser }} ${{ matrix.shard }}
+                  dir: ${{ runner.temp }}/jev-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  artifact: monthly-jev-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() && matrix.kind == 'coverage' }}
+              with:
+                  name: js-coverage-raw-${{ matrix.shard }}
+                  path: coverage/js/raw/
+                  if-no-files-found: warn
+                  retention-days: 7
+
+            # engines: writes over the behavior run's results.json, uploaded above
+            - name: Playwright, screenshots against the Chromium baselines (report only)
+              id: screenshots
+              if: ${{ !cancelled() && matrix.kind == 'engines' && steps.prepare.outcome == 'success' }}
+              continue-on-error: true
+              env:
+                  DEMO_URL: https://localhost
+                  PW_SCREENSHOTS: all
+              run: npx playwright test --project=smoke-${{ matrix.browser }} --project=examples-${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=2 --retries=0
+
+            - name: Read the screenshots
+              if: ${{ !cancelled() && matrix.kind == 'engines' && steps.screenshots.outcome != 'skipped' }}
+              run: node tools/monthly/screenshots.mjs --browser ${{ matrix.browser }} --shard ${{ matrix.shard }}/3 --out screenshots playwright-results/results.json
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() && matrix.kind == 'engines' && steps.screenshots.outcome != 'skipped' }}
+              with:
+                  name: screenshots-${{ matrix.browser }}-${{ matrix.shard }}
+                  path: screenshots/
+                  if-no-files-found: warn
+                  retention-days: 30
+
+            # the expected, actual and diff images of each screenshot that differs, to look at
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() && matrix.kind == 'engines' && steps.screenshots.outcome == 'failure' }}
+              with:
+                  name: screenshot-diffs-${{ matrix.browser }}-${{ matrix.shard }}
+                  path: test-results/
+                  retention-days: 30
+
+            - name: Timings report
+              if: ${{ !cancelled() && matrix.kind == 'timings' && steps.tests.outcome != 'skipped' }}
+              run: node tools/monthly/timings.mjs --out coverage/timings playwright-results/results.json
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() && matrix.kind == 'timings' }}
+              with:
+                  name: timings
+                  path: coverage/timings/
+                  if-no-files-found: warn
+                  retention-days: 90
+
+            # the end of the server log here, after the test results; the whole log as an artifact
+            - name: Demo logs
+              if: failure()
+              working-directory: demo
+              run: |
+                  mkdir -p ../demo-logs
+                  docker compose logs php > ../demo-logs/demo-php.log
+                  tail -n 300 ../demo-logs/demo-php.log
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: failure()
+              with:
+                  name: monthly-demo-logs-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  path: demo-logs/
+                  if-no-files-found: warn
+                  retention-days: 7
+
+    # The JS shards merged (tools/monthly/js-coverage.mjs) and the screenshot shards (tools/monthly/screenshots.mjs),
+    # then every number, the timings and the screenshots included, against the previous successful run's
+    # (tools/monthly/trends.mjs), downloaded with this run's token: its monthly-trends artifact, kept 90 days. It runs
+    # when a job above failed too, and shows a missing report as missing.
+    report:
+        name: Monthly report
+        needs: [php, browsers]
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 10
+        permissions:
+            contents: read
+            actions: read # the previous run's artifacts
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 22
+
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              continue-on-error: true
+              with:
+                  name: php-coverage
+                  path: coverage/php
+
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              continue-on-error: true
+              with:
+                  pattern: js-coverage-raw-*
+                  path: coverage/js/raw
+                  merge-multiple: true
+
+            - name: JS coverage report
+              id: js
+              run: node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw
+
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              continue-on-error: true
+              with:
+                  name: timings
+                  path: coverage/timings
+
+            # one directory per shard's artifact
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              continue-on-error: true
+              with:
+                  pattern: screenshots-*
+                  path: coverage/screenshots/raw
+
+            - name: Screenshots report
+              if: ${{ !cancelled() }}
+              run: |
+                  shopt -s nullglob
+                  files=(coverage/screenshots/raw/*/screenshots-*.json)
+                  if [ ${#files[@]} -eq 0 ]; then
+                      echo "::warning::no screenshot report: the Firefox and WebKit jobs made none"
+                      exit 0
+                  fi
+                  # every shard of both engines, or no report: a missing shard never leaves partial totals
+                  node tools/monthly/screenshots.mjs --merge --browsers firefox,webkit --out coverage/screenshots "${files[@]}"
+
+            # The latest successful run of this workflow, other than this one, whose monthly-trends artifact exists and
+            # was made on the same ref; none on the first run, or once the artifact expired. The release pull request
+            # compares with dev's runs (its head), since each release has a new number in its report's label
+            - name: The previous run's numbers
+              id: previous
+              if: ${{ !cancelled() }}
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  RUN_ID: ${{ github.run_id }}
+                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+              run: |
+                  note="no earlier successful run of this workflow on $REF"
+                  file=
+                  if ! ids=$(gh api "repos/$REPO/actions/workflows/monthly.yml/runs?status=success&per_page=20" \
+                      --jq ".workflow_runs[] | select(.id != $RUN_ID) | .id"); then
+                      note="the earlier runs could not be listed"
+                      ids=
+                  fi
+                  for id in $ids; do
+                      dir="$RUNNER_TEMP/previous/$id"
+                      if ! gh run download "$id" --repo "$REPO" --name monthly-trends --dir "$dir" 2>/dev/null || [ ! -f "$dir/monthly.json" ]; then
+                          note="the earlier successful runs' monthly-trends artifacts are gone (kept 90 days)"
+                          continue
+                      fi
+                      if [ "$(jq -r .ref "$dir/monthly.json")" = "$REF" ]; then
+                          file="$dir/monthly.json"
+                          echo "Comparing with run $id"
+                          break
+                      fi
+                  done
+                  echo "file=$file" >> "$GITHUB_OUTPUT"
+                  echo "note=$note" >> "$GITHUB_OUTPUT"
+
+            - name: Trends
+              if: ${{ !cancelled() }}
+              env:
+                  PREVIOUS: ${{ steps.previous.outputs.file }}
+                  NOTE: ${{ steps.previous.outputs.note }}
+                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && format('{0} into {1} (#{2})', github.head_ref, github.base_ref, github.event.pull_request.number) || github.ref_name }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  args=(--out coverage/trends --ref "$REF" --commit "$(git rev-parse HEAD)" --run "$RUN_URL" --previous-note "$NOTE")
+                  for report in php:coverage/php/php-coverage.json infection:coverage/php/infection-summary.json js:coverage/js/js-coverage.json \
+                      timings:coverage/timings/timings.json screenshots:coverage/screenshots/screenshots.json; do
+                      if [ -f "${report#*:}" ]; then args+=("--${report%%:*}" "${report#*:}"); fi
+                  done
+                  if [ -n "$PREVIOUS" ]; then args+=(--previous "$PREVIOUS"); fi
+                  node tools/monthly/trends.mjs "${args[@]}"
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() }}
+              with:
+                  name: monthly-trends
+                  path: coverage/trends/
+                  retention-days: 90
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() }}
+              with:
+                  name: screenshots
+                  path: |
+                      coverage/screenshots/screenshots.json
+                      coverage/screenshots/screenshots.md
+                  if-no-files-found: ignore
+                  retention-days: 90
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ !cancelled() && steps.js.outcome == 'success' }}
+              with:
+                  name: js-coverage
+                  path: |
+                      coverage/js/js-coverage.json
+                      coverage/js/js-coverage.md
+                  retention-days: 90

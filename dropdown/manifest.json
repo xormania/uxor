@@ -8,6 +8,7 @@
         "templates/": "templates/"
     },
     "dependencies": {
+        "recipe": ["floating", "turbo"],
         "composer": [
             "symfony/ux-icons",
             "twig/html-extra:^3.24.0",

@@ -1,10 +1,10 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Form theme — flowbite-xor demo{% endblock %}
+{% block title %}Form theme — {{ kit_reader.manifest.name }} demo{% endblock %}
 
 {% block body %}
     <h1 class="text-2xl font-bold">Form theme</h1>
-    <p class="mt-2 mb-6 text-gray-600 dark:text-gray-400">Every field type rendered by the <code>form-theme</code> recipe. Submit it empty to see the server-side errors.</p>
+    <p class="mt-2 mb-6 text-body">Every field type rendered by the <code>form-theme</code> recipe. Submit it empty to see the server-side errors.</p>
     {% for message in app.flashes('success') %}
         <twig:Alert variant="success" class="mb-6"><twig:Alert:Description>{{ message }}</twig:Alert:Description></twig:Alert>
     {% endfor %}

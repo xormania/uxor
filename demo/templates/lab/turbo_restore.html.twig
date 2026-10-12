@@ -16,6 +16,7 @@
         <p><a href="{{ path('app_lab_turbo_restore', {page: 'one'}) }}" class="text-fg-brand hover:underline">Go to page one</a></p>
     {%- else %}
     <p class="mb-4"><a href="{{ path('app_lab_turbo_restore', {page: 'two'}) }}" class="text-fg-brand hover:underline">Go to page two</a></p>
+    {{ include('lab/_history_steps.html.twig', {route: 'app_lab_turbo_restore', params: {page: 'one'}, step: step}) }}
     {#- a toast outside the permanent ToastRegion: it belongs to this page, Back must not show it again -#}
     <div class="mb-6 max-w-sm">
         <twig:Toast variant="success" timeout="0" data-testid="page-toast">Saved on page one.</twig:Toast>
@@ -28,6 +29,7 @@
             <twig:Dropdown:Content>
                 <twig:Dropdown:Group>
                     <twig:Dropdown:Item href="{{ path('app_lab_turbo_restore', {page: 'two'}) }}">Page two from the menu</twig:Dropdown:Item>
+                    <twig:Dropdown:Item href="{{ path('app_lab_turbo_restore', {page: 'one', step: 5}) }}" data-turbo-frame="history-steps">Step 5 from the menu</twig:Dropdown:Item>
                 </twig:Dropdown:Group>
             </twig:Dropdown:Content>
         </twig:Dropdown>
@@ -59,6 +61,10 @@
                 </twig:Drawer:Body>
             </twig:Drawer:Content>
         </twig:Drawer>
+
+        <twig:Tooltip content="Opens page two" id="restore-tooltip">
+            <a href="{{ path('app_lab_turbo_restore', {page: 'two'}) }}" class="text-fg-brand hover:underline">Page two from the tooltip link</a>
+        </twig:Tooltip>
     </div>
     {%- endif %}
 {% endblock %}

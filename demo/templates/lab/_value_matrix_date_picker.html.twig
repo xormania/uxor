@@ -1,0 +1,21 @@
+{#- The value matrix's date picker, `field_id` its field's id: rendered with `selected` (2026-03-10 by default), its
+    calendar named `due` for a form, or bound to the Live property `model`. -#}
+{%- set selected = selected|default('2026-03-10') -%}
+<div>
+    <twig:Label for="{{ field_id }}" class="mb-2.5">Due date</twig:Label>
+    <twig:DatePicker id="{{ field_id }}-picker" :selected="selected">
+        <div class="flex gap-2">
+            <twig:DatePicker:Input>
+                <twig:Input id="{{ field_id }}" {{ ...date_picker_input_attrs }} />
+            </twig:DatePicker:Input>
+            <twig:DatePicker:Trigger>
+                <twig:Button variant="outline" size="icon" aria-label="Due date: choose date" {{ ...date_picker_trigger_attrs }}>
+                    <twig:ux:icon name="flowbite:calendar-month-outline" class="size-5" aria-hidden="true" />
+                </twig:Button>
+            </twig:DatePicker:Trigger>
+        </div>
+        <twig:DatePicker:Content>
+            <twig:Calendar {{ ...(model is defined ? {model: model} : {name: 'due'}) }} :selected="selected" today="2026-03-15" month="2026-03-01" />
+        </twig:DatePicker:Content>
+    </twig:DatePicker>
+</div>

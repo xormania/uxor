@@ -10,7 +10,8 @@ import { expect, test, themes } from './fixtures';
 /** The files of `<top>/<dir>` (e.g. 'alert/tests'), none when it does not exist. */
 const files = (top: string, dir: string): string[] => (existsSync(join(root, top, dir)) ? readdirSync(join(root, top, dir)) : []);
 
-test('every screenshot in <recipe>/tests/screenshots has a test', () => {
+// about the Chromium baselines, so with the screenshot tests: tagged like them, it runs in Chromium only
+test('every screenshot in <recipe>/tests/screenshots has a test', { tag: '@screenshot' }, () => {
     const expected = new Set([
         // examples.spec.ts
         ...examples.flatMap(({ recipe, id }) => themes.map((theme) => `${recipe}/${id}-${theme}.png`)),

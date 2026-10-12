@@ -6,6 +6,8 @@
     ## string Unique identifier, used for the tooltip's id.
     id = 'tooltip-' ~ random()
 -%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
 <span
     data-tooltip-placement-value="{{ placement }}"
     {{ attributes.defaults({
@@ -16,5 +18,5 @@
 >
     {##- The element the tooltip describes, a focusable control such as a `Button`. -#}
     {%- block content %}{% endblock -%}
-    <span id="{{ id }}" role="tooltip" data-tooltip-target="tooltip" hidden class="pointer-events-none absolute z-50 w-max max-w-xs rounded-base bg-dark px-3 py-2 text-sm font-medium text-white shadow-xs">{{ content }}</span>
+    <span id="{{ id }}" role="tooltip" data-tooltip-target="tooltip" hidden class="pointer-events-none absolute z-50 w-max max-w-xs rounded-base bg-dark px-3 py-2 text-sm font-medium text-fg-on-dark shadow-xs">{{ content }}</span>
 </span>

@@ -1,0 +1,11 @@
+<p data-testid="stream-action" class="mb-2 text-sm text-body">{{ action|default('initial') }}</p>
+<twig:Dropdown id="streamed">
+    <twig:Dropdown:Trigger>
+        <twig:Button variant="outline" {{ ...dropdown_trigger_attrs }}>Streamed</twig:Button>
+    </twig:Dropdown:Trigger>
+    <twig:Dropdown:Content>
+        <twig:Dropdown:Group>
+            <twig:Dropdown:Item as="button">Version {{ action|default('initial') }}</twig:Dropdown:Item>
+        </twig:Dropdown:Group>
+    </twig:Dropdown:Content>
+</twig:Dropdown>

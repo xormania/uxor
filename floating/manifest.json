@@ -1,0 +1,8 @@
+{
+    "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+    "type": "component",
+    "name": "Floating",
+    "copy-files": {
+        "assets/": "assets/"
+    }
+}

@@ -1,0 +1,9 @@
+<turbo-stream action="{{ action }}" target="dropdown-region">
+    <template>
+        {%- if action == 'replace' -%}
+            <div id="dropdown-region">{{ include('lab/_dropdown_streamed.html.twig') }}</div>
+        {%- else -%}
+            {{ include('lab/_dropdown_streamed.html.twig') }}
+        {%- endif -%}
+    </template>
+</turbo-stream>

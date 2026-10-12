@@ -20,4 +20,26 @@
             </twig:Modal:Footer>
         </twig:Modal:Content>
     </twig:Modal>
+    {#- a container whose id changes on each render: the morph moves the dialog into a new container and drops the old one, with its controller -#}
+    <div id="replaced-modal-{{ renders }}" class="mt-4">
+        <twig:Modal id="replaced">
+            <twig:Modal:Trigger>
+                <twig:Button variant="outline" {{ ...modal_trigger_attrs }}>Open replaced modal</twig:Button>
+            </twig:Modal:Trigger>
+            <twig:Modal:Content>
+                <twig:Modal:Header>
+                    <twig:Modal:Title>Replaced modal</twig:Modal:Title>
+                </twig:Modal:Header>
+                <twig:Modal:Body>
+                    <p class="text-body">Its container is rendered anew on each action.</p>
+                </twig:Modal:Body>
+                <twig:Modal:Footer>
+                    <twig:Button data-action="live#action" data-live-action-param="rerender">Re-render and replace</twig:Button>
+                    <twig:Modal:Close>
+                        <twig:Button variant="outline" {{ ...modal_close_attrs }}>Done</twig:Button>
+                    </twig:Modal:Close>
+                </twig:Modal:Footer>
+            </twig:Modal:Content>
+        </twig:Modal>
+    </div>
 </div>

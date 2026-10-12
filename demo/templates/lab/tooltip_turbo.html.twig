@@ -1,0 +1,44 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}tooltip-turbo ({{ page }}) — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'tooltip-turbo'}) }}
+    <h2 class="mb-4 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
+    {%- set other = page == 'one' ? 'two' : 'one' %}
+    <p class="mb-6">
+        <twig:Tooltip content="Opens page {{ other }}" id="next-{{ page }}">
+            <a href="{{ path('app_lab_tooltip_turbo', {page: other}) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a>
+        </twig:Tooltip>
+    </p>
+    {#- a frame whose visits are promoted to history: Turbo copies the page, the tooltips outside it included, before the frame changes -#}
+    <turbo-frame id="history-steps" data-turbo-action="advance" class="mb-6 block">
+        <p>Step <span data-testid="history-step">{{ step }}</span> ·
+            <twig:Tooltip content="Adds a history entry" id="next-step">
+                <a href="{{ path('app_lab_tooltip_turbo', {page: page, step: step + 1}) }}" class="text-fg-brand hover:underline">Next step</a>
+            </twig:Tooltip>
+        </p>
+    </turbo-frame>
+    <div class="flex flex-wrap items-start gap-6">
+        <twig:Tooltip content="Delete the draft" id="delete">
+            <twig:Button variant="outline" size="icon" aria-label="Delete">
+                <twig:ux:icon name="flowbite:close-outline" class="size-5" aria-hidden="true" />
+            </twig:Button>
+        </twig:Tooltip>
+        <div id="lab-permanent-tooltip" data-turbo-permanent class="rounded-base border border-default p-3">
+            <twig:Tooltip content="In a permanent element" id="kept">
+                <twig:Button variant="outline">Kept</twig:Button>
+            </twig:Tooltip>
+        </div>
+    </div>
+    <turbo-frame id="tooltip-frame" class="mt-8 block">
+        <p class="mb-4">Frame load <span data-testid="frame-load">{{ load }}</span> ·
+            <twig:Tooltip content="Loads the frame again" id="reload-frame">
+                <a href="{{ path('app_lab_tooltip_turbo', {page: page, load: load + 1}) }}" class="text-fg-brand hover:underline">Reload the frame</a>
+            </twig:Tooltip>
+        </p>
+        <twig:Tooltip content="In a frame, load {{ load }}" id="framed">
+            <twig:Button variant="outline">Framed</twig:Button>
+        </twig:Tooltip>
+    </turbo-frame>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'demo_app/_settings.html.twig' %}
+
+{% block settings_content %}
+    {%- form_theme form 'form/flowbite_layout.html.twig' -%}
+    <twig:Card>
+        <twig:Card:Header>
+            <twig:Card:Title as="h2" class="text-lg">Notifications</twig:Card:Title>
+            <p class="mt-1 text-sm text-body">Choose the emails you receive.</p>
+        </twig:Card:Header>
+        <twig:Card:Content>
+            {{ form_start(form) }}
+                {{ form_widget(form) }}
+                <twig:Button type="submit">Save preferences</twig:Button>
+            {{ form_end(form) }}
+        </twig:Card:Content>
+    </twig:Card>
+{% endblock %}

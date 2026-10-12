@@ -7,6 +7,7 @@
         "templates/": "templates/"
     },
     "dependencies": {
+        "recipe": ["floating"],
         "composer": [
             "twig/html-extra:^3.24.0",
             "symfony/ux-twig-component:^3.5",

@@ -45,5 +45,10 @@ The app's main navigation: grouped links with icons and counts, collapsible to i
 ```
 
 - **Active item:** on every page, Turbo visits included, the controller marks the item whose link has the current URL's path; a link to a fragment of the page (`#…`) is never marked. `route` also marks it on the server, before the controller connects. `:active` forces the state and turns the URL matching off for the whole sidebar, so do not use it in a `data-turbo-permanent` sidebar: Turbo keeps the first page's sidebar, and its forced state with it.
-- **Turbo:** add `data-turbo-permanent` to keep the sidebar, its collapsed state and its scroll position across visits. Turbo needs an `id` for this; the sidebar always has one (`sidebar` by default).
-- **Small screens:** the sidebar is hidden. The `Navbar` menu button opens it over the page, and Escape closes it. To open it from another button, dispatch a `sidebar:toggle` event on `window` with the sidebar's id: `window.dispatchEvent(new CustomEvent('sidebar:toggle', {detail: {id: 'sidebar'}}))`.
+- **Turbo:** add `data-turbo-permanent` to keep the sidebar, its collapsed state and its scroll position across visits, Back and Forward. Turbo needs an `id` for this; the sidebar always has one (`sidebar` by default). Where `localStorage` is unavailable (blocked site data), the collapsed state is not saved: it holds across Turbo visits and goes at the next page load.
+- **Small screens:** the sidebar is hidden. The `Navbar` menu button opens it over the page, and Escape closes it, as do a Turbo visit, Back, Forward and the screen growing to where the sidebar sits beside the page; the menu button's `aria-expanded` follows, on a page Turbo restores from its cache too. To open it from another button, dispatch a `sidebar:toggle` event on `window` with the sidebar's id: `window.dispatchEvent(new CustomEvent('sidebar:toggle', {detail: {id: 'sidebar'}}))`. For a modal drawer instead (the page behind inert, a backdrop, closed by links and Turbo visits), render the same navigation in a [`MobileNav`](../mobile-nav/README.md), as the `layouts` app layout does.
+- **Motion:** collapsing animates the sidebar's width and turns its chevron; under `prefers-reduced-motion` both change
+  at once.
+
+Marking the current item and closing the sidebar opened over the page when the screen grows are the `navigation`
+recipe's module (`assets/lib/uxor-navigation.js`), which `ux:install sidebar` installs with it.

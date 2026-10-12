@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}nav-menu ({{ page }}) — Lab{% endblock %}
+
+{% block stylesheets %}
+    {#- a stylesheet page two does not have: Turbo waits for it before rendering page one, and copies page two before its controllers disconnect -#}
+    {%- if page == 'one' %}<link rel="stylesheet" href="/lab/slow.css">{% endif -%}
+{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'nav-menu'}) }}
+    {#- the app layout's top bar in small: the menu in the navbar from md, in the drawer below; rendered by every page -#}
+    <twig:Navbar navLabel="Lab site" class="sticky top-0 z-30 mb-4 rounded-base border">
+        <twig:block name="menu">
+            <twig:MobileNav id="lab-nav-menu" label="Lab site">
+                <twig:block name="header"><span class="font-semibold text-heading">Lab app</span></twig:block>
+                <twig:NavMenu id="lab-nav-drawer" orientation="vertical" data-testid="drawer-menu">{{ include('lab/_nav_menu_items.html.twig') }}</twig:NavMenu>
+            </twig:MobileNav>
+        </twig:block>
+        <twig:block name="brand"><span class="font-semibold text-heading">Lab app</span></twig:block>
+        <twig:block name="nav">
+            <twig:NavMenu id="lab-nav" data-testid="bar-menu">{{ include('lab/_nav_menu_items.html.twig') }}</twig:NavMenu>
+        </twig:block>
+    </twig:Navbar>
+    {#- kept across visits by Turbo; its menu sits at the right edge, where its submenus open towards the left -#}
+    <twig:Navbar id="lab-permanent-navbar" data-turbo-permanent class="mb-4 rounded-base border max-md:hidden!">
+        <twig:block name="brand"><span class="font-semibold text-heading">Permanent bar</span></twig:block>
+        <twig:block name="actions">
+            <nav aria-label="Account">
+                <twig:NavMenu id="lab-account" data-testid="account-menu">
+                    <twig:NavMenu:Submenu label="Account">
+                        <twig:NavMenu:Link href="{{ path('app_lab_nav_menu', {page: 'four'}) }}">Profile</twig:NavMenu:Link>
+                        <twig:NavMenu:Submenu label="Preferences">
+                            <twig:NavMenu:Link href="{{ path('app_lab_nav_menu', {page: 'two'}) }}">Notifications</twig:NavMenu:Link>
+                        </twig:NavMenu:Submenu>
+                    </twig:NavMenu:Submenu>
+                </twig:NavMenu>
+            </nav>
+        </twig:block>
+    </twig:Navbar>
+    <section>
+        <h2 class="text-lg font-semibold text-heading" data-testid="page">Page {{ page }}</h2>
+        <ul class="mt-2 flex flex-wrap gap-4">
+            {% for other in ['one', 'two', 'three', 'four']|filter((other) => other != page) %}
+                <li><a href="{{ path('app_lab_nav_menu', {page: other}) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a></li>
+            {% endfor %}
+        </ul>
+        <p id="glossary" class="mt-6">The glossary, a fragment of this page.</p>
+        {#- room to scroll: an open submenu follows the sticky bar -#}
+        <div class="h-[150vh]"></div>
+    </section>
+{% endblock %}

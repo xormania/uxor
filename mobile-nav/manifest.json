@@ -1,0 +1,19 @@
+{
+    "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+    "type": "component",
+    "name": "MobileNav",
+    "copy-files": {
+        "assets/": "assets/",
+        "templates/": "templates/"
+    },
+    "dependencies": {
+        "recipe": ["drawer", "navigation"],
+        "composer": [
+            "symfony/ux-icons",
+            "twig/extra-bundle",
+            "twig/html-extra:^3.24.0",
+            "symfony/ux-twig-component:^3.5",
+            "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+        ]
+    }
+}

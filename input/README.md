@@ -56,6 +56,8 @@ The input field is an important part of the form element that can be used to cre
 <twig:Input />
 ```
 
+Without a `type`, the browser's default, it is a text field and is padded like one (`type="text"`).
+
 ## Examples
 
 ### Disabled
@@ -98,7 +100,7 @@ Get started with a simple file input component to let users upload one single fi
 <div class="relative inline-flex">
     <twig:Input type="text" id="text" placeholder="Search..." class="rounded-e-none" />
     <twig:Button type="button" size="sm" class="rounded-s-0">
-        <twig:ux:icon name="tabler:search" class="size-4 me-1" aria-hidden="true" />
+        <twig:ux:icon name="flowbite:search-outline" class="size-4 me-1" aria-hidden="true" />
         Search
     </twig:Button>
 </div>

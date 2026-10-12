@@ -28,6 +28,7 @@
     {{ include('lab/_header.html.twig', {name: 'date-picker-turbo'}) }}
     <h2 class="mb-2 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
     <p class="mb-4"><a href="{{ path('app_lab_date_picker_turbo', {page: page == 'one' ? 'two' : 'one'}) }}" class="text-fg-brand hover:underline">Go to page {{ page == 'one' ? 'two' : 'one' }}</a></p>
+    {{ include('lab/_history_steps.html.twig', {route: 'app_lab_date_picker_turbo', params: {page: page}, step: step}) }}
     {% if submitted is not null %}<p class="mb-4 text-sm text-heading" data-testid="submitted">due={{ submitted }}</p>{% endif %}
     <form method="get" action="{{ path('app_lab_date_picker_turbo', {page: page}) }}" class="mb-6 flex items-end gap-4">
         {{ picker('due', 'Due date', submitted) }}

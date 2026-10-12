@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}mobile-nav ({{ page }}) — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'mobile-nav'}) }}
+    {#- the app layout's shell in small: a navbar whose menu button opens the drawer below md, the tree beside the page from md -#}
+    <twig:Navbar class="mb-4 rounded-base border">
+        <twig:block name="menu">
+            <twig:MobileNav id="lab-mobile-nav" label="Lab app">
+                <twig:block name="header"><a href="{{ path('app_lab_mobile_nav') }}" class="font-semibold text-heading">Lab app</a></twig:block>
+                {{ include('lab/_mobile_nav_tree.html.twig') }}
+            </twig:MobileNav>
+        </twig:block>
+        <twig:block name="brand"><span class="font-semibold text-heading">Lab app</span></twig:block>
+    </twig:Navbar>
+    <div class="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
+        <nav aria-label="Lab app" data-testid="side-tree" class="rounded-base border border-default p-2 max-md:hidden">
+            {{ include('lab/_mobile_nav_tree.html.twig') }}
+        </nav>
+        <section>
+            <h2 class="text-lg font-semibold text-heading" data-testid="page">Page {{ page }}</h2>
+            <ul class="mt-2 flex flex-wrap gap-4">
+                {% for other in ['one', 'two', 'three']|filter((other) => other != page) %}
+                    <li><a href="{{ path('app_lab_mobile_nav', {page: other}) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a></li>
+                {% endfor %}
+            </ul>
+            <p id="glossary" class="mt-6">The glossary, a fragment of this page.</p>
+        </section>
+    </div>
+{% endblock %}

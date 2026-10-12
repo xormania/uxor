@@ -38,7 +38,8 @@
         "allow-plugins": {
             "php-http/discovery": true,
             "symfony/flex": true,
-            "symfony/runtime": true
+            "symfony/runtime": true,
+            "symfony/ai-mate-composer-plugin": true
         },
         "bump-after-update": true,
         "sort-packages": true,
@@ -49,15 +50,16 @@
     "autoload": {
         "psr-4": {
             "App\\": "src/",
-            "App\\FlowbiteXor\\DataTable\\": "../data-table/src/FlowbiteXor/DataTable/",
-            "App\\FlowbiteXor\\DataTableLive\\": "../data-table-live/src/FlowbiteXor/DataTableLive/",
-            "App\\FlowbiteXor\\Editor\\": "../editor/src/FlowbiteXor/Editor/",
-            "App\\FlowbiteXor\\MarkdownEditor\\": "../markdown-editor/src/FlowbiteXor/MarkdownEditor/"
+            "App\\UXor\\DataTable\\": "../data-table/src/UXor/DataTable/",
+            "App\\UXor\\DataTableLive\\": "../data-table-live/src/UXor/DataTableLive/",
+            "App\\UXor\\Editor\\": "../editor/src/UXor/Editor/",
+            "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "App\\Tests\\": "tests/"
+            "App\\Tests\\": "tests/",
+            "Mate\\": "mate/src/"
         }
     },
     "replace": {
@@ -90,9 +92,24 @@
         "symfony": {
             "allow-contrib": "true",
             "require": "8.1.*"
+        },
+        "ai-mate": {
+            "extension": false,
+            "scan-dirs": [
+                "mate/src"
+            ],
+            "includes": [
+                "mate/config.php"
+            ]
         }
     },
     "require-dev": {
+        "phpunit/phpunit": "^13.4",
+        "spatie/phpunit-snapshot-assertions": "^5.4",
+        "symfony/ai-mate": "^0.14",
+        "symfony/ai-symfony-mate-extension": "^0.14",
+        "symfony/browser-kit": "8.1.*",
+        "symfony/css-selector": "8.1.*",
         "symfony/ux-toolkit": "^3.5"
     }
 }

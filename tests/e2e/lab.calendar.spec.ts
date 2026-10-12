@@ -1,36 +1,71 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, turboVisitDone } from './fixtures';
+import { test, expect, turboVisitDone, countEvents } from './fixtures';
+import { advanceFrame, reloadFrames, turboOperation, visit, visitAndBack } from './transitions';
+import { day } from './calendar';
 
-const day = (calendar: Locator, date: string) => calendar.locator(`[data-slot="calendar-day"][data-day="${date}"] button`);
 const grid = (calendar: Locator) => calendar.getByRole('grid');
-const changes = (page: Page) => page.evaluate(() => (window as any).__changes as number);
-const countChanges = (page: Page) =>
-    page.evaluate(() => {
-        (window as any).__changes = 0;
-        document.addEventListener('change', (event) => (event.target as HTMLElement).matches('[data-calendar-target="input"]') && (window as any).__changes++);
-    });
+// the change events of the calendars' hidden inputs, from now on
+const countChanges = (page: Page) => countEvents(page, ['change'], '[data-calendar-target="input"]');
 
-test('a Turbo visit and Back show the same month and selection, and the calendar still works', async ({ page }) => {
+// its form is a GET form: Back shows the month and selection of the URL, not the pick made before leaving
+test('a Turbo visit and Back show the month and selection of the URL, and the calendar still works', async ({ page }) => {
     await page.goto('/lab/calendar-turbo');
     const calendar = () => page.getByRole('group', { name: 'Day' });
     await calendar().getByRole('button', { name: 'Next month' }).click();
     await expect(grid(calendar())).toHaveAccessibleName('April 2026');
     await day(calendar(), '2026-04-08').click();
 
-    await page.getByRole('link', { name: 'Go to page two' }).click();
-    await expect(page.getByTestId('page')).toHaveText('Page two');
-    await turboVisitDone(page);
-    await page.goBack();
-    await expect(page.getByTestId('page')).toHaveText('Page one');
-    await turboVisitDone(page);
+    await visitAndBack(page);
 
-    await expect(grid(calendar())).toHaveAccessibleName('April 2026');
-    await expect(day(calendar(), '2026-04-08')).toHaveAttribute('data-selected-single', 'true');
-    await expect(calendar().locator('input[name="day"]')).toHaveValue('2026-04-08');
-    await countChanges(page);
+    await expect(grid(calendar())).toHaveAccessibleName('March 2026');
+    await expect(calendar().locator('input[name="day"]')).toHaveValue('');
+    await calendar().getByRole('button', { name: 'Next month' }).click();
+    await expect(day(calendar(), '2026-04-08')).toHaveAttribute('data-selected-single', 'false');
+    const changes = await countChanges(page);
     await day(calendar(), '2026-04-09').click();
     await expect(calendar().locator('input[name="day"]')).toHaveValue('2026-04-09');
-    expect(await changes(page)).toBe(1);
+    expect(await changes()).toEqual({ change: 1 });
+});
+
+// the frame's visit adds a history entry, the calendars beside it stay; Back shows the copy Turbo took as the visit
+// started, and the GET form shows the URL's month and selection (6a): the date in the URL, not the pick
+test('beside a frame visit promoted to history, the calendar keeps the pick; Back and Forward show the URL\'s date, and keys and picks still work', async ({ page }) => {
+    await page.goto('/lab/calendar-turbo?day=2026-03-12');
+    const calendar = page.getByRole('group', { name: 'Day' });
+    const input = calendar.locator('input[name="day"]');
+    await expect(input).toHaveValue('2026-03-12');
+    await calendar.getByRole('button', { name: 'Next month' }).click();
+    await day(calendar, '2026-04-08').click();
+    await expect(input).toHaveValue('2026-04-08');
+    const before = page.url();
+
+    await advanceFrame(page, 'calendar-frame');
+    const advanced = page.url();
+    await expect(grid(calendar)).toHaveAccessibleName('April 2026');
+    await expect(input).toHaveValue('2026-04-08');
+    await expect(day(calendar, '2026-04-08')).toHaveAttribute('data-selected-single', 'true');
+
+    for (const [action, url] of [[() => page.goBack(), before], [() => page.goForward(), advanced]] as const) {
+        await turboOperation(page, { url }, action);
+        await turboVisitDone(page);
+        await expect(grid(calendar), url).toHaveAccessibleName('March 2026');
+        await expect(input).toHaveValue('2026-03-12');
+        await expect(day(calendar, '2026-03-12')).toHaveAttribute('data-selected-single', 'true');
+        await expect(page.locator('[data-controller~="calendar"]')).toHaveCount(5);
+    }
+
+    // the selected day takes the focus in the grid; the arrows move it, Enter picks: one change, one controller
+    const changes = await countChanges(page);
+    await day(calendar, '2026-03-12').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(day(calendar, '2026-03-13')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(input).toHaveValue('2026-03-13');
+    await day(calendar, '2026-03-16').click();
+    await expect(input).toHaveValue('2026-03-16');
+    expect(await changes()).toEqual({ change: 2 });
+    await calendar.getByRole('button', { name: 'Next month' }).click();
+    await expect(grid(calendar)).toHaveAccessibleName('April 2026');
 });
 
 test('repeated Turbo visits leave one controller per calendar and one change per pick', async ({ page }) => {
@@ -40,11 +75,11 @@ test('repeated Turbo visits leave one controller per calendar and one change per
         await turboVisitDone(page);
     }
     await expect(page.locator('[data-controller~="calendar"]')).toHaveCount(5);
-    await countChanges(page);
+    const changes = await countChanges(page);
     const calendar = page.getByRole('group', { name: 'Day' });
     await day(calendar, '2026-03-11').click();
     await expect(calendar.locator('input[name="day"]')).toHaveValue('2026-03-11');
-    expect(await changes(page)).toBe(1);
+    expect(await changes()).toEqual({ change: 1 });
     // one navigation per click: a second controller would move two months
     await calendar.getByRole('button', { name: 'Next month' }).click();
     await expect(grid(calendar)).toHaveAccessibleName('April 2026');
@@ -54,9 +89,7 @@ test('inside a data-turbo-permanent element, the calendar keeps its month across
     await page.goto('/lab/calendar-turbo');
     const kept = page.getByRole('group', { name: 'Kept' });
     await kept.getByRole('button', { name: 'Next month' }).click();
-    await page.getByRole('link', { name: 'Go to page two' }).click();
-    await expect(page.getByTestId('page')).toHaveText('Page two');
-    await turboVisitDone(page);
+    await visit(page, 'Go to page two', 'Page two');
     await expect(grid(kept)).toHaveAccessibleName('April 2026');
     await kept.getByRole('button', { name: 'Next month' }).click();
     await expect(grid(kept)).toHaveAccessibleName('May 2026');
@@ -64,30 +97,11 @@ test('inside a data-turbo-permanent element, the calendar keeps its month across
 
 test('inside a Turbo Frame reloaded three times, the calendar works', async ({ page }) => {
     await page.goto('/lab/calendar-turbo');
-    for (let load = 1; load <= 3; load++) {
-        await page.getByRole('link', { name: 'Reload the frame' }).click();
-        await expect(page.getByTestId('frame-load')).toHaveText(String(load));
-    }
+    await reloadFrames(page);
     const framed = page.getByRole('group', { name: 'Framed' });
     await framed.getByRole('button', { name: 'Next month' }).click();
     await expect(grid(framed)).toHaveAccessibleName('April 2026');
     await expect(page.locator('[data-controller~="calendar"]')).toHaveCount(5);
-});
-
-test('replaced or updated by a Turbo Stream, the new calendar works', async ({ page }) => {
-    await page.goto('/lab/calendar-stream');
-    const calendar = page.getByRole('group', { name: 'Streamed' });
-    await page.getByRole('button', { name: 'Replace the calendar' }).click();
-    await expect(page.getByTestId('stream-action')).toHaveText('replace');
-    await calendar.getByRole('button', { name: 'Next month' }).click();
-    await expect(grid(calendar)).toHaveAccessibleName('April 2026');
-
-    await page.getByRole('button', { name: 'Update the calendar' }).click();
-    await expect(page.getByTestId('stream-action')).toHaveText('update');
-    await expect(grid(calendar)).toHaveAccessibleName('May 2026');
-    await calendar.getByRole('button', { name: 'Next month' }).click();
-    await expect(grid(calendar)).toHaveAccessibleName('June 2026');
-    await expect(page.locator('[data-controller~="calendar"]')).toHaveCount(1);
 });
 
 test('Live properties follow the picks, and bounds, locale and a clear from the server update the grid', async ({ page }) => {

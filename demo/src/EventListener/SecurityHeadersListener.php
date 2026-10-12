@@ -36,12 +36,6 @@ final class SecurityHeadersListener
         'frame-ancestors' => "'self'",
     ];
 
-    /**
-     * The style attributes of README examples, allowed on their preview pages only: the dropdown, modal and drawer
-     * examples (copied from the official kit) set a `min-height` so the open menu or dialog fits the screenshot.
-     */
-    private const PREVIEW_STYLE_ATTRIBUTES = ['min-height: 304px', 'min-height: 360px', 'min-height: 504px'];
-
     public function __construct(
         #[Autowire(service: 'app.csp_nonce.script')]
         private readonly CspNonce $scriptNonce,
@@ -78,10 +72,6 @@ final class SecurityHeadersListener
             $policy['img-src'] = "'self' data: https:";
             $policy['script-src'] = "'nonce-{$this->scriptNonce}' 'strict-dynamic'";
             $policy['style-src'] = "'self' 'nonce-{$this->styleNonce}'";
-            if ('app_preview' === $route) {
-                $hashes = array_map(static fn (string $style): string => \sprintf("'sha256-%s'", base64_encode(hash('sha256', $style, true))), self::PREVIEW_STYLE_ATTRIBUTES);
-                $policy['style-src-attr'] = "'unsafe-hashes' ".implode(' ', $hashes);
-            }
         }
 
         $headers->set('Content-Security-Policy', implode('; ', array_map(static fn (string $directive, string $sources): string => "{$directive} {$sources}", array_keys($policy), $policy)));

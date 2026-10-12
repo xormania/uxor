@@ -10,6 +10,7 @@
 -%}
 {%- set controller = 'symfony--ux-autocomplete--autocomplete' -%}
 {#- the texts UX Autocomplete's form type sets (in English): override one with its attribute, e.g. `data-symfony--ux-autocomplete--autocomplete-no-results-found-text-value` -#}
+{#- autocomplete-sync: Tom Select shows the choice a Live Component's re-render sets, and the one a reset of the form puts back -#}
 {#- Tom Select points the label at its own input and names the label "<id>-ts-label": aria-labelledby keeps the label's name on the hidden select -#}
 <twig:Select
     data-symfony--ux-autocomplete--autocomplete-loading-more-text-value="Loading more results..."
@@ -21,7 +22,7 @@
     {{ ...(url ? {('data-' ~ controller ~ '-url-value'): url} : {}) }}
     {{ ...(minCharacters is not null ? {('data-' ~ controller ~ '-min-characters-value'): minCharacters} : {}) }}
     {{ ...(options ? {('data-' ~ controller ~ '-tom-select-options-value'): options|json_encode} : {}) }}
-    {{ ...attributes.defaults({'data-controller': controller}) }}
+    {{ ...attributes.defaults({'data-controller': controller ~ ' autocomplete-sync'}) }}
 >
     {##- The options (`<option>` elements); with `url`, only the selected ones. -#}
     {{- block(outerBlocks.content) -}}

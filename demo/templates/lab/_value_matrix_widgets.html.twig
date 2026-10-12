@@ -1,0 +1,76 @@
+{#- One copy of the value matrix's widgets (tests/e2e/lab.value-matrix.spec.ts), its ids prefixed with `r`, the region
+    holding it (plain, framed, streamed, kept). Every widget renders the same value in each region and on each page:
+    what a fresh render shows. The forms are never submitted. `only` (a key such as `get-name`) renders that widget
+    alone, so each test of the matrix loads only the widget it changes; without it, every widget. -#}
+{%- set only = only|default('') -%}
+{%- set fruits = {apple: 'Apple', banana: 'Banana', cherry: 'Cherry'} -%}
+<div class="grid gap-6 lg:grid-cols-2">
+    <form method="get" action="{{ path('app_lab_value_matrix', {page: page}) }}" data-vm-group="get" aria-label="{{ r }} GET form" class="grid content-start gap-4">
+        <p class="text-sm font-semibold text-heading">GET form</p>
+        {%- if only in ['', 'get-name'] %}
+        <div>
+            <twig:Label for="{{ r }}-get-name" class="mb-2.5">Name</twig:Label>
+            <twig:Input id="{{ r }}-get-name" name="name" value="Ada" />
+        </div>
+        {%- endif %}
+        {%- if only in ['', 'get-agree'] %}
+        <div class="flex items-center">
+            <twig:Checkbox id="{{ r }}-get-agree" name="agree" value="1" />
+            <twig:Label for="{{ r }}-get-agree" class="ms-2">Agree</twig:Label>
+        </div>
+        {%- endif %}
+        {%- if only in ['', 'get-fruit'] %}
+        <div>
+            <twig:Label for="{{ r }}-get-fruit" class="mb-2.5">Fruit</twig:Label>
+            <twig:Autocomplete id="{{ r }}-get-fruit" name="fruit">
+                {% for value, label in fruits %}<option value="{{ value }}"{% if 'apple' == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </twig:Autocomplete>
+        </div>
+        {%- endif %}
+        {%- if only in ['', 'get-due'] %}
+        {{ include('lab/_value_matrix_date_picker.html.twig', {field_id: r ~ '-get-due'}) }}
+        {%- endif %}
+        {%- if only in ['', 'get-day'] %}
+        <twig:Calendar id="{{ r }}-get-day" data-vm="day" label="Day" name="day" selected="2026-03-10" today="2026-03-15" month="2026-03-01" class="inline-block rounded-base border border-default" />
+        {%- endif %}
+    </form>
+    <form method="post" action="{{ path('app_lab_value_matrix', {page: page}) }}" enctype="multipart/form-data" data-vm-group="post" aria-label="{{ r }} POST form" class="grid content-start gap-4">
+        <p class="text-sm font-semibold text-heading">POST form</p>
+        {%- if only in ['', 'post-name'] %}
+        <div>
+            <twig:Label for="{{ r }}-post-name" class="mb-2.5">Name</twig:Label>
+            <twig:Input id="{{ r }}-post-name" name="name" value="Ada" />
+        </div>
+        {%- endif %}
+        {%- if only in ['', 'post-notify'] %}
+        <twig:Toggle id="{{ r }}-post-notify" name="notify" value="1">Notify me</twig:Toggle>
+        {%- endif %}
+        {%- if only in ['', 'post-fruit'] %}
+        <div>
+            <twig:Label for="{{ r }}-post-fruit" class="mb-2.5">Fruit</twig:Label>
+            <twig:Autocomplete id="{{ r }}-post-fruit" name="fruit">
+                {% for value, label in fruits %}<option value="{{ value }}"{% if 'apple' == value %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            </twig:Autocomplete>
+        </div>
+        {%- endif %}
+        {%- if only in ['', 'post-due'] %}
+        {{ include('lab/_value_matrix_date_picker.html.twig', {field_id: r ~ '-post-due'}) }}
+        {%- endif %}
+        {%- if only in ['', 'post-body'] %}
+        <twig:FormField for="{{ r }}-post-body" label="Body" :labelAttr="{id: r ~ '-post-body_label'}">
+            <twig:Editor id="{{ r }}-post-body" name="body" labelledBy="{{ r }}-post-body_label" value="<p>Draft.</p>" />
+        </twig:FormField>
+        {%- endif %}
+        {%- if only in ['', 'post-notes'] %}
+        <twig:FormField for="{{ r }}-post-notes" label="Notes">
+            <twig:MarkdownEditor id="{{ r }}-post-notes" name="notes" rows="2" value="Draft." />
+        </twig:FormField>
+        {%- endif %}
+        {%- if only in ['', 'post-file'] %}
+        <twig:FormField for="{{ r }}-post-file" label="Attachment">
+            <twig:Dropzone id="{{ r }}-post-file" name="file" />
+        </twig:FormField>
+        {%- endif %}
+    </form>
+</div>
+{{ include('lab/_value_matrix_ui.html.twig', {r: r, only: only}) }}

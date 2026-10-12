@@ -1,0 +1,51 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}section-nav ({{ page }}) — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'section-nav'}) }}
+    {%- set sections = {profile: 'Profile', account: 'Account', notifications: 'Notifications', billing: 'Billing', security: 'Security', integrations: 'Integrations'} -%}
+    {#- marked by the server (`active`), rendered by every page -#}
+    <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)]">
+        <twig:SectionNav label="Account settings">
+            {% for slug, name in sections %}
+                <twig:SectionNav:Item href="{{ path('app_lab_section_nav', {page: slug}) }}" :active="slug == page">{{ name }}</twig:SectionNav:Item>
+            {% endfor %}
+        </twig:SectionNav>
+        <section class="min-w-0 space-y-6">
+            <h2 class="text-lg font-semibold text-heading" data-testid="page">Section {{ page }}</h2>
+            <ul class="flex flex-wrap gap-4">
+                {% for slug in sections|keys|filter((slug) => slug != page) %}
+                    <li><a href="{{ path('app_lab_section_nav', {page: slug}) }}" class="text-fg-brand hover:underline">Go to {{ slug }}</a></li>
+                {% endfor %}
+            </ul>
+
+            {#- in-page tabs: they switch panels, the URL stays -#}
+            <twig:Tabs defaultValue="general" orientation="vertical" idPrefix="lab-tab" data-testid="tabs">
+                <twig:Tabs:List variant="pill" aria-label="Preferences">
+                    <twig:Tabs:Trigger value="general">General</twig:Tabs:Trigger>
+                    <twig:Tabs:Trigger value="privacy">Privacy</twig:Tabs:Trigger>
+                    <twig:Tabs:Trigger value="archived" disabled>Archived</twig:Tabs:Trigger>
+                    <twig:Tabs:Trigger value="advanced">Advanced</twig:Tabs:Trigger>
+                </twig:Tabs:List>
+                {% for value, name in {general: 'General', privacy: 'Privacy', advanced: 'Advanced'} %}
+                    <twig:Tabs:Content value="{{ value }}" class="min-w-0 flex-1">
+                        <div class="rounded-base bg-neutral-secondary p-4 text-sm text-body">
+                            <p>{{ name }} preferences of the {{ page }} section. <a href="#lab-tab-{{ value }}" class="font-medium text-fg-brand underline hover:no-underline">A link in the {{ name|lower }} panel</a>.</p>
+                        </div>
+                    </twig:Tabs:Content>
+                {% endfor %}
+            </twig:Tabs>
+        </section>
+    </div>
+
+    {#- kept by Turbo from the first page: the controller marks the current section from the URL -#}
+    <div id="lab-permanent-section-nav" data-turbo-permanent class="mt-8 rounded-base border border-default p-2">
+        <twig:SectionNav label="Permanent sections" orientation="horizontal">
+            {% for slug, name in sections %}
+                <twig:SectionNav:Item href="{{ path('app_lab_section_nav', {page: slug}) }}">{{ name }}</twig:SectionNav:Item>
+            {% endfor %}
+            <twig:SectionNav:Item href="#lab-tab-general">Fragment</twig:SectionNav:Item>
+        </twig:SectionNav>
+    </div>
+{% endblock %}

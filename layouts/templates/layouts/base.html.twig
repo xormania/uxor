@@ -27,7 +27,8 @@
             {{ importmap('app', {'data-turbo-track': 'reload'}|merge(csp_script_nonce ? {nonce: csp_script_nonce} : {})) }}
         {% endblock -%}
     </head>
-    <body class="{##- Classes of the body. -#}{% block body_class %}min-h-svh bg-neutral-primary text-body antialiased{% endblock %}">
+    {#- form-reset: after Back and Forward, a GET form shows the values of the URL, a POST form keeps what was typed (this recipe's README). -#}
+    <body data-controller="form-reset" class="{##- Classes of the body. -#}{% block body_class %}min-h-svh bg-neutral-primary text-body antialiased{% endblock %}">
         {##- Notifications on every layout: the toast region (`data-turbo-permanent`, so a Turbo visit keeps it) and the flash messages, added to it through Turbo Streams. -#}
         {%- block toasts %}
             <twig:ToastRegion />

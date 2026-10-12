@@ -1,5 +1,5 @@
 {#-
-    flowbite-xor form theme. Rows render through the FormField component, controls through the Input,
+    UXor form theme. Rows render through the FormField component, controls through the Input,
     Select, Textarea, Checkbox, Radio, Label and Button components, so a Symfony form looks like the
     hand-written components. Blocks not overridden here come from Symfony's tailwind_2_layout.
 -#}
@@ -168,9 +168,16 @@
     {%- endset -%}
     {%- set _control = 'Select' -%}
     {%- set _control_attr = {multiple: multiple} -%}
-    {%- if 'symfony--ux-autocomplete--autocomplete' in (attr['data-controller'] ?? '')|split(' ') and attr['aria-labelledby'] is not defined and label is not same as(false) -%}
-        {#- Tom Select (the autocomplete recipe) points the label at its own input and names it "<id>-ts-label" unless it has an id: the hidden select keeps the label's name through it -#}
-        {%- set _control_attr = _control_attr|merge({'aria-labelledby': label_attr.id ?? (id ~ '-ts-label')}) -%}
+    {%- set _controllers = (attr['data-controller'] ?? '')|split(' ') -%}
+    {%- if 'symfony--ux-autocomplete--autocomplete' in _controllers -%}
+        {#- the autocomplete recipe's autocomplete-sync: Tom Select shows the choice a Live Component's re-render sets, and the one a reset of the select's form puts back -#}
+        {%- if 'autocomplete-sync' not in _controllers -%}
+            {%- set _control_attr = _control_attr|merge({'data-controller': attr['data-controller'] ~ ' autocomplete-sync'}) -%}
+        {%- endif -%}
+        {%- if attr['aria-labelledby'] is not defined and label is not same as(false) -%}
+            {#- Tom Select (the autocomplete recipe) points the label at its own input and names it "<id>-ts-label" unless it has an id: the hidden select keeps the label's name through it -#}
+            {%- set _control_attr = _control_attr|merge({'aria-labelledby': label_attr.id ?? (id ~ '-ts-label')}) -%}
+        {%- endif -%}
     {%- endif -%}
     {{- block('flowbite_control') -}}
 {%- endblock choice_widget_collapsed -%}

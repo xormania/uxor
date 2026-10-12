@@ -1,5 +1,6 @@
-import AxeBuilder from '@axe-core/playwright';
-import { test, expect, turboVisitDone } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
+import { turboOperation } from './transitions';
+import { demoPages, previewUrl, recipes } from './inventory';
 
 test('the login block signs in through form_login and shows the authentication error', async ({ page }) => {
     await page.goto('/demo/login');
@@ -41,20 +42,68 @@ test('the forgot-password block confirms without telling whether the account exi
 test('the settings layout marks the current section and the profile block saves', async ({ page }) => {
     await page.goto('/demo/settings/profile');
     await expect(page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
-    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Settings' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('treeitem', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('treeitem', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByRole('region', { name: 'Notifications' }).getByText('Profile saved.')).toBeVisible();
 });
 
-test('on a phone the app layout hides the sidebar behind the navbar menu button', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
+test('on a desktop the app layout hides the menu button, and its pages use no id twice', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    for (const path of ['/demo', '/demo/settings/profile']) {
+        await page.goto(path);
+        await expect(page.locator('#sidebar')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Open menu' })).toBeHidden();
+        const duplicates = await page.evaluate(() => {
+            const ids = [...document.querySelectorAll('[id]')].map((element) => element.id);
+            return ids.filter((id, index) => ids.indexOf(id) !== index);
+        });
+        expect(duplicates, path).toEqual([]);
+    }
+});
+
+test('on a desktop the navbar menu marks the current page, opens its submenus and visits their links', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/demo/settings/profile');
+    const menu = page.getByRole('navigation', { name: 'Site' });
+    const account = menu.getByRole('button', { name: 'Account' });
+    await expect(account).toHaveAttribute('aria-expanded', 'false');
+    await expect(account).toHaveCSS('font-weight', '600'); // it holds the current page
+    await account.click();
+    await expect(account).toHaveAttribute('aria-expanded', 'true');
+    await expect(menu.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
+    await menu.getByRole('button', { name: 'Sign-in pages' }).click();
+    await menu.getByRole('link', { name: 'Sign up' }).click();
+    await expect(page.getByRole('heading', { name: 'Create an account' })).toBeVisible();
+
     await page.goto('/demo');
-    const sidebar = page.locator('#sidebar');
-    await expect(sidebar).toBeHidden();
+    await menu.getByRole('button', { name: 'Showcase' }).click();
+    await menu.getByRole('button', { name: 'Lab' }).click();
+    await menu.getByRole('link', { name: 'Navbar menus' }).click();
+    await expect(page).toHaveURL(/\/lab\/nav-menu$/);
+});
+
+// the drawer's own behavior (Escape, the backdrop, the focus given back, a link closing it, Back): lab.mobile-nav
+test('on a phone the drawer holds the sidebar navigation, then the navbar menu', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/demo/settings/profile');
+    await expect(page.locator('#sidebar')).toBeHidden();
+    await expect(page.getByRole('navigation', { name: 'Site' })).toHaveCount(0);
     await page.getByRole('button', { name: 'Open menu' }).click();
-    await expect(sidebar).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(sidebar).toBeHidden();
+    const drawer = page.getByRole('dialog', { name: 'Main' });
+    // the sidebar's navigation, the same tree and brand, focused on the current page
+    await expect(drawer.getByRole('link', { name: 'xor' })).toBeVisible();
+    const nav = drawer.getByRole('navigation', { name: 'Main' }).getByRole('tree', { name: 'xor' });
+    await expect(nav.getByRole('treeitem', { name: 'Profile' })).toBeFocused();
+    await expect(nav.getByRole('treeitem', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
+    const account = drawer.getByRole('button', { name: 'Account' });
+    await account.click();
+    await expect(account).toHaveAttribute('aria-expanded', 'true');
+    await expect(drawer.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
+    await drawer.getByRole('button', { name: 'Showcase' }).click();
+    await expect(account).toHaveAttribute('aria-expanded', 'false');
+    await drawer.getByRole('link', { name: 'Recipes' }).click();
+    await expect(page).toHaveURL(/\/$/);
 });
 
 test('the not-found block answers 404 and passes axe', async ({ page, allowHttpError }) => {
@@ -62,8 +111,7 @@ test('the not-found block answers 404 and passes axe', async ({ page, allowHttpE
     const response = await page.goto('/demo/not-found');
     expect(response?.status()).toBe(404);
     await expect(page.getByRole('heading', { level: 1, name: 'Page not found' })).toBeVisible();
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations.filter((v) => 'serious' === v.impact || 'critical' === v.impact).map((v) => v.id)).toEqual([]);
+    await expectA11y(page, { impact: 'serious' });
 });
 
 test('the app layout scrolls the document, so the keyboard scrolls it and Turbo restores it on Back', async ({ page }) => {
@@ -81,8 +129,13 @@ test('the app layout scrolls the document, so the keyboard scrolls it and Turbo 
     }));
     await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'instant' }));
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Settings' }).click();
+    const main = page.getByRole('navigation', { name: 'Main' });
+    await main.getByRole('treeitem', { name: 'Settings' }).locator(':scope > [data-side-nav-toggle]').click();
+    await main.getByRole('treeitem', { name: 'Profile' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
+    // the visit's scroll to the top is delivered with the next frame: WebKit can dispatch its scroll event after a Back
+    // sent at once, and Turbo then records it as the restored page's position (0)
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
     await page.goBack();
     await turboVisitDone(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
@@ -94,8 +147,7 @@ test('the dashboard passes axe at phone width, its channel bars are meters', asy
     await page.goto('/demo');
     await expect(page.getByRole('meter', { name: 'Online store' })).toHaveAttribute('aria-valuenow', '64');
     await expect(page.getByRole('region', { name: 'Recent orders' })).toHaveAttribute('tabindex', '0');
-    const results = await new AxeBuilder({ page }).analyze();
-    expect(results.violations.filter((v) => 'serious' === v.impact || 'critical' === v.impact).map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([]);
+    await expectA11y(page, { impact: 'serious' });
 });
 
 test('flash messages show on every layout: the logout notice on the auth layout, not later on the dashboard', async ({ page }) => {
@@ -108,6 +160,11 @@ test('flash messages show on every layout: the logout notice on the auth layout,
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/demo\/login$/);
     await expect(page.getByRole('region', { name: 'Notifications' }).getByText('You are signed out.')).toBeVisible();
+    // the login form's csrf-protection controller is lazy: leaving before its module arrived cancels the request (a
+    // failed request, and the loader's console error in Firefox), so the next visit waits for the page to have loaded it
+    await expect
+        .poll(() => page.evaluate(() => performance.getEntriesByType('resource').some((entry) => entry.name.includes('/csrf_protection_controller-'))))
+        .toBe(true);
 
     await page.goto('/demo');
     await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
@@ -120,7 +177,15 @@ test('every layout keeps the same toast region: a toast closed on another layout
     const region = page.getByRole('region', { name: 'Notifications' });
     await expect(region.getByText('Profile saved.')).toBeVisible();
 
-    await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Blank' }).click();
+    // the toast dismisses itself 5 s after it appears, and a slow visit used that up before the check below (WebKit in
+    // CI): hovered, it is paused, so the keyboard opens the branch and follows the link while the pointer stays on it.
+    // The visit moves the region, so the toast connects again on the blank page and counts down its time left from there
+    await region.locator('[data-controller="toast"]', { hasText: 'Profile saved.' }).hover();
+    const main = page.getByRole('navigation', { name: 'Main' });
+    const pages = main.getByRole('treeitem', { name: 'Pages' });
+    await pages.press('Enter');
+    await expect(pages).toHaveAttribute('aria-expanded', 'true');
+    await main.getByRole('treeitem', { name: 'Blank page' }).press('Enter');
     await expect(page.getByRole('heading', { level: 1, name: 'A blank page' })).toBeVisible();
     await expect(region.getByText('Profile saved.')).toBeVisible();
     await region.getByRole('button', { name: 'Close' }).click();
@@ -131,17 +196,132 @@ test('every layout keeps the same toast region: a toast closed on another layout
     await expect(page.getByText('Profile saved.')).toHaveCount(0);
 });
 
-test('signing out needs a same-origin request: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/demo\/logout$/, 403);
+test('signing out requires POST: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/demo\/logout$/, 405);
     await page.goto('/demo/login');
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 
-    // a typed URL or a link from another site: Sec-Fetch-Site is not same-origin, the stateless logout token fails
+    // A typed URL is always GET. The route rejects it before the firewall can consider a logout request.
     const response = await page.goto('/demo/logout');
-    expect(response?.status()).toBe(403);
+    expect(response?.status()).toBe(405);
     await page.goto('/demo');
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+});
+
+// The layouts mark the importmap `data-turbo-track="reload"` (UX Turbo's bundle sets the same default; the layout's
+// value wins): Turbo loads a page in full when its tracked elements differ from the current page's, so a page from a
+// new deploy never runs beside the old scripts
+test('a page whose tracked importmap changed between two visits, as after a deploy, is loaded in full', async ({ page }) => {
+    await page.goto('/demo/settings/profile');
+    const settings = page.getByRole('navigation', { name: 'Settings' });
+    const sameDocument = await markDocument(page);
+
+    // the same assets: Turbo renders the next page in the same document
+    await turboOperation(page, { url: '/demo/settings/notifications' }, () => settings.getByRole('link', { name: 'Notifications' }).click());
+    await sameDocument.expectKept();
+
+    // the billing page names another URL for the app's entrypoint (a new digest after a deploy), a URL that loads
+    await page.route('**/demo/settings/billing', async (route) => {
+        // uncompressed: Firefox accepts zstd, which Playwright does not decode
+        const response = await route.fetch({ headers: { ...route.request().headers(), 'accept-encoding': 'identity' } });
+        const body = (await response.text()).replace(/("app": "[^"?]+)"/, '$1?deploy=2"');
+        await route.fulfill({ response, body });
+    });
+    await settings.getByRole('link', { name: 'Billing' }).click();
+
+    await expect(page).toHaveURL(/\/demo\/settings\/billing$/);
+    await sameDocument.expectReplaced();
+    // the new document, as it parses, carries the new importmap
+    await expect.poll(() => page.evaluate(() => document.querySelector('script[type="importmap"]')?.textContent ?? '')).toContain('?deploy=2');
+    await expect(settings.getByRole('link', { name: 'Billing' })).toHaveAttribute('aria-current', 'page');
+    await turboVisitDone(page);
+});
+
+test('every demo page names the brand it shows in its title', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+    for (const path of Object.values(demoPages)) {
+        await page.goto(path);
+        await expect(page, path).toHaveTitle(/ — xor$/);
+    }
+});
+
+// a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
+for (const colorScheme of ['light', 'dark'] as const) {
+    test.describe(`${colorScheme} theme at phone width`, () => {
+        test.use({ viewport: { width: 390, height: 844 }, colorScheme });
+
+        for (const path of ['/', '/r/button', '/r/data-table', '/demo', '/demo/login', '/demo/settings/profile']) {
+            test(`${path} does not scroll sideways`, async ({ page }) => {
+                await page.goto(path);
+                await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
+                const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+                expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+            });
+        }
+    });
+}
+
+// the narrowest phone: every page of the gallery and of the demo fits, its heading wraps instead of overflowing, and a
+// recipe's description shows its Markdown rendered, not as source
+test.describe('at 320px', () => {
+    test.use({ viewport: { width: 320, height: 640 } });
+
+    for (const path of ['/', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
+            allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+            await page.goto(path);
+            const heading = page.getByRole('heading', { level: 1 }).first();
+            await expect(heading).toBeVisible();
+            const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+            expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+            const box = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, scroll: element.scrollWidth, client: element.clientWidth }));
+            expect(box.right, 'the heading ends inside the page').toBeLessThanOrEqual(widths.client);
+            expect(box.scroll, 'the heading wraps its text').toBeLessThanOrEqual(box.client);
+            const text = await page.locator('body').innerText();
+            expect(text).not.toMatch(/\]\(https?:/);
+            expect(text).not.toMatch(/`[^`\n]+`/);
+            if (path.startsWith('/r/')) {
+                // a recipe's name is one word as long as the recipe wants (ForgotPasswordForm): one wider than any
+                // font makes it still breaks inside the page
+                await heading.evaluate((element) => (element.textContent = 'ForgotPasswordForm'.repeat(3)));
+                const wide = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, page: document.documentElement.scrollWidth }));
+                expect(wide.right, 'a long name breaks inside the page').toBeLessThanOrEqual(widths.client);
+                expect(wide.page, 'a long name does not widen the page').toBeLessThanOrEqual(widths.client);
+            }
+        });
+    }
+});
+
+test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
+    // the markup is what matters, so each page is fetched rather than visited: a visit from page to page cancels the
+    // last page's late requests (lazy controllers, their imports), which the page guard counts as failed
+    for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...Object.values(demoPages)]) {
+        const response = await page.request.get(path);
+        expect(response.status(), path).toBe(path.endsWith('/demo/not-found') ? 404 : 200); // the error page answers 404 on purpose
+        const head = (await response.text()).match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
+        expect(head.match(/<link\b[^>]*\brel=["'][^"']*\bicon\b/gi) ?? [], path).toHaveLength(1);
+    }
+});
+
+test("the gallery's header keeps one row on a phone, its GitHub link named", async ({ page }) => {
+    await page.goto('/');
+    const nav = page.getByRole('navigation', { name: 'Main' });
+    const row = (await nav.boundingBox())!.height;
+    for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 800 });
+        await expect.poll(async () => (await nav.boundingBox())!.height, `${width}px`).toBe(row);
+        await expect(nav.getByRole('link', { name: 'GitHub' })).toBeVisible();
+        const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+        expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+    }
+});
+
+test("the hero's two secondary links share one style", async ({ page }) => {
+    await page.goto('/');
+    const hero = page.locator('.xor-hero');
+    const install = await hero.getByRole('link', { name: 'Install' }).getAttribute('class');
+    expect(await hero.getByRole('link', { name: 'Open the demo app' }).getAttribute('class')).toBe(install);
 });

@@ -51,6 +51,22 @@ Use the following default tabs component example to show a list of links that th
 </twig:Tabs>
 ```
 
+- **Tabs switch panels within the page.** For a group of pages, each with its own URL (settings sections), use
+  the `section-nav` recipe: links with `aria-current="page"`, not tabs.
+- **Keyboard,** as the WAI-ARIA tabs pattern describes it: the selected tab is the list's one Tab stop, and Tab
+  moves on to its panel, a Tab stop of its own (`tabindex="0"`, so a panel of plain text is reachable); the selected tab
+  disabled in place, by a Live re-render, hands the selection and the Tab stop on to the first enabled tab. In a horizontal list Left and Right select the previous and next tab, in a vertical one
+  (`orientation="vertical"`, which also sets `aria-orientation` on the list) Up and Down; both wrap around, and Home
+  and End select the first and last. Disabled tabs are skipped.
+- **Ids:** each tab is `<idPrefix>-<value>` and its panel `<idPrefix>-<value>-description`. Give each `Tabs` of a
+  page its own `idPrefix` when their values repeat.
+- **Turbo:** the selected tab is kept in the element's `data-tabs-active-tab-value`, so Back shows the copy Turbo
+  cached with the tab that was selected. A new visit or a reload starts from `defaultValue`: render the tab to
+  select from the request (`defaultValue="{{ app.request.query.get('tab', 'account') }}"`, checked against your
+  values) when it must be linkable.
+- **Motion:** a tab fades its colors (text, background, border) when hovered or selected, no layout property;
+  under `prefers-reduced-motion` they change at once.
+
 ## Examples
 
 ### Tabs with underline
@@ -117,7 +133,7 @@ If you want to use pills as a style for the tabs component you can do so by usin
 
 ### Vertical
 
-Use this example to show a vertically aligned set of tabs on the left side of the page.
+Use this example to show a vertically aligned set of tabs on the left side of the page. Up and Down move between the tabs.
 
 ```twig {"preview":true}
 <twig:Tabs defaultValue="profile" orientation="vertical" class="max-w-xl w-full">

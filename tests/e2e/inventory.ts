@@ -3,11 +3,14 @@
  * each viewport. examples/baselines.spec.ts checks that every committed screenshot belongs to one of them.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const root = fileURLToPath(new URL('../..', import.meta.url));
+
+// The kit's display name, the index's heading: manifest.json's name
+export const kitName: string = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')).name;
 
 // Recipes as the UX Toolkit discovers them: "<dir>/manifest.json" at depth 1 of the kit root.
 export const recipes = readdirSync(root, { withFileTypes: true })
@@ -21,6 +24,12 @@ export const examples: { recipe: string; id: string }[] = JSON.parse(
     execFileSync(process.env.PHP_BINARY ?? 'php', ['bin/console', 'app:examples'], { cwd: join(root, 'demo'), encoding: 'utf8' }),
 );
 
+/**
+ * The page rendering README example `id` of `recipe` alone (demo/src/Controller/PreviewController.php), in `theme`:
+ * what the examples' screenshots and the recipe specs open.
+ */
+export const previewUrl = (recipe: string, id: string, theme: 'light' | 'dark' = 'light') => `/preview/${recipe}/${id}?theme=${theme}`;
+
 // The layouts and blocks as pages of the /demo application (examples/pages.spec.ts)
 export const demoPages = {
     dashboard: '/demo',
@@ -28,6 +37,8 @@ export const demoPages = {
     signup: '/demo/signup',
     'forgot-password': '/demo/forgot-password',
     'settings-profile': '/demo/settings/profile',
+    'settings-notifications': '/demo/settings/notifications',
+    'settings-billing': '/demo/settings/billing',
     'not-found': '/demo/not-found',
     blank: '/demo/blank',
 };

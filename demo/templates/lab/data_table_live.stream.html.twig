@@ -1,0 +1,9 @@
+<turbo-stream action="{{ action }}" target="beside-table-stream">
+    <template>
+        {%- if action == 'replace' -%}
+            <div id="beside-table-stream" class="mt-2">{{ include('lab/_data_table_live_beside.html.twig') }}</div>
+        {%- else -%}
+            {{ include('lab/_data_table_live_beside.html.twig') }}
+        {%- endif -%}
+    </template>
+</turbo-stream>

@@ -1,0 +1,8 @@
+{#-
+    A frame whose visits are promoted to history (`data-turbo-action="advance"`), as a data table's pages are: each
+    step adds a history entry, and Turbo copies the whole page, what is open beside the frame included, when the frame
+    visit starts. `route` and `params` build the step links; `step` is the current one.
+-#}
+<turbo-frame id="history-steps" data-turbo-action="advance" class="mb-6 block">
+    <p>Step <span data-testid="history-step">{{ step }}</span> · <a href="{{ path(route, params|merge({step: step + 1})) }}" class="text-fg-brand hover:underline">Next step</a></p>
+</turbo-frame>

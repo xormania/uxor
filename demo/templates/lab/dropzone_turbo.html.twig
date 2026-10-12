@@ -14,6 +14,16 @@
             <twig:Dropzone id="attachments" name="attachments[]" multiple />
         </twig:FormField>
     </div>
+    {% if zones %}
+        {#- `?zones=<n>`: more single-file zones in one POST form than the copies Turbo keeps, each file kept for Back -#}
+        <form method="post" action="{{ path('app_lab_dropzone_turbo', {page: page}) }}" enctype="multipart/form-data" class="mb-6 grid max-w-3xl gap-4 md:grid-cols-3" data-testid="many-zones">
+            {% for i in 1..zones %}
+                <twig:FormField for="many-{{ i }}" label="File {{ i }}">
+                    <twig:Dropzone id="many-{{ i }}" name="many[{{ i }}]" />
+                </twig:FormField>
+            {% endfor %}
+        </form>
+    {% endif %}
     <div id="lab-permanent-dropzone" data-turbo-permanent class="mb-6 max-w-sm">
         <twig:FormField for="kept" label="Kept file">
             <twig:Dropzone id="kept" name="kept" />

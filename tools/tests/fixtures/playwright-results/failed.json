@@ -1,0 +1,112 @@
+{
+  "config": {
+    "rootDir": "/runner/work/flowbite-xor/flowbite-xor",
+    "version": "1.58.2",
+    "shard": { "current": 1, "total": 3 },
+    "projects": [{ "id": "smoke", "name": "smoke" }, { "id": "examples", "name": "examples" }]
+  },
+  "suites": [
+    {
+      "title": "tests/e2e/lab.popover.spec.ts",
+      "file": "tests/e2e/lab.popover.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "closes on Back",
+          "ok": false,
+          "id": "ccc-111",
+          "file": "tests/e2e/lab.popover.spec.ts",
+          "line": 20,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "unexpected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "failed",
+                  "duration": 5000,
+                  "error": { "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator: getByRole('dialog')\nExpected: hidden\nReceived: visible\nTimeout:  5000ms\n\nCall log:\n  - Expect \"toBeHidden\" with timeout 5000ms" },
+                  "errors": [{ "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator: getByRole('dialog')\nExpected: hidden\nReceived: visible\nTimeout:  5000ms\n\nCall log:\n  - Expect \"toBeHidden\" with timeout 5000ms", "location": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/transitions.ts", "line": 88, "column": 9 } }],
+                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/transitions.ts", "line": 88, "column": 9 }
+                },
+                {
+                  "retry": 1,
+                  "status": "timedOut",
+                  "duration": 30000,
+                  "error": { "message": "Test timeout of 30000ms exceeded." },
+                  "errors": [{ "message": "Test timeout of 30000ms exceeded." }]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+      "file": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "dismisses each alert independently",
+          "ok": false,
+          "id": "ddd-111",
+          "file": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+          "line": 9,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "examples",
+              "projectName": "examples",
+              "expectedStatus": "passed",
+              "status": "unexpected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "failed",
+                  "duration": 700,
+                  "error": { "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" },
+                  "errors": [{ "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" }],
+                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/examples/recipes/alert.alert.spec.ts", "line": 14, "column": 5 }
+                },
+                {
+                  "retry": 1,
+                  "status": "failed",
+                  "duration": 650,
+                  "error": { "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" },
+                  "errors": [{ "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" }],
+                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/examples/recipes/alert.alert.spec.ts", "line": 14, "column": 5 }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "shows every alert",
+          "ok": true,
+          "id": "ddd-222",
+          "file": "tests/e2e/examples/recipes/alert.alert.spec.ts",
+          "line": 4,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "examples",
+              "projectName": "examples",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [{ "retry": 0, "status": "passed", "duration": 200, "errors": [] }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": { "startTime": "2026-10-09T08:00:00.000Z", "duration": 40000, "expected": 1, "skipped": 0, "unexpected": 2, "flaky": 0 }
+}

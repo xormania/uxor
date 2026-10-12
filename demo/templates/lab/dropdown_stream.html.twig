@@ -1,0 +1,12 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}dropdown-stream — Lab{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'dropdown-stream'}) }}
+    <form method="post" action="{{ path('app_lab_dropdown_stream') }}" class="mb-4 flex gap-3">
+        <twig:Button type="submit" name="action" value="replace" variant="secondary">Replace the dropdown</twig:Button>
+        <twig:Button type="submit" name="action" value="update" variant="secondary">Update the dropdown</twig:Button>
+    </form>
+    <div id="dropdown-region">{{ include('lab/_dropdown_streamed.html.twig') }}</div>
+{% endblock %}

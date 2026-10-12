@@ -32,6 +32,16 @@ for expected in '<h1[^>]*>[[:space:]]*Dashboard[[:space:]]*</h1>' 'Recent orders
 done
 echo "ok: the dashboard renders (HTTP 200)"
 
+# The page's import map serves every local module it names, the kit's controllers among them: what a browser loads to
+# start Stimulus in this freshly installed app (a missing or failed asset here leaves every widget inert)
+modules="$(grep -oE '<script type="importmap"[^>]*>.*</script>' <<< "$page" | grep -oE ':[[:space:]]*"/assets/[^"]+\.js"' | grep -oE '/assets/[^"]+' | sort -u)"
+grep -q '^/assets/controllers/' <<< "$modules" || { echo "FAIL: the dashboard's import map names no controller of the kit" >&2; exit 1; }
+while IFS= read -r module; do
+    status="$(curl -s "$@" -o /dev/null -w '%{http_code} %{content_type}' "$base$module")"
+    [[ "$status" == "200 "*javascript* ]] || { echo "FAIL: $module (in the import map) answered $status" >&2; exit 1; }
+done <<< "$modules"
+echo "ok: the import map's $(wc -l <<< "$modules") local modules answer as JavaScript, the kit's controllers included"
+
 # Symfony's default layout would print a bare <input id="form_email"> and <label for="form_email" class="required">;
 # the theme prints the kit's components
 page="$(fetch /register "$@")"
@@ -43,7 +53,7 @@ grep -qE '<p id="form_plainPassword_help"[^>]*>[[:space:]]*At least 12 character
     || { echo "FAIL: the signup password help is not FormField's" >&2; exit 1; }
 echo "ok: the signup form renders through the form theme (HTTP 200)"
 
-# the data-table recipe's PHP (src/FlowbiteXor/DataTable/) works in the app: the table reads its page, sort and filter
+# the data-table recipe's PHP (src/UXor/DataTable/) works in the app: the table reads its page, sort and filter
 # from the URL, and its links keep them
 page="$(fetch '/orders?page=2&sort=number&dir=desc&f%5Bstatus%5D=paid' "$@")"
 grep -qE 'Showing <span[^>]*>11–12</span> of <span[^>]*>12</span>' <<< "$page" \
@@ -70,15 +80,23 @@ grep -qE 'Showing <span[^>]*>11–20</span> of <span[^>]*>25</span>' "$work/acti
 echo "ok: the live orders DataTableLive renders and answers a Live action (HTTP 200)"
 
 # the autocomplete recipe: a form field with `'autocomplete' => true` renders through the form theme with UX
-# Autocomplete's controller and the label reference for Tom Select, the Autocomplete component renders a Select with
-# the controller, and the remote field's search URL answers with its JSON results
+# Autocomplete's controller, the recipe's autocomplete-sync and the label reference for Tom Select, the Autocomplete
+# component renders a Select with both controllers, and the remote field's search URL answers with its JSON results
 page="$(fetch /pick "$@")"
+# the select's controllers: UX Autocomplete's, and the recipe's autocomplete-sync beside it (one list, any order)
+controllers() { grep -oE 'data-controller="[^"]*"' <<< "$1" | cut -d'"' -f2 | tr ' ' '\n'; }
 select="$(grep -oE '<select[^>]*id="form_country"[^>]*>' <<< "$page")"
-for expected in 'data-controller="symfony--ux-autocomplete--autocomplete"' 'aria-labelledby="form_country-ts-label"' 'rounded-base'; do
+for expected in symfony--ux-autocomplete--autocomplete autocomplete-sync; do
+    controllers "$select" | grep -qx -- "$expected" || { echo "FAIL: the autocomplete form field lacks the $expected controller" >&2; exit 1; }
+done
+for expected in 'aria-labelledby="form_country-ts-label"' 'rounded-base'; do
     grep -q -- "$expected" <<< "$select" || { echo "FAIL: the autocomplete form field lacks $expected" >&2; exit 1; }
 done
 select="$(grep -oE '<select[^>]*id="fruit"[^>]*>' <<< "$page")"
-for expected in 'data-controller="symfony--ux-autocomplete--autocomplete"' 'aria-labelledby="fruit-ts-label"' 'tom-select-options-value="{&quot;create&quot;:true}"' 'rounded-base'; do
+for expected in symfony--ux-autocomplete--autocomplete autocomplete-sync; do
+    controllers "$select" | grep -qx -- "$expected" || { echo "FAIL: the Autocomplete component lacks the $expected controller" >&2; exit 1; }
+done
+for expected in 'aria-labelledby="fruit-ts-label"' 'tom-select-options-value="{&quot;create&quot;:true}"' 'rounded-base'; do
     grep -q -- "$expected" <<< "$select" || { echo "FAIL: the Autocomplete component lacks $expected" >&2; exit 1; }
 done
 url="$(grep -oE '<select[^>]*id="form_customer"[^>]*>' <<< "$page" | grep -oE 'autocomplete-url-value="[^"]*"' | cut -d'"' -f2)"
@@ -146,7 +164,7 @@ token="$(grep -oE '<input[^>]*name="form\[_token\]"[^>]*>' <<< "$page" | grep -o
 location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
     --data-urlencode 'form[body]=<p onclick="x()">Hi <script>x()</script></p>' ${token:+--data-urlencode "form[_token]=$token"} "$base/post")"
 case "$location" in
-    "303 "*"stored=%3Cp%3EHi%20%3C/p%3E") ;;
+    "303 "*"stored=%3Cp%3EHi%3C/p%3E") ;;
     *) echo "FAIL: posting a body to /post answered $location" >&2; exit 1 ;;
 esac
 echo "ok: an EditorType renders the Editor and stores sanitized HTML (HTTP 200, 303)"

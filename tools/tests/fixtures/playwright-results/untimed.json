@@ -1,0 +1,55 @@
+{
+  "config": {
+    "rootDir": "/runner/work/flowbite-xor/flowbite-xor",
+    "version": "1.58.2",
+    "projects": [
+      {
+        "id": "smoke",
+        "name": "smoke"
+      }
+    ]
+  },
+  "suites": [
+    {
+      "title": "tests/e2e/smoke.spec.ts",
+      "file": "tests/e2e/smoke.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "loads",
+          "ok": true,
+          "id": "u-1",
+          "file": "tests/e2e/smoke.spec.ts",
+          "line": 6,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [
+                {
+                  "retry": 0,
+                  "status": "passed",
+                  "duration": "soon",
+                  "errors": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-09T08:00:00.000Z",
+    "duration": -1,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}dropdown-turbo ({{ page }}) — Lab{% endblock %}
+
+{% block stylesheets %}
+    {#- a stylesheet page one does not have: Turbo waits for it before rendering, and copies page one before its controllers disconnect -#}
+    {%- if page == 'two' %}<link rel="stylesheet" href="/lab/slow.css">{% endif -%}
+{% endblock %}
+
+{% block body %}
+    {{ include('lab/_header.html.twig', {name: 'dropdown-turbo'}) }}
+    {%- set other = page == 'one' ? 'two' : 'one' %}
+    <h2 class="mb-4 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
+    <p class="mb-6"><a href="{{ path('app_lab_dropdown_turbo', {page: other}) }}" class="text-fg-brand hover:underline">Go to page {{ other }}</a></p>
+    {{ include('lab/_history_steps.html.twig', {route: 'app_lab_dropdown_turbo', params: {page: page}, step: step}) }}
+    <div class="flex flex-wrap items-start gap-6">
+        <twig:Dropdown id="actions">
+            <twig:Dropdown:Trigger>
+                <twig:Button {{ ...dropdown_trigger_attrs }}>Actions</twig:Button>
+            </twig:Dropdown:Trigger>
+            <twig:Dropdown:Content>
+                <twig:Dropdown:Group>
+                    <twig:Dropdown:Item as="button">Edit</twig:Dropdown:Item>
+                    <twig:Dropdown:Item href="{{ path('app_lab_dropdown_turbo', {page: other}) }}">Page {{ other }} from the menu</twig:Dropdown:Item>
+                    <twig:Dropdown:Item href="{{ path('app_lab_dropdown_turbo', {page: page, step: 5}) }}" data-turbo-frame="history-steps">Step 5 from the menu</twig:Dropdown:Item>
+                </twig:Dropdown:Group>
+            </twig:Dropdown:Content>
+        </twig:Dropdown>
+        <div id="lab-permanent-dropdown" data-turbo-permanent class="rounded-base border border-default p-3">
+            <twig:Dropdown id="kept">
+                <twig:Dropdown:Trigger>
+                    <twig:Button variant="outline" {{ ...dropdown_trigger_attrs }}>Kept</twig:Button>
+                </twig:Dropdown:Trigger>
+                <twig:Dropdown:Content>
+                    <twig:Dropdown:Group>
+                        <twig:Dropdown:Item as="button">In a permanent element</twig:Dropdown:Item>
+                    </twig:Dropdown:Group>
+                </twig:Dropdown:Content>
+            </twig:Dropdown>
+        </div>
+    </div>
+    <turbo-frame id="dropdown-frame" class="mt-8 block">
+        <p class="mb-4">Frame load <span data-testid="frame-load">{{ load }}</span></p>
+        <twig:Dropdown id="framed">
+            <twig:Dropdown:Trigger>
+                <twig:Button variant="outline" {{ ...dropdown_trigger_attrs }}>Framed</twig:Button>
+            </twig:Dropdown:Trigger>
+            <twig:Dropdown:Content>
+                <twig:Dropdown:Group>
+                    <twig:Dropdown:Item as="button">In a frame, load {{ load }}</twig:Dropdown:Item>
+                    <twig:Dropdown:Item href="{{ path('app_lab_dropdown_turbo', {page: page, load: load + 1}) }}">Reload the frame</twig:Dropdown:Item>
+                </twig:Dropdown:Group>
+            </twig:Dropdown:Content>
+        </twig:Dropdown>
+    </turbo-frame>
+{% endblock %}

@@ -2,41 +2,46 @@
 
 {% block title %}{{ kit.manifest.name }}: Flowbite components for Symfony UX{% endblock %}
 
+{% block hero %}
+    {%- set example_total = example_counts|reduce((total, count) => total + count, 0) -%}
+    <section class="xor-hero dark border-b border-default text-body" aria-labelledby="kit-heading">
+        <div class="mx-auto max-w-7xl px-4 pt-16 pb-14 sm:pt-24 sm:pb-20">
+            <div class="flex flex-wrap gap-2">
+                <twig:Badge variant="brand">Symfony UX Toolkit kit</twig:Badge>
+                <twig:Badge variant="gray">Flowbite 4</twig:Badge>
+                <twig:Badge variant="gray">Tailwind CSS 4</twig:Badge>
+                <twig:Badge variant="gray">Stimulus</twig:Badge>
+            </div>
+            <h1 id="kit-heading" class="mt-4 text-4xl font-bold tracking-tight text-heading sm:text-5xl">{{ kit.manifest.name }}</h1>
+            <p class="mt-4 max-w-xl text-lg">{{ kit.manifest.description }}</p>
+            <div class="mt-6 flex flex-wrap gap-3">
+                <twig:Button as="a" href="#recipes" size="lg">Browse the recipes</twig:Button>
+                <twig:Button as="a" href="#install" variant="secondary" size="lg">Install</twig:Button>
+                <twig:Button as="a" href="{{ path('app_demo') }}" variant="secondary" size="lg">Open the demo app</twig:Button>
+            </div>
+            <dl class="mt-8 grid max-w-xl grid-cols-[repeat(2,minmax(0,1fr))] gap-4">
+                {% for stat in [
+                    {value: (groups.component.recipes ?? [])|length, label: 'components'},
+                    {value: (groups.block.recipes ?? [])|length, label: 'blocks'},
+                    {value: example_total, label: 'live examples'},
+                    {value: 2, label: 'themes, light and dark'},
+                ] %}
+                    <div class="flex flex-col rounded-base border border-default bg-neutral-secondary-soft p-4">
+                        <dt class="text-sm">{{ stat.label }}</dt>
+                        <dd class="order-first text-2xl font-semibold text-heading">{{ stat.value }}</dd>
+                    </div>
+                {% endfor %}
+            </dl>
+        </div>
+    </section>
+{% endblock %}
+
 {% block body %}
     {%- set static_export = app.request.attributes.get('_static_export') -%}
-    {%- set kit_url = kit.manifest.homepage ~ (static_export.release ?? false ? ':' ~ static_export.release : '') -%}
+    {%- set kit_url = kit.manifest.homepage ~ (static_export ? ':' ~ (static_export.release ?? static_export.branch ?? 'main') : '') -%}
     {%- set example_total = example_counts|reduce((total, count) => total + count, 0) -%}
 
-    <section class="pt-4 pb-10" aria-labelledby="kit-heading">
-        <div class="flex flex-wrap gap-2">
-            <twig:Badge variant="brand">Symfony UX Toolkit kit</twig:Badge>
-            <twig:Badge variant="gray">Flowbite 4</twig:Badge>
-            <twig:Badge variant="gray">Tailwind CSS 4</twig:Badge>
-            <twig:Badge variant="gray">Stimulus</twig:Badge>
-        </div>
-        <h1 id="kit-heading" class="mt-4 text-4xl font-bold tracking-tight text-heading sm:text-5xl">{{ kit.manifest.name }}</h1>
-        <p class="mt-4 max-w-3xl text-lg">{{ kit.manifest.description }}</p>
-        <div class="mt-6 flex flex-wrap gap-3">
-            <twig:Button as="a" href="#recipes" size="lg">Browse the recipes</twig:Button>
-            <twig:Button as="a" href="#install" variant="secondary" size="lg">Install</twig:Button>
-            <twig:Button as="a" href="{{ path('app_demo') }}" variant="tertiary" size="lg">Open the demo app</twig:Button>
-        </div>
-        <dl class="mt-8 grid max-w-3xl grid-cols-[repeat(2,minmax(0,1fr))] gap-4 sm:grid-cols-[repeat(4,minmax(0,1fr))]">
-            {% for stat in [
-                {value: (groups.component.recipes ?? [])|length, label: 'components'},
-                {value: (groups.block.recipes ?? [])|length, label: 'blocks'},
-                {value: example_total, label: 'live examples'},
-                {value: 2, label: 'themes, light and dark'},
-            ] %}
-                <div class="flex flex-col rounded-base border border-default bg-neutral-secondary-soft p-4">
-                    <dt class="text-sm">{{ stat.label }}</dt>
-                    <dd class="order-first text-2xl font-semibold text-heading">{{ stat.value }}</dd>
-                </div>
-            {% endfor %}
-        </dl>
-    </section>
-
-    <section class="border-t border-default py-10" aria-labelledby="why-heading">
+    <section class="pb-10" aria-labelledby="why-heading">
         <h2 id="why-heading" class="text-2xl font-semibold text-heading">What it gives you</h2>
         <ul class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {% for item in [
@@ -57,7 +62,7 @@
     <section id="install" class="scroll-mt-20 border-t border-default py-10" aria-labelledby="install-heading">
         <h2 id="install-heading" class="text-2xl font-semibold text-heading">Install</h2>
         <ol class="mt-6 grid gap-6 lg:grid-cols-2">
-            <li>
+            <li class="min-w-0">
                 <h3 class="font-semibold text-heading">1. Prepare the project, once</h3>
                 <p class="mt-1 text-sm">Then set up Tailwind CSS, Flowbite’s stylesheet and the <code>theme</code> recipe: <a href="{{ kit.manifest.homepage }}/blob/main/INSTALL.md" class="underline hover:text-heading">INSTALL.md</a>.</p>
                 <pre tabindex="0" class="mt-3 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading"><code>composer config extra.symfony.allow-contrib true
@@ -65,7 +70,7 @@ composer require symfony/twig-bundle symfony/ux-twig-component
 composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client
 composer require symfony/asset-mapper symfony/stimulus-bundle</code></pre>
             </li>
-            <li>
+            <li class="min-w-0">
                 <h3 class="font-semibold text-heading">2. Install the recipes you need</h3>
                 <p class="mt-1 text-sm">A recipe brings the recipes it depends on, then prints the packages to require. The <a href="{{ kit.manifest.homepage }}#install" class="underline hover:text-heading">README</a> has the details.</p>
                 <pre tabindex="0" class="mt-3 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading"><code>php bin/console ux:install button \
@@ -85,7 +90,8 @@ composer require symfony/asset-mapper symfony/stimulus-bundle</code></pre>
                         <li class="relative flex flex-col rounded-base border border-default p-4 hover:border-brand hover:bg-neutral-secondary-soft">
                             <a href="{{ path('app_recipe', {recipe: recipe.name}) }}" class="font-semibold text-heading after:absolute after:inset-0">{{ recipe.name }}</a>
                             {% if recipe.description %}
-                                <p class="mt-1 line-clamp-3 text-sm">{{ recipe.description }}</p>
+                                {#- Markdown from the README: its links as text, inside this card that is a link -#}
+                                <p class="mt-1 line-clamp-3 text-sm break-words">{{ recipe.description|inline_markdown(false) }}</p>
                             {% endif %}
                             <p class="mt-auto pt-3 text-xs">{{ example_counts[recipe.name] ?: 'No' }} live {{ 1 == example_counts[recipe.name] ? 'example' : 'examples' }}</p>
                         </li>

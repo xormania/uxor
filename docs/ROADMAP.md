@@ -1,7 +1,10 @@
-# Roadmap: rich components for flowbite-xor
+# Roadmap: rich components for UXor
 
 _2026-10-07. Decisions made with the user, item by item. Roadmap only: no code. Each package gets its own
 detailed plan before it is built._
+
+Each package's status is in the *Sequence* table: `shipped` means its recipes are in `docs/RECIPES.md`, and their
+READMEs describe how they behave now. This page and the `shipped` plans are records of the decisions, not instructions.
 
 ## Context
 
@@ -14,8 +17,11 @@ building **Turbo-driven apps** get rich UX from installed recipes with as little
 
 - **Third-party JS:** avoid it and prefer porting, case by case. Libraries that official Symfony UX packages
   already wrap are acceptable.
-- **Shadcn sources:** we build our own recipes from them. They are not byte-identical copies. Proposed, not yet confirmed: credit the source in the README or NOTICE.
-- **Kit PHP:** recipes may copy PHP into `src/` under `App\FlowbiteXor\…`. The research tested this at runtime on
+- **Shadcn sources:** we build our own recipes from them. They are not byte-identical copies. **Decided 2026-10-10:**
+  they are credited: `NOTICE` names shadcn/ui and the Symfony UX Toolkit shadcn kit, each derived recipe's README
+  (`popover`, `calendar`, `date-picker`) names the recipe it was built from, and so do the `calendar` and
+  `date-picker` controllers.
+- **Kit PHP:** recipes may copy PHP into `src/` under `App\UXor\…`. The research tested this at runtime on
   7.4.20 and 8.1.8 with Toolkit 3.5.1, and it passes lint and debug.
 - **Turbo gate (required for every package with behavior):**
   - Cache snapshot and Back.
@@ -23,19 +29,23 @@ building **Turbo-driven apps** get rich UX from installed recipes with as little
   - Inside a Turbo Frame, inside `data-turbo-permanent`, and under a Stream `replace` and `update`.
   - Plus the CSP spec, a11y `labPages` and a Live re-render where relevant.
 - One owner per region: Live or Turbo Frame/Stream, never both. Turbo 8 refresh morph is not supported.
+- **Shared code:** logic two recipes need lives once, in an assets-only recipe whose module the others import
+  (`floating`, `navigation`, `turbo`); `tools/js-duplication.mjs` keeps new copies out (CONTRIBUTING, *Shared code*).
 
 ## Sequence (confirmed)
 
-| # | Package | Decision |
-|---|---|---|
-| 1 | **D. Data table** | `data-table` (plain, Turbo Frame) plus `data-table-live`. Details below |
-| 2 | **B. Searchable choices** | **UX Autocomplete** (Tom Select) styled with our theme and form theme |
-| 3 | **C. Dates** | Our own `calendar`, `popover` and `date-picker` recipes from shadcn sources |
-| 4 | **E1. Charts** | **UX Chart.js** plus a theme bridge |
-| 5 | **E2. Files** | **UX Dropzone** styled, wired into the form theme |
-| 6 | **F. Rich editor** | **Tiptap** |
-| — | A. Conventions | Grows inside D and B. One CONTRIBUTING section after the second package |
-| — | Deferred | Cropper, Map, sortable lists, virtual grid, Uppy, FullCalendar, "select all matching" |
+| # | Package | Decision | Recipes | Status |
+|---|---|---|---|---|
+| 1 | **D. Data table** | `data-table` (plain, Turbo Frame) plus `data-table-live`. Details below | `data-table`, `data-table-live` | shipped |
+| 2 | **B. Searchable choices** | **UX Autocomplete** (Tom Select) styled with our theme and form theme | `autocomplete` | shipped |
+| 3 | **C. Dates** | Our own `calendar`, `popover` and `date-picker` recipes from shadcn sources | `calendar`, `popover`, `date-picker` | shipped |
+| 4 | **E1. Charts** | **UX Chart.js** plus a theme bridge | `chart` | shipped |
+| 5 | **E2. Files** | **UX Dropzone** styled, wired into the form theme | `dropzone` | shipped |
+| 6 | **F. Rich editor** | **Tiptap** | `editor`, `markdown-editor` | shipped |
+| — | Navigation | Added after this sequence, outside the roadmap's packages: a tree, the mobile drawer, the navbar's menus and section tabs, and the positioning `dropdown`, `popover` and `tooltip` share. Each recipe's README holds its decisions | `side-nav`, `mobile-nav`, `nav-menu`, `section-nav`, `floating` | shipped |
+| — | A. Conventions | Grows inside D and B. One CONTRIBUTING section after the second package | — | shipped |
+| — | Deferred | Cropper, Map, sortable lists, virtual grid, Uppy, FullCalendar, "select all matching" | — | open |
+| — | Docs pairing | A deterministic script replaces the `Docs-waiver:` trailers of `tools/readme-pairing.mjs`: it decides from the change itself whether a recipe's README must change. Not started | — | open |
 
 D and C can run in parallel because they touch different recipes.
 
@@ -47,7 +57,7 @@ D and C can run in parallel because they touch different recipes.
   - `data-table-live`: Live state, `url: true` (replaceState). Back leaves the page, and the URL restores the last
     state.
   - The README tells agents which to choose.
-- **Kit PHP** in `App\FlowbiteXor\DataTable\`: `AbstractDataTable`, `Column`, `TableQuery`, `TableResult` and a
+- **Kit PHP** in `App\UXor\DataTable\`: `AbstractDataTable`, `Column`, `TableQuery`, `TableResult` and a
   page-window helper, plus one shared template.
 - **App code per table:** one subclass in `App\Twig\Components\` with an explicit
   `#[AsLiveComponent(name, template)]`, `columns()` (label, sortable, field mapping) and
@@ -67,7 +77,7 @@ D and C can run in parallel because they touch different recipes.
   3. Live table: repeated visits away and back.
   4. Live table inside a Frame and inside `data-turbo-permanent`.
   5. A Stream `replace` and `update` on the table.
-  6. The `App\FlowbiteXor` subnamespace works at runtime.
+  6. The `App\UXor` subnamespace works at runtime.
 - **CI and docs:** PHP syntax checking plus PHPStan on kit PHP. The contract is written by hand in the README and in
   `docs/PROJECT-AGENTS-SNIPPET.md`.
 
@@ -93,7 +103,8 @@ D and C can run in parallel because they touch different recipes.
 - **`popover`:** a new recipe, separate from `dropdown`.
   - It behaves as a non-modal dialog: Escape and outside click close it, it has groups, and focus moves in and back.
   - Its positioning is copied from `dropdown_controller.js` (flip, shift, follow on scroll and resize).
-  - `dropdown` and `tooltip` are unchanged. A shared helper is deferred.
+  - `dropdown` and `tooltip` are unchanged. A shared helper is deferred. (Done since: the `floating` recipe, one
+    module that `dropdown`, `popover` and `tooltip` import; see its README.)
 - **Times:** native `<input type="time">`. Native `type="date"` keeps working.
 
 ## E1. Charts
@@ -122,4 +133,5 @@ D and C can run in parallel because they touch different recipes.
 
 ## Next step after approval
 
-Write the detailed implementation plan for D (data table).
+Write the detailed implementation plan for D (data table). (Done since: every package of the *Sequence* shipped
+in 0.2.0, each from its `docs/PLAN-*.md`.)

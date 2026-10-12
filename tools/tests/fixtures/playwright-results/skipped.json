@@ -1,0 +1,55 @@
+{
+  "config": {
+    "rootDir": "/runner/work/flowbite-xor/flowbite-xor",
+    "version": "1.58.2",
+    "shard": { "current": 1, "total": 3 },
+    "projects": [{ "id": "smoke", "name": "smoke" }, { "id": "examples", "name": "examples" }]
+  },
+  "suites": [
+    {
+      "title": "tests/e2e/theme-toggle.spec.ts",
+      "file": "tests/e2e/theme-toggle.spec.ts",
+      "line": 0,
+      "column": 0,
+      "specs": [
+        {
+          "title": "follows the system preference",
+          "ok": true,
+          "id": "fff-111",
+          "file": "tests/e2e/theme-toggle.spec.ts",
+          "line": 12,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "skipped",
+              "status": "skipped",
+              "annotations": [{ "type": "skip", "description": "needs a browser with prefers-color-scheme" }],
+              "results": [{ "retry": 0, "status": "skipped", "duration": 0, "errors": [] }]
+            }
+          ]
+        },
+        {
+          "title": "keeps the choice",
+          "ok": true,
+          "id": "fff-222",
+          "file": "tests/e2e/theme-toggle.spec.ts",
+          "line": 30,
+          "column": 1,
+          "tests": [
+            {
+              "projectId": "smoke",
+              "projectName": "smoke",
+              "expectedStatus": "passed",
+              "status": "expected",
+              "results": [{ "retry": 0, "status": "passed", "duration": 1100, "errors": [] }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": { "startTime": "2026-10-09T08:00:00.000Z", "duration": 3000, "expected": 1, "skipped": 1, "unexpected": 0, "flaky": 0 }
+}

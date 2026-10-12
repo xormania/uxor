@@ -1,0 +1,38 @@
+{%- set field = 'block w-full rounded-base border border-default-medium bg-neutral-secondary-medium px-3 py-2.5 text-sm text-heading' -%}
+<div {{ attributes.defaults({'data-testid': 'live-values'}) }}>
+    <p class="mb-4 text-sm text-heading">Server actions: <span data-testid="renders">{{ renders }}</span></p>
+    <div class="grid gap-6 lg:grid-cols-2">
+        {#- the fields of the matrix's GET form that have no POST counterpart there: a field of a Live Component is bound to a property, whatever form holds it -#}
+        <div data-vm-group="get" class="grid content-start gap-4">
+            <div class="flex items-center">
+                <input type="checkbox" id="live-agree" data-model="agree" class="size-4 rounded-xs border border-default-medium accent-brand"{{ agree ? ' checked' }}>
+                <label for="live-agree" class="ms-2 text-sm font-medium text-heading">Agree</label>
+            </div>
+            <twig:Calendar id="live-day" data-vm="day" label="Day" model="day" :selected="day" today="2026-03-15" month="2026-03-01" class="inline-block rounded-base border border-default" />
+        </div>
+        <div data-vm-group="post" class="grid content-start gap-4">
+            <div>
+                <label for="live-name" class="mb-2.5 block text-sm font-medium text-heading">Name</label>
+                <input type="text" id="live-name" data-model="name" value="{{ name }}" class="{{ field }}">
+            </div>
+            <div class="flex items-center">
+                <input type="checkbox" id="live-notify" data-model="notify" class="size-4 accent-brand"{{ notify ? ' checked' }}>
+                <label for="live-notify" class="ms-2 text-sm font-medium text-heading">Notify me</label>
+            </div>
+            {{ form_start(form, {attr: {'data-model': 'on(change)|*', novalidate: true}}) }}
+                {{ form_row(form.fruit) }}
+            {{ form_end(form, {render_rest: false}) }}
+            {{ include('lab/_value_matrix_date_picker.html.twig', {field_id: 'live-due', model: 'due', selected: due}) }}
+            <twig:FormField for="live-body" label="Body" :labelAttr="{id: 'live-body_label'}">
+                <twig:Editor id="live-body" name="body" labelledBy="live-body_label" :value="body" :reset="resets" model="on(change)|body" />
+            </twig:FormField>
+            {#- the dropzone's README: re-renders leave the zone alone -#}
+            <div data-live-ignore>
+                <twig:FormField for="live-file" label="Attachment">
+                    <twig:Dropzone id="live-file" name="file" />
+                </twig:FormField>
+            </div>
+        </div>
+    </div>
+    {{ include('lab/_value_matrix_ui.html.twig', {r: 'live'}) }}
+</div>

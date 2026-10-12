@@ -1,6 +1,8 @@
 {%- props
     ## boolean Whether this is the current page.
-    active = false
+    active = false,
+    ## string The page link; a URL other than relative, http(s), mailto or tel renders `#`.
+    href = '#'
 -%}
 <twig:Button
     as="a"
@@ -8,8 +10,8 @@
     shape="rounded"
     size="icon"
     aria-current="{{ active ? 'page' : 'false' }}"
-    href="#"
-    class="{{ active ? 'text-fg-brand bg-neutral-tertiary-medium' : '' }}"
+    :href="href"
+    class="{{ active ? 'text-fg-brand-strong bg-brand-softer' : '' }}"
     {{ ...attributes.without('class') }}
 >
     {##- The page number or navigation icon. -#}

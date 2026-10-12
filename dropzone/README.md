@@ -22,7 +22,7 @@ Then:
 2. Import the stylesheet after the kit's, in `assets/styles/app.css`:
 
    ```css
-   @import "./flowbite-xor-dropzone.css";
+   @import "./uxor-dropzone.css";
    ```
 
 3. Turn off UX Dropzone's own stylesheet in `assets/controllers.json`: this recipe's replaces it.
@@ -152,8 +152,11 @@ and the constraints refuse large files (each comes back as its field's error).
   any form.
 - Files never come back from the server: after a 422, or when a Turbo Stream replaces the field, the zone is empty
   and the user picks the files again. Say so next to the errors.
-- After Back, a zone for one file starts empty. A zone for several files lists what its input holds: Turbo's copy of
-  the page keeps the files in some browsers (Chromium), not in others.
+- After Back and Forward, a zone for one file in a POST form (any form but a GET one) shows the file picked, as the
+  form holds the user's work: the zone keeps it for Turbo's copy of the page, also the copy a frame visit promoted to
+  history takes as it starts (a data table's pages). Outside such a form it starts empty. A
+  zone for several files lists what its input holds: Turbo's copy of the page keeps the files in some browsers
+  (Chromium), not in others.
 - A zone inside a `data-turbo-permanent` element keeps its files across visits.
 
 ### In a Live Component
@@ -203,6 +206,10 @@ Dropzone's on the wrapper) or on an element around it:
 
 The markup has no `style` attribute and no inline handler. UX Dropzone shows and hides its parts through the CSSOM,
 which a policy allows, and shows an image preview as a `data:` URL: the policy's `img-src` needs `data:`.
+
+Whether a zone is inside a `data-turbo-permanent` element, and whether a `turbo:before-cache` comes from a frame visit
+promoted to history, are answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which
+`ux:install dropzone` installs with it.
 
 ## Examples
 
@@ -270,5 +277,5 @@ which a policy allows, and shows an image preview as a `data:` URL: the policy's
 
 ## Security
 
-`Dropzone` has no tag, URL or attribute-name prop. Its attributes render escaped, as the kit's README says
-(*Security*).
+`Dropzone` has no tag, URL or attribute-name prop. Its attributes render escaped, as the kit's guide says
+(`docs/GUIDE.md`, *Security*).

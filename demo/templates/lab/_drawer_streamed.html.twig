@@ -1,0 +1,14 @@
+<p data-testid="stream-action" class="mb-2 text-sm text-body">{{ action|default('initial') }}</p>
+<twig:Drawer id="streamed">
+    <twig:Drawer:Trigger>
+        <twig:Button variant="outline" {{ ...drawer_trigger_attrs }}>Streamed</twig:Button>
+    </twig:Drawer:Trigger>
+    <twig:Drawer:Content>
+        <twig:Drawer:Header>
+            <twig:Drawer:Title>Streamed</twig:Drawer:Title>
+        </twig:Drawer:Header>
+        <twig:Drawer:Body>
+            <p>Version {{ action|default('initial') }}.</p>
+        </twig:Drawer:Body>
+    </twig:Drawer:Content>
+</twig:Drawer>

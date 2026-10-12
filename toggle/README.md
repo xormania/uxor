@@ -20,6 +20,8 @@ Use the toggle component to switch between a binary state of true or false using
 </twig:Toggle>
 ```
 
+The knob slides (`translate`); under `prefers-reduced-motion` it moves at once.
+
 ## Examples
 
 ### Disabled

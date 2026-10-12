@@ -1,13 +1,13 @@
 name: CI
 
-# Every push to a branch runs CI (so a branch is green before its PR opens); pull_request runs only for forks,
-# whose pushes do not reach this repository, to avoid running everything twice. Tag pushes do not run it: release.yml
-# checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
+# Every push to a branch runs CI, so a branch is green before its PR opens; there is no pull_request trigger, whose
+# runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
+# push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
+# release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
 # (.github/dependabot.yml).
 on:
     push:
         branches: ['**']
-    pull_request:
     workflow_dispatch:
 
 permissions:
@@ -23,11 +23,156 @@ env:
     UX_TOOLKIT_VERSION: '3.5.1'
 
 jobs:
+    # Which jobs this change could affect (tools/ci-changes.sh): a job it cannot affect is skipped, and a skipped job
+    # passes the branch rulesets. Pushes to main and dev, a run by hand and a change to this workflow run everything. A
+    # branch is compared with where it left dev, so each push checks the whole pull request, not only its last commit
+    # (the rulesets require a branch to be up to date with its base before it merges, so that is the code that lands).
+    #
+    # A work order's own branch (claude/wo-<name>, not its jobs' claude/wo-<name>--<job>) runs nothing else while its pull
+    # request into dev is a draft or not open: each job ran CI on its own branch before it merged. CI result then fails,
+    # saying so, so a draft never shows a pass that tested nothing. Once the pull request is ready, re-run the work
+    # order's latest run (Re-run all jobs): a re-run keeps its push event, which the rulesets count, and reads the pull
+    # request's state again (CONTRIBUTING.md, *Work orders*).
+    changes:
+        name: Changes
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            contents: read
+            pull-requests: read # whether a work order's pull request into dev is a draft
+        outputs:
+            wo-draft: ${{ steps.jobs.outputs.wo-draft }}
+            lint-kit: ${{ steps.jobs.outputs.lint-kit }}
+            php: ${{ steps.jobs.outputs.php }}
+            static-site: ${{ steps.jobs.outputs.static-site }}
+            fresh-install: ${{ steps.jobs.outputs.fresh-install }}
+            contrast: ${{ steps.jobs.outputs.contrast }}
+            demo: ${{ steps.jobs.outputs.demo }}
+            workflows: ${{ steps.jobs.outputs.workflows }}
+            base: ${{ steps.jobs.outputs.base }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+
+            - name: The script's own cases
+              run: tools/tests/ci-changes.sh
+
+            - id: jobs
+              env:
+                  EVENT: ${{ github.event_name }}
+                  REF: ${{ github.ref }}
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: |
+                  # A work order's own branch while its pull request into dev is a draft or not open: nothing else runs
+                  branch=${REF#refs/heads/}
+                  if [ "$EVENT" = push ] && [[ "$branch" == claude/wo-* ]] && [[ "$branch" != claude/wo-*--* ]]; then
+                      state=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$branch&base=dev&state=open" \
+                          --jq 'if length == 0 then "not open" elif .[0].draft then "draft" else "ready" end')
+                      echo "Work order $branch: its pull request into dev is $state"
+                      if [ "$state" != ready ]; then
+                          echo "wo-draft=true" >> "$GITHUB_OUTPUT"
+                          for job in lint-kit php static-site fresh-install contrast demo workflows; do
+                              echo "$job=false" | tee -a "$GITHUB_OUTPUT"
+                          done
+                          exit 0
+                      fi
+                  fi
+                  # Where the branch left dev; none for main, dev or a run by hand. Computed here, in the workflow, not by a
+                  # script in the tree: a branch cannot choose the range it is checked against. Contrast reads the same
+                  # range (tools/readme-pairing.mjs --base).
+                  if [ "$EVENT" = push ] && [ "$REF" != refs/heads/main ] && [ "$REF" != refs/heads/dev ]; then
+                      base=$(git merge-base HEAD origin/dev 2>/dev/null || true)
+                  else
+                      base=
+                  fi
+                  echo "base=$base" >> "$GITHUB_OUTPUT"
+                  # The classifier runs as it is at the base, which the change cannot edit: a branch that changes
+                  # tools/ci-changes.sh is classified by the base's copy (which runs everything for that path), and a base
+                  # without the script runs everything.
+                  if [ -n "$base" ] && git show "$base:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
+                      echo "Changed since $base:"
+                      git diff --name-only --no-renames "$base" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
+                  else
+                      echo "Everything runs ($EVENT on $REF)"
+                      : > "$RUNNER_TEMP/jobs"
+                  fi
+                  # a job the base's classifier does not know (one this branch adds) runs
+                  for job in lint-kit php static-site fresh-install contrast demo workflows; do
+                      grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
+                  done
+                  tee -a "$GITHUB_OUTPUT" < "$RUNNER_TEMP/jobs"
+
+    # Every workflow's syntax, expressions, job graph, action inputs and reusable workflow calls, and the shell of its
+    # run steps (ShellCheck). It reads the workflows only: tools/ci-changes.sh also runs the jobs that run what a
+    # workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Both tools are release
+    # binaries pinned by version and SHA-256. Then release.yml's decision, as a dry run: tools/release-plan.sh's cases,
+    # and its plan for main as it is (the commit, the tag and the notes of each version; a wrong tag fails here).
+    workflows:
+        name: Workflows
+        needs: changes
+        if: needs.changes.outputs.workflows == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        env:
+            ACTIONLINT_VERSION: '1.7.12'
+            ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 # actionlint_1.7.12_linux_amd64.tar.gz
+            SHELLCHECK_VERSION: '0.11.0'
+            SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 # shellcheck-v0.11.0.linux.x86_64.tar.xz
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0 # the release dry run reads main's history and the tags
+
+            - name: Install actionlint and ShellCheck
+              working-directory: ${{ runner.temp }}
+              run: |
+                  curl -fsSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+                  curl -fsSLo shellcheck.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+                  printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz | sha256sum --check --strict
+                  mkdir bin
+                  tar -xzf actionlint.tar.gz -C bin actionlint
+                  tar -xJf shellcheck.tar.xz -C bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+
+            # the runner's own ShellCheck and Python are not used: only the pinned tools decide
+            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
+            - name: actionlint
+              id: actionlint
+              run: |
+                  set -o pipefail
+                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-actionlint.log"
+
+            - name: The release plan's own cases
+              id: release-plan
+              run: |
+                  set -o pipefail
+                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-release-plan.log"
+
+            # what release.yml would tag and publish from main, with this commit's script; it creates nothing
+            - name: Release dry run on main
+              id: dry-run
+              run: |
+                  set -o pipefail
+                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-dry-run.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Workflows
+
     lint-kit:
         name: Lint kit
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        needs: changes
+        if: needs.changes.outputs.lint-kit == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -52,25 +197,151 @@ jobs:
                   mkdir "$RUNNER_TEMP/kit"
                   git archive HEAD | tar -x -C "$RUNNER_TEMP/kit"
                   echo "Exported:" && ls -A "$RUNNER_TEMP/kit"
-                  for path in demo docs tests tools .github package.json package-lock.json playwright.config.ts alert/tests; do
+                  for path in demo docs tests tools .github .xorder package.json package-lock.json playwright.config.ts alert/tests; do
                       if [ -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is not export-ignored"; exit 1; fi
                   done
 
+            # (its output also goes to $RUNNER_TEMP/jev-lint.log, for the Jev step)
             - name: Lint
+              id: lint
               run: |
-                  "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit"
+                  set -o pipefail
+                  "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit" 2>&1 | tee "$RUNNER_TEMP/jev-lint.log"
 
             - name: Debug (what the toolkit sees in the repository)
               run: |
                   "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-debug" "$GITHUB_WORKSPACE"
 
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Lint kit
+
+    # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
+    # an artifact with every job that installs the demo: the browser shards, Kit PHP and the static site. AssetMapper
+    # skips a package whose file and installed.php entry are already there, so their own install downloads nothing.
+    # A CDN error is retried here, twice, before the run fails: one bad connection no longer fails a shard before any
+    # test runs. The fresh-install jobs still download for themselves: that is what they check.
+    # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
+    # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
+    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Node's JUnit report, beside
+    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. The repository
+    # security policy then reads the workflows, executable sinks, tracked paths and ownership controls. Then the name
+    # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
+    tools:
+        name: Tool tests
+        runs-on: ubuntu-latest
+        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              with:
+                  node-version: 22
+
+            - name: The tools' own cases
+              id: cases
+              run: >-
+                  node --test --test-reporter=tap --test-reporter-destination=stdout
+                  --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
+                  'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
+            # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: ${{ failure() && steps.cases.outcome == 'failure' }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  junit: ${{ runner.temp }}/node-tests.xml
+                  junit-project: node
+                  job: Tool tests
+
+            - name: Repository security policy
+              run: node tools/security-policy.mjs
+
+            - name: Every URL of the kit's repository is manifest.json's homepage
+              run: node tools/name-check.mjs
+
+    importmap:
+        name: Importmap packages
+        needs: changes
+        if: needs.changes.outputs.demo == 'true' || needs.changes.outputs.php == 'true' || needs.changes.outputs.static-site == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  extensions: intl # the calendar formats dates with twig/intl-extra
+                  tools: composer:v2
+                  coverage: none
+
+            # without the auto-scripts, whose importmap:install would download once, unretried
+            # (its output, and the download's, also go to $RUNNER_TEMP/jev-<id>.log, for the Jev step)
+            - name: Install the demo's dependencies
+              id: deps
+              working-directory: demo
+              run: |
+                  set -o pipefail
+                  composer install --no-interaction --no-progress --no-scripts 2>&1 | tee "$RUNNER_TEMP/jev-deps.log"
+
+            - name: Download the importmap packages (3 attempts)
+              id: download
+              working-directory: demo
+              run: |
+                  set -o pipefail
+                  {
+                      for attempt in 1 2 3; do
+                          if bin/console importmap:install; then
+                              exit 0
+                          fi
+                          if [ "$attempt" -lt 3 ]; then
+                              echo "::warning::importmap:install failed (attempt $attempt of 3); retrying in $((attempt * 20)) s"
+                              sleep $((attempt * 20))
+                          fi
+                      done
+                      echo "::error::importmap:install failed 3 times: the CDN did not answer"
+                      exit 1
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-download.log"
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              with:
+                  name: importmap-packages
+                  path: demo/assets/vendor/
+                  if-no-files-found: error
+                  retention-days: 1
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Importmap packages
+
     php:
         name: Kit PHP
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        needs: [changes, importmap]
+        if: needs.changes.outputs.php == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         env:
             PHPSTAN_VERSION: '2.3.0'
+            PHPSTAN_SYMFONY_VERSION: '2.1.0'
+            PHPSTAN_PHPUNIT_VERSION: '2.1.1'
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -88,35 +359,76 @@ jobs:
                       if [ -d "${manifest%/manifest.json}/src" ]; then echo "${manifest%/manifest.json}/src"; fi
                   done > "$RUNNER_TEMP/php-dirs"
                   cat "$RUNNER_TEMP/php-dirs"
+                  # shellcheck disable=SC2046 # one directory per line, none with a space
                   find $(cat "$RUNNER_TEMP/php-dirs") -name '*.php' -print0 | xargs -0 -n1 php -l
 
-            # PHPStan reads the classes the kit's PHP uses (Symfony) from the demo's dependencies, and also checks the
-            # demo's table built on it; it is installed in a scratch directory so the demo's lock file stays as is.
-            - name: Install the demo's dependencies and PHPStan
-              run: |
-                  (cd demo && composer install --no-interaction --no-progress --no-scripts)
-                  mkdir "$RUNNER_TEMP/phpstan" && cd "$RUNNER_TEMP/phpstan"
-                  composer require --no-interaction --no-progress "phpstan/phpstan:${PHPSTAN_VERSION}"
+            # the run's importmap packages (job importmap): the install below downloads none
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: importmap-packages
+                  path: demo/assets/vendor
 
-            # The demo's autoloader maps App\FlowbiteXor\… to the recipes' own src/ (demo/composer.json).
+            # The tests render the recipes' templates as the demo has them, and its pages with their CSS
+            - name: Install the demo
+              run: |
+                  php tools/sync-demo
+                  (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+
+            # demo/tests: the data tables' limits (the deepest page, the loader calls, the selection), the Live table
+            # through real Live requests, components rendered against their snapshots, the loader calls of one
+            # request read from its profile, the editor's HTML policy and the Markdown renderer given hostile input, and
+            # the extension contracts of the data table and the editors' form types.
+            # A missing snapshot fails here instead of being written.
+            - name: PHPUnit
+              id: phpunit
+              working-directory: demo
+              env:
+                  CREATE_SNAPSHOTS: 'false'
+              run: bin/phpunit --log-junit "$RUNNER_TEMP/phpunit.xml"
+
+            # Advisory diagnosis of each failed PHPUnit test by Jev (TypeSafe), as for the browser tests: the JUnit report
+            # becomes the same failed-attempts.json (tools/ci/junit-attempts.mjs), with the test log as the server log. It
+            # never changes the verdict (continue-on-error, and it exits 0 without the key or when the provider fails).
+            - name: Jev diagnosis (advisory)
+              if: ${{ failure() && steps.phpunit.outcome == 'failure' }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  junit: ${{ runner.temp }}/phpunit.xml
+                  server-log: demo/var/log/test.log
+                  job: Kit PHP
+                  dir: ${{ runner.temp }}/jev-phpunit
+                  artifact: jev-phpunit-${{ github.run_id }}-${{ github.run_attempt }}
+
+            # PHPStan reads the classes the kit's PHP uses (Symfony) from the demo's dependencies, and also checks the
+            # demo's tables and tests; it is installed in a scratch directory with its Symfony and PHPUnit extensions
+            # (tools/phpstan.neon), whose Symfony one reads the demo's test container.
+            - name: Install PHPStan
+              working-directory: ${{ runner.temp }}
+              run: |
+                  mkdir phpstan && cd phpstan
+                  composer require --no-interaction --no-progress "phpstan/phpstan:${PHPSTAN_VERSION}" \
+                      "phpstan/phpstan-symfony:${PHPSTAN_SYMFONY_VERSION}" "phpstan/phpstan-phpunit:${PHPSTAN_PHPUNIT_VERSION}"
+
+            # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).
             - name: PHPStan
               run: |
-                  "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --level=8 \
-                      --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo
-
-            # What a request can make the data tables do: the deepest page, the loader calls, the selection's size
-            - name: Data table limits
-              run: php tools/tests/data-table.php
+                  (cd demo && bin/console cache:warmup --env=test)
+                  # shellcheck disable=SC2046 # one directory per line, none with a space
+                  "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --configuration=tools/phpstan.neon \
+                      --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo demo/tests
 
     static-site:
         name: Static site
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        needs: [changes, importmap]
+        if: needs.changes.outputs.static-site == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 15
+        timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         # The GitHub Pages copy (pages.yml) is built only on release: this builds it on every push, so a page that does
-        # not render fails here instead of after the tag. Same steps as pages.yml, without the upload.
-        env:
-            APP_DEBUG: '0'
+        # not render fails here instead of after the tag. The same build as pages.yml (tools/build-static.sh, with its
+        # checks), without release metadata or the upload.
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -127,40 +439,36 @@ jobs:
                   tools: composer
                   coverage: none
 
-            - name: Copy the recipes into the demo
-              run: php tools/sync-demo
+            # the run's importmap packages (job importmap): the build's install downloads none
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: importmap-packages
+                  path: demo/assets/vendor
 
-            - name: Install the demo
-              working-directory: demo
-              run: composer install --no-interaction --no-progress
-
-            - name: Build the CSS and compile the assets
-              working-directory: demo
+            # (its output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
+            - name: Build and check the static site
+              id: build
               run: |
-                  bin/console tailwind:build --minify
-                  bin/console asset-map:compile
+                  set -o pipefail
+                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
 
-            # app:export-static fails on any page that does not answer 200
-            - name: Save the pages
-              working-directory: demo
-              run: bin/console app:export-static ../_site --base-path=/flowbite-xor --commit="$(git rev-parse --short HEAD)"
-
-            - name: The previews' own links and forms reach saved pages
-              run: |
-                  if grep -rlE '/preview/[a-z0-9-]+/[a-z0-9-]+/(light|dark)/&' _site; then
-                      echo "::error::a preview link lost its '?' when the export moved the theme into the path"
-                      exit 1
-                  fi
-                  if grep -rlE 'action="[^"]*/preview/[a-z0-9-]+/[a-z0-9-]+"' _site; then
-                      echo "::error::a preview form submits to a path without the theme: no file answers it"
-                      exit 1
-                  fi
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Static site
 
     fresh-install:
         name: Fresh install
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        needs: changes
+        if: needs.changes.outputs.fresh-install == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -172,32 +480,65 @@ jobs:
                   coverage: none
 
             # a fresh Symfony skeleton, set up as README.md says: `ux:install` of a page block and a form block works
+            # (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
             - name: ux:install dashboard-home on a fresh Symfony skeleton
-              run: tools/tests/fresh-install.sh
+              id: install
+              run: |
+                  set -o pipefail
+                  tools/tests/fresh-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Fresh install
 
     docker-install:
         name: Fresh install (Symfony Docker, from GitHub)
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        needs: changes
+        if: needs.changes.outputs.fresh-install == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 20
+        timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             # the kit as users get it: GitHub's archive of this commit, installed in a fresh Symfony Docker project on
-            # the latest Symfony
+            # the latest Symfony (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
             - name: ux:install from GitHub in a fresh Symfony Docker project
+              id: install
               env:
-                  KIT_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-                  KIT_REF: ${{ github.event.pull_request.head.sha || github.sha }}
-              run: tools/tests/docker-install.sh
+                  KIT_REPOSITORY: ${{ github.repository }}
+                  KIT_REF: ${{ github.sha }}
+              run: |
+                  set -o pipefail
+                  tools/tests/docker-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Fresh install (Symfony Docker, from GitHub)
 
     contrast:
         name: Contrast
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        needs: changes
+        if: needs.changes.outputs.contrast == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 10
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0 # the README pairing reads the branch's commits since its base
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
               with:
@@ -206,32 +547,120 @@ jobs:
 
             - run: npm ci
 
+            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: Token contrast (tools/contrast/pairs.json, both themes)
-              run: node tools/contrast/check.mjs
+              id: tokens
+              run: |
+                  set -o pipefail
+                  node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-tokens.log"
 
             - name: The theme recipe ships kit.css unchanged
-              run: cmp kit.css theme/assets/styles/flowbite-xor.css
+              id: theme-css
+              run: |
+                  set -o pipefail
+                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-theme-css.log"
 
-            - name: llms.txt matches README.md's recipe tables
-              run: node tools/llms-txt.mjs --check
+            - name: llms.txt matches docs/RECIPES.md's recipe tables
+              id: llms
+              run: |
+                  set -o pipefail
+                  node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-llms.log"
+
+            - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
+              id: docs-lint
+              run: |
+                  set -o pipefail
+                  node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-docs-lint.log"
+
+            - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
+              id: icons
+              run: |
+                  set -o pipefail
+                  node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-icons.log"
+
+            - name: Every README example is one the demo reads
+              id: fences
+              run: |
+                  set -o pipefail
+                  node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-fences.log"
+
+            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
+              id: inventory
+              run: |
+                  set -o pipefail
+                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-inventory.log"
+
+            - name: Each recipe README renders its manifest's dependencies and writes no version table
+              id: readme-versions
+              run: |
+                  set -o pipefail
+                  node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-readme-versions.log"
+
+            # The Changes job's base: none for main, dev or a run by hand, which compares nothing
+            - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
+              id: readme-pairing
+              env:
+                  BASE: ${{ needs.changes.outputs.base }}
+              run: |
+                  set -o pipefail
+                  node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-readme-pairing.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  steps: ${{ toJSON(steps) }}
+                  job: Contrast
 
     demo:
-        name: Demo + Playwright (${{ matrix.shard }}/3)
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
+        needs: [changes, importmap]
+        if: needs.changes.outputs.demo == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 25
-        # the browser suite is most of CI's time: three shards, each with its own demo and browser (shard 1 writes the
-        # image cache the others read)
+        permissions:
+            contents: read
+            packages: write # the demo image's build cache (ghcr.io/<owner>/<repo>-cache), written by Chromium's shard 1
+        # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
+        # must never be what times the job out
+        timeout-minutes: 28
+        # the browser suite is most of CI's time: four shards for Chromium, three for Firefox and WebKit, each with its own
+        # demo and browser (Chromium's shard 1 writes the image cache the others read). Chromium runs every test, the
+        # screenshots included, so it has the extra shard; Firefox and WebKit run every behavior test, without the
+        # @screenshot ones (playwright.config.ts, browserProjects()), in jobs of their own beside Chromium's:
+        # docs/TESTING.md, *Browsers*
         env:
             XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
         strategy:
             fail-fast: false
             matrix:
-                shard: [1, 2, 3]
+                browser: [chromium, firefox, webkit]
+                shard: [1, 2, 3, 4]
+                # shard 4 is Chromium's only
+                exclude:
+                    - browser: firefox
+                      shard: 4
+                    - browser: webkit
+                      shard: 4
+                # each browser's shard count and two projects (smoke and examples)
+                include:
+                    - browser: chromium
+                      shards: 4
+                      projects: --project=smoke --project=examples
+                    - browser: firefox
+                      shards: 3
+                      projects: --project=smoke-firefox --project=examples-firefox
+                    - browser: webkit
+                      shards: 3
+                      projects: --project=smoke-webkit --project=examples-webkit
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
             - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              id: node # its cache-hit output, for the job's metrics
               with:
                   node-version: 22
                   cache: npm
@@ -239,7 +668,31 @@ jobs:
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+            # The demo image's build cache is an image in this repository's GitHub packages
+            # (ghcr.io/<owner>/<repo>-cache:<branch>), not the GitHub Actions cache: a push run reads Actions caches only
+            # from its own branch and main, so a new branch rebuilt from main's stale cache (~100 s instead of ~17 s);
+            # every branch reads the registry's dev and main tags. Only CI writes it (Chromium's shard 1, below); the
+            # package holds the public demo's layers and nothing else: docs/TESTING.md, *CI metrics*
+            - name: Name the build cache
+              id: cache
+              env:
+                  REPO: ${{ github.repository }}
+                  BRANCH: ${{ github.ref_name }}
+              run: |
+                  image="ghcr.io/${REPO,,}-cache"
+                  tag=$(printf '%s' "$BRANCH" | tr -c 'A-Za-z0-9_.-' '-' | cut -c1-120)
+                  echo "image=$image" >> "$GITHUB_OUTPUT"
+                  echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+            - name: Log in to the build cache's registry
+              if: matrix.browser == 'chromium' && matrix.shard == 1
+              continue-on-error: true # no login: the build still runs, it only does not write the cache
+              env:
+                  TOKEN: ${{ github.token }}
+              run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
             - name: Build the demo image
+              id: image
               uses: docker/bake-action@018cb6412ab401ebaa809aa5f85966b74628600f # v7.4.0
               with:
                   source: ./demo                # bake's working directory: compose files and build context in demo/
@@ -249,23 +702,46 @@ jobs:
                   load: true
                   pull: true
                   set: |
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ steps.cache.outputs.tag }}
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
+                      *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
-                      ${{ matrix.shard == 1 && format('*.cache-to=type=gha,scope=demo-{0},mode=max', github.ref) || '' }}
+                      ${{ matrix.browser == 'chromium' && matrix.shard == 1 && format('*.cache-to=type=registry,ref={0}:{1},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true', steps.cache.outputs.image, steps.cache.outputs.tag) || '' }}
+
+            # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
+            # install downloaded none
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              with:
+                  name: importmap-packages
+                  path: demo/assets/vendor
+
+            - name: Record the importmap packages
+              run: (cd demo/assets/vendor && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$RUNNER_TEMP/importmap.sha256"
 
             - name: Start the demo (composer install on first start)
+              id: start
               working-directory: demo
               run: docker compose up --wait --no-build
 
+            # composer install's importmap:install found every package there: the files are the ones downloaded once
+            # for the run, and none was added
+            - name: The demo's install downloaded no importmap package
+              run: |
+                  diff "$RUNNER_TEMP/importmap.sha256" <(cd demo/assets/vendor && find . -type f -print0 | sort -z | xargs -0 sha256sum) \
+                      || { echo "::error::the demo's install changed demo/assets/vendor: it did not use the run's importmap packages"; exit 1; }
+
             - name: Sync recipes into the demo
+              id: sync
               working-directory: demo
               run: docker compose exec -T php php ../tools/sync-demo
 
             # The copies sync-demo writes are gitignored (demo/.gitignore), so this cannot compare them with anything: it
             # checks that the sync and the demo's start left every tracked file alone. tools/tests/sync-demo.sh below
-            # checks that the copies are what ux:install writes. Deterministic checks run on one shard only.
+            # checks that the copies are what ux:install writes. Deterministic checks run on one shard only (Chromium's 1).
             - name: The sync leaves tracked files unchanged
-              if: matrix.shard == 1
+              id: tracked
+              if: matrix.browser == 'chromium' && matrix.shard == 1
               run: |
                   if [ -n "$(git status --porcelain)" ]; then
                       git status --porcelain
@@ -273,54 +749,275 @@ jobs:
                       exit 1
                   fi
 
-            # The CSS is built by playwright.config.ts, which records what it was built from: no build here
             - name: The demo's composer.json and composer.lock are valid
-              if: matrix.shard == 1
+              id: composer
+              if: matrix.browser == 'chromium' && matrix.shard == 1
               working-directory: demo
               run: docker compose exec -T php composer validate --no-check-publish --strict   # also fails on a stale composer.lock
 
             - name: sync-demo copies what ux:install copies
-              if: matrix.shard == 1
+              id: sync-parity
+              if: matrix.browser == 'chromium' && matrix.shard == 1
               working-directory: demo
               run: docker compose exec -T php bash ../tools/tests/sync-demo.sh
 
             # The browser runs in upstream's Playwright image (see playwright.config.ts), so the
-            # screenshots compare with the baselines copied from symfony/ux.
+            # screenshots compare with the baselines copied from symfony/ux. The image holds the three browsers; the tests
+            # launch only the job's own. Each part's seconds go to the job's metrics.
             - name: Install Playwright
+              id: install
               run: |
+                  start=$SECONDS
                   npm ci
-                  docker pull "mcr.microsoft.com/playwright:v$(node -p "require('@playwright/test/package.json').version")-noble"
+                  echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  start=$SECONDS
+                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
+                  image=$(node tools/playwright-image.mjs)
+                  docker pull "$image"
+                  echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
 
-            - name: Playwright (smoke + every README example + upstream recipe specs)
+            # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
+            # (tools/prepare-tests.mjs): Playwright finds both up to date, and a failed build reads as a setup failure
+            - name: Prepare the tests
+              id: prepare
               env:
                   DEMO_URL: https://localhost
-              run: npx playwright test --shard=${{ matrix.shard }}/3
+              run: node tools/prepare-tests.mjs
 
-            # Every shard keeps its results (each test's attempts, durations and outcome: passed, failed, flaky), green
-            # or red, so a test that failed once and passed on its retry leaves a record
+            # The shard's tests, split by recorded test time instead of Playwright's count split (tools/ci/shard-plan.mjs,
+            # tests/shard-timings.json): every shard lists the job's tests with the same projects and filters as the run
+            # below, computes the same plan (longest first to the least loaded shard), and runs its own list
+            # (--test-list), after checking that Playwright selects exactly its planned tests. Missing or stale timings
+            # (under half the listed tests timed) fall back to --shard=N/M in every shard alike. A list that cannot be
+            # read, or a plan that would drop or repeat a test, fails here: a shard never runs a guess.
+            # docs/TESTING.md, *Shard balance*
+            - name: Plan the shard's tests
+              id: plan
+              env:
+                  DEMO_URL: https://localhost
+                  PLAN_DIR: ${{ runner.temp }}/shard-plan
+              # --list also prints every test: kept in a file, shown when the listing fails
+              run: |
+                  mkdir -p "$PLAN_DIR"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                      > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
+                  node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings tests/shard-timings.json \
+                      --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
+                  mkdir -p playwright-results
+                  cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
+                  if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} --grep-invert @release \
+                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
+                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
+                  fi
+
+            # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
+            # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks (@release) run in
+            # release-checks.yml, not here
+            - name: Playwright (smoke + every README example + upstream recipe specs)
+              id: tests
+              env:
+                  DEMO_URL: https://localhost
+              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2 --grep-invert @release
+
+            # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
+            # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and
+            # the durations (report-only, no threshold), on the job's summary page and as annotations at the failing
+            # lines. It never turns a red run green: Playwright's exit status is the verdict. It fails when there is no
+            # evidence to read: a step before the tests failed ("tests not reached: setup failed at <step>"), or the
+            # report is missing or invalid (never a pass with zero tests).
             - name: Read the results
               id: results
               if: ${{ !cancelled() }}
-              run: node -e "const {stats} = require('./playwright-results/results.json'); console.log(stats); require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'flaky=' + stats.flaky + '\n')"
+              env:
+                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+                  BROWSER: ${{ matrix.browser }}
+                  RESULTS_ARTIFACT: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
+                  REPORT_ARTIFACT: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+                  DEMO_STARTED: ${{ steps.start.outcome }}
+                  TESTS_OUTCOME: ${{ steps.tests.outcome }}
+                  SETUP_STEPS: |
+                      Build the demo image=${{ steps.image.outcome }}
+                      Start the demo=${{ steps.start.outcome }}
+                      Sync recipes into the demo=${{ steps.sync.outcome }}
+                      The sync leaves tracked files unchanged=${{ steps.tracked.outcome }}
+                      The demo's composer.json and composer.lock are valid=${{ steps.composer.outcome }}
+                      sync-demo copies what ux:install copies=${{ steps.sync-parity.outcome }}
+                      Install Playwright=${{ steps.install.outcome }}
+                      Prepare the tests=${{ steps.prepare.outcome }}
+                      Plan the shard's tests=${{ steps.plan.outcome }}
+              run: |
+                  if [ "$DEMO_STARTED" = success ]; then
+                      # the PHP snippet is single-quoted on purpose: its $m is PHP's, not the shell's
+                      # shellcheck disable=SC2016
+                      RUNTIME=$(cd demo && timeout 60 docker compose exec -T php php -r 'require "vendor/autoload.php"; $m = require "importmap.php";
+                          echo "PHP=", PHP_VERSION, "\nSymfony=", Symfony\Component\HttpKernel\Kernel::VERSION, "\nTurbo=", $m["@hotwired/turbo"]["version"] ?? "", "\n";') || true
+                      export RUNTIME
+                  fi
+                  node tools/ci/playwright-summary.mjs playwright-results/results.json
 
+            # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs job), report only: the demo image's
+            # build records (cached of total steps: did the GitHub Actions cache serve the build), the npm cache hit and
+            # the seconds of npm ci and of the Playwright image's pull, in job-metrics.json next to the results. CI
+            # result gathers every shard's with their durations.json. It never fails the job.
+            - name: Record the job's metrics (advisory)
+              if: ${{ !cancelled() }}
+              continue-on-error: true
+              timeout-minutes: 1
+              env:
+                  BROWSER: ${{ matrix.browser }}
+                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+                  NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
+                  NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
+                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.image-pull-seconds }}
+              run: |
+                  timeout 30 docker buildx history ls --format json > "$RUNNER_TEMP/buildx-history.jsonl" || true
+                  node tools/ci/ci-metrics.mjs job --buildx "$RUNNER_TEMP/buildx-history.jsonl" --out playwright-results/job-metrics.json
+
+            # Every shard keeps its results, green or red: results.json (each test's attempts, durations and outcome:
+            # passed, failed, flaky), failed-attempts.json (every failed attempt, retry-recovered ones included),
+            # durations.json (wall time, summed test time, slowest tests, per-file totals: report-only, to compare runs),
+            # job-metrics.json (the build cache and setup times above), shard-plan.json (how the shard's tests were
+            # chosen, and every shard's planned tests and time) and summary.md, so a test that failed once and passed on its retry leaves a record
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ !cancelled() }}
               with:
-                  name: playwright-results-${{ matrix.shard }}
+                  name: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
                   path: playwright-results/
                   retention-days: 30
 
+            # the end of the server log here, after the test results; the whole log in test-results/ (uploaded below)
             - name: Demo logs
               if: failure()
               working-directory: demo
-              run: docker compose logs php
+              run: |
+                  mkdir -p ../test-results
+                  docker compose logs php > ../test-results/demo-php.log
+                  tail -n 300 ../test-results/demo-php.log
 
             # the full report and the traces of failed attempts: on a failure, or a test that passed only on its retry
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
               with:
-                  name: playwright-report-${{ matrix.shard }}
+                  name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
                   path: |
                       playwright-report/
                       test-results/
                   retention-days: 7
+
+            # Advisory diagnosis of each failed attempt, retry-recovered ones included, by Jev (TypeSafe):
+            # tools/ci/jev-diagnosis.mjs sends each attempt's sanitized error and the server log lines of its time span,
+            # and shows the likely cause and the excerpt it selects as a warning; one assessment.json per failed attempt
+            # and the summary are kept like the results, 30 days (.github/actions/jev-diagnosis). It never changes the
+            # verdict: it may fail or time out (continue-on-error), it exits 0 when the key is missing or the provider
+            # fails, and it runs after the tests. The key is given to this step only.
+            - name: Jev diagnosis (advisory)
+              if: ${{ always() && (steps.results.outputs.failed > 0 || steps.results.outputs.flaky > 0) }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
+                  attempts: playwright-results/failed-attempts.json
+                  compose-logs: demo
+                  shard: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
+                  dir: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
+                  artifact: jev-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+            # Last, so the end of the job log names what failed (after the demo's logs): the summary written above
+            - name: Playwright summary
+              if: ${{ !cancelled() }}
+              run: |
+                  cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
+
+    # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
+    # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
+    # pull request pending forever; this passes when every job passed or was skipped as unaffected.
+    result:
+        name: CI result
+        if: always()
+        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, contrast, workflows, demo]
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            contents: read
+            actions: read # the run's jobs and their step times, for the CI metrics below
+        steps:
+            # success and skipped (a lane the change cannot affect) pass; failure and cancelled do not: a cancelled job
+            # checked nothing
+            - name: Every job passed or was skipped
+              env:
+                  NEEDS: ${{ toJSON(needs) }}
+                  WO_DRAFT: ${{ needs.changes.outputs.wo-draft }}
+              run: |
+                  if [ "$WO_DRAFT" = true ]; then
+                      echo "::error::work order draft: CI ran no tests. Mark its pull request into dev ready, then re-run this run (Re-run all jobs)"
+                      exit 1
+                  fi
+                  echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+                  failed=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped")
+                      | "\(.key) ended with \(.value.result)" + (if .value.result == "cancelled" then " (a cancelled job is not a pass)" else "" end)')
+                  if [ -n "$failed" ]; then
+                      while IFS= read -r line; do echo "::error::$line"; done <<< "$failed"
+                      exit 1
+                  fi
+                  echo "Every job passed or was skipped as unaffected by the change"
+
+            # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after the verdict and
+            # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
+            # every job's queue and step times from GitHub's API, in one summary (the shard balance per browser, each
+            # shard's setup, tests and worker use, the run's slowest tests and files, the retried tests, the browser jobs'
+            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*. With them,
+            # shard-timings.json: tests/shard-timings.json refreshed from this run's durations (tools/ci/shard-plan.mjs
+            # timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard balance*
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: ${{ always() }}
+              continue-on-error: true
+              with:
+                  sparse-checkout: |
+                      tools/ci
+                      tests
+
+            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+              if: ${{ always() }}
+              continue-on-error: true
+              with:
+                  node-version: 22
+
+            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+              if: ${{ always() && needs.demo.result != 'skipped' }}
+              continue-on-error: true
+              with:
+                  pattern: playwright-results-*
+                  path: ${{ runner.temp }}/shards
+
+            - name: CI metrics (advisory)
+              if: ${{ always() }}
+              continue-on-error: true
+              timeout-minutes: 2
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  RUN_ID: ${{ github.run_id }}
+                  RUN_ATTEMPT: ${{ github.run_attempt }}
+              run: |
+                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' \
+                      > "$RUNNER_TEMP/jobs.jsonl" || echo "::warning::CI metrics: the run's jobs could not be listed"
+                  node tools/ci/ci-metrics.mjs run --shards "$RUNNER_TEMP/shards" --jobs "$RUNNER_TEMP/jobs.jsonl" --out "$RUNNER_TEMP/ci-metrics"
+
+            - name: Shard timings (advisory)
+              if: ${{ always() }}
+              continue-on-error: true
+              timeout-minutes: 1
+              run: |
+                  node tools/ci/shard-plan.mjs timings --shards "$RUNNER_TEMP/shards" --previous tests/shard-timings.json \
+                      --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: ${{ always() }}
+              continue-on-error: true
+              with:
+                  name: ci-metrics-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/ci-metrics/
+                  if-no-files-found: warn
+                  retention-days: 90

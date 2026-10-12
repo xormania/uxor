@@ -8,24 +8,33 @@ import { test, expect } from './fixtures';
  * The props that shape markup, given hostile values: `bin/console app:hostile-props`
  * (demo/src/Command/HostilePropsCommand.php) renders the components through the demo's Twig, and the browser
  * parses each rendering. No value may add an element or an event handler, `as` renders only the tags a component
- * accepts, and a link prop keeps a relative, http(s), mailto or tel URL, any other rendering `#` (README, Security).
+ * accepts, a link prop keeps a relative, http(s), mailto or tel URL, any other rendering `#`, and no component renders
+ * an attribute named `on…` (docs/GUIDE.md, Security).
+ * The server-only rules behind the Editor and the MarkdownEditor (what EditorHtmlPolicy and MarkdownRenderer return)
+ * are PHPUnit tests: demo/tests/Editor/EditorHtmlPolicyTest.php, demo/tests/MarkdownEditor/MarkdownRendererTest.php.
  */
 type TagCase = { component: string; input: string; expected: string; html: string };
 type UrlCase = { component: string; prop: string; link: string; input: string; text: string; hostile: boolean; html: string };
+type ImageCase = { component: string; prop: string; input: string; text: string; html: string };
+type HandlerCase = { component: string; set: number; bag: boolean; html: string };
+type LegitCase = { component: string; expected: Record<string, string>; html: string };
 type Cases = {
     tags: TagCase[];
     attributes: { expected: Record<string, string>; absent: string[]; html: string };
     urls: UrlCase[];
+    images: ImageCase[];
+    handlers: { cases: HandlerCase[]; legit: LegitCase[] };
     calendar: { html: string };
     chart: { html: string };
-    editor: { policy: { input: string; once: string; twice: string }[]; html: string };
-    markdown: { renderer: { input: string; html: string }[]; expansion: { characters: number; kept: number; complete: boolean }; html: string };
+    editor: { html: string };
+    markdown: { html: string };
     sidebar: { path: string; html: string };
 };
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+// the command renders every component under several hostile sets: well past PHP's default 128M
 const cases: Cases = JSON.parse(
-    execFileSync(process.env.PHP_BINARY ?? 'php', ['bin/console', 'app:hostile-props'], {
+    execFileSync(process.env.PHP_BINARY ?? 'php', ['-d', 'memory_limit=512M', 'bin/console', 'app:hostile-props'], {
         cwd: join(root, 'demo'),
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
@@ -45,6 +54,7 @@ type Parsed = {
     root: { tag: string; type: string | null } | null;
     legends: number;
     links: { href: string | null; protocol: string }[];
+    image: { src: string | null; protocol: string } | null;
     textProtocol: string;
 };
 
@@ -67,8 +77,12 @@ async function parse(page: Page, html: string, link = '', text = ''): Promise<Pa
 
             return {
                 ran: ran ?? null,
+                // an event handler, or a name that would be one but for leading spaces (printed escaped, `&#x20;on…`)
                 handlers: elements.flatMap((element) =>
-                    element.getAttributeNames().filter((name) => /^on[a-z]+$/i.test(name)).map((name) => `<${element.localName} ${name}>`),
+                    element
+                        .getAttributeNames()
+                        .filter((name) => /^(?:&#x?[0-9a-f]+;|[\x00-\x20])*on/i.test(name))
+                        .map((name) => `<${element.localName} ${name}>`),
                 ),
                 urlAttributes: elements.flatMap((element) =>
                     ['href', 'src', 'action', 'formaction', 'data', 'xlink:href'].filter((name) => element.hasAttribute(name)).map((name) => `<${element.localName} ${name}>`),
@@ -79,6 +93,7 @@ async function parse(page: Page, html: string, link = '', text = ''): Promise<Pa
                 links: [...document.querySelectorAll('a')]
                     .filter((a) => a.textContent?.trim() === link)
                     .map((a) => ({ href: a.getAttribute('href'), protocol: a.protocol })),
+                image: root instanceof HTMLImageElement ? { src: root.getAttribute('src'), protocol: root.src ? new URL(root.src).protocol : '' } : null,
                 textProtocol,
             };
         },
@@ -148,7 +163,7 @@ test('FormField label and help attribute names cannot add attributes', async ({ 
     for (const element of [label, help]) {
         const attributes = await element.evaluate((node) => Object.fromEntries(node.getAttributeNames().map((name) => [name, node.getAttribute(name)])));
         expect(attributes).toMatchObject(expected);
-        expect(Object.keys(attributes).filter((name) => absent.includes(name) || /^on[a-z]+$/i.test(name))).toEqual([]);
+        expect(Object.keys(attributes).filter((name) => absent.includes(name) || /^(?:&#x?[0-9a-f]+;|[\x00-\x20])*on/i.test(name))).toEqual([]);
     }
     expect(found.handlers).toEqual([]);
     expect(found.elements.filter((element) => UNSAFE_ELEMENTS.includes(element))).toEqual([]);
@@ -190,6 +205,110 @@ test('link props keep only relative, http(s), mailto and tel URLs', async ({ pag
         }
     }
 
+    expect(failures).toEqual([]);
+    expect(dialogs).toEqual([]);
+});
+
+test('image props keep only relative and http(s) URLs', async ({ page }) => {
+    const dialogs = recordDialogs(page);
+    const failures: string[] = [];
+    for (const { component, prop, input, text, html } of cases.images) {
+        const found = await parse(page, `<base href="${BASE}">${html}`, '', text);
+        const expectedSrc = ['http:', 'https:'].includes(found.textProtocol) ? text : null;
+        const problems: string[] = [];
+        if (null === found.image) {
+            problems.push('renders no image');
+        } else {
+            if (found.image.src !== expectedSrc) {
+                problems.push(`src ${JSON.stringify(found.image.src)}, expected ${JSON.stringify(expectedSrc)}`);
+            }
+            if (null !== expectedSrc && !['http:', 'https:'].includes(found.image.protocol)) {
+                problems.push(`loads ${found.image.protocol}`);
+            }
+        }
+        if (found.handlers.length) {
+            problems.push(`adds handlers ${found.handlers.join(', ')}`);
+        }
+        if (null !== found.ran) {
+            problems.push(`ran a payload (${found.ran})`);
+        }
+        if (problems.length) {
+            failures.push(`${component} ${prop}=${input}: ${problems.join('; ')}`);
+        }
+    }
+
+    expect(failures).toEqual([]);
+    expect(dialogs).toEqual([]);
+});
+
+test('components drop attributes named on…, check URL attributes in any case, and render the others', async ({ page }) => {
+    test.setTimeout(180_000);
+    const dialogs = recordDialogs(page);
+    const failures: string[] = [];
+    const rootAttributes = () =>
+        page.evaluate(() => {
+            const root = document.querySelector('[data-testid="root"]');
+
+            return root ? Object.fromEntries(root.getAttributeNames().map((name) => [name, root.getAttribute(name)!])) : null;
+        });
+    // every URL attribute in the page, whatever the case of its name, read as the browser resolves it
+    const urlAttributes = () =>
+        page.evaluate(() =>
+            [...document.querySelectorAll('*')].flatMap((element) =>
+                element
+                    .getAttributeNames()
+                    .filter((name) => ['href', 'formaction', 'src', 'srcset', 'ping', 'xlink:href'].includes(name))
+                    .map((name) => {
+                        let protocol = 'invalid';
+                        try {
+                            protocol = new URL(element.getAttribute(name)!, document.baseURI).protocol;
+                        } catch {}
+
+                        return { tag: element.localName, name, value: element.getAttribute(name)!, protocol };
+                    }),
+            ),
+        );
+    for (const { component, set, bag, html } of cases.handlers.cases) {
+        const found = await parse(page, `<base href="${BASE}">${html}`);
+        const problems: string[] = [];
+        if (found.handlers.length) {
+            problems.push(`renders ${found.handlers.join(', ')}`);
+        }
+        for (const { tag, name, value, protocol } of await urlAttributes()) {
+            const allowed = 'src' === name ? ['http:', 'https:'] : ['srcset', 'ping'].includes(name) ? [] : SAFE_PROTOCOLS;
+            if (!allowed.includes(protocol)) {
+                problems.push(`<${tag} ${name}=${JSON.stringify(value)}>`);
+            }
+        }
+        // the ordinary attributes given with them still land, on the element taking the attributes
+        const root = await rootAttributes();
+        if (bag && (root?.['data-extra'] !== 'ok' || root?.['aria-keyshortcuts'] !== 'k')) {
+            problems.push(`renders the ordinary attributes as ${JSON.stringify(root)}`);
+        }
+        if (null !== found.ran) {
+            problems.push(`ran a payload (${found.ran})`);
+        }
+        if (problems.length) {
+            failures.push(`${component} (set ${set}): ${problems.join('; ')}`);
+        }
+    }
+    for (const { component, expected, html } of cases.handlers.legit) {
+        const found = await parse(page, `<base href="${BASE}">${html}`);
+        const root = await rootAttributes();
+        const problems: string[] = found.handlers.length ? [`renders ${found.handlers.join(', ')}`] : [];
+        for (const [name, value] of Object.entries(expected)) {
+            const given = root?.[name] ?? null;
+            // `class` and `data-action` are merged with the component's own
+            if (['class', 'data-action'].includes(name) ? !given?.split(' ').includes(value) : given !== value) {
+                problems.push(`${name}=${JSON.stringify(given)}, expected ${JSON.stringify(value)}`);
+            }
+        }
+        if (problems.length) {
+            failures.push(`${component} (ordinary attributes): ${problems.join('; ')}`);
+        }
+    }
+
+    expect(cases.handlers.cases.length).toBeGreaterThan(400);
     expect(failures).toEqual([]);
     expect(dialogs).toEqual([]);
 });
@@ -256,47 +375,6 @@ test('a sidebar item whose link renders "#" is never the current page', async ({
     await expect(nav.getByRole('link', { name: 'Rejected' })).toHaveAttribute('href', '#');
     await expect(nav.getByRole('link', { name: 'Rejected' })).not.toHaveAttribute('aria-current');
     await expect(nav.getByRole('link', { name: 'Placeholder' })).not.toHaveAttribute('aria-current');
-});
-
-test("the editor's policy keeps the preset, removes everything else, and gives the same output twice", () => {
-    const [plain, blocks, links, hostileLinks, hostile, foreign, tricks, empty] = cases.editor.policy;
-    for (const { once, twice } of cases.editor.policy) {
-        expect(twice).toBe(once);
-        expect(once).not.toMatch(/<(script|style|img|svg|math|iframe|form|input|table|div|span|h1)\b|\s(style|class|id|data-[a-z-]+|on[a-z]+|target)=|javascript:|vbscript:|data:text/i);
-    }
-    // the sanitizer writes void elements as <br /> and <hr />
-    expect(plain.once).toBe(plain.input.replace('<br>', '<br />'));
-    expect(blocks.once).toBe(blocks.input.replace('<hr>', '<hr />'));
-    expect(links.once).toBe('<p><a href="https://example.com" title="Example" rel="noopener noreferrer nofollow">https</a> <a href="mailto:a&#64;example.com" rel="noopener noreferrer nofollow">mail</a> <a href="/pricing#faq" rel="noopener noreferrer nofollow">relative</a></p>');
-    expect(hostileLinks.once).not.toContain('href="j');
-    expect(hostile.once).toBe('<p>attributes</p>');
-    expect(foreign.once).toContain('H1');
-    expect(foreign.once).toContain('cell');
-    expect(tricks.once).toContain('&lt;script&gt;text&lt;/script&gt;');
-    expect(empty.once).toBe('');
-});
-
-test('the Markdown renderer keeps what Markdown makes, strips raw HTML and images, refuses unsafe links, and limits nesting', () => {
-    const [plain, blocks, links, hostileLinks, raw, images, deep, delimiters, blank] = cases.markdown.renderer;
-    for (const { html } of cases.markdown.renderer) {
-        // an unsafe autolink keeps its text, never its address
-        expect(html).not.toMatch(/<(script|style|img|svg|iframe|b)\b|\s(style|class|id|on[a-z]+|target)=|="\s*(javascript|vbscript|data):/i);
-    }
-    expect(plain.html).toBe('<p><strong>bold</strong> <em>italic</em> <del>strike</del> <code>code</code><br />\nnext line</p>');
-    expect(blocks.html).toContain('<h1>H1</h1>');
-    expect(blocks.html).toContain('<ol start="3">');
-    // a code block shows its HTML as text, without the language class
-    expect(blocks.html).toContain('<pre><code>code &lt;b&gt;x&lt;/b&gt;\n</code></pre>');
-    expect(links.html).toContain('<a href="/pricing#faq" rel="noopener noreferrer nofollow">relative</a>');
-    expect(links.html).toContain('<a href="https://example.org" rel="noopener noreferrer nofollow">https://example.org</a>');
-    expect(hostileLinks.html).not.toContain('href=');
-    expect(raw.html).toBe('');
-    expect(images.html).not.toContain('example.com');
-    expect(deep.html.match(/<blockquote>/g)).toHaveLength(20);
-    expect(delimiters.html.length).toBeGreaterThan(0);
-    expect(blank.html).toBe('');
-    // HTML far longer than its Markdown (each `&` is `&amp;`) is rendered whole
-    expect(cases.markdown.expansion).toEqual({ characters: 900000, kept: 900000, complete: true });
 });
 
 test('the MarkdownEditor prints a hostile value as text in its textarea', async ({ page }) => {
