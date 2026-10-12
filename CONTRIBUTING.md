@@ -56,7 +56,7 @@ docker compose up --wait                            # builds the image the first
 docker compose exec php php ../tools/sync-demo      # copy every recipe into demo/ (safe to re-run; deletes nothing)
 docker compose exec php bin/console tailwind:build  # add --watch to rebuild the CSS as you edit
 cd .. && npm ci
-git config core.hooksPath tools/hooks               # once per clone: refuse a commit message that names a GitHub account
+cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it: refuse a commit message that names a GitHub account
 ```
 
 Open https://localhost (the demo listens on this machine only) and accept the certificate of Caddy's local
@@ -534,7 +534,9 @@ no at-sign directly followed by a name, in backticks or not. On GitHub that text
 the name, now or after they register it; a test tag, a package scope or a bot command copied from the code is enough.
 Describe the thing in words instead ("the release checks", "the Playwright test package"). The *Metadata* workflow
 checks every pull request's title, description and commit messages ([`tools/check-github-mentions.mjs`](tools/check-github-mentions.mjs)),
-the `commit-msg` hook (*Setup*) each commit before it is made; a name meant to be notified goes in
+the `commit-msg` hook (*Setup*) each commit before it is made. The hook is a self-contained copy in `.git/hooks`, never
+`core.hooksPath` pointed at the repository: hooks in a tracked folder run whatever the branch checked out holds. A clone
+set up the earlier way runs `git config --unset core.hooksPath` once; a name meant to be notified goes in
 [`.github/mention-allowlist`](.github/mention-allowlist) first. Dependabot's pull requests are left out: GitHub writes
 their text.
 

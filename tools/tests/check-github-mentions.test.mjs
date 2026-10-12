@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { findDisallowedMentions } from '../check-github-mentions.mjs';
 
@@ -43,4 +48,28 @@ test('rejects a scoped package name and a bot command written as prose', () => {
         findDisallowedMentions(`bump ${AT}playwright/test, then ${AT}codex review`).map(({ token }) => token),
         [`${AT}playwright/test`, `${AT}codex`],
     );
+});
+
+test('the commit-msg hook, self-contained, finds what the tool finds', () => {
+    const hook = fileURLToPath(new URL('../hooks/commit-msg', import.meta.url));
+    assert.doesNotMatch(fs.readFileSync(hook, 'utf8'), /check-github-mentions\.mjs"|\$root\/tools|import\(/);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'commit-msg-'));
+    const cases = [
+        `fix: clean\n\n# On branch dev\n#\tmodified: a.md\n`,
+        `#1 notify ${AT}release\n`,
+        `fix: clean\n# ${AT}other in a comment\n`,
+        `ask ${AT}Example/release-team, mail dev${AT}example.com, smoke-dark${AT}release\n`,
+        `\`${AT}release\` in a span\n`,
+        `fix: clean\n# ------------------------ >8 ------------------------\n+ ${AT}other in the diff\n`,
+    ];
+    for (const [index, message] of cases.entries()) {
+        const file = path.join(dir, `m${index}`);
+        fs.writeFileSync(file, message);
+        const run = spawnSync('sh', [hook, file], { encoding: 'utf8' });
+        const expected = findDisallowedMentions(message.split(/^# -{24} >8 -{24}$/m)[0]).map(({ token }) => token);
+        const reported = [...run.stderr.matchAll(/disallowed GitHub mention (\S+)/g)].map((match) => match[1]);
+        assert.deepEqual(reported, expected, message);
+        assert.equal(run.status, expected.length ? 1 : 0, message);
+    }
+    fs.rmSync(dir, { recursive: true });
 });
