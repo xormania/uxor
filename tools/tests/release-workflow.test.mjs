@@ -146,7 +146,7 @@ done
     writeFileSync(join(bin, 'gh'), `#!/usr/bin/env bash
 set -euo pipefail
 case "$1 $2" in
-    'release view') for v in \${GH_RELEASED:-}; do [ "$v" = "$3" ] && exit 0; done; echo 'release not found' >&2; exit 1 ;;
+    'release view') for v in \${GH_RELEASED:-} \${GH_RELEASED_LATE:-}; do [ "$v" = "$3" ] && exit 0; done; echo 'release not found' >&2; exit 1 ;;
     'release create')
         shift 2
         echo "gh release create $*" >> "$CALLS"
@@ -360,5 +360,24 @@ test('the release job runs no install check and keeps no git credentials; the ch
     for (const job of ['check', 'release']) {
         assert.match(jobText(job), /persist-credentials: false/, `${job}: the checkout keeps no credentials`);
         assert.match(jobText(job), /^\s+ref: main\s*$/m, `${job}: checks out main by name; the commit CI passed on is read as history`);
+    }
+});
+
+test('a release published by an overlapping run while this one waited: no second create, the job and the gallery go on', () => {
+    const fx = fixture();
+    try {
+        g(fx.repo, 'tag', '-a', '0.1.0', fx.rel1, '-m', 'UXor 0.1.0');
+        // the check job saw 0.2.0 unreleased; the other run published it before this release job ran
+        const env = { GH_RELEASED: '0.1.0' };
+        const job = runJob(fx, env, () => {
+            g(fx.repo, 'tag', '-a', '0.2.0', fx.rel2, '-m', 'UXor 0.2.0');
+            env.GH_RELEASED_LATE = '0.2.0';
+        });
+        assert.deepEqual(creates(job.calls), [], job.log);
+        assert.match(job.log, /0\.2\.0: already released/);
+        assert.equal(job.failed, false, job.log);
+        assert.equal(job.pages, true);
+    } finally {
+        rmSync(fx.dir, { recursive: true, force: true });
     }
 });
