@@ -62,11 +62,21 @@ jobs:
                   echo "ref=$ref" >> "$GITHUB_OUTPUT"
                   echo "The diagnosis runs tools/ci from $ref"
 
+            # the branch by name, never a computed ref: what runs with the key is main's or dev's tools/ci
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              if: steps.trusted.outputs.ref != ''
+              if: steps.trusted.outputs.ref == 'main'
               continue-on-error: true
               with:
-                  ref: ${{ steps.trusted.outputs.ref }}
+                  ref: main
+                  path: trusted
+                  persist-credentials: false
+                  sparse-checkout: tools/ci
+
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: steps.trusted.outputs.ref == 'dev'
+              continue-on-error: true
+              with:
+                  ref: dev
                   path: trusted
                   persist-credentials: false
                   sparse-checkout: tools/ci
