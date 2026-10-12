@@ -252,10 +252,14 @@ jobs:
                   if-no-files-found: error
                   retention-days: 90
 
+            # the end of the server log here, after the test results; the whole log in test-results/ (uploaded below)
             - name: Demo logs
               if: failure()
               working-directory: demo
-              run: docker compose logs php
+              run: |
+                  mkdir -p ../test-results
+                  docker compose logs php > ../test-results/demo-php.log
+                  tail -n 300 ../test-results/demo-php.log
 
             - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}

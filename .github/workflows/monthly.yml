@@ -320,10 +320,22 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 90
 
+            # the end of the server log here, after the test results; the whole log as an artifact
             - name: Demo logs
               if: failure()
               working-directory: demo
-              run: docker compose logs php
+              run: |
+                  mkdir -p ../demo-logs
+                  docker compose logs php > ../demo-logs/demo-php.log
+                  tail -n 300 ../demo-logs/demo-php.log
+
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+              if: failure()
+              with:
+                  name: monthly-demo-logs-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
+                  path: demo-logs/
+                  if-no-files-found: warn
+                  retention-days: 7
 
     # The JS shards merged (tools/monthly/js-coverage.mjs) and the screenshot shards (tools/monthly/screenshots.mjs),
     # then every number, the timings and the screenshots included, against the previous successful run's
