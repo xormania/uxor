@@ -67,6 +67,25 @@ test('rejects a checkout that keeps its token, a write no job is allowed, a secr
     assert.match(output, /secrets: inherit/);
     const flow = workflowProblems('.github/workflows/ci.yml', workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        permissions: { contents: write }\n')).join('\n');
     assert.match(flow, /flow mapping/);
+    const twoSpaces = `name: Two
+on: push
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: echo ok
+  remote:
+    uses: example/workflows/.github/workflows/x.yml@${sha}
+    secrets:
+      KEY: \${{ secrets.KEY }}
+`;
+    const indented = workflowProblems('.github/workflows/ci.yml', twoSpaces).join('\n');
+    assert.match(indented, /job test may not hold contents: write/);
+    assert.match(indented, /job remote hands a secret to example\/workflows/);
     const all = workflowProblems('.github/workflows/ci.yml', workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        permissions: write-all\n')).join('\n');
     assert.match(all, /write-all/);
 });

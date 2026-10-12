@@ -68,6 +68,8 @@ const jobWrites = {
 // The workflow that alone reads a secret into a step; every other workflow may only hand one on to a local
 // reusable workflow (a job's `secrets:` mapping)
 const secretReader = 'jev.yml';
+// the reusable workflows a secret may be handed to: the Jev workflow, and the gallery's, which hands it on to Jev alone
+const secretCallees = ['./.github/workflows/jev.yml', './.github/workflows/pages.yml'];
 
 // Expressions that carry text an outsider can choose, never expanded inside a shell script (pass them through env:)
 const untrustedExpression = /\$\{\{[^}]*\b(?:github\.event\.|github\.head_ref\b|inputs\.)/;
@@ -136,15 +138,29 @@ export function workflowProblems(file, source) {
 function credentialProblems(file, lines) {
     const problems = [];
     const name = file.split('/').pop();
-    let job = null;
-    let inJobs = false;
+    // the jobs: each key one level under `jobs:`, at whatever indent the file uses, with the reusable workflow it calls
+    const jobAt = new Array(lines.length).fill(null);
+    const calls = {};
+    const jobsLine = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+    let jobIndent = Infinity;
+    if (jobsLine !== -1) {
+        const first = lines.slice(jobsLine + 1).find((line) => line.trim() && !line.trim().startsWith('#'));
+        jobIndent = first && indentOf(first) > 0 ? indentOf(first) : Infinity;
+        let current = null;
+        for (let index = jobsLine + 1; index < lines.length; index++) {
+            const line = lines[index];
+            if (/^\S/.test(line) && line.trim()) break;
+            const key = indentOf(line) === jobIndent && /^\s*([A-Za-z0-9_-]+):\s*(?:#.*)?$/.exec(line);
+            if (key) current = key[1];
+            jobAt[index] = current;
+            const uses = current && /^\s*uses:\s*['"]?([^'"\s#]+)/.exec(line);
+            if (uses && indentOf(line) > jobIndent) calls[current] ??= uses[1];
+        }
+    }
     for (let index = 0; index < lines.length; index++) {
         const line = lines[index];
         const content = line.replace(/\s+#.*$/, '');
-        if (/^jobs:\s*$/.test(line)) inJobs = true;
-        else if (/^\S/.test(line) && line.trim()) inJobs = false;
-        const jobMatch = inJobs && /^ {4}([A-Za-z0-9_-]+):\s*$/.exec(line);
-        if (jobMatch) job = jobMatch[1];
+        const job = jobAt[index];
 
         if (/^\s*(?:-\s*)?uses:\s*actions\/checkout@/.test(line)) {
             const body = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
@@ -158,7 +174,7 @@ function credentialProblems(file, lines) {
         // a job's permissions: a block mapping, each write scope listed for the job; a flow mapping is refused, since
         // this check reads block mappings only
         const permissionsKey = job && /^(\s+)permissions:\s*(\S.*)?$/.exec(content);
-        if (permissionsKey && indentOf(line) > 4) {
+        if (permissionsKey && indentOf(line) > jobIndent) {
             const value = (permissionsKey[2] ?? '').trim();
             if (value.startsWith('{')) {
                 problems.push(`${file}:${index + 1}: job ${job} declares permissions as a flow mapping; write them one per line`);
@@ -183,6 +199,8 @@ function credentialProblems(file, lines) {
                 && /^\s+[A-Z0-9_]+:\s*\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}\s*$/.test(content);
             if (!passedOn) {
                 problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; hand it on in a job's secrets: mapping only`);
+            } else if (!secretCallees.includes(calls[job] ?? '')) {
+                problems.push(`${file}:${index + 1}: job ${job} hands a secret to ${calls[job] ?? 'no reusable workflow'}; only ${secretCallees.join(' and ')} may receive one`);
             }
         }
 
