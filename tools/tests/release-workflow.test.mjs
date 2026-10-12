@@ -69,6 +69,8 @@ function jobOutputs(text, job) {
 function expand(value, outputs, needs = {}) {
     return value.replace(/\$\{\{\s*(.*?)\s*\}\}/g, (_, expression) => {
         if (/^github\.token$/.test(expression)) return 'token';
+        // the commit CI passed on: the scratch repository's main
+        if (expression === 'github.event.workflow_run.head_sha || github.sha') return process.env.RELEASE_TEST_COMMIT ?? '';
         const need = /^needs\.check\.outputs\.([a-z0-9_-]+)$/.exec(expression);
         if (need) return needs[need[1]] ?? '';
         const output = /^steps\.([a-z0-9_-]+)\.outputs\.([a-z0-9_-]+)$/.exec(expression);
@@ -197,6 +199,7 @@ function runSteps(fx, job, env, calls, needs = {}) {
 function runJob(fx, env = {}, between = () => {}) {
     const calls = join(fx.dir, 'calls');
     writeFileSync(calls, '');
+    process.env.RELEASE_TEST_COMMIT = g(fx.repo, 'rev-parse', 'main');
     const check = runSteps(fx, 'check', env, calls);
     let log = check.log;
     let failed = check.failed;
@@ -356,5 +359,6 @@ test('the release job runs no install check and keeps no git credentials; the ch
     assert.doesNotMatch(jobText('check'), /: write/);
     for (const job of ['check', 'release']) {
         assert.match(jobText(job), /persist-credentials: false/, `${job}: the checkout keeps no credentials`);
+        assert.match(jobText(job), /^\s+ref: main\s*$/m, `${job}: checks out main by name; the commit CI passed on is read as history`);
     }
 });

@@ -1396,7 +1396,8 @@ It runs in two places, so the key never meets code the repository does not contr
 2. **In the workflow's *Jev* job, with the key:** the reusable workflow
    [`.github/workflows/jev.yml`](../.github/workflows/jev.yml), on a fresh runner where no package, image or test has
    run, downloads this run attempt's inputs and runs the diagnosis from the trusted branch's `tools/ci` (the pull
-   request's base branch, else `main` on `main` and `dev` everywhere else), never the run's own copy. Its assessments
+   request's base branch, else `main` on `main` and `dev` everywhere else, checked out by name), never the run's own
+   copy. Its assessments
    are the `jev-<workflow>-<run>-<attempt>` artifact. A change to the diagnosis script is therefore used from the run
    after it reaches `dev`; its cases run on the change itself.
 

@@ -578,7 +578,8 @@ Once the release pull request is merged and CI has passed on `main`, `.github/wo
 *Check the new version's install* job, with a read-only token, checks that the merge commit installs from GitHub in a
 fresh Symfony Docker project (`tools/tests/docker-install.sh`); then its *Tag and publish new versions* job, which
 runs no install and keeps no credentials in its checkout, tags that commit `X.Y.Z` (only if that very commit's
-install was checked) and publishes a GitHub Release with the section as its notes, marked *Latest*. If it fails, fix the cause and re-run it: it skips what is already done. An older version that is
+install was checked) and publishes a GitHub Release with the section as its notes, marked *Latest*. Both jobs check out
+`main` by name and read the commit CI passed on as history (it must be on `main`), so the code they run is `main`'s. If it fails, fix the cause and re-run it: it skips what is already done. An older version that is
 tagged but has no Release (a tag pushed by hand, a run that stopped before its Release) gets its Release in the same
 run, after the new one: its notes, not *Latest*, and no install check, since today's check installs today's recipes,
 which an older version lacks. That step is best effort: if it fails, it warns, and the job and the gallery go on. An
