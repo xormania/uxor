@@ -643,6 +643,9 @@ jobs:
         if: needs.changes.outputs.demo == 'true' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
         runs-on: ubuntu-latest
         timeout-minutes: 15
+        # a cache that cannot be written fails no run: the run's conclusion, which release.yml waits for on main, stays
+        # what CI result decides
+        continue-on-error: true
         permissions:
             contents: read
             packages: write # the build cache's image, nothing else

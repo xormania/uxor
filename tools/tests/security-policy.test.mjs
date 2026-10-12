@@ -65,6 +65,10 @@ test('rejects a checkout that keeps its token, a write no job is allowed, a secr
     assert.match(output, /a secret is read outside jev\.yml/);
     assert.match(output, /untrusted expression expanded inside a run: script/);
     assert.match(output, /secrets: inherit/);
+    const flow = workflowProblems('.github/workflows/ci.yml', workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        permissions: { contents: write }\n')).join('\n');
+    assert.match(flow, /flow mapping/);
+    const all = workflowProblems('.github/workflows/ci.yml', workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        permissions: write-all\n')).join('\n');
+    assert.match(all, /write-all/);
 });
 
 test('accepts a secret handed on to a reusable workflow, the allowed cache write, and a secret read by the Jev workflow', () => {
