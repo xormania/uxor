@@ -209,7 +209,8 @@ shard: a warning per attempt and the `jev-ci-<run>-<attempt>` artifact, kept 30 
 fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. Every other job that can
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
-install* jobs, *Contrast*, *Workflows*, the release's install check, tag and release, and the gallery's build. The
+install* jobs, *Contrast*, *Workflows*, *Changes*, the monthly PHP job, both audits, *Mentions*, the release's install
+check, tag and release, and the gallery's build. The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
 without the key; the workflow's *Jev* job ([`.github/workflows/jev.yml`](.github/workflows/jev.yml)) diagnoses them
 with the key, from the trusted branch's `tools/ci`. See *Jev diagnosis* in the same section.

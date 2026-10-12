@@ -30,8 +30,23 @@ jobs:
               if: github.event_name == 'pull_request'
               run: git diff --quiet HEAD^1 HEAD -- package.json package-lock.json .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
 
-            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
-              run: npm audit --package-lock-only
+            - name: npm audit
+              id: audit
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              run: |
+                  set -o pipefail
+                  npm audit --package-lock-only 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: npm audit
+                  artifact: jev-input-audit-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     composer-audit:
         name: composer audit
@@ -55,6 +70,35 @@ jobs:
                   coverage: none
 
             # the lock file only: nothing is installed
-            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
-              run: composer audit --locked
+            - name: composer audit
+              id: audit
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
               working-directory: demo
+              run: |
+                  set -o pipefail
+                  composer audit --locked 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: composer audit
+                  artifact: jev-input-audit-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
+    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
+    jev:
+        name: Jev
+        needs: [npm-audit, composer-audit]
+        if: ${{ !cancelled() }}
+        permissions:
+            contents: read
+        uses: ./.github/workflows/jev.yml
+        with:
+            workflow: audit
+        secrets:
+            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
