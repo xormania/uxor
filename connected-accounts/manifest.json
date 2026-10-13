@@ -1,0 +1,17 @@
+{
+    "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+    "type": "block",
+    "name": "ConnectedAccounts",
+    "description": "An account settings card with CSRF-protected connection forms and explicit unavailable-action feedback.",
+    "copy-files": {
+        "templates/": "templates/"
+    },
+    "dependencies": {
+        "recipe": ["card", "alert", "button"],
+        "composer": [
+            "twig/html-extra:^3.24.0",
+            "symfony/ux-twig-component:^3.5",
+            "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+        ]
+    }
+}

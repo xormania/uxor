@@ -27,6 +27,8 @@
 /assets/lib/uxor-floating.js
 /assets/lib/uxor-navigation.js
 /assets/lib/uxor-turbo.js
+/assets/images/uxor-oauth-google-light.png
+/assets/images/uxor-oauth-google-dark.png
 /templates/form/
 /templates/layouts/
 /src/UXor/
