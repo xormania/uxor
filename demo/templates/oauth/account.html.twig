@@ -1,0 +1,20 @@
+{% extends 'layouts/base.html.twig' %}
+
+{% block head %}<meta name="turbo-cache-control" content="no-cache"><link rel="icon" href="data:,">{% endblock %}
+{% block title %}Connected accounts — xor{% endblock %}
+{% block body %}
+<main class="mx-auto w-full max-w-lg px-6 py-12">
+    <div class="mb-6 flex items-center gap-2 text-lg font-semibold text-heading">{{ include('demo_app/_brand.html.twig') }}</div>
+    <h1 class="mb-4 text-xl font-semibold text-heading">Your connected accounts</h1>
+    <p class="mb-6 text-sm text-body" id="oauth-identity">Signed in as {{ user.displayName }} ({{ user.email }}).</p>
+    <twig:ConnectedAccounts :accounts="accounts" :feedback="feedback" />
+    <turbo-frame id="oauth-demo-private" class="mt-6 block">
+        <a href="{{ path('app_oauth_demo_private') }}" class="font-medium text-fg-brand underline">Refresh protected content</a>
+    </turbo-frame>
+    <p class="mt-6 text-sm text-body"><a href="{{ path('app_oauth_demo_account') }}?visit=again" class="font-medium text-fg-brand underline" id="oauth-turbo-visit">Refresh account page</a></p>
+    <form method="post" action="{{ path('app_oauth_demo_logout') }}" data-turbo="false" class="mt-6">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">
+        <twig:Button type="submit" variant="outline">Sign out of provider demo</twig:Button>
+    </form>
+</main>
+{% endblock %}

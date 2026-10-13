@@ -606,3 +606,23 @@ heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) und
 and random clicks, keys, Back, Forward and theme switches on the lab pages (`tests/e2e/release.fuzz.spec.ts`: no error,
 one controller per element), which switch the theme at random moments but assert no overlay's state after it: an
 overlay open while the theme switches, which this map marks T3, is not covered yet.
+
+## OAuth authentication integration
+
+States: an anonymous visitor, a pending provider attempt, an authenticated local user, a pending explicit account
+connection, and safe feedback after cancellation or failure. The mock replaces the remote provider boundary;
+Symfony's installed controller, authenticator, session and user provider run normally.
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Provider-bound, expiring, single-use state; independent tabs and bounded attempts; safe local return paths | unit | `AttemptStoreTest`, `OAuthClientTest` |
+| Codes, nonce, verifier and callback URI retain their binding; malformed, cancelled, reused and mismatched callbacks never exchange an identity | unit | `OAuthClientTest` |
+| Real League exchanges use PKCE for Google/GitHub, Google validates signed ID-token claims and rotating keys, GitHub selects verified primary email, Facebook uses confidential exchange and app-secret proof | unit with mocked HTTP | `ProviderTest` |
+| Each supported provider establishes a real Symfony session and user-provider refresh on later protected requests | functional, E2E demo | `OAuthFlowTest`, oauth |
+| Cancellation and registration-policy failures explain the next action; email collisions never silently merge accounts | functional, E2E demo | `OAuthFlowTest`, oauth |
+| Explicit linking binds the same authenticated user on callback; invalid CSRF and foreign account ownership cannot change associations; final sign-in method cannot be removed | functional | `OAuthFlowTest` |
+| Same-origin saved protected-page targets survive login, unsafe targets fall back, and unavailable providers give safe feedback | functional | `OAuthFlowTest` |
+| Provider start inside a Frame replaces the document; actual session expiry during a Frame request reaches full login; normal Turbo keeps the document after sign-in | E2E demo | oauth |
+
+Live provider application registrations are not exercised by offline CI. The demo grants and adapter HTTP fixtures
+cover separate boundaries; provider branding has local assets and screenshot coverage in the presentation rows.

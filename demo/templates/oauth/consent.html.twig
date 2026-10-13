@@ -1,0 +1,23 @@
+{% extends 'layouts/oauth-auth.html.twig' %}
+
+{% block head %}{{ parent() }}<link rel="icon" href="data:,">{% endblock %}
+{% block title %}{{ provider_name }} demonstration — xor{% endblock %}
+{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block content %}
+    {% form_theme form 'form/flowbite_layout.html.twig' %}
+    <twig:Card>
+        <twig:Card:Header>
+            <twig:Card:Title as="h1">{{ provider_name }} demonstration</twig:Card:Title>
+        </twig:Card:Header>
+        <twig:Card:Content>
+            <p class="mb-6 text-sm text-body">This local provider stands in for {{ provider_name }}. Continue to grant access to a demonstration identity, or cancel to return to sign-in.</p>
+            {{ form_start(form, {attr: {'data-turbo': 'false'}}) }}
+                {{ form_row(form.scenario) }}
+                <div class="flex flex-col gap-3">
+                    {{ form_widget(form.approve) }}
+                    {{ form_widget(form.cancel) }}
+                </div>
+            {{ form_end(form) }}
+        </twig:Card:Content>
+    </twig:Card>
+{% endblock %}

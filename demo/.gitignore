@@ -48,3 +48,6 @@
 /.agents/
 /.claude/
 ###< symfony/ai-mate ###
+
+# Generated copy of the OAuth integration configuration example
+/config/uxor_oauth.example.yaml
