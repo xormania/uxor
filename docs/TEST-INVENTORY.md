@@ -623,6 +623,7 @@ Symfony's installed controller, authenticator, session and user provider run nor
 | Explicit linking binds the same authenticated user on callback; invalid CSRF and foreign account ownership cannot change associations; final sign-in method cannot be removed | functional | `OAuthFlowTest` |
 | Same-origin saved protected-page targets survive login, unsafe targets fall back, and unavailable providers give safe feedback | functional | `OAuthFlowTest` |
 | Provider start inside a Frame replaces the document; actual session expiry during a Frame request reaches full login; normal Turbo keeps the document after sign-in | E2E demo | oauth |
+| Actual installed classes boot before configuration and authenticate after binding the consuming app store; protected destinations and user reload work | install smoke | `tools/tests/check-fresh-app.sh` OAuth checks, both install lanes |
 
 Live provider application registrations are not exercised by offline CI. The demo grants and adapter HTTP fixtures
 cover separate boundaries; provider branding has local assets and screenshot coverage in the presentation rows.

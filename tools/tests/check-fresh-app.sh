@@ -194,3 +194,29 @@ page="$(fetch "/note?${location#*\?}" "$@")"
 grep -qF '<div id="stored"><p><strong>Hi</strong>' <<< "$page" && ! grep -qF '<script>x()' <<< "$page" \
     || { echo "FAIL: the stored Markdown is not printed as safe HTML" >&2; exit 1; }
 echo "ok: a MarkdownType renders the MarkdownEditor, previews on the server and prints stored Markdown safely (HTTP 200, 303)"
+
+# The OAuth recipe's installed PHP and templates work in the new application's firewall. The external provider alone
+# is mocked: start creates the pending attempt and a bound grant, the real callback authenticates, and another request
+# must refresh the application user from the configured user provider before it can enter the protected account page.
+oauth_cookies="$work/oauth-cookies"
+location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -c "$oauth_cookies" "$base/oauth-install/account?from=protected")"
+[[ "$location" == "302 $base/oauth-install/login" ]] \
+    || { echo "FAIL: the anonymous OAuth account page answered $location" >&2; exit 1; }
+page="$(fetch /oauth-install/login "$@" -b "$oauth_cookies" -c "$oauth_cookies")"
+for expected in 'name="turbo-visit-control" content="reload"' 'name="turbo-cache-control" content="no-cache"' 'href="/oauth/github/start"' 'data-turbo="false"' 'Continue with GitHub'; do
+    grep -qF -- "$expected" <<< "$page" || { echo "FAIL: the installed OAuth login page lacks $expected" >&2; exit 1; }
+done
+location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$oauth_cookies" -c "$oauth_cookies" "$base/oauth/github/start")"
+[[ "$location" == "302 $base/oauth/github/check?state="* ]] \
+    || { echo "FAIL: the OAuth start route answered $location" >&2; exit 1; }
+callback="${location#302 }"
+location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$oauth_cookies" -c "$oauth_cookies" "$callback")"
+[[ "$location" == "303 $base/oauth-install/account?from=protected" ]] \
+    || { echo "FAIL: the OAuth callback answered $location" >&2; exit 1; }
+page="$(fetch '/oauth-install/account?from=protected' "$@" -b "$oauth_cookies")"
+grep -qF 'Installed user (github:installed-user)' <<< "$page" \
+    || { echo "FAIL: the protected OAuth account page lost the authenticated user" >&2; exit 1; }
+location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' "$base/oauth-install/account")"
+[[ "$location" == "302 $base/oauth-install/login" ]] \
+    || { echo "FAIL: the OAuth account page accepted an anonymous request after sign-in" >&2; exit 1; }
+echo "ok: installed OAuth signs in through the real callback, refreshes its user and protects the account page (HTTP 200, 302, 303)"

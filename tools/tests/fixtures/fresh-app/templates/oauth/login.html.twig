@@ -1,0 +1,9 @@
+{% extends 'layouts/oauth-auth.html.twig' %}
+
+{% block title %}Sign in{% endblock %}
+{% block content %}
+    <twig:SocialLogin
+        :providers="[{provider: 'github', href: path('uxor_oauth_start', {provider: 'github'})}]"
+        :feedback="error ? error.messageKey|trans(error.messageData, 'security') : null"
+    />
+{% endblock %}
