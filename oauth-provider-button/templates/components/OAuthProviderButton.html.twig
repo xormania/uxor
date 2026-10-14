@@ -27,8 +27,8 @@
     data-turbo-prefetch="false"
 >
     {%- if _google %}
-        <img src="{{ asset('images/uxor-oauth-google-light.png') }}" width="180" height="40" class="h-auto max-w-full dark:hidden" alt="">
-        <img src="{{ asset('images/uxor-oauth-google-dark.png') }}" width="180" height="40" class="hidden h-auto max-w-full dark:block" alt="">
+        <img src="{{ asset('images/uxor-oauth-google-light.png') }}" width="180" height="40" class="hidden h-auto max-w-full not-dark:inline" alt="">
+        <img src="{{ asset('images/uxor-oauth-google-dark.png') }}" width="180" height="40" class="hidden h-auto max-w-full dark:inline" alt="">
     {%- else %}
         {{ _label }}
     {%- endif %}
