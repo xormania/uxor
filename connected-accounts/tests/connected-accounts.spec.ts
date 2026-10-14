@@ -24,6 +24,7 @@ describeRecipe('uxor/connected-accounts', () => {
             await expect(form).toHaveAttribute('data-turbo', 'false');
             await expect(form).toHaveAttribute('data-turbo-prefetch', 'false');
             await expect(form.locator('input[name="_csrf_token"]')).toHaveAttribute('value', 'preview-only');
+            await expect(form.locator('input[name="returnTo"]')).toHaveAttribute('value', '/account/connections');
         }
         await expect(forms.first().locator('input[name="subject"]')).toHaveAttribute('value', 'demo-google');
         await expect(forms.last().locator('input[name="subject"]')).toHaveCount(0);

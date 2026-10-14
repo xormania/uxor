@@ -88,7 +88,7 @@ final class OAuthComponentsTest extends KernelTestCase
 
     public function testConnectionFormsSeparateTheActionsAndBindDisconnectionToItsSubject(): void
     {
-        $rendered = $this->renderTwigComponent('ConnectedAccounts', ['accounts' => [
+        $rendered = $this->renderTwigComponent('ConnectedAccounts', ['returnTo' => '/account/connections?tab=providers', 'accounts' => [
             ['provider' => 'github', 'connected' => false, 'connectAction' => '/oauth/github/link', 'connectToken' => 'connect'],
             ['provider' => 'google', 'connected' => true, 'identity' => 'alex@example.com', 'subject' => 'google-123', 'disconnectAction' => '/oauth/google/unlink', 'disconnectToken' => 'disconnect'],
         ]]);
@@ -99,6 +99,7 @@ final class OAuthComponentsTest extends KernelTestCase
         self::assertSame(['post', 'post'], $forms->extract(['method']));
         self::assertSame(['false', 'false'], $forms->extract(['data-turbo']));
         self::assertSame(['connect', 'disconnect'], $forms->filter('input[name="_csrf_token"]')->extract(['value']));
+        self::assertSame(['/account/connections?tab=providers', '/account/connections?tab=providers'], $forms->filter('input[name="returnTo"]')->extract(['value']));
         self::assertCount(0, $forms->eq(0)->filter('input[name="subject"]'));
         self::assertSame('google-123', $forms->eq(1)->filter('input[name="subject"]')->attr('value'));
     }
@@ -109,13 +110,13 @@ final class OAuthComponentsTest extends KernelTestCase
         $rendered = $this->renderTwigComponent('ConnectedAccounts', ['accounts' => [[
             'provider' => 'github', 'connected' => true, 'label' => $payload,
             'subject' => $payload, 'disconnectAction' => $payload, 'disconnectToken' => $payload,
-        ]], 'feedback' => $payload]);
+        ]], 'feedback' => $payload, 'returnTo' => $payload]);
         $crawler = $rendered->crawler();
 
         self::assertCount(0, $crawler->filter('script'));
         self::assertCount(1, $crawler->filter('form'));
         self::assertSame((string) $payload, $crawler->filter('form')->attr('action'));
-        self::assertSame([(string) $payload, (string) $payload], $crawler->filter('input')->extract(['value']));
+        self::assertSame([(string) $payload, (string) $payload, (string) $payload], $crawler->filter('input')->extract(['value']));
     }
 
     /** @return iterable<string, array{array<string, mixed>, array<string, mixed>}> */

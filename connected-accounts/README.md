@@ -4,7 +4,7 @@ An account settings card with connection forms, identity summaries and explicit 
 
 ```twig {"preview":true}
 <div class="w-full max-w-xl">
-    <twig:ConnectedAccounts :accounts="[
+    <twig:ConnectedAccounts returnTo="/account/connections" :accounts="[
         {
             provider: 'google', connected: true, identity: 'alex@example.com', subject: 'demo-google',
             disconnectAction: '#', disconnectToken: 'preview-only'
@@ -40,7 +40,7 @@ The application prepares one `accounts` row per available provider:
 | `cannotRemoveReason` | no | Explanation for `cannotRemove`; defaults to keeping at least one sign-in method. |
 
 ```twig
-<twig:ConnectedAccounts :accounts="[
+<twig:ConnectedAccounts :returnTo="path('app_account_connections')" :accounts="[
     {
         provider: 'github', connected: false,
         connectAction: path('uxor_oauth_link', {provider: 'github'}),
@@ -55,6 +55,8 @@ The application prepares one `accounts` row per available provider:
     }
 ]" />
 ```
+
+Pass `returnTo` from the application's settings route so connections, disconnections and failed connections return to the same settings page. Both forms submit it as a hidden field. The installed OAuth controller validates that it is an app-local absolute path; omitting it uses the controller's saved or default destination. Generate the value on the server, including any settings query parameters the return should preserve.
 
 Actions must come from trusted server route generation. A form action with a scheme other than relative or HTTP(S), a missing CSRF token, or a missing disconnection subject makes the button unavailable and omits the form. Supply `idPrefix` when a page has several instances so each explanation has a unique id. Disabled buttons reference their explanation with `aria-describedby`.
 

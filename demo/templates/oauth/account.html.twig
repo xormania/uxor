@@ -7,7 +7,7 @@
     <div class="mb-6 flex items-center gap-2 text-lg font-semibold text-heading">{{ include('demo_app/_brand.html.twig') }}</div>
     <h1 class="mb-4 text-xl font-semibold text-heading">Your connected accounts</h1>
     <p class="mb-6 text-sm text-body" id="oauth-identity">Signed in as {{ user.displayName }} ({{ user.email }}).</p>
-    <twig:ConnectedAccounts :accounts="accounts" :feedback="feedback" />
+    <twig:ConnectedAccounts :accounts="accounts" :feedback="feedback" :returnTo="path('app_oauth_demo_account', {section: 'connections'})" />
     <turbo-frame id="oauth-demo-private" class="mt-6 block">
         <a href="{{ path('app_oauth_demo_private') }}" class="font-medium text-fg-brand underline">Refresh protected content</a>
     </turbo-frame>
