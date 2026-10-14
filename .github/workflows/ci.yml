@@ -146,7 +146,7 @@ jobs:
                   echo "Shard timings: $source" >> "$GITHUB_STEP_SUMMARY"
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: shard-timings-${{ github.run_id }}-${{ github.run_attempt }}
                   path: ${{ runner.temp }}/shard-timings/shard-timings.json
@@ -239,7 +239,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
@@ -306,7 +306,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 22
 
@@ -346,7 +346,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
@@ -381,7 +381,7 @@ jobs:
                       exit 1
                   } 2>&1 | tee "$RUNNER_TEMP/jev-download.log"
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
                   name: importmap-packages
                   path: demo/assets/vendor/
@@ -414,7 +414,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
@@ -432,7 +432,7 @@ jobs:
                   find $(cat "$RUNNER_TEMP/php-dirs") -name '*.php' -print0 | xargs -0 -n1 php -l
 
             # the run's importmap packages (job importmap): the install below downloads none
-            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: importmap-packages
                   path: demo/assets/vendor
@@ -502,7 +502,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
@@ -510,7 +510,7 @@ jobs:
                   coverage: none
 
             # the run's importmap packages (job importmap): the build's install downloads none
-            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: importmap-packages
                   path: demo/assets/vendor
@@ -544,7 +544,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
@@ -615,7 +615,7 @@ jobs:
                   persist-credentials: false
                   fetch-depth: 0 # the README pairing reads the branch's commits since its base
 
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 22
                   cache: npm
@@ -792,7 +792,7 @@ jobs:
               with:
                   persist-credentials: false
 
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               id: node # its cache-hit output, for the job's metrics
               with:
                   node-version: 22
@@ -835,7 +835,7 @@ jobs:
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none
-            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: importmap-packages
                   path: demo/assets/vendor
@@ -909,7 +909,7 @@ jobs:
               run: node tools/prepare-tests.mjs
 
             # the run's shard timings, the same file in every shard (the Changes job)
-            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               with:
                   name: ${{ needs.changes.outputs.timings }}
                   path: ${{ runner.temp }}/shard-timings
@@ -1009,7 +1009,7 @@ jobs:
             # durations.json (wall time, summed test time, slowest tests, per-file totals: report-only, to compare runs),
             # job-metrics.json (the build cache and setup times above), shard-plan.json (how the shard's tests were
             # chosen, and every shard's planned tests and time) and summary.md, so a test that failed once and passed on its retry leaves a record
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ !cancelled() }}
               with:
                   name: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
@@ -1026,7 +1026,7 @@ jobs:
                   tail -n 300 ../test-results/demo-php.log
 
             # the full report and the traces of failed attempts: on a failure, or a test that passed only on its retry
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
               with:
                   name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
@@ -1122,13 +1122,13 @@ jobs:
                       tools/ci
                       tests
 
-            - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               if: ${{ always() }}
               continue-on-error: true
               with:
                   node-version: 22
 
-            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               if: ${{ always() && needs.demo.result != 'skipped' }}
               continue-on-error: true
               with:
@@ -1136,7 +1136,7 @@ jobs:
                   path: ${{ runner.temp }}/shards
 
             # the timings this run planned from, which this run's durations update
-            - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               if: ${{ always() && needs.demo.result != 'skipped' }}
               continue-on-error: true
               with:
@@ -1167,7 +1167,7 @@ jobs:
                   node tools/ci/shard-plan.mjs timings --shards "$RUNNER_TEMP/shards" --previous "$previous" \
                       --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
 
-            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ always() }}
               continue-on-error: true
               with:
