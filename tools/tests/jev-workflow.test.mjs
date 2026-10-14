@@ -1,4 +1,4 @@
-// Run the reusable workflow's actual diagnosis shell with slow local diagnostics: the total budget must stop it
+// Run the independent workflow's actual diagnosis shell with slow local diagnostics: the total budget must stop it
 // without failing the advisory step, even when several successful shards collected recovered failures.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';

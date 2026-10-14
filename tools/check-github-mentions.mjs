@@ -8,7 +8,7 @@
 // glued to a word (an address, a package path) are not references and pass. CONTRIBUTING.md, *Commits and pull
 // requests*; .github/workflows/metadata.yml runs it on every pull request, tools/hooks/commit-msg before a commit.
 //
-// Usage: node tools/check-github-mentions.mjs [--allow NAME] [--allow-file FILE] [--surface NAME] [--json] [file ...]
+// Usage: node tools/check-github-mentions.mjs [--allow NAME] [--allow-file FILE] [--surface NAME] [--json] [--redact] [file ...]
 // Exit status 0 when nothing undeclared is found, 1 naming each finding, 2 on bad usage.
 // Test: node --test tools/tests/*.test.mjs
 
@@ -54,6 +54,14 @@ export function findDisallowedMentions(text, allowed = []) {
   return findings;
 }
 
+// Keep useful locations and the reason for rejection without republishing account references in CI diagnostics.
+function redactDisallowedMentions(text, allowed) {
+  return findDisallowedMentions(text, allowed).reduceRight(
+    (output, { offset, token }) => `${output.slice(0, offset)}[redacted mention]${output.slice(offset + token.length)}`,
+    text,
+  );
+}
+
 function usage() {
   return `Usage: node tools/check-github-mentions.mjs [options] [file ...]
 
@@ -65,6 +73,7 @@ Options:
   --allow-file FILE  Read allowed names, one per line (# comments permitted)
   --surface NAME     Label findings with the destination surface
   --json             Emit findings as JSON Lines
+  --redact           Remove rejected account tokens from diagnostic output
   --help             Show this help
 `;
 }
@@ -83,6 +92,7 @@ function parseArguments(argv) {
     files: [],
     surface: 'github-metadata',
     json: false,
+    redact: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -91,6 +101,8 @@ function parseArguments(argv) {
       options.help = true;
     } else if (argument === '--json') {
       options.json = true;
+    } else if (argument === '--redact') {
+      options.redact = true;
     } else if (argument === '--allow' || argument === '--allow-file' || argument === '--surface') {
       const value = argv[index + 1];
       if (!value) throw new Error(`${argument} requires a value`);
@@ -111,13 +123,14 @@ function parseArguments(argv) {
 function checkInput(label, text, options) {
   const findings = findDisallowedMentions(text, options.allowed);
   for (const finding of findings) {
+    const diagnostic = options.json
+      ? `${JSON.stringify({ surface: options.surface, source: label, ...finding })}\n`
+      : `${label}:${finding.line}:${finding.column}: disallowed GitHub mention ${finding.token} on ${options.surface}\n`;
+    const output = options.redact ? redactDisallowedMentions(diagnostic, options.allowed) : diagnostic;
     if (options.json) {
-      process.stdout.write(`${JSON.stringify({ surface: options.surface, source: label, ...finding })}\n`);
+      process.stdout.write(output);
     } else {
-      process.stderr.write(
-        `${label}:${finding.line}:${finding.column}: disallowed GitHub mention ${finding.token} ` +
-          `on ${options.surface}\n`,
-      );
+      process.stderr.write(output);
     }
   }
   return findings.length;

@@ -11,10 +11,6 @@ on:
                 description: The commit to build the site from
                 type: string
                 required: true
-        secrets:
-            TYPESAFE_API_KEY:
-                description: The key of the advisory Jev diagnosis of a failed build; without it, the diagnosis is unavailable
-                required: false
     workflow_dispatch:
 
 permissions:
@@ -83,17 +79,3 @@ jobs:
         steps:
             - id: deployment
               uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
-
-    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
-    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
-    jev:
-        name: Jev
-        needs: [build]
-        if: ${{ !cancelled() }}
-        permissions:
-            contents: read
-        uses: ./.github/workflows/jev.yml
-        with:
-            workflow: pages
-        secrets:
-            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}

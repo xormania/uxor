@@ -43,7 +43,7 @@ jobs:
         name: PHP coverage and mutants
         if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
         runs-on: ubuntu-latest
-        timeout-minutes: 45
+        timeout-minutes: 48 # 45 for the job, plus 3 for the advisory collector and its upload
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -380,20 +380,6 @@ jobs:
                   path: demo-logs/
                   if-no-files-found: warn
                   retention-days: 7
-
-    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
-    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
-    jev:
-        name: Jev
-        needs: [php, browsers]
-        if: ${{ !cancelled() }}
-        permissions:
-            contents: read
-        uses: ./.github/workflows/jev.yml
-        with:
-            workflow: monthly
-        secrets:
-            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
 
     # The JS shards merged (tools/monthly/js-coverage.mjs) and the screenshot shards (tools/monthly/screenshots.mjs),
     # then every number, the timings and the screenshots included, against the previous successful run's
