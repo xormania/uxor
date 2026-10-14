@@ -1,7 +1,8 @@
 # What the advisory Jev (TypeSafe) diagnosis of a failed job reads, collected in one place for every job that has it
 # (docs/TESTING.md, *Jev diagnosis*): the job's failed-attempts.json, its server log if any, and its name and shard,
 # uploaded as an artifact (kept 3 days). The diagnosis itself runs later, in a job of its own
-# (.github/workflows/jev.yml): with the key, on a fresh runner, from the trusted branch's tools/ci. This step has no key
+# (.github/workflows/jev.yml): a default-branch workflow_run consumer with the key, on a fresh runner, from the
+# trusted branch's tools/ci. This step has no key
 # and needs none, so no third-party code a job ran (packages, the demo's image) runs next to the key.
 #
 # The failed attempts come from one of:
@@ -13,8 +14,8 @@
 #
 # It never changes the job's verdict. The caller gives it `continue-on-error: true`, its condition (failure() or the
 # job's own) and `timeout-minutes: 3`, which the job's own timeout-minutes counts; both steps continue on error. The
-# artifact is named jev-input-<workflow>-<job>-<run>-<attempt>, which the workflow's Jev job reads (jev.yml's
-# `workflow`).
+# artifact is named jev-input-<workflow>-<job>-<run>-<attempt>, which the independent consumer reads for that source
+# run and attempt. It does not call a reusable workflow or forward a secret.
 name: Jev diagnosis (advisory)
 description: Collects a failed job's attempts for the advisory Jev (TypeSafe) diagnosis (jev.yml); never changes the job's verdict.
 inputs:
@@ -59,7 +60,7 @@ inputs:
         required: false
         default: ''
     artifact:
-        description: The artifact's name, jev-input-<workflow>-<job>-<run>-<attempt> (jev.yml reads it)
+        description: The artifact's name, jev-input-<workflow>-<job>-<run>-<attempt> (jev.yml reads the source run's inputs)
         required: true
 runs:
     using: composite

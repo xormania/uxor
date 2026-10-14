@@ -315,20 +315,6 @@ jobs:
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
-    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
-    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
-    jev:
-        name: Jev
-        needs: [checks]
-        if: ${{ !cancelled() }}
-        permissions:
-            contents: read
-        uses: ./.github/workflows/jev.yml
-        with:
-            workflow: release-checks
-        secrets:
-            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-
     # The required check (main's ruleset: *Release checks*): it runs whatever happened before it and fails unless the
     # suite passed, so a failed or skipped suite, or a failed What to check, can never read as a pass. Only a scheduled
     # run that found the checks already passed on dev's head passes without the suite.

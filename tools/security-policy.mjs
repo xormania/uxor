@@ -65,26 +65,107 @@ const jobWrites = {
     'release-checks.yml': { issue: ['issues'] },
 };
 
-// The workflow that alone reads a secret into a step; every other workflow may only hand one on to a local
-// reusable workflow (a job's `secrets:` mapping)
+// The independent trusted diagnosis workflow alone reads secrets. Producers collect data without credentials.
 const secretReader = 'jev.yml';
-// the reusable workflows a secret may be handed to: the Jev workflow, and the gallery's, which hands it on to Jev alone
-const secretCallees = ['./.github/workflows/jev.yml', './.github/workflows/pages.yml'];
 
-// Expressions that carry text an outsider can choose, never expanded inside a shell script (pass them through env:)
-const untrustedExpression = /\$\{\{[^}]*\b(?:github\.event\.|github\.head_ref\b|inputs\.)/;
+// Read context references as expression tokens, not as spellings inside arbitrary text. Dotted and indexed access
+// have the same trust boundary; quoted literals, nested function calls and whitespace do not change that boundary.
+function githubExpressions(source) {
+    const expressions = [];
+    let cursor = 0;
+    for (;;) {
+        const start = source.indexOf('${{', cursor);
+        if (start === -1) return expressions;
+        cursor = start + 3;
+        const tokens = [];
+        while (cursor < source.length && !source.startsWith('}}', cursor)) {
+            const char = source[cursor];
+            if (/\s/.test(char)) { cursor++; continue; }
+            if (char === "'" || char === '"') {
+                const quote = char;
+                let value = '';
+                cursor++;
+                while (cursor < source.length) {
+                    if (source[cursor] === quote) {
+                        if (quote === "'" && source[cursor + 1] === quote) {
+                            value += quote;
+                            cursor += 2;
+                            continue;
+                        }
+                        cursor++;
+                        break;
+                    }
+                    if (quote === '"' && source[cursor] === '\\' && cursor + 1 < source.length) cursor++;
+                    value += source[cursor++];
+                }
+                tokens.push({ kind: 'string', value });
+            } else {
+                const identifier = /^[A-Za-z_][A-Za-z0-9_-]*/.exec(source.slice(cursor));
+                if (identifier) {
+                    tokens.push({ kind: 'identifier', value: identifier[0].toLowerCase() });
+                    cursor += identifier[0].length;
+                } else {
+                    tokens.push({ kind: 'symbol', value: char });
+                    cursor++;
+                }
+            }
+        }
+        expressions.push({ start, tokens });
+        cursor += 2;
+    }
+}
+
+const rootContext = (tokens, index, name) => tokens[index]?.kind === 'identifier'
+    && tokens[index].value === name && tokens[index - 1]?.value !== '.';
+const readsSecrets = ({ tokens }) => tokens.some((_, index) => rootContext(tokens, index, 'secrets'));
+
+function untrustedExpression({ tokens }) {
+    return tokens.some((_, index) => {
+        if (rootContext(tokens, index, 'inputs')) return true;
+        if (!rootContext(tokens, index, 'github')) return false;
+        let property;
+        if (tokens[index + 1]?.value === '.' && tokens[index + 2]?.kind === 'identifier') {
+            property = tokens[index + 2].value;
+        } else if (tokens[index + 1]?.value === '[' && tokens[index + 2]?.kind === 'string'
+            && tokens[index + 3]?.value === ']') {
+            property = tokens[index + 2].value.toLowerCase();
+        } else {
+            // The whole context or a computed property can include event data; require env: rather than guessing.
+            return true;
+        }
+        return property === 'event' || property === 'head_ref';
+    });
+}
 
 const indentOf = (line) => line.length - line.trimStart().length;
 
 // GitHub accepts quoted mapping keys and permission values. Normalize their literal spelling for this narrow
 // block-mapping scanner; permission entries it cannot read are rejected below, rather than silently accepted.
 const literalYamlLine = (line) => line
-    .replace(/^(\s*(?:-\s*)?)(['"])([A-Za-z0-9_-]+)\2(\s*:)/, '$1$3$4')
+    .replace(/^(\s*(?:-\s*)?)(['"])([A-Za-z0-9_-]+)\2\s*:/, '$1$3:')
+    .replace(/^(\s*(?:-\s*)?)([A-Za-z0-9_-]+)\s+:/, '$1$2:')
     .replace(/(:\s*)(['"])([A-Za-z0-9_-]+)\2(\s*(?:#.*)?)$/, '$1$3$4');
 
 export function workflowProblems(file, source) {
     const problems = [];
-    const lines = source.split('\n').map(literalYamlLine);
+    // YAML's hexadecimal escapes can spell context names or even expression delimiters in quoted scalars,
+    // including multiline, flow, tagged and anchored forms. Canonicalize them before every policy scan. Doing this
+    // conservatively across the source also rejects encoded spellings this narrow scanner cannot otherwise parse.
+    const canonicalSource = source.replace(/\\\r?\n[ \t]*/g, '')
+        .replace(/\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8}))/g, (escape, x, u, upper) => {
+        const point = Number.parseInt(x ?? u ?? upper, 16);
+        return point <= 0x10ffff ? String.fromCodePoint(point) : escape;
+    });
+    const lines = canonicalSource.split('\n').map(literalYamlLine);
+    // This policy scans literal YAML spellings. Escaped quoted keys or scalar values require YAML decoding before
+    // expression analysis, so reject that unsupported form instead of missing an escaped context or action name.
+    source.split('\n').forEach((line, index) => {
+        const key = /^\s*(?:-\s*)?("(?:\\.|[^"\\])*")\s*:/.exec(line);
+        const value = /^\s*(?:-\s*)?(?:[A-Za-z0-9_-]+|"(?:\\.|[^"\\])*"|'(?:''|[^'])*')\s*:\s*("(?:\\.|[^"\\])*")\s*(?:#.*)?$/.exec(line);
+        if (key?.[1].includes('\\') || value?.[1].includes('\\')) {
+            problems.push(`${file}:${index + 1}: escaped double-quoted YAML keys or values are not supported by this policy; use literal keys and scalar values`);
+        }
+    });
 
     if (/^\s*pull_request_target\s*:/m.test(lines.join('\n'))) {
         problems.push(`${file}: pull_request_target can expose base-branch secrets to untrusted pull request code`);
@@ -107,7 +188,7 @@ export function workflowProblems(file, source) {
         }
     }
 
-    const joinedShell = source.replace(/\\\r?\n/g, ' ');
+    const joinedShell = [source, canonicalSource].map((text) => text.replace(/\\\r?\n/g, ' ')).join('\n');
     if (/\b(?:curl|wget)\b[^|\n]*\|\s*(?:sudo\s+)?(?:ba|z|k)?sh\b/i.test(joinedShell)) {
         problems.push(`${file}: a remote response is piped directly into a shell`);
     }
@@ -151,9 +232,11 @@ export function workflowProblems(file, source) {
 function credentialProblems(file, lines) {
     const problems = [];
     const name = file.split('/').pop();
-    // the jobs: each key one level under `jobs:`, at whatever indent the file uses, with the reusable workflow it calls
+    const source = lines.join('\n');
+    const secretLines = new Set(githubExpressions(source).filter(readsSecrets)
+        .map(({ start }) => source.slice(0, start).split('\n').length - 1));
+    // the jobs: each key one level under `jobs:`, at whatever indent the file uses
     const jobAt = new Array(lines.length).fill(null);
-    const calls = {};
     const jobsLine = lines.findIndex((line) => /^jobs:\s*$/.test(line));
     let jobIndent = Infinity;
     if (jobsLine !== -1) {
@@ -169,8 +252,6 @@ function credentialProblems(file, lines) {
             }
             if (key) current = key[1];
             jobAt[index] = current;
-            const uses = current && /^\s*uses:\s*['"]?([^'"\s#]+)/.exec(line);
-            if (uses && indentOf(line) > jobIndent) calls[current] ??= uses[1];
         }
     }
     for (let index = 0; index < lines.length; index++) {
@@ -178,7 +259,7 @@ function credentialProblems(file, lines) {
         const content = line.replace(/\s+#.*$/, '');
         const job = jobAt[index];
 
-        if (/^\s*(?:-\s*)?uses:\s*actions\/checkout@/.test(line)) {
+        if (/^\s*(?:-\s*)?uses:\s*['"]?actions\/checkout@/.test(line)) {
             const body = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
             let end = index + 1;
             while (end < lines.length && (!lines[end].trim() || (indentOf(lines[end]) >= body && !lines[end].trimStart().startsWith('- ')))) end++;
@@ -211,16 +292,8 @@ function credentialProblems(file, lines) {
         if (/\bsecrets:\s*inherit\b/.test(content)) {
             problems.push(`${file}:${index + 1}: secrets: inherit hands every secret on; name the one the workflow needs`);
         }
-        if (/\$\{\{\s*secrets\./.test(content) && name !== secretReader) {
-            let parent = index - 1;
-            while (parent >= 0 && (!lines[parent].trim() || indentOf(lines[parent]) >= indentOf(line))) parent--;
-            const passedOn = parent >= 0 && /^\s+secrets:\s*$/.test(lines[parent])
-                && /^\s+[A-Z0-9_]+:\s*\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}\s*$/.test(content);
-            if (!passedOn) {
-                problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; hand it on in a job's secrets: mapping only`);
-            } else if (!secretCallees.includes(calls[job] ?? '')) {
-                problems.push(`${file}:${index + 1}: job ${job} hands a secret to ${calls[job] ?? 'no reusable workflow'}; only ${secretCallees.join(' and ')} may receive one`);
-            }
+        if (secretLines.has(index) && name !== secretReader) {
+            problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; producers collect diagnosis inputs without credentials`);
         }
 
         const run = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);
@@ -228,8 +301,10 @@ function credentialProblems(file, lines) {
             const key = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
             const script = [run[2]];
             for (let next = index + 1; next < lines.length && (!lines[next].trim() || indentOf(lines[next]) > key); next++) script.push(lines[next]);
-            script.forEach((text, offset) => {
-                if (untrustedExpression.test(text)) {
+            const shell = script.join('\n');
+            githubExpressions(shell).forEach((expression) => {
+                if (untrustedExpression(expression)) {
+                    const offset = shell.slice(0, expression.start).split('\n').length - 1;
                     problems.push(`${file}:${index + 1 + offset}: an untrusted expression expanded inside a run: script; pass it through env:`);
                 }
             });

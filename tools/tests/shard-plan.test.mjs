@@ -328,6 +328,27 @@ test('timings reads every shard\'s durations.json into the timings file plan rea
     assert.deepEqual(JSON.parse(readFileSync(join(dir, 'plan/plan.json'), 'utf8')).shards.map((s) => s.predictedMs), [9000, 1000]);
 });
 
+for (const emptyDirectory of [false, true]) {
+    test(`timings carries the previous snapshot into the next artifact when shards are ${emptyDirectory ? 'empty' : 'missing'}`, () => {
+        const { dir } = workspace();
+        const previous = JSON.parse(readFileSync(join(dir, 'timings.json'), 'utf8'));
+        previous.sources = [{ runUrl: 'https://github.com/o/r/actions/runs/7', sha: 'abc', shards: ['chromium 1/2', 'chromium 2/2'] }];
+        writeFileSync(join(dir, 'timings.json'), JSON.stringify(previous));
+        if (emptyDirectory) mkdirSync(join(dir, 'shards'));
+
+        const run = cli(['timings', '--shards', 'shards', '--previous', 'timings.json', '--out', 'ci-metrics/shard-timings.json'], { cwd: dir });
+        assert.equal(run.code, 0, run.stderr);
+        const carried = JSON.parse(readFileSync(join(dir, 'ci-metrics/shard-timings.json'), 'utf8'));
+        assert.deepEqual(carried, previous, 'the latest green run must retain the rolling times and their provenance');
+
+        // The next browser run can plan from that artifact, without falling back to the committed times.
+        const plan = cli(['plan', '--list', 'list.json', '--timings', 'ci-metrics/shard-timings.json', '--shard', '1', '--shards', '2', '--out', 'plan'], { cwd: dir });
+        assert.equal(plan.code, 0, plan.stderr);
+        assert.match(plan.output, /^mode=timings$/m);
+        assert.deepEqual(JSON.parse(readFileSync(join(dir, 'plan/plan.json'), 'utf8')).timingsSources, previous.sources);
+    });
+}
+
 test('bad usage exits 64', () => {
     assert.equal(cli(['plan', '--list']).code, 64);
     assert.equal(cli(['nonsense']).code, 64);

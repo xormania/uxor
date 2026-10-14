@@ -1387,19 +1387,24 @@ supplied excerpts best helps investigate it (or none). It is a starting hypothes
 verdict: the test result decides, nothing waits for the diagnosis, and a missing key, a provider error or an answer
 that does not validate gives an *unavailable* assessment, never a failure.
 
-It runs in two places, so the key never meets code the repository does not control:
+It runs in two places, keeping the producer's workflow and tested code away from the key:
 
 1. **In the failed job, without the key:** the composite action
    [`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml) builds the job's
    `failed-attempts.json`, copies its server log and uploads both, with the job's name and shard, as
    `jev-input-<workflow>-<job>-<run>-<attempt>` (kept 3 days).
-2. **In the workflow's *Jev* job, with the key:** the reusable workflow
-   [`.github/workflows/jev.yml`](../.github/workflows/jev.yml), on a fresh runner where no package, image or test has
-   run, downloads this run attempt's inputs and runs the diagnosis from the trusted branch's `tools/ci` (the pull
-   request's base branch, else `main` on `main` and `dev` everywhere else, checked out by name), never the run's own
-   copy. Its assessments
-   are the `jev-<workflow>-<run>-<attempt>` artifact. A change to the diagnosis script is therefore used from the run
-   after it reaches `dev`; its cases run on the change itself.
+2. **In an independent *Jev diagnosis* workflow, with the key:**
+   [`.github/workflows/jev.yml`](../.github/workflows/jev.yml) runs after a producing workflow completes. GitHub's
+   `workflow_run` event loads this YAML from the default branch (`main`), so a pull request cannot replace the
+   secret-bearing consumer by editing a relative reusable workflow. On a fresh runner where no package, image or
+   test has run, it downloads only the source run ID and attempt's `jev-input` artifacts into the runner's temporary
+   directory. Every producer key is included: a *Release* run can also hold the nested *Pages* build's inputs.
+   Artifacts are data, never executable code, and stay outside the trusted checkout. The diagnosis runs `tools/ci`
+   from the literal `main` branch when the source ran on `main`, or literal `dev` otherwise. No artifact, pull request
+   field or source SHA chooses the executable code. Its assessments are the `jev-run-<source run>-<source attempt>`
+   artifact. Assessment provenance identifies the source SHA, run ID and attempt; the consumer's default-branch
+   commit never substitutes for the code that was tested. A change to the diagnosis script becomes active after it reaches the selected trusted branch; its
+   cases run on the change itself. Fork-head runs are skipped, preserving the same-repository credential boundary.
 
 The attempts come from one of three places:
 
@@ -1413,11 +1418,16 @@ The attempts come from one of three places:
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
 What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
-log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing, and the *Jev* job finds nothing.
+log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing, and the consumer finds nothing.
+
+The newly collecting *Changes*, audit, *Mentions* and monthly PHP jobs reserve three minutes beyond their original
+job limits for the collector and its upload. *Mentions* also uses the checker's `--redact` option before capturing
+its output: rejected account tokens become a neutral marker, while the source, line, column, destination and failure
+status remain. The captured attempts and any Jev excerpts therefore cannot publish those rejected references again.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*
-  section on the run's *Summary* page (from the *Jev* job); and the `jev-<workflow>-<run>-<attempt>` artifact, kept 30
+  section on the independent *Jev diagnosis* run's *Summary* page; and the `jev-run-<source run>-<source attempt>` artifact, kept 30
   days, with, per collected job, one `attempts/<NN>-<test>/assessment.json` per failed attempt (the request sent, the validated answer with its
   probabilities, the policy, the model, the elapsed time) and `summary.md`.
 - **Confidence:** each answer comes with Jev's confidence. Below 0.65 (the policy's `min_confidence`) the category is
@@ -1439,11 +1449,29 @@ log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing,
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone; every other workflow only hands it on to
-`jev.yml` (`pages.yml` receives it from `release.yml` to hand on), which `tools/security-policy.mjs` checks. Without it (a fork's run, for instance) every attempt is *unavailable
+The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone. Producers neither read it nor forward it;
+`tools/security-policy.mjs` checks that boundary. Without a configured key, every collected attempt is *unavailable
 (missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
 them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
+
+**Rollout and secret scope.** The independent consumer starts only after `jev.yml` reaches the default branch through
+the normal release. A branch or `dev` copy cannot register a `workflow_run` consumer; until that release, producers
+still upload their inputs but this new consumer does not run. The old secret-bearing caller jobs are removed.
+This change closes the producer's relative-workflow path; it does not make repository secrets inaccessible to a
+malicious collaborator who can add another workflow on a branch. To enforce that stronger boundary, the owner moves
+the key to a dedicated environment, restricts deployment branches to the protected default branch, removes any
+repository or organization copy available to this repository, and configures the diagnosis job to use that
+environment. Optional required reviewers add approval before secret access. Never claim that a code condition or
+trusted checkout alone enforces this repository setting.
+
+The workflow's data boundary is exercised by `tools/tests/jev-boundary.test.mjs`: hostile branch names cannot choose
+a checkout; source run and attempt select the download; both release and nested gallery inputs reach only the trusted
+script, even with executable artifact files and shell syntax in metadata. The existing diagnosis cases verify its
+request sanitization and bounded transport. The consumer restores no dependency cache and installs no project code.
+See GitHub's [reusable workflow resolution](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
+[workflow_run event and artifact example](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run),
+and [environment secret protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
 
 ## Monthly job
 

@@ -670,7 +670,7 @@ async function main() {
     const entries = [];
     const write = () => {
         const body = nothing ? [`Nothing to assess: ${nothing}.`] : entries;
-        const markdown = clean([heading, '', NOTE, 'Each failed attempt\'s assessment (category, confidence, the selected excerpt, the request sent) is kept 30 days in the shard\'s `jev-<browser>-<shard>-<run>-<attempt>` artifact.', '', ...body, ''].join('\n'));
+        const markdown = clean([heading, '', NOTE, 'Each failed attempt\'s assessment (category, confidence, the selected excerpt, the request sent) is kept 30 days in the independent diagnosis run\'s `jev-run-<source run>-<source attempt>` artifact.', '', ...body, ''].join('\n'));
         writeFileSync(join(output, 'summary.md'), markdown);
         return markdown;
     };
