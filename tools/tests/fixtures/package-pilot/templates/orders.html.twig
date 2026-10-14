@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Independent UXor consumer</title>
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    {{ importmap('app') }}
+</head>
+<body class="font-sans">
+    <twig:UXor:DataTable :table="table" id="orders" label="Orders" data-consumer="fixture">
+        {% block cell_number %}<a href="/invoice/{{ row.id }}" data-invoice>{{ row.number }}</a>{% endblock %}
+        {% block cell_customer %}<strong data-customer>{{ row.customer }}</strong>{% endblock %}
+    </twig:UXor:DataTable>
+</body>
+</html>

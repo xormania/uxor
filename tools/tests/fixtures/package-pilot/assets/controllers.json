@@ -1,0 +1,6 @@
+{
+    "controllers": {
+        "@xormania/uxor-pilot": { "data-table": { "enabled": true, "fetch": "eager" } }
+    },
+    "entrypoints": []
+}

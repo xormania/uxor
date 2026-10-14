@@ -7,6 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- An unpublished package experiment for the data table, assembled from canonical recipe sources, with an independent
+  Symfony consumer fixture and explicit application-owned theme overrides. The installed recipe kit is unchanged.
+
 - `oauth`: installed Symfony authentication with Google, Facebook and GitHub, single-use provider-bound attempts, PKCE and Google ID-token validation, safe return paths and explicit account connections.
 
 - `oauth-provider-button`: provider sign-in links with full browser navigation, no Turbo prefetch and Google's official light and dark button artwork served locally.

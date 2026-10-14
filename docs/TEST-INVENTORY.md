@@ -7,6 +7,10 @@ moves or removes coverage updates the rows it touches, and its own coverage map 
 
 ## How to read it
 
+The upgradeable-component experiment adds `tools/tests/build-package-pilot.test.mjs` for bounded package assembly
+and `tools/tests/package-pilot.sh` for isolated ZIP installation, custom table rendering and production assets with
+application-owned branding. These are distribution checks; they do not add browser lifecycle or upgrade coverage.
+
 - **Specs** are named by file without `.spec.ts`: `lab.popover` is `tests/e2e/lab.popover.spec.ts`; a recipe's own
   spec (`<recipe>/tests/*.spec.ts`, run as `tests/e2e/examples/recipes/`) is `recipe:<name>`; the interaction
   screenshots of `tests/e2e/examples/fixtures.ts` (`testState`) are `shot:<recipe>`. PHPUnit tests are named by class

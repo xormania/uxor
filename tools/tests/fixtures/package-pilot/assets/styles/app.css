@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import "../vendor/flowbite/dist/flowbite.min.css";
+@import "../../vendor/xormania/uxor-pilot/assets/styles/uxor.css";
+@source "../../vendor/xormania/uxor-pilot/templates";
+@source "../../templates";
+
+/* Consumer-owned brand choices follow package defaults. Theme identity is separate from color mode. */
+:root {
+    --color-brand: #6d28d9;
+    --radius-base: 4px;
+    --font-sans: Georgia, serif;
+}
+
+.dark {
+    --color-brand: #a78bfa;
+    --color-fg-on-brand: #171717;
+}
