@@ -90,13 +90,32 @@ trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md
 
 CI runs them on every push, each job only when the change could affect what it checks
 ([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main` and `dev`, and a run by hand, run everything. A
-branch is compared with where it left `dev`, so each push checks the whole pull request. The rulesets require the one
+branch normally compares with where it left `dev`, so each push checks the whole pull request. The rulesets require the one
 *CI result* check, which passes when every job passed or was skipped, and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
 queue; a work order's jobs need not be up to date with it, *Work orders* below). CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
 script does not know yet runs. A path no row below names counts as part of the kit until `tools/ci-changes.sh` and its
 test (`tools/tests/ci-changes.sh`) say otherwise. A deleted file counts as a change to its path, a renamed one as a
 change to both paths.
+
+**Upgradeable-components development.** During the PHP/Symfony foundation phase, pushes to exactly
+`feat/upgradeable-components` and its `feat/upgradeable-components--<job>` siblings use the `feature-php` profile.
+It always runs *Kit PHP* (syntax, PHPUnit, PHPStan and the Symfony test container), its import-map prerequisite,
+*Workflows*, and the unconditional *Tool tests* and repository policy checks. The base's classifier still selects
+*Lint kit* and *Contrast* when relevant. The browser matrix, static gallery and both broad fresh-install jobs are
+deferred. Independent metadata and CodeQL checks remain enabled. *Changes* and *CI result* name the profile, so a
+green development run does not claim browser coverage.
+
+Feature siblings compare with their merge-base against `origin/feat/upgradeable-components`; the integration
+branch itself still compares against `dev`. The classifier is read from that base, not the work branch's edited
+copy. Missing comparison history selects full CI, and an error reading promotion PRs fails the selection job.
+
+**Before promotion:** open the PR into `dev` (or another non-feature base), then use *Re-run all jobs* on the latest
+push run. A feature branch with any open PR outside its integration branch selects full CI, as do all manual runs
+and pushes to `dev`/`main`. Opening or retargeting a PR alone does not rerun this push-only workflow: a previous
+green `feature-php` check is not full validation. The *Run workflow* action with the feature ref also requests a
+full run. Feature workflow changes are checked within the reduced profile during development; their full
+regression coverage is required before promotion. The path table below describes the standard profile.
 
 | A change to | runs |
 |---|---|
