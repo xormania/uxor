@@ -48,10 +48,17 @@ security:
             custom_authenticators:
                 - App\UXor\OAuth\OAuthAuthenticator
             entry_point: App\UXor\OAuth\OAuthAuthenticator
+    access_control:
+        # Put this before your existing authenticated catch-all rule.
+        - { path: '^/oauth/[a-z][a-z0-9_-]{0,31}/(start|check)$', roles: PUBLIC_ACCESS }
+        # Keep your existing public login rule and other access rules below.
 ```
 
 If this firewall already has an entry point, choose the one that displays your combined login page. Symfony's
-configured user provider must reload the users returned by your identity store on subsequent requests. The default
+access rules must permit anonymous requests to the provider start and callback routes, and to your login page,
+before any rule requiring authentication. Keep link and unlink protected; their controllers also enforce full
+authentication and CSRF protection. If you change the OAuth route prefix, adjust the public rule to match it.
+Symfony's configured user provider must reload the users returned by your identity store on subsequent requests. The default
 attribute-controller route loader discovers `OAuthController`; an application with custom route loading imports
 `src/UXor/OAuth/OAuthController.php` as attribute routes.
 

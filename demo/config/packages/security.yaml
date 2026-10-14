@@ -51,6 +51,9 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
+        - { path: '^/oauth/[a-z][a-z0-9_-]{0,31}/(start|check)$', roles: PUBLIC_ACCESS }
+        - { path: '^/oauth-demo/(login$|provider/)', roles: PUBLIC_ACCESS }
+        - { path: '^/(oauth|oauth-demo)(/|$)', roles: ROLE_USER }
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
 

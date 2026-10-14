@@ -32,6 +32,9 @@ final class OAuthFlowTest extends WebTestCase
         $client->request('GET', '/oauth-demo/account');
         self::assertResponseRedirects('/oauth-demo/login');
 
+        $client->request('POST', '/oauth/google/link');
+        self::assertResponseRedirects('/oauth-demo/login');
+
         $this->signIn($client, $provider);
         self::assertSelectorTextContains('#oauth-identity', $provider.'@example.test');
         $client->request('GET', '/oauth-demo/private');
@@ -83,18 +86,20 @@ final class OAuthFlowTest extends WebTestCase
     {
         $client = self::createClient();
         $this->signIn($client, 'github');
+        self::assertSelectorExists('form[action="/oauth/google/link"] input[name="returnTo"][value="/oauth-demo/account?section=connections"]');
         $client->submit($client->getCrawler()->filter('form[action="/oauth/google/link"]')->form());
         self::assertResponseRedirects();
         $this->consent($client, $client->followRedirect());
         $client->followRedirect();
-        self::assertResponseRedirects('/oauth-demo/account');
+        self::assertResponseRedirects('/oauth-demo/account?section=connections');
         $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('form[action="/oauth/google/unlink"]');
+        self::assertSelectorExists('form[action="/oauth/google/unlink"] input[name="returnTo"][value="/oauth-demo/account?section=connections"]');
         self::assertSelectorExists('form[action="/oauth/github/unlink"]');
 
         $client->submit($client->getCrawler()->filter('form[action="/oauth/google/unlink"]')->form());
-        self::assertResponseRedirects('/oauth-demo/account');
+        self::assertResponseRedirects('/oauth-demo/account?section=connections');
         $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('form[action="/oauth/google/link"]');
@@ -140,7 +145,7 @@ final class OAuthFlowTest extends WebTestCase
         $client->submit($client->getCrawler()->filter('form[action="/oauth/google/link"]')->form());
         $this->consent($client, $client->followRedirect(), $scenario, $approve);
         $client->followRedirect();
-        self::assertResponseRedirects('/oauth-demo/account');
+        self::assertResponseRedirects('/oauth-demo/account?section=connections');
         $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', $message);
@@ -196,7 +201,7 @@ final class OAuthFlowTest extends WebTestCase
         $this->signIn($client, 'github');
         $form = $client->getCrawler()->filter('form[action="/oauth/google/link"]')->form();
         $client->request('POST', '/oauth/unknown/link', $form->getPhpValues());
-        self::assertResponseRedirects('/oauth-demo/account');
+        self::assertResponseRedirects('/oauth-demo/account?section=connections');
         $client->followRedirect();
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'This sign-in provider is unavailable. Please choose another.');
@@ -218,7 +223,7 @@ final class OAuthFlowTest extends WebTestCase
         $client->submit($client->getCrawler()->filter('form[action="/oauth/google/link"]')->form());
         $this->consent($client, $client->followRedirect());
         $client->followRedirect();
-        self::assertResponseRedirects('/oauth-demo/account');
+        self::assertResponseRedirects('/oauth-demo/account?section=connections');
         $client->followRedirect();
         self::assertResponseIsSuccessful();
 

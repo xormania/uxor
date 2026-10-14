@@ -7,6 +7,8 @@
     description = 'Manage the accounts you can use to sign in.',
     ## string The prefix of the unavailable-action descriptions; give each instance on a page its own prefix.
     idPrefix = 'connected-accounts',
+    ## string|null The app-local settings destination submitted by both connection forms.
+    returnTo = null,
     ## boolean Whether all connection actions are unavailable, useful for a read-only account or a preview.
     readOnly = false,
     ## string The reason shown when the whole card is read-only.
@@ -54,6 +56,7 @@
                             {%- else %}
                                 <form action="{{ _action }}" method="post" data-turbo="false" data-turbo-prefetch="false">
                                     <input type="hidden" name="_csrf_token" value="{{ _token }}">
+                                    {%- if returnTo %}<input type="hidden" name="returnTo" value="{{ returnTo ~ '' }}">{% endif -%}
                                     {%- if _connected %}<input type="hidden" name="subject" value="{{ account.subject ~ '' }}">{% endif -%}
                                     <twig:Button variant="outline" type="submit" class="min-h-11">{{ (_connected ? 'Disconnect ' : 'Connect ') ~ _name }}</twig:Button>
                                 </form>
