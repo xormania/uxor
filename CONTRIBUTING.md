@@ -20,7 +20,7 @@ and pull request standard.
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | no | each recipe README renders its manifest's dependencies (`::: installation`) and writes no version table, and changes with the recipe's code unless a commit waives it (*Docs*) |
 | `tools/icon-lint.mjs` | no | every icon in the recipes' templates and the markdown is a `flowbite:` name written in full (*Docs*) |
 | `tools/ci/playwright-summary.mjs` | no | reads a CI shard's Playwright report: the job summary, annotations, `failed-attempts.json` and `durations.json` ([`docs/TESTING.md`](docs/TESTING.md), *Reading CI results*) |
-| `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `.github/actions/jev-diagnosis/` | no | the advisory Jev diagnosis of each failed attempt in `failed-attempts.json`, and its policy; `junit-attempts.mjs` writes that file from a JUnit report (*Kit PHP*'s PHPUnit, *Tool tests*' Node), `step-attempts.mjs` from a failed step's captured log; the composite action is the one Jev step every job calls ([`docs/TESTING.md`](docs/TESTING.md), *Jev diagnosis*) |
+| `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `.github/actions/jev-diagnosis/` | no | the advisory Jev diagnosis of each failed attempt in `failed-attempts.json`, and its policy; `junit-attempts.mjs` writes that file from a JUnit report (*Kit PHP*'s PHPUnit, *Tool tests*' Node), `step-attempts.mjs` from a failed step's captured log; the composite action is the one Jev step every job calls, collecting without the key, and `.github/workflows/jev.yml` the one job that diagnoses with it ([`docs/TESTING.md`](docs/TESTING.md), *Jev diagnosis*) |
 | `tools/ci/ci-metrics.mjs` | no | CI's own numbers for later optimizations, report only: each browser shard's build cache and setup times (`job-metrics.json`), and in *CI result* the run's shard balance, setup and test time per shard, slowest tests and files, retried tests and every job's step times (`ci-metrics.json`) ([`docs/TESTING.md`](docs/TESTING.md), *CI metrics*) |
 | `tools/ci/shard-plan.mjs`, `tests/shard-timings.json` | no | splits each browser's CI shards by recorded test time (`--test-list`), checks that the shards hold every test once, falls back to `--shard` without usable timings, and refreshes the timings from a run ([`docs/TESTING.md`](docs/TESTING.md), *Shard balance*) |
 | `tools/ci/release-timings.mjs` | no | the release checks' timings against `tests/perf/baseline.json`, report only, and a new baseline from a run ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
@@ -30,7 +30,7 @@ and pull request standard.
 | `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | outbound GitHub text names no account or team the allowlist does not: the *Metadata* workflow on every pull request, the hook before each commit (*Commits and pull requests*) |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s release job, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s check and release jobs, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
@@ -126,7 +126,7 @@ change to both paths.
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
-| `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its release job's steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
+| `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
 | `.github/workflows/release-checks.yml` | *Workflows*, *Demo + Playwright* (its setup, and the same projects and fixtures); it runs on the release pull request, daily on `dev` and by hand, never on a push |
@@ -205,13 +205,18 @@ the CDN), and shared as the `importmap-packages` artifact with every job that in
 each shard checks that its install left the packages as downloaded. The *Fresh install* jobs still download for
 themselves: that is part of what they check.
 A shard with a failed or flaky test then asks Jev (TypeSafe) for a likely cause of each failed attempt, at most 10 per
-shard: a warning per attempt and the `jev-<browser>-<shard>-<run>-<attempt>` artifact, kept 30 days. It is advisory: it cannot
+shard: a warning per attempt and the `jev-run-<source run>-<source attempt>` artifact, kept 30 days. It is advisory: it cannot
 fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. Every other job that can
-fail does the same on a failure: *Kit PHP* (each failed PHPUnit test, `jev-phpunit-<run>-<attempt>`), *Tool tests*
-(each failed case, from Node's JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap
-packages*, *Static site*, both *Fresh install* jobs, *Contrast*, *Workflows*, the release's install check and the
-gallery's build (`jev-<job>-<run>-<attempt>`). They all call one composite action,
-[`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml). See *Jev diagnosis* in the same section.
+fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
+JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
+install* jobs, *Contrast*, *Workflows*, the release's install check, tag and release, and the gallery's build. The
+failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
+without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
+consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
+it runs the trusted branch's `tools/ci`, and producers never receive or forward the key. Diagnostics and assessments
+appear in that separate run, as `jev-run-<source run>-<source attempt>`. It becomes active when the consumer reaches
+the default branch through a release. See *Jev diagnosis* in the same section for rollout and the environment setting
+needed to protect a repository secret from a malicious branch writer.
 
 - `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
   Components, the components given hostile prop values (`hostile-props.spec.ts`), the demo's security headers and
@@ -572,10 +577,12 @@ git merge --no-ff origin/main`, with nothing else in it). The tag `X.Y.Z` is on 
 commit, which only `main` holds: until `dev` contains it, `git describe` on `dev` (`tools/build-static.sh` reads it) still
 names the previous release, and the next release pull request may need `main` merged into it before it can merge.
 
-Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: it
-checks that the merge commit installs from GitHub in a fresh Symfony Docker project
-(`tools/tests/docker-install.sh`), tags it `X.Y.Z`, and publishes a GitHub Release with the section as its notes,
-marked *Latest*. If it fails, fix the cause and re-run it: it skips what is already done. An older version that is
+Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: its
+*Check the new version's install* job, with a read-only token, checks that the merge commit installs from GitHub in a
+fresh Symfony Docker project (`tools/tests/docker-install.sh`); then its *Tag and publish new versions* job, which
+runs no install and keeps no credentials in its checkout, tags that commit `X.Y.Z` (only if that very commit's
+install was checked) and publishes a GitHub Release with the section as its notes, marked *Latest*. Both jobs check out
+`main` by name and read the commit CI passed on as history (it must be on `main`), so the code they run is `main`'s. If it fails, fix the cause and re-run it: it skips what is already done. An older version that is
 tagged but has no Release (a tag pushed by hand, a run that stopped before its Release) gets its Release in the same
 run, after the new one: its notes, not *Latest*, and no install check, since today's check installs today's recipes,
 which an older version lacks. That step is best effort: if it fails, it warns, and the job and the gallery go on. An
@@ -586,7 +593,7 @@ hand, and a re-run publishes its Release.
 `main`'s first-parent history that adds the version's heading (the release pull request's merge commit), the notes
 are the version's section of `CHANGELOG.md` at that commit (a later edit to an old section changes no published
 notes), and an existing tag, lightweight or annotated, must point at that commit. A tag that points elsewhere is
-refused: the run fails at *Plan the tags and notes*, before any install check, tag or release. Look at what the tag
+refused: the run fails at *Plan the tags*, before any install check, tag or release. Look at what the tag
 holds, then delete it (`git push origin :refs/tags/X.Y.Z`, and locally `git tag -d X.Y.Z`) or move it to the commit
 the plan names, and re-run. See the plan before a release, or after a refusal, with
 `git fetch origin main --tags && tools/release-plan.sh --dry-run --ref origin/main`: for every version, the tag, the

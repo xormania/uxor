@@ -1239,11 +1239,13 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 
 ### CI metrics
 
-The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
-every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
-branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
-write never fails the build. `monthly.yml` and `release-checks.yml` read the `dev` and `main` tags and write none; a
-workflow that reads a cache no build writes fails `tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache`, with
+two tags, `dev` and `main`, which every build reads (a push run could read the GitHub Actions cache only from its own
+branch and `main`, so a new branch rebuilt from main's stale cache). CI's *Build cache* job writes them, on pushes to
+`dev` and `main` only, and it is the only job that holds `packages: write`: no branch's run, and no package, image or
+test a run executes, holds a token that can write a package. A failed write never fails CI. `monthly.yml` and
+`release-checks.yml` read the same tags and write none; a workflow that reads a cache no build writes fails
+`tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
 `.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
 public once, in the package's settings, so it does not count against private package storage.
 
@@ -1371,36 +1373,52 @@ run with two.
 
 ### Jev diagnosis (advisory)
 
-When a job fails (for the browser shards, in CI and in the monthly *Browsers* jobs: when a test failed or was flaky), a
-later step, [`tools/ci/jev-diagnosis.mjs`](../tools/ci/jev-diagnosis.mjs), asks Jev (TypeSafe's model, pinned in
-[`tools/ci/jev-ci.json`](../tools/ci/jev-ci.json)) two questions about each failed attempt in
+When a job fails (for the browser shards, in CI, the release checks and the monthly *Browsers* jobs: when a test
+failed or was flaky), [`tools/ci/jev-diagnosis.mjs`](../tools/ci/jev-diagnosis.mjs) asks Jev (TypeSafe's model, pinned
+in [`tools/ci/jev-ci.json`](../tools/ci/jev-ci.json)) two questions about each failed attempt in
 `failed-attempts.json`, retry-recovered ones included: which category of the policy's rubric the cause likely belongs
 to (`environment_failure`, `product_defect`, `test_defect`, `timing_assertion`, or `unknown`), and which of the
 supplied excerpts best helps investigate it (or none). It is a starting hypothesis for whoever investigates, not a
-verdict: the test result decides, the step may fail or time out (110 seconds, 3 minutes with its upload, which each
-job's `timeout-minutes` counts) without changing the job, and a missing key, a provider error or an answer that does
-not validate gives an *unavailable* assessment, never a failure.
+verdict: the test result decides, nothing waits for the diagnosis, and a missing key, a provider error or an answer
+that does not validate gives an *unavailable* assessment, never a failure.
 
-Every job calls the same step, the composite action
-[`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml): it builds the job's
-`failed-attempts.json`, runs the diagnosis and uploads the assessments. The attempts come from one of three places:
+It runs in two places, keeping the producer's workflow and tested code away from the key:
+
+1. **In the failed job, without the key:** the composite action
+   [`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml) builds the job's
+   `failed-attempts.json`, copies its server log and uploads both, with the job's name and shard, as
+   `jev-input-<workflow>-<job>-<run>-<attempt>` (kept 3 days).
+2. **In an independent *Jev diagnosis* workflow, with the key:**
+   [`.github/workflows/jev.yml`](../.github/workflows/jev.yml) runs after a producing workflow completes. GitHub's
+   `workflow_run` event loads this YAML from the default branch (`main`), so a pull request cannot replace the
+   secret-bearing consumer by editing a relative reusable workflow. On a fresh runner where no package, image or
+   test has run, it downloads only the source run ID and attempt's `jev-input` artifacts into the runner's temporary
+   directory. Every producer key is included: a *Release* run can also hold the nested *Pages* build's inputs.
+   Artifacts are data, never executable code, and stay outside the trusted checkout. The diagnosis runs `tools/ci`
+   from the literal `main` branch when the source ran on `main`, or literal `dev` otherwise. No artifact, pull request
+   field or source SHA chooses the executable code. Its assessments are the `jev-run-<source run>-<source attempt>`
+   artifact. Assessment provenance identifies the source SHA, run ID and attempt; the consumer's default-branch
+   commit never substitutes for the code that was tested. A change to the diagnosis script becomes active after it reaches the selected trusted branch; its
+   cases run on the change itself. Fork-head runs are skipped, preserving the same-repository credential boundary.
+
+The attempts come from one of three places:
 
 | Job | Its failed attempts | Server log | Artifact |
 |---|---|---|---|
-| *Demo + Playwright*, monthly *Browsers* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-<browser>-<shard>-<run>-<attempt>`, `monthly-jev-<kind>-<browser>-<shard>` |
-| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-phpunit-<run>-<attempt>` |
-| *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-tools-<run>-<attempt>` |
-| *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-<job id>-<run>-<attempt>` |
+| *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-chromium-…` |
+| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
+| *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
+| *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
 What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
-log (a checkout, a tool's download) gets no diagnosis: the step writes nothing to the summary and uploads nothing.
+log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing, and the consumer finds nothing.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*
-  section on the run's *Summary* page; and the `jev-<browser>-<shard>-<run>-<attempt>` artifact, kept 30 days, with one
-  `attempts/<NN>-<test>/assessment.json` per failed attempt (the request sent, the validated answer with its
+  section on the independent *Jev diagnosis* run's *Summary* page; and the `jev-run-<source run>-<source attempt>` artifact, kept 30
+  days, with, per collected job, one `attempts/<NN>-<test>/assessment.json` per failed attempt (the request sent, the validated answer with its
   probabilities, the policy, the model, the elapsed time) and `summary.md`.
 - **Confidence:** each answer comes with Jev's confidence. Below 0.65 (the policy's `min_confidence`) the category is
   shown as `unknown` and no excerpt is selected; the answer itself stays in `assessment.json`. The threshold decides
@@ -1410,6 +1428,10 @@ log (a checkout, a tool's download) gets no diagnosis: the step writes nothing t
   *not assessed: cap*. Attempts left when the 90-second budget runs out are *not assessed: deadline*. Each request
   holds at most 8 excerpts and 28,000 bytes (server log excerpts are dropped first, then error excerpts, and the
   omissions are recorded); one retry on 429 or 529, 8 seconds per request.
+  Across all collected jobs, the workflow spends at most 10 minutes diagnosing them, within its 15-minute job.
+  Each command gets at most 110 seconds and no more than the total budget remaining. Budget exhaustion warns and
+  leaves later jobs without assessments; completed assessments are still uploaded. The diagnosis step has an
+  11-minute limit, leaving at least four minutes for setup and upload.
 - **What leaves the runner:** the attempt's identity (file, line, title, project, retry, outcome), excerpts of its
   error and of the demo's server log during the attempt (`docker compose logs --timestamps php`, ±5 seconds), sent to
   TypeSafe. For a failed step, its error is its name, its command as the workflow writes it (not the values of its
@@ -1417,11 +1439,29 @@ log (a checkout, a tool's download) gets no diagnosis: the step writes nothing t
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is given to this step alone (`pages.yml` receives it from `release.yml` for its build's
-step, and for nothing else); without it (a fork's run, for instance) every attempt is *unavailable
+The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone. Producers neither read it nor forward it;
+`tools/security-policy.mjs` checks that boundary. Without a configured key, every collected attempt is *unavailable
 (missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
 them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
+
+**Rollout and secret scope.** The independent consumer starts only after `jev.yml` reaches the default branch through
+the normal release. A branch or `dev` copy cannot register a `workflow_run` consumer; until that release, producers
+still upload their inputs but this new consumer does not run. The old secret-bearing caller jobs are removed.
+This change closes the producer's relative-workflow path; it does not make repository secrets inaccessible to a
+malicious collaborator who can add another workflow on a branch. To enforce that stronger boundary, the owner moves
+the key to a dedicated environment, restricts deployment branches to the protected default branch, removes any
+repository or organization copy available to this repository, and configures the diagnosis job to use that
+environment. Optional required reviewers add approval before secret access. Never claim that a code condition or
+trusted checkout alone enforces this repository setting.
+
+The workflow's data boundary is exercised by `tools/tests/jev-boundary.test.mjs`: hostile branch names cannot choose
+a checkout; source run and attempt select the download; both release and nested gallery inputs reach only the trusted
+script, even with executable artifact files and shell syntax in metadata. The existing diagnosis cases verify its
+request sanitization and bounded transport. The consumer restores no dependency cache and installs no project code.
+See GitHub's [reusable workflow resolution](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
+[workflow_run event and artifact example](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run),
+and [environment secret protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
 
 ## Monthly job
 

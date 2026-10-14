@@ -11,10 +11,6 @@ on:
                 description: The commit to build the site from
                 type: string
                 required: true
-        secrets:
-            TYPESAFE_API_KEY:
-                description: The key of the advisory Jev diagnosis of a failed build; without it, the diagnosis is unavailable
-                required: false
     workflow_dispatch:
 
 permissions:
@@ -34,6 +30,7 @@ jobs:
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   ref: ${{ inputs.ref || github.sha }}
                   fetch-depth: 0 # the tags: the latest release goes in the install commands
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -60,10 +57,10 @@ jobs:
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   workflow: .github/workflows/pages.yml
                   job: Build the site
+                  artifact: jev-input-pages-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
             - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
               with:
                   path: _site
