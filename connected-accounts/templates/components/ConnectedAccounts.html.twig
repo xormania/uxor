@@ -1,0 +1,72 @@
+{%- props
+    ## array The provider account rows and their connection actions (see the README).
+    accounts = [],
+    ## string The settings card's `h2`.
+    title = 'Connected accounts',
+    ## string The explanation below the title.
+    description = 'Manage the accounts you can use to sign in.',
+    ## string The prefix of the unavailable-action descriptions; give each instance on a page its own prefix.
+    idPrefix = 'connected-accounts',
+    ## string|null The app-local settings destination submitted by both connection forms.
+    returnTo = null,
+    ## boolean Whether all connection actions are unavailable, useful for a read-only account or a preview.
+    readOnly = false,
+    ## string The reason shown when the whole card is read-only.
+    readOnlyReason = 'Account connections cannot be changed here.',
+    ## string|null A safe, human-readable message about the last connection action.
+    feedback = null,
+    ## 'danger'|'warning'|'success' The style of the connection feedback.
+    feedbackVariant = 'danger'
+-%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
+{%- set feedbackVariant = feedbackVariant in ['danger', 'warning', 'success'] ? feedbackVariant : 'danger' -%}
+{%- set _names = {google: 'Google', facebook: 'Facebook', github: 'GitHub'} -%}
+<div {{ attributes.defaults({class: 'w-full'|tailwind_classes}) }}>
+    <twig:Card>
+        <twig:Card:Header>
+            <twig:Card:Title as="h2" class="text-lg">{{ title ~ '' }}</twig:Card:Title>
+            <p class="mt-2 text-sm text-body">{{ description ~ '' }}</p>
+        </twig:Card:Header>
+        <twig:Card:Content>
+            {%- if feedback %}
+                <twig:Alert :variant="feedbackVariant" class="mb-6"><twig:Alert:Description>{{ feedback ~ '' }}</twig:Alert:Description></twig:Alert>
+            {%- endif %}
+            {%- if accounts|length %}
+                <ul class="divide-y divide-default">
+                    {%- for account in accounts %}
+                        {%- set _name = account.label|default(_names[account.provider|default('')|lower] ?? 'Provider', true) ~ '' -%}
+                        {%- set _connected = account.connected|default(false) -%}
+                        {%- set _action = _connected ? account.disconnectAction|default(null) : account.connectAction|default(null) -%}
+                        {%- set _token = (_connected ? account.disconnectToken|default(null) : account.connectToken|default(null)) ~ '' -%}
+                        {#- A form action must be relative or http(s). An unsafe or absent action makes the command unavailable. -#}
+                        {%- set _action = _action and (_action ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' ? _action ~ '' : null -%}
+                        {%- set _cannot_remove = _connected and account.cannotRemove|default(false) -%}
+                        {%- set _disabled = readOnly or _cannot_remove or not _action or not _token or (_connected and not account.subject|default(null)) -%}
+                        {%- set _reason = (readOnly ? readOnlyReason : (_cannot_remove ? account.cannotRemoveReason|default('Keep at least one way to sign in.', true) : 'This connection action is unavailable.')) ~ '' -%}
+                        {%- set _reason_id = idPrefix ~ '-reason-' ~ loop.index -%}
+                        <li class="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium text-heading">{{ _name }}</p>
+                                <p class="mt-1 break-words text-sm text-body">{{ _connected ? (account.identity|default(null) ? 'Connected as ' ~ account.identity : 'Connected') : 'Not connected' }}</p>
+                                {%- if _disabled %}<p id="{{ _reason_id }}" class="mt-1 text-sm text-body">{{ _reason }}</p>{% endif -%}
+                            </div>
+                            {%- if _disabled %}
+                                <twig:Button variant="outline" type="button" disabled aria-describedby="{{ _reason_id }}" class="min-h-11 cursor-not-allowed opacity-60">{{ (_connected ? 'Disconnect ' : 'Connect ') ~ _name }}</twig:Button>
+                            {%- else %}
+                                <form action="{{ _action }}" method="post" data-turbo="false" data-turbo-prefetch="false">
+                                    <input type="hidden" name="_csrf_token" value="{{ _token }}">
+                                    {%- if returnTo %}<input type="hidden" name="returnTo" value="{{ returnTo ~ '' }}">{% endif -%}
+                                    {%- if _connected %}<input type="hidden" name="subject" value="{{ account.subject ~ '' }}">{% endif -%}
+                                    <twig:Button variant="outline" type="submit" class="min-h-11">{{ (_connected ? 'Disconnect ' : 'Connect ') ~ _name }}</twig:Button>
+                                </form>
+                            {%- endif %}
+                        </li>
+                    {%- endfor %}
+                </ul>
+            {%- else %}
+                <p class="text-sm text-body">No sign-in providers are available.</p>
+            {%- endif %}
+        </twig:Card:Content>
+    </twig:Card>
+</div>

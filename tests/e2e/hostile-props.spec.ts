@@ -171,14 +171,15 @@ test('FormField label and help attribute names cannot add attributes', async ({ 
     expect(dialogs).toEqual([]);
 });
 
-test('link props keep only relative, http(s), mailto and tel URLs', async ({ page }) => {
+test('link props keep only the schemes each component allows', async ({ page }) => {
     test.setTimeout(180_000);
     const dialogs = recordDialogs(page);
     const failures: string[] = [];
     for (const { component, prop, link, input, text, hostile, html } of cases.urls) {
         const found = await parse(page, `<base href="${BASE}">${html}`, link, text);
         // what the browser reads the value as decides: kept as given when safe, "#" otherwise
-        const expectedHref = SAFE_PROTOCOLS.includes(found.textProtocol) ? text : '#';
+        const protocols = ['OAuthProviderButton', 'SocialLogin'].includes(component) ? ['http:', 'https:'] : SAFE_PROTOCOLS;
+        const expectedHref = protocols.includes(found.textProtocol) ? text : '#';
         const problems: string[] = [];
         if (!hostile && expectedHref !== text) {
             problems.push(`the browser reads this ordinary URL as ${found.textProtocol} (test data)`);
