@@ -1608,3 +1608,8 @@ protected Frame request proves authentication recovery without fabricating a log
 validation matrix stays in PHPUnit; browser tests own the observable journeys.
 
 Here: `demo/tests/OAuth/ProviderTest.php`, `demo/tests/OAuth/OAuthFlowTest.php` and `tests/e2e/oauth.spec.ts`.
+
+The shared fresh-install scenario also installs `oauth`, then binds a disposable application's own user/store and
+provider fixture. The smoke check starts from an anonymous protected request, follows the installed start and callback
+routes, checks the exact saved query string, and makes a separate protected request to prove user-provider refresh.
+Both existing install lanes run these checks; no additional CI job or duplicated callback matrix is needed.
