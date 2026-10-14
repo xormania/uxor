@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "php": ">=8.4",
-        "xormania/uxor-pilot": "0.0.1",
+        "xormania/uxor-pilot": "0.0.*",
         "symfony/console": "8.1.8",
         "symfony/yaml": "8.1.8",
         "symfony/framework-bundle": "8.1.8",

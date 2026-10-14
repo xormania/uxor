@@ -47,5 +47,6 @@ final class Kernel extends BaseKernel
     protected function configureRoutes(RoutingConfigurator $routes): void
     {
         $routes->add('orders', '/orders')->controller([OrdersController::class, '__invoke']);
+        $routes->add('away', '/away')->controller([OrdersController::class, 'away']);
     }
 }

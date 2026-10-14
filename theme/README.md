@@ -60,4 +60,7 @@ deficiencies. The `chart` recipe applies them; use them yourself as `bg-chart-1`
 
 ### Contrast
 
+The data table's sortable links use the `brand-medium` focus role for their keyboard-focus outline. Override that
+role alongside the brand fills in an application theme, keeping at least 3:1 contrast against the table header.
+
 In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/uxor/blob/main/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.

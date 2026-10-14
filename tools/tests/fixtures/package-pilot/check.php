@@ -13,6 +13,8 @@ function check(bool $condition, string $message): void
 }
 
 $kernel = new Kernel('prod', false);
+$upgraded = ($argv[1] ?? '0.0.2') === '0.0.2';
+check(method_exists(UXor\Pilot\DataTable\DataTableView::class, 'sortLabel') === $upgraded, 'Wrong PHP release installed');
 $cases = [
     ['/orders?campaign=fixture', 'ORD-001', 'ORD-002'],
     ['/orders?page=2&campaign=fixture', 'ORD-002', 'ORD-001'],
@@ -29,6 +31,10 @@ foreach ($cases as [$url, $present, $absent]) {
     check(str_contains($html, 'data-consumer="fixture"'), 'Attributes were not forwarded');
     check(!str_contains($html, 'data-wrong-local-button'), 'Package nested component collided with app Button');
     check(str_contains($html, 'xormania--uxor-pilot--data-table'), 'Namespaced controller missing');
+    check(str_contains($html, 'data-uxor-sort-key="number"') === $upgraded, 'Wrong Twig release rendered');
+    if ($upgraded) {
+        check(str_contains($html, 'aria-label="Sort by Order, ascending"'), 'Next sorting direction not announced');
+    }
     check(!str_contains($html, '<script>alert(1)</script>'), 'Custom cell content was not escaped');
     if ('ORD-001' === $present) {
         check(str_contains($html, 'Alice &lt;script&gt;alert(1)&lt;/script&gt;'), 'Escaped consumer content was dropped');
@@ -45,4 +51,7 @@ $css = file_get_contents(__DIR__.'/public/'.ltrim($assets['styles/app.css'], '/'
 check(str_contains($css, '.rounded-base') && str_contains($css, '.min-w-48'), 'Vendor classes missing from production CSS');
 check(str_contains($css, '--color-brand:#6d28d9') && str_contains($css, '--color-brand:#a78bfa'), 'Consumer mode-specific branding missing');
 check(str_contains($css, '--radius-base:4px') && str_contains($css, 'Georgia'), 'Consumer shape or typography missing');
-echo "Package consumer: 4 request scenarios, nested names, slots, escaping, state and production assets passed.\n";
+check(str_contains($css, '.uxor-table-sort-link:focus-visible') === $upgraded, 'Wrong stylesheet release compiled');
+$controller = file_get_contents(__DIR__.'/public/'.ltrim($assets['@xormania/uxor-pilot/controllers/data_table_controller.js'], '/'));
+check(str_contains($controller, 'rememberSortFocus') === $upgraded, 'Wrong controller release compiled');
+echo 'Package consumer '.$argv[1].": 4 request scenarios and matched PHP/Twig/JS/CSS passed.\n";

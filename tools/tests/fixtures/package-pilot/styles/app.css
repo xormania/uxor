@@ -1,0 +1,29 @@
+@import "tailwindcss";
+@import "../assets/vendor/flowbite/dist/flowbite.min.css";
+@import "../vendor/xormania/uxor-pilot/assets/styles/uxor.css";
+@source "../vendor/xormania/uxor-pilot/templates";
+@source "../templates";
+
+/* Consumer-owned brand choices follow package defaults. Theme identity is separate from color mode. */
+:root:not([data-fixture-theme="default"]) {
+    --color-brand: #6d28d9;
+    --color-brand-medium: var(--color-brand);
+    --radius-base: 4px;
+    --font-sans: Georgia, serif;
+}
+
+.dark:not([data-fixture-theme="default"]) {
+    --color-brand: #a78bfa;
+    --color-fg-on-brand: #171717;
+}
+
+/* A second application-owned identity probes the same package without introducing a theme picker. */
+:root[data-fixture-theme="contrast"] {
+    --color-brand: #047857;
+    --font-sans: ui-monospace, monospace;
+    --radius-base: 10px;
+}
+
+.dark[data-fixture-theme="contrast"] {
+    --color-brand: #6ee7b7;
+}

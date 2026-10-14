@@ -150,9 +150,18 @@ final class DataTableView
      */
     public function sortUrl(Column $column): string
     {
-        $direction = $column->key === $this->query->sort && 'asc' === $this->query->direction ? 'desc' : 'asc';
+        return $this->url(['sort' => $column->key, 'direction' => $this->nextSortDirection($column)]);
+    }
 
-        return $this->url(['sort' => $column->key, 'direction' => $direction]);
+    /** The sort link's accessible name describes what activating it will do, not the current state. */
+    public function sortLabel(Column $column): string
+    {
+        return \sprintf('Sort by %s, %s', $column->label, 'asc' === $this->nextSortDirection($column) ? 'ascending' : 'descending');
+    }
+
+    private function nextSortDirection(Column $column): string
+    {
+        return $column->key === $this->query->sort && 'asc' === $this->query->direction ? 'desc' : 'asc';
     }
 
     /**
