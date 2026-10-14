@@ -40,7 +40,8 @@ the recipes' templates and PHP for `data-controller`, `symfony--ux-*`, `AsLiveCo
 3. **It is a Live Component:** data-table-live, markdown-editor.
 4. **Its markup carries Turbo behavior:** data-table (a `<turbo-frame>` with `data-turbo-action="advance"`), layouts
    (`data-turbo-permanent` sidebar and toast region, `data-turbo-track`, the inline theme script), sidebar and toast
-   (`data-turbo-permanent`, the toast's Stream template).
+   (`data-turbo-permanent`, the toast's Stream template), oauth-provider-button and connected-accounts
+   (`data-turbo="false"` native provider links and POST connection forms); social-login composes the provider links.
 
 Left out, with where their guarantees live: the presentational recipes (badge, button, card, table, …) and theme
 (CSS only): screenshots of every README example in both themes (`examples/examples`), axe on every example in both
@@ -77,6 +78,7 @@ its own URL over the one the Live table wrote, two owners of one URL that no rec
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | theme-toggle | theme-toggle | · | lab.value-matrix | T2 | · | · | · | · | · | theme-toggle | theme-toggle |
 | layouts | demo-app, lab.form-back, lab.data-table-back, lab.value-matrix | · | lab.value-matrix | · | lab.turbo-nav, demo-app | · | · | lab.turbo-nav | · | csp (first paint) | css |
+| oauth-provider-button, social-login, connected-accounts | · | · | · | · | · | · | · | · | · | css | css |
 | sidebar, navbar | lab.turbo-nav | · | lab.turbo-nav | T2 | lab.turbo-nav | · | · | · | · | css | · |
 | side-nav | lab.side-nav | · | lab.side-nav | lab.side-nav | lab.side-nav | · | · | · | · | lab.side-nav (on load) | css |
 | mobile-nav | lab.mobile-nav | · | lab.mobile-nav | lab.mobile-nav | G10 | · | G10 | · | · | css | · |
@@ -451,6 +453,29 @@ States: search, filter, sort and direction, page, page size (in the URL); data-t
 | The pager's current page reads at 4.5:1 or more in both themes (one character: axe passes it as "incomplete") | E2E demo | `tests/e2e/contrast.spec.ts` (with the pagination examples; found a bug, fixed: 2.7:1 in dark); `tests/e2e/a11y.spec.ts` measures every text of every README example the same way (`tests/e2e/contrast.ts`) |
 | The table fits a phone: the toolbar and the pager wrap, the table scrolls in its own box, nothing past the page's edge | E2E demo | `tests/e2e/examples/fit.spec.ts` "the README example data-table/default fits" (and data-table-live; every README example at 390px; found a bug, fixed: the frame took the table's width in a flex parent) |
 
+### OAuth presentation blocks
+
+These recipes have no browser SDK or controller state. They enforce native navigation in their markup and render
+server-prepared presentation data. The backend authentication journey is a separate integration guarantee; these
+presentation tests do not establish callback validation, local-user resolution, linking authorization or a Symfony
+session. Starting from inside a Turbo Frame and resuming Turbo after a provider return need that functional journey.
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Provider links retain a same-tab, full browser handoff and cannot prefetch, even when caller attributes try to replace that policy | Twig, E2E preview | `OAuthComponentsTest::testTheProviderHandoffCannotBeChangedByCallerAttributes`, recipe:oauth-provider-button |
+| Provider and alternative-page links reject executable or non-HTTP schemes; attribute bags drop inline handlers | E2E hostile props | hostile-props, extended through `HostilePropsCommand`'s URL cases and required provider fixture |
+| Google's approved artwork is local, its accessible label matches its text, and both theme assets are installed | Twig, screenshot | `OAuthComponentsTest::testGoogleUsesTheLocalApprovedArtworkAndMatchingLabel`, examples/examples for oauth-provider-button and social-login |
+| Google artwork follows the chosen page theme when it differs from the system preference; exactly the matching image is visible | E2E preview | recipe:oauth-provider-button "Google artwork follows the selected … theme when the system prefers …" (light and dark) |
+| Registration copy, safe feedback and provider labels render as escaped text, while the password slot renders once and gains a separator only beside providers | Twig, E2E preview | `OAuthComponentsTest::testTheRegistrationCardEscapesFeedbackAndProviderLabels`, `OAuthComponentsTest::testTheOptionalPasswordSlotRendersOnceWithASeparatorOnlyBesideProviders`, recipe:social-login |
+| Connect and disconnect use distinct POST actions and CSRF values; only disconnection submits the provider subject, and both forms submit the explicit settings return path | Twig, E2E preview | `OAuthComponentsTest::testConnectionFormsSeparateTheActionsAndBindDisconnectionToItsSubject`, recipe:connected-accounts |
+| Safe-marked Twig objects cannot turn account labels, feedback, actions, tokens, subjects or return paths into executable markup | Twig | `OAuthComponentsTest::testMarkupObjectsCannotBypassEscapingInFormAttributesOrLabels` |
+| A read-only account, last sign-in method, missing action/token/subject or unsafe action has an explained disabled command and exposes no mutation form or token | Twig, E2E preview | `OAuthComponentsTest::testUnavailableActionsExposeAnExplanationWithoutAnyMutationForm`, recipe:connected-accounts |
+| All six examples render in both themes, and every new preview and recipe page has accessible markup | screenshot, axe | examples/examples, a11y (the existing inventory-driven scans) |
+
+Reused support: the Card, Button and Alert recipes; the existing Twig component renderer, hostile-props matrix,
+preview fixture, inventory-driven screenshots and axe scans. No new mock provider or shared test harness is introduced
+by these UI recipes.
+
 ### motion (every recipe that moves)
 
 States: no preference or `prefers-reduced-motion: reduce`. Each transition names its properties and stops under
@@ -584,3 +609,24 @@ heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) und
 and random clicks, keys, Back, Forward and theme switches on the lab pages (`tests/e2e/release.fuzz.spec.ts`: no error,
 one controller per element), which switch the theme at random moments but assert no overlay's state after it: an
 overlay open while the theme switches, which this map marks T3, is not covered yet.
+
+## OAuth authentication integration
+
+States: an anonymous visitor, a pending provider attempt, an authenticated local user, a pending explicit account
+connection, and safe feedback after cancellation or failure. The mock replaces the remote provider boundary;
+Symfony's installed controller, authenticator, session and user provider run normally.
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Provider-bound, expiring, single-use state; independent tabs and bounded attempts; safe local return paths | unit | `AttemptStoreTest`, `OAuthClientTest` |
+| Codes, nonce, verifier and callback URI retain their binding; malformed, cancelled, reused and mismatched callbacks never exchange an identity | unit | `OAuthClientTest` |
+| Real League exchanges use PKCE for Google/GitHub, Google validates signed ID-token claims and rotating keys, GitHub selects verified primary email, Facebook uses confidential exchange and app-secret proof | unit with mocked HTTP | `ProviderTest` |
+| Each supported provider establishes a real Symfony session and user-provider refresh on later protected requests; anonymous start and callback remain public ahead of protected OAuth access rules | functional, E2E demo | `OAuthFlowTest`, oauth |
+| Cancellation and registration-policy failures explain the next action; email collisions never silently merge accounts | functional, E2E demo | `OAuthFlowTest`, oauth |
+| Explicit linking binds the same authenticated user on callback; invalid CSRF and foreign account ownership cannot change associations; final sign-in method cannot be removed | functional | `OAuthFlowTest` |
+| Same-origin saved protected-page targets survive login, account connection success and failure preserve the settings path and query, unsafe targets fall back, and unavailable providers give safe feedback | functional | `OAuthFlowTest` |
+| Provider start inside a Frame replaces the document; actual session expiry during a Frame request reaches full login; normal Turbo keeps the document after sign-in | E2E demo | oauth |
+| Actual installed classes boot before configuration and authenticate after binding the consuming app store; protected destinations and user reload work | install smoke | `tools/tests/check-fresh-app.sh` OAuth checks, both install lanes |
+
+Live provider application registrations are not exercised by offline CI. The demo grants and adapter HTTP fixtures
+cover separate boundaries; provider branding has local assets and screenshot coverage in the presentation rows.

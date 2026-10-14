@@ -5,6 +5,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- `oauth`: installed Symfony authentication with Google, Facebook and GitHub, single-use provider-bound attempts, PKCE and Google ID-token validation, safe return paths and explicit account connections.
+
+- `oauth-provider-button`: provider sign-in links with full browser navigation, no Turbo prefetch and Google's official light and dark button artwork served locally.
+- `social-login`: login and registration cards with provider choices, safe authentication feedback and an optional password-form slot.
+- `connected-accounts`: account connection settings with distinct CSRF-protected POST forms, provider subjects for disconnection, preserved settings return paths and explained unavailable actions.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added

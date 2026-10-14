@@ -1,0 +1,9 @@
+{% extends 'layouts/oauth-auth.html.twig' %}
+
+{% block head %}{{ parent() }}<link rel="icon" href="data:,">{% endblock %}
+{% block title %}Provider sign-in — xor{% endblock %}
+{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block content %}
+    <twig:SocialLogin :providers="providers" :feedback="feedback" description="Choose a provider to try the complete sign-in journey." />
+    <p class="mt-4 text-center text-sm text-body">Demonstration providers run locally. No external account or credentials are needed.</p>
+{% endblock %}

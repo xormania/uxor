@@ -33,6 +33,9 @@ final class ExportStaticCommand
      * Live's error dialog with the static host's answer.
      */
     private const SERVER_ONLY = [
+        'oauth' => 'provider sign-in, callbacks and account connections require Symfony and configured provider applications; the static examples show the presentation only',
+        'social-login' => 'provider sign-in requires the application server; the static examples show the login and registration cards',
+        'connected-accounts' => 'connecting and disconnecting accounts requires authenticated server requests; the static examples use disabled actions',
         'data-table' => 'the search, the sort links and the pages ask the server for the rows, so they do not change them',
         'data-table-live' => 'the table is a Live Component: its search, sorting, pages and selection run on the server, so they do nothing',
         'markdown-editor' => 'the Preview tab is rendered on the server by a Live Component, so it stays empty; the Write tab and its toolbar work',
