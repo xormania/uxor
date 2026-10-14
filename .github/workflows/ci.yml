@@ -988,20 +988,6 @@ jobs:
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
-    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
-    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
-    jev:
-        name: Jev
-        needs: [workflows, lint-kit, tools, importmap, php, static-site, fresh-install, docker-install, contrast, demo]
-        if: ${{ !cancelled() }}
-        permissions:
-            contents: read
-        uses: ./.github/workflows/jev.yml
-        with:
-            workflow: ci
-        secrets:
-            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-
     # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
     # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
     # pull request pending forever; this passes when every job passed or was skipped as unaffected.

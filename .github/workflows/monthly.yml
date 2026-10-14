@@ -338,20 +338,6 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 7
 
-    # The advisory Jev diagnosis of what the jobs above collected (.github/actions/jev-diagnosis): in a job of its own,
-    # the only one given the key, running the trusted branch's tools/ci (.github/workflows/jev.yml). Nothing waits for it.
-    jev:
-        name: Jev
-        needs: [browsers]
-        if: ${{ !cancelled() }}
-        permissions:
-            contents: read
-        uses: ./.github/workflows/jev.yml
-        with:
-            workflow: monthly
-        secrets:
-            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
-
     # The JS shards merged (tools/monthly/js-coverage.mjs) and the screenshot shards (tools/monthly/screenshots.mjs),
     # then every number, the timings and the screenshots included, against the previous successful run's
     # (tools/monthly/trends.mjs), downloaded with this run's token: its monthly-trends artifact, kept 90 days. It runs

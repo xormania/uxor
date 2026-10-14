@@ -205,14 +205,18 @@ the CDN), and shared as the `importmap-packages` artifact with every job that in
 each shard checks that its install left the packages as downloaded. The *Fresh install* jobs still download for
 themselves: that is part of what they check.
 A shard with a failed or flaky test then asks Jev (TypeSafe) for a likely cause of each failed attempt, at most 10 per
-shard: a warning per attempt and the `jev-ci-<run>-<attempt>` artifact, kept 30 days. It is advisory: it cannot
+shard: a warning per attempt and the `jev-run-<source run>-<source attempt>` artifact, kept 30 days. It is advisory: it cannot
 fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. Every other job that can
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
 install* jobs, *Contrast*, *Workflows*, the release's install check, tag and release, and the gallery's build. The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
-without the key; the workflow's *Jev* job ([`.github/workflows/jev.yml`](.github/workflows/jev.yml)) diagnoses them
-with the key, from the trusted branch's `tools/ci`. See *Jev diagnosis* in the same section.
+without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
+consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
+it runs the trusted branch's `tools/ci`, and producers never receive or forward the key. Diagnostics and assessments
+appear in that separate run, as `jev-run-<source run>-<source attempt>`. It becomes active when the consumer reaches
+the default branch through a release. See *Jev diagnosis* in the same section for rollout and the environment setting
+needed to protect a repository secret from a malicious branch writer.
 
 - `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
   Components, the components given hostile prop values (`hostile-props.spec.ts`), the demo's security headers and
