@@ -1588,3 +1588,23 @@ report says to record it again. The first file was recorded locally on `dev` (`3
 development machine, one worker) with harness 1, whose duration ended before the frame that presents the update; harness
 2 counts that frame, so the report waits for CI's first `record` run, whose machine also sets the numbers the
 tolerances will be read against.
+
+## Mocked provider authentication
+
+**Catches:** a sign-in demonstration that bypasses the installed callback or only renders a public dashboard, a
+provider handoff accidentally fetched by Turbo, a lost protected-page destination, or an expired session trapped
+inside a Frame.
+
+The OAuth demo uses a dedicated firewall and session-backed example account store. A local consent page creates a
+one-use provider grant bound to the verifier, nonce and callback. The actual OAuthClient, controller and authenticator
+consume it and establish Symfony's session; a subsequent protected request forces the configured user provider to
+reload the user. Adapter tests separately run real League code exchanges through mocked HTTP and real signed Google
+JWTs. No browser acceptance journey calls loginUser or treats an arbitrary callback query as an identity.
+
+A local mock must not send a token HTTP request back into the same single-process PHP test server: that deadlocks.
+Keep local browser consent and substitute the remote transport or provider boundary. Use the existing markDocument
+helper to establish the full handoff and later retained-document Turbo visit. Clearing real session cookies before a
+protected Frame request proves authentication recovery without fabricating a login response. The detailed callback
+validation matrix stays in PHPUnit; browser tests own the observable journeys.
+
+Here: `demo/tests/OAuth/ProviderTest.php`, `demo/tests/OAuth/OAuthFlowTest.php` and `tests/e2e/oauth.spec.ts`.

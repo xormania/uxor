@@ -148,6 +148,12 @@ Every recipe, as [`docs/RECIPES.md`](docs/RECIPES.md) lists it:
 | [`editor`](editor/README.md) | A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. `EditorType` sanitizes every submit (symfony/html-sanitizer), and `flowbite_editor_html` prints stored HTML. |
 | [`markdown-editor`](markdown-editor/README.md) | A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. `MarkdownType` limits the source, and `flowbite_markdown_html` prints it. |
 
+**Authentication**
+
+| Install | What it is |
+|---|---|
+| [`oauth`](oauth/README.md) | Symfony OAuth2/OIDC authentication, provider adapters, expiring attempts and explicit account connections, with an authentication layout. |
+
 **Layouts**
 
 | Install | What it is |

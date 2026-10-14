@@ -84,6 +84,10 @@ The links below point at `dev`, the work merged since the last release: install 
 - [editor](https://raw.githubusercontent.com/xormania/uxor/dev/editor/README.md): A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. `EditorType` sanitizes every submit (symfony/html-sanitizer), and `flowbite_editor_html` prints stored HTML.
 - [markdown-editor](https://raw.githubusercontent.com/xormania/uxor/dev/markdown-editor/README.md): A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. `MarkdownType` limits the source, and `flowbite_markdown_html` prints it.
 
+## Authentication
+
+- [oauth](https://raw.githubusercontent.com/xormania/uxor/dev/oauth/README.md): Symfony OAuth2/OIDC authentication, provider adapters, expiring attempts and explicit account connections, with an authentication layout.
+
 ## Layouts
 
 - [layouts](https://raw.githubusercontent.com/xormania/uxor/dev/layouts/README.md): Page layouts to extend: an app shell with sidebar, navbar with its menu, and mobile nav, a centered column for login, signup and password reset, settings, errors and a blank page.
