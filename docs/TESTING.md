@@ -1201,6 +1201,13 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 
 ## Reading CI results
 
+For upgradeable-component development, *Changes* reports `feature-php`: PHPUnit/PHPStan and Symfony container
+checks remain active, with tool, policy, workflow and relevant lint/documentation checks. Browser shards, the
+gallery and broad fresh-install jobs are deliberately skipped. This is development evidence, not full regression
+coverage. The branch matching, comparison base and promotion rerun procedure are in
+[`CONTRIBUTING.md`](../CONTRIBUTING.md#checks). `tools/tests/ci-profile.test.mjs` executes the actual selection shell
+in scratch Git histories to verify that boundary; it does not start services or browsers.
+
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
