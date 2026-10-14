@@ -57,8 +57,11 @@ of at least 3:1 in the upgraded release. The unchanged baseline shows
 the missing sorting improvement, the upgrade gains it and rollback restores the baseline. This is a fixture proof,
 not a published-release compatibility promise or an audit of every possible customization.
 
-The Package pilot workflow runs the complete archive and browser sequence on feature-branch pushes and retains
-run-specific receipts, source/dependency records and failing traces. Existing kit behavior suites remain in CI.
+The Package pilot workflow runs the archive PHP/Symfony upgrade, rollback, production asset and fingerprint checks
+on feature-branch pushes. Start it manually with `browsers` enabled (the manual default) to include the browser
+sequence. Each run retains its own receipts and source/dependency records, plus failing traces when browsers ran;
+push receipts explicitly record browser checks as unrun. The browser coverage remains available during PHP-first
+feature development.
 
 ## Theme boundary to prove next
 
