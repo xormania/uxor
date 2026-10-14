@@ -15,7 +15,7 @@ final class OAuthComponentsTest extends KernelTestCase
     public function testTheProviderHandoffCannotBeChangedByCallerAttributes(): void
     {
         $rendered = $this->renderTwigComponent('OAuthProviderButton', [
-            'provider' => 'github', 'href' => '/oauth/github/start',
+            'provider' => 'github', 'href' => '/oauth/github/start', 'as' => 'button',
             'DATA-TURBO' => 'true', 'data-turbo-frame' => 'partial', 'data-turbo-prefetch' => 'true',
             'target' => '_blank', 'download' => 'identity', 'HREF' => 'javascript:alert(1)',
             'aria-label' => 'Misleading', 'onclick' => 'alert(1)',
@@ -23,6 +23,7 @@ final class OAuthComponentsTest extends KernelTestCase
         $link = $rendered->crawler()->filter('a');
 
         self::assertCount(1, $link);
+        self::assertCount(0, $rendered->crawler()->filter('button'));
         self::assertSame('/oauth/github/start', $link->attr('href'));
         self::assertSame('_self', $link->attr('target'));
         self::assertSame('false', $link->attr('data-turbo'));
