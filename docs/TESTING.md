@@ -1408,12 +1408,17 @@ The attempts come from one of three places:
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
 What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
 log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing, and the consumer finds nothing.
+
+The newly collecting *Changes*, audit, *Mentions* and monthly PHP jobs reserve three minutes beyond their original
+job limits for the collector and its upload. *Mentions* also uses the checker's `--redact` option before capturing
+its output: rejected account tokens become a neutral marker, while the source, line, column, destination and failure
+status remain. The captured attempts and any Jev excerpts therefore cannot publish those rejected references again.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*

@@ -43,7 +43,7 @@ jobs:
         name: PHP coverage and mutants
         if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
         runs-on: ubuntu-latest
-        timeout-minutes: 45
+        timeout-minutes: 48 # 45 for the job, plus 3 for the advisory collector and its upload
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -62,58 +62,101 @@ jobs:
                   node-version: 22
 
             - name: The report tools' own cases
-              run: node --test 'tools/monthly/*.test.mjs'
+              id: report-cases
+              run: |
+                  set -o pipefail
+                  node --test 'tools/monthly/*.test.mjs' 2>&1 | tee "$RUNNER_TEMP/jev-report-cases.log"
 
             # without a driver PHPUnit writes no coverage and Infection cannot run: say so here, before anything else
             - name: PCOV is loaded
+              id: pcov
               run: |
-                  php -r 'exit(extension_loaded("pcov") ? 0 : 1);' || { echo "::error::PCOV is not loaded: no PHP coverage can be measured"; exit 1; }
-                  php --ri pcov
+                  set -o pipefail
+                  {
+                      php -r 'exit(extension_loaded("pcov") ? 0 : 1);' || { echo "::error::PCOV is not loaded: no PHP coverage can be measured"; exit 1; }
+                      php --ri pcov
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-pcov.log"
 
             - name: Install the demo
+              id: install
               run: |
-                  php tools/sync-demo
-                  (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                  set -o pipefail
+                  {
+                      php tools/sync-demo
+                      (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
 
             - name: Coverage scope (the recipes' src/)
-              run: php tools/monthly/php-scope.php coverage/php
+              id: scope
+              run: |
+                  set -o pipefail
+                  php tools/monthly/php-scope.php coverage/php 2>&1 | tee "$RUNNER_TEMP/jev-scope.log"
 
             # PCOV watches pcov.directory only, by default the working directory's src/ (demo/src): the recipes' src/
             # are next to demo/, so it watches the whole checkout, minus the dependencies and caches
             - name: PHPUnit with coverage
+              id: phpunit
               working-directory: demo
               env:
                   CREATE_SNAPSHOTS: 'false'
               run: |
-                  php -d pcov.directory="$GITHUB_WORKSPACE" -d 'pcov.exclude=~/(vendor|var|node_modules)/~' bin/phpunit \
-                      --configuration ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml --coverage-html ../coverage/php/html
+                  set -o pipefail
+                  {
+                      php -d pcov.directory="$GITHUB_WORKSPACE" -d 'pcov.exclude=~/(vendor|var|node_modules)/~' bin/phpunit \
+                          --configuration ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml --coverage-html ../coverage/php/html
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-phpunit.log"
 
             - name: PHP coverage report
+              id: coverage-report
               env:
                   COVERAGE_DRIVER: pcov
-              run: node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml
+              run: |
+                  set -o pipefail
+                  node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml 2>&1 | tee "$RUNNER_TEMP/jev-coverage-report.log"
 
             # the PHAR, pinned by version and SHA-256: nothing is added to the demo's dependencies
             - name: Install Infection
+              id: install-infection
               working-directory: ${{ runner.temp }}
               run: |
-                  curl -fsSLo infection.phar "https://github.com/infection/infection/releases/download/${INFECTION_VERSION}/infection.phar"
-                  printf '%s  %s\n' "$INFECTION_SHA256" infection.phar | sha256sum --check --strict
+                  set -o pipefail
+                  {
+                      curl -fsSLo infection.phar "https://github.com/infection/infection/releases/download/${INFECTION_VERSION}/infection.phar"
+                      printf '%s  %s\n' "$INFECTION_SHA256" infection.phar | sha256sum --check --strict
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-install-infection.log"
 
             # A mutant gets 30 seconds (php-scope.php's --timeout); the run as a whole is bounded by the step. Its exit
             # status fails the step only when it cannot run (the initial tests fail, a bad configuration): there is no
             # minimum MSI.
             - name: Infection
+              id: infection
               working-directory: demo
               timeout-minutes: 30
               env:
                   CREATE_SNAPSHOTS: 'false'
               run: |
-                  php "$RUNNER_TEMP/infection.phar" --configuration=../coverage/php/infection.json5 --threads=max --no-progress --no-interaction \
-                      --initial-tests-php-options="-d pcov.directory=$GITHUB_WORKSPACE -d pcov.exclude=~/(vendor|var|node_modules)/~"
+                  set -o pipefail
+                  {
+                      php "$RUNNER_TEMP/infection.phar" --configuration=../coverage/php/infection.json5 --threads=max --no-progress --no-interaction \
+                          --initial-tests-php-options="-d pcov.directory=$GITHUB_WORKSPACE -d pcov.exclude=~/(vendor|var|node_modules)/~"
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-infection.log"
 
             - name: Mutation testing report
-              run: node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json
+              id: mutation-report
+              run: |
+                  set -o pipefail
+                  node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json 2>&1 | tee "$RUNNER_TEMP/jev-mutation-report.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: PHP coverage and mutants
+                  artifact: jev-input-monthly-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ !cancelled() }}

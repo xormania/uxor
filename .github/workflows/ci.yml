@@ -36,7 +36,7 @@ jobs:
     changes:
         name: Changes
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
             contents: read
             pull-requests: read # whether a work order's pull request into dev is a draft
@@ -57,7 +57,10 @@ jobs:
                   fetch-depth: 0
 
             - name: The script's own cases
-              run: tools/tests/ci-changes.sh
+              id: cases
+              run: |
+                  set -o pipefail
+                  tools/tests/ci-changes.sh 2>&1 | tee "$RUNNER_TEMP/jev-cases.log"
 
             - id: jobs
               env:
@@ -104,6 +107,17 @@ jobs:
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   tee -a "$GITHUB_OUTPUT" < "$RUNNER_TEMP/jobs"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Changes
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     # Every workflow's syntax, expressions, job graph, action inputs and reusable workflow calls, and the shell of its
     # run steps (ShellCheck). It reads the workflows only: tools/ci-changes.sh also runs the jobs that run what a
