@@ -92,11 +92,14 @@ jobs:
               id: jev
               if: steps.trusted.outputs.ref != ''
               continue-on-error: true
+              timeout-minutes: 11
               env:
                   TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
                   INPUTS: ${{ runner.temp }}/jev-inputs
                   OUT: ${{ runner.temp }}/jev
+                  JEV_TOTAL_SECONDS: 600 # the entire loop, leaving five minutes of the job for setup and upload
               run: |
+                  deadline=$((SECONDS + JEV_TOTAL_SECONDS))
                   for dir in "$INPUTS"/*/; do
                       name=$(basename "$dir")
                       [ -f "$dir/failed-attempts.json" ] || continue
@@ -105,7 +108,14 @@ jobs:
                       args=(--attempts "$dir/failed-attempts.json" --output "$OUT/$name/assessment")
                       if [ -f "$dir/server.log" ]; then args+=(--server-log "$dir/server.log"); fi
                       if [ -n "$job" ]; then args+=(--job "$job"); fi
-                      SHARD=$shard timeout 110 node trusted/tools/ci/jev-diagnosis.mjs "${args[@]}" || echo "::warning::Jev diagnosis of $name ended early"
+                      remaining=$((deadline - SECONDS))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::Jev's total diagnosis budget is spent; remaining jobs were not assessed"
+                          break
+                      fi
+                      budget=110
+                      if [ "$remaining" -lt "$budget" ]; then budget=$remaining; fi
+                      SHARD=$shard timeout "$budget" node trusted/tools/ci/jev-diagnosis.mjs "${args[@]}" || echo "::warning::Jev diagnosis of $name ended early"
                   done
 
             # One assessment.json per failed attempt and the summary, per collected job
