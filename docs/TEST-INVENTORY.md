@@ -634,3 +634,14 @@ Symfony's installed controller, authenticator, session and user provider run nor
 
 Live provider application registrations are not exercised by offline CI. The demo grants and adapter HTTP fixtures
 cover separate boundaries; provider branding has local assets and screenshot coverage in the presentation rows.
+
+## Upgradeable component research
+
+| Observation | Scope | Evidence |
+|---|---|---|
+| Flex 2.11.0 plans different import-map actions when two contradictory package requirements are iterated in reverse order | manual integration probe | `docs/research/flex-importmap-conflict.php` runs the installed synchronizer in a temporary fixture with a recording script executor |
+
+The [abstraction research](RESEARCH-upgradeable-component-abstraction.md) records the inputs, observed commands,
+versions and rerun command. This probe does not download packages, change the consumer, run in CI, or assert that
+the defect must persist in later Flex versions. Native Flex onboarding, aggregate compatibility enforcement and
+automatic stylesheet discovery remain proposed work; they are not covered by this observation.
