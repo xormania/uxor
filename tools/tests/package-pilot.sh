@@ -35,7 +35,7 @@ if [ -f "$ca" ]; then
     options+=(-v "$ca:/run/pilot-proxy.pem:ro" -e LIBRARY_CA_FILE=/run/pilot-proxy.pem)
 fi
 python3 - "${options[@]}" \
-    -e "PUID=$(id -u)" -e "PGID=$(id -g)" \
+    -e "PUID=${PUID:-$(id -u)}" -e "PGID=${PGID:-$(id -g)}" \
     -e COMPOSER_CACHE_DIR=/home/dev/.cache/composer \
     -e PILOT_BROWSER_CONTAINER -e PILOT_BROWSER_WS -e PILOT_PORT \
     -e HTTP_PROXY -e HTTPS_PROXY -e http_proxy -e https_proxy -e NO_PROXY -e no_proxy \

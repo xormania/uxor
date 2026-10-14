@@ -28,6 +28,7 @@ import { isPromotedFrameCache } from '../lib/uxor-turbo.js';
  * @action responseReceived On `turbo:before-fetch-response`: stops tracking the submission once its response is in.
  * @action submitEnded      On `turbo:submit-end`: stops tracking the submission.
  * @action rememberSortFocus On `turbo:before-frame-render`: remembers a sort link that still has focus.
+ * @action forgetSortFocus  On `focusin`: drops remembered focus when it moves during a paused render.
  * @action restoreSortFocus On `turbo:frame-load`: restores that link unless focus moved elsewhere.
  */
 export default class extends Controller {
@@ -93,6 +94,11 @@ export default class extends Controller {
         }
         const link = this.sortTargets.find((candidate) => candidate === document.activeElement);
         this.#sortFocusKey = link?.dataset.uxorSortKey ?? null;
+    }
+
+    /** A paused render must not reclaim focus after the user moved it, even within this frame. */
+    forgetSortFocus() {
+        this.#sortFocusKey = null;
     }
 
     /** Restore the replacement link; do not take focus from another control or another frame. */

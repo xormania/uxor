@@ -50,9 +50,9 @@ The same independent consumer installs, upgrades and rolls back without source e
 Source fingerprints include its business PHP, templates, source CSS, controllers, manifest and importmap. Generated
 assets and selected lock records are separate. Source CSS is preserved throughout every production build.
 
-Five Chromium scenarios execute at each phase, 15 checks with no skipped cases: computed color/font/radius values
+Six Chromium scenarios execute at each phase, 18 checks with no skipped cases: computed color/font/radius values
 in two app-owned identities and both modes; labels, keyboard focus and custom cells; no focus theft during a delayed
-response; pagination/search history plus repeated visits and controller cleanup; and default-theme focus contrast
+response or a paused render; pagination/search history plus repeated visits and controller cleanup; and default-theme focus contrast
 of at least 3:1 in the upgraded release. The unchanged baseline shows
 the missing sorting improvement, the upgrade gains it and rollback restores the baseline. This is a fixture proof,
 not a published-release compatibility promise or an audit of every possible customization.

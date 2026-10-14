@@ -19,6 +19,17 @@ async function open(page, url = '/orders?campaign=fixture') {
     await expect.poll(() => page.evaluate((identifier) => window.Stimulus?.controllers.filter((controller) => controller.identifier === identifier).length, identifier)).toBe(1);
 }
 
+/** Wait for Turbo's promoted or restored visit to finish before starting another navigation. */
+async function visit(page, action) {
+    await page.evaluate(() => {
+        window.fixtureVisitFinished = new Promise((resolve) => {
+            document.addEventListener('turbo:load', () => resolve(), { once: true });
+        });
+    });
+    await action();
+    await page.evaluate(() => window.fixtureVisitFinished);
+}
+
 const sortLink = (page) => page.getByRole('columnheader').first().getByRole('link');
 const invoice = (page) => page.locator('[data-invoice]');
 
@@ -51,13 +62,13 @@ test('the compatible release brings sort labels and keyboard focus while custom 
     if (upgraded) await expect(sort).toHaveAttribute('aria-label', 'Sort by Order, ascending');
     else await expect(sort).not.toHaveAttribute('aria-label');
     await sort.focus();
-    await sort.press('Enter');
+    await visit(page, () => sort.press('Enter'));
     await expect(page).toHaveURL(/sort=number.*dir=asc/);
     await expect(page.getByRole('columnheader').first()).toHaveAttribute('aria-sort', 'ascending');
     if (upgraded) {
         await expect(sortLink(page)).toHaveAttribute('aria-label', 'Sort by Order, descending');
         await expect(sortLink(page)).toBeFocused();
-        await sortLink(page).press('Enter');
+        await visit(page, () => sortLink(page).press('Enter'));
         await expect(page.getByRole('columnheader').first()).toHaveAttribute('aria-sort', 'descending');
         await expect(sortLink(page)).toBeFocused();
         await expect(invoice(page)).toHaveText('ORD-002');
@@ -118,10 +129,33 @@ test('a response does not reclaim sort focus after the user moved to another con
         await route.continue();
     });
     await sortLink(page).focus();
-    await sortLink(page).press('Enter');
-    await requested;
-    await page.getByRole('searchbox', { name: 'Search', exact: true }).focus();
-    release();
+    await visit(page, async () => {
+        await sortLink(page).press('Enter');
+        await requested;
+        await page.getByRole('searchbox', { name: 'Search', exact: true }).focus();
+        release();
+    });
+    await expect(page.getByRole('columnheader').first()).toHaveAttribute('aria-sort', 'ascending');
+    await expect(sortLink(page)).not.toBeFocused();
+});
+
+test('a paused frame render does not reclaim sort focus after the user moves it', async ({ page }) => {
+    await open(page);
+    await page.evaluate(() => {
+        document.addEventListener('turbo:before-frame-render', (event) => {
+            event.preventDefault();
+            window.fixtureResumeRender = event.detail.resume;
+        }, { once: true });
+    });
+    await sortLink(page).focus();
+    await visit(page, async () => {
+        await sortLink(page).press('Enter');
+        await expect.poll(() => page.evaluate(() => typeof window.fixtureResumeRender)).toBe('function');
+        const search = page.getByRole('searchbox', { name: 'Search', exact: true });
+        await search.focus();
+        await expect(search).toBeFocused();
+        await page.evaluate(() => window.fixtureResumeRender());
+    });
     await expect(page.getByRole('columnheader').first()).toHaveAttribute('aria-sort', 'ascending');
     await expect(sortLink(page)).not.toBeFocused();
 });
@@ -129,25 +163,25 @@ test('a response does not reclaim sort focus after the user moved to another con
 test('pagination and search restore through history, and repeated visits keep one controller', async ({ page }) => {
     await open(page);
     await page.evaluate(() => { window.fixtureDocument = 'original'; });
-    await page.getByRole('link', { name: 'Page 2', exact: true }).click();
+    await visit(page, () => page.getByRole('link', { name: 'Page 2', exact: true }).click());
     await expect(invoice(page)).toHaveText('ORD-002');
     await page.getByRole('searchbox', { name: 'Search', exact: true }).fill('Bob');
-    await page.getByRole('button', { name: 'Apply' }).click();
+    await visit(page, () => page.getByRole('button', { name: 'Apply' }).click());
     await expect(page).toHaveURL(/q=Bob/);
     await expect(page.getByRole('status')).toContainText('of 1');
-    await page.goBack();
+    await visit(page, () => page.goBack());
     await expect(page.getByRole('searchbox', { name: 'Search', exact: true })).toHaveValue('');
     await expect(invoice(page)).toHaveText('ORD-002');
-    await page.goBack();
+    await visit(page, () => page.goBack());
     await expect(invoice(page)).toHaveText('ORD-001');
-    await page.goForward();
+    await visit(page, () => page.goForward());
     await expect(invoice(page)).toHaveText('ORD-002');
     expect(await page.evaluate(() => window.fixtureDocument)).toBe('original');
-    for (let visit = 0; visit < 3; visit++) {
-        await page.getByRole('link', { name: 'Other page', exact: true }).click();
+    for (let visitIndex = 0; visitIndex < 3; visitIndex++) {
+        await visit(page, () => page.getByRole('link', { name: 'Other page', exact: true }).click());
         await expect(page.getByRole('heading', { name: 'Other page' })).toBeVisible();
         await expect.poll(() => page.evaluate((identifier) => window.Stimulus.controllers.filter((controller) => controller.identifier === identifier).length, identifier)).toBe(0);
-        await page.goBack();
+        await visit(page, () => page.goBack());
         await expect(invoice(page)).toHaveText('ORD-002');
         await expect.poll(() => page.evaluate((identifier) => window.Stimulus.controllers.filter((controller) => controller.identifier === identifier).length, identifier)).toBe(1);
     }

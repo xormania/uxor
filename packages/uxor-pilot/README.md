@@ -48,6 +48,8 @@ bash tools/tests/package-pilot.sh
 That image tag refers to the prepared local cloud toolchain; other hosts must supply their own suitable image.
 An existing trusted Composer download cache can be supplied with `PILOT_COMPOSER_CACHE_DIR`; this reuses archives,
 not another application's installed vendor tree. Download trust verification and dist-only installation remain enabled.
+The test container defaults to your user and group IDs. Set `PUID` and `PGID` when the Docker daemon sees mounted
+files under different IDs, such as when the invoking shell uses a separate user namespace.
 The test creates two ZIP distributions, uses Composer's dist installation, and mounts distributions, the consumer
 fixture, reports and an optional archive cache. Neither the checkout nor `demo/vendor` is available. The fixture tests custom
 data loading, cell markup and app actions, attribute forwarding, component-name collisions, escaping, sorting,
@@ -59,7 +61,8 @@ its PHP, templates, CSS sources, controllers, manifest and importmap before/afte
 dependency versions and references remain unchanged. CSS builds write generated files without replacing app-owned CSS.
 
 The compatible change adds `DataTableView::sortLabel()`, next-direction labels, sort-focus restoration and a branded
-keyboard-focus outline using the existing focus-color role. Both visual identities and color modes, sorting, no focus theft, Turbo history and repeated
+keyboard-focus outline using the existing focus-color role. Both visual identities and color modes, sorting, no focus theft
+during delayed responses or paused renders, Turbo history and repeated
 visits run in Chromium at every phase. `PILOT_BROWSER_CONTAINER` shares the selected browser server's network only;
 no checkout files are made available to the consumer. Its server must speak Playwright 1.58.2 on port 3000, or set
 `PILOT_BROWSER_WS` to its endpoint. Without the browser setting, browser checks are explicitly reported as unrun.

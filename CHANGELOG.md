@@ -7,8 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
-- `data-table`: sort links describe the next direction, retain keyboard focus across their Turbo Frame refresh,
-  and use a focus outline that follows application branding. A packaged consumer proves the improvement arrives
+- `data-table`: sort links describe the next direction, retain keyboard focus across their Turbo Frame refresh
+  without reclaiming focus moved during a paused render, and use a focus outline that follows application branding.
+  A packaged consumer proves the improvement arrives
   through an archive upgrade and rollback with unchanged app source, with browser and theme checks in dedicated CI.
 
 - An unpublished package experiment for the data table, assembled from canonical recipe sources, with an independent

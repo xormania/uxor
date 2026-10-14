@@ -27,7 +27,7 @@
     {{ attributes.defaults({
         class: 'block min-w-0'|tailwind_classes,
         'data-controller': 'data-table',
-        'data-action': 'turbo:before-cache@document->data-table#cancelLoading turbo:submit-start->data-table#submitStarted turbo:before-fetch-response->data-table#responseReceived turbo:submit-end->data-table#submitEnded turbo:before-frame-render->data-table#rememberSortFocus turbo:frame-load->data-table#restoreSortFocus',
+        'data-action': 'turbo:before-cache@document->data-table#cancelLoading turbo:submit-start->data-table#submitStarted turbo:before-fetch-response->data-table#responseReceived turbo:submit-end->data-table#submitEnded turbo:before-frame-render->data-table#rememberSortFocus focusin@document->data-table#forgetSortFocus turbo:frame-load->data-table#restoreSortFocus',
     }) }}
 >
     <form method="get" action="{{ view.path }}" class="mb-4 flex flex-wrap items-end gap-3" data-data-table-target="form" role="search" aria-label="{{ label ? label ~ ': search and filters' : 'Search and filters' }}">

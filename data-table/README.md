@@ -4,8 +4,8 @@ A server-driven table: search, filters, sortable columns, a page size and pages,
 
 Sortable links name the next direction, such as “Sort by Order, descending”. Keyboard activation keeps focus on
 the replacement column link after the frame refreshes. Focus is not reclaimed when the user moved elsewhere while
-the response was loading, and its outline follows the application's brand color. `DataTableView::sortLabel()` uses
-the same next direction as `sortUrl()`.
+the response was loading or a frame render was paused, and its outline follows the application's brand color.
+`DataTableView::sortLabel()` uses the same next direction as `sortUrl()`.
 
 ```twig {"preview":true}
 <twig:DataTable :table="table" id="orders" label="Orders">
