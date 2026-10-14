@@ -235,8 +235,8 @@ contributed maps, but composition itself does not resolve incompatible requireme
 The immediate priority is the PHP/Symfony foundation. Use PHP unit and integration tests, container boot checks,
 Twig rendering and Composer lifecycle fixtures while developing those contracts. The full browser matrix is not
 the feedback loop for this phase. Add focused browser checks once a complete component uses the foundation,
-then run the full regression suite before promoting the integration branch into `dev`. This research does not
-change the repository's existing CI workflow or its required checks.
+then run the full regression suite before promoting the integration branch into `dev`. The feature's PHP
+development CI profile and promotion procedure are tracked in [PR 141](https://github.com/xormania/uxor/pull/141).
 
 1. **Build and verify the PHP integration.** Define bundle configuration and the minimal package-contribution
    metadata, register services and early asset paths, and prove app provider autowiring and Twig namespaces in a
