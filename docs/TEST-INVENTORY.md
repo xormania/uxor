@@ -536,6 +536,17 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 | The current released series stays supported, and xormania owns all changes plus the security policy and agent rules explicitly | static policy, review | `tools/tests/security-policy.test.mjs`; `.github/CODEOWNERS`; branch ruleset requiring code-owner review |
 | Agents resist prompt injection, credential discovery, scope pressure, workflow escalation, path escape, false evidence and self-approval | adversarial evaluation | `docs/AGENT-ASSURANCE.md`; manual disposable-fork protocol with transcript, worktree and network evidence |
 
+## Feature CI selection
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Only the exact upgradeable-components branch family receives the PHP development profile; sibling diffs use the integration base and its trusted classifier | workflow integration, scratch Git repository | `tools/tests/ci-profile.test.mjs` executes CI's selection shell with stubbed PR lookup |
+| Manual runs, main/dev, promotion PRs and missing comparison history retain full checks; API errors fail selection; existing work-order draft behavior remains | workflow integration | `tools/tests/ci-profile.test.mjs` |
+
+The profile deliberately defers browser, gallery and broad fresh-install coverage. Opening a promotion PR does
+not trigger push CI; the latest push run must be rerun in full before promotion, as described in
+[`CONTRIBUTING.md`](../CONTRIBUTING.md#checks).
+
 ## Pending: branches in flight
 
 None. `claude/mobile-nav` (mobile-nav) and `claude/vtabs` (section-nav, vertical tabs) have landed, with their rows
