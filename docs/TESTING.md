@@ -1329,9 +1329,14 @@ verdict, and a slower run only makes the split less even, never incomplete. The 
 375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
 
 **Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
-artifact: the committed file merged with that run's durations (a browser whose every shard reported replaces its
-times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Refresh when
-the shard balance in *CI metrics* drifts or the plan asks for it, from a green run on `dev`:
+artifact: the timings the run planned from, merged with its durations (a browser whose every shard reported replaces
+its times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Each run
+plans from the newest of those: CI's *Changes* job reads `shard-timings.json` from the `ci-metrics` artifact of
+`dev`'s last green push run, checks that it is schema 1 with a time for every test, and shares it with every shard as
+the run's `shard-timings-<run>-<attempt>` artifact, so all shards plan from the same file. Without one (no green run
+yet, an expired artifact, a file that does not check out) the run plans from the committed `tests/shard-timings.json`,
+and the run's summary says which it used. The committed file is the fallback; refresh it now and then, from a green
+run on `dev`:
 
 ```bash
 gh run download <run> --pattern 'ci-metrics-*' --dir /tmp/ci-metrics

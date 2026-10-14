@@ -453,11 +453,16 @@ function verify({ plan: planFile, shard, list }) {
 
 function timings({ shards: dir, out, previous: previousFile }) {
     const shards = existsSync(dir) ? readShardResults(dir) : [];
+    const previous = previousFile ? json(previousFile) : null;
     if (!shards.length) {
+        if (previous?.schema === SCHEMA && previous.tests) {
+            // A run with no browser jobs still publishes the rolling timings for the next run, provenance included.
+            mkdirSync(dirname(resolve(out)), { recursive: true });
+            writeFileSync(out, JSON.stringify(previous, null, 1) + '\n');
+        }
         console.log(`No durations.json under ${dir}: the timings are unchanged`);
         return 0;
     }
-    const previous = previousFile ? json(previousFile) : null;
     const merged = mergeTimings(shards, previous);
     const sources = new Map();
     for (const s of shards.filter((s) => s.status === 'valid')) {
