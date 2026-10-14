@@ -30,6 +30,23 @@ An AssetMapper entry-provider extension is worthwhile if package-owned import en
 application's writable map. Full browser import scopes are a larger, optional follow-up, driven by an actual
 need for independent incompatible versions.
 
+## Toolkit coupling and deterministic upgrades
+
+Keep three identities separate: the exact Symfony UX Toolkit implementation, the canonical UXor recipe contents,
+and the versioned Composer release generated from those contents. Use Toolkit's parser, recipe closure and
+`copy-files` mappings through a small pinned adapter; preserve each dependency declaration and its owner before
+solving compatibility. The upstream schema URL and `version-added` fields are not UXor release versions.
+
+[PR 142](https://github.com/xormania/uxor/pull/142) implements the first source-plan adapter and a real Flex consumer
+against Toolkit 3.5.1. It is separate from this research and does not yet implement dependency intersection or a
+supported release-transition matrix. Its deterministic records give those later checks concrete inputs.
+
+Deterministic upgrades are the default goal: compatible package updates preserve application-owned source, and
+breaking transitions declare their migration requirements. Agent-assisted edits are a fallback for app-specific
+migrations when a deterministic transform is unavailable; the consumer's tests must validate those edits. An agent
+should not be needed to interpret an ordinary compatible release. A separate repository remains an option if the
+resulting compatibility or asset layer becomes reusable beyond UXor; extraction is not needed for this pilot.
+
 ## What the existing pilot proves
 
 The pilot packages selected canonical recipe sources through `tools/build-package-pilot.mjs`. The upgrade checks
@@ -37,7 +54,7 @@ exercise version 0.0.1, a changed 0.0.2, and rollback in an independent consumer
 CSS, application branding and provider subclasses. This supports keeping maintained implementation in Composer
 while preserving application-owned policy. It does not establish every installation or deployment guarantee.
 
-In particular, the consumer fixture does not require Flex and sets `allow-plugins` to false. Its import map,
+At that revision, the consumer fixture does not require Flex and sets `allow-plugins` to false. Its import map,
 controller configuration and vendor CSS imports are wired manually. The pilot package also lacks the
 `symfony-ux` Composer keyword that Flex uses to discover UX package metadata. Adding that keyword and testing a
 real recipe-enabled consumer is a necessary next step; the current upgrade checks do not prove that workflow.
