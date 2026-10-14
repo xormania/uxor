@@ -9,7 +9,7 @@
     providerLabel = null
 -%}
 {#- The Button checks the remaining attribute bag. Navigation attributes cannot replace the native OAuth handoff. -#}
-{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:data-turbo(?:-|$)|(?:href|target|download|aria-label|aria-labelledby)$)/'))) -%}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:data-turbo(?:-|$)|(?:as|href|target|download|aria-label|aria-labelledby)$)/'))) -%}
 {#- OAuth starts at a server route, not a mail or telephone URL; read the scheme as a browser does. -#}
 {%- set _href = (href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#' -%}
 {%- set _names = {google: 'Google', facebook: 'Facebook', github: 'GitHub'} -%}
