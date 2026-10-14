@@ -76,14 +76,20 @@ const untrustedExpression = /\$\{\{[^}]*\b(?:github\.event\.|github\.head_ref\b|
 
 const indentOf = (line) => line.length - line.trimStart().length;
 
+// GitHub accepts quoted mapping keys and permission values. Normalize their literal spelling for this narrow
+// block-mapping scanner; permission entries it cannot read are rejected below, rather than silently accepted.
+const literalYamlLine = (line) => line
+    .replace(/^(\s*(?:-\s*)?)(['"])([A-Za-z0-9_-]+)\2(\s*:)/, '$1$3$4')
+    .replace(/(:\s*)(['"])([A-Za-z0-9_-]+)\2(\s*(?:#.*)?)$/, '$1$3$4');
+
 export function workflowProblems(file, source) {
     const problems = [];
-    const lines = source.split('\n');
+    const lines = source.split('\n').map(literalYamlLine);
 
-    if (/^\s*pull_request_target\s*:/m.test(source)) {
+    if (/^\s*pull_request_target\s*:/m.test(lines.join('\n'))) {
         problems.push(`${file}: pull_request_target can expose base-branch secrets to untrusted pull request code`);
     }
-    if (/\bpermissions\s*:\s*write-all\b/.test(source)) {
+    if (/\bpermissions\s*:\s*write-all\b/.test(lines.join('\n'))) {
         problems.push(`${file}: write-all permissions are forbidden`);
     }
 
@@ -107,6 +113,9 @@ export function workflowProblems(file, source) {
     }
 
     const jobs = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+    if (jobs === -1) {
+        problems.push(`${file}: declare jobs as a block mapping`);
+    }
     const header = jobs === -1 ? lines : lines.slice(0, jobs);
     const permissions = header.findIndex((line) => /^permissions:\s*$/.test(line));
     if (permissions === -1) {
@@ -123,7 +132,11 @@ export function workflowProblems(file, source) {
             problems.push(`${file}: top-level permissions must include contents: read`);
         }
         for (const line of block) {
-            if (/^\s+[\w-]+:\s*write\s*(?:#.*)?$/.test(line)) {
+            if (!line.trim() || line.trimStart().startsWith('#')) continue;
+            const permission = /^\s+([\w-]+):\s*(read|write|none)\s*(?:#.*)?$/.exec(line);
+            if (!permission) {
+                problems.push(`${file}: top-level permission entry this policy cannot read; use a literal scope and read, write or none`);
+            } else if (permission[2] === 'write') {
                 problems.push(`${file}: write permission must be scoped to the job that needs it: ${line.trim()}`);
             }
         }
@@ -151,6 +164,9 @@ function credentialProblems(file, lines) {
             const line = lines[index];
             if (/^\S/.test(line) && line.trim()) break;
             const key = indentOf(line) === jobIndent && /^\s*([A-Za-z0-9_-]+):\s*(?:#.*)?$/.exec(line);
+            if (indentOf(line) === jobIndent && line.trim() && !line.trimStart().startsWith('#') && !key) {
+                problems.push(`${file}:${index + 1}: declare each job as a literal key and block mapping`);
+            }
             if (key) current = key[1];
             jobAt[index] = current;
             const uses = current && /^\s*uses:\s*['"]?([^'"\s#]+)/.exec(line);
@@ -182,9 +198,12 @@ function credentialProblems(file, lines) {
                 problems.push(`${file}:${index + 1}: job ${job} may not hold permissions: ${value}`);
             }
             for (let next = index + 1; next < lines.length && (!lines[next].trim() || indentOf(lines[next]) > indentOf(line)); next++) {
-                const write = /^\s+([\w-]+):\s*write\s*(?:#.*)?$/.exec(lines[next]);
-                if (write && !(jobWrites[name]?.[job] ?? []).includes(write[1])) {
-                    problems.push(`${file}:${next + 1}: job ${job} may not hold ${write[1]}: write (tools/security-policy.mjs, jobWrites)`);
+                if (!lines[next].trim() || lines[next].trimStart().startsWith('#')) continue;
+                const permission = /^\s+([\w-]+):\s*(read|write|none)\s*(?:#.*)?$/.exec(lines[next]);
+                if (!permission) {
+                    problems.push(`${file}:${next + 1}: job ${job} has a permission entry this policy cannot read; use a literal scope and read, write or none`);
+                } else if (permission[2] === 'write' && !(jobWrites[name]?.[job] ?? []).includes(permission[1])) {
+                    problems.push(`${file}:${next + 1}: job ${job} may not hold ${permission[1]}: write (tools/security-policy.mjs, jobWrites)`);
                 }
             }
         }

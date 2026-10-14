@@ -1428,6 +1428,10 @@ log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing,
   *not assessed: cap*. Attempts left when the 90-second budget runs out are *not assessed: deadline*. Each request
   holds at most 8 excerpts and 28,000 bytes (server log excerpts are dropped first, then error excerpts, and the
   omissions are recorded); one retry on 429 or 529, 8 seconds per request.
+  Across all collected jobs, the workflow spends at most 10 minutes diagnosing them, within its 15-minute job.
+  Each command gets at most 110 seconds and no more than the total budget remaining. Budget exhaustion warns and
+  leaves later jobs without assessments; completed assessments are still uploaded. The diagnosis step has an
+  11-minute limit, leaving at least four minutes for setup and upload.
 - **What leaves the runner:** the attempt's identity (file, line, title, project, retry, outcome), excerpts of its
   error and of the demo's server log during the attempt (`docker compose logs --timestamps php`, ±5 seconds), sent to
   TypeSafe. For a failed step, its error is its name, its command as the workflow writes it (not the values of its

@@ -108,6 +108,29 @@ test('accepts a secret handed on to a reusable workflow, the allowed cache write
     assert.deepEqual(workflowProblems('.github/workflows/jev.yml', reader), []);
 });
 
+test('quoted permission values and mapping keys cannot bypass the job write allowlist', () => {
+    for (const entry of ["contents: 'write'", '"contents": write', "'contents': 'write'"]) {
+        const unsafe = workflow.replace('        runs-on: ubuntu-latest\n', `        runs-on: ubuntu-latest\n        permissions:\n            ${entry}\n`);
+        assert.match(workflowProblems('.github/workflows/ci.yml', unsafe).join('\n'), /job test may not hold contents: write/);
+    }
+    const quotedKeys = workflow.replace('jobs:', '"jobs":').replace('    test:', "    'test':")
+        .replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        "permissions":\n            "contents": "write"\n');
+    assert.match(workflowProblems('.github/workflows/ci.yml', quotedKeys).join('\n'), /job test may not hold contents: write/);
+    const allowed = quotedKeys.replace("    'test':", "    'cache':").replace('"contents": "write"', '"packages": "write"');
+    assert.deepEqual(workflowProblems('.github/workflows/ci.yml', allowed), []);
+});
+
+test('unrecognized permissions and job mappings fail closed', () => {
+    const unsafe = workflow.replace('        runs-on: ubuntu-latest\n', '        runs-on: ubuntu-latest\n        permissions:\n            contents: >-\n                write\n');
+    assert.match(workflowProblems('.github/workflows/ci.yml', unsafe).join('\n'), /permission entry this policy cannot read/);
+    assert.match(workflowProblems('.github/workflows/ci.yml', workflow.replace('jobs:', 'jobs: {}')).join('\n'), /declare jobs as a block mapping/);
+    assert.match(workflowProblems('.github/workflows/ci.yml', workflow.replace('    test:', '    test: {}')).join('\n'), /declare each job/);
+    const tagged = workflow.replace('    contents: read\n', '    contents: read\n    issues: !!str write\n');
+    assert.match(workflowProblems('.github/workflows/ci.yml', tagged).join('\n'), /top-level permission entry this policy cannot read/);
+    const trigger = workflow.replace('on: push', "on:\n    'pull_request_target':");
+    assert.match(workflowProblems('.github/workflows/ci.yml', trigger).join('\n'), /pull_request_target/);
+});
+
 test('requires every executable rendering sink to have a narrow reviewed allowance', () => {
     const files = [{ path: 'widget/templates/widget.html.twig', source: '<div>{{ trusted|raw }}</div>\n' }];
     const allowance = [{
