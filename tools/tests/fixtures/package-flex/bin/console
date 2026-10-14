@@ -1,0 +1,7 @@
+#!/usr/bin/env php
+<?php
+
+require dirname(__DIR__).'/vendor/autoload.php';
+
+$app = new Symfony\Bundle\FrameworkBundle\Console\Application(new Consumer\Kernel('prod', false));
+$app->run();

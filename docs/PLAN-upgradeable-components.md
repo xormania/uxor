@@ -38,6 +38,49 @@ light/dark brand values, typography and radius. The package's icon prefix is sep
 The 219 Node tool tests and repository security, documentation and inventory checks pass. Browser-computed styles
 and version-to-version upgrades remain unverified.
 
+## Deterministic upgrade direction
+
+Deterministic upgrades are the default goal. Each generated UXor release should identify its canonical recipe
+contents, the Toolkit implementation used to interpret them, its package contents and supported runtime ranges.
+Compatible upgrades should use Composer and documented extension points without rewriting application source.
+Breaking changes need explicit version transitions and checks; an agent can assist with application-specific
+migration when a deterministic transform is not available, with the consumer's tests validating the proposed edit.
+Agent interpretation must not become a requirement for ordinary compatible updates.
+
+The first implementation of that boundary is `tools/package-toolkit-plan.php`. It uses the real Toolkit 3.5.1
+parser, recipe discovery and file mapping, selecting `data-table` and `theme` explicitly and deriving their
+transitive closure. Toolkit's internal API is isolated behind an exact-version check. The deterministic JSON plan
+records Toolkit version/reference, recipe/manifests, mapped source hashes and every original requirement with its
+owner. It preserves conflicting declarations instead of using Toolkit Pool's range-string winner selection.
+Selected recipe inventories catch added/deleted files and reject symlinks; selected content hashes catch edits.
+
+The package builder consumes that plan in CI and records source/output hashes, including its package overlay.
+Copy mappings are honored; unsupported destinations and collisions stop assembly. The no-plan Node path remains
+only a bounded development smoke check. The schema URL and upstream `version-added` metadata are separate from
+UXor release identity. These records establish reproducible source selection, not a supported upgrade matrix:
+Composer-range intersection, shared importmap conflict checks and release-to-release migration declarations still
+need implementation. Composer installs use the consumer lock after the initial solve; test downloads are not a
+pinned upstream ecosystem snapshot.
+
+## Native Symfony installation
+
+The PHP foundation uses the existing bundle, TwigComponent renderer and application service container. The
+package now declares `symfony-ux`, and its separate recipe explicitly registers `UXor\Pilot\UXorBundle`; Flex's
+fallback naming cannot infer that class from the package namespace. The recipe copies no implementation or
+application provider. Mapped assets and icons remain registered by the bundle's existing prepend hook.
+
+`tools/tests/package-flex.sh` exercises real Composer/Flex operations against distribution archives and a local
+recipe endpoint. A prepared Twig/Tailwind application's controller receives its table through autowiring, and the table receives
+an application-owned data-source interface. PHP requests verify namespaced Twig components and container wiring.
+Lifecycle checks verify metadata synchronization, preserved application choices, removal and reinstallation.
+The application's existing Tailwind bridge registration remains app-owned. Synthetic fixture versions exercise
+metadata discovery; they are not released component versions.
+
+This work is independent of the browser upgrade slice in PR 139 and the broader abstraction research in PR 140.
+The *Kit PHP* job runs the Flex fixture as part of the PHP development profile. No additional service registry,
+component superclass or configuration knobs are introduced without a concrete extension need. Automatic style
+aggregation and shared-dependency conflict validation are the next separate implementation boundaries.
+
 ## Theme boundary to prove next
 
 The existing theme supplies semantic colors, fonts, radii and native control mode behavior. The fixture imports
@@ -67,8 +110,10 @@ forks remain application-owned. Ordinary dependency updates must not routinely r
 
 ## Coverage and limits
 
-`tools/tests/build-package-pilot.test.mjs` checks package name mapping, controller mapping, canonical-source records,
-refusal to overwrite outputs, and refusal of missing recipe/component dependencies.
+`tools/tests/package-toolkit-plan.php` checks actual Toolkit recipe closure, file mapping, raw requirement
+provenance, content identity, inventory, repeatability and unsupported-version/missing-recipe failures.
+`tools/tests/build-package-pilot.test.mjs` checks package name/controller mapping, canonical-source records,
+plan freshness and destination validation, repeatability, and refusal of missing recipe/component dependencies.
 `tools/tests/package-pilot.sh` performs isolated ZIP installation, consumer rendering and production asset checks.
 These checks do not establish a supported version matrix, browser interaction, an N-to-N+1 upgrade, or theme
 accessibility across all integrations. Existing kit checks continue to cover the unchanged recipe implementation.

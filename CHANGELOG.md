@@ -7,6 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- Toolkit-derived package plans with source identities and dependency provenance, plus native Symfony Flex discovery and an explicit bundle recipe for the unpublished data-table package, with
+  isolated Composer lifecycle checks and application-owned providers wired through Symfony's container.
+
 - An unpublished package experiment for the data table, assembled from canonical recipe sources, with an independent
   Symfony consumer fixture and explicit application-owned theme overrides. The installed recipe kit is unchanged.
 
