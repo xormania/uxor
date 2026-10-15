@@ -8,7 +8,20 @@ build_options=()
 if [ -n "${PILOT_TOOLKIT_PLAN:-}" ]; then
     build_options+=(--plan "$PILOT_TOOLKIT_PLAN")
 fi
-node "$root/tools/build-package-pilot.mjs" "$work/package" "${build_options[@]}"
+if [ -n "${PILOT_TOOLKIT_PLAN:-}" ] && [ -n "${PILOT_IMAGE:-}" ]; then
+    # The author build needs PHP for Composer's constraint semantics. Keep that toolchain outside the
+    # later consumer: only the resulting distributions are mounted into the Flex installation.
+    autoload=${PILOT_COMPOSER_AUTOLOAD:-$root/demo/vendor/autoload.php}
+    [ -f "$autoload" ] || { echo 'PILOT_COMPOSER_AUTOLOAD must name an installed Composer autoloader' >&2; exit 1; }
+    docker run --rm --network none --user "$(id -u):$(id -g)" --entrypoint node \
+        -v "$root:/source:ro" -v "$work:/work" \
+        -v "$(realpath "$PILOT_TOOLKIT_PLAN"):/toolkit-plan.json:ro" \
+        -v "$(cd "$(dirname "$autoload")" && pwd):/composer-vendor:ro" \
+        -e "PILOT_COMPOSER_AUTOLOAD=/composer-vendor/$(basename "$autoload")" \
+        "$PILOT_IMAGE" /source/tools/build-package-pilot.mjs /work/package --plan /toolkit-plan.json
+else
+    node "$root/tools/build-package-pilot.mjs" "$work/package" "${build_options[@]}"
+fi
 python3 "$root/tools/tests/fixtures/package-flex/build-dist.py" \
     "$work/package" "$root/packages/uxor-pilot/recipe/manifest.json" "$work/dist"
 

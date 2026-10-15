@@ -184,6 +184,8 @@ tools/tests/sync-demo.sh                            # tools/sync-demo copies wha
 find */src -name '*.php' -not -path 'demo/*' -not -path 'tools/*' -print0 | xargs -0 -n1 php -l   # the syntax of the recipes' PHP
 (cd demo && bin/phpunit)                            # the PHP tests (demo/tests/): the data tables' limits, Live and Twig components, snapshots, profiler counts
 php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php . # actual pinned Toolkit closure, copy mapping and deterministic source records
+php tools/tests/package-composer-contract.php demo/vendor/autoload.php # actual pinned Composer semver, owner intersections and emitted direct-require constraints
+PILOT_COMPOSER_AUTOLOAD=demo/vendor/autoload.php node --test tools/tests/package-composer-build.mjs # PHP/Node planned-build integration; explicitly runs in Kit PHP, outside the Node-only glob
 bash tools/tests/package-flex.sh                   # real Composer/Flex install, metadata update, removal and reinstall in an isolated PHP consumer (PHP 8.4+, Composer, Node 22, Python 3, OpenSSL; optional PILOT_IMAGE for Docker)
 phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php data-table/src data-table-live/src editor/src markdown-editor/src demo/src/Demo demo/tests   # PHPStan with its Symfony and PHPUnit extensions installed next to it (CI pins all three); run the tests first
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)

@@ -37,9 +37,19 @@ and the versioned Composer release generated from those contents. Use Toolkit's 
 `copy-files` mappings through a small pinned adapter; preserve each dependency declaration and its owner before
 solving compatibility. The upstream schema URL and `version-added` fields are not UXor release versions.
 
-[PR 142](https://github.com/xormania/uxor/pull/142) implements the first source-plan adapter and a real Flex consumer
-against Toolkit 3.5.1. It is separate from this research and does not yet implement dependency intersection or a
-supported release-transition matrix. Its deterministic records give those later checks concrete inputs.
+[PR 142](https://github.com/xormania/uxor/pull/142) implements the source-plan adapter and a real Flex consumer
+against Toolkit 3.5.1. The author-build contract now adds actual `composer/semver` 3.5.1 to intersect recipe
+Composer requirements and require each emitted direct range to be contained in that intersection. The builder
+rederives the declarations from source manifests and validates the exact emitted `composer.json` before creating
+output; its provenance records the contract report and manifest hash. Missing direct requirements, conflicts and
+overly broad ranges fail with their owners identified. `provide`/`replace` are not substitutes for direct
+requirements. Branch names remain opaque; aliases, explicit stability flags and source references are rejected
+instead of being treated as plain version intervals.
+
+Every `--plan` build invokes that check. No-plan smoke builds and the historical upgrade fixture do not validate
+this author contract. The isolated Flex consumer exercises the actual transitive Composer solve; direct-range
+validation does not solve the full graph. Frontend requirements remain recorded but unenforced, and a supported
+release-transition matrix remains open.
 
 Deterministic upgrades are the default goal: compatible package updates preserve application-owned source, and
 breaking transitions declare their migration requirements. Agent-assisted edits are a fallback for app-specific
@@ -55,9 +65,9 @@ CSS, application branding and provider subclasses. This supports keeping maintai
 while preserving application-owned policy. It does not establish every installation or deployment guarantee.
 
 At that revision, the consumer fixture does not require Flex and sets `allow-plugins` to false. Its import map,
-controller configuration and vendor CSS imports are wired manually. The pilot package also lacks the
-`symfony-ux` Composer keyword that Flex uses to discover UX package metadata. Adding that keyword and testing a
-real recipe-enabled consumer is a necessary next step; the current upgrade checks do not prove that workflow.
+controller configuration and vendor CSS imports are wired manually, and the package lacked the `symfony-ux`
+Composer keyword. PR 142 adds that keyword and a real recipe-enabled consumer separately; the historical
+upgrade checks do not prove that workflow or the planned-build Composer contract.
 
 The current source fingerprint includes `importmap.php` and `assets/controllers.json`. A dependency-changing
 upgrade needs a precise contract: business PHP, Twig, controllers and application CSS remain unchanged; declared
@@ -260,7 +270,7 @@ development CI profile and promotion procedure are tracked in [PR 141](https://g
    booted consumer container. Add the UX keyword, a minimal recipe and a real Flex consumer using the supported
    recipe test workflow. Check install/update/remove through Composer. Retain the simple no-plugin fixture as a
    separate packaging test. These are PHP/container/lifecycle checks; broad browser coverage is not a prerequisite.
-2. **Prove shared compatibility enforcement in PHP.** Reuse the two-package conflict case in both iteration orders.
+2. **Prove shared frontend compatibility enforcement in PHP.** Reuse the two-package conflict case in both iteration orders.
    Prototype aggregate planning at the Flex boundary, with an explicit app pin/override policy. A conflict must
    identify all owners and fail before frontend dependency records change. Separately assert that build validation
    catches invalid state when installation scripts were skipped; describe the earlier Composer mutation boundary.
@@ -289,9 +299,10 @@ from the same maintained source. Choose final package splits after these boundar
 ## Evidence and primary references
 
 Installed source examined: AssetMapper and FrameworkBundle 8.1.8, Flex 2.11.0, StimulusBundle/TwigComponent/
-LiveComponent 3.5.1, SymfonyCasts TailwindBundle 1.0.0 and Tailwind 4.3.3. The Flex conflict probe is executable
-evidence; the proposed adapters, provider API, style aggregation and dependency-changing consumer flow are not
-implemented or validated by this document. The internal-source findings apply to these versions.
+LiveComponent 3.5.1, SymfonyCasts TailwindBundle 1.0.0, Tailwind 4.3.3 and Composer semver 3.5.1. The Flex conflict
+probe is executable evidence; the source-plan adapter, direct Composer contract and native Flex lifecycle now
+have separate implementation checks. The proposed entry-provider API, style aggregation and shared frontend
+compatibility enforcement remain unimplemented. The internal-source findings apply to these versions.
 
 - [Symfony: creating UX bundles](https://symfony.com/doc/8.1/frontend/create_ux_bundle.html),
   [AssetMapper](https://symfony.com/doc/8.1/frontend/asset_mapper.html),
