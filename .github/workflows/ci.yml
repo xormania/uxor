@@ -552,9 +552,24 @@ jobs:
             # A fresh app, the real Flex plugin and a loopback recipe endpoint. The package archive and app DI
             # boundaries run on this job's PHP; no demo vendor tree, browser server or screenshot suite is reused.
             - name: Symfony package lifecycle through Flex
+              id: flex
               env:
                   PILOT_TOOLKIT_PLAN: ${{ runner.temp }}/package-toolkit-plan.json
-              run: bash tools/tests/package-flex.sh
+              run: |
+                  set -o pipefail
+                  bash tools/tests/package-flex.sh 2>&1 | tee "$RUNNER_TEMP/jev-flex.log"
+
+            - name: Report Flex lifecycle failure
+              if: ${{ failure() && steps.flex.outcome == 'failure' }}
+              run: |
+                  node --input-type=module <<'JS'
+                  import { readFileSync } from 'node:fs';
+                  import { selectedLines } from './tools/ci/step-attempts.mjs';
+                  const log = readFileSync(`${process.env.RUNNER_TEMP}/jev-flex.log`, 'utf8');
+                  const diagnostic = selectedLines(log, /error|exception|failed|invalid|conflict|resolution|compatibility|unsupported|problem|satisfy/i, 8000).text;
+                  const escaped = diagnostic.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+                  console.log(`::error title=Flex package lifecycle::${escaped}`);
+                  JS
 
     static-site:
         name: Static site
