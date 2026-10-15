@@ -17,8 +17,9 @@ Both output paths must be new. The adapter isolates Toolkit's internal API and r
 The plan records the exact Toolkit version/reference, selected source content identity, recipe manifests, file
 mappings and every original dependency declaration with its owner. Recipe directory inventories and file hashes
 reject stale plans before assembly. `pilot-build.json` embeds the plan and source/output hashes for the complete
-package, including the package overlay. A build without `--plan` remains a Node-only smoke check using the original
-bounded selection; it is not the author path tested in CI.
+package, including the package overlay. A build without `--plan` uses the original bounded selection
+for Node smoke tests and the separate upgrade/rollback fixture. The Flex fixture tests the Toolkit-derived author
+path in CI.
 
 These records distinguish the Toolkit implementation, UXor recipe contents and generated package contents. The
 manifest schema URL and upstream `version-added` fields do not define UXor release compatibility. Package runtime
@@ -62,8 +63,14 @@ aggregation and validation of conflicting shared frontend requirements remain se
 
 ## Validation
 
-Run `node --test tools/tests/build-package-pilot.test.mjs` from the repository root. With the installed Toolkit,
-run `php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php .` to exercise the real upstream API.
+Run the builder and release-export checks from the repository root:
+
+```bash
+node --test tools/tests/build-package-pilot.test.mjs tools/tests/package-pilot-releases.test.mjs
+```
+
+With the installed Toolkit, run `php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php .` to exercise
+the real upstream API.
 
 The native Symfony/Flex fixture uses PHP 8.4+, Composer, Node 22, Python 3 and the OpenSSL CLI:
 
@@ -92,17 +99,36 @@ resolution. App code that references package classes still depends on the packag
 For the independent consumer, supply a development image with PHP, Composer, Node, Python, and Tailwind 4.3.3:
 
 ```bash
-PILOT_IMAGE=uxor-cloud-php:c271b1f78c7b bash tools/tests/package-pilot.sh
+PILOT_IMAGE=uxor-cloud-php:c271b1f78c7b \
+PILOT_BROWSER_CONTAINER=uxor-cloud-browser-1 \
+bash tools/tests/package-pilot.sh
 ```
 
 That image tag refers to the prepared local cloud toolchain; other hosts must supply their own suitable image.
 An existing trusted Composer download cache can be supplied with `PILOT_COMPOSER_CACHE_DIR`; this reuses archives,
 not another application's installed vendor tree. Download trust verification and dist-only installation remain enabled.
-The test creates a ZIP distribution, uses Composer's dist installation, and mounts only the distribution and
-consumer fixture in the container. Neither the checkout nor `demo/vendor` is available. The fixture tests custom
+The test container defaults to your user and group IDs. Set `PUID` and `PGID` when the Docker daemon sees mounted
+files under different IDs, such as when the invoking shell uses a separate user namespace.
+The test creates two ZIP distributions, uses Composer's dist installation, and mounts distributions, the consumer
+fixture, reports and an optional archive cache. Neither the checkout nor `demo/vendor` is available. The fixture tests custom
 data loading, cell markup and app actions, attribute forwarding, component-name collisions, escaping, sorting,
 search, pagination, preserved URL state, and a production Tailwind/AssetMapper build.
 
-This is the installation slice. A successful render does not prove browser lifecycle behavior or version-to-version
-compatibility. The next slice must make two installable releases and show a meaningful upgrade reaching this same
-customized consumer without changing its application source. No packages have been published.
+The baseline 0.0.1 is assembled from the immutable first-pilot commit in `releases.json`; 0.0.2 uses current canonical
+sources. The consumer installs 0.0.1, updates to 0.0.2 and rolls back using normal Composer resolution. It fingerprints
+its PHP, templates, CSS sources, controllers, manifest and importmap before/after each phase, and checks that unrelated
+dependency versions and references remain unchanged. CSS builds write generated files without replacing app-owned CSS.
+
+The compatible change adds `DataTableView::sortLabel()`, next-direction labels, sort-focus restoration and a branded
+keyboard-focus outline using the existing focus-color role. Both visual identities and color modes, sorting, no focus theft
+during delayed responses or paused renders, Turbo history and repeated
+visits run in Chromium at every phase. `PILOT_BROWSER_CONTAINER` shares the selected browser server's network only;
+no checkout files are made available to the consumer. Its server must speak Playwright 1.58.2 on port 3000, or set
+`PILOT_BROWSER_WS` to its endpoint. Without the browser setting, browser checks are explicitly reported as unrun.
+The upgraded outline is also measured against the default header background in both modes, with a 3:1 minimum.
+
+Each run writes a fresh `test-results/package-pilot.*` directory with an upgrade receipt, source/dependency records,
+browser reports and failing traces. The dedicated Package pilot workflow runs the PHP, production asset and fingerprint checks on feature-branch
+pushes using the pinned published toolchain. Its manual `browsers` option adds the project's pinned browser image
+and Chromium sequence; browsers remain unrun on pushes. These are local fixture releases; no packages
+have been published. Broader runtime support, actual consumer migration and live deployments with old tabs remain unverified.

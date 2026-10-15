@@ -74,7 +74,7 @@
     { "fg": "heading", "bg": "danger-soft", "min": 4.5, "usage": "dropzone main line in an invalid field" },
     { "fg": "body", "bg": "brand-softer", "min": 4.5, "usage": "dropzone text while a file is dragged over it" },
     { "fg": "heading", "bg": "brand-softer", "min": 4.5, "usage": "dropzone main line while a file is dragged over it" },
-    { "fg": "brand-medium", "bg": "neutral-secondary-medium", "min": 3, "usage": "dropzone focus ring" },
+    { "fg": "brand-medium", "bg": "neutral-secondary-medium", "min": 3, "usage": "dropzone and data table sort focus ring" },
     { "fg": "fg-danger-strong", "bg": "neutral-secondary-medium", "min": 4.5, "usage": "dropzone note asking to choose a file again" },
     { "fg": "body", "bg": "neutral-tertiary-medium", "min": 3, "usage": "dropzone remove icon while hovered" },
     { "fg": "body", "bg": "disabled", "min": 4.5, "usage": "disabled dropzone hint" },

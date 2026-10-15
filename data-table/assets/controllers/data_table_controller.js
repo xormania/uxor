@@ -22,15 +22,20 @@ import { isPromotedFrameCache } from '../lib/uxor-turbo.js';
  * The submission is tracked from `turbo:submit-start` until its response arrives or it ends.
  *
  * @target form             The search form.
+ * @target sort             Sort links keyed by their column, for focus across frame replacement.
  * @action cancelLoading    On `turbo:before-cache`: cancels the change still loading, unless the page stays on screen.
  * @action submitStarted    On `turbo:submit-start`: tracks the form's submission.
  * @action responseReceived On `turbo:before-fetch-response`: stops tracking the submission once its response is in.
  * @action submitEnded      On `turbo:submit-end`: stops tracking the submission.
+ * @action rememberSortFocus On `turbo:before-frame-render`: remembers a sort link that still has focus.
+ * @action forgetSortFocus  On `focusin`: drops remembered focus when it moves during a paused render.
+ * @action restoreSortFocus On `turbo:frame-load`: restores that link unless focus moved elsewhere.
  */
 export default class extends Controller {
-    static targets = ['form'];
+    static targets = ['form', 'sort'];
 
     #submission = null;
+    #sortFocusKey = null;
 
     connect() {
         if (!this.#loadPending()) {
@@ -40,6 +45,7 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this.#sortFocusKey = null;
         this.#stopSubmission();
         if (!this.element.isConnected) {
             this.element.removeAttribute('src');
@@ -57,6 +63,7 @@ export default class extends Controller {
         if (isPromotedFrameCache()) {
             return;
         }
+        this.#sortFocusKey = null;
         this.#stopSubmission();
         if (this.#loadPending()) {
             // Turbo cancels the frame's request when its `src` goes; the frame keeps the content it shows
@@ -77,6 +84,33 @@ export default class extends Controller {
     submitEnded({ detail: { formSubmission } }) {
         if (formSubmission === this.#submission) {
             this.#submission = null;
+        }
+    }
+
+    /** Remember focus only when this frame replaces the sort link the user is still on. */
+    rememberSortFocus({ target }) {
+        if (target !== this.element) {
+            return;
+        }
+        const link = this.sortTargets.find((candidate) => candidate === document.activeElement);
+        this.#sortFocusKey = link?.dataset.uxorSortKey ?? null;
+    }
+
+    /** A paused render must not reclaim focus after the user moved it, even within this frame. */
+    forgetSortFocus() {
+        this.#sortFocusKey = null;
+    }
+
+    /** Restore the replacement link; do not take focus from another control or another frame. */
+    restoreSortFocus({ target }) {
+        if (target !== this.element) {
+            return;
+        }
+        const key = this.#sortFocusKey;
+        this.#sortFocusKey = null;
+        const active = document.activeElement;
+        if (key && (active === document.body || active === document.documentElement)) {
+            this.sortTargets.find((link) => link.dataset.uxorSortKey === key)?.focus({ preventScroll: true });
         }
     }
 

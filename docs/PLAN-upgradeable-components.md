@@ -7,6 +7,9 @@ recipes: none
 
 Status: experiment started. Branch: `feat/upgradeable-components`, from `dev` at `40d957c`.
 
+Individual feature increments use sibling work branches and pull requests into `feat/upgradeable-components`.
+The owner requested this PR target; the repository's normal `dev` target does not apply to these increments.
+
 The goal is coordinated updates to reusable PHP, Twig, JavaScript and styles while applications retain their
 data access, workflows, branding and supported customizations. The current recipe kit must continue to work.
 
@@ -35,8 +38,30 @@ TwigBundle 8.1.7, Twig 3.30.0 and Symfony UX 3.5.1. Its custom cells and action 
 query state, sorting, search and pagination work without recipe directories or the demo's installed dependencies.
 Tailwind 4.3.3 and AssetMapper compile 19 assets, including vendor classes, the controller/helper and app-owned
 light/dark brand values, typography and radius. The package's icon prefix is separate from application icon sets.
-The 219 Node tool tests and repository security, documentation and inventory checks pass. Browser-computed styles
-and version-to-version upgrades remain unverified.
+That initial slice also passed 219 Node tool tests and repository security, documentation and inventory checks.
+Browser-computed styles and version-to-version upgrades were established by the subsequent upgrade slice below.
+
+### Upgrade slice result
+
+The baseline archive is assembled from immutable commit `813b5c2c39f06c20a8f05ac45fc8a42fcea5f644` as 0.0.1;
+the current recipes produce 0.0.2. A real improvement spans PHP (`sortLabel()`), Twig (next-direction labels and
+sort targets), JavaScript (focus restoration after frame replacement) and CSS (a brand-colored focus outline).
+The same independent consumer installs, upgrades and rolls back without source edits or unrelated dependency changes.
+Source fingerprints include its business PHP, templates, source CSS, controllers, manifest and importmap. Generated
+assets and selected lock records are separate. Source CSS is preserved throughout every production build.
+
+Six Chromium scenarios execute at each phase, 18 checks with no skipped cases: computed color/font/radius values
+in two app-owned identities and both modes; labels, keyboard focus and custom cells; no focus theft during a delayed
+response or a paused render; pagination/search history plus repeated visits and controller cleanup; and default-theme focus contrast
+of at least 3:1 in the upgraded release. The unchanged baseline shows
+the missing sorting improvement, the upgrade gains it and rollback restores the baseline. This is a fixture proof,
+not a published-release compatibility promise or an audit of every possible customization.
+
+The Package pilot workflow runs the archive PHP/Symfony upgrade, rollback, production asset and fingerprint checks
+on feature-branch pushes. Start it manually with `browsers` enabled (the manual default) to include the browser
+sequence. Each run retains its own receipts and source/dependency records, plus failing traces when browsers ran;
+push receipts explicitly record browser checks as unrun. The browser coverage remains available during PHP-first
+feature development.
 
 ## Deterministic upgrade direction
 
@@ -56,7 +81,7 @@ Selected recipe inventories catch added/deleted files and reject symlinks; selec
 
 The package builder consumes that plan in CI and records source/output hashes, including its package overlay.
 Copy mappings are honored; unsupported destinations and collisions stop assembly. The no-plan Node path remains
-only a bounded development smoke check. The schema URL and upstream `version-added` metadata are separate from
+the bounded build used by development smoke checks and the separate upgrade/rollback fixture. The schema URL and upstream `version-added` metadata are separate from
 UXor release identity. These records establish reproducible source selection, not a supported upgrade matrix:
 Composer-range intersection, shared importmap conflict checks and release-to-release migration declarations still
 need implementation. Composer installs use the consumer lock after the initial solve; test downloads are not a
@@ -76,7 +101,8 @@ Lifecycle checks verify metadata synchronization, preserved application choices,
 The application's existing Tailwind bridge registration remains app-owned. Synthetic fixture versions exercise
 metadata discovery; they are not released component versions.
 
-This work is independent of the browser upgrade slice in PR 139 and the broader abstraction research in PR 140.
+The Toolkit/Flex fixture complements the upgrade/rollback fixture above and the
+[abstraction research](RESEARCH-upgradeable-component-abstraction.md); each establishes a different boundary.
 The *Kit PHP* job runs the Flex fixture as part of the PHP development profile. No additional service registry,
 component superclass or configuration knobs are introduced without a concrete extension need. Automatic style
 aggregation and shared-dependency conflict validation are the next separate implementation boundaries.
@@ -84,24 +110,20 @@ aggregation and shared-dependency conflict validation are the next separate impl
 ## Theme boundary to prove next
 
 The existing theme supplies semantic colors, fonts, radii and native control mode behavior. The fixture imports
-those defaults before its own overrides and explicitly scans vendor templates. Emitted CSS is necessary evidence;
-computed styles and component states still need browser checks.
+those defaults before its own overrides and explicitly scans vendor templates. The current slice checks both
+emitted CSS and browser-computed overrides; wider component-state checks remain open.
 
-The next theme checks must cover light/dark values, font/radius precedence, focus and invalid states. Add two
-contrasting fixture identities to expose gaps before choosing supplied product themes. Keep density and layout
+Light/dark values, font/radius precedence and focus are now checked with two contrasting fixture identities.
+Invalid-control states and wider integration coverage remain open before choosing supplied product themes. Keep density and layout
 changes separate until their actual controls have been inventoried. Future runtime preset selection also needs
 first paint, Turbo/Live restoration and chart repaint; the current chart observer watches `class`, not a new attribute.
 
 ## Remaining milestones
 
-1. Two installable releases, N and N+1, with a meaningful shared change across PHP, Twig, JavaScript and styling.
-2. Upgrade the same consumer with unchanged business source, templates and custom controllers. Preserve customizations
-   and prove they receive the shared improvement; dependency records and generated assets may change.
-3. Browser checks for keyboard behavior, Turbo history, reconnection and cleanup, plus computed theme values.
-4. Test frontend dependency additions, changed requirements and incompatible existing importmap pins.
-5. Measure migration against an actual customized application. No real consumer inventory has been supplied yet;
+1. Test frontend dependency additions, changed requirements and incompatible existing importmap pins.
+2. Measure migration against an actual customized application. No real consumer inventory has been supplied yet;
    the current fixture represents common changes, not measured downstream adoption.
-6. Decide canonical source location and package splits after the pilot. Editor/form integration follows the table;
+3. Decide canonical source location and package splits after the pilot. Editor/form integration follows the table;
    OAuth policy and credential integration need their own scenarios.
 
 A compatible release promises the documented extension contract, not every DOM wrapper or utility class. Define
@@ -114,6 +136,9 @@ forks remain application-owned. Ordinary dependency updates must not routinely r
 provenance, content identity, inventory, repeatability and unsupported-version/missing-recipe failures.
 `tools/tests/build-package-pilot.test.mjs` checks package name/controller mapping, canonical-source records,
 plan freshness and destination validation, repeatability, and refusal of missing recipe/component dependencies.
-`tools/tests/package-pilot.sh` performs isolated ZIP installation, consumer rendering and production asset checks.
-These checks do not establish a supported version matrix, browser interaction, an N-to-N+1 upgrade, or theme
-accessibility across all integrations. Existing kit checks continue to cover the unchanged recipe implementation.
+`tools/tests/package-flex.sh` verifies native Symfony installation and ongoing Flex metadata synchronization.
+`tools/tests/package-pilot.sh` performs isolated ZIP installation, consumer rendering and production asset checks,
+with browser checks available through its explicit browser option.
+The coordinated fixture upgrade, browser lifecycle and computed theme checks now have evidence. They do not establish
+a supported version matrix, frontend dependency migrations, open-tab deployment behavior or theme accessibility across
+all integrations. Existing kit checks also cover the sorting improvement in the recipe distribution.

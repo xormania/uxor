@@ -79,10 +79,11 @@ export function buildPackage(output, repository = root, plan = null) {
             source = source.replaceAll('App\\\\UXor\\\\DataTable', 'UXor\\\\Pilot\\\\DataTable');
             for (const [needle, replacement, expected] of [
                 ["'data-controller': 'data-table'", `'data-controller': '${controller}'`, 1],
-                ['->data-table#', `->${controller}#`, 4],
-                ['data-data-table-target=', `data-${controller}-target=`, 1],
+                ['->data-table#', `->${controller}#`, null],
+                ['data-data-table-target=', `data-${controller}-target=`, null],
             ]) {
-                if (source.split(needle).length - 1 !== expected) throw new Error(`Controller format changed: ${needle}`);
+                const count = source.split(needle).length - 1;
+                if (expected === null ? count < 1 : count !== expected) throw new Error(`Controller format changed: ${needle}`);
                 source = source.replaceAll(needle, replacement);
             }
         }

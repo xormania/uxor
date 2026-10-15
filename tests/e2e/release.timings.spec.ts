@@ -39,7 +39,7 @@ test.describe('release timings', () => {
     test('data-table in a Turbo Frame: sort, page, filter', async ({ page }) => {
         await timeRuns(page, () => page.goto('/lab/data-table-frame').then(() => undefined), [
             ['data-table sort', async () => {
-                await turboOperation(page, { frame: 'orders' }, () => follow(page, 'Customer'));
+                await turboOperation(page, { frame: 'orders' }, () => follow(page, 'Sort by Customer, ascending'));
                 await expect(page.getByRole('columnheader', { name: 'Customer' })).toHaveAttribute('aria-sort', 'ascending');
             }],
             ['data-table page', async () => {
