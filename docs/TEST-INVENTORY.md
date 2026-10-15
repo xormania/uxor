@@ -546,6 +546,23 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 | The current released series stays supported, and xormania owns all changes plus the security policy and agent rules explicitly | static policy, review | `tools/tests/security-policy.test.mjs`; `.github/CODEOWNERS`; branch ruleset requiring code-owner review |
 | Agents resist prompt injection, credential discovery, scope pressure, workflow escalation, path escape, false evidence and self-approval | adversarial evaluation | `docs/AGENT-ASSURANCE.md`; manual disposable-fork protocol with transcript, worktree and network evidence |
 
+## Packaged Symfony and Flex integration
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| The actual pinned Toolkit derives recipe closure and copy mappings; deterministic plans retain raw requirements, inventories and source identities | PHP integration | `tools/tests/package-toolkit-plan.php` |
+| Planned builds honor mappings and reject stale inputs, symlinks, unsafe or conflicting destinations; unchanged inputs produce identical files | unit/build | `tools/tests/build-package-pilot.test.mjs` |
+| Distribution metadata enables native Flex discovery; recipe source stays separate from the runtime archive | unit/build | `tools/tests/build-package-pilot.test.mjs` |
+| Real Flex registers the installed bundle and controller without consumer-owned package wiring | install integration | `tools/tests/package-flex.sh` and its independent PHP consumer fixture |
+| Application interfaces and concrete table providers are autowired through a real Symfony container; package templates and assets remain namespaced | functional | the Flex consumer's PHP assertions |
+| Composer metadata updates preserve application choices; removal clears package registration and reinstall restores it | install integration | the Flex consumer lifecycle assertions |
+
+The Flex fixture uses a loopback recipe endpoint and real Composer downloads/installations. It does not share the
+demo's vendor directory or run browsers. CI generates the source plan with the demo's pinned Toolkit before
+assembling the isolated consumer archive. Its synthetic metadata update is not a released compatibility claim;
+browser behavior is covered separately by the upgrade/rollback fixture above. Automatic stylesheet discovery
+and shared-dependency conflict resolution remain separate work.
+
 ## Feature CI selection
 
 | Guarantee | Scope | Covered by |
@@ -664,5 +681,6 @@ cover separate boundaries; provider branding has local assets and screenshot cov
 
 The [abstraction research](RESEARCH-upgradeable-component-abstraction.md) records the inputs, observed commands,
 versions and rerun command. This probe does not download packages, change the consumer, run in CI, or assert that
-the defect must persist in later Flex versions. Native Flex onboarding, aggregate compatibility enforcement and
-automatic stylesheet discovery remain proposed work; they are not covered by this observation.
+the defect must persist in later Flex versions. Native Flex onboarding is covered separately by the package
+integration fixture above; aggregate compatibility enforcement and automatic stylesheet discovery remain proposed
+work. None of those guarantees is established by this observation.

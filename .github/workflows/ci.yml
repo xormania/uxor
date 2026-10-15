@@ -526,6 +526,22 @@ jobs:
                   "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --configuration=tools/phpstan.neon \
                       --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo demo/tests
 
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+
+            - name: Resolve package sources with the pinned Symfony UX Toolkit
+              run: |
+                  php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php "$GITHUB_WORKSPACE"
+                  php tools/package-toolkit-plan.php demo/vendor/autoload.php "$GITHUB_WORKSPACE" "$RUNNER_TEMP/package-toolkit-plan.json"
+
+            # A fresh app, the real Flex plugin and a loopback recipe endpoint. The package archive and app DI
+            # boundaries run on this job's PHP; no demo vendor tree, browser server or screenshot suite is reused.
+            - name: Symfony package lifecycle through Flex
+              env:
+                  PILOT_TOOLKIT_PLAN: ${{ runner.temp }}/package-toolkit-plan.json
+              run: bash tools/tests/package-flex.sh
+
     static-site:
         name: Static site
         needs: [changes, importmap]

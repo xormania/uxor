@@ -7,10 +7,15 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- Toolkit-derived package plans with source identities and dependency provenance, plus native Symfony Flex
+  discovery and an explicit bundle recipe for the unpublished data-table package, with isolated Composer lifecycle
+  checks and application-owned providers wired through Symfony's container.
+
 - `data-table`: sort links describe the next direction, retain keyboard focus across their Turbo Frame refresh
   without reclaiming focus moved during a paused render, and use a focus outline that follows application branding.
   A packaged consumer proves the improvement arrives
-  through an archive upgrade and rollback with unchanged app source, with browser and theme checks in dedicated CI.
+  through an archive upgrade and rollback with unchanged app source, with browser and theme checks available
+  through the dedicated workflow's manual browser option.
 
 - An unpublished package experiment for the data table, assembled from canonical recipe sources, with an independent
   Symfony consumer fixture and explicit application-owned theme overrides. The installed recipe kit is unchanged.
