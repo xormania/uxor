@@ -551,17 +551,23 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 | Guarantee | Scope | Covered by |
 |---|---|---|
 | The actual pinned Toolkit derives recipe closure and copy mappings; deterministic plans retain raw requirements, inventories and source identities | PHP integration | `tools/tests/package-toolkit-plan.php` |
-| Planned builds honor mappings and reject stale inputs, symlinks, unsafe or conflicting destinations; unchanged inputs produce identical files | unit/build | `tools/tests/build-package-pilot.test.mjs` |
+| Planned builds honor mappings and reject stale inputs, symlinks, unsafe or conflicting destinations; unchanged inputs produce identical files | unit; PHP/Node build integration | `tools/tests/build-package-pilot.test.mjs` and `tools/tests/package-composer-build.mjs` |
+| Actual Composer semver intersects recipe requirements and rejects missing direct requirements, conflicts, overly broad emitted ranges and unsupported constraint annotations with owner diagnostics | PHP integration | `tools/tests/package-composer-contract.php` |
+| Every planned build rederives requirements from source manifests, validates the exact emitted manifest before creating output, and records its contract report and manifest hash; valid builds remain deterministic | PHP/Node build integration | `tools/tests/package-composer-build.mjs` |
 | Distribution metadata enables native Flex discovery; recipe source stays separate from the runtime archive | unit/build | `tools/tests/build-package-pilot.test.mjs` |
 | Real Flex registers the installed bundle and controller without consumer-owned package wiring | install integration | `tools/tests/package-flex.sh` and its independent PHP consumer fixture |
 | Application interfaces and concrete table providers are autowired through a real Symfony container; package templates and assets remain namespaced | functional | the Flex consumer's PHP assertions |
 | Composer metadata updates preserve application choices; removal clears package registration and reinstall restores it | install integration | the Flex consumer lifecycle assertions |
 
 The Flex fixture uses a loopback recipe endpoint and real Composer downloads/installations. It does not share the
-demo's vendor directory or run browsers. CI generates the source plan with the demo's pinned Toolkit before
-assembling the isolated consumer archive. Its synthetic metadata update is not a released compatibility claim;
+demo's vendor directory or run browsers. CI generates the source plan with the demo's pinned Toolkit and checks
+the emitted direct requirements with pinned Composer semver before assembling the isolated consumer archive.
+The PHP/Node author-build suite runs explicitly in *Kit PHP*, outside the Node-only test glob. The consumer's real
+Composer solve covers the transitive installation; direct range validation is not a substitute for that solve.
+No-plan smoke builds and the historical upgrade fixture do not establish the author-build Composer contract.
+Its synthetic metadata update is not a released compatibility claim;
 browser behavior is covered separately by the upgrade/rollback fixture above. Automatic stylesheet discovery
-and shared-dependency conflict resolution remain separate work.
+and shared frontend dependency enforcement remain separate work.
 
 ## Feature CI selection
 
@@ -682,5 +688,5 @@ cover separate boundaries; provider branding has local assets and screenshot cov
 The [abstraction research](RESEARCH-upgradeable-component-abstraction.md) records the inputs, observed commands,
 versions and rerun command. This probe does not download packages, change the consumer, run in CI, or assert that
 the defect must persist in later Flex versions. Native Flex onboarding is covered separately by the package
-integration fixture above; aggregate compatibility enforcement and automatic stylesheet discovery remain proposed
+integration fixture above; aggregate frontend compatibility enforcement and automatic stylesheet discovery remain proposed
 work. None of those guarantees is established by this observation.

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Assemble one distribution from the existing canonical recipes; never maintain a second table implementation. */
 import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -33,7 +34,9 @@ function plannedFiles(repository, plan) {
         throw new Error('Unsupported Toolkit package plan; regenerate with the pinned adapter.');
     }
     if (JSON.stringify(plan.roots) !== JSON.stringify(['data-table', 'theme'])) throw new Error('Unexpected Toolkit package roots.');
+    if (plan.kit.manifest.path !== 'manifest.json') throw new Error('Unexpected Toolkit kit manifest.');
     for (const recipe of plan.recipes) {
+        if (recipe.manifest.path !== `${recipe.name}/manifest.json`) throw new Error(`Unexpected Toolkit recipe manifest: ${recipe.name}`);
         const directory = join(repository, safePath(recipe.name));
         const inventory = files(directory).map((path) => relative(directory, path));
         if (JSON.stringify(inventory) !== JSON.stringify(recipe.inventory)) throw new Error(`Stale Toolkit recipe inventory: ${recipe.name}`);
@@ -44,12 +47,40 @@ function plannedFiles(repository, plan) {
     return plan.files.map(({ source, destination }) => ({ path: join(repository, safePath(source)), destination: safePath(destination) }));
 }
 
+function composerContract(repository, plan, composerSource) {
+    // Re-read the declarations bound by the checked source hashes. A changed requirements array in a
+    // saved plan must not remove a recipe's constraints or invent a different owner for a diagnostic.
+    const requirements = [];
+    for (const [owner, path] of [['kit', 'manifest.json'], ...plan.recipes.map(({ name }) => [`recipe:${name}`, `${name}/manifest.json`])]) {
+        const manifest = JSON.parse(readFileSync(join(repository, path), 'utf8'));
+        for (const [type, declarations] of Object.entries(manifest.dependencies ?? {})) {
+            for (const requirement of declarations) requirements.push({ owner, type, requirement });
+        }
+    }
+    const canonical = (records) => records.map(({ owner, type, requirement }) => JSON.stringify([owner, type, requirement])).sort();
+    if (!Array.isArray(plan.requirements) || JSON.stringify(canonical(requirements)) !== JSON.stringify(canonical(plan.requirements))) {
+        throw new Error('Toolkit plan requirements differ from their source manifests; regenerate the plan.');
+    }
+    const autoload = resolve(process.env.PILOT_COMPOSER_AUTOLOAD || join(repository, 'demo/vendor/autoload.php'));
+    if (!existsSync(autoload)) throw new Error('Composer validation needs the installed demo dependencies; set PILOT_COMPOSER_AUTOLOAD to their autoload.php.');
+    const result = spawnSync(process.env.PHP || 'php', [join(root, 'tools/package-composer-contract.php'), autoload], {
+        input: JSON.stringify({ requirements, package: JSON.parse(composerSource.toString('utf8')) }), encoding: 'utf8', maxBuffer: 4 * 1024 * 1024,
+    });
+    if (result.error) throw new Error(`Cannot run Composer validation: ${result.error.message}`);
+    if (result.status !== 0) throw new Error(result.stderr.trim() || 'Composer validation failed.');
+    return { ...JSON.parse(result.stdout), manifestSha256: createHash('sha256').update(composerSource).digest('hex') };
+}
+
 export function buildPackage(output, repository = root, plan = null) {
     output = resolve(output);
     if (existsSync(output)) throw new Error('Choose a new output directory; the pilot never overwrites an existing tree.');
+    if (plan !== null && (typeof plan !== 'object' || Array.isArray(plan))) throw new Error('Expected a Toolkit package plan object.');
     // The plan path is the author/release path. The original bounded mode remains a fast Node-only smoke check.
     const recipes = plan ? plan.recipes.map(({ name }) => name) : smokeRecipes;
     const selected = new Set(recipes);
+    if (plan && (selected.size !== recipes.length || !['data-table', 'theme'].every((name) => selected.has(name)))) {
+        throw new Error('Toolkit plan must include each root recipe and contain no duplicate recipes.');
+    }
     for (const recipe of recipes) {
         const manifest = JSON.parse(readFileSync(join(repository, safePath(recipe), 'manifest.json'), 'utf8'));
         for (const dependency of manifest.dependencies?.recipe ?? []) {
@@ -116,6 +147,9 @@ export function buildPackage(output, repository = root, plan = null) {
         if (destinations.has(destination)) throw new Error(`Duplicate package destination: ${destination}`);
         destinations.add(destination);
     }
+    // Validate the exact composer.json bytes about to be emitted, before creating any package output.
+    // Composer handles the full transitive solve later in the isolated consumer.
+    const contract = plan ? composerContract(repository, plan, payload.find(({ destination }) => destination === 'composer.json').source) : null;
     const records = [];
     mkdirSync(output, { recursive: true });
     for (const { path, destination, source } of payload) {
@@ -125,7 +159,7 @@ export function buildPackage(output, repository = root, plan = null) {
         records.push({ source: relative(repository, path), target: destination, sha256: sourceHash(path), outputSha256: sourceHash(target) });
     }
     records.sort((a, b) => a.target.localeCompare(b.target, 'en'));
-    writeFileSync(join(output, 'pilot-build.json'), `${JSON.stringify({ recipes, toolkitPlan: plan, records }, null, 4)}\n`);
+    writeFileSync(join(output, 'pilot-build.json'), `${JSON.stringify({ recipes, toolkitPlan: plan, composerContract: contract, records }, null, 4)}\n`);
     return { recipes: recipes.length, templates: templates.length, records: records.length };
 }
 
@@ -134,7 +168,12 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
         process.stderr.write('Usage: node tools/build-package-pilot.mjs NEW_OUTPUT_DIRECTORY [--plan TOOLKIT_PLAN_JSON]\n');
         process.exitCode = 2;
     } else {
-        try { console.log(JSON.stringify(buildPackage(process.argv[2], root, process.argv[4] ? JSON.parse(readFileSync(process.argv[4], 'utf8')) : null))); }
+        try {
+            const hasPlan = process.argv.length === 5;
+            const plan = hasPlan ? JSON.parse(readFileSync(process.argv[4], 'utf8')) : null;
+            if (hasPlan && plan === null) throw new Error('Expected a Toolkit package plan object.');
+            console.log(JSON.stringify(buildPackage(process.argv[2], root, plan)));
+        }
         catch (error) { console.error(error.message); process.exitCode = 1; }
     }
 }

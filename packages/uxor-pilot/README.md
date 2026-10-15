@@ -16,15 +16,27 @@ node tools/build-package-pilot.mjs /tmp/uxor-package --plan /tmp/uxor-toolkit-pl
 Both output paths must be new. The adapter isolates Toolkit's internal API and rejects untested Toolkit versions.
 The plan records the exact Toolkit version/reference, selected source content identity, recipe manifests, file
 mappings and every original dependency declaration with its owner. Recipe directory inventories and file hashes
-reject stale plans before assembly. `pilot-build.json` embeds the plan and source/output hashes for the complete
-package, including the package overlay. A build without `--plan` uses the original bounded selection
-for Node smoke tests and the separate upgrade/rollback fixture. The Flex fixture tests the Toolkit-derived author
-path in CI.
+reject stale plans before assembly. Every `--plan` build rederives dependency declarations from those manifests
+and runs the PHP Composer contract check before creating the output directory. It uses the actual pinned
+`composer/semver` 3.5.1 through `demo/vendor/autoload.php`; set `PILOT_COMPOSER_AUTOLOAD` for another installation
+with that version, and `PHP` for another PHP executable. `pilot-build.json` embeds the plan, source/output hashes,
+and the Composer contract report tied to the exact emitted manifest hash.
+
+A build without `--plan` uses the original bounded selection for Node smoke tests and the separate historical
+upgrade/rollback fixture. It does not validate the Composer contract and is not the author path. The Flex fixture
+tests the Toolkit-derived, validated author path in CI.
 
 These records distinguish the Toolkit implementation, UXor recipe contents and generated package contents. The
-manifest schema URL and upstream `version-added` fields do not define UXor release compatibility. Package runtime
-constraints remain explicit in `composer.json`; preserving raw recipe constraints is not yet a compatibility
-solver or a migration plan. Published release identity and supported upgrade transitions remain follow-up work.
+manifest schema URL and upstream `version-added` fields do not define UXor release compatibility. For each recipe
+Composer dependency, the author build requires a direct entry in the emitted `composer.json`, a nonempty
+intersection of the owners' requirements, and an emitted range contained within that intersection. Missing,
+conflicting or overly broad requirements fail with owner-aware diagnostics. `provide` and `replace` do not
+substitute for these direct requirements. Development branches remain opaque branch constraints; inline aliases,
+explicit stability flags and source-reference suffixes are rejected by this bounded check.
+
+This validates direct declared ranges, not the full dependency graph: the isolated Flex consumer still exercises
+Composer's transitive solve. Frontend requirements are recorded but not enforced. Published release identity,
+supported upgrade transitions and migration rules remain follow-up work.
 
 The archive has its own PHP namespace (`UXor\Pilot\DataTable`), bundle (`UXor\Pilot\UXorBundle`), Twig component
 namespace (`UXor:*`), icon prefix (`uxor-pilot:`) and controller identifier (`xormania--uxor-pilot--data-table`).
@@ -69,13 +81,22 @@ Run the builder and release-export checks from the repository root:
 node --test tools/tests/build-package-pilot.test.mjs tools/tests/package-pilot-releases.test.mjs
 ```
 
-With the installed Toolkit, run `php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php .` to exercise
-the real upstream API.
+With the installed Toolkit and pinned Composer semver library, run the PHP and author-build integration checks:
+
+```bash
+php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php .
+php tools/tests/package-composer-contract.php demo/vendor/autoload.php
+PILOT_COMPOSER_AUTOLOAD=demo/vendor/autoload.php node --test tools/tests/package-composer-build.mjs
+```
+
+The final suite explicitly requires PHP and runs in *Kit PHP*, outside the Node-only test glob. The contract CLI
+is `php tools/package-composer-contract.php AUTOLOAD`, with its JSON input read from standard input; normal author
+builds invoke it automatically.
 
 The native Symfony/Flex fixture uses PHP 8.4+, Composer, Node 22, Python 3 and the OpenSSL CLI:
 
 ```bash
-bash tools/tests/package-flex.sh
+PILOT_TOOLKIT_PLAN=/tmp/uxor-toolkit-plan.json bash tools/tests/package-flex.sh
 ```
 
 It installs the real Flex plugin and the package ZIP into an isolated application, using a temporary loopback
@@ -89,8 +110,12 @@ when running that same author path locally; no browser or CSS compiler is requir
 To use the prepared cloud PHP image instead of host PHP/Composer:
 
 ```bash
+PILOT_TOOLKIT_PLAN=/tmp/uxor-toolkit-plan.json \
 PILOT_IMAGE=uxor-cloud-php:c271b1f78c7b bash tools/tests/package-flex.sh
 ```
+
+With a plan and an image, the author build runs inside that image using the author installation's autoloader.
+The subsequent consumer receives only its fixtures and archives, not the author checkout or installed vendor tree.
 
 The recipe endpoint is local test infrastructure, not a public installation service. Synthetic fixture versions
 exercise Flex's metadata lifecycle; they do not establish released component compatibility or frontend conflict

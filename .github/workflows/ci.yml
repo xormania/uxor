@@ -534,6 +534,12 @@ jobs:
               run: |
                   php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php "$GITHUB_WORKSPACE"
                   php tools/package-toolkit-plan.php demo/vendor/autoload.php "$GITHUB_WORKSPACE" "$RUNNER_TEMP/package-toolkit-plan.json"
+            - name: Validate package Composer requirements before assembly
+              env:
+                  PILOT_COMPOSER_AUTOLOAD: ${{ github.workspace }}/demo/vendor/autoload.php
+              run: |
+                  php tools/tests/package-composer-contract.php "$PILOT_COMPOSER_AUTOLOAD"
+                  node --test tools/tests/package-composer-build.mjs
 
             # A fresh app, the real Flex plugin and a loopback recipe endpoint. The package archive and app DI
             # boundaries run on this job's PHP; no demo vendor tree, browser server or screenshot suite is reused.

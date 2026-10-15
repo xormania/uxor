@@ -7,6 +7,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- Composer contract validation for planned package builds: verify recipe requirement intersections and the exact
+  emitted direct requirements with pinned Composer semver before writing output; record owner diagnostics and
+  a manifest-bound contract report. Frontend compatibility checks remain separate work.
+
 - Toolkit-derived package plans with source identities and dependency provenance, plus native Symfony Flex
   discovery and an explicit bundle recipe for the unpublished data-table package, with isolated Composer lifecycle
   checks and application-owned providers wired through Symfony's container.
