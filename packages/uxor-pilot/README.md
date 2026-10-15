@@ -35,8 +35,8 @@ substitute for these direct requirements. Development branches remain opaque bra
 explicit stability flags and source-reference suffixes are rejected by this bounded check.
 
 This validates direct declared ranges, not the full dependency graph: the isolated Flex consumer still exercises
-Composer's transitive solve. Frontend requirements are recorded but not enforced. Published release identity,
-supported upgrade transitions and migration rules remain follow-up work.
+Composer's transitive solve. The consumer frontend check below validates its selected AssetMapper versions
+separately. Published release identity, supported upgrade transitions and migration rules remain follow-up work.
 
 The archive has its own PHP namespace (`UXor\Pilot\DataTable`), bundle (`UXor\Pilot\UXorBundle`), Twig component
 namespace (`UXor:*`), icon prefix (`uxor-pilot:`) and controller identifier (`xormania--uxor-pilot--data-table`).
@@ -56,7 +56,7 @@ does not need a second service registry or a universal component base class.
 
 CSS setup remains explicit in this slice: import Flowbite's stylesheet followed by the packaged theme, and make
 Tailwind scan the installed package's templates. Flowbite's JavaScript runtime is not imported. Automatic stylesheet
-aggregation and validation of conflicting shared frontend requirements remain separate follow-up work.
+aggregation and frontend dependency resolution remain separate follow-up work.
 
 ## Experimental extension contract
 
@@ -72,6 +72,43 @@ aggregation and validation of conflicting shared frontend requirements remain se
 - The package provides the current theme defaults. App-owned CSS overrides follow them. The fixture exercises
   brand color in light/dark modes, font family and base radius. Density, layout structure, named presets and
   runtime preset selection are not established by this slice.
+
+## Frontend dependency checks
+
+In a consumer with the bundle installed, validate the selected frontend dependencies explicitly:
+
+```bash
+php bin/console uxor:assets:validate
+php bin/console uxor:assets:validate --json
+```
+
+The PHP validator reads installed Symfony UX package metadata and the application's AssetMapper import map.
+It checks every declared remote owner and relevant peer constraint against the selected exact version, including
+scoped npm names, stylesheet subpaths and aliased package identities. Optional peers are checked when present;
+shared packages must use one selected version across aliases and subpaths. Package-owned local entries must
+point to the declared package file. Local paths, including verified package files, do not establish an upstream
+npm peer version. An application local override of a registry import therefore fails validation instead of
+being assumed compatible. A local import explicitly named under a managed npm package, including a subpath,
+also fails with unknown compatibility even without peer metadata. Unrelated local application import names
+remain outside that package contract.
+
+The JSON mode emits a report on success or an error diagnostic with exit status 1. Run validation and builds
+in a fresh console process after package or import-map changes. AssetMapper production compilation runs the same
+check through `PreAssetsCompileEvent`, before it removes the previous compiled manifest. A missing selection
+or a selected version that fails an owner's requirement needs resolution; it does not by itself prove the
+owners' ranges contradict each other. The validator resolves no versions, downloads no assets and changes no
+application source or dependency records. It verifies the current selection, not a transitive npm graph or the
+bytes of downloaded artifacts.
+
+This is a build-time guard. Composer, Flex, the lockfile, vendor packages or the source import map may already
+have changed before it runs. Installing with `--no-scripts` does not bypass the check when the subsequent
+`asset-map:compile` command runs. Preventing Flex's earlier writes remains a separate integration boundary.
+
+Selected npm versions must be stable `major.minor.patch` values. Supported ranges are exact versions, `*`, caret
+and tilde ranges with one to three numeric parts, and `>=`, `>`, `<=`, `<` or `=` comparisons against complete
+versions, joined with whitespace AND or `||` OR. Bare partials, x-wildcards, hyphen ranges, prereleases, build
+metadata, tags and references are unsupported and fail explicitly. The PHP implementation is checked against
+npm semver 7.8.5 in author tests; consumers need no Node runtime for validation.
 
 ## Validation
 
@@ -93,6 +130,19 @@ The final suite explicitly requires PHP and runs in *Kit PHP*, outside the Node-
 is `php tools/package-composer-contract.php AUTOLOAD`, with its JSON input read from standard input; normal author
 builds invoke it automatically.
 
+The frontend tests keep the npm oracle in a separate development fixture:
+
+```bash
+php tools/tests/frontend-npm-ranges.php
+php tools/tests/frontend-contract.php
+php tools/tests/frontend-reader.php demo/vendor/autoload.php
+npm ci --prefix tools/tests/fixtures/npm-semver --ignore-scripts --no-audit --no-fund
+node tools/tests/frontend-npm-oracle.mjs
+```
+
+The oracle checks the supported PHP grammar against the pinned upstream npm implementation. It is not shipped
+as a consumer runtime dependency. These checks and the Flex lifecycle run without browsers.
+
 The native Symfony/Flex fixture uses PHP 8.4+, Composer, Node 22, Python 3 and the OpenSSL CLI:
 
 ```bash
@@ -103,7 +153,10 @@ It installs the real Flex plugin and the package ZIP into an isolated applicatio
 HTTPS recipe endpoint. The prepared Twig/Tailwind application starts with its existing Tailwind bridge registered,
 and no UXor bundle or controller registration. A real kernel then renders
 the package through an autowired controller, table and application data-source implementation. Composer lifecycle
-checks cover metadata updates, preserved application choices, removal and reinstallation. This fixture is also
+checks cover metadata updates, preserved application choices, removal and reinstallation. They also install a
+synthetic 0.0.3 with changed shared requirements and skipped Composer scripts, then check that validation and
+production compilation reject the stale selection while preserving pre-existing manifest and asset sentinel
+files. Reinstalling 0.0.2 restores successful validation. This fixture is also
 part of the *Kit PHP* CI job, using a freshly generated Toolkit plan. Set `PILOT_TOOLKIT_PLAN` to a generated plan
 when running that same author path locally; no browser or CSS compiler is required.
 
@@ -118,8 +171,9 @@ With a plan and an image, the author build runs inside that image using the auth
 The subsequent consumer receives only its fixtures and archives, not the author checkout or installed vendor tree.
 
 The recipe endpoint is local test infrastructure, not a public installation service. Synthetic fixture versions
-exercise Flex's metadata lifecycle; they do not establish released component compatibility or frontend conflict
-resolution. App code that references package classes still depends on the package after recipe removal.
+exercise Flex's metadata lifecycle and the frontend build guard; they do not establish released component
+compatibility or frontend dependency resolution. App code that references package classes still depends on the
+package after recipe removal.
 
 For the independent consumer, supply a development image with PHP, Composer, Node, Python, and Tailwind 4.3.3:
 

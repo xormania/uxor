@@ -9,8 +9,11 @@
     },
     "require": {
         "php": ">=8.4",
+        "composer-runtime-api": "^2.1",
         "ext-mbstring": "*",
         "symfony/asset-mapper": "8.1.*",
+        "symfony/console": "8.1.*",
+        "symfony/event-dispatcher": "8.1.*",
         "symfony/framework-bundle": "8.1.*",
         "symfony/http-foundation": "8.1.*",
         "symfony/twig-bundle": "8.1.*",

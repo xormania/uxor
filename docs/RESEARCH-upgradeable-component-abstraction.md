@@ -1,6 +1,6 @@
 # Upgradeable components: Symfony integration and asset ownership
 
-Research date: 2026-10-14. Status: recommendation; the APIs and commands proposed below are not implemented.
+Research date: 2026-10-14. Status: recommendations with implementation updates identified below.
 This extends the [component pilot plan](PLAN-upgradeable-components.md) and considers the supplied
 `uxor-upgradeable-component-system-research-2026-10-14.md` and
 `uxor-theme-proposal-and-context-2026-10-13.md` as design context. It also examines the
@@ -48,8 +48,8 @@ instead of being treated as plain version intervals.
 
 Every `--plan` build invokes that check. No-plan smoke builds and the historical upgrade fixture do not validate
 this author contract. The isolated Flex consumer exercises the actual transitive Composer solve; direct-range
-validation does not solve the full graph. Frontend requirements remain recorded but unenforced, and a supported
-release-transition matrix remains open.
+validation does not solve the full graph. The consumer now checks selected frontend versions separately, as
+described below; frontend resolution and a supported release-transition matrix remain open.
 
 Deterministic upgrades are the default goal: compatible package updates preserve application-owned source, and
 breaking transitions declare their migration requirements. Agent-assisted edits are a fallback for app-specific
@@ -158,6 +158,25 @@ even a successful preflight guard is not an atomic rejection by Composer's depen
 Keep a validation command in CI and before asset compilation as well. Its purpose is to prevent an invalid
 build from being published, including when Composer scripts were skipped. Dependency packages' own Composer
 scripts do not automatically run in the consuming application; recipes must configure root hooks explicitly.
+
+### Implemented check before asset compilation
+
+The pilot bundle now supplies `uxor:assets:validate` with optional JSON output and invokes the same validation
+through `PreAssetsCompileEvent`, before AssetMapper removes its previous compiled manifest. It reads actual
+installed Symfony UX metadata and the root AssetMapper selections, checks all remote owners and relevant peer
+requirements, and verifies scoped names, subpaths and aliases against the selected npm package identity.
+Package-owned local entries require their declared path; an application local override has unknown npm
+compatibility and fails the check.
+
+This PHP implementation accepts a bounded stable npm range grammar, checked against pinned npm semver in
+author tests. It performs no resolution, download or source/dependency-record writes. Missing or unsatisfied
+selections report a need for resolution, not proof that the owners' ranges are mutually contradictory. It
+does not inspect a transitive npm graph or certify downloaded artifact bytes.
+
+The real Flex fixture now installs changed shared requirements with Composer scripts skipped and verifies both
+the explicit command and the automatic compile guard. This closes the invalid-build boundary, including when
+scripts were skipped; it does not stop earlier Composer/Flex mutations to vendor, locks or the source import
+map. Aggregate planning before those writes remains the separate Flex-side proposal above.
 
 ## Ownership and dependency policy
 
@@ -270,10 +289,11 @@ development CI profile and promotion procedure are tracked in [PR 141](https://g
    booted consumer container. Add the UX keyword, a minimal recipe and a real Flex consumer using the supported
    recipe test workflow. Check install/update/remove through Composer. Retain the simple no-plugin fixture as a
    separate packaging test. These are PHP/container/lifecycle checks; broad browser coverage is not a prerequisite.
-2. **Prove shared frontend compatibility enforcement in PHP.** Reuse the two-package conflict case in both iteration orders.
-   Prototype aggregate planning at the Flex boundary, with an explicit app pin/override policy. A conflict must
-   identify all owners and fail before frontend dependency records change. Separately assert that build validation
-   catches invalid state when installation scripts were skipped; describe the earlier Composer mutation boundary.
+2. **Extend frontend validation to planning before writes.** The installed-metadata validator now checks the
+   selected versions and rejects an invalid build after scripts were skipped. Reuse the two-package conflict
+   case in both iteration orders when adding aggregate planning at the Flex boundary, with an explicit app
+   pin/override policy. A planning conflict must identify all owners and fail before frontend dependency records
+   change; preserve the distinction from Composer's earlier vendor and lock mutations.
 3. **Complete automatic assets and a component slice.** Prepare package styles automatically. Prove that a new
    component, controller, stylesheet and a utility used only in vendor templates work after update without editing
    application business source or CSS. Use generation/build assertions first, then targeted browser checks for
@@ -300,9 +320,10 @@ from the same maintained source. Choose final package splits after these boundar
 
 Installed source examined: AssetMapper and FrameworkBundle 8.1.8, Flex 2.11.0, StimulusBundle/TwigComponent/
 LiveComponent 3.5.1, SymfonyCasts TailwindBundle 1.0.0, Tailwind 4.3.3 and Composer semver 3.5.1. The Flex conflict
-probe is executable evidence; the source-plan adapter, direct Composer contract and native Flex lifecycle now
-have separate implementation checks. The proposed entry-provider API, style aggregation and shared frontend
-compatibility enforcement remain unimplemented. The internal-source findings apply to these versions.
+probe is executable evidence; the source-plan adapter, direct Composer contract, native Flex lifecycle and
+selected frontend version validator now have separate implementation checks. The proposed entry-provider API,
+style aggregation, frontend resolution and validation before Flex writes remain unimplemented. The internal-source
+findings apply to these versions.
 
 - [Symfony: creating UX bundles](https://symfony.com/doc/8.1/frontend/create_ux_bundle.html),
   [AssetMapper](https://symfony.com/doc/8.1/frontend/asset_mapper.html),

@@ -1,5 +1,6 @@
 # Node / Playwright (repository root)
 /node_modules/
+/tools/tests/fixtures/npm-semver/node_modules/
 /test-results/
 /playwright-report/
 /playwright-results/
