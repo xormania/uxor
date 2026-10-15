@@ -84,9 +84,10 @@ rm -rf var/cache
 php check.php reinstalled
 validate_frontend reinstalled 0.0.2
 
-# Composer may already have changed vendor/lock state when installation scripts are
-# skipped. The build guard protects the existing frontend records and published
-# outputs; it does not claim to roll back that earlier Composer transaction.
+# Composer changes vendor/lock state with root scripts skipped; Flex plugin listeners
+# still run. The peer-only conflict preserves its compatible importmap declaration,
+# so Flex needs no registry lookup before the installed-state guard is exercised.
+# The build guard does not roll back that earlier Composer transaction.
 php frontend-check.php prepare-conflict "$work/frontend-before-no-scripts.json"
 composer require xormania/uxor-pilot:0.0.3 --no-scripts --no-interaction --no-progress --prefer-dist
 php frontend-check.php conflict-installed "$work/frontend-before-no-scripts.json" "$work/frontend-conflict-state.json"

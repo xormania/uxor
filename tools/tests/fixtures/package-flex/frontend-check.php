@@ -82,9 +82,10 @@ if ('conflict-installed' === $phase) {
     $imports = require 'importmap.php';
     frontendCheck('3.2.2' === ($imports['@hotwired/stimulus']['version'] ?? null), 'Fixture did not preserve the application-selected Stimulus runtime');
     $metadata = frontendJson('vendor/'.$package.'/assets/package.json');
-    frontendCheck('^4.0.0' === ($metadata['symfony']['importmap']['@hotwired/stimulus'] ?? null), 'The installed package does not contain the conflicting requirement');
+    frontendCheck('^4.0.0' === ($metadata['peerDependencies']['@hotwired/stimulus'] ?? null), 'The installed package does not contain the conflicting peer requirement');
+    frontendCheck('^3.2.2' === ($metadata['symfony']['importmap']['@hotwired/stimulus'] ?? null), 'The conflict fixture must preserve the compatible Flex importmap declaration');
     frontendWriteJson($argv[3], $after);
-    echo "Skipped scripts: package and Composer state changed; frontend selections, app sources and published outputs did not.\n";
+    echo "Root scripts skipped: package and Composer state changed; frontend selections, app sources and published outputs did not.\n";
     exit;
 }
 

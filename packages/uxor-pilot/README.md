@@ -101,8 +101,9 @@ application source or dependency records. It verifies the current selection, not
 bytes of downloaded artifacts.
 
 This is a build-time guard. Composer, Flex, the lockfile, vendor packages or the source import map may already
-have changed before it runs. Installing with `--no-scripts` does not bypass the check when the subsequent
-`asset-map:compile` command runs. Preventing Flex's earlier writes remains a separate integration boundary.
+have changed before it runs. Composer's `--no-scripts` skips application scripts, not Flex plugin synchronization.
+It does not bypass the check when the subsequent `asset-map:compile` command runs. Preventing Flex's earlier
+writes remains a separate integration boundary.
 
 Selected npm versions must be stable `major.minor.patch` values. Supported ranges are exact versions, `*`, caret
 and tilde ranges with one to three numeric parts, and `>=`, `>`, `<=`, `<` or `=` comparisons against complete
@@ -154,11 +155,12 @@ HTTPS recipe endpoint. The prepared Twig/Tailwind application starts with its ex
 and no UXor bundle or controller registration. A real kernel then renders
 the package through an autowired controller, table and application data-source implementation. Composer lifecycle
 checks cover metadata updates, preserved application choices, removal and reinstallation. They also install a
-synthetic 0.0.3 with changed shared requirements and skipped Composer scripts, then check that validation and
-production compilation reject the stale selection while preserving pre-existing manifest and asset sentinel
-files. Reinstalling 0.0.2 restores successful validation. This fixture is also
-part of the *Kit PHP* CI job, using a freshly generated Toolkit plan. Set `PILOT_TOOLKIT_PLAN` to a generated plan
-when running that same author path locally; no browser or CSS compiler is required.
+synthetic 0.0.3 that changes only the shared peer constraint, with application scripts skipped. Its compatible
+`symfony.importmap` requirement lets normal Flex synchronization run without resolving another version.
+Validation and production compilation then reject the selected version against the new peer requirement while
+preserving pre-existing manifest and asset sentinel files. Reinstalling 0.0.2 restores successful validation.
+This fixture is also part of the *Kit PHP* CI job, using a freshly generated Toolkit plan. Set `PILOT_TOOLKIT_PLAN`
+to a generated plan when running that same author path locally; no browser or CSS compiler is required.
 
 To use the prepared cloud PHP image instead of host PHP/Composer:
 

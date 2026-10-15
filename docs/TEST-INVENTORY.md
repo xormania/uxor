@@ -560,7 +560,7 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 | Composer metadata updates preserve application choices; removal clears package registration and reinstall restores it | install integration | the Flex consumer lifecycle assertions |
 | Stable npm range evaluation matches the pinned upstream oracle for the supported grammar and rejects unsupported forms | PHP unit; PHP/Node differential checks | `tools/tests/frontend-npm-ranges.php` and `tools/tests/frontend-npm-oracle.mjs` |
 | Every installed UX remote owner and relevant peer must accept the selected version and package identity; missing imports and unknown local overrides fail without writes | PHP unit/integration | `tools/tests/frontend-contract.php` and `tools/tests/frontend-reader.php` |
-| The validation command and automatic asset-compile guard reject stale shared selections after a real Composer update with scripts skipped, preserve manifest/asset sentinels and accept the restored package | install integration | `tools/tests/package-flex.sh` and its independent PHP consumer fixture |
+| A real Composer update changes a shared peer constraint while application scripts are skipped and Flex synchronization runs; command/compile validation reject the selection, preserve manifest/asset sentinels and accept the restored package | install integration | `tools/tests/package-flex.sh` and its independent PHP consumer fixture |
 
 The Flex fixture uses a loopback recipe endpoint and real Composer downloads/installations. It does not share the
 demo's vendor directory or run browsers. CI generates the source plan with the demo's pinned Toolkit and checks
@@ -571,8 +571,9 @@ No-plan smoke builds and the historical upgrade fixture do not establish the aut
 Its synthetic metadata update is not a released compatibility claim;
 browser behavior is covered separately by the upgrade/rollback fixture above. The frontend checks validate the
 current root selection without resolving versions, proving downloaded bytes or solving a transitive npm graph.
-Their build-time guard does not precede Flex's earlier mutations. Automatic stylesheet discovery, dependency
-resolution and validation before those mutations remain separate work.
+Composer's `--no-scripts` does not disable Flex plugin synchronization. The build-time guard does not precede
+Flex's earlier mutations. Automatic stylesheet discovery, dependency resolution and validation before those
+mutations remain separate work.
 
 ## Feature CI selection
 

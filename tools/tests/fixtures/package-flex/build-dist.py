@@ -34,11 +34,10 @@ for version in ("0.0.1", "0.0.2", "0.0.3"):
         )
         files["assets/lib/fixture-helper.js"] = b"export const fixtureVersion = '0.0.2';\n"
     elif version == "0.0.3":
-        # Test-only incompatible release. Installing with --no-scripts leaves the
-        # application's selected Stimulus 3 runtime untouched so build validation
-        # must reject the newly installed requirement without a network resolution.
+        # Test-only incompatible peer requirement. Flex still synchronizes package
+        # importmap declarations with --no-scripts, so retain the compatible importmap
+        # range and avoid a registry lookup before testing the installed-state guard.
         assets = json.loads(files["assets/package.json"])
-        assets["symfony"]["importmap"]["@hotwired/stimulus"] = "^4.0.0"
         assets["peerDependencies"]["@hotwired/stimulus"] = "^4.0.0"
         files["assets/package.json"] = json.dumps(assets, indent=4).encode()
 

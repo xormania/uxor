@@ -156,8 +156,9 @@ install and update lifecycles. At post-update time, Composer has already changed
 even a successful preflight guard is not an atomic rejection by Composer's dependency solver.
 
 Keep a validation command in CI and before asset compilation as well. Its purpose is to prevent an invalid
-build from being published, including when Composer scripts were skipped. Dependency packages' own Composer
-scripts do not automatically run in the consuming application; recipes must configure root hooks explicitly.
+build from being published, including when application scripts were skipped. Composer's `--no-scripts` does
+not disable Flex plugin synchronization. Dependency packages' own Composer scripts do not automatically run in
+the consuming application; recipes must configure root hooks explicitly.
 
 ### Implemented check before asset compilation
 
@@ -173,10 +174,12 @@ author tests. It performs no resolution, download or source/dependency-record wr
 selections report a need for resolution, not proof that the owners' ranges are mutually contradictory. It
 does not inspect a transitive npm graph or certify downloaded artifact bytes.
 
-The real Flex fixture now installs changed shared requirements with Composer scripts skipped and verifies both
-the explicit command and the automatic compile guard. This closes the invalid-build boundary, including when
-scripts were skipped; it does not stop earlier Composer/Flex mutations to vendor, locks or the source import
-map. Aggregate planning before those writes remains the separate Flex-side proposal above.
+The real Flex fixture installs a synthetic update that changes only a shared peer constraint, with application
+scripts skipped. The `symfony.importmap` requirement remains compatible with the current selection, so Flex's
+plugin synchronization still runs without requesting another version. Both the explicit command and the
+automatic compile guard reject the new peer mismatch while preserving existing manifest/asset sentinels.
+This checks the invalid-build boundary; it does not stop earlier Composer/Flex mutations to vendor, locks or
+the source import map. Aggregate planning before those writes remains the separate Flex-side proposal above.
 
 ## Ownership and dependency policy
 
@@ -290,8 +293,8 @@ development CI profile and promotion procedure are tracked in [PR 141](https://g
    recipe test workflow. Check install/update/remove through Composer. Retain the simple no-plugin fixture as a
    separate packaging test. These are PHP/container/lifecycle checks; broad browser coverage is not a prerequisite.
 2. **Extend frontend validation to planning before writes.** The installed-metadata validator now checks the
-   selected versions and rejects an invalid build after scripts were skipped. Reuse the two-package conflict
-   case in both iteration orders when adding aggregate planning at the Flex boundary, with an explicit app
+   selected versions and rejects an invalid build after application scripts were skipped. Reuse the two-package
+   conflict case in both iteration orders when adding aggregate planning at the Flex boundary, with an explicit app
    pin/override policy. A planning conflict must identify all owners and fail before frontend dependency records
    change; preserve the distinction from Composer's earlier vendor and lock mutations.
 3. **Complete automatic assets and a component slice.** Prepare package styles automatically. Prove that a new
