@@ -99,6 +99,19 @@ final class DataTableViewTest extends TestCase
         self::assertSame('/shop?tab=b&orders%5Bpage%5D=2&q=old&sort=name&dir=desc&size=25', $view->url());
     }
 
+    public function testSortLabelsDescribeTheSameNextDirectionAsTheirUrls(): void
+    {
+        foreach (['' => 'asc', '?sort=name&dir=asc' => 'desc', '?sort=name&dir=desc' => 'asc', '?sort=price&dir=asc' => 'asc'] as $query => $direction) {
+            $view = self::view('/shop'.$query);
+            $column = $view->table->columns()[0];
+            self::assertSame('Sort by '.$column->label.', '.('asc' === $direction ? 'ascending' : 'descending'), $view->sortLabel($column));
+            $queryString = parse_url($view->sortUrl($column), PHP_URL_QUERY);
+            self::assertIsString($queryString);
+            parse_str($queryString, $parameters);
+            self::assertSame($direction, $parameters['dir']);
+        }
+    }
+
     public function testUrlsAreEncodedAsRfc3986(): void
     {
         $view = self::view('/shop?tab=a%20b');

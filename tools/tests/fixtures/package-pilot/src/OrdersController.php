@@ -16,4 +16,9 @@ final class OrdersController
     {
         return new Response($this->twig->render('orders.html.twig', ['table' => (new OrdersTable())->handleRequest($request)]));
     }
+
+    public function away(): Response
+    {
+        return new Response($this->twig->render('away.html.twig'));
+    }
 }

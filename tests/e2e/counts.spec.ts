@@ -52,7 +52,7 @@ test('data-table in a Turbo Frame: sort, page and filter each make one frame req
     await page.goto('/lab/data-table-frame');
     // each a frame visit promoted to history: the frame's request, then the page visit, which requests nothing
     const sort = (dir: 'ascending' | 'descending') => async () => {
-        await turboOperation(page, { frame: 'orders' }, () => follow(page, 'Customer'));
+        await turboOperation(page, { frame: 'orders' }, () => follow(page, `Sort by Customer, ${dir}`));
         await expect(page.getByRole('columnheader', { name: 'Customer' })).toHaveAttribute('aria-sort', dir);
     };
     const toPage = (number: number, status: string) => async () => {

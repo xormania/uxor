@@ -27,7 +27,7 @@
     {{ attributes.defaults({
         class: 'block min-w-0'|tailwind_classes,
         'data-controller': 'data-table',
-        'data-action': 'turbo:before-cache@document->data-table#cancelLoading turbo:submit-start->data-table#submitStarted turbo:before-fetch-response->data-table#responseReceived turbo:submit-end->data-table#submitEnded',
+        'data-action': 'turbo:before-cache@document->data-table#cancelLoading turbo:submit-start->data-table#submitStarted turbo:before-fetch-response->data-table#responseReceived turbo:submit-end->data-table#submitEnded turbo:before-frame-render->data-table#rememberSortFocus focusin@document->data-table#forgetSortFocus turbo:frame-load->data-table#restoreSortFocus',
     }) }}
 >
     <form method="get" action="{{ view.path }}" class="mb-4 flex flex-wrap items-end gap-3" data-data-table-target="form" role="search" aria-label="{{ label ? label ~ ': search and filters' : 'Search and filters' }}">
@@ -80,7 +80,7 @@
                             {%- set sorted = column.key == query.sort -%}
                             <twig:Table:Head scope="col" {{ ...(sorted ? {'aria-sort': query.direction == 'asc' ? 'ascending' : 'descending'} : {}) }}>
                                 {%- if column.isSortable() %}
-                                    <a href="{{ view.sortUrl(column) }}" class="inline-flex items-center gap-1 font-medium text-heading hover:underline">
+                                    <a href="{{ view.sortUrl(column) }}" aria-label="{{ view.sortLabel(column) }}" data-data-table-target="sort" data-uxor-sort-key="{{ column.key }}" class="uxor-table-sort-link inline-flex items-center gap-1 font-medium text-heading hover:underline">
                                         {{- column.label -}}
                                         {%- if sorted %}
                                             <twig:ux:icon name="{{ query.direction == 'asc' ? 'flowbite:arrow-up-outline' : 'flowbite:arrow-down-outline' }}" class="size-3.5" aria-hidden="true" />

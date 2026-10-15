@@ -7,9 +7,18 @@ moves or removes coverage updates the rows it touches, and its own coverage map 
 
 ## How to read it
 
-The upgradeable-component experiment adds `tools/tests/build-package-pilot.test.mjs` for bounded package assembly
-and `tools/tests/package-pilot.sh` for isolated ZIP installation, custom table rendering and production assets with
-application-owned branding. These are distribution checks; they do not add browser lifecycle or upgrade coverage.
+The upgradeable-component experiment uses `tools/tests/build-package-pilot.test.mjs` and
+`tools/tests/package-pilot-releases.test.mjs` for bounded assembly and immutable baseline export.
+`tools/tests/package-pilot.sh` installs, upgrades and rolls back two ZIP releases with unchanged application-source
+fingerprints and unrelated dependency versions/references. Its independent consumer runs six Chromium scenarios
+at each phase: computed branding in two identities and both color modes, sorting labels/focus, no focus theft
+during a delayed response or a paused render,
+Turbo history/reconnection, and the upgraded focus outline's default-theme contrast. Reports belong to each fresh
+`test-results/package-pilot.*` run. The Package pilot workflow runs archive PHP/Symfony, production asset and
+fingerprint checks on pushes to the feature integration branch and its sibling work branches. Browser scenarios
+run only when its manual `browsers` input is enabled (the manual default); push receipts record them as unrun.
+`tools/tests/package-pilot-workflow.test.mjs` executes the workflow's selection step to check that pushes never
+enable its browser container and manual runs respect that input.
 
 - **Specs** are named by file without `.spec.ts`: `lab.popover` is `tests/e2e/lab.popover.spec.ts`; a recipe's own
   spec (`<recipe>/tests/*.spec.ts`, run as `tests/e2e/examples/recipes/`) is `recipe:<name>`; the interaction
@@ -448,6 +457,7 @@ States: search, filter, sort and direction, page, page size (in the URL); data-t
 | Untrusted values checked: the search trimmed, then cut to 100 characters (not bytes); a value of the wrong type falls back to the default; a filter value is one of its choices, as a string, in the table's order; the sort is a sortable column mapped to its server field; without one, the default sort in the default direction | unit | `TableQueryTest` |
 | A prefixed table reads only its own parameters and shows the defaults when the prefix holds a string; the id of an array row, an object row with `getId()` or a public `id`, and the error saying to override `rowId()` | unit | `AbstractDataTableTest` (with `Fixtures/ProductsTable`, an extension with a server sort field, numeric filter choices, a default sort and a prefix) |
 | The page window at the first, last and capped pages, and for every page of 1 to 30 pages (the ends and the current page linked, in order, no adjacent gaps); URLs keep the other tables' and the page's parameters, encoded as RFC 3986; the search form's hidden fields, prefixed and nested | unit | `DataTableViewTest` |
+| Sort links describe the next direction consistently with their URL; keyboard focus returns to the replacement link without stealing it from another control, including while a frame render is paused; the outline follows app branding and meets 3:1 on default headers | unit; E2E independent consumer; token contrast | `DataTableViewTest::testSortLabelsDescribeTheSameNextDirectionAsTheirUrls`; package-pilot browser sorting, delayed-response and paused-render no-focus-theft, computed-theme and default-focus-contrast cases; `tools/contrast/pairs.json` focus-role pairing |
 | A page past the end shows the last page, loaded once | unit; functional; Live component; E2E lab | `FetchTest::testAPagePastTheEndLoadsTheLastPageOnce`; `DataTableRequestsTest::testAPagePastTheEndLoadsOnlyTheLastPage`; `OrdersTableTest::testAPagePastTheEndShowsTheLastPage`; `DataTableRequestsTest::testAPageNumberTooLargeForAnOffsetShowsTheLastPage` (R3) |
 | No matching row: no load, empty state | unit; functional | `FetchTest::testNoMatchingRowLoadsNoRows`; `DataTableRequestsTest::testASearchMatchingNothingShowsTheEmptyState` (R3) |
 | One count, one load per request; a Live action's page not read again | functional | `DataTableRequestsTest` (its first 4 tests) |
