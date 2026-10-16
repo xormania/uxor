@@ -1,0 +1,281 @@
+[
+  {
+    "observed_at_utc": "2026-10-16T07:56:55Z",
+    "source_url": "https://github.com/xormania/uxor/rules/24827852",
+    "id": 24827852,
+    "name": "work-orders",
+    "target": "branch",
+    "enforcement": "enabled",
+    "conditions": [
+      {
+        "id": 46381465,
+        "target": "ref_name",
+        "parameters": {
+          "exclude": [
+            "refs/heads/claude/wo-*--*"
+          ],
+          "include": [
+            "refs/heads/claude/wo-*"
+          ]
+        }
+      }
+    ],
+    "bypassActors": null,
+    "rules": [
+      {
+        "id": 128981629,
+        "ruleType": "non_fast_forward",
+        "parameters": {}
+      },
+      {
+        "id": 128981630,
+        "ruleType": "required_status_checks",
+        "parameters": {
+          "required_status_checks": [
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            },
+            {
+              "context": "CI result",
+              "integration_id": 15368
+            }
+          ],
+          "do_not_enforce_on_create": true,
+          "strict_required_status_checks_policy": false
+        }
+      },
+      {
+        "id": 128981631,
+        "ruleType": "code_quality",
+        "parameters": {
+          "severity": "errors",
+          "ai_findings_severity": "none"
+        }
+      },
+      {
+        "id": 128981632,
+        "ruleType": "pull_request",
+        "parameters": {
+          "required_reviewers": [],
+          "allowed_merge_methods": [
+            "merge"
+          ],
+          "dismissal_restriction": {
+            "enabled": false,
+            "allowed_actors": []
+          },
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "dismiss_stale_reviews_on_push": false,
+          "required_approving_review_count": 0,
+          "authorized_dismissal_actors_only": false,
+          "required_review_thread_resolution": true,
+          "ignore_approvals_from_contributors": false,
+          "require_extra_approval_for_unattributed_changes": true
+        }
+      }
+    ]
+  },
+  {
+    "observed_at_utc": "2026-10-16T07:56:55Z",
+    "source_url": "https://github.com/xormania/uxor/rules/24747136",
+    "id": 24747136,
+    "name": "dev",
+    "target": "branch",
+    "enforcement": "enabled",
+    "conditions": [
+      {
+        "id": 46236549,
+        "target": "ref_name",
+        "parameters": {
+          "exclude": [],
+          "include": [
+            "refs/heads/dev"
+          ]
+        }
+      }
+    ],
+    "bypassActors": null,
+    "rules": [
+      {
+        "id": 128718651,
+        "ruleType": "deletion",
+        "parameters": {}
+      },
+      {
+        "id": 128718652,
+        "ruleType": "non_fast_forward",
+        "parameters": {}
+      },
+      {
+        "id": 128718653,
+        "ruleType": "pull_request",
+        "parameters": {
+          "required_reviewers": [],
+          "allowed_merge_methods": [
+            "merge"
+          ],
+          "dismissal_restriction": {
+            "enabled": false,
+            "allowed_actors": []
+          },
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "dismiss_stale_reviews_on_push": false,
+          "required_approving_review_count": 0,
+          "authorized_dismissal_actors_only": false,
+          "required_review_thread_resolution": true,
+          "ignore_approvals_from_contributors": false,
+          "require_extra_approval_for_unattributed_changes": true
+        }
+      },
+      {
+        "id": 128718654,
+        "ruleType": "required_status_checks",
+        "parameters": {
+          "required_status_checks": [
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            },
+            {
+              "context": "CI result",
+              "integration_id": 15368
+            },
+            {
+              "context": "Mentions",
+              "integration_id": 15368
+            }
+          ],
+          "do_not_enforce_on_create": false,
+          "strict_required_status_checks_policy": false
+        }
+      },
+      {
+        "id": 128718655,
+        "ruleType": "code_scanning",
+        "parameters": {
+          "code_scanning_tools": [
+            {
+              "tool": "CodeQL",
+              "alerts_threshold": "errors",
+              "security_alerts_threshold": "high_or_higher"
+            }
+          ]
+        }
+      },
+      {
+        "id": 128718656,
+        "ruleType": "code_quality",
+        "parameters": {
+          "severity": "errors",
+          "ai_findings_severity": "none"
+        }
+      }
+    ]
+  },
+  {
+    "observed_at_utc": "2026-10-16T07:56:55Z",
+    "source_url": "https://github.com/xormania/uxor/rules/24479611",
+    "id": 24479611,
+    "name": "main",
+    "target": "branch",
+    "enforcement": "enabled",
+    "conditions": [
+      {
+        "id": 45784543,
+        "target": "ref_name",
+        "parameters": {
+          "exclude": [],
+          "include": [
+            "~DEFAULT_BRANCH",
+            "refs/heads/main"
+          ]
+        }
+      }
+    ],
+    "bypassActors": null,
+    "rules": [
+      {
+        "id": 127883668,
+        "ruleType": "deletion",
+        "parameters": {}
+      },
+      {
+        "id": 127883669,
+        "ruleType": "non_fast_forward",
+        "parameters": {}
+      },
+      {
+        "id": 127883670,
+        "ruleType": "pull_request",
+        "parameters": {
+          "required_reviewers": [],
+          "allowed_merge_methods": [
+            "merge"
+          ],
+          "dismissal_restriction": {
+            "enabled": false,
+            "allowed_actors": []
+          },
+          "require_code_owner_review": true,
+          "require_last_push_approval": false,
+          "dismiss_stale_reviews_on_push": false,
+          "required_approving_review_count": 0,
+          "authorized_dismissal_actors_only": false,
+          "required_review_thread_resolution": true,
+          "ignore_approvals_from_contributors": false,
+          "require_extra_approval_for_unattributed_changes": true
+        }
+      },
+      {
+        "id": 128525688,
+        "ruleType": "code_scanning",
+        "parameters": {
+          "code_scanning_tools": [
+            {
+              "tool": "CodeQL",
+              "alerts_threshold": "errors",
+              "security_alerts_threshold": "high_or_higher"
+            }
+          ]
+        }
+      },
+      {
+        "id": 128748385,
+        "ruleType": "required_status_checks",
+        "parameters": {
+          "required_status_checks": [
+            {
+              "context": "CI result",
+              "integration_id": 15368
+            },
+            {
+              "context": "Release checks",
+              "integration_id": 15368
+            },
+            {
+              "context": "Mentions",
+              "integration_id": 15368
+            },
+            {
+              "context": "CodeQL",
+              "integration_id": 57789
+            }
+          ],
+          "do_not_enforce_on_create": false,
+          "strict_required_status_checks_policy": true
+        }
+      },
+      {
+        "id": 128748386,
+        "ruleType": "code_quality",
+        "parameters": {
+          "severity": "errors",
+          "ai_findings_severity": "none"
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,51 @@
+[
+  {
+    "key": "rules-dev",
+    "url": "https://github.com/xormania/uxor/rules/24479611",
+    "status": 200,
+    "bytes": 221412,
+    "observed_at": "2026-10-16T07:56:54.981576+00:00"
+  },
+  {
+    "key": "rules-main",
+    "url": "https://github.com/xormania/uxor/rules/24747136",
+    "status": 200,
+    "bytes": 220394,
+    "observed_at": "2026-10-16T07:56:55.001218+00:00"
+  },
+  {
+    "key": "rules-work-orders",
+    "url": "https://github.com/xormania/uxor/rules/24827852",
+    "status": 200,
+    "bytes": 218963,
+    "observed_at": "2026-10-16T07:56:55.019395+00:00"
+  },
+  {
+    "key": "pr144",
+    "url": "https://github.com/xormania/uxor/pull/144",
+    "status": 200,
+    "bytes": 307181,
+    "observed_at": "2026-10-16T07:56:55.064319+00:00"
+  },
+  {
+    "key": "pr139",
+    "url": "https://github.com/xormania/uxor/pull/139",
+    "status": 200,
+    "bytes": 364316,
+    "observed_at": "2026-10-16T07:56:56.460369+00:00"
+  },
+  {
+    "key": "actions-release",
+    "url": "https://github.com/xormania/uxor/actions/workflows/release.yml",
+    "status": 200,
+    "bytes": 363283,
+    "observed_at": "2026-10-16T07:56:55.939389+00:00"
+  },
+  {
+    "key": "actions-monthly",
+    "url": "https://github.com/xormania/uxor/actions/workflows/monthly.yml",
+    "status": 200,
+    "bytes": 229234,
+    "observed_at": "2026-10-16T07:56:55.912804+00:00"
+  }
+]

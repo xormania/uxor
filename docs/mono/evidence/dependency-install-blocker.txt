@@ -1,0 +1,8 @@
+Command (isolated baseline checks/demo):
+php /workspace/scratch/uxor-audit-2026-10-16/native/composer.phar install --prefer-dist --no-interaction --no-progress --no-scripts
+Runtime: PHP8.4.26, Composer2.10.3 SHA256 verified.
+Result: nonzero exit; dependency acquisition failed before application tests.
+Representative locked artifact:
+https://api.github.com/repos/symfony/ai-mate-composer-plugin/zipball/f7497d8a8d5b4dcaf790c88a37bf3ace2d34b817
+curl error56: CONNECT tunnel failed, response403.
+No source fallback, dependency/lock rewrite, checksum substitution or TLS-verification bypass used.

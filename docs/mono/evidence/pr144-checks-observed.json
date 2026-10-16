@@ -1,0 +1,108 @@
+{
+  "observed_at_utc": "2026-10-16T08:02:08.540969+00:00",
+  "source": "https://github.com/xormania/uxor/pull/144/checks",
+  "selected_head": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+  "attempt_number": "unavailable",
+  "checks": [
+    {
+      "job": "Changes",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203222223?pr=144"
+    },
+    {
+      "job": "Tool tests",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203222378?pr=144"
+    },
+    {
+      "job": "Workflows",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203270745?pr=144"
+    },
+    {
+      "job": "Lint kit",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203270886?pr=144"
+    },
+    {
+      "job": "Importmap packages",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203270695?pr=144"
+    },
+    {
+      "job": "Fresh install",
+      "observed_status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203272340?pr=144"
+    },
+    {
+      "job": "Fresh install (Symfony Docker, from GitHub)",
+      "observed_status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203272475?pr=144"
+    },
+    {
+      "job": "Contrast",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203270867?pr=144"
+    },
+    {
+      "job": "Build cache",
+      "observed_status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203272372?pr=144"
+    },
+    {
+      "job": "Kit PHP",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203369103?pr=144"
+    },
+    {
+      "job": "Static site",
+      "observed_status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203370258?pr=144"
+    },
+    {
+      "job": "Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})",
+      "observed_status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203370306?pr=144"
+    },
+    {
+      "job": "CI result",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203667440?pr=144"
+    },
+    {
+      "job": "Packaged consumer upgrade",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667668948/job/116203222127?pr=144"
+    },
+    {
+      "job": "Analyze (actions)",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667670662/job/116203227176?pr=144"
+    },
+    {
+      "job": "Analyze (javascript-typescript)",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667670662/job/116203227371?pr=144"
+    },
+    {
+      "job": "Mentions",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667670669/job/116203227702?pr=144"
+    },
+    {
+      "job": "Mentions",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667688473/job/116203282537?pr=144"
+    },
+    {
+      "job": "CodeQL",
+      "observed_status": "This check passed",
+      "url": "https://github.com/xormania/uxor/pull/144/checks?check_run_id=116203401011"
+    },
+    {
+      "job": "Mentions",
+      "observed_status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38667860556/job/116203813359?pr=144"
+    }
+  ]
+}

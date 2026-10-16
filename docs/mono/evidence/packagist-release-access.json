@@ -1,0 +1,21 @@
+[
+  {
+    "key": "packagist-target",
+    "url": "https://repo.packagist.org/p2/xormania/uxor.json",
+    "observed_at": "2026-10-16T08:04:24.371457+00:00",
+    "status": 404
+  },
+  {
+    "key": "packagist-former",
+    "url": "https://repo.packagist.org/p2/xormania/uxorscient.json",
+    "observed_at": "2026-10-16T08:04:24.372163+00:00",
+    "status": 404
+  },
+  {
+    "key": "release-020",
+    "url": "https://github.com/xormania/uxor/releases/tag/0.2.0",
+    "observed_at": "2026-10-16T08:04:24.372768+00:00",
+    "status": 200,
+    "bytes": 221564
+  }
+]

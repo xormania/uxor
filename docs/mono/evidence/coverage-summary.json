@@ -1,0 +1,13 @@
+{
+  "status_counts": {
+    "source/derivation reviewed": 784,
+    "asset role/integrity accounted": 441,
+    "native dependency metadata reviewed": 3,
+    "historical/open plan reviewed as labeled": 7,
+    "fixture reviewed with consumer": 54,
+    "source/fixture/metadata reviewed": 111,
+    "generated set verified": 74
+  },
+  "unassigned": [],
+  "partial_only": []
+}

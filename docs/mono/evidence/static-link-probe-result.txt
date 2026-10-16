@@ -1,0 +1,5 @@
+Checker probe only, not actual PHP export/browser runtime.
+Baseline 40d957cd1ea7766ac0dee742816948ce5ae05bc3
+Minimal gallery contains all64 recipe pages and155 README example pages in both themes with deliberately broken arbitrary local hrefs/form actions.
+Command: node tools/fence-coverage.mjs --site /workspace/scratch/uxor-audit-2026-10-16/static-link-probe
+Exit0; fence-coverage reports all recipe/example pages present.

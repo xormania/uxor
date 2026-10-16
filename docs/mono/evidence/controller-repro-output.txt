@@ -1,0 +1,68 @@
+{
+  "calendarDisabledArrow": {
+    "before": {
+      "focus": "2026-03-12",
+      "enabledTabStops": 1
+    },
+    "after": {
+      "focus": "2026-03-12",
+      "enabledTabStops": 0,
+      "tabStops": [
+        {
+          "day": "2026-03-13",
+          "disabled": true
+        }
+      ]
+    }
+  }
+}
+{
+  "crossOriginCurrent": [
+    {
+      "id": "local",
+      "href": "http://example.test/settings",
+      "current": "page"
+    },
+    {
+      "id": "external",
+      "href": "https://other.example/settings",
+      "current": "page"
+    }
+  ]
+}
+{
+  "disabledPlugins": {
+    "legend": {
+      "labels": {
+        "color": "rgb(17, 17, 17)"
+      }
+    },
+    "tooltip": {
+      "backgroundColor": "rgb(17, 17, 17)",
+      "titleColor": "rgb(17, 17, 17)",
+      "bodyColor": "rgb(17, 17, 17)",
+      "footerColor": "rgb(17, 17, 17)",
+      "borderColor": "rgb(17, 17, 17)",
+      "borderWidth": 1
+    },
+    "title": {
+      "color": "rgb(17, 17, 17)"
+    },
+    "subtitle": {
+      "color": "rgb(17, 17, 17)"
+    }
+  }
+}
+{
+  "tabsInsideForm": {
+    "submissions": 1,
+    "type": "submit"
+  }
+}
+{
+  "interruptedAlert": {
+    "hidden": false,
+    "opacity": "0",
+    "focusableInvisibleButton": true
+  }
+}

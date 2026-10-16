@@ -1,0 +1,100 @@
+[
+  {
+    "key": "uxor-api-repository",
+    "url": "https://api.github.com/repos/xormania/uxor",
+    "observed_at": "2026-10-16T07:55:44.391614+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-api-rulesets",
+    "url": "https://api.github.com/repos/xormania/uxor/rulesets?includes_parents=true&per_page=100",
+    "observed_at": "2026-10-16T07:55:44.392434+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-api-effective-dev",
+    "url": "https://api.github.com/repos/xormania/uxor/rules/branches/dev",
+    "observed_at": "2026-10-16T07:55:44.392999+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-api-protection-dev",
+    "url": "https://api.github.com/repos/xormania/uxor/branches/dev/protection",
+    "observed_at": "2026-10-16T07:55:44.393817+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-api-actions-permissions",
+    "url": "https://api.github.com/repos/xormania/uxor/actions/permissions",
+    "observed_at": "2026-10-16T07:55:44.394973+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-api-environments",
+    "url": "https://api.github.com/repos/xormania/uxor/environments?per_page=100",
+    "observed_at": "2026-10-16T07:55:44.429236+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-api-runs",
+    "url": "https://api.github.com/repos/xormania/uxor/actions/runs?per_page=100&created=%3E%3D2026-09-16",
+    "observed_at": "2026-10-16T07:55:44.431569+00:00",
+    "status": "unavailable",
+    "error": "<urlopen error Tunnel connection failed: 403 Forbidden>"
+  },
+  {
+    "key": "uxor-pulls",
+    "url": "https://github.com/xormania/uxor/pulls",
+    "observed_at": "2026-10-16T07:55:44.434117+00:00",
+    "status": 200,
+    "bytes": 238112
+  },
+  {
+    "key": "companion-pulls",
+    "url": "https://github.com/xormania/uxorscient/pulls",
+    "observed_at": "2026-10-16T07:55:44.438718+00:00",
+    "status": 200,
+    "bytes": 236454
+  },
+  {
+    "key": "uxor-rules",
+    "url": "https://github.com/xormania/uxor/rules",
+    "observed_at": "2026-10-16T07:55:44.441262+00:00",
+    "status": 200,
+    "bytes": 186971
+  },
+  {
+    "key": "uxor-actions",
+    "url": "https://github.com/xormania/uxor/actions?query=created%3A2026-09-16..2026-10-16",
+    "observed_at": "2026-10-16T07:55:44.446228+00:00",
+    "status": 200,
+    "bytes": 383204
+  },
+  {
+    "key": "uxor-settings",
+    "url": "https://github.com/xormania/uxor/settings",
+    "observed_at": "2026-10-16T07:55:44.451590+00:00",
+    "status": 404,
+    "error": "Not Found"
+  },
+  {
+    "key": "uxor-issues",
+    "url": "https://github.com/xormania/uxor/issues",
+    "observed_at": "2026-10-16T07:55:45.046113+00:00",
+    "status": 200,
+    "bytes": 264885
+  },
+  {
+    "key": "companion-issues",
+    "url": "https://github.com/xormania/uxorscient/issues",
+    "observed_at": "2026-10-16T07:55:45.472635+00:00",
+    "status": 200,
+    "bytes": 263722
+  }
+]

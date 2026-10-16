@@ -1,0 +1,123 @@
+[
+  {
+    "path": "packages/uxor/src/Foo.php",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo"
+    ]
+  },
+  {
+    "path": "packages/uxor/tests/FooTest.php",
+    "selected": [
+      "demo"
+    ]
+  },
+  {
+    "path": "packages/uxor/INSTRUCTIONS.md",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo"
+    ]
+  },
+  {
+    "path": "packages/uxor/skills/a/SKILL.md",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo"
+    ]
+  },
+  {
+    "path": "packages/uxor/dev/compose.yaml",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo"
+    ]
+  },
+  {
+    "path": "packages/uxor/resources/catalog.json",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo"
+    ]
+  },
+  {
+    "path": "composer.json",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "demo"
+    ]
+  },
+  {
+    "path": "composer.lock",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "demo"
+    ]
+  },
+  {
+    "path": ".gitattributes",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "demo"
+    ]
+  },
+  {
+    "path": ".github/workflows/ci.yml",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo",
+      "workflows"
+    ]
+  },
+  {
+    "path": "docs/mono/new.md",
+    "selected": [
+      "contrast"
+    ]
+  },
+  {
+    "path": "tools/ci-changes.sh",
+    "selected": [
+      "lint-kit",
+      "php",
+      "static-site",
+      "fresh-install",
+      "contrast",
+      "demo",
+      "workflows"
+    ]
+  }
+]

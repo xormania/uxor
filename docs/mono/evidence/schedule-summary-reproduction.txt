@@ -1,0 +1,33 @@
+Command: GITHUB_SHA=1111... GITHUB_REF_NAME=main TESTS_OUTCOME=success node tools/ci/playwright-summary.mjs <copy-of-clean-fixture>
+Exit: 0
+## Playwright, shard 2/3: all 3 passed
+
+| Passed | Failed | Flaky (passed on retry) | Skipped |
+|---:|---:|---:|---:|
+| 3 | 0 | 0 | 0 |
+
+- Tested commit: `1111111111111111111111111111111111111111` (main)
+- Shard: 2/3; projects: smoke, examples; 20.7 s
+- Runtime: Node v24.19.0, Playwright 1.58.2
+
+## Durations (report only)
+
+- Wall time: 20.7 s
+- Summed test time: 2.6 s over 3 attempts; workers run tests side by side, so it is not the wall time
+
+### Slowest 3 tests
+
+| Time | Attempts | Test |
+|---:|---:|---|
+| 1.5 s | 1 | [smoke] tests/e2e/smoke.spec.ts:47 › theme › toggles dark mode |
+| 0.8 s | 1 | [smoke] tests/e2e/smoke.spec.ts:6 › the index lists every recipe of the kit |
+| 0.3 s | 1 | [examples] tests/e2e/examples/examples.spec.ts:12 › alert default light |
+
+### Per file
+
+| Time | Tests | File |
+|---:|---:|---|
+| 2.3 s | 2 | tests/e2e/smoke.spec.ts |
+| 0.3 s | 1 | tests/e2e/examples/examples.spec.ts |
+
+The same numbers, each test included: `durations.json` next to the report (`schedule-summary/`).

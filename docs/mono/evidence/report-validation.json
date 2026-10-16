@@ -1,0 +1,17 @@
+{
+  "observed_at_utc": "2026-10-16T08:33:20.587920+00:00",
+  "result": "passed",
+  "scope": "Generated report integrity; runtime execution limits remain in validation-summary.json",
+  "local_report_links_checked": 129,
+  "pinned_source_line_spans_checked": 193,
+  "source_files_referenced": 137,
+  "stable_change_register_items": 32,
+  "exact_baseline_path_counts": {
+    "uxor": 1289,
+    "uxorscient": 185
+  },
+  "baseline_source_hashes_verified": 1474,
+  "other_evidence_json_files_parsed": 14,
+  "unassigned_baseline_paths": 0,
+  "partial_only_baseline_paths": 0
+}

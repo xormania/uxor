@@ -1,0 +1,41 @@
+{
+  "observed_at_utc": "2026-10-16T08:16:53.663208+00:00",
+  "uxor_sha": "40d957cd1ea7766ac0dee742816948ce5ae05bc3",
+  "companion_dev_sha": "614aa28fd937baa9feffa7730d02b58dc73afe18",
+  "php_version": "8.4.26",
+  "node_version": "v24.19.0",
+  "composer_version": "2.10.3",
+  "composer_sha256": "7a2d379d5b8ffdaa028580ef26494c36d2feef4b178d3dd1473a4dbc5e17c8d6",
+  "node_tests": {
+    "passed": 197,
+    "failed": 0,
+    "skipped": 0
+  },
+  "companion_python_tests": {
+    "passed": 15,
+    "failed": 0
+  },
+  "php_syntax": {
+    "uxor_files": 131,
+    "companion_files": 28,
+    "failed": 0
+  },
+  "generated_reference_files_verified": 74,
+  "toolkit_git_archive": {
+    "regular_files": 330,
+    "recipes": 64,
+    "unexpected_dev_paths": 0
+  },
+  "companion_composer_archive": {
+    "regular_files": 96,
+    "existing_payload_checker": "passed"
+  },
+  "unrun": [
+    "demo/package PHPUnit",
+    "real installed Symfony/Mate consumer lifecycle",
+    "combined candidate distribution and Toolkit lint view",
+    "full Playwright engine/screenshot matrix",
+    "prepared Docker and Serena provider checks"
+  ],
+  "dependency_blocker": "GitHub API zipball CONNECT 403; no source fallback or TLS bypass"
+}

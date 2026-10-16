@@ -1,0 +1,30 @@
+{
+  "observed_at_utc": "2026-10-16 08:33:12 UTC",
+  "scope": "Report-only delivery validation; original supplied inputs preserve their bytes.",
+  "checks": [
+    {
+      "name": "docs-lint",
+      "command": "node tools/docs-lint.mjs <all 14 Markdown files under docs/mono>",
+      "exit_code": 0,
+      "output": "docs-lint: 14 markdown files teach no Flowbite JavaScript, palette color, dark: override or inline handler or style; 0 recipe templates use no palette color."
+    },
+    {
+      "name": "name-check",
+      "command": "node tools/name-check.mjs",
+      "exit_code": 0,
+      "output": "name-check: every URL of the kit's repository is https://github.com/xormania/uxor (UXor)."
+    },
+    {
+      "name": "llms-check",
+      "command": "node tools/llms-txt.mjs --check",
+      "exit_code": 0,
+      "output": "llms.txt and FOR-AGENTS.md are up to date (64 recipes, links at dev); 7 plans and the roadmap checked."
+    },
+    {
+      "name": "security-policy",
+      "command": "node tools/security-policy.mjs",
+      "exit_code": 0,
+      "output": "Repository security policy: ok"
+    }
+  ]
+}
