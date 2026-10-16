@@ -20,7 +20,8 @@ python3 docs/ci/issue-134/reproduce.py
 ```
 
 The command creates a fresh temporary output directory and prints its location. It uses no browser, Docker or
-network, rejects unsafe output locations, and checks every expected red/green result and retained log hash.
+network, rejects unsafe output locations, checks the expected red/green outcomes, and records hashes for new replay
+logs. Separate bundle-hash validation verifies the retained receipts.
 
 ## Validation snapshots
 
