@@ -1563,19 +1563,40 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 
 [`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request
 (`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
-(Actions › *Release checks* › *Run workflow*). A passing scheduled or manual run (never a pull request's) uploads a
-`release-checks-passed-<sha>` artifact; the daily run counts one only from a successful scheduled or manual run of this
-workflow in this repository, and stops in seconds when it finds one. The *Release suite* job sets up the demo as CI's
-browser job does and runs `RELEASE_CHECKS=1 npx playwright test` with the `release`, `release-dark` and
-`release-harsh` projects named (a missing one is an error), then checks the structural
-evidence ([`tools/ci/release-evidence.mjs`](../tools/ci/release-evidence.mjs): each project ran a test, each release
-spec ran and skipped none), then the PHPUnit properties with a random seed (`--fail-on-empty-test-suite`). CI's browser
-job never runs them: those projects exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
+(Actions › *Release checks* › *Run workflow*). A passing scheduled run uploads a
+`release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful scheduled run of this workflow
+in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
+a change to either the target or the workflow requires another real scheduled pass.
+
+The workflow resolves the target once, checks it out under `release-checks-target/`, and verifies its HEAD against
+that frozen SHA. The runner and diagnostic tools come from a separate checkout at `github.workflow_sha`. Event,
+workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
+This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
+
+After preparing the demo, [`tools/ci/release-checks.mjs`](../tools/ci/release-checks.mjs) discovers the target's
+Playwright project contract and launches all three release projects with one worker. Current checkouts use
+`release`, `release-dark` and `release-harsh`. A temporary bridge also supports the exact legacy family on older
+`main` checkouts, including its legacy tag filter. Unknown, partial or mixed families and discovery errors fail;
+a failed suite never retries with another family. The saved `release-selection.json` supplies the same project
+and required-spec contract to structural evidence: every project ran a test and every release spec ran without
+skips. Missing reports remain fatal. Remove the legacy bridge when the supported `main` contract is retired.
+
+The PHPUnit properties still run with a random seed and `--fail-on-empty-test-suite`. CI's browser job never runs
+the release projects: they exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
 The required check is the *Release checks* job, which runs
 whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
 reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
 result artifacts and the passed marker are advisory: their upload never decides the verdict.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
+Issue updates identify the first failed step and failure category. Missing browser reports retain unavailable counts
+and seeds. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
+was written; the command's original exit status remains the verdict.
+
+**Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch.
+Merging the fix into `dev` alone does not repair the running scheduler. Promote the workflow and its control tools
+to `main` through the normal release process, then verify a fresh scheduled run against a recorded `dev` SHA actually
+executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
+close that operational acceptance gap. This change does not merge or dispatch a workflow automatically.
 
 | Group | Where | What it checks |
 |---|---|---|

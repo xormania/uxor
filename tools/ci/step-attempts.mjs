@@ -13,13 +13,15 @@
  * Usage: node tools/ci/step-attempts.mjs --steps '<toJSON(steps)>' --logs <dir> [--workflow <file>] [--job <job id>]
  *            <failed-attempts.json>
  * Environment: GITHUB_WORKFLOW_REF and GITHUB_JOB (the defaults of --workflow and --job), GITHUB_WORKSPACE (the prefix
- * removed from paths), GITHUB_SHA, GITHUB_REF_NAME (all optional).
+ * removed from paths), TESTED_SHA and TESTED_REF (actual checkout), RESOLVED_SHA and RESOLVED_REF (selected target),
+ * GITHUB_SHA and GITHUB_REF_NAME (triggering event), GITHUB_WORKFLOW_SHA (workflow definition; all optional).
  * Exit status 0; 64 on a usage error.
  * Test: node --test tools/tests/*.test.mjs
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { runProvenance } from './run-provenance.mjs';
 
 const POLICY = fileURLToPath(new URL('jev-ci.json', import.meta.url));
 const TAIL = 5; // the log's last lines, kept whether or not the pattern selects them
@@ -197,8 +199,7 @@ function main(argv) {
         schema: 1,
         status: 'valid',
         reason: null,
-        sha: env.GITHUB_SHA ?? null,
-        ref: env.GITHUB_REF_NAME ?? null,
+        ...runProvenance(env),
         shard: null,
         projects: ['step'],
         counts: { passed, failed: attempts.length, flaky: 0, skipped: 0 },

@@ -58,12 +58,14 @@ function summarize(fixture, env = {}) {
 
 const annotations = (stdout, kind) => stdout.split('\n').filter((line) => line.startsWith(`::${kind} `));
 
-test('a clean pass: counts, tested commit, runtime versions, no annotation', () => {
+test('a clean pass: counts, event context, runtime versions, no annotation', () => {
     const run = summarize('clean.json');
     assert.equal(run.code, EXIT.valid, run.stderr);
     assert.match(run.summary, /Playwright, shard 2\/3: all 3 passed/);
     assert.match(run.summary, /\| 3 \| 0 \| 0 \| 0 \|/);
     assert.match(run.summary, /0123456789abcdef0123456789abcdef01234567/);
+    assert.match(run.summary, /- Tested commit: unknown \(TESTED_SHA not supplied\)/);
+    assert.match(run.summary, /- Event commit: `0123456789abcdef0123456789abcdef01234567` \(claude\/ci-evidence\)/);
     assert.match(run.summary, /smoke, examples/);
     for (const version of [`Node ${process.version}`, 'Playwright 1.58.2', 'PHP 8.5.11', 'Symfony 8.1.8', 'Turbo 8.0.23']) {
         assert.ok(run.summary.includes(version), `the summary names ${version}`);
@@ -76,9 +78,73 @@ test('a clean pass: counts, tested commit, runtime versions, no annotation', () 
     assert.equal(run.attempts.status, 'valid');
     assert.equal(run.attempts.shard, '2/3');
     assert.equal(run.attempts.sha, '0123456789abcdef0123456789abcdef01234567');
+    assert.equal(run.attempts.ref, 'claude/ci-evidence');
+    assert.deepEqual(run.attempts.provenance, {
+        event: { sha: '0123456789abcdef0123456789abcdef01234567', ref: 'claude/ci-evidence' },
+        workflow: { sha: null, ref: null },
+        resolved: { sha: null, ref: null },
+        checkout: { sha: null, ref: null },
+    });
+    assert.deepEqual(run.durations.provenance, run.attempts.provenance);
     assert.deepEqual(run.attempts.projects, ['smoke', 'examples']);
     assert.deepEqual(run.attempts.counts, { passed: 3, failed: 0, flaky: 0, skipped: 0 });
     assert.deepEqual(run.attempts.attempts, []);
+});
+
+test('a scheduled run distinguishes the tested dev checkout from the main event and workflow definition', () => {
+    const eventSha = '1111111111111111111111111111111111111111';
+    const workflowSha = '2222222222222222222222222222222222222222';
+    const testedSha = '3333333333333333333333333333333333333333';
+    const workflowRef = 'example/kit/.github/workflows/release-checks.yml@refs/heads/main';
+    const env = {
+        GITHUB_SHA: eventSha,
+        GITHUB_REF_NAME: 'main',
+        GITHUB_WORKFLOW_SHA: workflowSha,
+        GITHUB_WORKFLOW_REF: workflowRef,
+        RESOLVED_SHA: testedSha,
+        RESOLVED_REF: 'refs/heads/dev',
+        TESTED_SHA: testedSha,
+        TESTED_REF: 'refs/heads/dev',
+    };
+    const expected = {
+        event: { sha: eventSha, ref: 'main' },
+        workflow: { sha: workflowSha, ref: workflowRef },
+        resolved: { sha: testedSha, ref: 'refs/heads/dev' },
+        checkout: { sha: testedSha, ref: 'refs/heads/dev' },
+    };
+
+    // Setup can fail before the report exists: provenance must survive on both paths.
+    for (const fixture of ['clean.json', null]) {
+        const run = summarize(fixture, env);
+        assert.equal(run.code, fixture ? EXIT.valid : EXIT.missing, run.stderr);
+        assert.ok(run.summary.includes(`- Tested commit: \`${testedSha}\` (refs/heads/dev)`));
+        assert.ok(run.summary.includes(`- Resolved target: \`${testedSha}\` (refs/heads/dev)`));
+        assert.ok(run.summary.includes(`- Event commit: \`${eventSha}\` (main)`));
+        assert.ok(run.summary.includes(`- Workflow definition: \`${workflowSha}\` (${workflowRef})`));
+        assert.ok(!run.summary.includes(`- Tested commit: \`${eventSha}\``));
+        assert.equal(run.localSummary, run.summary);
+        for (const artifact of [run.attempts, run.durations]) {
+            assert.equal(artifact.schema, 1, 'additive provenance preserves the existing schema');
+            assert.equal(artifact.sha, testedSha);
+            assert.equal(artifact.ref, 'refs/heads/dev');
+            assert.deepEqual(artifact.provenance, expected);
+        }
+    }
+});
+
+test('a resolved target alone is not evidence of the actual checkout, and checkout refs are never guessed', () => {
+    const resolvedSha = '3333333333333333333333333333333333333333';
+    const targetOnly = summarize('clean.json', { RESOLVED_SHA: resolvedSha, RESOLVED_REF: 'dev' });
+    assert.match(targetOnly.summary, /- Tested commit: unknown \(TESTED_SHA not supplied\)/);
+    assert.ok(targetOnly.summary.includes(`- Resolved target: \`${resolvedSha}\` (dev)`));
+    assert.equal(targetOnly.attempts.sha, '0123456789abcdef0123456789abcdef01234567');
+    assert.deepEqual(targetOnly.attempts.provenance.checkout, { sha: null, ref: null });
+
+    const checkoutOnly = summarize('clean.json', { TESTED_SHA: resolvedSha });
+    assert.ok(checkoutOnly.summary.includes(`- Tested commit: \`${resolvedSha}\`\n`));
+    assert.equal(checkoutOnly.attempts.sha, resolvedSha);
+    assert.equal(checkoutOnly.attempts.ref, null, 'the main event ref must not be attributed to another checkout');
+    assert.equal(checkoutOnly.durations.ref, null);
 });
 
 test('a failure: each failed test by name with its first error lines, an error annotation at its line', () => {
