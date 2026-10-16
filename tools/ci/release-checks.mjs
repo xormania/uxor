@@ -8,12 +8,14 @@
  *   node tools/ci/release-checks.mjs run
  *   node tools/ci/release-checks.mjs evidence
  * run records the exact selection before executing; evidence validates it and requires all three projects and release
- * specs in the target's JSON report. Missing or unreadable evidence fails. Exit statuses from Playwright are preserved;
+ * specs in the target's JSON report using this control checkout's checker. Missing or unreadable evidence fails.
+ * Exit statuses from Playwright are preserved;
  * an invalid contract exits 1, bad usage 64. Tests: node --test tools/tests/release-checks.test.mjs
  */
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const families = {
     current: ['release', 'release-dark', 'release-harsh'],
@@ -24,6 +26,7 @@ const directory = resolve('playwright-results');
 const selectionFile = resolve(directory, 'release-selection.json');
 const resultsFile = resolve(directory, 'results.json');
 const playwright = resolve('node_modules/@playwright/test/cli.js');
+const evidenceChecker = fileURLToPath(new URL('./release-evidence.mjs', import.meta.url));
 
 function selection(family) {
     return { schema: 1, family, projects: families[family], specs, grep: family === 'legacy' ? '@release' : null };
@@ -106,7 +109,7 @@ function run() {
 function evidence() {
     const chosen = readSelection();
     const args = [
-        resolve('tools/ci/release-evidence.mjs'),
+        evidenceChecker,
         ...chosen.projects.flatMap((project) => ['--project', project]),
         ...chosen.specs.flatMap((spec) => ['--spec', spec]),
         resultsFile,

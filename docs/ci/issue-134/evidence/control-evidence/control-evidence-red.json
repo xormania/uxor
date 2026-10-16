@@ -1,0 +1,15 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=control evidence rejects",
+    "tools/tests/release-checks.test.mjs"
+  ],
+  "cwd": "/workspace/uxor",
+  "exit": 1,
+  "runner_revision": "1a5e610c9c9d55ee643164d7017316315c1a0bed",
+  "runner_sha256": "ac219847184d128de5b0a7c1019d9dfb38c7fa0be9dae224733ae16ba6769bcf",
+  "test_sha256": "04dea5545f2339a9fd9f456600c113bf7fe220d4ee4ca9f5364ab54c283076a2",
+  "expected": "incomplete project report remains fatal despite target no-op checker",
+  "observed": "target checker exited0; runner evidence incorrectly succeeded"
+}

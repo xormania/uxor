@@ -6,6 +6,7 @@ The repair separates the scheduled workflow's control revision from its frozen t
 |---|---|
 | [Coverage and overlap](coverage.md) | Guarantees, test owners, useful overlap, shared support and acceptance gaps |
 | [Proved red](proved-red.md) | Real historical failures, four complete-code mutants, classifier regression and green counterparts |
+| [Control-owned evidence](control-evidence.md) | Official review finding, pinned validator and target-replacement/deletion red/green proof |
 | [Checkout trust follow-up](security-trust.md) | CodeQL source finding, independent checkout authority, race handling and real-Git red/green proof |
 | [CI timings](timings.md) | All jobs/steps, critical path, selected skips and measurement limits |
 | [WebKit retry assessment](retry-assessment.md) | The recovered attempt, inherited observer gap, bounded probe and limits |
@@ -32,6 +33,8 @@ logs. Separate bundle-hash validation verifies the retained receipts.
 | Classifier follow-up working-tree snapshot | [218 Node tests passed, zero failed/skipped](evidence/checks/full-node-tests.log); its four focused modules passed 45 cases | Source hashes in [local-test receipt](evidence/checks/local-test-receipt.json) identify this snapshot. A later commit needs its own exact-head CI. |
 
 The later [checkout-trust follow-up](security-trust.md) adds a same-source red/green regression and validates 219 Node tests. It addresses the first PR scan's three CodeQL findings; the PR carries the fresh hosted result.
+
+The subsequent [control-checker correction](control-evidence.md) adds one process regression and validates 220 Node tests. It addresses the official code review's validator-ownership finding.
 
 ## Acceptance and owner handoff
 

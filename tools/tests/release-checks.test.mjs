@@ -42,7 +42,7 @@ process.exit(scenario.runStatus);
 `);
     return {
         dir,
-        run: (mode = 'run') => spawnSync(process.execPath, [script, mode], { cwd: dir, encoding: 'utf8', env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_FILE: join(dir, 'wrong.json'), PLAYWRIGHT_JSON_OUTPUT_NAME: 'wrong.json' } }),
+        run: (mode = 'run', runner = script) => spawnSync(process.execPath, [runner, mode], { cwd: dir, encoding: 'utf8', env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_FILE: join(dir, 'wrong.json'), PLAYWRIGHT_JSON_OUTPUT_NAME: 'wrong.json' } }),
         calls: () => readFileSync(join(dir, 'calls.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line)),
         selection: () => JSON.parse(readFileSync(join(dir, 'playwright-results/release-selection.json'), 'utf8')),
     };
@@ -132,6 +132,47 @@ test('missing projects/specs and skipped required specs remain fatal after a suc
         const checked = fx.run('evidence');
         assert.equal(checked.status, 1);
         assert.match(checked.stdout, /Incomplete release checks|No release evidence/);
+    }
+});
+
+test('control evidence rejects incomplete target reports even when the target replaces or deletes its checker', (t) => {
+    const control = mkdtempSync(join(tmpdir(), 'release-control-'));
+    t.after(() => rmSync(control, { recursive: true, force: true }));
+    mkdirSync(join(control, 'tools/ci'), { recursive: true });
+    const controlRunner = join(control, 'tools/ci/release-checks.mjs');
+    copyFileSync(script, controlRunner);
+    copyFileSync(evidenceScript, join(control, 'tools/ci/release-evidence.mjs'));
+
+    for (const family of ['current', 'legacy']) {
+        const missingProject = report(family);
+        missingProject.suites[2].specs[0].tests[0].projectName = projects[family][0];
+        const missingSpec = report(family);
+        missingSpec.suites[2].file = missingSpec.suites[2].specs[0].file = 'other.spec.ts';
+        const skippedSpec = report(family);
+        skippedSpec.suites[2].specs[0].tests[0].status = 'skipped';
+
+        for (const [name, results, targetChecker, expected, message] of [
+            ['missing project', missingProject, 'accept', 1, /Incomplete release checks: project/],
+            ['missing spec', missingSpec, 'accept', 1, /Incomplete release checks: release\.fuzz\.spec\.ts/],
+            ['skipped spec', skippedSpec, 'accept', 1, /Incomplete release checks/],
+            ['missing report', null, 'accept', 1, /No release evidence/],
+            ['incompatible target checker', report(family), 'reject', 0, /Release evidence complete/],
+            ['deleted target checker', report(family), 'deleted', 0, /Release evidence complete/],
+        ]) {
+            const fx = fixture(t, family, { results });
+            const target = join(fx.dir, 'tools/ci/release-evidence.mjs');
+            if (targetChecker === 'deleted') {
+                rmSync(target);
+            } else {
+                writeFileSync(target, `import { writeFileSync } from 'node:fs';\nwriteFileSync('target-checker-ran', 'target code executed');\nprocess.exit(${targetChecker === 'accept' ? 0 : 97});\n`);
+            }
+            const run = fx.run('run', controlRunner);
+            assert.equal(run.status, 0, `${family}/${name}: ${run.stdout}${run.stderr}`);
+            const checked = fx.run('evidence', controlRunner);
+            assert.equal(checked.status, expected, `${family}/${name}: ${checked.stdout}${checked.stderr}`);
+            assert.match(checked.stdout, message, `${family}/${name}`);
+            assert.equal(existsSync(join(fx.dir, 'target-checker-ran')), false, `${family}/${name}: target checker must never execute`);
+        }
     }
 });
 

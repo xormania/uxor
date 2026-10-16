@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-10-16T22:13:11.678753+00:00",
+  "source_base": "1a5e610c9c9d55ee643164d7017316315c1a0bed",
+  "snapshot": "control-checker follow-up before commit; documentation added after focused tests",
+  "review_finding": "https://github.com/xormania/uxor/pull/145#discussion_r4299791048",
+  "source_sha256": {
+    "tools/ci/release-checks.mjs": "ad8b3863df7a4532c5a4acbfdd0793a6ab8bdc9344acc992966113aa9463c67d",
+    "tools/ci/release-evidence.mjs": "2c77f913b85a5d1aa473658efdaedf5630c5a02dd796452b239c4ada2855a64e",
+    "tools/tests/release-checks.test.mjs": "04dea5545f2339a9fd9f456600c113bf7fe220d4ee4ca9f5364ab54c283076a2"
+  },
+  "full_node_command_shell": "node --test tools/tests/*.test.mjs",
+  "full_node_exit": 0,
+  "full_node_tests": {
+    "passed": 220,
+    "failed": 0,
+    "skipped": 0
+  },
+  "focused_tests": {
+    "passed": 50,
+    "failed": 0,
+    "skipped": 0
+  },
+  "files_sha256": {
+    "control-evidence-green.json": "deba76b19406604c9c916394d14cf8cbf40f31493035f3ae736c82b42e5fa9f0",
+    "control-evidence-green.log": "09adafd0089e7f85733f342f75ac91f327a01627fb6804ff7fd154630d24f134",
+    "control-evidence-red.json": "2c5b4963c98aaf724dc26627c64a0296399332c30844c0c6a9173bc9d773f2d5",
+    "control-evidence-red.log": "b70b84ca54850be4a7b1b5f6558de5f2de07d5f1c95a7952da072afe7527b4da",
+    "full-node-tests.log": "f6f5fdb96588630ae74317acc748b2deef528d153cba45e793c674521a20244f"
+  }
+}

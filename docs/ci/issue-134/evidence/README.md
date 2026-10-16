@@ -20,3 +20,5 @@ Verbatim error logs preserve their original whitespace for hash verification. So
 exclude these recorded `.log` files; application and test source checks are unchanged.
 
 The later `security-trust/` receipts retain the CodeQL check annotations, identical-test-source red/green runs, the 219-case suite log and source/log hashes. See [the checkout-trust explanation](../security-trust.md).
+
+The `control-evidence/` receipts record the official review finding's paired same-source regression, 220-case suite and exact runner/checker/test hashes. See [validator ownership](../control-evidence.md).

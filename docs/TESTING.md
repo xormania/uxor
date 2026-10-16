@@ -1573,7 +1573,9 @@ schedule, or the immutable triggering event SHA for a manual or pull-request run
 another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
 expected SHA before setup or tests run. If `dev` advances between resolution and checkout, the run fails closed and
 must retry. This branch boundary matters even without an explicit cache-save action: scheduled jobs have the default
-branch's cache scope. The runner and diagnostic tools come from a separate checkout at `github.workflow_sha`. Event,
+branch's cache scope. The runner, structural-evidence checker and diagnostic tools come from a separate checkout at
+`github.workflow_sha`; the evidence checker is resolved beside the runner, independently of a missing or modified
+target helper. Event,
 workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
 This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
 
