@@ -1,12 +1,14 @@
 # GitHub governance and setting deltas
 
-**Observed:** October 16, 2026 at approximately 03:56:55 America/New_York (`07:56:55Z`). These are live settings, independent of the frozen source tree. Read the [sanitized exact field snapshot](evidence/rulesets-observed.json) alongside this matrix. No setting was changed.
+**Original observation:** October 16, 2026 at approximately 03:56:55 America/New_York (`07:56:55Z`). **GOV-002 access refresh:** 04:49–04:52 America/New_York (`08:49:34–08:52:49Z`) on the same date. These are live settings, independent of the frozen source tree. The [original UI snapshot](evidence/rulesets-observed.json) is preserved; the [new API evidence](evidence/gov-002-access-refresh-2026-10-16.json) records verified fields, sample check contexts, observation times and exact remaining access failures. No live setting was changed.
 
 ## Access and completeness
 
-Repository public rules UI listed three active branch rulesets. Each detail page's embedded data exposed its conditions, rules, application-specific required contexts and review parameters. That is direct UI evidence. It did not expose bypass actors (`null`), classic protection, effective/inherited rules or administrative token/environment policy. Administrative API requests failed with proxy CONNECT 403; settings HTML returned 404. Do not read those results as permission/feature absence.
+The original audit used public rules UI evidence because its environment could not reach the API. The connected GitHub tool used for this refresh can read repository metadata, ruleset definitions, collaborator permission and commit check runs. The original proxy failure is therefore an environment-specific historical result, not the current access limit for those families.
 
-The preparation plan's disabled `MergeCommitsOnly` ruleset could not be refreshed from the public active-rules view. Its current existence/enforcement is unverified. No complete list of inactive/inherited/tag rules is claimed.
+The ruleset list requested `includes_parents=true` and returned four definitions on page 1; page 2 was empty. All four are repository-sourced branch rulesets: active `dev`, `main` and `work-orders`, plus disabled `MergeCommitsOnly` (ID `24686124`, target condition `~ALL`). Each detail was retrieved. No tag-targeted or inherited ruleset was returned by this listing. This establishes the returned ruleset inventory, not classic protection or every effective merge/tag permission.
+
+All four API detail responses explicitly return `bypass_actors: []` and `current_user_can_bypass: "never"`. This closes the hidden-bypass gap for those definitions at this observation. The effective-branch-rules URLs are rejected by the connector's URL allowlist; classic branch protection for both dev and main returns GitHub 403, `Resource not accessible by integration`. These are distinct from the original proxy CONNECT failure. Neither proves that protection is absent.
 
 ## Current rule definitions
 
@@ -16,23 +18,23 @@ The preparation plan's disabled `MergeCommitsOnly` ruleset could not be refreshe
 | [main, ID 24479611](https://github.com/xormania/uxor/rules/24479611) | `~DEFAULT_BRANCH` plus `refs/heads/main`; no exclusions | Merge only; minimum reviews 0; code-owner review **true** (still an approval requirement); last-push false; stale dismissal **false**; thread resolution true | `CI result`, `Release checks`, `Mentions` from Actions **15368**; `CodeQL` from Advanced Security **57789**; strict **true**; checks enforced on creation | Deletion/non-fast-forward restrictions; same CodeQL and code-quality thresholds |
 | [work-orders, ID 24827852](https://github.com/xormania/uxor/rules/24827852) | Include `refs/heads/claude/wo-*`; exclude `refs/heads/claude/wo-*--*` | Merge only; minimum 0; code-owner false; last-push false; stale false; thread resolution true | `CodeQL` **57789** and `CI result` **15368**; strict false; **not enforced on initial creation** | Non-fast-forward restriction and code-quality errors; no deletion or CodeQL scanning rule shown in this definition |
 
-All three PR parameter sets also expose empty `required_reviewers`, `authorized_dismissal_actors_only=false`, and `ignore_approvals_from_contributors=false`. Their `require_extra_approval_for_unattributed_changes=true` field is described by the server-provided schema as an extra approval for unattributed Copilot PRs **only when a nonzero approval count is required**; it does not replace dev's missing general owner/approval requirement. These are field observations, not a live merge attempt.
+The refresh corroborates the active rulesets' conditions, required check contexts/application IDs, review-count/code-owner/stale-review/freshness values, and merge-only PR method. The original UI additionally exposed `authorized_dismissal_actors_only=false`, `ignore_approvals_from_contributors=false` and the AI-finding detail in the table; those UI-only fields were not returned by this REST response and retain their original observation time. All three refreshed PR parameter sets return empty `required_reviewers` and `require_extra_approval_for_unattributed_changes=true`. The original server-provided UI schema describes that extra approval as applying to unattributed Copilot PRs **only when a nonzero approval count is required**; it does not replace dev's missing general owner/approval requirement. These are field observations, not a live merge attempt.
 
-All three detail payloads have hidden/null bypass actors. No empty-bypass or administrator-enforcement claim is possible from that field. No merge queue, linear-history, signing, creation restriction, required deployment or required-workflow rule is present in these three exposed definitions; other inaccessible protection layers could still apply.
+The current API bypass arrays are explicitly empty for all four returned definitions, including the disabled one. The caller's `never` result is specific to this connection; it is not a claim about every actor or every protection layer. No merge queue, linear-history, signing, creation restriction, required deployment or required-workflow rule is present in the three active definitions; inaccessible protection layers still require verification.
 
 ### Applicability matrix
 
-The following is **derived applicability of the inspected definitions**, not a complete effective-rules API response. GitHub's full layering, classic protection and hidden bypasses remain to be read.
+The following is **derived applicability of the inspected definitions**, not a complete effective-rules API response. The returned definitions and their bypass arrays are verified; effective layering and classic protection remain unresolved.
 
 | Concrete target | Matching visible definition | Expected emitted validation | Remaining gap |
 | --- | --- | --- | --- |
-| `dev` | dev | Push CI emits `CI result`; PR emits `Mentions`, language analyses and Advanced Security `CodeQL` result | Effective/classic protection, bypasses; branch freshness currently not required by visible rules |
-| `main` | main/default | Push CI; PR metadata/CodeQL; every PR into main emits `Release checks` verdict; Pages/release write jobs separately scoped | Effective protection, code-owner actual write access/review feasibility, bypass/tag-publisher permissions |
+| `dev` | dev | Push CI emits `CI result`; PR emits `Mentions`, language analyses and Advanced Security `CodeQL` result | Effective/classic protection and actual PR enforcement; branch freshness is false in the refreshed definition |
+| `main` | main/default | Push CI; PR metadata/CodeQL; every PR into main emits `Release checks` verdict; Pages/release write jobs separately scoped | Effective/classic protection, PR-specific reviewer eligibility and tag-publisher permissions; named code-owner admin access is verified |
 | `claude/wo-audit` | work-orders parent | Parent push detects draft/not-open PR and fails aggregate deliberately; ready parent needs a rerun/full intended work; PR supplies CodeQL | Exact check source/merge-ref readback; no separate gate guaranteeing ready transition automatically triggers push CI |
 | `claude/wo-audit--ci` | Excluded from parent pattern | Ordinary push classifier/CI plus PR analyses into parent | Other rules/classic protection unknown; do not claim the job branch is protected by parent rules |
 | `feat/mono-import` | No visible match | Ordinary push classifier and aggregate; PR metadata/CodeQL for its destination | No claim of effective unprotected status without effective-rules readback |
 | `feat/upgradeable-components` | No visible match | Feature-profile CI and Package pilot only in that separate integration tree; ordinary target PR routes | Owner chooses integration governance; not silently covered by dev rules |
-| Tag `0.3.0` (illustrative) | None of these are tag rulesets | No branch-push CI; exact-candidate release check must precede tag publication | Complete tag rules/classic tag protection and publisher bypass/create permission |
+| Tag `0.3.0` (illustrative) | No tag-targeted ruleset returned by the refreshed listing | No branch-push CI; exact-candidate release check must precede tag publication | Effective tag/publisher create/update permission outside the returned definitions; absence from the ruleset listing is not a publication permission test |
 
 ## Findings and exact proposed deltas
 
@@ -52,27 +54,38 @@ The following is **derived applicability of the inspected definitions**, not a c
 
 **Coupling / rollback / location:** GitHub settings plus documented policy and reviewer ownership; couple check-name changes with CI migration. Roll back only to an explicit reviewed policy decision, never to bypass a blocked PR. Work-order parents may intentionally have lighter review; preserve their separate purpose rather than blindly cloning main rules.
 
-### UXOR-AUD-GOV-002 — Close the administrative evidence gaps before changing merge or release contracts
+### UXOR-AUD-GOV-002 — Close the remaining administrative evidence gaps before changing merge or release contracts
 
-**Category / confidence / priority:** unresolved operational evidence and owner verification, high confidence that reads are unavailable; necessary before migration/release sign-off. Small-to-medium collection effort; impact could be high but no hidden-setting defect is alleged.
+**Status:** partially resolved by the October 16 access refresh. **Category / confidence / priority:** operational evidence and owner verification; high confidence in the returned fields and recorded access failures. Remaining governance/publication evidence is needed before the corresponding sign-off; no hidden-setting defect is alleged.
 
-**Exact missing reads:** complete repository metadata (default branch and merge methods via authenticated API); all rule definitions including inactive/tag/inherited rules; effective branch rules for dev/main/concrete parent/job/feature; classic branch protections; bypass actors/modes; Actions allowed-actions policy, token defaults and fork approvals; environments and protection/deployment branch policies; Pages configuration; artifact retention; runner availability; app/webhook binding names/destinations/events/active flags and relevant secret/variable **names/status only**; collaborator/code-owner review eligibility. Do not retrieve webhook secret values or credentials.
+#### Verified in this refresh
 
-**Required outcome / acceptance:** read the endpoint families below with an authorized existing GitHub connection, retain timestamped field-only snapshots, reconcile with actual emitted check contexts and publication jobs, and update the matrix. If the UI cannot expose a family, obtain owner confirmation as explicitly owner-supplied evidence. Current Git auth works for scoped read-only fetch; API denial does not justify requesting a personal token or declaring GitHub disconnected.
-
-**Coupling / risk / location:** this gates final decisions under GOV-001, package CI context changes and first combined release, rather than all source preparation. Collection is read-only; live setting changes remain a separately authorized owner action. Public Packagist metadata similarly cannot establish vendor/account ownership.
-
-| Family | Read-only endpoint / UI source | Audit result and follow-up |
+| Family | Verified result | Scope of closure |
 | --- | --- | --- |
-| Definitions | `GET /repos/xormania/uxor/rulesets?includes_parents=true&per_page=100`, each `/rulesets/{id}` | API CONNECT 403; public `/rules` and `/rules/{id}` supplied the three active definitions above; inactive/inherited completeness unknown |
-| Effective branch rules | `/repos/xormania/uxor/rules/branches/{url-encoded-branch}` | dev API attempt blocked; same family needed for main/parent/job/feature; do not infer effective result from names |
-| Classic protection | `/repos/xormania/uxor/branches/{branch}/protection` | dev attempt blocked; remaining branches same unresolved family |
-| Repository settings | `/repos/xormania/uxor`; `/settings` | API blocked, HTML 404; public page says default main; repository-wide squash/rebase toggles not refreshed despite ruleset merge-only constraint |
-| Actions | `/repos/xormania/uxor/actions/permissions`, `/workflow`, `/fork-pr-contributor-approval`, `/selected-actions`; `/actions/permissions/fork-pr-workflows-private-repos` when applicable | Permissions family blocked; other specific fields not requested after family denial. Need applicable API/UI equivalents, not guesses from workflow YAML |
-| Environments / Pages | `/repos/xormania/uxor/environments`, `/environments/{name}`, `/pages` | Environment list blocked; Pages and deployment protection not observed. Source uses `github-pages` environment |
-| Retention / runners | Repository Actions settings UI for retention; `/repos/xormania/uxor/actions/runners` where supported | Not reachable/tested individually after family denial; endpoint support must be confirmed. Hosted `ubuntu-latest` in source does not prove account capacity |
-| Connections | hooks/app installations, Actions secret/variable names, environment bindings | Not accessed. Scope only safe metadata and least required read; no value dumps |
-| Required context emissions | commit `/check-runs`, `/status`; job/runs APIs | API blocked; public PR/run checks inspected where available; source job names and expected app IDs distinguished from complete effective-context proof |
+| Repository metadata | Public, unarchived; default `main`; merge commits enabled; squash/rebase/auto-merge/update-branch options disabled; merged-branch deletion enabled | These exact repository fields are now read directly. Administrative families and omitted security-feature fields remain separate. |
+| Ruleset inventory | Four definitions, all repository-sourced branch targets; three active and disabled `MergeCommitsOnly`; next list page empty; all four details retrieved | The list requested parent rules and returned no inherited or tag-targeted definition. Classic/effective protection is not inferred from this. |
+| Ruleset bypasses | `bypass_actors: []` and caller `current_user_can_bypass: "never"` on all four definitions | Explicit empty arrays replace the original hidden/null observation for these definitions only. |
+| Code-owner permission | The named code owner has `admin` repository permission. Dev/main CODEOWNERS blobs both equal `e08044b4520bf6d0f1481e11a4bbac3c809423b9` | Identity/content and repository permission are verified. Approval eligibility still depends on the PR author and enforced rules; no self-approval or merge test was performed. |
+| Check contexts and source apps | Actual `CI result`, `Mentions` and `Release checks` records use Actions app `15368`; `CodeQL` uses Advanced Security app `57789` in the PR sample | Confirms these names/app IDs exist on sampled commits. It does not prove all branch/event paths or an effective merge verdict. |
+
+The check-run reads covered dev SHA `40d957cd1ea7766ac0dee742816948ce5ae05bc3` (27 records), main SHA `9b2fa7309786cee435503de87cf0cd5f0a9d9782` (203 records over three pages), and PR 144 head `fbcd0a76e12fa5f877bcdbf284102851dfa47932` (20 records). The refreshed PR metadata confirms that PR 144 targets `feat/upgradeable-components`, so it is not evidence of dev/main protection enforcement. The snapshot retains the required-context rows, their IDs, app IDs, conclusions, head SHAs and source URLs. These are historical check records, not new test executions or a diagnosis of any release failure. Issue 134 remains with its separate investigation.
+
+#### Remaining reads for the owner
+
+| Family | Current access result | Exact information still needed |
+| --- | --- | --- |
+| Effective branch and classic protection | Effective-rule URLs for dev/main rejected by connector URL allowlist (`INVALID_ARGUMENT`); both classic-protection reads return GitHub 403, `Resource not accessible by integration` | Effective rules and any classic rules for dev/main plus concrete work-order parent/job and feature names; interactions with the verified rulesets; actual PR enforcement/reviewer feasibility. |
+| Actions administration | `/actions/permissions` rejected by connector URL allowlist; sibling admin endpoints not retried | Allowed actions/reusable workflows and pin policy, default workflow token permissions, ability to create/approve PRs, applicable fork approvals and token/secret policy. |
+| Environments and Pages | `/environments` and `/pages` rejected by connector URL allowlist | Environment list, required reviewers, deployment branch/tag restrictions, protection/bypass policy, and Pages source/deployment configuration, especially `github-pages`. |
+| Runners and retention | `/actions/runners` rejected by connector URL allowlist; retention UI not accessed | Available runner/group access and applicable capacity; artifact/log retention settings. Workflow runner labels alone do not establish either. |
+| Connections and credential bindings | No supported metadata-only route inspected; secrets endpoint families are excluded by the connector; no credentials requested | App/webhook names, destinations, events and active status; relevant secret/variable **names, scope and presence only**; release/diagnosis bindings and publisher installation/token permissions. Do not provide credential or webhook-secret values. |
+| Other repository security enablement | `security_and_analysis` was not returned by the repository response | Any security feature enablement needed to establish actual scanning/alert behavior beyond the verified rule definitions and sample check records. An omitted field is not a disabled setting. |
+
+Source URLs and exact error results are in the [refresh snapshot](evidence/gov-002-access-refresh-2026-10-16.json). Remaining owner verification can use the repository Settings pages or an already-authorized metadata read. Record the observation time and exact fields, including an explicit empty/disabled result where applicable. Do not convert an inaccessible field into an assumed absence or request a new credential merely to finish this document.
+
+**Required outcome / acceptance:** complete only the remaining reads, reconcile the effective rules with the verified definitions and actual check producers, and record PR-specific review feasibility plus future package/release context acceptance. Preserve the distinction between metadata readback and a tested merge/publication outcome. Public Packagist metadata still cannot establish vendor/account ownership; that is separate registry evidence.
+
+**Coupling / risk / location:** remaining evidence informs GOV-001 policy decisions, check-context changes and first combined publication. It does not block independent source preparation. This refresh updates audit documents/evidence only; it changes no GitHub setting, workflow, review, release or registry configuration.
 
 ## Check-name migration sequence
 

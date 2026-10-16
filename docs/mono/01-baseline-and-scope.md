@@ -52,7 +52,9 @@ Source findings refer to the frozen commit and exact line anchors. The baseline 
 
 Every tracked file is assigned a disposition in [coverage](09-coverage-and-evidence.md). Generated references were validated against their complete input set; binary baselines/assets were checked by role and integrity, with no new visual approval. Structural/index-only test reading is labeled. Unknown settings and inaccessible operational artifacts remain gaps, with retrieval steps rather than invented values.
 
-API requests to `api.github.com` returned proxy CONNECT 403. Public GitHub HTML remained usable, including embedded ruleset metadata; that enabled more governance inspection than the API denial alone would suggest. Administrative settings page returned 404 to this session. A null/hidden bypass field is unknown, not an empty bypass list. Exact blocked families and live observation times are in [governance](06-governance.md).
+During the original audit, API requests to `api.github.com` returned proxy CONNECT 403. Public GitHub HTML remained usable, including embedded ruleset metadata; that enabled more governance inspection than the API denial alone would suggest. The administrative settings page returned 404 to that session. A null/hidden bypass field was unknown, not an empty bypass list.
+
+The later GOV-002 access refresh used the connected GitHub tool to verify repository merge/default-branch fields, all four returned ruleset definitions and their explicitly empty bypass arrays, the named code owner's admin permission, and sampled check names/source apps. This supersedes the original access limits for those specific fields without changing the frozen source snapshots or original evidence. Effective/classic protection and other administrative families remain unresolved; exact fields, timestamps and current access failures are in [governance](06-governance.md) and the [refresh snapshot](evidence/gov-002-access-refresh-2026-10-16.json).
 
 ## Input integrity
 

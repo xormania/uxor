@@ -1,0 +1,787 @@
+{
+  "schema_version": 1,
+  "finding": "UXOR-AUD-GOV-002",
+  "assembled_at_utc": "2026-10-16T08:53:43.702Z",
+  "audit_source_commit": "6ad7a495d1658c0e71267bd63a8e523da8338da0",
+  "refresh_scope": "Read-only verification through the connected GitHub tool. Repository document updates only; no settings or issue 134 investigation.",
+  "original_evidence": "rulesets-observed.json",
+  "repository": {
+    "source": "https://api.github.com/repos/xormania/uxor",
+    "observed_at_utc": "2026-10-16T08:49:34.178Z",
+    "fields": {
+      "id": 1404932217,
+      "full_name": "xormania/uxor",
+      "visibility": "public",
+      "archived": false,
+      "default_branch": "main",
+      "allow_merge_commit": true,
+      "allow_squash_merge": false,
+      "allow_rebase_merge": false,
+      "allow_auto_merge": false,
+      "allow_update_branch": false,
+      "delete_branch_on_merge": true
+    },
+    "not_returned": [
+      "security_and_analysis"
+    ]
+  },
+  "ruleset_listing": [
+    {
+      "key": "rulesets",
+      "url": "https://api.github.com/repos/xormania/uxor/rulesets?includes_parents=true&per_page=100&page=1",
+      "observed_at_utc": "2026-10-16T08:49:34.179Z",
+      "data": [
+        {
+          "id": 24686124,
+          "name": "MergeCommitsOnly",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "xormania/uxor",
+          "enforcement": "disabled",
+          "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF4riw",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/xormania/uxor/rulesets/24686124"
+            },
+            "html": {
+              "href": "https://github.com/xormania/uxor/rules/24686124"
+            }
+          },
+          "created_at": "2026-10-07T19:55:54.994-04:00",
+          "updated_at": "2026-10-07T20:31:56.021-04:00"
+        },
+        {
+          "id": 24747136,
+          "name": "dev",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "xormania/uxor",
+          "enforcement": "active",
+          "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF5nIA",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/xormania/uxor/rulesets/24747136"
+            },
+            "html": {
+              "href": "https://github.com/xormania/uxor/rules/24747136"
+            }
+          },
+          "created_at": "2026-10-08T15:36:25.439-04:00",
+          "updated_at": "2026-10-14T02:46:39.143-04:00"
+        },
+        {
+          "id": 24479611,
+          "name": "main",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "xormania/uxor",
+          "enforcement": "active",
+          "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF1h3s",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/xormania/uxor/rulesets/24479611"
+            },
+            "html": {
+              "href": "https://github.com/xormania/uxor/rules/24479611"
+            }
+          },
+          "created_at": "2026-10-04T22:54:04.895-04:00",
+          "updated_at": "2026-10-12T01:38:37.026-04:00"
+        },
+        {
+          "id": 24827852,
+          "name": "work-orders",
+          "target": "branch",
+          "source_type": "Repository",
+          "source": "xormania/uxor",
+          "enforcement": "active",
+          "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF618w",
+          "_links": {
+            "self": {
+              "href": "https://api.github.com/repos/xormania/uxor/rulesets/24827852"
+            },
+            "html": {
+              "href": "https://github.com/xormania/uxor/rules/24827852"
+            }
+          },
+          "created_at": "2026-10-09T22:32:28.347-04:00",
+          "updated_at": "2026-10-09T22:32:28.433-04:00"
+        }
+      ],
+      "error": false
+    },
+    {
+      "key": "rulesets-page2",
+      "url": "https://api.github.com/repos/xormania/uxor/rulesets?includes_parents=true&per_page=100&page=2",
+      "observed_at_utc": "2026-10-16T08:52:49.358Z",
+      "data": [],
+      "error": false
+    }
+  ],
+  "ruleset_details": [
+    {
+      "key": "dev-ruleset",
+      "url": "https://api.github.com/repos/xormania/uxor/rulesets/24747136",
+      "observed_at_utc": "2026-10-16T08:49:34.179Z",
+      "data": {
+        "id": 24747136,
+        "name": "dev",
+        "target": "branch",
+        "source_type": "Repository",
+        "source": "xormania/uxor",
+        "enforcement": "active",
+        "conditions": {
+          "ref_name": {
+            "exclude": [],
+            "include": [
+              "refs/heads/dev"
+            ]
+          }
+        },
+        "rules": [
+          {
+            "type": "deletion"
+          },
+          {
+            "type": "non_fast_forward"
+          },
+          {
+            "type": "pull_request",
+            "parameters": {
+              "required_approving_review_count": 0,
+              "dismiss_stale_reviews_on_push": false,
+              "required_reviewers": [],
+              "require_code_owner_review": false,
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": true,
+              "require_extra_approval_for_unattributed_changes": true,
+              "allowed_merge_methods": [
+                "merge"
+              ]
+            }
+          },
+          {
+            "type": "required_status_checks",
+            "parameters": {
+              "strict_required_status_checks_policy": false,
+              "do_not_enforce_on_create": false,
+              "required_status_checks": [
+                {
+                  "context": "CodeQL",
+                  "integration_id": 57789
+                },
+                {
+                  "context": "CI result",
+                  "integration_id": 15368
+                },
+                {
+                  "context": "Mentions",
+                  "integration_id": 15368
+                }
+              ]
+            }
+          },
+          {
+            "type": "code_scanning",
+            "parameters": {
+              "code_scanning_tools": [
+                {
+                  "tool": "CodeQL",
+                  "security_alerts_threshold": "high_or_higher",
+                  "alerts_threshold": "errors"
+                }
+              ]
+            }
+          },
+          {
+            "type": "code_quality",
+            "parameters": {
+              "severity": "errors"
+            }
+          }
+        ],
+        "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF5nIA",
+        "created_at": "2026-10-08T15:36:25.439-04:00",
+        "updated_at": "2026-10-14T02:46:39.143-04:00",
+        "bypass_actors": [],
+        "current_user_can_bypass": "never",
+        "_links": {
+          "self": {
+            "href": "https://api.github.com/repos/xormania/uxor/rulesets/24747136"
+          },
+          "html": {
+            "href": "https://github.com/xormania/uxor/rules/24747136"
+          }
+        }
+      },
+      "error": false
+    },
+    {
+      "key": "main-ruleset",
+      "url": "https://api.github.com/repos/xormania/uxor/rulesets/24479611",
+      "observed_at_utc": "2026-10-16T08:49:34.179Z",
+      "data": {
+        "id": 24479611,
+        "name": "main",
+        "target": "branch",
+        "source_type": "Repository",
+        "source": "xormania/uxor",
+        "enforcement": "active",
+        "conditions": {
+          "ref_name": {
+            "exclude": [],
+            "include": [
+              "~DEFAULT_BRANCH",
+              "refs/heads/main"
+            ]
+          }
+        },
+        "rules": [
+          {
+            "type": "deletion"
+          },
+          {
+            "type": "non_fast_forward"
+          },
+          {
+            "type": "pull_request",
+            "parameters": {
+              "required_approving_review_count": 0,
+              "dismiss_stale_reviews_on_push": false,
+              "required_reviewers": [],
+              "require_code_owner_review": true,
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": true,
+              "require_extra_approval_for_unattributed_changes": true,
+              "allowed_merge_methods": [
+                "merge"
+              ]
+            }
+          },
+          {
+            "type": "code_scanning",
+            "parameters": {
+              "code_scanning_tools": [
+                {
+                  "tool": "CodeQL",
+                  "security_alerts_threshold": "high_or_higher",
+                  "alerts_threshold": "errors"
+                }
+              ]
+            }
+          },
+          {
+            "type": "required_status_checks",
+            "parameters": {
+              "strict_required_status_checks_policy": true,
+              "do_not_enforce_on_create": false,
+              "required_status_checks": [
+                {
+                  "context": "CI result",
+                  "integration_id": 15368
+                },
+                {
+                  "context": "Release checks",
+                  "integration_id": 15368
+                },
+                {
+                  "context": "Mentions",
+                  "integration_id": 15368
+                },
+                {
+                  "context": "CodeQL",
+                  "integration_id": 57789
+                }
+              ]
+            }
+          },
+          {
+            "type": "code_quality",
+            "parameters": {
+              "severity": "errors"
+            }
+          }
+        ],
+        "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF1h3s",
+        "created_at": "2026-10-04T22:54:04.895-04:00",
+        "updated_at": "2026-10-12T01:38:37.026-04:00",
+        "bypass_actors": [],
+        "current_user_can_bypass": "never",
+        "_links": {
+          "self": {
+            "href": "https://api.github.com/repos/xormania/uxor/rulesets/24479611"
+          },
+          "html": {
+            "href": "https://github.com/xormania/uxor/rules/24479611"
+          }
+        }
+      },
+      "error": false
+    },
+    {
+      "key": "work-orders-ruleset",
+      "url": "https://api.github.com/repos/xormania/uxor/rulesets/24827852",
+      "observed_at_utc": "2026-10-16T08:49:34.179Z",
+      "data": {
+        "id": 24827852,
+        "name": "work-orders",
+        "target": "branch",
+        "source_type": "Repository",
+        "source": "xormania/uxor",
+        "enforcement": "active",
+        "conditions": {
+          "ref_name": {
+            "exclude": [
+              "refs/heads/claude/wo-*--*"
+            ],
+            "include": [
+              "refs/heads/claude/wo-*"
+            ]
+          }
+        },
+        "rules": [
+          {
+            "type": "non_fast_forward"
+          },
+          {
+            "type": "required_status_checks",
+            "parameters": {
+              "strict_required_status_checks_policy": false,
+              "do_not_enforce_on_create": true,
+              "required_status_checks": [
+                {
+                  "context": "CodeQL",
+                  "integration_id": 57789
+                },
+                {
+                  "context": "CI result",
+                  "integration_id": 15368
+                }
+              ]
+            }
+          },
+          {
+            "type": "code_quality",
+            "parameters": {
+              "severity": "errors"
+            }
+          },
+          {
+            "type": "pull_request",
+            "parameters": {
+              "required_approving_review_count": 0,
+              "dismiss_stale_reviews_on_push": false,
+              "required_reviewers": [],
+              "require_code_owner_review": false,
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": true,
+              "require_extra_approval_for_unattributed_changes": true,
+              "allowed_merge_methods": [
+                "merge"
+              ]
+            }
+          }
+        ],
+        "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF618w",
+        "created_at": "2026-10-09T22:32:28.347-04:00",
+        "updated_at": "2026-10-09T22:32:28.433-04:00",
+        "bypass_actors": [],
+        "current_user_can_bypass": "never",
+        "_links": {
+          "self": {
+            "href": "https://api.github.com/repos/xormania/uxor/rulesets/24827852"
+          },
+          "html": {
+            "href": "https://github.com/xormania/uxor/rules/24827852"
+          }
+        }
+      },
+      "error": false
+    },
+    {
+      "key": "disabled-ruleset",
+      "url": "https://api.github.com/repos/xormania/uxor/rulesets/24686124",
+      "observed_at_utc": "2026-10-16T08:49:34.179Z",
+      "data": {
+        "id": 24686124,
+        "name": "MergeCommitsOnly",
+        "target": "branch",
+        "source_type": "Repository",
+        "source": "xormania/uxor",
+        "enforcement": "disabled",
+        "conditions": {
+          "ref_name": {
+            "exclude": [],
+            "include": [
+              "~ALL"
+            ]
+          }
+        },
+        "rules": [
+          {
+            "type": "non_fast_forward"
+          },
+          {
+            "type": "pull_request",
+            "parameters": {
+              "required_approving_review_count": 0,
+              "dismiss_stale_reviews_on_push": false,
+              "required_reviewers": [],
+              "require_code_owner_review": false,
+              "require_last_push_approval": false,
+              "required_review_thread_resolution": false,
+              "require_extra_approval_for_unattributed_changes": true,
+              "allowed_merge_methods": [
+                "merge"
+              ]
+            }
+          }
+        ],
+        "node_id": "RRS_lACqUmVwb3NpdG9yec5TvZB5zgF4riw",
+        "created_at": "2026-10-07T19:55:54.994-04:00",
+        "updated_at": "2026-10-07T20:31:56.021-04:00",
+        "bypass_actors": [],
+        "current_user_can_bypass": "never",
+        "_links": {
+          "self": {
+            "href": "https://api.github.com/repos/xormania/uxor/rulesets/24686124"
+          },
+          "html": {
+            "href": "https://github.com/xormania/uxor/rules/24686124"
+          }
+        }
+      },
+      "error": false
+    }
+  ],
+  "code_owner": {
+    "source": "get_repo_collaborator_permission",
+    "repository": "xormania/uxor",
+    "username": "xormania",
+    "observed_at_utc": "2026-10-16T08:50:49.360Z",
+    "permission": "admin",
+    "dev_and_main_codeowners_blob_sha": "e08044b4520bf6d0f1481e11a4bbac3c809423b9",
+    "main_codeowners_blob_sha": "e08044b4520bf6d0f1481e11a4bbac3c809423b9",
+    "scope": "Permission and identical CODEOWNERS content verified. Approval eligibility remains PR-author-specific; no merge or approval experiment performed."
+  },
+  "check_context_samples": [
+    {
+      "source": "https://api.github.com/repos/xormania/uxor/commits/40d957cd1ea7766ac0dee742816948ce5ae05bc3/check-runs?per_page=100",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "total_count": 27,
+      "returned_count": 27,
+      "retained_check_fields": [
+        {
+          "id": 115724203994,
+          "name": "CI result",
+          "head_sha": "40d957cd1ea7766ac0dee742816948ce5ae05bc3",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38524244935/job/115724203994",
+          "started_at": "2026-10-14T06:57:50Z",
+          "completed_at": "2026-10-14T06:58:04Z"
+        }
+      ]
+    },
+    {
+      "source": "https://api.github.com/repos/xormania/uxor/commits/9b2fa7309786cee435503de87cf0cd5f0a9d9782/check-runs?per_page=100",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "total_count": 203,
+      "returned_count": 100,
+      "retained_check_fields": [
+        {
+          "id": 116785952795,
+          "name": "Release checks",
+          "head_sha": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+          "status": "completed",
+          "conclusion": "failure",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38842493583/job/116785952795",
+          "started_at": "2026-10-16T02:52:15Z",
+          "completed_at": "2026-10-16T02:52:18Z"
+        },
+        {
+          "id": 116221155441,
+          "name": "Release checks",
+          "head_sha": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+          "status": "completed",
+          "conclusion": "failure",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38673168664/job/116221155441",
+          "started_at": "2026-10-15T02:52:43Z",
+          "completed_at": "2026-10-15T02:52:46Z"
+        },
+        {
+          "id": 115654841112,
+          "name": "Release checks",
+          "head_sha": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+          "status": "completed",
+          "conclusion": "failure",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38503138174/job/115654841112",
+          "started_at": "2026-10-14T02:51:51Z",
+          "completed_at": "2026-10-14T02:51:54Z"
+        }
+      ]
+    },
+    {
+      "source": "https://api.github.com/repos/xormania/uxor/commits/9b2fa7309786cee435503de87cf0cd5f0a9d9782/check-runs?per_page=100&page=2",
+      "observed_at_utc": "2026-10-16T08:50:46.974Z",
+      "total_count": 203,
+      "returned_count": 100,
+      "retained_check_fields": [
+        {
+          "id": 115108229076,
+          "name": "Release checks",
+          "head_sha": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+          "status": "completed",
+          "conclusion": "failure",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38339742825/job/115108229076",
+          "started_at": "2026-10-13T03:03:35Z",
+          "completed_at": "2026-10-13T03:03:37Z"
+        },
+        {
+          "id": 114650109760,
+          "name": "Release checks",
+          "head_sha": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38198476119/job/114650109760",
+          "started_at": "2026-10-12T03:25:29Z",
+          "completed_at": "2026-10-12T03:25:31Z"
+        },
+        {
+          "id": 114639522634,
+          "name": "CI result",
+          "head_sha": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38195645868/job/114639522634",
+          "started_at": "2026-10-12T02:33:56Z",
+          "completed_at": "2026-10-12T02:34:12Z"
+        }
+      ]
+    },
+    {
+      "source": "https://api.github.com/repos/xormania/uxor/commits/9b2fa7309786cee435503de87cf0cd5f0a9d9782/check-runs?per_page=100&page=3",
+      "observed_at_utc": "2026-10-16T08:50:46.974Z",
+      "total_count": 203,
+      "returned_count": 3,
+      "retained_check_fields": []
+    },
+    {
+      "source": "https://api.github.com/repos/xormania/uxor/commits/fbcd0a76e12fa5f877bcdbf284102851dfa47932/check-runs?per_page=100",
+      "observed_at_utc": "2026-10-16T08:50:46.974Z",
+      "total_count": 20,
+      "returned_count": 20,
+      "retained_check_fields": [
+        {
+          "id": 116203813359,
+          "name": "Mentions",
+          "head_sha": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38667860556/job/116203813359",
+          "started_at": "2026-10-15T01:51:04Z",
+          "completed_at": "2026-10-15T01:51:12Z"
+        },
+        {
+          "id": 116203667440,
+          "name": "CI result",
+          "head_sha": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38667668840/job/116203667440",
+          "started_at": "2026-10-15T01:50:33Z",
+          "completed_at": "2026-10-15T01:50:40Z"
+        },
+        {
+          "id": 116203401011,
+          "name": "CodeQL",
+          "head_sha": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 57789,
+          "app_slug": "github-advanced-security",
+          "details_url": "https://github.com/xormania/uxor/runs/116203401011",
+          "started_at": "2026-10-15T01:49:34Z",
+          "completed_at": "2026-10-15T01:49:37Z"
+        },
+        {
+          "id": 116203282537,
+          "name": "Mentions",
+          "head_sha": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38667688473/job/116203282537",
+          "started_at": "2026-10-15T01:49:11Z",
+          "completed_at": "2026-10-15T01:49:16Z"
+        },
+        {
+          "id": 116203227702,
+          "name": "Mentions",
+          "head_sha": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+          "status": "completed",
+          "conclusion": "success",
+          "app_id": 15368,
+          "app_slug": "github-actions",
+          "details_url": "https://github.com/xormania/uxor/actions/runs/38667670669/job/116203227702",
+          "started_at": "2026-10-15T01:49:00Z",
+          "completed_at": "2026-10-15T01:49:08Z"
+        }
+      ]
+    }
+  ],
+  "pr_sample": {
+    "source": "https://api.github.com/repos/xormania/uxor/pulls/144",
+    "observed_at_utc": "2026-10-16T08:50:46.974Z",
+    "number": 144,
+    "state": "open",
+    "head_sha": "fbcd0a76e12fa5f877bcdbf284102851dfa47932",
+    "base_ref": "feat/upgradeable-components",
+    "scope": "Feature-target PR sample; not proof of dev/main or work-order merge enforcement."
+  },
+  "unsuccessful_reads": [
+    {
+      "key": "dev-effective",
+      "url": "https://api.github.com/repos/xormania/uxor/rules/branches/dev",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+        "error_code": "INVALID_ARGUMENT"
+      },
+      "error": true
+    },
+    {
+      "key": "main-effective",
+      "url": "https://api.github.com/repos/xormania/uxor/rules/branches/main",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+        "error_code": "INVALID_ARGUMENT"
+      },
+      "error": true
+    },
+    {
+      "key": "dev-classic",
+      "url": "https://api.github.com/repos/xormania/uxor/branches/dev/protection",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "GitHub API error 403: {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/branches/branch-protection#get-branch-protection\",\"status\":\"403\"}",
+        "error_code": "FORBIDDEN",
+        "error_data": {
+          "message": "Resource not accessible by integration",
+          "documentation_url": "https://docs.github.com/rest/branches/branch-protection#get-branch-protection",
+          "status": "403"
+        }
+      },
+      "error": true
+    },
+    {
+      "key": "main-classic",
+      "url": "https://api.github.com/repos/xormania/uxor/branches/main/protection",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "GitHub API error 403: {\"message\":\"Resource not accessible by integration\",\"documentation_url\":\"https://docs.github.com/rest/branches/branch-protection#get-branch-protection\",\"status\":\"403\"}",
+        "error_code": "FORBIDDEN",
+        "error_data": {
+          "message": "Resource not accessible by integration",
+          "documentation_url": "https://docs.github.com/rest/branches/branch-protection#get-branch-protection",
+          "status": "403"
+        }
+      },
+      "error": true
+    },
+    {
+      "key": "actions-policy",
+      "url": "https://api.github.com/repos/xormania/uxor/actions/permissions",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+        "error_code": "INVALID_ARGUMENT"
+      },
+      "error": true
+    },
+    {
+      "key": "environments",
+      "url": "https://api.github.com/repos/xormania/uxor/environments",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+        "error_code": "INVALID_ARGUMENT"
+      },
+      "error": true
+    },
+    {
+      "key": "pages",
+      "url": "https://api.github.com/repos/xormania/uxor/pages",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+        "error_code": "INVALID_ARGUMENT"
+      },
+      "error": true
+    },
+    {
+      "key": "runners",
+      "url": "https://api.github.com/repos/xormania/uxor/actions/runners?per_page=100",
+      "observed_at_utc": "2026-10-16T08:50:06.856Z",
+      "data": {
+        "error": "HTTPError: 400: GitHub Fetch URL is not an allowed public GitHub repository or search endpoint. (Response: None)",
+        "error_code": "INVALID_ARGUMENT"
+      },
+      "error": true
+    }
+  ],
+  "not_read": [
+    {
+      "family": "Actions token defaults, selected-actions policy and fork approvals",
+      "reason": "The Actions permissions family is outside the fetch connector's allowed URL set; sibling administration endpoints were not retried."
+    },
+    {
+      "family": "Artifact retention",
+      "reason": "Repository Actions settings UI not accessed; no retention field returned in repository metadata."
+    },
+    {
+      "family": "App/webhook and credential-binding metadata",
+      "reason": "No supported metadata-only connector route inspected; secret endpoint families are excluded by tool capability. No credential values or webhook secrets requested."
+    },
+    {
+      "family": "Publisher installation/token permissions and future branch/event acceptance",
+      "reason": "Ruleset definitions and sampled check names do not establish actual publisher identity or all merge/event outcomes."
+    }
+  ],
+  "conclusions": {
+    "rulesets_returned": 4,
+    "active_branch_rulesets": 3,
+    "disabled_branch_rulesets": 1,
+    "tag_or_inherited_rulesets_returned": 0,
+    "bypass_actor_arrays_empty_for_all_four": true,
+    "current_user_can_bypass_for_each": "never",
+    "effective_rules_verified": false,
+    "classic_protection_verified": false,
+    "live_settings_changed": false
+  },
+  "limits": [
+    "Empty bypass arrays describe only these four returned rulesets and this observation; they do not establish every protection layer.",
+    "The complete listed pages have 27 dev check runs, 203 main check runs, and 20 PR-head check runs; only named required contexts are retained. Historical outcomes are not new runtime validation.",
+    "The original audit's separate run/log/performance gaps and issue 134 investigation are outside this refresh."
+  ]
+}
