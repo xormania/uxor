@@ -1589,14 +1589,17 @@ reads as a pass; only a daily run that found the checks already passed passes wi
 result artifacts and the passed marker are advisory: their upload never decides the verdict.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
 Issue updates identify the first failed step and failure category. Missing browser reports retain unavailable counts
-and seeds. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
+and seeds. A valid report with a global setup/run error and no reported failed test remains a general
+Playwright run failure; a parsed report alone does not establish that a browser test failed. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
 was written; the command's original exit status remains the verdict.
 
 **Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch.
 Merging the fix into `dev` alone does not repair the running scheduler. Promote the workflow and its control tools
 to `main` through the normal release process, then verify a fresh scheduled run against a recorded `dev` SHA actually
 executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
-close that operational acceptance gap. This change does not merge or dispatch a workflow automatically.
+close that operational acceptance gap. This change does not merge or dispatch a workflow automatically. The
+[issue 134 proof and coverage bundle](ci/issue-134/README.md) includes replay instructions, red/green receipts,
+coverage overlap, CI timing observations and the remaining acceptance matrix.
 
 | Group | Where | What it checks |
 |---|---|---|

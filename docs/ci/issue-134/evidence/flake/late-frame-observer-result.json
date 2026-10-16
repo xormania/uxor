@@ -1,0 +1,21 @@
+{
+  "evidence": "isolated observer ordering with explicitly queued animation frames; not CI/WebKit/full-app reproduction",
+  "sourceFile": "/workspace/uxor/tests/e2e/lab.data-table-back.spec.ts",
+  "sourceSha256": "90ef492a1a2ec150ebe0abdee05e65db1a4840d5ea8b51ca4b0d3dab6284da74",
+  "browser": "154.0.8037.57",
+  "originalAssertionFailedBeforeFrame": true,
+  "beforeFrame": [],
+  "afterFrame": [
+    {
+      "search": "",
+      "status": "",
+      "size": "10"
+    }
+  ],
+  "controlsAlreadyShowDefaults": true,
+  "controls": {
+    "search": "",
+    "status": "",
+    "size": "10"
+  }
+}

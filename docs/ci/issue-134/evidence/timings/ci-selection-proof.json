@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "base": "40d957cd1ea7766ac0dee742816948ce5ae05bc3",
+  "head": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+  "scriptSource": "40d957cd1ea7766ac0dee742816948ce5ae05bc3:tools/ci-changes.sh",
+  "scriptSha256": "fab69fe39641d861e7000bc3e8414937fbb4f9bf19841dfa2c3963db52467f35",
+  "changedPaths": [
+    ".github/workflows/release-checks.yml",
+    "docs/TEST-INVENTORY.md",
+    "docs/TESTING.md",
+    "tools/ci/playwright-summary.mjs",
+    "tools/ci/release-checks.mjs",
+    "tools/ci/release-failure.mjs",
+    "tools/ci/run-provenance.mjs",
+    "tools/ci/step-attempts.mjs",
+    "tools/tests/fixtures/release-checks/current-projects.json",
+    "tools/tests/fixtures/release-checks/legacy-projects.json",
+    "tools/tests/playwright-summary.test.mjs",
+    "tools/tests/release-checks-workflow.test.mjs",
+    "tools/tests/release-checks.test.mjs",
+    "tools/tests/step-attempts.test.mjs"
+  ],
+  "classifierStdout": "lint-kit=false\nphp=true\nstatic-site=true\nfresh-install=false\ncontrast=true\ndemo=true\nworkflows=true\n",
+  "classifierStderr": "",
+  "exitCode": 0
+}

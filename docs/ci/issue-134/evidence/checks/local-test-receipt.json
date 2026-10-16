@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "snapshot": "uncommitted classifier/test follow-up before evidence documentation",
+  "git_head": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+  "command_shell": "node --test tools/tests/*.test.mjs",
+  "glob_expansion": "shell expands tools/tests/*.test.mjs; tools/monthly/*.test.mjs not included",
+  "execution_cwd": "/workspace/uxor",
+  "runtime": "v24.19.0",
+  "exit_status": 0,
+  "tests": {
+    "passed": 218,
+    "failed": 0,
+    "skipped": 0
+  },
+  "log": "full-node-tests.log",
+  "log_sha256": "30a8a791a523126fd71eace55b01246c843440c16f4cfb41ae332519ae007df7",
+  "source_sha256": {
+    "tools/ci/release-failure.mjs": "8ad3bc60ed9565e293b3da4f9ab494faadcd3751b4d9970c8fff60ffec4fdbee",
+    "tools/tests/release-checks-workflow.test.mjs": "aab0f8621d7ee01ed732f27f040493af6b987439c70dace0a8f38441f78fcb37"
+  },
+  "remaining_source": "Other candidate production modules remain at git_head; evidence documentation was added afterward."
+}

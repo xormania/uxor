@@ -1,0 +1,205 @@
+{
+  "config": {
+    "configFile": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/playwright.config.ts",
+    "rootDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tools/prepare-tests.mjs",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke",
+        "name": "smoke",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e",
+        "testIgnore": [
+          "examples/**",
+          "release.*.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "examples",
+        "name": "examples",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e/examples",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke-firefox",
+        "name": "smoke-firefox",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e",
+        "testIgnore": [
+          "examples/**",
+          "a11y.spec.ts",
+          "release.*.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "examples-firefox",
+        "name": "examples-firefox",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e/examples",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke-webkit",
+        "name": "smoke-webkit",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e",
+        "testIgnore": [
+          "examples/**",
+          "a11y.spec.ts",
+          "release.*.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "examples-webkit",
+        "name": "examples-webkit",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e/examples",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "release",
+        "name": "release",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "release.*.spec.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "release-dark",
+        "name": "release-dark",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "lab.overlays.spec.ts",
+          "dropdown.spec.ts",
+          "lab.popover.spec.ts",
+          "popover.spec.ts",
+          "lab.tooltip.spec.ts",
+          "lab.live-modal.spec.ts",
+          "lab.live-drawer.spec.ts",
+          "lab.editor.spec.ts",
+          "editor.spec.ts",
+          "lab.markdown-editor.spec.ts",
+          "markdown-editor.spec.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "release-harsh",
+        "name": "release-harsh",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "lab.data-table-frame.spec.ts",
+          "lab.data-table-live.spec.ts",
+          "lab.editor.spec.ts",
+          "lab.date-picker.spec.ts",
+          "date-picker.spec.ts",
+          "lab.autocomplete.spec.ts",
+          "chart.spec.ts",
+          "lab.chart.spec.ts"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "none",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "Error: No tests found.\nMake sure that arguments are regular expressions matching test files.\nYou may need to escape symbols like \"$\" or \"*\" and quote the arguments.",
+      "stack": "Error: No tests found.\nMake sure that arguments are regular expressions matching test files.\nYou may need to escape symbols like \"$\" or \"*\" and quote the arguments."
+    }
+  ],
+  "stats": {
+    "startTime": "2026-10-16T21:14:55.438Z",
+    "duration": 177.39499999999998,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

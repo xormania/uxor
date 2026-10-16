@@ -26,7 +26,14 @@ export function classifyFailure(steps, reportStatus) {
     const failed = Object.keys(names).find((id) => steps[id]?.conclusion === 'failure');
     if (!failed) return { category: '', step: '' };
     let category = 'setup failure';
-    if (failed === 'tests') category = reportStatus === 'valid' ? 'browser test failure' : 'Playwright invocation failure (report unavailable)';
+    if (failed === 'tests') {
+        const failedTests = Number(steps.results?.outputs?.failed);
+        category = reportStatus !== 'valid'
+            ? 'Playwright invocation failure (report unavailable)'
+            : Number.isFinite(failedTests) && failedTests > 0
+                ? 'browser test failure'
+                : 'Playwright run failure (no failed test reported)';
+    }
     if (failed === 'evidence') category = 'incomplete release evidence';
     if (failed === 'properties') category = 'PHP property failure';
     if (failed === 'results') category = 'missing or invalid browser evidence';

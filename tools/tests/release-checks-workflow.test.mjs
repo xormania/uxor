@@ -280,7 +280,7 @@ test('issue classification names the first causal failure without turning adviso
     for (const [context, status, category, id] of [
         [{ start: failed, tests: result('skipped'), results: failed }, 'not-reached', 'setup failure', 'start'],
         [{ tests: failed, evidence: failed, results: failed }, 'missing', 'Playwright invocation failure (report unavailable)', 'tests'],
-        [{ tests: failed, evidence: passed, results: passed }, 'valid', 'browser test failure', 'tests'],
+        [{ tests: failed, evidence: passed, results: result('success', { failed: '1' }) }, 'valid', 'browser test failure', 'tests'],
         [{ tests: passed, evidence: failed, results: passed }, 'valid', 'incomplete release evidence', 'evidence'],
         [{ tests: passed, evidence: passed, properties: failed, results: passed }, 'valid', 'PHP property failure', 'properties'],
         [{ tests: passed, results: failed }, 'invalid', 'missing or invalid browser evidence', 'results'],
@@ -306,4 +306,41 @@ test('issue classification CLI preserves unavailable counts and exports only its
     assert.equal(data.counts, undefined, 'classification does not manufacture browser measurements');
     const exported = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
     assert.deepEqual(exported, { category: data.category, step: data.step });
+});
+
+test('a valid report with a global error and no failed test does not claim a browser test failure', (t) => {
+    const fx = scratch(t);
+    mkdirSync(join(fx.dir, 'playwright-results'));
+    // Shape captured from locked Playwright 1.58.2 after a real globalSetup exception: discovery succeeds, the
+    // run exits 1 and writes a valid JSON report, but no browser test has an attempt. No browser install is needed
+    // for this regression; the summary and classifier are the actual CLI tools, not substitutes for them.
+    const error = 'Error: Global setup failed before any browser test';
+    writeFileSync(join(fx.dir, 'playwright-results/results.json'), JSON.stringify({
+        config: { version: '1.58.2', rootDir: fx.dir, projects: [{ name: 'release' }, { name: 'release-dark' }, { name: 'release-harsh' }] },
+        suites: [],
+        errors: [{ message: error }],
+        stats: { expected: 0, skipped: 0, unexpected: 0, flaky: 0 },
+    }));
+    const summaryOutput = join(fx.temp, 'summary-output');
+    const summary = spawnSync(process.execPath, [join(root, 'tools/ci/playwright-summary.mjs'), 'playwright-results/results.json'], {
+        cwd: fx.dir, encoding: 'utf8', env: { PATH: process.env.PATH, TESTS_OUTCOME: 'failure', GITHUB_OUTPUT: summaryOutput },
+    });
+    assert.equal(summary.status, 0, summary.stdout + summary.stderr);
+    const outputs = Object.fromEntries(readFileSync(summaryOutput, 'utf8').trim().split('\n').map((line) => line.split('=')));
+    assert.equal(outputs.status, 'valid');
+    assert.equal(outputs.failed, '0');
+    const attempts = JSON.parse(readFileSync(join(fx.dir, 'playwright-results/failed-attempts.json'), 'utf8'));
+    assert.deepEqual(attempts.attempts, []);
+    assert.deepEqual(attempts.globalErrors, [error]);
+    assert.deepEqual(attempts.counts, { passed: 0, failed: 0, flaky: 0, skipped: 0 });
+
+    const classified = spawnSync(process.execPath, [join(root, 'tools/ci/release-failure.mjs')], {
+        cwd: fx.dir, encoding: 'utf8', env: {
+            PATH: process.env.PATH, REPORT_STATUS: outputs.status,
+            RELEASE_STEPS: JSON.stringify({ tests: result('failure'), evidence: result('failure'), results: result('success', outputs) }),
+        },
+    });
+    assert.equal(classified.status, 0, classified.stdout + classified.stderr);
+    const failure = JSON.parse(readFileSync(join(fx.dir, 'playwright-results/release-failure.json'), 'utf8'));
+    assert.deepEqual(failure, { category: 'Playwright run failure (no failed test reported)', step: 'Playwright (release checks)' });
 });
