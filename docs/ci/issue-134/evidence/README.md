@@ -18,3 +18,5 @@ Raw generated global-setup reports remain only in execution scratch. Their SHA-2
 
 Verbatim error logs preserve their original whitespace for hash verification. Source/document whitespace checks
 exclude these recorded `.log` files; application and test source checks are unchanged.
+
+The later `security-trust/` receipts retain the CodeQL check annotations, identical-test-source red/green runs, the 219-case suite log and source/log hashes. See [the checkout-trust explanation](../security-trust.md).

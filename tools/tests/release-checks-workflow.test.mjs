@@ -51,16 +51,20 @@ function steps(job) {
     return list;
 }
 
-// Evaluate the boolean/comparison subset used by these conditions. Unknown syntax must fail the test harness.
-function holds(condition, context = {}, failed = false) {
-    if (!condition) return !failed;
+// Evaluate the scalar/boolean subset used by these conditions and checkout references. Unknown syntax fails closed.
+function expressionValue(condition, context = {}, failed = false) {
     const expression = condition.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
         .replace(/\b(success|failure|always|cancelled)\(\)/g, (_, name) => JSON.stringify({ success: !failed, failure: failed, always: true, cancelled: false }[name]))
         .replace(/\b(?:steps|github|needs)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
     const operators = expression.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+)\b/g, '');
     assert.match(operators, /^[\s!<>=&|().-]*$/, `unsupported condition ${condition}`);
+    return Function(`return (${expression});`)();
+}
+
+function holds(condition, context = {}, failed = false) {
+    if (!condition) return !failed;
     const explicitStatus = /\b(?:success|failure|always|cancelled)\(\)/.test(condition);
-    return (explicitStatus || !failed) && Function(`return Boolean(${expression});`)();
+    return (explicitStatus || !failed) && Boolean(expressionValue(condition, context, failed));
 }
 
 function scratch(t) {
@@ -268,6 +272,72 @@ test('checkout provenance must match the frozen target before the workflow expos
             assert.equal(readFileSync(output, 'utf8'), '', 'a mismatched checkout gets no tested revision');
         }
     }
+});
+
+test('checkout trust rejects a substituted resolver revision and a moving dev head before executing target code', (t) => {
+    const fx = scratch(t);
+    const git = (...args) => {
+        const run = spawnSync('git', args, { cwd: fx.dir, encoding: 'utf8', env: { PATH: process.env.PATH } });
+        assert.equal(run.status, 0, run.stdout + run.stderr);
+        return run.stdout.trim();
+    };
+    git('init', '--initial-branch=dev');
+    const commit = (text) => {
+        writeFileSync(join(fx.dir, 'candidate.txt'), `${text}\n`);
+        git('add', 'candidate.txt');
+        git('-c', 'user.name=Local proof', '-c', 'user.email=proof@example.invalid', 'commit', '-m', 'test: candidate revision');
+        return git('rev-parse', 'HEAD');
+    };
+    const eventSha = commit('reviewed event revision');
+    git('checkout', '-b', 'outside-maintained-branch');
+    const substitutedSha = commit('resolver-selected code outside the maintained branch');
+    git('checkout', 'dev');
+    const advancedDev = commit('dev advanced after target resolution');
+    const checkout = steps('checks').find((step) => step.id === 'checkout');
+    const provenance = stepIn(workflow, 'checks', 'provenance');
+    const output = join(fx.temp, 'environment');
+    const executed = join(fx.dir, 'target-executed');
+
+    // Render the actual checkout action's ref, perform that checkout using real Git, then run the actual provenance
+    // shell. Only after it passes may a target command run. Resolver output is not its own source of trust: the
+    // maintained branch or immutable triggering event must independently agree with the frozen target.
+    for (const [name, event, resolved, expectedCheckout, expectedStatus] of [
+        ['schedule cannot substitute another commit', 'schedule', substitutedSha, advancedDev, 1],
+        ['manual dispatch cannot substitute another commit', 'workflow_dispatch', substitutedSha, eventSha, 1],
+        ['pull request cannot substitute another commit', 'pull_request', substitutedSha, eventSha, 1],
+        ['dev advancing after resolution fails closed', 'schedule', eventSha, advancedDev, 1],
+        ['stable scheduled target executes', 'schedule', advancedDev, advancedDev, 0],
+        ['manual dispatch retains its immutable event', 'workflow_dispatch', eventSha, eventSha, 0],
+        ['pull request retains its immutable event', 'pull_request', eventSha, eventSha, 0],
+    ]) {
+        const ref = expressionValue(checkout.with.ref, {
+            github: { event_name: event, sha: eventSha },
+            needs: { changed: { outputs: { ref: resolved } } },
+        });
+        git('checkout', '--detach', ref);
+        const actual = git('rev-parse', 'HEAD');
+        writeFileSync(output, '');
+        rmSync(executed, { force: true });
+        const checked = shell(`${provenance.run}\nprintf 'target command ran\\n' > target-executed`, fx, {
+            RESOLVED_SHA: resolved, RESOLVED_REF: event === 'schedule' ? 'dev' : 'event', GITHUB_ENV: output,
+        });
+        assert.equal(checked.status, expectedStatus, `${name}: ${checked.stdout}${checked.stderr}`);
+        assert.equal(actual, expectedCheckout, name);
+        assert.equal(existsSync(executed), expectedStatus === 0, name);
+        if (expectedStatus) {
+            assert.match(checked.stdout + checked.stderr, /differs from resolved target/, name);
+            assert.equal(readFileSync(output, 'utf8'), '', `${name}: no false tested revision is exported`);
+        }
+    }
+
+    // A missing maintained branch must not turn an identically named tag into trusted scheduled code.
+    git('branch', '-D', 'dev');
+    git('tag', 'dev', substitutedSha);
+    const missingBranch = spawnSync('git', ['checkout', '--detach', expressionValue(checkout.with.ref, {
+        github: { event_name: 'schedule', sha: eventSha },
+        needs: { changed: { outputs: { ref: substitutedSha } } },
+    })], { cwd: fx.dir, encoding: 'utf8', env: { PATH: process.env.PATH } });
+    assert.notEqual(missingBranch.status, 0, 'a dev tag cannot replace the maintained branch');
 });
 
 test('issue classification names the first causal failure without turning advisory failures into failures', async () => {

@@ -1568,8 +1568,12 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
 a change to either the target or the workflow requires another real scheduled pass.
 
-The workflow resolves the target once, checks it out under `release-checks-target/`, and verifies its HEAD against
-that frozen SHA. The runner and diagnostic tools come from a separate checkout at `github.workflow_sha`. Event,
+The workflow resolves the expected target once. Its checkout independently trusts only `refs/heads/dev` for a
+schedule, or the immutable triggering event SHA for a manual or pull-request run; the resolver output cannot select
+another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
+expected SHA before setup or tests run. If `dev` advances between resolution and checkout, the run fails closed and
+must retry. This branch boundary matters even without an explicit cache-save action: scheduled jobs have the default
+branch's cache scope. The runner and diagnostic tools come from a separate checkout at `github.workflow_sha`. Event,
 workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
 This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
 

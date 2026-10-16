@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-10-16T21:40:48.222084+00:00",
+  "source_base": "b683745735d52114b73214f83a47536f2b53cbe7",
+  "snapshot": "uncommitted checkout-trust follow-up; documentation added after tests",
+  "source_sha256": {
+    ".github/workflows/release-checks.yml": "c094ece8e09f0537f78bee0828c4730ec5cf076003747c6d7fc709bc134d8fdd",
+    "tools/tests/release-checks-workflow.test.mjs": "aaa7fffc3be1c031d833cd582805b7a4b6265ac97978f31fa5b59ec08dbc6c87"
+  },
+  "full_node_command_shell": "node --test tools/tests/*.test.mjs",
+  "full_node_exit": 0,
+  "full_node_tests": {
+    "passed": 219,
+    "failed": 0,
+    "skipped": 0
+  },
+  "files_sha256": {
+    "checks.json": "cf37144458f2e1e31b99f7d2867b88dba72fa8a21bab4205c751b19d8d4e00c3",
+    "codeql-before-annotations.json": "9abf674065e0a8f6e0897a1a982766c7d081529b96e999890b0cea2b9e6f89fa",
+    "full-node-tests.log": "15a742f5041623d69537f915d16dd25c2c8095ec4cea8dd6c199581fc16b3f94",
+    "resolver-trust-green.json": "11edd2cf075ddb3b723967b3289fa341b2612efea0300865e52cd57d77d100ea",
+    "resolver-trust-green.log": "0ab99a4157924fd725b3e5f8640d7ccb7828a83a99350845dc2c62466ed78b70",
+    "resolver-trust-red-final-test.json": "d9077992ec58a152b5d2caa780714d65d4139ed2fb95fbc3c989bb5b15268f1a",
+    "resolver-trust-red-final-test.log": "9bedfc0e93dc1f91774de39349a4116f2f5042cc6a19a6408a2eca1262fb29d0"
+  }
+}

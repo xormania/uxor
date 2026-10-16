@@ -6,6 +6,7 @@ The repair separates the scheduled workflow's control revision from its frozen t
 |---|---|
 | [Coverage and overlap](coverage.md) | Guarantees, test owners, useful overlap, shared support and acceptance gaps |
 | [Proved red](proved-red.md) | Real historical failures, four complete-code mutants, classifier regression and green counterparts |
+| [Checkout trust follow-up](security-trust.md) | CodeQL source finding, independent checkout authority, race handling and real-Git red/green proof |
 | [CI timings](timings.md) | All jobs/steps, critical path, selected skips and measurement limits |
 | [WebKit retry assessment](retry-assessment.md) | The recovered attempt, inherited observer gap, bounded probe and limits |
 | [Machine receipts](evidence/README.md) | Exact commands, source/log hashes, observations and the bundle integrity manifest |
@@ -29,10 +30,12 @@ network, rejects unsafe output locations, and checks every expected red/green re
 | Original candidate's isolated historical/negative-calibration snapshot | 17 focused runner/workflow cases pass before and after four deliberately broken copies fail | These local proofs do not execute Docker, Symfony, browsers or remote Actions. |
 | Classifier follow-up working-tree snapshot | [218 Node tests passed, zero failed/skipped](evidence/checks/full-node-tests.log); its four focused modules passed 45 cases | Source hashes in [local-test receipt](evidence/checks/local-test-receipt.json) identify this snapshot. A later commit needs its own exact-head CI. |
 
+The later [checkout-trust follow-up](security-trust.md) adds a same-source red/green regression and validates 219 Node tests. It addresses the first PR scan's three CodeQL findings; the PR carries the fresh hosted result.
+
 ## Acceptance and owner handoff
 
-Before merge, the actual PR into `dev` needs green required checks on its final head, both requested official reviews once, and addressed review conversations. **Official Codex review requests: zero; official Codex security review requests: zero** in this recorded snapshot. Internal parallel source checks are not those reviews. API access and PR creation remained unavailable while these receipts were assembled; the pending actions must remain visible.
+Before merge, the actual PR into `dev` needs green required checks on its final head, both requested official reviews once, and addressed review conversations. **Official Codex review requests: zero; official Codex security review requests: zero** in this recorded snapshot. Internal parallel source checks are not those reviews. API access and PR creation were unavailable when that snapshot was assembled. [PR 145](https://github.com/xormania/uxor/pull/145) now carries the current CI/review state; the zero counts above describe the original recorded snapshot.
 
-The full candidate **Release checks workflow has not run**. Existing browser shards exclude the three dedicated release projects. Actual pinned list-only discovery covers both project families, but its narrow file filter lists only the primary release project's 11 tests; it does not execute full dark/harsh projects or PHP properties.
+When the original local bundle was assembled, the full candidate **Release checks workflow had not run**. Follow [PR 145](https://github.com/xormania/uxor/pull/145) for later candidate execution; these local receipts alone do not establish it. Existing browser shards exclude the three dedicated release projects. Actual pinned list-only discovery covers both project families, but its narrow file filter lists only the primary release project's 11 tests; it does not execute full dark/harsh projects or PHP properties.
 
 After the owner merges into `dev`, the repaired workflow/control tools must reach default `main` through normal promotion. Only then can a fresh genuine schedule prove the daily service repaired against a recorded `dev` SHA, including all release projects/specs, PHP properties and mandatory evidence. Dev merge alone cannot replace main's scheduled definition. The owner performs the merge; this work does not approve or merge PRs, change protections, or promote the default branch.

@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "observed_at_utc": "2026-10-16T21:27:21.125656+00:00",
+  "observed_at_utc": "2026-10-16T21:40:48.233264+00:00",
   "result": "passed",
-  "local_markdown_links": 50,
+  "local_markdown_links": 60,
   "historical_command_receipts": 14,
   "historical_stdout_stderr_hashes": 28,
-  "full_node_log_hash": "verified",
-  "classifier_and_regression_source_hashes": "verified",
-  "portable_replay_script_hash": "verified",
+  "original_218_case_snapshot_sources": "verified against committed b683745 blobs",
+  "current_219_case_snapshot_sources": "verified against working tree",
+  "security_red_green_test_source": "identical SHA256; verified",
   "raw_log_whitespace": "Preserved verbatim for hash verification; excluded from authored-source whitespace checks."
 }

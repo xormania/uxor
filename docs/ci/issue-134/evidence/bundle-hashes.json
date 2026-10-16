@@ -6,10 +6,10 @@
     "docs/ci/issue-134/evidence/bundle-hashes.json"
   ],
   "files": {
-    "docs/ci/issue-134/README.md": "e7993c7a7e3d9ec9691db2efa5780db8a3c3a9fadc8f9aa8e043dc216a53ffb0",
-    "docs/ci/issue-134/coverage.md": "b958c95f6ddf9ef3eef5492b224dd110f4dca6f8ba0c954d13d8f39a87e4f69b",
-    "docs/ci/issue-134/evidence/README.md": "7d301e02c42dfaaf034c45b3225b8e9475340e32033871e952e26616f693670f",
-    "docs/ci/issue-134/evidence/checks/bundle-validation.json": "8add76fcab0ded560d37981c567653ca686cbb7e6af86b80391fff6eab2f581a",
+    "docs/ci/issue-134/README.md": "f57146d28da41db5b3fdb2eedf24a870b8c8efc57f39122a17c78c53d0de9711",
+    "docs/ci/issue-134/coverage.md": "137b53bb9444942de24fd3c6918ec22ab0efd881759fe2486f6a25cecd34daa2",
+    "docs/ci/issue-134/evidence/README.md": "4485229b38c79ac7a9dc33eb396b757bf3b9c90adf87c599b41adac30b4cbe4e",
+    "docs/ci/issue-134/evidence/checks/bundle-validation.json": "60c629f37ac1c6a4644f8bb3fd6f1d61e5593e7243cb19039520fd3c60f6fe28",
     "docs/ci/issue-134/evidence/checks/full-node-tests.log": "30a8a791a523126fd71eace55b01246c843440c16f4cfb41ae332519ae007df7",
     "docs/ci/issue-134/evidence/checks/local-test-receipt.json": "ab85b511382a0e2a05cce36795123c1be5d5bb72152fff9bc2c03eb37df57de5",
     "docs/ci/issue-134/evidence/checks/portable-replay.json": "310e902dfd8fa788a200550871708fa88464040842ef5a5b4d1e7fb43cf4875a",
@@ -57,6 +57,14 @@
     "docs/ci/issue-134/evidence/red-proofs/obsolete-grep-vs-current-release-specs.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "docs/ci/issue-134/evidence/red-proofs/obsolete-grep-vs-current-release-specs.stdout.log": "eac6bd54a63761ced3f4ed8cb45396729c380517eb12bacb977cd2e8e915dfc3",
     "docs/ci/issue-134/evidence/red-proofs/receipts.json": "4ba7b09113f2c7a8b14c51fff4a21b19dd8fba8b5a4c84a715e927122812db6f",
+    "docs/ci/issue-134/evidence/security-trust/checks.json": "cf37144458f2e1e31b99f7d2867b88dba72fa8a21bab4205c751b19d8d4e00c3",
+    "docs/ci/issue-134/evidence/security-trust/codeql-before-annotations.json": "9abf674065e0a8f6e0897a1a982766c7d081529b96e999890b0cea2b9e6f89fa",
+    "docs/ci/issue-134/evidence/security-trust/full-node-tests.log": "15a742f5041623d69537f915d16dd25c2c8095ec4cea8dd6c199581fc16b3f94",
+    "docs/ci/issue-134/evidence/security-trust/receipt.json": "f9e245fac680a710543bcfc3a0a0b3856da2c15e8b7aa5680dcd8f8002daf7c3",
+    "docs/ci/issue-134/evidence/security-trust/resolver-trust-green.json": "11edd2cf075ddb3b723967b3289fa341b2612efea0300865e52cd57d77d100ea",
+    "docs/ci/issue-134/evidence/security-trust/resolver-trust-green.log": "0ab99a4157924fd725b3e5f8640d7ccb7828a83a99350845dc2c62466ed78b70",
+    "docs/ci/issue-134/evidence/security-trust/resolver-trust-red-final-test.json": "d9077992ec58a152b5d2caa780714d65d4139ed2fb95fbc3c989bb5b15268f1a",
+    "docs/ci/issue-134/evidence/security-trust/resolver-trust-red-final-test.log": "9bedfc0e93dc1f91774de39349a4116f2f5042cc6a19a6408a2eca1262fb29d0",
     "docs/ci/issue-134/evidence/timings/ci-selection-proof.json": "4343b3be164b6b7b6319c0868428fd1016770eaf973152720c565c83caa7e4ee",
     "docs/ci/issue-134/evidence/timings/job-observations.json": "fb0fc733b157796a13fc8a22700447aa2d87cfee1ef530c1250cc1a6ad8acf93",
     "docs/ci/issue-134/evidence/timings/receipt-hashes.json": "f62a0f33fc72fa1e2123900c5ea4bd6959deb489fdcdd36df875f6022acd8539",
@@ -64,6 +72,7 @@
     "docs/ci/issue-134/proved-red.md": "d55133b4c5bbc74c70a6a66e2ff193638fb7fcb9d86b3383986508aa2df42f63",
     "docs/ci/issue-134/reproduce.py": "aa897d58473ccd08b2e9e64b326bd36db3fc41cfcf17bfcbbcd173c215f29dd9",
     "docs/ci/issue-134/retry-assessment.md": "7aaf09b3caf0dd29e877af70ffd8dd5d7825aef3faff01f3883c7753681ed1b5",
+    "docs/ci/issue-134/security-trust.md": "a730162e2db4d003a48e8f25012ae78bff0acab9d16bbc092cdcfbf313baa3fc",
     "docs/ci/issue-134/timings.md": "84a4adf0380df5cf53d124b6b5d7cd1814d8ff73ade331ac69321b4bafcadb87"
   }
 }

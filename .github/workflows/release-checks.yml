@@ -126,7 +126,10 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  ref: ${{ needs.changed.outputs.ref }} # frozen once in What to check
+                  # A scheduled job has main's cache scope: execute only the maintained dev branch. Other events
+                  # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
+                  # If dev advances after resolution, provenance fails before any target code runs.
+                  ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}
                   path: release-checks-target
 
             - name: Verify the tested revision
