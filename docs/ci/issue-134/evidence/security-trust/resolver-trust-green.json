@@ -1,0 +1,28 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "tools/tests/release-checks-workflow.test.mjs",
+    "tools/tests/release-checks.test.mjs",
+    "tools/tests/playwright-summary.test.mjs",
+    "tools/tests/step-attempts.test.mjs"
+  ],
+  "cwd": "/workspace/uxor",
+  "exit": 0,
+  "workflow_sha256": "c094ece8e09f0537f78bee0828c4730ec5cf076003747c6d7fc709bc134d8fdd",
+  "test_sha256": "aaa7fffc3be1c031d833cd582805b7a4b6265ac97978f31fa5b59ec08dbc6c87",
+  "scope": "actual checkout expression and provenance shell with real isolated Git; action and GitHub cache endpoint not executed",
+  "checks": [
+    "substituted schedule resolver rejected",
+    "substituted dispatch resolver rejected",
+    "substituted PR resolver rejected",
+    "legitimate advancing dev rejected",
+    "stable schedule executes",
+    "immutable dispatch executes",
+    "immutable PR executes",
+    "missing dev branch cannot fall back to dev tag"
+  ],
+  "passed": 46,
+  "failed": 0,
+  "skipped": 0
+}

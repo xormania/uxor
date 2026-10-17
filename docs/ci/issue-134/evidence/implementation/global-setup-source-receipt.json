@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "scope": "isolated real locked Playwright globalSetup exception; no browser process, Docker, Symfony or full release suite",
+  "raw_reports_shipped": false,
+  "source_report_hashes": {
+    "results.json": "22cb9ae1074fe9d982b0c10a540605ef49bf1a4798e2153ff4ea5fc5c3926cbf",
+    "failed-attempts.json": "901c4736a4940cb165410c505621b6e5bf693083182981f7c8b48d0065ab9a2a"
+  },
+  "fixture_in_regression": "tools/tests/release-checks-workflow.test.mjs",
+  "regression_name": "a valid report with a global error and no failed test does not claim a browser test failure",
+  "retained_observation": "global-setup-proof.json",
+  "raw_source_location": "scratch/uxor-issue134-quality/implementation/global-setup/playwright-results (execution-machine scratch; not required to read this bundle)",
+  "implementation_revision": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+  "command": [
+    "node",
+    "/workspace/uxor/tools/ci/release-checks.mjs",
+    "run"
+  ],
+  "execution_cwd": "/workspace/scratch/uxor-issue134-quality/implementation/global-setup",
+  "environment_overrides": null,
+  "environment_note": "Inherited environment values were not logged; runner itself sets RELEASE_CHECKS=1, removes reporter-output variables for discovery, sets JSON output and PLAYWRIGHT_HTML_OPEN=never for execution.",
+  "runtime": {
+    "Node": "v24.19.0",
+    "Playwright": "1.58.2"
+  },
+  "fixture": {
+    "projects": [
+      "release",
+      "release-dark",
+      "release-harsh"
+    ],
+    "test_directory": "./tests",
+    "global_setup": "./global-setup.mjs",
+    "browser_needed": false
+  },
+  "fixture_source_sha256": {
+    "playwright.config.mjs": "d6d7a2272f537c2dc00c6db6c26ee2c2723f3e72548b1aad34df785bd446ce0d",
+    "global-setup.mjs": "8e18e1861ec39c5172689b4f8d2d5997b11eeb664e6ba1262d1f9a25862e084f"
+  }
+}

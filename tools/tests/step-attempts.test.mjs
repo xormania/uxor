@@ -82,6 +82,14 @@ test("a failed step becomes one attempt: its name, its command and the log lines
     assert.equal(code, 0, stderr);
     assert.equal(data.schema, 1);
     assert.equal(data.status, 'valid');
+    assert.equal(data.sha, 'abc');
+    assert.equal(data.ref, null);
+    assert.deepEqual(data.provenance, {
+        event: { sha: 'abc', ref: null },
+        workflow: { sha: null, ref: null },
+        resolved: { sha: null, ref: null },
+        checkout: { sha: null, ref: null },
+    });
     assert.equal(data.shard, null);
     assert.deepEqual(data.counts, { passed: 1, failed: 1, flaky: 0, skipped: 0 });
     assert.equal(data.attempts.length, 1);
@@ -105,6 +113,46 @@ test("a failed step becomes one attempt: its name, its command and the log lines
     assert.doesNotMatch(attempt.error, /\u001b|\/home\/runner/);
     // the end of the log, which says how it ended, whether or not the pattern selects it
     assert.match(attempt.error, /\n7: done in 0\.2 s$/);
+});
+
+test('a scheduled main event retains the actual dev checkout in a captured invocation failure', () => {
+    const eventSha = '1111111111111111111111111111111111111111';
+    const workflowSha = '2222222222222222222222222222222222222222';
+    const testedSha = '3333333333333333333333333333333333333333';
+    const workflowRef = 'example/kit/.github/workflows/release-checks.yml@refs/heads/main';
+    const fx = setup({ steps: { tokens: failed }, logs: { tokens: 'Error: Project not found.\n' } });
+    const env = {
+        GITHUB_SHA: eventSha,
+        GITHUB_REF_NAME: 'main',
+        GITHUB_WORKFLOW_SHA: workflowSha,
+        GITHUB_WORKFLOW_REF: workflowRef,
+        RESOLVED_SHA: testedSha,
+        RESOLVED_REF: 'dev',
+        TESTED_SHA: testedSha,
+        TESTED_REF: 'dev',
+    };
+    const { code, stderr, data } = convert(fx, [], env);
+    assert.equal(code, 0, stderr);
+    assert.equal(data.schema, 1);
+    assert.equal(data.sha, testedSha);
+    assert.equal(data.ref, 'dev');
+    assert.deepEqual(data.provenance, {
+        event: { sha: eventSha, ref: 'main' },
+        workflow: { sha: workflowSha, ref: workflowRef },
+        resolved: { sha: testedSha, ref: 'dev' },
+        checkout: { sha: testedSha, ref: 'dev' },
+    });
+    assert.equal(data.attempts.length, 1);
+    assert.match(data.attempts[0].error, /Project not found/);
+
+    const noCheckout = convert(fx, [], { ...env, TESTED_SHA: '', TESTED_REF: '' });
+    assert.equal(noCheckout.data.sha, eventSha, 'ordinary callers retain the historical event fallback');
+    assert.equal(noCheckout.data.ref, 'main');
+    assert.deepEqual(noCheckout.data.provenance.checkout, { sha: null, ref: null });
+
+    const noCheckoutRef = convert(fx, [], { ...env, TESTED_REF: '' });
+    assert.equal(noCheckoutRef.data.sha, testedSha);
+    assert.equal(noCheckoutRef.data.ref, null, 'the main event ref cannot identify the dev checkout');
 });
 
 test('a step that passed, a failed step without a log and a log without a failed step give no attempt', () => {

@@ -8,7 +8,7 @@ name: Release checks
 #
 # - On the release pull request (dev to main): main's ruleset requires this check from 0.2.0 (decision 4 of the plan;
 #   its timings report and fail nothing until their tolerances are set, step 8).
-# - Once a day on dev, when dev changed since the last successful scheduled run: it first compares dev's head with the
+# - Once a day on dev, when dev changed since the last successful compatible scheduled run: it first compares dev's head with the
 #   commit that run tested (GitHub API) and stops in seconds when nothing was merged. A failure opens one issue labeled
 #   `release-checks`, or comments on the open one, instead of failing anyone's pull request after the fact; a green run
 #   closes it. The schedule runs the workflow as the default branch has it.
@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
     # What to check: dev's head for the schedule, unless the release checks already passed on that commit (an unexpired
-    # release-checks-passed-<sha> artifact, which a passing run uploads); the pull request's or the branch's own commit
+    # release-checks-passed-v2-<sha> artifact, which a passing schedule uploads); the pull request's or the branch's own commit
     # otherwise.
     changed:
         name: What to check
@@ -49,31 +49,31 @@ jobs:
         timeout-minutes: 5
         permissions:
             contents: read
-            actions: read # the release-checks-passed-<sha> artifacts
+            actions: read # the release-checks-passed-v2-<sha> artifacts
         outputs:
             run: ${{ steps.compare.outputs.run }}
             ref: ${{ steps.compare.outputs.ref }}
+            target_ref: ${{ steps.compare.outputs.target_ref }}
         steps:
             - id: compare
               env:
                   EVENT: ${{ github.event_name }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
+                  WORKFLOW_SHA: ${{ github.workflow_sha }}
               run: |
                   if [ "$EVENT" != schedule ]; then
-                      echo "run=true" >> "$GITHUB_OUTPUT"
-                      echo "ref=" >> "$GITHUB_OUTPUT"
+                      printf 'run=true\nref=%s\ntarget_ref=%s\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
                       exit 0
                   fi
                   head=$(gh api "repos/$REPO/commits/dev" --jq .sha)
-                  # a run whose release checks passed uploads release-checks-passed-<the commit it tested>; only one of this
-                  # workflow, run on a schedule or by hand in this repository and ended in success, counts: an artifact of
-                  # that name from a pull request, a fork or another workflow proves nothing
+                  # Only a successful schedule using this workflow revision proves scheduler compatibility.
+                  # Manual runs and old-format markers cannot hide a broken default-branch entry point.
                   passed=0
-                  ids=$(gh api "repos/$REPO/actions/artifacts?name=release-checks-passed-$head&per_page=100" \
+                  ids=$(gh api "repos/$REPO/actions/artifacts?name=release-checks-passed-v2-$head&per_page=100" \
                       --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_repository_id == .workflow_run.repository_id) | .workflow_run.id')
                   for id in $ids; do
-                      if [ -n "$(gh api "repos/$REPO/actions/runs/$id" --jq 'select(.path == ".github/workflows/release-checks.yml" and (.event == "schedule" or .event == "workflow_dispatch") and .conclusion == "success") | .id')" ]; then
+                      if [ -n "$(gh api "repos/$REPO/actions/runs/$id" --jq 'select(.path == ".github/workflows/release-checks.yml" and .event == "schedule" and .head_sha == "'"$WORKFLOW_SHA"'" and .conclusion == "success") | .id')" ]; then
                           passed=1
                           echo "run $id passed the release checks on $head"
                           break
@@ -87,30 +87,75 @@ jobs:
                       echo "run=true" >> "$GITHUB_OUTPUT"
                   fi
                   echo "ref=$head" >> "$GITHUB_OUTPUT"
+                  echo "target_ref=dev" >> "$GITHUB_OUTPUT"
 
     checks:
         name: Release suite
         needs: changed
         if: needs.changed.outputs.run == 'true'
         runs-on: ubuntu-latest
-        # the tests, plus 3 for the advisory Jev step (2) and its upload: a diagnosis must never be what times the job out
+        # The suite plus 3 minutes for one advisory diagnosis route and its upload.
         timeout-minutes: 48
+        defaults:
+            run:
+                working-directory: release-checks-target
+        outputs:
+            failure_category: ${{ steps.failure.outputs.category }}
+            failed_step: ${{ steps.failure.outputs.step }}
         env:
+            RELEASE_RUNNER: ../tools/ci/release-checks.mjs
+            RELEASE_TOOLS: ../tools/ci
             XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
         steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            # Orchestration is pinned to the workflow; implementation/configuration live in their own checkout.
+            # Local actions remain at their normal path, including when the target is the older main revision.
+            - id: control
+              name: Check out the workflow tools
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  ref: ${{ needs.changed.outputs.ref }} # empty: the pull request's or the branch's own commit
+                  ref: ${{ github.workflow_sha }}
+                  sparse-checkout: |
+                      tools/ci
+                      .github/actions/jev-diagnosis
+                      .github/workflows/release-checks.yml
+                  sparse-checkout-cone-mode: false
+
+            - id: checkout
+              name: Check out the target
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  # A scheduled job has main's cache scope: execute only the maintained dev branch. Other events
+                  # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
+                  # If dev advances after resolution, provenance fails before any target code runs.
+                  ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}
+                  path: release-checks-target
+
+            - name: Verify the tested revision
+              id: provenance
+              env:
+                  RESOLVED_SHA: ${{ needs.changed.outputs.ref }}
+                  RESOLVED_REF: ${{ needs.changed.outputs.target_ref }}
+              run: |
+                  tested=$(git rev-parse HEAD)
+                  if [ "$tested" != "$RESOLVED_SHA" ]; then
+                      echo "::error::Checkout $tested differs from resolved target $RESOLVED_SHA"
+                      exit 1
+                  fi
+                  printf 'TESTED_SHA=%s\nTESTED_REF=%s\nRESOLVED_SHA=%s\nRESOLVED_REF=%s\n' \
+                      "$tested" "$RESOLVED_REF" "$RESOLVED_SHA" "$RESOLVED_REF" >> "$GITHUB_ENV"
 
             # no npm cache: the scheduled run executes dev's code in the default branch's context, so a cache it saved would
             # come from code main has not taken yet (as monthly.yml)
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+            - id: node
+              uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 22
 
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
-            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+            - id: buildx
+              uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             # reads the image cache CI writes for dev and main (ci.yml, *Name the build cache*: a public package, so no
             # login), then the GitHub Actions caches CI keeps as fallbacks; writes none
@@ -129,7 +174,7 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo
+                  source: ./release-checks-target/demo
                   files: |
                       compose.yaml
                       compose.override.yaml
@@ -143,12 +188,12 @@ jobs:
 
             - name: Start the demo (composer install on first start)
               id: start
-              working-directory: demo
+              working-directory: release-checks-target/demo
               run: docker compose up --wait --no-build
 
             - name: Sync recipes into the demo
               id: sync
-              working-directory: demo
+              working-directory: release-checks-target/demo
               run: docker compose exec -T php php ../tools/sync-demo
 
             # The browser runs in upstream's Playwright image (see playwright.config.ts), as in CI
@@ -174,24 +219,23 @@ jobs:
               env:
                   DEMO_URL: https://localhost
                   RELEASE_CHECKS: '1' # adds the release, release-dark and release-harsh projects
-              run: npx playwright test --workers=1 --project=release --project=release-dark --project=release-harsh
+              run: |
+                  set -o pipefail
+                  node "$RELEASE_RUNNER" run 2>&1 | tee "$RUNNER_TEMP/jev-tests.log"
 
             # Structural evidence (tools/ci/release-evidence.mjs): each release project ran a test, each release spec ran
             # and skipped none, so a run that exits 0 having run part of the suite fails here
             - name: Release evidence
               id: evidence
               if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
-              run: |
-                  node tools/ci/release-evidence.mjs --project release --project release-dark --project release-harsh \
-                      --spec release.timings.spec.ts --spec release.long-session.spec.ts --spec release.fuzz.spec.ts \
-                      playwright-results/results.json
+              run: node "$RELEASE_RUNNER" evidence
 
             # The PHP properties (demo/tests/Property) with a random seed and more runs than CI's fixed one; the seed is
             # printed, and SEED=<seed> PROPERTY_RUNS=2000 bin/phpunit --group property replays it
             - name: PHPUnit properties (random seed)
               id: properties
               if: ${{ !cancelled() && steps.start.outcome == 'success' }}
-              working-directory: demo
+              working-directory: release-checks-target/demo
               run: |
                   seed=$(( (RANDOM << 15) | RANDOM ))
                   echo "Property tests: SEED=$seed PROPERTY_RUNS=2000"
@@ -209,12 +253,23 @@ jobs:
                   REPORT_ARTIFACT: release-checks-report
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
+                      Verify the tested revision=${{ steps.provenance.outcome }}
+                      Check out the workflow tools=${{ steps.control.outcome }}
                       Build the demo image=${{ steps.image.outcome }}
                       Start the demo=${{ steps.start.outcome }}
                       Sync recipes into the demo=${{ steps.sync.outcome }}
                       Install Playwright=${{ steps.install.outcome }}
                       Prepare the tests=${{ steps.prepare.outcome }}
-              run: node tools/ci/playwright-summary.mjs playwright-results/results.json
+              run: node "$RELEASE_TOOLS/playwright-summary.mjs" playwright-results/results.json
+
+            - name: Classify a release failure
+              id: failure
+              if: ${{ !cancelled() }}
+              continue-on-error: true # issue metadata, never the suite verdict
+              env:
+                  RELEASE_STEPS: ${{ toJSON(steps) }}
+                  REPORT_STATUS: ${{ steps.results.outputs.status }}
+              run: node "$RELEASE_TOOLS/release-failure.mjs"
 
             # Report only: each timed step's metrics against tests/perf/baseline.json, in the job summary; with
             # `record`, the run's timings as a new baseline, only from a run where every test passed: a failed timed spec
@@ -244,22 +299,22 @@ jobs:
               with:
                   name: release-checks-results
                   path: |
-                      playwright-results/
-                      release-timings/release-timings.md
+                      release-checks-target/playwright-results/
+                      release-checks-target/release-timings/release-timings.md
                   retention-days: 30
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.record && steps.tests.outcome == 'success' && steps.properties.outcome == 'success' && steps.evidence.outcome == 'success' && steps.timings.outcome == 'success' }}
               with:
                   name: release-baseline
-                  path: release-timings/baseline.json
+                  path: release-checks-target/release-timings/baseline.json
                   if-no-files-found: error
                   retention-days: 90
 
             # the end of the server log here, after the test results; the whole log in test-results/ (uploaded below)
             - name: Demo logs
               if: failure()
-              working-directory: demo
+              working-directory: release-checks-target/demo
               run: |
                   mkdir -p ../test-results
                   docker compose logs php > ../test-results/demo-php.log
@@ -271,8 +326,8 @@ jobs:
               with:
                   name: release-checks-report
                   path: |
-                      playwright-report/
-                      test-results/
+                      release-checks-target/playwright-report/
+                      release-checks-target/test-results/
                   retention-days: 7
 
             # Advisory diagnosis of each failed attempt by Jev (TypeSafe), as in CI: collected here, without the key, and
@@ -283,17 +338,42 @@ jobs:
               timeout-minutes: 2
               uses: ./.github/actions/jev-diagnosis
               with:
-                  attempts: playwright-results/failed-attempts.json
-                  compose-logs: demo
+                  attempts: release-checks-target/playwright-results/failed-attempts.json
+                  compose-logs: release-checks-target/demo
                   shard: release-checks chromium
                   dir: ${{ runner.temp }}/jev-release-checks
                   artifact: jev-input-release-checks-chromium-${{ github.run_id }}-${{ github.run_attempt }}
 
-            # The commit this run tested, read by the next scheduled run's first job: a successful scheduled or manual run's
-            # only (never a pull request's), and advisory: without it the next daily run tests again
+            # A discovery/configuration failure may write no browser attempts. Collect its captured command
+            # instead, preserving the failed step's exit status and leaving diagnosis advisory and key-free.
+            - name: Collect failed release steps
+              id: step-attempts
+              if: ${{ failure() && !(steps.results.outputs.failed > 0 || steps.results.outputs.flaky > 0) }}
+              continue-on-error: true
+              env:
+                  RELEASE_STEPS: ${{ toJSON(steps) }}
+              working-directory: .
+              run: |
+                  node tools/ci/step-attempts.mjs --steps "$RELEASE_STEPS" --logs "$RUNNER_TEMP" \
+                      --workflow .github/workflows/release-checks.yml "$RUNNER_TEMP/release-step-attempts.json"
+
+            - name: Jev diagnosis of release steps (advisory)
+              if: ${{ always() && steps.step-attempts.outcome == 'success' && !(steps.results.outputs.failed > 0 || steps.results.outputs.flaky > 0) }}
+              continue-on-error: true
+              timeout-minutes: 2
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  attempts: ${{ runner.temp }}/release-step-attempts.json
+                  compose-logs: release-checks-target/demo
+                  shard: release-checks chromium
+                  dir: ${{ runner.temp }}/jev-release-steps
+                  artifact: jev-input-release-checks-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+
+            # The commit this run tested, read by the next scheduled run's first job: a successful scheduled run's
+            # only (never a pull request's or manual run's), and advisory: without it the next daily run tests again
             - name: Record the tested commit
               id: tested
-              if: ${{ success() && github.event_name != 'pull_request' }}
+              if: ${{ success() && github.event_name == 'schedule' }}
               continue-on-error: true
               run: |
                   mkdir -p "$RUNNER_TEMP/tested"
@@ -302,10 +382,10 @@ jobs:
 
             # named by the commit: the next scheduled run asks for this name, one API call, nothing downloaded
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ success() && github.event_name != 'pull_request' && steps.tested.outcome == 'success' }}
+              if: ${{ success() && github.event_name == 'schedule' && steps.tested.outcome == 'success' }}
               continue-on-error: true
               with:
-                  name: release-checks-passed-${{ steps.tested.outputs.sha }}
+                  name: release-checks-passed-v2-${{ steps.tested.outputs.sha }}
                   path: ${{ runner.temp }}/tested/commit
                   retention-days: 90
 
@@ -363,6 +443,8 @@ jobs:
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
                   RESULT: ${{ needs.checks.result }}
+                  CATEGORY: ${{ needs.checks.outputs.failure_category }}
+                  FAILED_STEP: ${{ needs.checks.outputs.failed_step }}
                   COMMIT: ${{ needs.changed.outputs.ref }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
@@ -376,7 +458,7 @@ jobs:
                   if [ "$CHANGED" != success ]; then
                       body="The daily release checks could not tell what to check (What to check: **$CHANGED**), so no suite ran: $RUN_URL"
                   else
-                      body="The daily release checks ended with **$RESULT** on dev at $COMMIT: $RUN_URL (the job summary names the failed tests and the seeds to replay)."
+                      body="The daily release checks ended with **$RESULT** on dev at $COMMIT: $RUN_URL. Failure: ${CATEGORY:-suite failure}; first failed step: ${FAILED_STEP:-unavailable}. Browser counts and replay seeds are available only when tests produced them; see the job summary and captured logs."
                   fi
                   if [ -n "$open" ]; then
                       gh issue comment "$open" --repo "$REPO" --body "$body"

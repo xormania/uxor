@@ -1,0 +1,12 @@
+## Playwright: no test evidence
+
+no test evidence: tests not reached or report not written (playwright-results/results.json is missing)
+
+- Tested commit: `40d957cd1ea7766ac0dee742816948ce5ae05bc3` (dev)
+- Resolved target: `40d957cd1ea7766ac0dee742816948ce5ae05bc3` (dev)
+- Event commit: `9b2fa7309786cee435503de87cf0cd5f0a9d9782` (main)
+- Workflow definition: `9b2fa7309786cee435503de87cf0cd5f0a9d9782` (example/project/.github/workflows/release-checks.yml@refs/heads/main)
+- Shard: unknown
+- Runtime: Node v24.19.0
+
+::error title=Playwright::no test evidence: tests not reached or report not written (playwright-results/results.json is missing)

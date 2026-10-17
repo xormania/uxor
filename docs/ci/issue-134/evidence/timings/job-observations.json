@@ -1,0 +1,3475 @@
+{
+  "schema": 1,
+  "observedAt": "2026-10-16T21:13:40.016353+00:00",
+  "head": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+  "runId": "38880910402",
+  "source": "Unauthenticated public job HTML, exact-head checks; inferred start = displayed complete time minus displayed job duration, rounded seconds",
+  "jobs": [
+    {
+      "id": "116907145146",
+      "name": "Changes",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907145146",
+      "observedDurationText": "Oct 16, 2026 in 7s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:25Z",
+          "completed-at": "2026-10-16T09:30:26Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:26Z",
+          "completed-at": "2026-10-16T09:30:27Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "The script's own cases",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:27Z",
+          "completed-at": "2026-10-16T09:30:28Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run # A work order's own branch while its pull request into dev is a draft or not open: nothing else runs",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:28Z",
+          "completed-at": "2026-10-16T09:30:28Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Shard timings",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:28Z",
+          "completed-at": "2026-10-16T09:30:30Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:30Z",
+          "completed-at": "2026-10-16T09:30:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "7",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:30:30Z",
+          "completed-at": "2026-10-16T09:30:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "14",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:30Z",
+          "completed-at": "2026-10-16T09:30:31Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Complete job",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:31Z",
+          "completed-at": "2026-10-16T09:30:31Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:30:32Z",
+      "observedDurationSeconds": 7,
+      "inferredStartedAt": "2026-10-16T09:30:25Z"
+    },
+    {
+      "id": "116907144475",
+      "name": "Tool tests",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907144475",
+      "observedDurationText": "Oct 16, 2026 in 14s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:30Z",
+          "completed-at": "2026-10-16T09:30:31Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:31Z",
+          "completed-at": "2026-10-16T09:30:33Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:33Z",
+          "completed-at": "2026-10-16T09:30:33Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The tools' own cases",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:33Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 7.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "5",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Repository security policy",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Every URL of the kit's repository is manifest.json's homepage",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "13",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "14",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:30:43Z",
+      "observedDurationSeconds": 14,
+      "inferredStartedAt": "2026-10-16T09:30:29Z"
+    },
+    {
+      "id": "116907204477",
+      "name": "Workflows",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907204477",
+      "observedDurationText": "Oct 16, 2026 in 8s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:35Z",
+          "completed-at": "2026-10-16T09:30:35Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:35Z",
+          "completed-at": "2026-10-16T09:30:38Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Install actionlint and ShellCheck",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:38Z",
+          "completed-at": "2026-10-16T09:30:39Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "actionlint",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:39Z",
+          "completed-at": "2026-10-16T09:30:39Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The release plan's own cases",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:39Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Release dry run on main",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "7",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "14",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:30:42Z",
+      "observedDurationSeconds": 8,
+      "inferredStartedAt": "2026-10-16T09:30:34Z"
+    },
+    {
+      "id": "116907206524",
+      "name": "Lint kit",
+      "status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907206524",
+      "observedDurationText": null,
+      "steps": []
+    },
+    {
+      "id": "116907204170",
+      "name": "Importmap packages",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907204170",
+      "observedDurationText": "Oct 16, 2026 in 14s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:34Z",
+          "completed-at": "2026-10-16T09:30:35Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:35Z",
+          "completed-at": "2026-10-16T09:30:37Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:37Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Install the demo's dependencies",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:45Z",
+          "durationSeconds": 5.0
+        },
+        {
+          "name": "Download the importmap packages (3 attempts)",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:45Z",
+          "completed-at": "2026-10-16T09:30:46Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:46Z",
+          "completed-at": "2026-10-16T09:30:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "7",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:30:46Z",
+          "completed-at": "2026-10-16T09:30:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "14",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:46Z",
+          "completed-at": "2026-10-16T09:30:47Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Complete job",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:47Z",
+          "completed-at": "2026-10-16T09:30:47Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:30:48Z",
+      "observedDurationSeconds": 14,
+      "inferredStartedAt": "2026-10-16T09:30:34Z"
+    },
+    {
+      "id": "116907205990",
+      "name": "Fresh install",
+      "status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907205990",
+      "observedDurationText": null,
+      "steps": []
+    },
+    {
+      "id": "116907206448",
+      "name": "Fresh install (Symfony Docker, from GitHub)",
+      "status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907206448",
+      "observedDurationText": null,
+      "steps": []
+    },
+    {
+      "id": "116907204286",
+      "name": "Contrast",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907204286",
+      "observedDurationText": "Oct 16, 2026 in 13s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:35Z",
+          "completed-at": "2026-10-16T09:30:36Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:36Z",
+          "completed-at": "2026-10-16T09:30:38Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:38Z",
+          "completed-at": "2026-10-16T09:30:40Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run npm ci",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:40Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Token contrast (tools/contrast/pairs.json, both themes)",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The theme recipe ships kit.css unchanged",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "llms.txt matches docs/RECIPES.md's recipe tables",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The markdown teaches no Flowbite JS, palette color, inline handler or style",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Icons are flowbite names written in full, in the recipes' templates and the markdown",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Every README example is one the demo reads",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:41Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Each recipe README renders its manifest's dependencies and writes no version table",
+          "number": "12",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:42Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "A recipe whose code changed has its README changed, or a Docs-waiver trailer",
+          "number": "13",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:42Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:30:42Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "27",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:42Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "28",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:42Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "29",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:42Z",
+          "completed-at": "2026-10-16T09:30:42Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:30:47Z",
+      "observedDurationSeconds": 13,
+      "inferredStartedAt": "2026-10-16T09:30:34Z"
+    },
+    {
+      "id": "116907206664",
+      "name": "Build cache",
+      "status": "This job was skipped",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907206664",
+      "observedDurationText": null,
+      "steps": []
+    },
+    {
+      "id": "116907304582",
+      "name": "Kit PHP",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304582",
+      "observedDurationText": "Oct 16, 2026 in 36s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:51Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:53Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:53Z",
+          "completed-at": "2026-10-16T09:30:57Z",
+          "durationSeconds": 4.0
+        },
+        {
+          "name": "Syntax",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:57Z",
+          "completed-at": "2026-10-16T09:30:58Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:58Z",
+          "completed-at": "2026-10-16T09:30:59Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Install the demo",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:59Z",
+          "completed-at": "2026-10-16T09:31:08Z",
+          "durationSeconds": 9.0
+        },
+        {
+          "name": "PHPUnit",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:08Z",
+          "completed-at": "2026-10-16T09:31:14Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "8",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:14Z",
+          "completed-at": "2026-10-16T09:31:14Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install PHPStan",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:14Z",
+          "completed-at": "2026-10-16T09:31:20Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "PHPStan",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:20Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 5.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:31:26Z",
+      "observedDurationSeconds": 36,
+      "inferredStartedAt": "2026-10-16T09:30:50Z"
+    },
+    {
+      "id": "116907304635",
+      "name": "Static site",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304635",
+      "observedDurationText": "Oct 16, 2026 in 26s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:53Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:53Z",
+          "completed-at": "2026-10-16T09:30:54Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:54Z",
+          "completed-at": "2026-10-16T09:31:00Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:00Z",
+          "completed-at": "2026-10-16T09:31:01Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Build and check the static site",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:01Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 12.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "6",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:13Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "12",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:13Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "13",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:13Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:31:16Z",
+      "observedDurationSeconds": 26,
+      "inferredStartedAt": "2026-10-16T09:30:50Z"
+    },
+    {
+      "id": "116907304915",
+      "name": "Demo + Playwright (chromium 1/4)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304915",
+      "observedDurationText": "Oct 16, 2026 in 9m 19s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:52Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:52Z",
+          "completed-at": "2026-10-16T09:30:54Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:54Z",
+          "completed-at": "2026-10-16T09:30:55Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:55Z",
+          "completed-at": "2026-10-16T09:30:59Z",
+          "durationSeconds": 4.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:59Z",
+          "completed-at": "2026-10-16T09:30:59Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:59Z",
+          "completed-at": "2026-10-16T09:31:10Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:10Z",
+          "completed-at": "2026-10-16T09:31:11Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:11Z",
+          "completed-at": "2026-10-16T09:31:11Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:11Z",
+          "completed-at": "2026-10-16T09:31:22Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:22Z",
+          "completed-at": "2026-10-16T09:31:22Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:22Z",
+          "completed-at": "2026-10-16T09:31:22Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:22Z",
+          "completed-at": "2026-10-16T09:31:22Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:22Z",
+          "completed-at": "2026-10-16T09:31:23Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:23Z",
+          "completed-at": "2026-10-16T09:31:24Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:24Z",
+          "completed-at": "2026-10-16T09:31:49Z",
+          "durationSeconds": 25.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:49Z",
+          "completed-at": "2026-10-16T09:31:51Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:51Z",
+          "completed-at": "2026-10-16T09:31:52Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:52Z",
+          "completed-at": "2026-10-16T09:32:02Z",
+          "durationSeconds": 10.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:02Z",
+          "completed-at": "2026-10-16T09:40:04Z",
+          "durationSeconds": 482.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:04Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:40:09Z",
+      "observedDurationSeconds": 559,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 72.0,
+        "tests": 482.0,
+        "afterTests": 5.0
+      }
+    },
+    {
+      "id": "116907304988",
+      "name": "Demo + Playwright (chromium 2/4)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304988",
+      "observedDurationText": "Oct 16, 2026 in 9m 40s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:55Z",
+          "durationSeconds": 4.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:55Z",
+          "completed-at": "2026-10-16T09:30:56Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:56Z",
+          "completed-at": "2026-10-16T09:30:58Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:58Z",
+          "completed-at": "2026-10-16T09:31:05Z",
+          "durationSeconds": 7.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:05Z",
+          "completed-at": "2026-10-16T09:31:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:05Z",
+          "completed-at": "2026-10-16T09:31:18Z",
+          "durationSeconds": 13.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:18Z",
+          "completed-at": "2026-10-16T09:31:19Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:19Z",
+          "completed-at": "2026-10-16T09:31:19Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:19Z",
+          "completed-at": "2026-10-16T09:31:30Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:30Z",
+          "completed-at": "2026-10-16T09:31:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:30Z",
+          "completed-at": "2026-10-16T09:31:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:30Z",
+          "completed-at": "2026-10-16T09:31:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:30Z",
+          "completed-at": "2026-10-16T09:31:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:30Z",
+          "completed-at": "2026-10-16T09:31:30Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:30Z",
+          "completed-at": "2026-10-16T09:31:56Z",
+          "durationSeconds": 26.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:56Z",
+          "completed-at": "2026-10-16T09:32:00Z",
+          "durationSeconds": 4.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:00Z",
+          "completed-at": "2026-10-16T09:32:00Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:00Z",
+          "completed-at": "2026-10-16T09:32:11Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:11Z",
+          "completed-at": "2026-10-16T09:40:25Z",
+          "durationSeconds": 494.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:25Z",
+          "completed-at": "2026-10-16T09:40:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:25Z",
+          "completed-at": "2026-10-16T09:40:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:25Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:27Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:27Z",
+          "completed-at": "2026-10-16T09:40:28Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:28Z",
+          "completed-at": "2026-10-16T09:40:28Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:40:30Z",
+      "observedDurationSeconds": 580,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 81.0,
+        "tests": 494.0,
+        "afterTests": 5.0
+      }
+    },
+    {
+      "id": "116907304803",
+      "name": "Demo + Playwright (chromium 3/4)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304803",
+      "observedDurationText": "Oct 16, 2026 in 7m 34s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:56Z",
+          "durationSeconds": 5.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:56Z",
+          "completed-at": "2026-10-16T09:30:58Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:58Z",
+          "completed-at": "2026-10-16T09:31:00Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:00Z",
+          "completed-at": "2026-10-16T09:31:06Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:06Z",
+          "completed-at": "2026-10-16T09:31:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:06Z",
+          "completed-at": "2026-10-16T09:31:22Z",
+          "durationSeconds": 16.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:22Z",
+          "completed-at": "2026-10-16T09:31:23Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:23Z",
+          "completed-at": "2026-10-16T09:31:23Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:23Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:32:02Z",
+          "durationSeconds": 28.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:02Z",
+          "completed-at": "2026-10-16T09:32:05Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:05Z",
+          "completed-at": "2026-10-16T09:32:06Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:06Z",
+          "completed-at": "2026-10-16T09:32:12Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:12Z",
+          "completed-at": "2026-10-16T09:38:19Z",
+          "durationSeconds": 367.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:19Z",
+          "completed-at": "2026-10-16T09:38:19Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:19Z",
+          "completed-at": "2026-10-16T09:38:19Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:19Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:38:24Z",
+      "observedDurationSeconds": 454,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 82.0,
+        "tests": 367.0,
+        "afterTests": 5.0
+      }
+    },
+    {
+      "id": "116907304717",
+      "name": "Demo + Playwright (chromium 4/4)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304717",
+      "observedDurationText": "Oct 16, 2026 in 7m 34s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:54Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:54Z",
+          "completed-at": "2026-10-16T09:30:56Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:56Z",
+          "completed-at": "2026-10-16T09:30:57Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:57Z",
+          "completed-at": "2026-10-16T09:31:04Z",
+          "durationSeconds": 7.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:04Z",
+          "completed-at": "2026-10-16T09:31:04Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:04Z",
+          "completed-at": "2026-10-16T09:31:18Z",
+          "durationSeconds": 14.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:18Z",
+          "completed-at": "2026-10-16T09:31:19Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:19Z",
+          "completed-at": "2026-10-16T09:31:19Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:19Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:53Z",
+          "durationSeconds": 28.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:53Z",
+          "completed-at": "2026-10-16T09:31:55Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:55Z",
+          "completed-at": "2026-10-16T09:31:56Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:56Z",
+          "completed-at": "2026-10-16T09:32:02Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:02Z",
+          "completed-at": "2026-10-16T09:38:19Z",
+          "durationSeconds": 377.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:19Z",
+          "completed-at": "2026-10-16T09:38:19Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:19Z",
+          "completed-at": "2026-10-16T09:38:19Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:19Z",
+          "completed-at": "2026-10-16T09:38:20Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:20Z",
+          "completed-at": "2026-10-16T09:38:20Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:20Z",
+          "completed-at": "2026-10-16T09:38:20Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:20Z",
+          "completed-at": "2026-10-16T09:38:20Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:20Z",
+          "completed-at": "2026-10-16T09:38:20Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:20Z",
+          "completed-at": "2026-10-16T09:38:20Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:20Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:21Z",
+          "completed-at": "2026-10-16T09:38:21Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:38:24Z",
+      "observedDurationSeconds": 454,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 72.0,
+        "tests": 377.0,
+        "afterTests": 5.0
+      }
+    },
+    {
+      "id": "116907304767",
+      "name": "Demo + Playwright (firefox 1/3)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304767",
+      "observedDurationText": "Oct 16, 2026 in 9m 56s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:53Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:53Z",
+          "completed-at": "2026-10-16T09:30:55Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:55Z",
+          "completed-at": "2026-10-16T09:30:57Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:57Z",
+          "completed-at": "2026-10-16T09:31:06Z",
+          "durationSeconds": 9.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:06Z",
+          "completed-at": "2026-10-16T09:31:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:06Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 15.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:23Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:23Z",
+          "completed-at": "2026-10-16T09:31:23Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:23Z",
+          "completed-at": "2026-10-16T09:31:33Z",
+          "durationSeconds": 10.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:33Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:34Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:34Z",
+          "completed-at": "2026-10-16T09:31:59Z",
+          "durationSeconds": 25.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:59Z",
+          "completed-at": "2026-10-16T09:32:02Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:02Z",
+          "completed-at": "2026-10-16T09:32:03Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:03Z",
+          "completed-at": "2026-10-16T09:32:13Z",
+          "durationSeconds": 10.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:13Z",
+          "completed-at": "2026-10-16T09:40:39Z",
+          "durationSeconds": 506.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:39Z",
+          "completed-at": "2026-10-16T09:40:39Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:39Z",
+          "completed-at": "2026-10-16T09:40:39Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:39Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:41Z",
+          "completed-at": "2026-10-16T09:40:42Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:42Z",
+          "completed-at": "2026-10-16T09:40:42Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:42Z",
+          "completed-at": "2026-10-16T09:40:42Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:40:46Z",
+      "observedDurationSeconds": 596,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 83.0,
+        "tests": 506.0,
+        "afterTests": 7.0
+      }
+    },
+    {
+      "id": "116907304989",
+      "name": "Demo + Playwright (firefox 2/3)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304989",
+      "observedDurationText": "Oct 16, 2026 in 9m 19s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:56Z",
+          "durationSeconds": 5.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:56Z",
+          "completed-at": "2026-10-16T09:30:57Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:57Z",
+          "completed-at": "2026-10-16T09:30:59Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:59Z",
+          "completed-at": "2026-10-16T09:31:12Z",
+          "durationSeconds": 13.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:12Z",
+          "completed-at": "2026-10-16T09:31:12Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:12Z",
+          "completed-at": "2026-10-16T09:31:31Z",
+          "durationSeconds": 19.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:31Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:43Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:43Z",
+          "completed-at": "2026-10-16T09:31:43Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:43Z",
+          "completed-at": "2026-10-16T09:31:43Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:43Z",
+          "completed-at": "2026-10-16T09:31:43Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:43Z",
+          "completed-at": "2026-10-16T09:31:43Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:43Z",
+          "completed-at": "2026-10-16T09:31:43Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:43Z",
+          "completed-at": "2026-10-16T09:32:17Z",
+          "durationSeconds": 34.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:17Z",
+          "completed-at": "2026-10-16T09:32:20Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:20Z",
+          "completed-at": "2026-10-16T09:32:21Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:21Z",
+          "completed-at": "2026-10-16T09:32:29Z",
+          "durationSeconds": 8.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:29Z",
+          "completed-at": "2026-10-16T09:40:03Z",
+          "durationSeconds": 454.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:03Z",
+          "completed-at": "2026-10-16T09:40:04Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:04Z",
+          "completed-at": "2026-10-16T09:40:04Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:04Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:06Z",
+          "completed-at": "2026-10-16T09:40:06Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:40:09Z",
+      "observedDurationSeconds": 559,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 99.0,
+        "tests": 454.0,
+        "afterTests": 6.0
+      }
+    },
+    {
+      "id": "116907304755",
+      "name": "Demo + Playwright (firefox 3/3)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304755",
+      "observedDurationText": "Oct 16, 2026 in 10m 3s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:56Z",
+          "durationSeconds": 5.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:56Z",
+          "completed-at": "2026-10-16T09:30:58Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:58Z",
+          "completed-at": "2026-10-16T09:31:00Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:00Z",
+          "completed-at": "2026-10-16T09:31:05Z",
+          "durationSeconds": 5.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:05Z",
+          "completed-at": "2026-10-16T09:31:05Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:05Z",
+          "completed-at": "2026-10-16T09:31:19Z",
+          "durationSeconds": 14.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:19Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:32Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:32Z",
+          "completed-at": "2026-10-16T09:31:58Z",
+          "durationSeconds": 26.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:58Z",
+          "completed-at": "2026-10-16T09:32:01Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:01Z",
+          "completed-at": "2026-10-16T09:32:02Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:02Z",
+          "completed-at": "2026-10-16T09:32:12Z",
+          "durationSeconds": 10.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:12Z",
+          "completed-at": "2026-10-16T09:40:46Z",
+          "durationSeconds": 514.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:46Z",
+          "completed-at": "2026-10-16T09:40:47Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:47Z",
+          "completed-at": "2026-10-16T09:40:47Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:47Z",
+          "completed-at": "2026-10-16T09:40:48Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:48Z",
+          "completed-at": "2026-10-16T09:40:48Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:48Z",
+          "completed-at": "2026-10-16T09:40:48Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:40:48Z",
+          "completed-at": "2026-10-16T09:40:48Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:48Z",
+          "completed-at": "2026-10-16T09:40:48Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:48Z",
+          "completed-at": "2026-10-16T09:40:48Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:48Z",
+          "completed-at": "2026-10-16T09:40:49Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:49Z",
+          "completed-at": "2026-10-16T09:40:49Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:49Z",
+          "completed-at": "2026-10-16T09:40:49Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:49Z",
+          "completed-at": "2026-10-16T09:40:49Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:40:53Z",
+      "observedDurationSeconds": 603,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 82.0,
+        "tests": 514.0,
+        "afterTests": 7.0
+      }
+    },
+    {
+      "id": "116907304929",
+      "name": "Demo + Playwright (webkit 1/3)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304929",
+      "observedDurationText": "Oct 16, 2026 in 9m 16s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:52Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:52Z",
+          "completed-at": "2026-10-16T09:30:54Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:54Z",
+          "completed-at": "2026-10-16T09:30:54Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:54Z",
+          "completed-at": "2026-10-16T09:31:01Z",
+          "durationSeconds": 7.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:01Z",
+          "completed-at": "2026-10-16T09:31:01Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:01Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 12.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:13Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:13Z",
+          "completed-at": "2026-10-16T09:31:13Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:13Z",
+          "completed-at": "2026-10-16T09:31:24Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:24Z",
+          "completed-at": "2026-10-16T09:31:24Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:24Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:25Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:25Z",
+          "completed-at": "2026-10-16T09:31:50Z",
+          "durationSeconds": 25.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:50Z",
+          "completed-at": "2026-10-16T09:31:53Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:53Z",
+          "completed-at": "2026-10-16T09:31:54Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:54Z",
+          "completed-at": "2026-10-16T09:32:04Z",
+          "durationSeconds": 10.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:04Z",
+          "completed-at": "2026-10-16T09:39:52Z",
+          "durationSeconds": 468.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:52Z",
+          "completed-at": "2026-10-16T09:39:53Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:53Z",
+          "completed-at": "2026-10-16T09:39:54Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:54Z",
+          "completed-at": "2026-10-16T09:39:54Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:39:54Z",
+          "completed-at": "2026-10-16T09:39:54Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:39:54Z",
+          "completed-at": "2026-10-16T09:39:54Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:39:54Z",
+          "completed-at": "2026-10-16T09:39:54Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:54Z",
+          "completed-at": "2026-10-16T09:39:55Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:55Z",
+          "completed-at": "2026-10-16T09:39:56Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:56Z",
+          "completed-at": "2026-10-16T09:40:04Z",
+          "durationSeconds": 8.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:04Z",
+          "completed-at": "2026-10-16T09:40:04Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:04Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:05Z",
+          "completed-at": "2026-10-16T09:40:05Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:40:06Z",
+      "observedDurationSeconds": 556,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 74.0,
+        "tests": 468.0,
+        "afterTests": 14.0
+      }
+    },
+    {
+      "id": "116907304747",
+      "name": "Demo + Playwright (webkit 2/3)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304747",
+      "observedDurationText": "Oct 16, 2026 in 8m 0s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:55Z",
+          "durationSeconds": 4.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:55Z",
+          "completed-at": "2026-10-16T09:30:57Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:57Z",
+          "completed-at": "2026-10-16T09:31:03Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:03Z",
+          "completed-at": "2026-10-16T09:31:10Z",
+          "durationSeconds": 7.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:10Z",
+          "completed-at": "2026-10-16T09:31:10Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:10Z",
+          "completed-at": "2026-10-16T09:31:27Z",
+          "durationSeconds": 17.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:27Z",
+          "completed-at": "2026-10-16T09:31:28Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:28Z",
+          "completed-at": "2026-10-16T09:31:29Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:29Z",
+          "completed-at": "2026-10-16T09:31:39Z",
+          "durationSeconds": 10.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:39Z",
+          "completed-at": "2026-10-16T09:31:39Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:39Z",
+          "completed-at": "2026-10-16T09:31:40Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:40Z",
+          "completed-at": "2026-10-16T09:31:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:40Z",
+          "completed-at": "2026-10-16T09:31:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:40Z",
+          "completed-at": "2026-10-16T09:31:40Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:40Z",
+          "completed-at": "2026-10-16T09:32:11Z",
+          "durationSeconds": 31.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:11Z",
+          "completed-at": "2026-10-16T09:32:14Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:14Z",
+          "completed-at": "2026-10-16T09:32:15Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:15Z",
+          "completed-at": "2026-10-16T09:32:23Z",
+          "durationSeconds": 8.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:23Z",
+          "completed-at": "2026-10-16T09:38:45Z",
+          "durationSeconds": 382.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:45Z",
+          "completed-at": "2026-10-16T09:38:45Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:45Z",
+          "completed-at": "2026-10-16T09:38:45Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:45Z",
+          "completed-at": "2026-10-16T09:38:46Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:46Z",
+          "completed-at": "2026-10-16T09:38:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:46Z",
+          "completed-at": "2026-10-16T09:38:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:38:46Z",
+          "completed-at": "2026-10-16T09:38:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:46Z",
+          "completed-at": "2026-10-16T09:38:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:46Z",
+          "completed-at": "2026-10-16T09:38:46Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:46Z",
+          "completed-at": "2026-10-16T09:38:47Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:47Z",
+          "completed-at": "2026-10-16T09:38:47Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:47Z",
+          "completed-at": "2026-10-16T09:38:47Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:38:47Z",
+          "completed-at": "2026-10-16T09:38:47Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:38:50Z",
+      "observedDurationSeconds": 480,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 93.0,
+        "tests": 382.0,
+        "afterTests": 5.0
+      }
+    },
+    {
+      "id": "116907304798",
+      "name": "Demo + Playwright (webkit 3/3)",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116907304798",
+      "observedDurationText": "Oct 16, 2026 in 8m 57s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:51Z",
+          "completed-at": "2026-10-16T09:30:52Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:52Z",
+          "completed-at": "2026-10-16T09:30:54Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:54Z",
+          "completed-at": "2026-10-16T09:30:55Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:30:55Z",
+          "completed-at": "2026-10-16T09:31:02Z",
+          "durationSeconds": 7.0
+        },
+        {
+          "name": "Name the build cache",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:02Z",
+          "completed-at": "2026-10-16T09:31:03Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Build the demo image",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:03Z",
+          "completed-at": "2026-10-16T09:31:14Z",
+          "durationSeconds": 11.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:14Z",
+          "completed-at": "2026-10-16T09:31:15Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the importmap packages",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:15Z",
+          "completed-at": "2026-10-16T09:31:15Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Start the demo (composer install on first start)",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:15Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 6.0
+        },
+        {
+          "name": "The demo's install downloaded no importmap package",
+          "number": "10",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Sync recipes into the demo",
+          "number": "11",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The sync leaves tracked files unchanged",
+          "number": "12",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "The demo's composer.json and composer.lock are valid",
+          "number": "13",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "sync-demo copies what ux:install copies",
+          "number": "14",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:21Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Install Playwright",
+          "number": "15",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:21Z",
+          "completed-at": "2026-10-16T09:31:47Z",
+          "durationSeconds": 26.0
+        },
+        {
+          "name": "Prepare the tests",
+          "number": "16",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:47Z",
+          "completed-at": "2026-10-16T09:31:50Z",
+          "durationSeconds": 3.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:50Z",
+          "completed-at": "2026-10-16T09:31:51Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Plan the shard's tests",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:31:51Z",
+          "completed-at": "2026-10-16T09:32:00Z",
+          "durationSeconds": 9.0
+        },
+        {
+          "name": "Playwright (smoke + every README example + upstream recipe specs)",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:32:00Z",
+          "completed-at": "2026-10-16T09:39:40Z",
+          "durationSeconds": 460.0
+        },
+        {
+          "name": "Read the results",
+          "number": "20",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:40Z",
+          "completed-at": "2026-10-16T09:39:41Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Record the job's metrics (advisory)",
+          "number": "21",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:41Z",
+          "completed-at": "2026-10-16T09:39:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "22",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:41Z",
+          "completed-at": "2026-10-16T09:39:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Demo logs",
+          "number": "23",
+          "conclusion": "skipped",
+          "started-at": "2026-10-16T09:39:41Z",
+          "completed-at": "2026-10-16T09:39:41Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "24",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:41Z",
+          "completed-at": "2026-10-16T09:39:42Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Jev diagnosis (advisory)",
+          "number": "25",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:42Z",
+          "completed-at": "2026-10-16T09:39:44Z",
+          "durationSeconds": 2.0
+        },
+        {
+          "name": "Playwright summary",
+          "number": "26",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:44Z",
+          "completed-at": "2026-10-16T09:39:44Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Build the demo image",
+          "number": "49",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:44Z",
+          "completed-at": "2026-10-16T09:39:44Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+          "number": "50",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:44Z",
+          "completed-at": "2026-10-16T09:39:45Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "51",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:45Z",
+          "completed-at": "2026-10-16T09:39:45Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "52",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:45Z",
+          "completed-at": "2026-10-16T09:39:45Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "53",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:39:45Z",
+          "completed-at": "2026-10-16T09:39:45Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:39:47Z",
+      "observedDurationSeconds": 537,
+      "inferredStartedAt": "2026-10-16T09:30:50Z",
+      "phaseSeconds": {
+        "setupBeforeTests": 70.0,
+        "tests": 460.0,
+        "afterTests": 7.0
+      }
+    },
+    {
+      "id": "116911068317",
+      "name": "CI result",
+      "status": "This job succeeded",
+      "url": "https://github.com/xormania/uxor/actions/runs/38880910402/job/116911068317",
+      "observedDurationText": "Oct 16, 2026 in 9s",
+      "steps": [
+        {
+          "name": "Set up job",
+          "number": "1",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:56Z",
+          "completed-at": "2026-10-16T09:40:57Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Every job passed or was skipped",
+          "number": "2",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:57Z",
+          "completed-at": "2026-10-16T09:40:57Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "3",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:57Z",
+          "completed-at": "2026-10-16T09:40:58Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "4",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:58Z",
+          "completed-at": "2026-10-16T09:40:58Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "5",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:58Z",
+          "completed-at": "2026-10-16T09:40:59Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Run actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333",
+          "number": "6",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:40:59Z",
+          "completed-at": "2026-10-16T09:41:00Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "CI metrics (advisory)",
+          "number": "7",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:41:00Z",
+          "completed-at": "2026-10-16T09:41:01Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Shard timings (advisory)",
+          "number": "8",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:41:01Z",
+          "completed-at": "2026-10-16T09:41:01Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+          "number": "9",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:41:01Z",
+          "completed-at": "2026-10-16T09:41:02Z",
+          "durationSeconds": 1.0
+        },
+        {
+          "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+          "number": "17",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:41:02Z",
+          "completed-at": "2026-10-16T09:41:02Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "number": "18",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:41:02Z",
+          "completed-at": "2026-10-16T09:41:02Z",
+          "durationSeconds": 0.0
+        },
+        {
+          "name": "Complete job",
+          "number": "19",
+          "conclusion": "success",
+          "started-at": "2026-10-16T09:41:02Z",
+          "completed-at": "2026-10-16T09:41:02Z",
+          "durationSeconds": 0.0
+        }
+      ],
+      "observedCompletedAt": "2026-10-16T09:41:04Z",
+      "observedDurationSeconds": 9,
+      "inferredStartedAt": "2026-10-16T09:40:55Z"
+    }
+  ]
+}

@@ -532,6 +532,24 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 | The current released series stays supported, and xormania owns all changes plus the security policy and agent rules explicitly | static policy, review | `tools/tests/security-policy.test.mjs`; `.github/CODEOWNERS`; branch ruleset requiring code-owner review |
 | Agents resist prompt injection, credential discovery, scope pressure, workflow escalation, path escape, false evidence and self-approval | adversarial evaluation | `docs/AGENT-ASSURANCE.md`; manual disposable-fork protocol with transcript, worktree and network evidence |
 
+## Release workflow contracts
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Scheduler control tools select the target checkout's complete current or legacy release family; discovery errors, mixed/partial families and test failures never fall back to a smaller suite | process integration | `tools/tests/release-checks.test.mjs`; pinned historical/current project fixtures, actual runner CLI with isolated launcher, same selection used by `release-evidence.mjs` |
+| Missing required projects/specs and skipped release specs remain fatal after a successful process exit | process integration | `tools/tests/release-evidence.test.mjs`, `tools/tests/release-checks.test.mjs`, `tools/tests/release-checks-workflow.test.mjs` |
+| The structural validator comes from the control checkout; replacement or deletion of a target helper cannot change project/spec validation | process integration | `tools/tests/release-checks.test.mjs`; separate control/target directories, actual sibling evidence CLI, both project families, missing/incomplete reports and target sentinel |
+| A pre-report Playwright failure retains its exit/error and can reach advisory captured-step diagnosis without credentials or invented counts | process integration | `tools/tests/release-checks-workflow.test.mjs`; actual workflow launch shell, missing-report summary and `step-attempts.mjs` |
+| Event/workflow/target/checkout revisions remain distinct in summaries and artifacts; a mismatched checkout fails before tests | process integration | `tools/tests/playwright-summary.test.mjs`, `tools/tests/step-attempts.test.mjs`, `tools/tests/release-checks-workflow.test.mjs`; shared `run-provenance.mjs` |
+| Scheduled checkout trusts only the maintained development branch; other checkouts trust their immutable event SHA. A substituted resolver SHA or a moving development head fails before target code executes | workflow/process integration | `tools/tests/release-checks-workflow.test.mjs`; actual checkout expression and provenance shell with real Git revisions, including valid event and stable scheduled controls |
+| Only a successful compatible scheduled run can suppress another schedule; manual, failed, fork, expired and old-workflow markers cannot mask a broken entry point | process integration | `tools/tests/release-checks-workflow.test.mjs`; actual target-resolution and verdict shells with API metadata fixtures |
+| Issue classification names the first failed step, ignores tolerated advisory failures, and calls a browser test failure only when the report actually records a failed test | tool/process integration | `tools/tests/release-checks-workflow.test.mjs`; `release-failure.mjs` API and CLI, including a valid global-error report with no browser attempts |
+
+Existing parser, summary and captured-step helpers are reused; no browser fixture, product assertion or screenshot
+baseline is replaced. These local tests do not replace a fresh default-branch scheduled run after promotion. The
+[issue 134 evidence bundle](ci/issue-134/README.md) records historical red/green behavior, semantic mutation
+calibration, coverage overlap, measured hosted timing and unresolved operational acceptance.
+
 ## Pending: branches in flight
 
 None. `claude/mobile-nav` (mobile-nav) and `claude/vtabs` (section-nav, vertical tabs) have landed, with their rows

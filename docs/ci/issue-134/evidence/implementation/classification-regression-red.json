@@ -1,0 +1,12 @@
+{
+  "exit": 1,
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=a valid report with a global error",
+    "tools/tests/release-checks-workflow.test.mjs"
+  ],
+  "expected": "Playwright run failure (no failed test reported)",
+  "actual": "browser test failure",
+  "implementation_revision": "c128aeec88b1c17c753c21bc91d619a1e5027411"
+}

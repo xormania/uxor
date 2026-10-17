@@ -1,0 +1,16 @@
+{
+  "exit": 0,
+  "command": [
+    "node",
+    "--test",
+    "tools/tests/release-checks-workflow.test.mjs",
+    "tools/tests/release-checks.test.mjs",
+    "tools/tests/playwright-summary.test.mjs",
+    "tools/tests/step-attempts.test.mjs"
+  ],
+  "tests_passed": 45,
+  "real_report_classification": {
+    "category": "Playwright run failure (no failed test reported)",
+    "step": "Playwright (release checks)"
+  }
+}
