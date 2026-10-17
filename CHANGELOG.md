@@ -5,6 +5,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-17
+
 ### Added
 
 - `oauth`: installed Symfony authentication with Google, Facebook and GitHub, single-use provider-bound attempts, PKCE and Google ID-token validation, safe return paths and explicit account connections.
@@ -282,6 +284,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/xormania/uxor/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/xormania/uxor/releases/tag/0.1.0
