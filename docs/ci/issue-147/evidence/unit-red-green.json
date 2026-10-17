@@ -1,0 +1,30 @@
+{
+  "baseline": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+  "baseline_helper_adaptation": "Verbatim old helper with only its TypeScript signature erased and export added for the new module boundary.",
+  "test_sha256": "4cda91de8a9b04d2a4a69bdbb89e151b531caee180ab45d9f52e712fa36dc2bf",
+  "runtime": "v24.19.0",
+  "command": [
+    "node",
+    "--test",
+    "tools/tests/leak-detector.test.mjs"
+  ],
+  "red": {
+    "exit_code": 1,
+    "passed": 3,
+    "failed": 1,
+    "helper_sha256": "124e85a7612b1886604f2de43372ed9cc96d7f757495626ae87ab15a19147d37",
+    "log_sha256": "73bf0e7ad0d12727cc6669018f21daa265fea4e9cd6d14fa9ecb051630a8124f"
+  },
+  "green": {
+    "exit_code": 0,
+    "passed": 4,
+    "failed": 0,
+    "helper_sha256": "7798f5b56a838023d4cc1d3a65acd4f9e9dbe0b2ee4cd762c6be6fff6a3c1f12",
+    "log_sha256": "2ba5543114bfd79d0d788a7117279a719eb09d2b3772ed6f68056d91a66f4cd5"
+  },
+  "same_test_bytes": true,
+  "limits": [
+    "Fake Browser objects isolate policy and preserve other-build capability behavior; separate real-browser guard and full traversal/sentinel evidence cover actual runtime.",
+    "Local unit runtime differs from hosted Node22; CI must validate final module on Node22."
+  ]
+}

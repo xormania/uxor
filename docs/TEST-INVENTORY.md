@@ -536,6 +536,7 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 
 | Guarantee | Scope | Covered by |
 |---|---|---|
+| Chromium 145.0.7632.6 selects the existing pressure fallback without starting its known crashing leak-detector probe; other builds still check detector and renderer viability | unit, release E2E | `tools/tests/leak-detector.test.mjs`; `tests/e2e/release.long-session.spec.ts` keeps the 50 visits, forced collections and DOM/heap bounds |
 | Scheduler control tools select the target checkout's complete current or legacy release family; discovery errors, mixed/partial families and test failures never fall back to a smaller suite | process integration | `tools/tests/release-checks.test.mjs`; pinned historical/current project fixtures, actual runner CLI with isolated launcher, same selection used by `release-evidence.mjs` |
 | Missing required projects/specs and skipped release specs remain fatal after a successful process exit | process integration | `tools/tests/release-evidence.test.mjs`, `tools/tests/release-checks.test.mjs`, `tools/tests/release-checks-workflow.test.mjs` |
 | The structural validator comes from the control checkout; replacement or deletion of a target helper cannot change project/spec validation | process integration | `tools/tests/release-checks.test.mjs`; separate control/target directories, actual sibling evidence CLI, both project families, missing/incomplete reports and target sentinel |

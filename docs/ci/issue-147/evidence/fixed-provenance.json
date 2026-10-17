@@ -1,0 +1,58 @@
+{
+  "parent_repository_head": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+  "actual_source": "Current parent production files copied byte-for-byte after MODULE_READY, including the production helper module; no local implementation rewrite.",
+  "fixed_source_sha256": {
+    "tests/e2e/release.long-session.spec.ts": "9fb3c620657fefb2f45cad42af51d663e75cdd9c77200cb96fd8043a0b9d3406",
+    "tests/e2e/leak-detector.mjs": "7798f5b56a838023d4cc1d3a65acd4f9e9dbe0b2ee4cd762c6be6fff6a3c1f12",
+    "tests/e2e/fixtures.ts": "02bc7c73fce40d02d1c7d429190fa31a95e7bd118214b9003b79a997d11e2b1b",
+    "tests/e2e/transitions.ts": "049027ccc77d81fe52c8175d5c3bea4f10dcf205ce76a422952c9a0354f1e00c",
+    "tests/e2e/coverage.ts": "c1d0d6146c4aeefad06e8fd86cf55e48187afdac7438f6a640f8f75f0ef279d7",
+    "tests/e2e/examples/placeholder.png": "95f6f1249753ae4478833a9f75f19aa39d7201643d8e82e21f983de88d77fc15"
+  },
+  "fixed_helper_module_sha256": "7798f5b56a838023d4cc1d3a65acd4f9e9dbe0b2ee4cd762c6be6fff6a3c1f12",
+  "original_source_commit": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+  "original_spec_sha256": "67309448ce4981c3af15891f1891837a476baadecf82f8cdb35f43aeb5c14ce5",
+  "original_helper_trimmed_typescript_sha256": "96446b10bb1050a48f5c2b1c84b37f119d2c7ff6b8b1cde60d1a21a2a63dc27c",
+  "original_helper_mjs_sha256": "124e85a7612b1886604f2de43372ed9cc96d7f757495626ae87ab15a19147d37",
+  "original_conversion": "Added export; removed only browser: Browser parameter type and : Promise<boolean> return type; no statement changes.",
+  "pair_spec_sha256": "431706634b756ca7981589fcb19ff6fa84eb37a0fb5a3e318d52afeef4ecc995",
+  "pair_config_sha256": "9c3c2038f868a59542f256c635a1cc1deda90b2002576aae49a5ead843855f6d",
+  "fixed_config_sha256": "746b995e535ed7e06577b3a250f1689e53a56391c8947b410d07a8bd776f4461",
+  "asset_restoration": {
+    "generated_sha256": "af51119a872adb4cd39aecc26e1e97f80a564f2b7e3ee599b76719766b0d45b7",
+    "compiled_files_exact_match": true,
+    "compiled_file_count": 182
+  },
+  "runtime": {
+    "source_commit": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+    "native_source_checkout": "b683745735d52114b73214f83a47536f2b53cbe7",
+    "node": "v22.23.3",
+    "node_binary_source": "Copied unchanged from cached pinned Xorder145 image /usr/local/bin/node",
+    "node_binary_sha256": "fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48",
+    "php": "8.4.26",
+    "playwright": "1.58.2",
+    "browser": "Chromium145.0.7632.6",
+    "browser_image": "ghcr.io/xormania/playwright-browser@sha256:a9af6ee615412e5e941c1e164beddd157e9eca4c1701e5a08e09f84c016ca9c6",
+    "visit_count": 50,
+    "warm_rounds": 2,
+    "original_test_timeout_ms": 300000,
+    "configured_retries": 1,
+    "trace": "retain-on-failure",
+    "created_unix": 1792207321.488697,
+    "source_hashes": {
+      "tests/e2e/release.long-session.spec.ts": "67309448ce4981c3af15891f1891837a476baadecf82f8cdb35f43aeb5c14ce5",
+      "tests/e2e/fixtures.ts": "02bc7c73fce40d02d1c7d429190fa31a95e7bd118214b9003b79a997d11e2b1b",
+      "tests/e2e/transitions.ts": "049027ccc77d81fe52c8175d5c3bea4f10dcf205ce76a422952c9a0354f1e00c",
+      "demo/composer.lock": "ad13dce3fb6c1ba0c177e67af98c5625b67f5f7e1584da93055fcbd226837fef",
+      "package-lock.json": "f0532acea2beb4f2aae0005ee3e98ca4aaa8cf15513c69ce8d7944a57191c8db",
+      "demo/assets/controllers/date_picker_controller.js": "af51119a872adb4cd39aecc26e1e97f80a564f2b7e3ee599b76719766b0d45b7",
+      "demo/public/assets/manifest.json": "523e7d3aaa16a9739f81684cd35b8d2b3ece4ad4eed736675638c4fba52c75fb",
+      "demo/public/assets/importmap.json": "633b0bca8e9f23a776b4f08ff29f2a4e04718d621cc63250b45e24bd2623569a"
+    },
+    "tracked_status_before": "",
+    "scope": "One full original focused long-session spec, not full136suite; no runtime/root-source edits or asset regeneration for base."
+  },
+  "scope": "One old/fixed production-helper setup-invariant pair, then one actual fixed full focused 50-visit long-session spec; not the full Release suite or CI OS/PHP/HTTPS parity.",
+  "generic_probe_body_preserved_exactly_after_type_conversion": true,
+  "actual_helper_diff_sha256": "5404e36c5b399b281148bff159dd10c664dcf7a4b8ec98b395e06f11ad341899"
+}
