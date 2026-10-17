@@ -219,6 +219,7 @@ jobs:
               env:
                   DEMO_URL: https://localhost
                   RELEASE_CHECKS: '1' # adds the release, release-dark and release-harsh projects
+                  LONG_SESSION_DIAGNOSTICS: '1' # temporary phase telemetry; verdict and test budget unchanged
               run: |
                   set -o pipefail
                   node "$RELEASE_RUNNER" run 2>&1 | tee "$RUNNER_TEMP/jev-tests.log"

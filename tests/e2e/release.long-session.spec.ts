@@ -1,4 +1,4 @@
-import type { Browser, CDPSession, Page } from '@playwright/test';
+import type { Browser, BrowserContext, CDPSession, Page, Request, Response } from '@playwright/test';
 import { test, expect, controllersConnected } from './fixtures';
 import { turboOperation } from './transitions';
 
@@ -49,6 +49,180 @@ const TOLERANCE = {
 
 type Counters = Record<keyof typeof TOLERANCE, number>;
 
+type DiagnosticPrimitive = string | number | boolean | null;
+type DiagnosticFields = Record<string, DiagnosticPrimitive | DiagnosticPrimitive[] | Record<string, DiagnosticPrimitive>[]>;
+type LongSessionDiagnostics = {
+    phase: <T>(name: string, action: () => Promise<T>) => Promise<T>;
+    probePage: (page: Page) => void;
+    probeContext: (context: BrowserContext) => void;
+    note: (event: string, fields: DiagnosticFields) => void;
+    stop: () => void;
+};
+
+/** Temporary, opt-in driver telemetry. Never logs page objects or changes a browser command or its result. */
+function longSessionDiagnostics(page: Page, browser: Browser): LongSessionDiagnostics {
+    if ('1' !== process.env.LONG_SESSION_DIAGNOSTICS) {
+        return { phase: (_name, action) => action(), probePage: () => {}, probeContext: () => {}, note: () => {}, stop: () => {} };
+    }
+    const started = performance.now();
+    const info = test.info();
+    const identity = { testedSha: process.env.TESTED_SHA ?? null, project: info.project.name, retry: info.retry, workerIndex: info.workerIndex };
+    const cleanups: (() => void)[] = [];
+    const pending = new Map<Request, string>();
+    const phases: Record<string, DiagnosticPrimitive>[] = [];
+    const requests = { requestsStarted: 0, responses: 0, requestsFinished: 0, requestsFailed: 0 };
+    const lifecycle: Record<string, number> = {};
+    let phase = 'start';
+    let emitted = 0;
+    let omitted = 0;
+    let notices = 0;
+    let heartbeats = 0;
+    let stopped = false;
+    let probeCloseRequested = false;
+    const write = (text: string) => {
+        try {
+            console.log(text);
+        } catch {
+            // Telemetry must not replace an original browser error or decide the test's outcome.
+        }
+    };
+    const pendingCount = () => Math.max(0, requests.requestsStarted - requests.requestsFinished - requests.requestsFailed);
+    const path = (url: string) => {
+        try {
+            const parsed = new URL(url);
+            return /^https?:$/.test(parsed.protocol) ? parsed.pathname.slice(0, 160) : `[${parsed.protocol}]`;
+        } catch {
+            return '[unavailable]';
+        }
+    };
+    const clock = () => {
+        const elapsedMs = Math.round(performance.now() - started);
+        // Fixture time before this body is excluded. TestInfo.duration is zero until completion, not a live clock.
+        return { utc: new Date().toISOString(), elapsedMs, remainingBudgetUpperBoundMs: Math.max(0, info.timeout - elapsedMs) };
+    };
+    const emit = (event: string, fields: DiagnosticFields = {}, final = false) => {
+        if (emitted >= 96 && !final) {
+            omitted++;
+            return;
+        }
+        emitted++;
+        write(`LONG_SESSION_DIAGNOSTIC ${JSON.stringify({ ...identity, ...clock(), phase, event, ...fields })}`);
+    };
+    const notice = (event: string, fields: DiagnosticFields = {}) => {
+        if ('true' !== process.env.GITHUB_ACTIONS || notices >= 4) return;
+        notices++;
+        const text = JSON.stringify({ ...identity, ...clock(), phase, event, ...fields });
+        write(`::notice title=Long session diagnostic::${text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A')}`);
+    };
+    const observed = (label: string, event: string, fields: DiagnosticFields = {}) => {
+        const key = `${label}.${event}`;
+        lifecycle[key] = (lifecycle[key] ?? 0) + 1;
+        emit('lifecycle', { label, kind: event, ...fields });
+    };
+    const watchPage = (target: Page, label: string) => {
+        const crash = () => observed(label, 'crash');
+        const close = () => observed(label, 'close', { intentionalProbeClose: 'probe' === label && probeCloseRequested });
+        const dom = () => observed(label, 'domcontentloaded', { path: path(target.url()) });
+        const load = () => observed(label, 'load', { path: path(target.url()) });
+        const navigated = (frame: ReturnType<Page['mainFrame']>) => {
+            if (frame === target.mainFrame()) observed(label, 'commit', { path: path(frame.url()) });
+        };
+        target.on('crash', crash);
+        target.on('close', close);
+        target.on('domcontentloaded', dom);
+        target.on('load', load);
+        target.on('framenavigated', navigated);
+        cleanups.push(() => {
+            target.off('crash', crash);
+            target.off('close', close);
+            target.off('domcontentloaded', dom);
+            target.off('load', load);
+            target.off('framenavigated', navigated);
+        });
+    };
+    watchPage(page, 'main');
+    const mainContext = page.context();
+    const mainClosed = () => observed('main.context', 'close');
+    const disconnected = () => observed('browser', 'disconnected');
+    mainContext.on('close', mainClosed);
+    browser.on('disconnected', disconnected);
+    cleanups.push(() => mainContext.off('close', mainClosed), () => browser.off('disconnected', disconnected));
+    const request = (value: Request) => {
+        requests.requestsStarted++;
+        if (pending.size < 64) pending.set(value, path(value.url()));
+        if ('document' === value.resourceType()) emit('request.start', { method: value.method(), path: path(value.url()) });
+    };
+    const response = (value: Response) => {
+        requests.responses++;
+        if ('document' === value.request().resourceType()) emit('request.response', { path: path(value.url()), status: value.status() });
+    };
+    const finished = (value: Request) => {
+        requests.requestsFinished++;
+        pending.delete(value);
+        if ('document' === value.resourceType()) emit('request.finished', { path: path(value.url()) });
+    };
+    const failed = (value: Request) => {
+        requests.requestsFailed++;
+        pending.delete(value);
+        emit('request.failed', { method: value.method(), path: path(value.url()), resource: value.resourceType() });
+    };
+    page.on('request', request);
+    page.on('response', response);
+    page.on('requestfinished', finished);
+    page.on('requestfailed', failed);
+    cleanups.push(() => {
+        page.off('request', request);
+        page.off('response', response);
+        page.off('requestfinished', finished);
+        page.off('requestfailed', failed);
+    });
+    const heartbeat = setInterval(() => {
+        if (heartbeats++ >= 10) return;
+        emit('heartbeat', { pageClosed: page.isClosed(), path: path(page.url()), ...requests, pendingRequests: pendingCount(), pendingSample: [...pending.values()].slice(0, 6) });
+    }, 30_000);
+    heartbeat.unref();
+    emit('start', { configuredTimeoutMs: info.timeout, budgetBasis: 'body-entry upper bound; fixture time excluded' });
+    notice('start');
+    return {
+        phase: async (name, action) => {
+            phase = name;
+            if ('probe.context.close' === name) probeCloseRequested = true;
+            const began = performance.now();
+            let completed = false;
+            emit('phase.begin');
+            if ('main.goto' === name) notice('phase.begin');
+            try {
+                const result = await action();
+                completed = true;
+                return result;
+            } finally {
+                const fields = { completed, phaseElapsedMs: Math.round(performance.now() - began) };
+                phases.push({ name, ...fields });
+                emit('phase.end', fields);
+                if ('probe.prepare' === name) notice('phase.end', fields);
+            }
+        },
+        probePage: (probe) => watchPage(probe, 'probe'),
+        probeContext: (context) => {
+            emit('probe.context', { isMainContext: context === mainContext });
+            const closed = () => observed('probe.context', 'close', { intentionalProbeClose: probeCloseRequested });
+            context.on('close', closed);
+            cleanups.push(() => context.off('close', closed));
+        },
+        note: emit,
+        stop: () => {
+            if (stopped) return;
+            stopped = true;
+            clearInterval(heartbeat);
+            for (const cleanup of cleanups.splice(0)) cleanup();
+            emit('summary', { ...requests, ...lifecycle, phases, pendingRequests: pendingCount(), pendingSample: [...pending.values()].slice(0, 12), pendingSampleTruncated: pendingCount() > Math.min(12, pending.size), omitted }, true);
+            notice('summary', { ...requests, ...lifecycle, pendingRequests: pendingCount(), pendingSample: [...pending.values()].slice(0, 6), omitted });
+            pending.clear();
+            phases.length = 0;
+        },
+    };
+}
+
 /**
  * Whether this browser runs Chromium's leak detector: `Memory.prepareForLeakDetection`, tried once in a page of its
  * own context, never the page under test. Chromium 145 (Playwright 1.58's build, headless shell and full) answers
@@ -56,18 +230,20 @@ type Counters = Record<keyof typeof TOLERANCE, number>;
  * memory-pressure signal drops them (`Memory.simulatePressureNotification`), before the same forced collection; the
  * report says which ran.
  */
-async function leakDetectorRuns(browser: Browser): Promise<boolean> {
-    const context = await browser.newContext();
+async function leakDetectorRuns(browser: Browser, diagnostics: LongSessionDiagnostics): Promise<boolean> {
+    const context = await diagnostics.phase('probe.context.create', () => browser.newContext());
+    diagnostics.probeContext(context);
     try {
-        const probe = await context.newPage();
-        const cdp = await context.newCDPSession(probe);
-        await cdp.send('Memory.prepareForLeakDetection');
-        await probe.evaluate(() => 1); // the renderer survived it
+        const probe = await diagnostics.phase('probe.page.create', () => context.newPage());
+        diagnostics.probePage(probe);
+        const cdp = await diagnostics.phase('probe.cdp.create', () => context.newCDPSession(probe));
+        await diagnostics.phase('probe.prepare', () => cdp.send('Memory.prepareForLeakDetection'));
+        await diagnostics.phase('probe.evaluate', () => probe.evaluate(() => 1)); // the renderer survived it
         return true;
     } catch {
         return false;
     } finally {
-        await context.close().catch(() => undefined);
+        await diagnostics.phase('probe.context.close', () => context.close()).catch(() => undefined);
     }
 }
 
@@ -102,9 +278,17 @@ test.describe('release long session', () => {
 
     test(`${VISITS} Turbo visits and Backs leave the DOM counters and the JS heap at their level`, async ({ page, browser }) => {
         test.setTimeout(300_000);
-        const leakDetector = await leakDetectorRuns(browser);
+        const diagnostics = longSessionDiagnostics(page, browser);
+        let leakDetector: boolean;
+        try {
+            leakDetector = await leakDetectorRuns(browser, diagnostics);
+            diagnostics.note('probe.result', { available: leakDetector });
+            await diagnostics.phase('main.goto', () => page.goto(HOME));
+        } finally {
+            // Drop driver listeners, request references and heartbeat before any warm-up or memory measurement.
+            diagnostics.stop();
+        }
         const prepared = leakDetector ? 'Memory.prepareForLeakDetection' : 'Memory.simulatePressureNotification (the leak detector crashes this Chromium)';
-        await page.goto(HOME);
         // The demo runs Symfony's dev environment, where Stimulus logs each connect with its element; with the console
         // recorded (as Playwright records it), every logged element and its detached page would stay alive. Off for the
         // session: what is measured is what the page keeps, not what a debug log keeps.
