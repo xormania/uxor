@@ -25,7 +25,7 @@ function writeJson(string $path, array $data): void
 function appSources(): array
 {
     $hashes = ['assets/app.js' => hash_file('sha256', 'assets/app.js')];
-    foreach (['src', 'templates', 'assets/controllers'] as $directory) {
+    foreach (['src', 'templates', 'assets/controllers', 'assets/styles'] as $directory) {
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
             if ($file->isFile()) {
@@ -74,7 +74,7 @@ if ('before' === $phase) {
     exit;
 }
 
-check(readJson('.fixture-source-hashes.json') === appSources(), 'Application PHP, Twig or controller source changed');
+check(readJson('.fixture-source-hashes.json') === appSources(), 'Application PHP, Twig, controller or CSS source changed');
 foreach (readJson('.fixture-original-imports.json') as $name => $entry) {
     check(isset($imports[$name]) && $imports[$name] === $entry, 'An application import or shared runtime pin changed: '.$name);
 }

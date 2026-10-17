@@ -186,8 +186,13 @@ find */src -name '*.php' -not -path 'demo/*' -not -path 'tools/*' -print0 | xarg
 php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php . # actual pinned Toolkit closure, copy mapping and deterministic source records
 php tools/tests/package-composer-contract.php demo/vendor/autoload.php # actual pinned Composer semver, owner intersections and emitted direct-require constraints
 PILOT_COMPOSER_AUTOLOAD=demo/vendor/autoload.php node --test tools/tests/package-composer-build.mjs # PHP/Node planned-build integration; explicitly runs in Kit PHP, outside the Node-only glob
+php tools/tests/frontend-npm-ranges.php             # supported stable npm range grammar; unsupported forms fail
+php tools/tests/frontend-contract.php               # all frontend owners, selected versions, identities and local paths
+php tools/tests/frontend-reader.php demo/vendor/autoload.php # real Composer installed-metadata discovery
+npm ci --prefix tools/tests/fixtures/npm-semver --ignore-scripts --no-audit --no-fund # isolated author-test oracle only
+node tools/tests/frontend-npm-oracle.mjs             # PHP range results against pinned npm semver; no consumer Node dependency
 bash tools/tests/package-flex.sh                   # real Composer/Flex install, metadata update, removal and reinstall in an isolated PHP consumer (PHP 8.4+, Composer, Node 22, Python 3, OpenSSL; optional PILOT_IMAGE for Docker)
-phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php data-table/src data-table-live/src editor/src markdown-editor/src demo/src/Demo demo/tests   # PHPStan with its Symfony and PHPUnit extensions installed next to it (CI pins all three); run the tests first
+phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php data-table/src data-table-live/src editor/src markdown-editor/src demo/src/Demo demo/tests packages/uxor-pilot/src   # PHPStan with its Symfony and PHPUnit extensions installed next to it (CI pins all three); run the tests first
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below

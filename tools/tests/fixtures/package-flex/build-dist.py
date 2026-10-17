@@ -14,7 +14,7 @@ files = {
     if path.is_file()
 }
 releases = []
-for version in ("0.0.1", "0.0.2"):
+for version in ("0.0.1", "0.0.2", "0.0.3"):
     if version == "0.0.2":
         # Test-only release: it proves continuous package metadata synchronization,
         # not a new production controller or a published package version.
@@ -33,6 +33,13 @@ for version in ("0.0.1", "0.0.2"):
             b"export default class extends Controller {}\n"
         )
         files["assets/lib/fixture-helper.js"] = b"export const fixtureVersion = '0.0.2';\n"
+    elif version == "0.0.3":
+        # Test-only incompatible peer requirement. Flex still synchronizes package
+        # importmap declarations with --no-scripts, so retain the compatible importmap
+        # range and avoid a registry lookup before testing the installed-state guard.
+        assets = json.loads(files["assets/package.json"])
+        assets["peerDependencies"]["@hotwired/stimulus"] = "^4.0.0"
+        files["assets/package.json"] = json.dumps(assets, indent=4).encode()
 
     archive = output / f"uxor-pilot-{version}.zip"
     with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as dist:

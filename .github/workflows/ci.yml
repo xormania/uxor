@@ -467,7 +467,7 @@ jobs:
                   done > "$RUNNER_TEMP/php-dirs"
                   cat "$RUNNER_TEMP/php-dirs"
                   # shellcheck disable=SC2046 # one directory per line, none with a space
-                  find $(cat "$RUNNER_TEMP/php-dirs") -name '*.php' -print0 | xargs -0 -n1 php -l
+                  find $(cat "$RUNNER_TEMP/php-dirs") packages/uxor-pilot/src -name '*.php' -print0 | xargs -0 -n1 php -l
 
             # the run's importmap packages (job importmap): the install below downloads none
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -524,7 +524,7 @@ jobs:
                   (cd demo && bin/console cache:warmup --env=test)
                   # shellcheck disable=SC2046 # one directory per line, none with a space
                   "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --configuration=tools/phpstan.neon \
-                      --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo demo/tests
+                      --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo demo/tests packages/uxor-pilot/src
 
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
@@ -541,12 +541,35 @@ jobs:
                   php tools/tests/package-composer-contract.php "$PILOT_COMPOSER_AUTOLOAD"
                   node --test tools/tests/package-composer-build.mjs
 
+            - name: Validate installed frontend selections and npm range semantics
+              run: |
+                  npm ci --prefix tools/tests/fixtures/npm-semver --ignore-scripts --no-audit --no-fund
+                  php tools/tests/frontend-npm-ranges.php
+                  node tools/tests/frontend-npm-oracle.mjs
+                  php tools/tests/frontend-contract.php
+                  php tools/tests/frontend-reader.php demo/vendor/autoload.php
+
             # A fresh app, the real Flex plugin and a loopback recipe endpoint. The package archive and app DI
             # boundaries run on this job's PHP; no demo vendor tree, browser server or screenshot suite is reused.
             - name: Symfony package lifecycle through Flex
+              id: flex
               env:
                   PILOT_TOOLKIT_PLAN: ${{ runner.temp }}/package-toolkit-plan.json
-              run: bash tools/tests/package-flex.sh
+              run: |
+                  set -o pipefail
+                  bash tools/tests/package-flex.sh 2>&1 | tee "$RUNNER_TEMP/jev-flex.log"
+
+            - name: Report Flex lifecycle failure
+              if: ${{ failure() && steps.flex.outcome == 'failure' }}
+              run: |
+                  node --input-type=module <<'JS'
+                  import { readFileSync } from 'node:fs';
+                  import { selectedLines } from './tools/ci/step-attempts.mjs';
+                  const log = readFileSync(`${process.env.RUNNER_TEMP}/jev-flex.log`, 'utf8');
+                  const diagnostic = selectedLines(log, /error|exception|failed|invalid|conflict|resolution|compatibility|unsupported|problem|satisfy/i, 8000).text;
+                  const escaped = diagnostic.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+                  console.log(`::error title=Flex package lifecycle::${escaped}`);
+                  JS
 
     static-site:
         name: Static site

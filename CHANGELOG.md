@@ -7,9 +7,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- PHP frontend dependency validation for the experimental package: check installed UX requirements and peer
+  constraints against AssetMapper's selected versions, expose `uxor:assets:validate`, and reject invalid selections
+  before production asset compilation removes the previous manifest. Validation resolves no dependencies and
+  does not prevent earlier Composer/Flex changes.
+
 - Composer contract validation for planned package builds: verify recipe requirement intersections and the exact
   emitted direct requirements with pinned Composer semver before writing output; record owner diagnostics and
-  a manifest-bound contract report. Frontend compatibility checks remain separate work.
+  a manifest-bound contract report.
 
 - Toolkit-derived package plans with source identities and dependency provenance, plus native Symfony Flex
   discovery and an explicit bundle recipe for the unpublished data-table package, with isolated Composer lifecycle

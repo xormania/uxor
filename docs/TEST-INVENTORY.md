@@ -558,6 +558,9 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 | Real Flex registers the installed bundle and controller without consumer-owned package wiring | install integration | `tools/tests/package-flex.sh` and its independent PHP consumer fixture |
 | Application interfaces and concrete table providers are autowired through a real Symfony container; package templates and assets remain namespaced | functional | the Flex consumer's PHP assertions |
 | Composer metadata updates preserve application choices; removal clears package registration and reinstall restores it | install integration | the Flex consumer lifecycle assertions |
+| Stable npm range evaluation matches the pinned upstream oracle for the supported grammar and rejects unsupported forms | PHP unit; PHP/Node differential checks | `tools/tests/frontend-npm-ranges.php` and `tools/tests/frontend-npm-oracle.mjs` |
+| Every installed UX remote owner and relevant peer must accept the selected version and package identity; missing imports and unknown local overrides fail without writes | PHP unit/integration | `tools/tests/frontend-contract.php` and `tools/tests/frontend-reader.php` |
+| A real Composer update changes a shared peer constraint while application scripts are skipped and Flex synchronization runs; command/compile validation reject the selection, preserve manifest/asset sentinels and accept the restored package | install integration | `tools/tests/package-flex.sh` and its independent PHP consumer fixture |
 
 The Flex fixture uses a loopback recipe endpoint and real Composer downloads/installations. It does not share the
 demo's vendor directory or run browsers. CI generates the source plan with the demo's pinned Toolkit and checks
@@ -566,8 +569,11 @@ The PHP/Node author-build suite runs explicitly in *Kit PHP*, outside the Node-o
 Composer solve covers the transitive installation; direct range validation is not a substitute for that solve.
 No-plan smoke builds and the historical upgrade fixture do not establish the author-build Composer contract.
 Its synthetic metadata update is not a released compatibility claim;
-browser behavior is covered separately by the upgrade/rollback fixture above. Automatic stylesheet discovery
-and shared frontend dependency enforcement remain separate work.
+browser behavior is covered separately by the upgrade/rollback fixture above. The frontend checks validate the
+current root selection without resolving versions, proving downloaded bytes or solving a transitive npm graph.
+Composer's `--no-scripts` does not disable Flex plugin synchronization. The build-time guard does not precede
+Flex's earlier mutations. Automatic stylesheet discovery, dependency resolution and validation before those
+mutations remain separate work.
 
 ## Feature CI selection
 
@@ -688,5 +694,6 @@ cover separate boundaries; provider branding has local assets and screenshot cov
 The [abstraction research](RESEARCH-upgradeable-component-abstraction.md) records the inputs, observed commands,
 versions and rerun command. This probe does not download packages, change the consumer, run in CI, or assert that
 the defect must persist in later Flex versions. Native Flex onboarding is covered separately by the package
-integration fixture above; aggregate frontend compatibility enforcement and automatic stylesheet discovery remain proposed
-work. None of those guarantees is established by this observation.
+integration fixture above. The frontend validator now checks the selected versions before asset compilation;
+validation before Flex's writes and automatic stylesheet discovery remain proposed work. None of those
+guarantees is established by this historical observation alone.

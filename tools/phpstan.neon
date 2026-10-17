@@ -1,4 +1,4 @@
-# PHPStan for the recipes' PHP, the demo's tables and the demo's tests (CI's Kit PHP job). The paths are given on the
+# PHPStan for recipe PHP, the package pilot, the demo's tables and tests (CI's Kit PHP job). Paths are given on the
 # command line (CONTRIBUTING.md, *Checks*). phpstan/phpstan-symfony and phpstan/phpstan-phpunit are installed next to
 # PHPStan; the Symfony extension reads the demo's test container, which the tests or
 # `bin/console cache:warmup --env=test` (in demo/) write.
