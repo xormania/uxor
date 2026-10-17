@@ -1,0 +1,29 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "tools/tests/release-checks.test.mjs",
+    "tools/tests/release-evidence.test.mjs",
+    "tools/tests/release-checks-workflow.test.mjs",
+    "tools/tests/playwright-summary.test.mjs",
+    "tools/tests/step-attempts.test.mjs"
+  ],
+  "cwd": "/workspace/uxor",
+  "exit": 0,
+  "runner_sha256": "ad8b3863df7a4532c5a4acbfdd0793a6ab8bdc9344acc992966113aa9463c67d",
+  "checker_sha256": "2c77f913b85a5d1aa473658efdaedf5630c5a02dd796452b239c4ada2855a64e",
+  "test_sha256": "04dea5545f2339a9fd9f456600c113bf7fe220d4ee4ca9f5364ab54c283076a2",
+  "scope": "isolated revision-pinned control runner and real sibling checker, separate target checkout and stub Playwright launcher; no browser or GitHub workflow execution",
+  "cases_per_family": [
+    "target always-accept checker cannot hide missing project",
+    "target always-accept checker cannot hide missing spec",
+    "target always-accept checker cannot hide skipped spec",
+    "target always-accept checker cannot hide missing report",
+    "incompatible target checker cannot break complete control validation",
+    "deleted target checker cannot break complete control validation"
+  ],
+  "families": [
+    "current",
+    "legacy"
+  ]
+}

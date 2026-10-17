@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "observedAt": "2026-10-16T21:14:30.278514+00:00",
+  "head": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+  "runId": "38880910402",
+  "runNumber": 684,
+  "event": "push",
+  "branch": "fix/release-checks-scheduler",
+  "conclusion": "success",
+  "sourceUrl": "https://github.com/xormania/uxor/actions/runs/38880910402",
+  "durationSeconds": 642,
+  "successfulJobs": 18,
+  "skippedJobs": 4,
+  "browserProfiles": {
+    "chromium": {
+      "jobs": 4,
+      "jobSeconds": {
+        "min": 454,
+        "max": 580,
+        "mean": 511.75
+      },
+      "testsStepSeconds": {
+        "min": 367.0,
+        "max": 494.0,
+        "mean": 430.0,
+        "spread": 127.0
+      }
+    },
+    "firefox": {
+      "jobs": 3,
+      "jobSeconds": {
+        "min": 559,
+        "max": 603,
+        "mean": 586
+      },
+      "testsStepSeconds": {
+        "min": 454.0,
+        "max": 514.0,
+        "mean": 491.3333333333333,
+        "spread": 60.0
+      }
+    },
+    "webkit": {
+      "jobs": 3,
+      "jobSeconds": {
+        "min": 480,
+        "max": 556,
+        "mean": 524.3333333333334
+      },
+      "testsStepSeconds": {
+        "min": 382.0,
+        "max": 468.0,
+        "mean": 436.6666666666667,
+        "spread": 86.0
+      }
+    }
+  },
+  "criticalJob": {
+    "name": "Demo + Playwright (firefox 3/3)",
+    "id": "116907304755",
+    "jobSeconds": 603,
+    "phaseSeconds": {
+      "setupBeforeTests": 82,
+      "tests": 514,
+      "afterTests": 7
+    },
+    "criticalPathApproximateSeconds": {
+      "preBrowser": 28,
+      "criticalBrowserJob": 603,
+      "postBrowserUntilAggregateStart": 2,
+      "aggregate": 9
+    }
+  },
+  "summedBrowserJobSeconds": 5378,
+  "summedSuccessfulJobSeconds": 5505,
+  "warnings": [
+    {
+      "annotationId": "90152702200",
+      "jobId": "116907304798",
+      "project": "smoke-webkit",
+      "file": "tests/e2e/lab.data-table-back.spec.ts",
+      "line": 127,
+      "message": "Back after applying Search shows the earlier URL\u2019s value in every control, and Forward the applied one (flaky - passed on retry 1)",
+      "visibleFailureExcerpt": "Error: expect(received).toEqual(expected) // deep equality; - Expected - 7; + Received + 1; - Array [",
+      "fullFailureAvailable": false
+    }
+  ],
+  "notices": {
+    "count": 18,
+    "message": "ubuntu-latest migrates to Ubuntu 26 beginning October 19, 2026"
+  },
+  "artifacts": [
+    {
+      "id": "12038152043",
+      "name": "ci-metrics-38880910402-1",
+      "displayedSize": "60.3 KB",
+      "digest": "sha256:822b686f76c5a0df2e4693f8ee500453cef49e653d2acfaa941b77d2c94199ae",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037108562",
+      "name": "importmap-packages",
+      "displayedSize": "311 KB",
+      "digest": "sha256:db018eb487b3086971a7201722f973f97e546cc243538d2562637dcde4b1349a",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037498034",
+      "name": "jev-input-ci-webkit-3-38880910402-1",
+      "displayedSize": "1.88 MB",
+      "digest": "sha256:8d27949e0f129f0dd03767cc9970ddc7e4f51dc4f6c02b21ed7ebb2e627184cd",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037228738",
+      "name": "playwright-report-webkit-3",
+      "displayedSize": "1.7 MB",
+      "digest": "sha256:eae81b9d7ba88444f8e80e32392826037f7586be145acc1b04e4b6735693873b",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037847281",
+      "name": "playwright-results-chromium-1",
+      "displayedSize": "69.4 KB",
+      "digest": "sha256:47b481c357a35e8befb0b5991dd675881ead6ce2a1f2fe245c23a59c14b01bdd",
+      "contentsInspected": false
+    },
+    {
+      "id": "12038026907",
+      "name": "playwright-results-chromium-2",
+      "displayedSize": "69.1 KB",
+      "digest": "sha256:112038c226cbfe27ba0d02b51a5667c557b6c16665cc951d414fa74160561426",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037782551",
+      "name": "playwright-results-chromium-3",
+      "displayedSize": "69.1 KB",
+      "digest": "sha256:9e7f9e9c8e1075c61ed936591ca571ec2e3ae0b0813162ffd116829a5bb6daca",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037268273",
+      "name": "playwright-results-chromium-4",
+      "displayedSize": "69.3 KB",
+      "digest": "sha256:0d9a4b2069fb082db64e15ac9525d5e52c03c061a8deef105bb4afede07f7901",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037708171",
+      "name": "playwright-results-firefox-1",
+      "displayedSize": "54.8 KB",
+      "digest": "sha256:6541a2911ca765005fb83ac3029a7749a785e63eee01748c38d60405c2c6730f",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037498088",
+      "name": "playwright-results-firefox-2",
+      "displayedSize": "55.9 KB",
+      "digest": "sha256:333e08606634346368e6911fca98eeec1f0725b82cbc19b46f1ea76fb1d34079",
+      "contentsInspected": false
+    },
+    {
+      "id": "12038336228",
+      "name": "playwright-results-firefox-3",
+      "displayedSize": "54.7 KB",
+      "digest": "sha256:00bbd3fc006e8d18ce3d68dfe3a61f689ee7ce09e298ee7acaeeb97d6acaa4df",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037488069",
+      "name": "playwright-results-webkit-1",
+      "displayedSize": "54.4 KB",
+      "digest": "sha256:334fa15bf4aa937b246bff2ae0aeb8bad8fe113b0192435b177fbc63a248aea3",
+      "contentsInspected": false
+    },
+    {
+      "id": "12038011670",
+      "name": "playwright-results-webkit-2",
+      "displayedSize": "55.3 KB",
+      "digest": "sha256:f3e9ef29b0a554976d14647faceada2e022e57a2ae9f0543f0d7431a2d11dcd5",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037213723",
+      "name": "playwright-results-webkit-3",
+      "displayedSize": "57.6 KB",
+      "digest": "sha256:0144f7ec00aa8c8f14e16c3473e9eae778c232ac835dac6e7e03764525add5ae",
+      "contentsInspected": false
+    },
+    {
+      "id": "12037033951",
+      "name": "shard-timings-38880910402-1",
+      "displayedSize": "51.6 KB",
+      "digest": "sha256:9fe94b70e4d37012844db3932b7ead5d036da2a7353b825be866efce0a4b7738",
+      "contentsInspected": false
+    }
+  ],
+  "limits": [
+    "Public job HTML reveals per-step timestamps but no job created_at, queue durations, cache hit counters, detailed test attempts, counts or artifact contents.",
+    "The run header time is the displayed push trigger time; no API run_started_at is claimed. The critical-path pre-browser interval is measured from that displayed trigger time.",
+    "Whole-second public duration and time labels support approximate inferred job start; differences below a second are not meaningful.",
+    "Sum of job seconds is observed parallel runner wall time; it is not billed usage or end-to-end duration.",
+    "One candidate run is not evidence of a speedup or absence of regressions.",
+    "Branch CI runs smoke/examples browser projects; it does not execute the scheduled Release checks release projects.",
+    "Public artifact URL and log endpoint returned404 without an authenticated download path. API access unavailable."
+  ],
+  "triggeredAtDisplayed": "2026-10-16T09:30:22Z",
+  "latestJobCompletedAtDisplayed": "2026-10-16T09:41:04Z"
+}

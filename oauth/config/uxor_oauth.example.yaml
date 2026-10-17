@@ -1,0 +1,31 @@
+# Copy to config/uxor_oauth.yaml, import from services.yaml, and bind IdentityStoreInterface to your store.
+# This example activates GitHub. Enable only providers whose applications and callback URLs you configured.
+services:
+    _defaults: { autowire: true, autoconfigure: true }
+
+    uxor.oauth.http:
+        class: GuzzleHttp\Client
+        arguments: [{timeout: 10, connect_timeout: 5}]
+    uxor.oauth.requests:
+        class: GuzzleHttp\Psr7\HttpFactory
+
+    uxor.oauth.github.client:
+        class: League\OAuth2\Client\Provider\Github
+        arguments:
+            $options:
+                clientId: '%env(OAUTH_GITHUB_ID)%'
+                clientSecret: '%env(OAUTH_GITHUB_SECRET)%'
+            $collaborators: {httpClient: '@uxor.oauth.http'}
+    uxor.oauth.github:
+        class: App\UXor\OAuth\LeagueProvider
+        arguments:
+            $providerKey: github
+            $client: '@uxor.oauth.github.client'
+    App\UXor\OAuth\ProviderRegistry:
+        arguments: { $providers: ['@uxor.oauth.github'] }
+    App\UXor\OAuth\OAuthAttemptStore: ~
+    App\UXor\OAuth\OAuthClient: ~
+    App\UXor\OAuth\OAuthAuthenticator:
+        arguments: { $loginRoute: app_login }
+    App\UXor\OAuth\OAuthController:
+        arguments: { $loginRoute: app_login, $defaultTargetRoute: app_home }

@@ -1,0 +1,134 @@
+name: Jev diagnosis
+
+# The advisory Jev (TypeSafe) diagnosis of the failed attempts a workflow's jobs collected (.github/actions/jev-diagnosis,
+# docs/TESTING.md, *Jev diagnosis*). GitHub loads this workflow_run consumer from the default branch, not the
+# producing branch or pull request. Producers only upload data; none receives or forwards the key. The key reaches
+# a fresh runner that runs the trusted branch's tools/ci: main for a source run on main, dev otherwise. Artifacts
+# stay outside the trusted checkout and are never executed. This is advisory: no source verdict waits for it.
+# A repository secret is still available to a malicious writer who adds another workflow; an environment-only key
+# restricted to the protected default branch is the separate enforcement boundary (docs/TESTING.md).
+on:
+    workflow_run:
+        workflows: [CI, Monthly, Pages, Release, Release checks, Audit, Metadata]
+        types: [completed]
+
+permissions:
+    contents: read
+    actions: read # only download the producing run's artifacts
+
+concurrency:
+    group: jev-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+    cancel-in-progress: false
+
+jobs:
+    diagnose:
+        name: Jev diagnosis (advisory)
+        # Match existing same-repository diagnostics; fork runs are not consumers of this credential.
+        if: github.event.workflow_run.head_repository.full_name == github.repository
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            # All producer keys in this source attempt: Release can also contain Pages' collected build input.
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              id: inputs
+              continue-on-error: true
+              with:
+                  pattern: jev-input-*-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+                  path: ${{ runner.temp }}/jev-inputs
+                  run-id: ${{ github.event.workflow_run.id }}
+                  github-token: ${{ github.token }}
+
+            - name: Anything to diagnose
+              id: found
+              continue-on-error: true
+              env:
+                  INPUTS: ${{ runner.temp }}/jev-inputs
+              run: |
+                  if compgen -G "$INPUTS/*/failed-attempts.json" > /dev/null; then
+                      echo "any=true" >> "$GITHUB_OUTPUT"
+                      ls "$INPUTS"
+                  else
+                      echo "No job collected failed attempts: nothing for Jev to diagnose"
+                  fi
+
+            - name: The trusted branch
+              id: trusted
+              if: steps.found.outputs.any == 'true'
+              continue-on-error: true
+              env:
+                  HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+              run: |
+                  ref=dev
+                  if [ "$HEAD_BRANCH" = main ]; then ref=main; fi
+                  echo "ref=$ref" >> "$GITHUB_OUTPUT"
+                  echo "The diagnosis runs tools/ci from $ref"
+
+            # the branch by name, never a computed ref: what runs with the key is main's or dev's tools/ci
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: steps.trusted.outputs.ref == 'main'
+              continue-on-error: true
+              with:
+                  ref: main
+                  path: trusted
+                  persist-credentials: false
+                  sparse-checkout: tools/ci
+
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: steps.trusted.outputs.ref == 'dev'
+              continue-on-error: true
+              with:
+                  ref: dev
+                  path: trusted
+                  persist-credentials: false
+                  sparse-checkout: tools/ci
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              if: steps.trusted.outputs.ref != ''
+              continue-on-error: true
+              with:
+                  node-version: 22
+
+            # one diagnosis per collected job, 110 s each at most (the script's own budget is 90 s), as the jobs ran it
+            - name: Jev diagnosis
+              id: jev
+              if: steps.trusted.outputs.ref != ''
+              continue-on-error: true
+              timeout-minutes: 11
+              env:
+                  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+                  INPUTS: ${{ runner.temp }}/jev-inputs
+                  OUT: ${{ runner.temp }}/jev
+                  SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+                  SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+                  SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+                  JEV_TOTAL_SECONDS: 600 # the entire loop, leaving five minutes of the job for setup and upload
+              run: |
+                  deadline=$((SECONDS + JEV_TOTAL_SECONDS))
+                  for dir in "$INPUTS"/*/; do
+                      name=$(basename "$dir")
+                      [ -f "$dir/failed-attempts.json" ] || continue
+                      job=$(jq -r '.job // ""' "$dir/meta.json" 2>/dev/null || true)
+                      shard=$(jq -r '.shard // ""' "$dir/meta.json" 2>/dev/null || true)
+                      args=(--attempts "$dir/failed-attempts.json" --output "$OUT/$name/assessment")
+                      if [ -f "$dir/server.log" ]; then args+=(--server-log "$dir/server.log"); fi
+                      if [ -n "$job" ]; then args+=(--job "$job"); fi
+                      remaining=$((deadline - SECONDS))
+                      if [ "$remaining" -le 0 ]; then
+                          echo "::warning::Jev's total diagnosis budget is spent; remaining jobs were not assessed"
+                          break
+                      fi
+                      budget=110
+                      if [ "$remaining" -lt "$budget" ]; then budget=$remaining; fi
+                      GITHUB_SHA="$SOURCE_SHA" GITHUB_RUN_ID="$SOURCE_RUN_ID" GITHUB_RUN_ATTEMPT="$SOURCE_RUN_ATTEMPT" \
+                          SHARD=$shard timeout "$budget" node trusted/tools/ci/jev-diagnosis.mjs "${args[@]}" || echo "::warning::Jev diagnosis of $name ended early"
+                  done
+
+            # One assessment.json per failed attempt and the summary, per collected job
+            - if: ${{ always() && steps.jev.outcome != 'skipped' }}
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              continue-on-error: true
+              with:
+                  name: jev-run-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+                  path: ${{ runner.temp }}/jev/
+                  if-no-files-found: warn
+                  retention-days: 30

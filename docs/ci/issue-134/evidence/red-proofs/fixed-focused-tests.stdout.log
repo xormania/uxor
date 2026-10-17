@@ -1,0 +1,25 @@
+✔ a launcher failure retains its exit status and error, and missing browser evidence produces a captured-step diagnosis (105.485534ms)
+✔ diagnosis selects browser attempts or the failed launcher log, and stays advisory without a secret (3.251293ms)
+✔ missing structural evidence remains fatal, and required evidence and browser steps cannot be tolerated (143.873943ms)
+✔ the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted scheduled skip (40.527822ms)
+✔ failed or pull-request runs cannot record a reusable pass marker (1.370148ms)
+✔ the scheduler reuses only an unexpired same-repository schedule pass from this workflow revision (223.150508ms)
+✔ checkout provenance must match the frozen target before the workflow exposes a tested revision (19.227465ms)
+✔ issue classification names the first causal failure without turning advisory failures into failures (3.256143ms)
+✔ issue classification CLI preserves unavailable counts and exports only its category and causal step (43.373255ms)
+✔ control runner selects the pinned current checkout contract, then checks the same evidence (319.438281ms)
+✔ control runner selects the pinned legacy checkout contract, then checks the same evidence (239.716127ms)
+✔ unknown, partial, mixed, duplicate and malformed project discovery cannot launch tests (749.409774ms)
+✔ a discovery error preserves its exit and output and removes stale selection/results (144.9627ms)
+✔ a test failure preserves its exit with no alternative-family retry, even without a report (216.07872ms)
+✔ missing projects/specs and skipped required specs remain fatal after a successful process (754.626602ms)
+✔ evidence refuses a narrowed, unsupported or malformed saved contract (471.390366ms)
+✔ unsupported runner arguments are usage errors without discovery (40.892083ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3023.972227

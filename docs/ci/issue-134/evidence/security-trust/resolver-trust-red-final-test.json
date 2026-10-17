@@ -1,0 +1,14 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "--test-name-pattern=checkout trust rejects",
+    "tools/tests/release-checks-workflow.test.mjs"
+  ],
+  "cwd": "/workspace/scratch/uxor-issue134-quality/security-trust-fix/old-workflow-replay",
+  "exit": 1,
+  "workflow_revision": "b683745735d52114b73214f83a47536f2b53cbe7",
+  "workflow_sha256": "ff768f2beae23c43ce61c4004546ad2b0c1ea6c278374ab879a3c4f0bf36e407",
+  "test_sha256": "aaa7fffc3be1c031d833cd582805b7a4b6265ac97978f31fa5b59ec08dbc6c87",
+  "scope": "final regression unchanged against historical workflow in isolated fixture; actual checkout expression, Git revisions and provenance shell"
+}

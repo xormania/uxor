@@ -56,14 +56,121 @@ const sinkRules = [
 
 const normalize = (path) => path.split(sep).join('/');
 
+// The only jobs that may hold a write permission, and which (a new one is a trust-boundary change, reviewed here)
+const jobWrites = {
+    'ci.yml': { cache: ['packages'] },
+    'codeql.yml': { analyze: ['security-events'] },
+    'pages.yml': { deploy: ['pages', 'id-token'] },
+    'release.yml': { release: ['contents'], pages: ['pages', 'id-token'] },
+    'release-checks.yml': { issue: ['issues'] },
+};
+
+// The independent trusted diagnosis workflow alone reads secrets. Producers collect data without credentials.
+const secretReader = 'jev.yml';
+
+// Read context references as expression tokens, not as spellings inside arbitrary text. Dotted and indexed access
+// have the same trust boundary; quoted literals, nested function calls and whitespace do not change that boundary.
+function githubExpressions(source) {
+    const expressions = [];
+    let cursor = 0;
+    for (;;) {
+        const start = source.indexOf('${{', cursor);
+        if (start === -1) return expressions;
+        cursor = start + 3;
+        const tokens = [];
+        while (cursor < source.length && !source.startsWith('}}', cursor)) {
+            const char = source[cursor];
+            if (/\s/.test(char)) { cursor++; continue; }
+            if (char === "'" || char === '"') {
+                const quote = char;
+                let value = '';
+                cursor++;
+                while (cursor < source.length) {
+                    if (source[cursor] === quote) {
+                        if (quote === "'" && source[cursor + 1] === quote) {
+                            value += quote;
+                            cursor += 2;
+                            continue;
+                        }
+                        cursor++;
+                        break;
+                    }
+                    if (quote === '"' && source[cursor] === '\\' && cursor + 1 < source.length) cursor++;
+                    value += source[cursor++];
+                }
+                tokens.push({ kind: 'string', value });
+            } else {
+                const identifier = /^[A-Za-z_][A-Za-z0-9_-]*/.exec(source.slice(cursor));
+                if (identifier) {
+                    tokens.push({ kind: 'identifier', value: identifier[0].toLowerCase() });
+                    cursor += identifier[0].length;
+                } else {
+                    tokens.push({ kind: 'symbol', value: char });
+                    cursor++;
+                }
+            }
+        }
+        expressions.push({ start, tokens });
+        cursor += 2;
+    }
+}
+
+const rootContext = (tokens, index, name) => tokens[index]?.kind === 'identifier'
+    && tokens[index].value === name && tokens[index - 1]?.value !== '.';
+const readsSecrets = ({ tokens }) => tokens.some((_, index) => rootContext(tokens, index, 'secrets'));
+
+function untrustedExpression({ tokens }) {
+    return tokens.some((_, index) => {
+        if (rootContext(tokens, index, 'inputs')) return true;
+        if (!rootContext(tokens, index, 'github')) return false;
+        let property;
+        if (tokens[index + 1]?.value === '.' && tokens[index + 2]?.kind === 'identifier') {
+            property = tokens[index + 2].value;
+        } else if (tokens[index + 1]?.value === '[' && tokens[index + 2]?.kind === 'string'
+            && tokens[index + 3]?.value === ']') {
+            property = tokens[index + 2].value.toLowerCase();
+        } else {
+            // The whole context or a computed property can include event data; require env: rather than guessing.
+            return true;
+        }
+        return property === 'event' || property === 'head_ref';
+    });
+}
+
+const indentOf = (line) => line.length - line.trimStart().length;
+
+// GitHub accepts quoted mapping keys and permission values. Normalize their literal spelling for this narrow
+// block-mapping scanner; permission entries it cannot read are rejected below, rather than silently accepted.
+const literalYamlLine = (line) => line
+    .replace(/^(\s*(?:-\s*)?)(['"])([A-Za-z0-9_-]+)\2\s*:/, '$1$3:')
+    .replace(/^(\s*(?:-\s*)?)([A-Za-z0-9_-]+)\s+:/, '$1$2:')
+    .replace(/(:\s*)(['"])([A-Za-z0-9_-]+)\2(\s*(?:#.*)?)$/, '$1$3$4');
+
 export function workflowProblems(file, source) {
     const problems = [];
-    const lines = source.split('\n');
+    // YAML's hexadecimal escapes can spell context names or even expression delimiters in quoted scalars,
+    // including multiline, flow, tagged and anchored forms. Canonicalize them before every policy scan. Doing this
+    // conservatively across the source also rejects encoded spellings this narrow scanner cannot otherwise parse.
+    const canonicalSource = source.replace(/\\\r?\n[ \t]*/g, '')
+        .replace(/\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|U([0-9a-fA-F]{8}))/g, (escape, x, u, upper) => {
+        const point = Number.parseInt(x ?? u ?? upper, 16);
+        return point <= 0x10ffff ? String.fromCodePoint(point) : escape;
+    });
+    const lines = canonicalSource.split('\n').map(literalYamlLine);
+    // This policy scans literal YAML spellings. Escaped quoted keys or scalar values require YAML decoding before
+    // expression analysis, so reject that unsupported form instead of missing an escaped context or action name.
+    source.split('\n').forEach((line, index) => {
+        const key = /^\s*(?:-\s*)?("(?:\\.|[^"\\])*")\s*:/.exec(line);
+        const value = /^\s*(?:-\s*)?(?:[A-Za-z0-9_-]+|"(?:\\.|[^"\\])*"|'(?:''|[^'])*')\s*:\s*("(?:\\.|[^"\\])*")\s*(?:#.*)?$/.exec(line);
+        if (key?.[1].includes('\\') || value?.[1].includes('\\')) {
+            problems.push(`${file}:${index + 1}: escaped double-quoted YAML keys or values are not supported by this policy; use literal keys and scalar values`);
+        }
+    });
 
-    if (/^\s*pull_request_target\s*:/m.test(source)) {
+    if (/^\s*pull_request_target\s*:/m.test(lines.join('\n'))) {
         problems.push(`${file}: pull_request_target can expose base-branch secrets to untrusted pull request code`);
     }
-    if (/\bpermissions\s*:\s*write-all\b/.test(source)) {
+    if (/\bpermissions\s*:\s*write-all\b/.test(lines.join('\n'))) {
         problems.push(`${file}: write-all permissions are forbidden`);
     }
 
@@ -81,12 +188,15 @@ export function workflowProblems(file, source) {
         }
     }
 
-    const joinedShell = source.replace(/\\\r?\n/g, ' ');
+    const joinedShell = [source, canonicalSource].map((text) => text.replace(/\\\r?\n/g, ' ')).join('\n');
     if (/\b(?:curl|wget)\b[^|\n]*\|\s*(?:sudo\s+)?(?:ba|z|k)?sh\b/i.test(joinedShell)) {
         problems.push(`${file}: a remote response is piped directly into a shell`);
     }
 
     const jobs = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+    if (jobs === -1) {
+        problems.push(`${file}: declare jobs as a block mapping`);
+    }
     const header = jobs === -1 ? lines : lines.slice(0, jobs);
     const permissions = header.findIndex((line) => /^permissions:\s*$/.test(line));
     if (permissions === -1) {
@@ -103,12 +213,103 @@ export function workflowProblems(file, source) {
             problems.push(`${file}: top-level permissions must include contents: read`);
         }
         for (const line of block) {
-            if (/^\s+[\w-]+:\s*write\s*(?:#.*)?$/.test(line)) {
+            if (!line.trim() || line.trimStart().startsWith('#')) continue;
+            const permission = /^\s+([\w-]+):\s*(read|write|none)\s*(?:#.*)?$/.exec(line);
+            if (!permission) {
+                problems.push(`${file}: top-level permission entry this policy cannot read; use a literal scope and read, write or none`);
+            } else if (permission[2] === 'write') {
                 problems.push(`${file}: write permission must be scoped to the job that needs it: ${line.trim()}`);
             }
         }
     }
 
+    problems.push(...credentialProblems(file, lines));
+    return problems;
+}
+
+// Checkouts that keep no token, write permissions only where jobWrites allows, secrets read only by the Jev workflow,
+// and no untrusted expression inside a `run:` script.
+function credentialProblems(file, lines) {
+    const problems = [];
+    const name = file.split('/').pop();
+    const source = lines.join('\n');
+    const secretLines = new Set(githubExpressions(source).filter(readsSecrets)
+        .map(({ start }) => source.slice(0, start).split('\n').length - 1));
+    // the jobs: each key one level under `jobs:`, at whatever indent the file uses
+    const jobAt = new Array(lines.length).fill(null);
+    const jobsLine = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+    let jobIndent = Infinity;
+    if (jobsLine !== -1) {
+        const first = lines.slice(jobsLine + 1).find((line) => line.trim() && !line.trim().startsWith('#'));
+        jobIndent = first && indentOf(first) > 0 ? indentOf(first) : Infinity;
+        let current = null;
+        for (let index = jobsLine + 1; index < lines.length; index++) {
+            const line = lines[index];
+            if (/^\S/.test(line) && line.trim()) break;
+            const key = indentOf(line) === jobIndent && /^\s*([A-Za-z0-9_-]+):\s*(?:#.*)?$/.exec(line);
+            if (indentOf(line) === jobIndent && line.trim() && !line.trimStart().startsWith('#') && !key) {
+                problems.push(`${file}:${index + 1}: declare each job as a literal key and block mapping`);
+            }
+            if (key) current = key[1];
+            jobAt[index] = current;
+        }
+    }
+    for (let index = 0; index < lines.length; index++) {
+        const line = lines[index];
+        const content = line.replace(/\s+#.*$/, '');
+        const job = jobAt[index];
+
+        if (/^\s*(?:-\s*)?uses:\s*['"]?actions\/checkout@/.test(line)) {
+            const body = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
+            let end = index + 1;
+            while (end < lines.length && (!lines[end].trim() || (indentOf(lines[end]) >= body && !lines[end].trimStart().startsWith('- ')))) end++;
+            if (!lines.slice(index + 1, end).some((l) => /^\s+persist-credentials:\s*false\b/.test(l))) {
+                problems.push(`${file}:${index + 1}: actions/checkout must set persist-credentials: false (the token stays out of .git/config)`);
+            }
+        }
+
+        // a job's permissions: a block mapping, each write scope listed for the job; a flow mapping is refused, since
+        // this check reads block mappings only
+        const permissionsKey = job && /^(\s+)permissions:\s*(\S.*)?$/.exec(content);
+        if (permissionsKey && indentOf(line) > jobIndent) {
+            const value = (permissionsKey[2] ?? '').trim();
+            if (value.startsWith('{')) {
+                problems.push(`${file}:${index + 1}: job ${job} declares permissions as a flow mapping; write them one per line`);
+            } else if (value !== '' && value !== 'read-all') {
+                problems.push(`${file}:${index + 1}: job ${job} may not hold permissions: ${value}`);
+            }
+            for (let next = index + 1; next < lines.length && (!lines[next].trim() || indentOf(lines[next]) > indentOf(line)); next++) {
+                if (!lines[next].trim() || lines[next].trimStart().startsWith('#')) continue;
+                const permission = /^\s+([\w-]+):\s*(read|write|none)\s*(?:#.*)?$/.exec(lines[next]);
+                if (!permission) {
+                    problems.push(`${file}:${next + 1}: job ${job} has a permission entry this policy cannot read; use a literal scope and read, write or none`);
+                } else if (permission[2] === 'write' && !(jobWrites[name]?.[job] ?? []).includes(permission[1])) {
+                    problems.push(`${file}:${next + 1}: job ${job} may not hold ${permission[1]}: write (tools/security-policy.mjs, jobWrites)`);
+                }
+            }
+        }
+
+        if (/\bsecrets:\s*inherit\b/.test(content)) {
+            problems.push(`${file}:${index + 1}: secrets: inherit hands every secret on; name the one the workflow needs`);
+        }
+        if (secretLines.has(index) && name !== secretReader) {
+            problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; producers collect diagnosis inputs without credentials`);
+        }
+
+        const run = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);
+        if (run) {
+            const key = indentOf(line) + (line.trimStart().startsWith('-') ? 2 : 0);
+            const script = [run[2]];
+            for (let next = index + 1; next < lines.length && (!lines[next].trim() || indentOf(lines[next]) > key); next++) script.push(lines[next]);
+            const shell = script.join('\n');
+            githubExpressions(shell).forEach((expression) => {
+                if (untrustedExpression(expression)) {
+                    const offset = shell.slice(0, expression.start).split('\n').length - 1;
+                    problems.push(`${file}:${index + 1 + offset}: an untrusted expression expanded inside a run: script; pass it through env:`);
+                }
+            });
+        }
+    }
     return problems;
 }
 

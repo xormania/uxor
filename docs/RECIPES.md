@@ -66,6 +66,7 @@ Installed with the recipes that use it; install it yourself only for code of you
 | [`mobile-nav`](../mobile-nav/README.md) ✦ | The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit. |
 | [`nav-menu`](../nav-menu/README.md) ✦ | The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer. |
 | [`navbar`](../navbar/README.md) ✦ | The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens. |
+| [`oauth-provider-button`](../oauth-provider-button/README.md) | A Google, Facebook, GitHub or custom provider sign-in link with an enforced full browser handoff and no Turbo prefetch; Google uses its official local light and dark artwork. |
 | [`page-header`](../page-header/README.md) | The top of a page: its title, a short description and the page's actions. |
 | [`popover`](../popover/README.md) ✦ | Free content anchored to a button (text, links, a small form) in a non-modal dialog that closes on Escape, a click outside or when the focus leaves it. |
 | [`progress`](../progress/README.md) | A bar showing how far a task has come. |
@@ -87,6 +88,12 @@ Installed with the recipes that use it; install it yourself only for code of you
 | [`editor`](../editor/README.md) ✦ | A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. `EditorType` sanitizes every submit (symfony/html-sanitizer), and `flowbite_editor_html` prints stored HTML. |
 | [`markdown-editor`](../markdown-editor/README.md) ✦ | A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. `MarkdownType` limits the source, and `flowbite_markdown_html` prints it. |
 
+## Authentication
+
+| Recipe | |
+|---|---|
+| [`oauth`](../oauth/README.md) | Symfony OAuth2/OIDC authentication, provider adapters, expiring attempts and explicit account connections, with an authentication layout. |
+
 ## Layouts
 
 | Recipe | |
@@ -104,7 +111,9 @@ its own name: `dashboard-home` renders as `<twig:DashboardHome>`, `login` as `<t
 |---|---|
 | [`dashboard-home`](../dashboard-home/README.md) | A dashboard home: page header, key figures, two cards and a table of recent orders. |
 | [`login`](../login/README.md) | A sign-in card rendering a Symfony login form through the form theme, with the last authentication error. |
+| [`social-login`](../social-login/README.md) | Provider login or registration choices, safe feedback and an optional password-form slot in one authentication card. |
 | [`signup`](../signup/README.md) | A registration card rendering a Symfony form through the form theme. |
 | [`forgot-password`](../forgot-password/README.md) | A card asking for an email address to send a password reset link, then confirming it was sent. |
 | [`settings-profile`](../settings-profile/README.md) | A profile settings card: avatar, name and a Symfony form rendered through the form theme. |
+| [`connected-accounts`](../connected-accounts/README.md) | Connected provider identities with distinct CSRF-protected POST connection and disconnection forms, and explanations for unavailable actions. |
 | [`not-found`](../not-found/README.md) | The content of a 404 (or any error) page: status, title, explanation and a way back. |

@@ -40,7 +40,8 @@ the recipes' templates and PHP for `data-controller`, `symfony--ux-*`, `AsLiveCo
 3. **It is a Live Component:** data-table-live, markdown-editor.
 4. **Its markup carries Turbo behavior:** data-table (a `<turbo-frame>` with `data-turbo-action="advance"`), layouts
    (`data-turbo-permanent` sidebar and toast region, `data-turbo-track`, the inline theme script), sidebar and toast
-   (`data-turbo-permanent`, the toast's Stream template).
+   (`data-turbo-permanent`, the toast's Stream template), oauth-provider-button and connected-accounts
+   (`data-turbo="false"` native provider links and POST connection forms); social-login composes the provider links.
 
 Left out, with where their guarantees live: the presentational recipes (badge, button, card, table, …) and theme
 (CSS only): screenshots of every README example in both themes (`examples/examples`), axe on every example in both
@@ -77,6 +78,7 @@ its own URL over the one the Live table wrote, two owners of one URL that no rec
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | theme-toggle | theme-toggle | · | lab.value-matrix | T2 | · | · | · | · | · | theme-toggle | theme-toggle |
 | layouts | demo-app, lab.form-back, lab.data-table-back, lab.value-matrix | · | lab.value-matrix | · | lab.turbo-nav, demo-app | · | · | lab.turbo-nav | · | csp (first paint) | css |
+| oauth-provider-button, social-login, connected-accounts | · | · | · | · | · | · | · | · | · | css | css |
 | sidebar, navbar | lab.turbo-nav | · | lab.turbo-nav | T2 | lab.turbo-nav | · | · | · | · | css | · |
 | side-nav | lab.side-nav | · | lab.side-nav | lab.side-nav | lab.side-nav | · | · | · | · | lab.side-nav (on load) | css |
 | mobile-nav | lab.mobile-nav | · | lab.mobile-nav | lab.mobile-nav | G10 | · | G10 | · | · | css | · |
@@ -451,6 +453,29 @@ States: search, filter, sort and direction, page, page size (in the URL); data-t
 | The pager's current page reads at 4.5:1 or more in both themes (one character: axe passes it as "incomplete") | E2E demo | `tests/e2e/contrast.spec.ts` (with the pagination examples; found a bug, fixed: 2.7:1 in dark); `tests/e2e/a11y.spec.ts` measures every text of every README example the same way (`tests/e2e/contrast.ts`) |
 | The table fits a phone: the toolbar and the pager wrap, the table scrolls in its own box, nothing past the page's edge | E2E demo | `tests/e2e/examples/fit.spec.ts` "the README example data-table/default fits" (and data-table-live; every README example at 390px; found a bug, fixed: the frame took the table's width in a flex parent) |
 
+### OAuth presentation blocks
+
+These recipes have no browser SDK or controller state. They enforce native navigation in their markup and render
+server-prepared presentation data. The backend authentication journey is a separate integration guarantee; these
+presentation tests do not establish callback validation, local-user resolution, linking authorization or a Symfony
+session. Starting from inside a Turbo Frame and resuming Turbo after a provider return need that functional journey.
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Provider links retain a same-tab, full browser handoff and cannot prefetch, even when caller attributes try to replace that policy | Twig, E2E preview | `OAuthComponentsTest::testTheProviderHandoffCannotBeChangedByCallerAttributes`, recipe:oauth-provider-button |
+| Provider and alternative-page links reject executable or non-HTTP schemes; attribute bags drop inline handlers | E2E hostile props | hostile-props, extended through `HostilePropsCommand`'s URL cases and required provider fixture |
+| Google's approved artwork is local, its accessible label matches its text, and both theme assets are installed | Twig, screenshot | `OAuthComponentsTest::testGoogleUsesTheLocalApprovedArtworkAndMatchingLabel`, examples/examples for oauth-provider-button and social-login |
+| Google artwork follows the chosen page theme when it differs from the system preference; exactly the matching image is visible | E2E preview | recipe:oauth-provider-button "Google artwork follows the selected … theme when the system prefers …" (light and dark) |
+| Registration copy, safe feedback and provider labels render as escaped text, while the password slot renders once and gains a separator only beside providers | Twig, E2E preview | `OAuthComponentsTest::testTheRegistrationCardEscapesFeedbackAndProviderLabels`, `OAuthComponentsTest::testTheOptionalPasswordSlotRendersOnceWithASeparatorOnlyBesideProviders`, recipe:social-login |
+| Connect and disconnect use distinct POST actions and CSRF values; only disconnection submits the provider subject, and both forms submit the explicit settings return path | Twig, E2E preview | `OAuthComponentsTest::testConnectionFormsSeparateTheActionsAndBindDisconnectionToItsSubject`, recipe:connected-accounts |
+| Safe-marked Twig objects cannot turn account labels, feedback, actions, tokens, subjects or return paths into executable markup | Twig | `OAuthComponentsTest::testMarkupObjectsCannotBypassEscapingInFormAttributesOrLabels` |
+| A read-only account, last sign-in method, missing action/token/subject or unsafe action has an explained disabled command and exposes no mutation form or token | Twig, E2E preview | `OAuthComponentsTest::testUnavailableActionsExposeAnExplanationWithoutAnyMutationForm`, recipe:connected-accounts |
+| All six examples render in both themes, and every new preview and recipe page has accessible markup | screenshot, axe | examples/examples, a11y (the existing inventory-driven scans) |
+
+Reused support: the Card, Button and Alert recipes; the existing Twig component renderer, hostile-props matrix,
+preview fixture, inventory-driven screenshots and axe scans. No new mock provider or shared test harness is introduced
+by these UI recipes.
+
 ### motion (every recipe that moves)
 
 States: no preference or `prefers-reduced-motion: reduce`. Each transition names its properties and stops under
@@ -498,11 +523,32 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 
 | Guarantee | Scope | Covered by |
 |---|---|---|
+| Outbound GitHub text (pull request title, description, every commit message) names no account or team outside `.github/mention-allowlist`, inside code spans too, offline | static policy | `tools/tests/check-github-mentions.test.mjs` (`tools/check-github-mentions.mjs`; the *Metadata* workflow on every pull request, `tools/hooks/commit-msg` locally) |
+| Rejected account tokens are redacted before metadata failure logs and Jev attempts are captured; new collectors have time beyond each job's original limit | static policy, process integration | `tools/tests/metadata-diagnostics.test.mjs` (actual metadata shell and step-attempt collection; Changes, audit, Mentions and monthly PHP job budgets) |
 | External Actions are immutable; workflows reject `pull_request_target`, remote shell pipes and top-level writes | static policy | `tools/tests/security-policy.test.mjs` (`tools/security-policy.mjs`; the Tool tests job also runs it on every workflow) |
+| The independent Jev consumer uses trusted workflow code and checkouts, consumes only source-run artifacts as data, and cannot affect the producer verdict; diagnosis respects its total budget | static policy, process integration | `tools/tests/jev-boundary.test.mjs`, `tools/tests/jev-workflow.test.mjs` |
 | Every installable Twig raw-output, browser HTML-write, dynamic JavaScript execution, PHP process or unserialize sink is reviewed explicitly | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-sinks.json` (exact path, line shape, count and rationale) |
 | Dependency, cache, demo build and Playwright result paths never enter the tracked artifact | static policy | `tools/tests/security-policy.test.mjs`; `tools/security-policy.mjs` over `git ls-files` |
 | The current released series stays supported, and xormania owns all changes plus the security policy and agent rules explicitly | static policy, review | `tools/tests/security-policy.test.mjs`; `.github/CODEOWNERS`; branch ruleset requiring code-owner review |
 | Agents resist prompt injection, credential discovery, scope pressure, workflow escalation, path escape, false evidence and self-approval | adversarial evaluation | `docs/AGENT-ASSURANCE.md`; manual disposable-fork protocol with transcript, worktree and network evidence |
+
+## Release workflow contracts
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Scheduler control tools select the target checkout's complete current or legacy release family; discovery errors, mixed/partial families and test failures never fall back to a smaller suite | process integration | `tools/tests/release-checks.test.mjs`; pinned historical/current project fixtures, actual runner CLI with isolated launcher, same selection used by `release-evidence.mjs` |
+| Missing required projects/specs and skipped release specs remain fatal after a successful process exit | process integration | `tools/tests/release-evidence.test.mjs`, `tools/tests/release-checks.test.mjs`, `tools/tests/release-checks-workflow.test.mjs` |
+| The structural validator comes from the control checkout; replacement or deletion of a target helper cannot change project/spec validation | process integration | `tools/tests/release-checks.test.mjs`; separate control/target directories, actual sibling evidence CLI, both project families, missing/incomplete reports and target sentinel |
+| A pre-report Playwright failure retains its exit/error and can reach advisory captured-step diagnosis without credentials or invented counts | process integration | `tools/tests/release-checks-workflow.test.mjs`; actual workflow launch shell, missing-report summary and `step-attempts.mjs` |
+| Event/workflow/target/checkout revisions remain distinct in summaries and artifacts; a mismatched checkout fails before tests | process integration | `tools/tests/playwright-summary.test.mjs`, `tools/tests/step-attempts.test.mjs`, `tools/tests/release-checks-workflow.test.mjs`; shared `run-provenance.mjs` |
+| Scheduled checkout trusts only the maintained development branch; other checkouts trust their immutable event SHA. A substituted resolver SHA or a moving development head fails before target code executes | workflow/process integration | `tools/tests/release-checks-workflow.test.mjs`; actual checkout expression and provenance shell with real Git revisions, including valid event and stable scheduled controls |
+| Only a successful compatible scheduled run can suppress another schedule; manual, failed, fork, expired and old-workflow markers cannot mask a broken entry point | process integration | `tools/tests/release-checks-workflow.test.mjs`; actual target-resolution and verdict shells with API metadata fixtures |
+| Issue classification names the first failed step, ignores tolerated advisory failures, and calls a browser test failure only when the report actually records a failed test | tool/process integration | `tools/tests/release-checks-workflow.test.mjs`; `release-failure.mjs` API and CLI, including a valid global-error report with no browser attempts |
+
+Existing parser, summary and captured-step helpers are reused; no browser fixture, product assertion or screenshot
+baseline is replaced. These local tests do not replace a fresh default-branch scheduled run after promotion. The
+[issue 134 evidence bundle](ci/issue-134/README.md) records historical red/green behavior, semantic mutation
+calibration, coverage overlap, measured hosted timing and unresolved operational acceptance.
 
 ## Pending: branches in flight
 
@@ -576,8 +622,29 @@ Tier 2 (step 5) gates the key interactions on their counts (`counts`, [`TESTING.
 counts*): the dropdown, modal and drawer opening and closing, the data table's sort, page and filter in a Turbo Frame
 and in Live, a Live action re-sorting rows, a date pick and typing in the editor. The "N visits" cells shown by their
 effect (and the T2 cells) are still to become Stimulus instance counts. Tier 3 (step 7, [`TESTING.md`](TESTING.md),
-*Release checks*) runs the overlay and editor specs again in the dark theme (the `smoke-dark@release` project), the
-heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) under harsh conditions (`harsh@release`),
+*Release checks*) runs the overlay and editor specs again in the dark theme (the `release-dark` project), the
+heavy recipes' specs (data tables, editor, date picker, autocomplete, chart) under harsh conditions (`release-harsh`),
 and random clicks, keys, Back, Forward and theme switches on the lab pages (`tests/e2e/release.fuzz.spec.ts`: no error,
 one controller per element), which switch the theme at random moments but assert no overlay's state after it: an
 overlay open while the theme switches, which this map marks T3, is not covered yet.
+
+## OAuth authentication integration
+
+States: an anonymous visitor, a pending provider attempt, an authenticated local user, a pending explicit account
+connection, and safe feedback after cancellation or failure. The mock replaces the remote provider boundary;
+Symfony's installed controller, authenticator, session and user provider run normally.
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| Provider-bound, expiring, single-use state; independent tabs and bounded attempts; safe local return paths | unit | `AttemptStoreTest`, `OAuthClientTest` |
+| Codes, nonce, verifier and callback URI retain their binding; malformed, cancelled, reused and mismatched callbacks never exchange an identity | unit | `OAuthClientTest` |
+| Real League exchanges use PKCE for Google/GitHub, Google validates signed ID-token claims and rotating keys, GitHub selects verified primary email, Facebook uses confidential exchange and app-secret proof | unit with mocked HTTP | `ProviderTest` |
+| Each supported provider establishes a real Symfony session and user-provider refresh on later protected requests; anonymous start and callback remain public ahead of protected OAuth access rules | functional, E2E demo | `OAuthFlowTest`, oauth |
+| Cancellation and registration-policy failures explain the next action; email collisions never silently merge accounts | functional, E2E demo | `OAuthFlowTest`, oauth |
+| Explicit linking binds the same authenticated user on callback; invalid CSRF and foreign account ownership cannot change associations; final sign-in method cannot be removed | functional | `OAuthFlowTest` |
+| Same-origin saved protected-page targets survive login, account connection success and failure preserve the settings path and query, unsafe targets fall back, and unavailable providers give safe feedback | functional | `OAuthFlowTest` |
+| Provider start inside a Frame replaces the document; actual session expiry during a Frame request reaches full login; normal Turbo keeps the document after sign-in | E2E demo | oauth |
+| Actual installed classes boot before configuration and authenticate after binding the consuming app store; protected destinations and user reload work | install smoke | `tools/tests/check-fresh-app.sh` OAuth checks, both install lanes |
+
+Live provider application registrations are not exercised by offline CI. The demo grants and adapter HTTP fixtures
+cover separate boundaries; provider branding has local assets and screenshot coverage in the presentation rows.

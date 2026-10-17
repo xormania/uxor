@@ -5,6 +5,8 @@ security:
 
     # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
     providers:
+        oauth_demo:
+            id: App\OAuth\DemoIdentityStore
         users_in_memory:
             memory:
                 users:
@@ -16,6 +18,16 @@ security:
             # Ensure dev tools and static assets are always allowed
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
+        oauth_demo:
+            pattern: ^/(oauth|oauth-demo)(/|$)
+            lazy: true
+            provider: oauth_demo
+            custom_authenticators: [App\UXor\OAuth\OAuthAuthenticator]
+            entry_point: App\UXor\OAuth\OAuthAuthenticator
+            logout:
+                path: app_oauth_demo_logout
+                target: app_oauth_demo_login
+                enable_csrf: true
         main:
             lazy: true
             provider: users_in_memory
@@ -39,6 +51,9 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
+        - { path: '^/oauth/[a-z][a-z0-9_-]{0,31}/(start|check)$', roles: PUBLIC_ACCESS }
+        - { path: '^/oauth-demo/(login$|provider/)', roles: PUBLIC_ACCESS }
+        - { path: '^/(oauth|oauth-demo)(/|$)', roles: ROLE_USER }
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
 

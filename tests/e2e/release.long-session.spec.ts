@@ -97,7 +97,7 @@ const visitAndBack = async (page: Page, url: string) => {
     await turboOperation(page, { url: HOME }, () => page.goBack());
 };
 
-test.describe('release long session', { tag: '@release' }, () => {
+test.describe('release long session', () => {
     test.skip(({ browserName }) => 'chromium' !== browserName, 'the leak-detection counters are Chromium\'s (CDP)');
 
     test(`${VISITS} Turbo visits and Backs leave the DOM counters and the JS heap at their level`, async ({ page, browser }) => {

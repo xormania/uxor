@@ -1,0 +1,477 @@
+{
+  "config": {
+    "configFile": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/playwright.config.ts",
+    "rootDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main",
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tools/prepare-tests.mjs",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke",
+        "name": "smoke",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e",
+        "testIgnore": [
+          "examples/**"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "examples",
+        "name": "examples",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e/examples",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke-firefox",
+        "name": "smoke-firefox",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e",
+        "testIgnore": [
+          "examples/**",
+          "a11y.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "examples-firefox",
+        "name": "examples-firefox",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e/examples",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke-webkit",
+        "name": "smoke-webkit",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e",
+        "testIgnore": [
+          "examples/**",
+          "a11y.spec.ts"
+        ],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "examples-webkit",
+        "name": "examples-webkit",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e/examples",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "smoke-dark@release",
+        "name": "smoke-dark@release",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "lab.overlays.spec.ts",
+          "dropdown.spec.ts",
+          "lab.popover.spec.ts",
+          "popover.spec.ts",
+          "lab.tooltip.spec.ts",
+          "lab.live-modal.spec.ts",
+          "lab.live-drawer.spec.ts",
+          "lab.editor.spec.ts",
+          "editor.spec.ts",
+          "lab.markdown-editor.spec.ts",
+          "markdown-editor.spec.ts"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "harsh@release",
+        "name": "harsh@release",
+        "testDir": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "lab.data-table-frame.spec.ts",
+          "lab.data-table-live.spec.ts",
+          "lab.editor.spec.ts",
+          "lab.date-picker.spec.ts",
+          "date-picker.spec.ts",
+          "lab.autocomplete.spec.ts",
+          "chart.spec.ts",
+          "lab.chart.spec.ts"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "none",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 2,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "tests/e2e/release.fuzz.spec.ts",
+      "file": "tests/e2e/release.fuzz.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "release fuzz",
+          "file": "tests/e2e/release.fuzz.spec.ts",
+          "line": 116,
+          "column": 6,
+          "specs": [
+            {
+              "title": "random query strings on the data table pages: no 5xx, nothing injected, no CSP violation",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85fe64baaa40ebe38d10-a13b15462d4071f976cc",
+              "file": "tests/e2e/release.fuzz.spec.ts",
+              "line": 125,
+              "column": 5
+            },
+            {
+              "title": "random values for the Live data table's writable props: no 5xx, nothing injected, no CSP violation",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85fe64baaa40ebe38d10-5d7e9b263a2e8ccdfe02",
+              "file": "tests/e2e/release.fuzz.spec.ts",
+              "line": 158,
+              "column": 5
+            },
+            {
+              "title": "random form posts on /forms and the lab forms: no 5xx, nothing injected, no CSP violation",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85fe64baaa40ebe38d10-4b3609fa4af782a48c6b",
+              "file": "tests/e2e/release.fuzz.spec.ts",
+              "line": 233,
+              "column": 5
+            },
+            {
+              "title": "random clicks, keys, Back, Forward and theme switches on the lab pages: no error, one controller per element",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "85fe64baaa40ebe38d10-9cab4a66d457ef9f7ae4",
+              "file": "tests/e2e/release.fuzz.spec.ts",
+              "line": 357,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/e2e/release.long-session.spec.ts",
+      "file": "tests/e2e/release.long-session.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "release long session",
+          "file": "tests/e2e/release.long-session.spec.ts",
+          "line": 100,
+          "column": 6,
+          "specs": [
+            {
+              "title": "50 Turbo visits and Backs leave the DOM counters and the JS heap at their level",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "1f1ad68efa4d6a41f3bb-9c8962c1cbda202e3c51",
+              "file": "tests/e2e/release.long-session.spec.ts",
+              "line": 103,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tests/e2e/release.timings.spec.ts",
+      "file": "tests/e2e/release.timings.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "release timings",
+          "file": "tests/e2e/release.timings.spec.ts",
+          "line": 20,
+          "column": 6,
+          "specs": [
+            {
+              "title": "data-table in a Turbo Frame: sort, page, filter",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b45a6feb88a7789b5bd9-7ebe42cc691c4d1c3d0d",
+              "file": "tests/e2e/release.timings.spec.ts",
+              "line": 39,
+              "column": 5
+            },
+            {
+              "title": "data-table-live: sort, page, filter",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b45a6feb88a7789b5bd9-ae4775c025cb326e2ea7",
+              "file": "tests/e2e/release.timings.spec.ts",
+              "line": 59,
+              "column": 5
+            },
+            {
+              "title": "editor: typing a sentence, then bold from the keyboard",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b45a6feb88a7789b5bd9-b3e0add934cdd4327a5f",
+              "file": "tests/e2e/release.timings.spec.ts",
+              "line": 76,
+              "column": 5
+            },
+            {
+              "title": "markdown-editor: typing, then the preview",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b45a6feb88a7789b5bd9-d0c964dde6ebaee53eac",
+              "file": "tests/e2e/release.timings.spec.ts",
+              "line": 97,
+              "column": 5
+            },
+            {
+              "title": "forms: an empty submit shows the server-side errors",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b45a6feb88a7789b5bd9-102bee8dbd2e66a168b6",
+              "file": "tests/e2e/release.timings.spec.ts",
+              "line": 115,
+              "column": 5
+            },
+            {
+              "title": "dashboard: a Turbo visit to the settings and Back",
+              "ok": true,
+              "tags": [
+                "release"
+              ],
+              "tests": [
+                {
+                  "timeout": 180000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "smoke",
+                  "projectName": "smoke",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "b45a6feb88a7789b5bd9-6aaaea84cefb61a418f5",
+              "file": "tests/e2e/release.timings.spec.ts",
+              "line": 125,
+              "column": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-16T21:14:53.938Z",
+    "duration": 170.33300000000008,
+    "expected": 0,
+    "skipped": 11,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

@@ -1,0 +1,4 @@
+{
+    "revision": "40d957cd1ea7766ac0dee742816948ce5ae05bc3",
+    "projects": ["smoke", "examples", "smoke-firefox", "examples-firefox", "smoke-webkit", "examples-webkit", "release", "release-dark", "release-harsh"]
+}

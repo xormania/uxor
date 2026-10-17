@@ -18,3 +18,7 @@ Instructions for coding agents working on this repository, a Symfony UX Toolkit 
   `playwright-report/`, `playwright-results/`).
 - Commits and pull requests: plain words, the `type(scope): what changes` format, the pull request template,
   no AI attribution lines.
+- Never name a GitHub account or team in any text written to GitHub (titles, descriptions, commit messages,
+  comments, review replies): no at-sign directly followed by a name, in backticks or not, unless the owner asks for
+  that exact name. Describe test tags, package scopes and bot commands in words. Before each write, check the text with
+  `node tools/check-github-mentions.mjs --allow-file .github/mention-allowlist`.

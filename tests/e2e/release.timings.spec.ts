@@ -17,7 +17,7 @@ import { follow, turboOperation } from './transitions';
 
 const RUNS = Number(process.env.TIMING_RUNS ?? 5);
 
-test.describe('release timings', { tag: '@release' }, () => {
+test.describe('release timings', () => {
     test.skip(({ browserName }) => 'chromium' !== browserName, 'the renderer metrics are Chromium\'s');
     test.describe.configure({ timeout: 180_000 });
 

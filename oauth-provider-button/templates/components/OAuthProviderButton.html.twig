@@ -1,0 +1,35 @@
+{%- props
+    ## 'google'|'facebook'|'github'|'custom' The provider whose display name supplies the default label; other keys use `providerLabel`.
+    provider,
+    ## string The application's provider start route. A URL other than relative or http(s) renders `#`.
+    href,
+    ## string|null The complete label for other providers; Google uses the pre-approved `Sign in with Google` artwork.
+    label = null,
+    ## string|null The display name for a provider without a built-in name.
+    providerLabel = null
+-%}
+{#- The Button checks the remaining attribute bag. Navigation attributes cannot replace the native OAuth handoff. -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:data-turbo(?:-|$)|(?:as|href|target|download|aria-label|aria-labelledby)$)/'))) -%}
+{#- OAuth starts at a server route, not a mail or telephone URL; read the scheme as a browser does. -#}
+{%- set _href = (href ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' ? href ~ '' : '#' -%}
+{%- set _names = {google: 'Google', facebook: 'Facebook', github: 'GitHub'} -%}
+{%- set _provider_label = _names[provider|lower] ?? providerLabel|default('your provider', true) -%}
+{%- set _google = provider|lower == 'google' -%}
+{%- set _label = (_google ? 'Sign in with Google' : label|default('Continue with ' ~ _provider_label, true)) ~ '' -%}
+<twig:Button
+    as="a"
+    variant="outline"
+    :href="_href"
+    {{ ...attributes.defaults({class: ('min-h-11 w-full' ~ (_google ? ' p-0! border-0! bg-transparent! hover:bg-transparent! shadow-none! rounded' : ''))|tailwind_classes}) }}
+    aria-label="{{ _label }}"
+    target="_self"
+    data-turbo="false"
+    data-turbo-prefetch="false"
+>
+    {%- if _google %}
+        <img src="{{ asset('images/uxor-oauth-google-light.png') }}" width="180" height="40" class="hidden h-auto max-w-full not-dark:inline" alt="">
+        <img src="{{ asset('images/uxor-oauth-google-dark.png') }}" width="180" height="40" class="hidden h-auto max-w-full dark:inline" alt="">
+    {%- else %}
+        {{ _label }}
+    {%- endif %}
+</twig:Button>
