@@ -1,0 +1,35 @@
+{
+  "exit_code": 0,
+  "elapsed_seconds": 33.005648612976074,
+  "stats": {
+    "startTime": "2026-10-17T03:37:06.931Z",
+    "duration": 31697.182999999997,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "attempts": [
+    {
+      "retry": 0,
+      "status": "passed",
+      "duration_ms": 29852,
+      "long_session_annotations": [
+        {
+          "type": "long-session",
+          "description": "{\"prepared\":\"Memory.simulatePressureNotification (the leak detector crashes this Chromium)\",\"documents\":{\"level\":5,\"after\":5,\"change\":0,\"limit\":5},\"nodes\":{\"level\":6969,\"after\":6969,\"change\":0,\"limit\":7517},\"jsEventListeners\":{\"level\":34,\"after\":34,\"change\":0,\"limit\":56},\"jsHeapUsedSize\":{\"level\":5490324,\"after\":6059448,\"change\":569124,\"limit\":6563644}}"
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "provenance": "../actual-fixed-provenance.json",
+  "actual_fixed_spec_sha256": "9fb3c620657fefb2f45cad42af51d663e75cdd9c77200cb96fd8043a0b9d3406",
+  "actual_fixed_helper_module_sha256": "7798f5b56a838023d4cc1d3a65acd4f9e9dbe0b2ee4cd762c6be6fff6a3c1f12",
+  "results_sha256": "3f7b4d673fdd28facfee4ca608754cc10008b167dc5d6abdfef627aa4ee61b2b",
+  "run_log_sha256": "d2acfb94509126ca15c95afd05030b825f1790e4d777651db60d411d8819132c",
+  "current_source_matches_snapshot": true,
+  "compiled_asset_hashes_still_exact": true,
+  "scratch_tracked_status_after": "",
+  "scope": "Single full existing focused long-session spec, unchanged 50 visits/2 warm rounds/300s/configured retry1 and all counter bounds; real fixed production module; native PHP8.4 HTTP/Trixie Chromium145 supplement, not CI PHP8.5 HTTPS/Noble full-suite acceptance."
+}

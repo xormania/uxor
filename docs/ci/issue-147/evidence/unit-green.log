@@ -1,0 +1,12 @@
+✔ the known crashing Chromium build uses the fallback without opening a probe (0.807472ms)
+✔ another build still proves that its detector and renderer work before selecting it (0.907457ms)
+✔ an unsupported detector in another build still falls back and closes its context (0.22824ms)
+✔ a detector that loses its renderer is not selected (4.76425ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 84.484864

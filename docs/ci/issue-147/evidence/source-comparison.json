@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-10-17T02:54:28.399548+00:00",
+  "priorHead": "817efe02ea5124c6e48db30f851344447cc7ad7f",
+  "currentTestedMergeHead": "f69b17fc9b252e2c1b99e05b26d1a6a61e2215bd",
+  "paths": [
+    {
+      "path": "tests/e2e/release.long-session.spec.ts",
+      "priorBlob": "aba3f619910fd42e96be0f482ae66a3468a15f4b",
+      "currentMergeBlob": "aba3f619910fd42e96be0f482ae66a3468a15f4b",
+      "size": 7651,
+      "identical": true
+    },
+    {
+      "path": "tests/e2e/transitions.ts",
+      "priorBlob": "4cff443d137a5b5342ff6b1b1e589db1f8098d2e",
+      "currentMergeBlob": "4cff443d137a5b5342ff6b1b1e589db1f8098d2e",
+      "size": 22994,
+      "identical": true
+    },
+    {
+      "path": "tests/e2e/fixtures.ts",
+      "priorBlob": "7b19ebb4393883f278e36e4245a27dc0fd90581e",
+      "currentMergeBlob": "7b19ebb4393883f278e36e4245a27dc0fd90581e",
+      "size": 30543,
+      "identical": true
+    },
+    {
+      "path": "playwright.config.ts",
+      "priorBlob": "e713703e5d19c3ee28cfdb14a12fc6de6505b3cd",
+      "currentMergeBlob": "e713703e5d19c3ee28cfdb14a12fc6de6505b3cd",
+      "size": 9627,
+      "identical": true
+    }
+  ],
+  "limit": "Equal source and matching symptoms do not prove the timeout root cause or environment identity."
+}

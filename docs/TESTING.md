@@ -1643,8 +1643,12 @@ heading", from `MarkupPropertyTest`).
 **The long session in this demo.** The demo runs Symfony's dev environment, where Stimulus logs every connect with its
 element; with the console recorded, as Playwright records it, each logged element keeps its detached page alive. The
 spec turns Stimulus' debug log off and discards the console's messages before each reading, so it measures what the
-page keeps. `Memory.prepareForLeakDetection` crashes Chromium 145's renderer (Playwright 1.58): the spec tries it in a
-page of its own and, where it fails, drops the same caches with `Memory.simulatePressureNotification`.
+page keeps. `Memory.prepareForLeakDetection` crashes the pinned Chromium 145.0.7632.6 renderer (Playwright 1.58.2),
+and its optional capability probe can consume most of the session's time budget. That exact build uses the existing
+`Memory.simulatePressureNotification` fallback directly, before the same forced collections and counter assertions.
+Other builds still probe the detector in a separate context and use the fallback when it fails. The annotation reports
+the selected mode. Unit cases in `tools/tests/leak-detector.test.mjs` cover selection; the unchanged long-session test
+checks the actual retained DOM and heap.
 
 **Locally**, with the demo up (`DEMO_URL=https://localhost` for the Docker demo):
 

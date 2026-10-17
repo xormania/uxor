@@ -1,0 +1,21 @@
+{"utc":"2026-10-17T03:14:38.488Z","ms":35.019,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"fixture.setup"}
+{"utc":"2026-10-17T03:14:38.490Z","ms":35.959,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"test.start","timeout":200}
+{"utc":"2026-10-17T03:14:38.490Z","ms":36.076,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"probe.newContext"}
+{"utc":"2026-10-17T03:14:38.490Z","ms":36.121,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"probe.newPage"}
+{"utc":"2026-10-17T03:14:38.490Z","ms":36.354,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"probe.cdp.send","method":"Memory.prepareForLeakDetection"}
+{"utc":"2026-10-17T03:14:38.690Z","ms":236.48,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"fixture.teardown.start","status":"timedOut"}
+{"utc":"2026-10-17T03:14:38.690Z","ms":236.676,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"probe.context.close","closed":false,"teardown":true}
+{"utc":"2026-10-17T03:14:38.690Z","ms":236.772,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"probe.context.close","closed":true,"teardown":true}
+{"utc":"2026-10-17T03:14:38.691Z","ms":236.818,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"probe.return","supported":false,"status":"timedOut"}
+{"utc":"2026-10-17T03:14:38.691Z","ms":236.87,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"main.goto","url":"/lab","teardown":true,"status":"timedOut"}
+{"utc":"2026-10-17T03:14:38.691Z","ms":237.586,"test":"blocked probe: timeout then teardown can resume into navigation","phase":"fixture.teardown.end","status":"timedOut"}
+{"utc":"2026-10-17T03:14:40.096Z","ms":45.84,"test":"control: unsupported detector falls back before deadline","phase":"fixture.setup"}
+{"utc":"2026-10-17T03:14:40.097Z","ms":46.741,"test":"control: unsupported detector falls back before deadline","phase":"probe.newContext"}
+{"utc":"2026-10-17T03:14:40.097Z","ms":46.852,"test":"control: unsupported detector falls back before deadline","phase":"probe.newPage"}
+{"utc":"2026-10-17T03:14:40.098Z","ms":46.952,"test":"control: unsupported detector falls back before deadline","phase":"probe.cdp.send","method":"Memory.prepareForLeakDetection"}
+{"utc":"2026-10-17T03:14:40.098Z","ms":47.085,"test":"control: unsupported detector falls back before deadline","phase":"probe.context.close","closed":false,"teardown":false}
+{"utc":"2026-10-17T03:14:40.098Z","ms":47.124,"test":"control: unsupported detector falls back before deadline","phase":"probe.return","supported":false,"status":"passed"}
+{"utc":"2026-10-17T03:14:40.103Z","ms":52.875,"test":"control: unsupported detector falls back before deadline","phase":"main.goto","url":"/lab","teardown":false,"status":"passed"}
+{"utc":"2026-10-17T03:14:40.109Z","ms":58.445,"test":"control: unsupported detector falls back before deadline","phase":"fixture.teardown.start","status":"passed"}
+{"utc":"2026-10-17T03:14:40.109Z","ms":58.529,"test":"control: unsupported detector falls back before deadline","phase":"probe.context.close","closed":true,"teardown":true}
+{"utc":"2026-10-17T03:14:40.109Z","ms":58.657,"test":"control: unsupported detector falls back before deadline","phase":"fixture.teardown.end","status":"passed"}

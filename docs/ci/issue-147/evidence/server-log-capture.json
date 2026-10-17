@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-10-17T02:56:13.989282+00:00",
+  "testedWorkflowCommit": "f69b17fc9b252e2c1b99e05b26d1a6a61e2215bd",
+  "workflowPath": ".github/workflows/release-checks.yml",
+  "gitBlobSha": "4555830b63baaae0677bfb76a41232a3700a7bc6",
+  "sha256": "c094ece8e09f0537f78bee0828c4730ec5cf076003747c6d7fc709bc134d8fdd",
+  "sourceLines": [
+    {
+      "line": 314,
+      "text": "            # the end of the server log here, after the test results; the whole log in test-results/ (uploaded below)"
+    },
+    {
+      "line": 320,
+      "text": "                  docker compose logs php > ../test-results/demo-php.log"
+    },
+    {
+      "line": 321,
+      "text": "                  tail -n 300 ../test-results/demo-php.log"
+    },
+    {
+      "line": 327,
+      "text": "                  name: release-checks-report"
+    },
+    {
+      "line": 330,
+      "text": "                      release-checks-target/test-results/"
+    }
+  ],
+  "claim": "The workflow captures the full docker compose logs output to demo-php.log and uploads its parent test-results directory; the console prints only tail300.",
+  "limit": "Archive access is blocked, so retained server-log contents and failure-window coverage cannot be inspected or declared absent."
+}
