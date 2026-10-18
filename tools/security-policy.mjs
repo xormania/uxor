@@ -21,6 +21,10 @@ const generatedPrefixes = [
     'test-results',
     'playwright-report',
     'playwright-results',
+    // the Composer package's (composer.json, packages/uxor/): its install, PHPUnit's cache and Python's bytecode
+    'vendor',
+    'packages/uxor/.phpunit.cache',
+    '__pycache__',
 ];
 
 const requiredOwners = [
@@ -316,7 +320,8 @@ function credentialProblems(file, lines) {
 export function findSinks(files) {
     const findings = [];
     for (const file of files) {
-        const extension = extname(file.path);
+        // a file may name its language when its path has no extension (an executable script)
+        const extension = file.extension ?? extname(file.path);
         for (const rule of sinkRules.filter((candidate) => candidate.extensions.includes(extension))) {
             const pattern = new RegExp(rule.pattern.source, rule.pattern.flags);
             for (const match of file.source.matchAll(pattern)) {
@@ -368,7 +373,7 @@ export function generatedPathProblems(paths) {
         .filter((path) => {
             const segments = path.split('/');
             return generatedPrefixes.some((prefix) =>
-                prefix === 'node_modules'
+                prefix === 'node_modules' || prefix === '__pycache__'
                     ? segments.includes(prefix)
                     : path === prefix || path.startsWith(`${prefix}/`),
             );
@@ -444,7 +449,20 @@ function securityFiles(root) {
             paths.push(path);
         }
     }
-    return paths.map((path) => ({ path: normalize(relative(root, path)), source: readFileSync(path, 'utf8') }));
+    // The Composer package's shipped PHP (packages/uxor/src, config): its tests and tools are export-ignored, like a
+    // recipe's tests; its generated references are markdown, which no rule reads
+    for (const directory of ['packages/uxor/src', 'packages/uxor/config']) {
+        if (existsSync(join(root, directory))) {
+            paths.push(...walk(join(root, directory)));
+        }
+    }
+    const files = paths.map((path) => ({ path: normalize(relative(root, path)), source: readFileSync(path, 'utf8') }));
+    // and its executable, PHP without the extension (composer.json's bin)
+    const executable = join(root, 'packages/uxor/bin/uxor');
+    if (existsSync(executable)) {
+        files.push({ path: 'packages/uxor/bin/uxor', source: readFileSync(executable, 'utf8'), extension: '.php' });
+    }
+    return files;
 }
 
 export function repositoryProblems(root = repositoryRoot) {

@@ -39,7 +39,7 @@ check_git() {
     fi
 }
 
-all='lint-kit php static-site fresh-install contrast demo workflows'
+all='lint-kit php static-site fresh-install contrast demo workflows package'
 kit='lint-kit php static-site fresh-install demo'
 kit_contrast='lint-kit php static-site fresh-install contrast demo'
 
@@ -158,7 +158,8 @@ check "$kit_contrast"             kit.css
 check "$kit_contrast"             theme/assets/styles/uxor.css
 check "$kit_contrast"             button/templates/components/Button.html.twig
 check "$kit_contrast"             layouts/templates/layouts/app.html.twig
-check "$kit"                      .gitattributes
+# what both archives hold, the kit's and the Composer package's: the kit's jobs and Package
+check "$kit package"              .gitattributes
 # tools/readme-pairing.mjs (Contrast) pairs a recipe's code with its README, tools/readme-versions.mjs its README with
 # its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too
 check "$kit_contrast"             alert/templates/components/Alert.html.twig
@@ -171,6 +172,19 @@ check ''                          tools/tests/readme-pairing.test.mjs
 check ''                          tools/tests/jev-diagnosis.test.mjs
 check ''                          tools/tests/step-attempts.test.mjs
 check "$kit_contrast"             docs/NOTES.md kit.css
+
+# The Composer package xormania/uxor. Its root metadata is in the kit's archive too (Lint kit, Fresh install); the lock
+# file is the package's alone; its implementation and tests run Package, its markdown Contrast too. A recipe's README
+# is copied into the package's references, whose freshness is not checked yet: a recipe does not run Package
+check 'lint-kit fresh-install package' composer.json
+check 'package'                   composer.lock
+check 'package'                   packages/uxor/src/Operations.php
+check 'package'                   packages/uxor/tests/OperationsTest.php
+check 'package'                   packages/uxor/bin/uxor packages/uxor/tools/check-package.py
+check 'contrast package'          packages/uxor/skills/build/SKILL.md
+check 'contrast package'          packages/uxor/INSTRUCTIONS.md
+# another directory under packages/ is shipped in the same archive: the kit's jobs, as for any unlisted path, and Package
+check "$kit_contrast package"     packages/other/x
 
 if [ "$failures" -gt 0 ]; then
     exit 1

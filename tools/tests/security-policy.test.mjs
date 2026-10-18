@@ -248,12 +248,27 @@ test('finds browser code execution and HTML insertion sinks', () => {
     assert.match(output, /javascript-code-execution/);
 });
 
+test('reads an executable without an extension in the language it names', () => {
+    const files = [{ path: 'packages/uxor/bin/uxor', source: '#!/usr/bin/env php\n<?php\nshell_exec($command);\n', extension: '.php' }];
+    assert.match(sinkProblems(files, []).join('\n'), /packages\/uxor\/bin\/uxor:3: unreviewed php-process-execution/);
+    assert.deepEqual(sinkProblems([{ ...files[0], extension: undefined }], []), []);
+});
+
 test('rejects tracked dependency, cache and browser-result paths', () => {
     assert.deepEqual(generatedPathProblems(['button/README.md', 'demo/src/Kernel.php']), []);
     const output = generatedPathProblems(['widget/node_modules/pkg/index.js', 'demo/public/assets/app.js', 'playwright-results/results.json']).join('\n');
     assert.match(output, /node_modules/);
     assert.match(output, /demo\/public\/assets/);
     assert.match(output, /playwright-results/);
+    assert.deepEqual(generatedPathProblems(['packages/uxor/src/Operations.php', 'composer.lock', 'demo/src/vendor.php']), []);
+    const composer = generatedPathProblems([
+        'vendor/autoload.php',
+        'packages/uxor/.phpunit.cache/test-results',
+        'packages/uxor/tools/__pycache__/check-package.cpython-313.pyc',
+    ]).join('\n');
+    assert.match(composer, /__pycache__/);
+    assert.match(composer, /^vendor\/autoload\.php: /m);
+    assert.match(composer, /packages\/uxor\/\.phpunit\.cache/);
 });
 
 test('requires SECURITY to support the latest released series', () => {

@@ -3,16 +3,16 @@
 # Which CI jobs a change could affect. Reads the changed paths, one per line, on stdin and prints one
 # `<job>=true|false` line per job of .github/workflows/ci.yml, for $GITHUB_OUTPUT. A job is skipped only when none of
 # the paths could change what it checks. A path not listed counts as part of the kit, which runs every job but
-# Contrast and Workflows (a recipe's templates and markdown run Contrast too). A workflow runs Workflows (actionlint)
-# and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed runs
-# everything.
+# Contrast, Workflows and Package (a recipe's templates and markdown run Contrast too). A workflow runs Workflows
+# (actionlint) and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed
+# runs everything.
 #
 # Usage: git diff --name-only --no-renames <base> HEAD | tools/ci-changes.sh
 # Test:  tools/tests/ci-changes.sh
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site fresh-install contrast demo workflows)
+jobs=(lint-kit php static-site fresh-install contrast demo workflows package)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
@@ -48,6 +48,15 @@ while IFS= read -r path; do
         # runs (the release projects, absent there, run with the same fixtures)
         .github/workflows/release-checks.yml) on demo workflows ;;
         .github/*) all ;;
+
+        # The Composer package xormania/uxor: the root composer.json and the implementation under packages/uxor/. The
+        # root metadata is in both archives, the kit's and the package's (one GitHub archive), so it runs the kit's
+        # install jobs too; the lock file is export-ignored and only the package installs from it. .gitattributes
+        # decides what both archives hold. A recipe's README is copied into the package's generated references, but
+        # their freshness is not checked yet: a recipe does not run Package. The package's markdown runs Contrast
+        # too (the markdown rule below); .gitattributes and another directory under packages/ are below, with the kit.
+        composer.json) on package lint-kit fresh-install ;;
+        composer.lock | packages/uxor/*) on package ;;
 
         # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
         # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
@@ -110,6 +119,11 @@ while IFS= read -r path; do
             case "$path" in
                 # manifest.json: llms.txt holds its description, name and homepage (tools/llms-txt.mjs)
                 */* | kit.css | README.md | INSTALL.md | manifest.json) on contrast ;;
+            esac
+            # What both archives hold (.gitattributes' export-ignore), and another directory under packages/, which
+            # the archive also ships: Package checks its payload too
+            case "$path" in
+                .gitattributes | packages/*) on package ;;
             esac
             ;;
     esac
