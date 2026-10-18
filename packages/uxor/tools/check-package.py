@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import fnmatch
 import hashlib
 import io
 import json
@@ -90,10 +91,12 @@ def development_only(path: str) -> bool:
 
 
 def source_files(*pathspecs: str) -> list[str]:
-    """Files the source tree holds: tracked, plus untracked files Git does not ignore (not yet committed)."""
-    listed = subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *pathspecs],
+    """Files HEAD's tree holds: the archive is `git archive HEAD`, so an uncommitted file is not expected in it."""
+    listed = subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", "HEAD"],
                             cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE).stdout
-    return sorted({name for name in listed.split("\0") if name and (ROOT / name).is_file()})
+    # a pathspec is a glob (fnmatch: `*` crosses directories) or a directory whose files are all listed
+    return sorted({name for name in listed.split("\0") if name and any(
+        fnmatch.fnmatch(name, spec) or name.startswith(spec.rstrip("/") + "/") for spec in pathspecs)})
 
 
 def as_list(value) -> list[str]:
