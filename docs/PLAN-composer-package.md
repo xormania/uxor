@@ -5,12 +5,14 @@ recipes: none
 
 # Plan: the Composer package `xormania/uxor`
 
-_2026-10-18. Decided by the owner on 2026-10-16: UXor is one project in one repository. The agent guidance and
-development tools kept until now in a companion Composer package (`xormania/uxorscient`) move into this repository as
-the root Composer package `xormania/uxor`, with its code in `packages/uxor/`. The companion's name is dropped as an
-active product name. The kit's recipes still install with `ux:install` as copies the application owns: the package
-adds agent guidance and development tools, not a runtime library of components. The work goes through the work order
-`claude/wo-composer-package` (CONTRIBUTING, *Work orders*)._
+_2026-10-18. Selected by the owner on 2026-10-16: UXor is one project in one repository; the agent guidance and
+development tools kept until now in a companion Composer package (`xormania/uxorscient`) move into this repository,
+under `packages/uxor/`; the companion's name is dropped as an active product name. The root `composer.json` (the
+package `xormania/uxor`, with its code in `packages/uxor/`), the identity (decision 1) and the one version sequence
+(decision 5) are the proposals of the owner's direction document (*Inputs*, below), adopted here. The kit's recipes
+still install with `ux:install` as copies the application owns: the package adds agent guidance and development tools,
+not a runtime library of components. The work goes through the work order `claude/wo-composer-package` (CONTRIBUTING,
+*Work orders*)._
 
 _Inputs, on the branch `docs/mono-audit-2026-10-16`: the owner's direction,
 `docs/mono/inputs/uxor-single-repository-plan-2026-10-16.md`; the audit and its change register,
@@ -65,7 +67,7 @@ UXor at `40d957c` and the companion at `614aa28`._
    | `composer.lock` | *Package* |
    | `.gitattributes` | the kit's jobs and *Package* |
    | `packages/uxor/` | *Package*; its markdown also *Contrast* |
-   | any other path in `packages/` | the kit's jobs and *Package* |
+   | any other path in `packages/` | the kit's jobs, *Contrast* and *Package* |
 
    A package-only change does not run the browser matrix. Pushes to `dev` and `main` still run everything.
 7. **Local development.** `composer install` and `composer test` at the repository root, with PHP 8.4 or later. The
@@ -109,11 +111,12 @@ its useful parts may come back under their own plan and name (audit, `UXOR-AUD-M
 ## Done when
 
 - `composer validate --strict` passes on the root `composer.json`; every path it declares is in the exported archive,
-  and nothing `.gitattributes` leaves out is (`check-package.py`).
+  and no development or unlisted file is (`check-package.py`, whose list is independent of `.gitattributes`).
 - The installed CLI, namespace, Mate tools, resource URIs, instructions and skills use the UXor identity.
 - `ux:install` still installs the kit from the complete archive, and the lint still fails an unexpected root directory
   without a `manifest.json`.
 - `tools/tests/ci-changes.sh` covers the new rules: a package-only change runs *Package* and not the browser jobs; a
   change to `composer.json` or `.gitattributes` runs both installs.
-- The later jobs meet the acceptance of the audit's `W2` to `W6` that this plan assigns them; this plan is marked
-  `shipped` when the release job lands.
+- The later jobs meet the acceptance of the audit's `W2`, `W3` and `W6` that this plan assigns them (`W4`'s product and
+  test defects and `W5`'s merge gates are outside this work order); this plan is marked `shipped` when the release
+  job lands.
