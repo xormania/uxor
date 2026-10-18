@@ -1,0 +1,13 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+$autoload = $_composer_autoload_path ?? __DIR__.'/../../../vendor/autoload.php';
+if (!is_file($autoload)) {
+    fwrite(STDERR, "Install Composer dependencies before running UXor.\n");
+    exit(1);
+}
+require $autoload;
+
+exit((new Xormania\UXor\Console\Application())->run());

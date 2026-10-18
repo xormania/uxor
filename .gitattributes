@@ -22,3 +22,10 @@
 /.editorconfig export-ignore
 /.gitignore export-ignore
 /.gitattributes export-ignore
+# The Composer package (composer.json, packages/uxor/) installs from the same archive: its runtime and agent files
+# stay in it, its development files do not
+/composer.lock export-ignore
+/packages/uxor/tests export-ignore
+/packages/uxor/tools export-ignore
+/packages/uxor/dev export-ignore
+/packages/uxor/phpunit.xml.dist export-ignore
