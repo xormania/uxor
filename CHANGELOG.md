@@ -5,16 +5,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
-### Added
-
-- The Composer package `xormania/uxor`, from this repository (`composer.json`, `packages/uxor/`): agent guidance and
-  development tools for projects using the kit, as a development dependency. It brings three Mate skills (`setup`,
-  `build`, `verify`), seven Mate tools (`uxor_*`), the `vendor/bin/uxor` command line and UXor's docs as bundled
-  references (`uxor://` resources). Recipes still install with `ux:install`. The references are generated from this
-  repository's docs, recipe READMEs and manifests, and CI checks they are up to date; their index identifies them by
-  the digest of the files they copy, not by a commit.
-
-## [0.3.0] - 2026-10-17
+## [0.3.0] - 2026-10-18
 
 ### Added
 
@@ -23,6 +14,12 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `oauth-provider-button`: provider sign-in links with full browser navigation, no Turbo prefetch and Google's official light and dark button artwork served locally.
 - `social-login`: login and registration cards with provider choices, safe authentication feedback and an optional password-form slot.
 - `connected-accounts`: account connection settings with distinct CSRF-protected POST forms, provider subjects for disconnection, preserved settings return paths and explained unavailable actions.
+- The Composer package `xormania/uxor`, from this repository (`composer.json`, `packages/uxor/`): agent guidance and
+  development tools for projects using the kit, as a development dependency. It brings three Mate skills (`setup`,
+  `build`, `verify`), seven Mate tools (`uxor_*`), the `vendor/bin/uxor` command line and UXor's docs as bundled
+  references (`uxor://` resources). Recipes still install with `ux:install`. The references are generated from this
+  repository's docs, recipe READMEs and manifests, and CI checks they are up to date; their index identifies them by
+  the digest of the files they copy, not by a commit.
 
 ## [0.2.0] - 2026-10-11
 

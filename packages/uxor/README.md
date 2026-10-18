@@ -35,13 +35,12 @@ Once the package is published on Packagist:
 composer require --dev xormania/uxor
 ```
 
-Until then, add the repository and require a release tag that ships `composer.json` at the repository's root. No
-release ships the package yet: the tags so far hold the kit only. Once the first release with `composer.json` is
-tagged, use it, or a later one, as `<version>`:
+Until then, add the repository and require a release tag that ships `composer.json` at the repository's root: 0.3.0
+is the first (the tags before it hold the kit only):
 
 ```sh
 composer config repositories.uxor vcs https://github.com/xormania/uxor
-composer require --dev xormania/uxor:<version>
+composer require --dev xormania/uxor:^0.3
 ```
 
 Composer installs the repository's archive (the kit and this package, without the development files), so the
