@@ -619,7 +619,7 @@ jobs:
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
     # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
     # the development harness of packages/uxor/dev/, that archive installed and updated in the independent consumer
-    # (check-package.py --consumer) and the installed executable. It runs on the package's minimum PHP (composer.json:
+    # (check-package.py --consumer) and the package's executable. It runs on the package's minimum PHP (composer.json:
     # php >=8.4), pinned here so a later bump of the workflow's PHP_VERSION does not stop checking the minimum. Not here
     # yet (packages/uxor/dev/README.md): the consumer's browser journey with recipes installed from this commit, and
     # the Docker and Serena environment, which needs the xorder images and their support policy.
@@ -669,7 +669,7 @@ jobs:
                   set -o pipefail
                   composer test 2>&1 | tee "$RUNNER_TEMP/jev-package-tests.log"
 
-            # `composer archive` of the repository, as Composer and GitHub ship it: the package's files are in it, the
+            # `git archive HEAD` of the repository, as GitHub ships it to the Toolkit and to Composer: the package's files are in it, the
             # development files are not (the runner's Python, standard library only)
             - name: The archive's payload
               id: archive
@@ -698,14 +698,15 @@ jobs:
                   set -o pipefail
                   python3 packages/uxor/tools/check-package.py --consumer 2>&1 | tee "$RUNNER_TEMP/jev-consumer.log"
 
-            # the executable Composer installs for the root package (composer.json's bin)
-            - name: vendor/bin/uxor runs
+            # composer.json's executable, run from the checkout: Composer links a dependency's bin into vendor/bin, not
+            # the root package's own, so it finds the root vendor/autoload.php itself
+            - name: The uxor command runs
               id: smoke
               run: |
                   set -o pipefail
                   {
-                      vendor/bin/uxor list
-                      vendor/bin/uxor catalog --query=modal --limit=1 --format=json
+                      php packages/uxor/bin/uxor list
+                      php packages/uxor/bin/uxor catalog --query=modal --limit=1 --format=json
                   } 2>&1 | tee "$RUNNER_TEMP/jev-smoke.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict

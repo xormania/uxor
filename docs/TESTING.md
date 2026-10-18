@@ -1036,9 +1036,9 @@ root, apart from the demo: `composer install`, then `composer test`, which runs 
 temporary projects, without booting one: component wiring (`ComponentWiringTest`), the catalog, reads, inspection,
 the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
 (`ReferenceBundleTest`). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
-`composer archive` and checks it against its own list of what must and must not be there, independent of
+`git archive HEAD` (what GitHub serves) and checks it against its own list of what must and must not be there, independent of
 `.gitattributes`: the list is the oracle for the export rules. CI's *Package* job runs them, after
-`composer validate --strict`, and ends with `vendor/bin/uxor list` and `catalog` as a smoke test. An independent
+`composer validate --strict`, and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test. An independent
 consumer that installs the archive, and a check that the references match this checkout, come with later jobs of the
 work order ([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The Composer package*).
 

@@ -15,5 +15,6 @@ return static function (ContainerConfigurator $container): void {
     foreach ([ReferenceBundle::class, ProjectInspector::class, ProjectDoctor::class, NativeTools::class, Operations::class] as $class) {
         $services->set($class)->autowire();
     }
-    $services->set(Capabilities::class)->autowire()->arg('$projectRoot', '%mate.root_dir%');
+    // public: at the repository root Mate registers its handlers before this file and set() replaces the definition
+    $services->set(Capabilities::class)->autowire()->public()->arg('$projectRoot', '%mate.root_dir%');
 };
