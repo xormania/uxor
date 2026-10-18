@@ -107,7 +107,7 @@ check_git "$all"                  'git mv .github/workflows/ci.yml .github/workf
 # copy it (Package)
 check "$kit_contrast package"     new-recipe/manifest.json
 check "$kit_contrast package"     tabs/manifest.json
-check_git "$kit_contrast package" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git commit -qm tabs && git rm -q tabs/manifest.json'
+check_git "$kit_contrast package" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git -c user.name=t -c user.email=t@t commit -qm tabs && git rm -q tabs/manifest.json'
 check "$kit"                      some-new-file.txt
 # the kit's manifest: llms.txt (Contrast) holds its name, homepage and description; the references copy it (Package)
 check "$kit_contrast package"     manifest.json
