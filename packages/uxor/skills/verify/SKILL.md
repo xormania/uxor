@@ -11,7 +11,7 @@ Use this skill after setup, a feature change, a component update or an integrati
 
 Read the selected component's `uxor://reference/<recipe>/README.md` and the relevant sections of `uxor://reference/docs/GUIDE.md`. For existing reusable testing mechanisms, consult `uxor://reference/docs/TESTING.md` on demand. Its demo-specific routes, helpers and test counts are reference material to adapt to this application.
 
-Read resources with the project's `vendor/bin/mate resources:read <uri> --format=json`. The local fallback is `vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` (the default Composer vendor directory; use the application's actual one). The package's `packages/uxor/resources/uxor/index.json` identifies the reference revision. Inspect installed/customized files when their behavior differs.
+Read resources with the project's `vendor/bin/mate resources:read <uri> --format=json`. The local fallback is `vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` (the default Composer vendor directory; use the application's actual one). The package's `packages/uxor/resources/uxor/index.json` identifies the reference sources by digest. Inspect installed/customized files when their behavior differs.
 
 The testing guide is large. Inspect and use the installed `uxor_reference` tool to read bounded relevant sections instead of loading the entire guide by default.
 

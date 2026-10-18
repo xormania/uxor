@@ -85,7 +85,7 @@ Maker/Mate discovery.
 
 The customer-management workflow connects a searchable list, modal form, validation, successful-save feedback and
 Turbo history. It is written for this package, beside the component references generated from the kit's READMEs,
-and each reference result names the UXor revision its documentation comes from.
+and each reference result names the digest of the UXor files its documentation is generated from.
 
 Composer updates the package's code and references; Mate discovery refreshes the installed agent guidance and skills.
 Installed application components remain owned by the consuming project.

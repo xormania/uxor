@@ -7,7 +7,7 @@ recipe into your project, where you own it. Every behavior is a Stimulus control
 Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
 
-![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/images/dashboard-dark.png)
+![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/main/docs/images/dashboard-dark.png)
 
 ## Install
 
@@ -57,6 +57,15 @@ this command and commit them; run it again when your templates use new icons:
 php bin/console ux:icons:lock
 ```
 
+## Agent tooling
+
+The repository is also a Composer package, `xormania/uxor`, for the coding agent working on your project: three
+[Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
+and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
+setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
+recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/main/packages/uxor/README.md) says how to
+install it.
+
 ## Requirements
 
 | | |
@@ -73,10 +82,10 @@ php bin/console ux:icons:lock
 - [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
 - [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
 - [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
-- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/llms.txt), and paste
+- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt), and paste
   [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
-- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/CHANGELOG.md): what each version changes.
-- [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/CONTRIBUTING.md): the repository layout, the checks and the conventions.
+- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/main/CHANGELOG.md): what each version changes.
+- [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md): the repository layout, the checks and the conventions.
 - [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
 
 ## License

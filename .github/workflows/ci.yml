@@ -658,6 +658,15 @@ jobs:
                   { git ls-files -z -- 'packages/uxor/*.php'; printf '%s\0' packages/uxor/bin/uxor; } \
                       | xargs -0 -n1 php -l 2>&1 | tee "$RUNNER_TEMP/jev-syntax.log"
 
+            # The bundled references (packages/uxor/resources/uxor/) are what the generator makes of this checkout's
+            # docs, recipe READMEs and manifests: it regenerates them into a temporary directory and compares byte for
+            # byte, and fails with the stale files' list without repairing them
+            - name: The bundled references are up to date
+              id: references
+              run: |
+                  set -o pipefail
+                  php packages/uxor/tools/generate-reference.php --check 2>&1 | tee "$RUNNER_TEMP/jev-references.log"
+
             # (an id of its own: Kit PHP's PHPUnit step, id phpunit, is diagnosed from its JUnit report instead)
             - name: PHPUnit
               id: package-tests

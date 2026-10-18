@@ -3,8 +3,8 @@
 You are a coding agent, and your human just gave you this repository's URL. This page tells you what UXor
 gives you, how to set a Symfony project up for it, and how to build pages with it while writing as little code as
 possible. The same text, as plain markdown:
-<https://raw.githubusercontent.com/xormania/uxor/40d957cd1ea7766ac0dee742816948ce5ae05bc3/FOR-AGENTS.md>. Every page of the kit, with one line
-each: [`llms.txt`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/llms.txt).
+<https://raw.githubusercontent.com/xormania/uxor/main/FOR-AGENTS.md>. Every page of the kit, with one line
+each: [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt).
 
 ## What you get
 
@@ -62,6 +62,15 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
 3. Read the recipe's README before using it: `<recipe>/README.md` in this repository.
 4. Pages extend `layouts/app.html.twig` (`ux:install layouts`), or `auth`, `settings`, `error` or `blank`. A block
    such as `dashboard-home` or `login` shows a whole page, controller included, in its README.
+
+## Tools for you: the Composer package
+
+The same repository is the Composer package `xormania/uxor`, a development dependency that gives you Mate skills
+(`setup`, `build`, `verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
+`vendor/bin/uxor` to search the recipes, read their READMEs from the package, and check the project's setup.
+It installs no recipe: keep using `ux:install`. Install it as
+[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/main/packages/uxor/README.md) says, with your human's agreement, since it changes the
+project's `composer.json`.
 
 ## Which recipe
 
@@ -231,14 +240,14 @@ Recipes are copies the project owns. Commit first, then reinstall from a newer v
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
-Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/CHANGELOG.md)). Without a version, `ux:install` takes `main`, the last
+Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/main/CHANGELOG.md)). Without a version, `ux:install` takes `main`, the last
 release; `:dev` takes the work merged since.
 
 ## Quick reference
 
 | You need | Read |
 |---|---|
-| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/llms.txt) |
+| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt) |
 | The rules to paste into the project | [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) |
 | Every recipe, one line each | [`docs/RECIPES.md`](docs/RECIPES.md) |
 | A recipe's props and examples | `<recipe>/README.md` |
@@ -246,4 +255,4 @@ release; `:dev` takes the work merged since.
 | Turbo, Live Components, security | [`docs/GUIDE.md`](docs/GUIDE.md#turbo-and-live-components) |
 | Every example rendered, light and dark | <https://xormania.github.io/uxor/> |
 | Testing an app built with the kit (Turbo, Live, CSP, request limits) | [`docs/TESTING.md`](docs/TESTING.md) |
-| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/AGENTS.md) |
+| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/main/AGENTS.md) |

@@ -60,4 +60,4 @@ deficiencies. The `chart` recipe applies them; use them yourself as `bg-chart-1`
 
 ### Contrast
 
-In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.
+In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/uxor/blob/main/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.

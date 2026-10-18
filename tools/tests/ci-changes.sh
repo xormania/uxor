@@ -44,11 +44,17 @@ kit='lint-kit php static-site fresh-install demo'
 kit_contrast='lint-kit php static-site fresh-install contrast demo'
 
 # Read by people only
-check ''                          LICENSE NOTICE .github/dependabot.yml
+check ''                          .github/dependabot.yml
 
 # Read by people and agents: Contrast checks the generated lists, the plans and what the markdown teaches
-check 'contrast'                  docs/TESTING.md CHANGELOG.md FOR-AGENTS.md .github/pull_request_template.md
-check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md
+check 'contrast'                  CHANGELOG.md .github/pull_request_template.md
+check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs/NOTES.md
+# the inputs of the Composer package's generated references: Package checks their copies are up to date
+check 'contrast package'          docs/TESTING.md
+check 'contrast package'          FOR-AGENTS.md
+check 'contrast package'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
+check 'package'                   LICENSE
+check 'package'                   NOTICE
 check 'contrast'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
 check 'contrast'                  tools/test-inventory.mjs
 check 'contrast'                  tools/icon-lint.mjs
@@ -63,7 +69,8 @@ check 'php static-site demo'      demo/templates/components/Input.html.twig
 check 'php static-site demo'      demo/README.md
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
-check "$kit_contrast"             INSTALL.md
+check "$kit_contrast package"     INSTALL.md
+check "$kit_contrast package"     README.md
 
 # A workflow: actionlint reads it, and the jobs that run what it runs check that part (a workflow's own triggers run
 # the rest: audit.yml and codeql.yml run on the pull request that changes them)
@@ -96,12 +103,14 @@ check_git "$all"                  'git mv .github/workflows/pages.yml .github/wo
 check_git "$all"                  'git mv .github/workflows/ci.yml .github/workflows/checks.yml'
 
 # A path no rule names is part of the kit
-# A manifest makes a directory a recipe, which the inventory check (Contrast) reads
-check "$kit_contrast"             new-recipe/manifest.json
-check "$kit_contrast"             tabs/manifest.json
+# A manifest makes a directory a recipe, which the inventory check (Contrast) reads, and the package's references
+# copy it (Package)
+check "$kit_contrast package"     new-recipe/manifest.json
+check "$kit_contrast package"     tabs/manifest.json
+check_git "$kit_contrast package" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git commit -qm tabs && git rm -q tabs/manifest.json'
 check "$kit"                      some-new-file.txt
-# the kit's manifest: llms.txt (Contrast) holds its name, homepage and description
-check "$kit_contrast"             manifest.json
+# the kit's manifest: llms.txt (Contrast) holds its name, homepage and description; the references copy it (Package)
+check "$kit_contrast package"     manifest.json
 check 'contrast'                  tools/kit-identity.mjs
 # the name check and its cases: Tool tests, on every run
 check ''                          tools/name-check.mjs tools/tests/name-check.test.mjs
@@ -152,7 +161,7 @@ check 'php static-site demo'      tools/sync-demo
 check 'php static-site fresh-install demo' demo/compose.yaml
 check 'php static-site fresh-install demo' demo/frankenphp/Caddyfile
 check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
-check "$kit_contrast"             side-nav/README.md
+check "$kit_contrast package"     side-nav/README.md
 check "$kit_contrast"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
 check "$kit_contrast"             theme/assets/styles/uxor.css
@@ -161,11 +170,14 @@ check "$kit_contrast"             layouts/templates/layouts/app.html.twig
 # what both archives hold, the kit's and the Composer package's: the kit's jobs and Package
 check "$kit package"              .gitattributes
 # tools/readme-pairing.mjs (Contrast) pairs a recipe's code with its README, tools/readme-versions.mjs its README with
-# its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too
+# its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too. Only the README and the
+# manifest are copied into the package's references (Package); a deeper README is not
 check "$kit_contrast"             alert/templates/components/Alert.html.twig
 check "$kit_contrast"             data-table/src/Table/DataTable.php
-check "$kit_contrast"             alert/README.md
-check "$kit_contrast"             alert/manifest.json
+check "$kit_contrast package"     alert/README.md
+check "$kit_contrast package"     alert/manifest.json
+check "$kit_contrast"             alert/docs/README.md
+check "$kit_contrast"             alert/assets/manifest.json
 check_git "$kit_contrast"         'mkdir -p alert/templates && echo a > alert/templates/x.html.twig && git add alert'
 check 'contrast'                  tools/readme-pairing.mjs tools/readme-versions.mjs
 check ''                          tools/tests/readme-pairing.test.mjs
@@ -174,12 +186,15 @@ check ''                          tools/tests/step-attempts.test.mjs
 check "$kit_contrast"             docs/NOTES.md kit.css
 
 # The Composer package xormania/uxor. Its root metadata is in the kit's archive too (Lint kit, Fresh install); the lock
-# file is the package's alone; its implementation and tests run Package, its markdown Contrast too. A recipe's README
-# is copied into the package's references, whose freshness is not checked yet: a recipe does not run Package
+# file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'
+# inputs run Package (above); the generator and its output are under packages/uxor/
 check 'lint-kit fresh-install package' composer.json
 check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
 check 'package'                   packages/uxor/tests/OperationsTest.php
+check 'package'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
+check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md
+check 'package'                   packages/uxor/resources/uxor/index.json
 check 'package'                   packages/uxor/bin/uxor packages/uxor/tools/check-package.py
 check 'contrast package'          packages/uxor/skills/build/SKILL.md
 check 'contrast package'          packages/uxor/INSTRUCTIONS.md

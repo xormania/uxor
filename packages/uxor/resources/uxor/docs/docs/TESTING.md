@@ -32,7 +32,7 @@ export const test = base.extend({
 });
 ```
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`guardPage`, `recordCspViolations`, `allowHttpError`; `allowCancelledRequest`
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`guardPage`, `recordCspViolations`, `allowHttpError`; `allowCancelledRequest`
 for a request a test cancels on purpose, *Back during a frame visit promoted to history*).
 
 The guard drops two page errors of its own, each the rejection of Turbo's prefetch (a link under the pointer) that a
@@ -60,8 +60,8 @@ await expect(page).toHaveURL(/\/lab$/);
 await sameDocument.expectKept();      // or, after a full load: await sameDocument.expectReplaced();
 ```
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`markDocument`), [`smoke.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/smoke.spec.ts),
-[`lab.turbo-nav.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.turbo-nav.spec.ts), [`demo-app.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/demo-app.spec.ts) (replaced).
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`markDocument`), [`smoke.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/smoke.spec.ts),
+[`lab.turbo-nav.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.turbo-nav.spec.ts), [`demo-app.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/demo-app.spec.ts) (replaced).
 
 ### Wait for the operation to complete, not for content
 
@@ -121,9 +121,9 @@ Turbo operation did not complete: expected a new turbo:frame-load of #orders, th
 `url` is a URL or path (query parameters in any order), a RegExp or a predicate. `turboVisitDone` (no `aria-busy`, no
 `data-turbo-preview`) stays useful after the operation, as a check that nothing else started.
 
-Here: [`tests/e2e/transitions.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/transitions.ts) (`observeTurbo`, `turboOperation`),
-[`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`turboVisitDone`),
-[`lab.data-table-frame.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.data-table-frame.spec.ts) (the history walk).
+Here: [`tests/e2e/transitions.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/transitions.ts) (`observeTurbo`, `turboOperation`),
+[`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`turboVisitDone`),
+[`lab.data-table-frame.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.data-table-frame.spec.ts) (the history walk).
 
 ### One driver for the transitions
 
@@ -159,13 +159,13 @@ await sendStream(page, 'update', { from: 'code' });   // the form submitted from
 await follow(page, 'Page 2');                      // focus and Enter: Turbo does not prefetch it (the caller waits)
 ```
 
-Here: [`tests/e2e/transitions.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/transitions.ts), used by the `lab.*` specs.
+Here: [`tests/e2e/transitions.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/transitions.ts), used by the `lab.*` specs.
 
 The specs' other shared helpers, each the one place to change when the markup changes:
-[`calendar.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/calendar.ts) (`day`, `dayCell`: a day of the calendar or a date picker's dialog),
-[`files.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/files.ts) (`png`, `text`: files for an input), [`data-table.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/data-table.ts)
+[`calendar.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/calendar.ts) (`day`, `dayCell`: a day of the calendar or a date picker's dialog),
+[`files.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/files.ts) (`png`, `text`: files for an input), [`data-table.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/data-table.ts)
 (`tableStatus`, `selectionStatus`, `tableParams`: the status lines and the URL's state), and `previewUrl` in
-[`inventory.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/inventory.ts) (a README example's preview page, also behind `gotoExample`).
+[`inventory.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/inventory.ts) (a README example's preview page, also behind `gotoExample`).
 
 ### Back after the cache snapshot
 
@@ -182,7 +182,7 @@ expect(held()).toBe(1);   // the order was forced: no stylesheet request, no ord
 await expect(dialog).not.toHaveAttribute('open');
 ```
 
-Here: [`lab.turbo-restore.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.turbo-restore.spec.ts), and the Back tests of each `lab.*.spec.ts`.
+Here: [`lab.turbo-restore.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.turbo-restore.spec.ts), and the Back tests of each `lab.*.spec.ts`.
 
 ### What the cached copy holds
 
@@ -224,15 +224,15 @@ Leave it from Back or Forward too, without a stylesheet to wait for: Turbo then 
 disconnected, and whatever `disconnect()` leaves (a dialog closed there, its button still expanded) is what the copy
 holds, and what the new controller starts from.
 
-Here: [`lab.mobile-nav.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.mobile-nav.spec.ts), [`lab.nav-menu.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.nav-menu.spec.ts),
-[`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.overlays.spec.ts) (dropdown, modal, drawer).
+Here: [`lab.mobile-nav.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.mobile-nav.spec.ts), [`lab.nav-menu.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.nav-menu.spec.ts),
+[`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.overlays.spec.ts) (dropdown, modal, drawer).
 
 ### Beside a frame visit promoted to history
 
 **Catches:** a component next to a data table (or any `data-turbo-action="advance"` frame) that closes, loses the
 focus or disappears when the frame changes, or comes back open on Back. Turbo copies the page when the frame visit
 starts, then dispatches `turbo:before-cache` on the page still shown and caches the earlier copy: a reset on that
-event hits the screen and misses the copy ([`NOTES.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/NOTES.md)).
+event hits the screen and misses the copy ([`NOTES.md`](https://github.com/xormania/uxor/blob/main/docs/NOTES.md)).
 
 Start the frame visit with the component open: from a link inside it (`data-turbo-frame="history-steps"`), or from
 the page's code, which no click or focus change precedes (a click on the frame's own link closes most overlays first,
@@ -250,13 +250,13 @@ expect(await firstFrames(1)).toEqual([{ render: 1, url: '/lab/popover-turbo', vi
 await stepFromCode(page, 1);                          // Turbo.visit(url, { frame: 'history-steps', action: 'advance' })
 ```
 
-Here: [`lab.popover.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.popover.spec.ts), [`lab.date-picker.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.date-picker.spec.ts),
-[`lab.turbo-restore.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.turbo-restore.spec.ts) (a dropdown, a toast),
-[`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.overlays.spec.ts) (dropdown, modal, drawer), the values of
-[`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.value-matrix.spec.ts) (`frame-advance`), a calendar, charts and zones
-([`lab.calendar.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.calendar.spec.ts), [`lab.chart.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.chart.spec.ts),
-[`lab.dropzone.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.dropzone.spec.ts));
-[`transitions.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/transitions.ts) (`stepFromCode`, `advanceFrame` for a lab frame showing its
+Here: [`lab.popover.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.popover.spec.ts), [`lab.date-picker.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.date-picker.spec.ts),
+[`lab.turbo-restore.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.turbo-restore.spec.ts) (a dropdown, a toast),
+[`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.overlays.spec.ts) (dropdown, modal, drawer), the values of
+[`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.value-matrix.spec.ts) (`frame-advance`), a calendar, charts and zones
+([`lab.calendar.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.calendar.spec.ts), [`lab.chart.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.chart.spec.ts),
+[`lab.dropzone.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.dropzone.spec.ts));
+[`transitions.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/transitions.ts) (`stepFromCode`, `advanceFrame` for a lab frame showing its
 `frame-load`, `recordFirstFrames`).
 
 `recordFirstFrames` observes each render at the first animation frame with its body in place, which can come after
@@ -332,10 +332,10 @@ loads, and disconnects only when Back or a visit replaces the page. Before the p
 not for a promoted frame visit), cancel what is still loading: Turbo clears the busy marks and re-enables the submit
 button before it copies the page (`cacheSnapshot` waits a tick). Fix what a copy taken earlier kept as it connects
 (`busy`, `aria-busy`), and make a frame that left the document inert (no `src`). The defects and their workarounds
-are in [`NOTES.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/NOTES.md).
+are in [`NOTES.md`](https://github.com/xormania/uxor/blob/main/docs/NOTES.md).
 
-Here: [`lab.data-table-interrupt.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.data-table-interrupt.spec.ts) (`instrument`, `quiet`,
-`consistency`), [`fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`allowCancelledRequest`).
+Here: [`lab.data-table-interrupt.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.data-table-interrupt.spec.ts) (`instrument`, `quiet`,
+`consistency`), [`fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`allowCancelledRequest`).
 
 ### Restored fields show the URL's state
 
@@ -385,9 +385,9 @@ each `data-model` field from the component's state as it connects.
 Data-drive the check over the form's method and each widget kind: change one, visit, go Back, and expect it as
 rendered (GET) or as left (POST), the others as rendered.
 
-Here: [`lab.form-back.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.form-back.spec.ts),
-[`lab.data-table-back.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.data-table-back.spec.ts),
-[`form_reset_controller.js`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/layouts/assets/controllers/form_reset_controller.js).
+Here: [`lab.form-back.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.form-back.spec.ts),
+[`lab.data-table-back.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.data-table-back.spec.ts),
+[`form_reset_controller.js`](https://github.com/xormania/uxor/blob/main/layouts/assets/controllers/form_reset_controller.js).
 
 ### The value matrix: one policy table
 
@@ -398,7 +398,7 @@ server set, an open overlay closed by a visit of its `data-turbo-permanent` elem
 again after leaving the page; and what the widget owns across the transition: a second controller on an element, a
 listener left behind, the focus lost, a widget restored that no longer answers.
 
-[`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.value-matrix.spec.ts) is data: `POLICY` maps each kind of state (a GET
+[`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.value-matrix.spec.ts) is data: `POLICY` maps each kind of state (a GET
 field, a POST field, an open overlay, a choice held in the page, a choice stored in the browser, a Live table's URL
 state and its selection) and each transition (Back, Forward, a frame reloaded around or beside the widget, a frame
 beside it whose visit is promoted to history then Back and Forward, a Stream replacing or updating its region or one
@@ -433,7 +433,7 @@ new kind needs a row of `POLICY`, from the owner's decision), its `change` and `
 `keeps`, `listeners` where it has them), and an `na` reason for each cell that cannot apply to it. A cell that fails is a kit bug, or the test's: never an expectation to relax. A
 policy that seems wrong for a cell is a question for the owner.
 
-Here: [`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.value-matrix.spec.ts).
+Here: [`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.value-matrix.spec.ts).
 
 ### State saved after the snapshot
 
@@ -453,7 +453,7 @@ await turboVisitDone(page);
 await expect(treeitem(page, 'Reference')).toHaveAttribute('aria-expanded', 'false'); // the copy had it open
 ```
 
-Here: [`lab.side-nav.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.side-nav.spec.ts).
+Here: [`lab.side-nav.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.side-nav.spec.ts).
 
 ### One controller per element, counted
 
@@ -472,9 +472,9 @@ const counts = await page.evaluate((id) => {
 expect(counts.controllers).toBe(counts.elements);
 ```
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`stimulusControllers`),
-[`lab.section-nav.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.section-nav.spec.ts), [`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.overlays.spec.ts),
-[`lab.popover.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.popover.spec.ts).
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`stimulusControllers`),
+[`lab.section-nav.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.section-nav.spec.ts), [`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.overlays.spec.ts),
+[`lab.popover.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.popover.spec.ts).
 
 ### One event per action, counted
 
@@ -491,9 +491,9 @@ expect(await changes()).toEqual({ change: 1 });
 
 Each call counts on its own, in the current document (a Turbo visit keeps it, a full load ends it).
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`countEvents`), [`calendar.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/calendar.spec.ts),
-[`lab.calendar.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.calendar.spec.ts), [`lab.date-picker.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.date-picker.spec.ts),
-[`dropzone.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/dropzone.spec.ts), [`lab.dropzone.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.dropzone.spec.ts).
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`countEvents`), [`calendar.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/calendar.spec.ts),
+[`lab.calendar.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.calendar.spec.ts), [`lab.date-picker.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.date-picker.spec.ts),
+[`dropzone.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/dropzone.spec.ts), [`lab.dropzone.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.dropzone.spec.ts).
 
 ### A dialog open, and modal
 
@@ -507,9 +507,9 @@ Read both from the element: `open` and `:modal` (in the top layer, the rest of t
 await expect.poll(() => dialogState(page.locator('dialog#modal-restore-modal'))).toEqual({ open: true, modal: true });
 ```
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`dialogState`), [`lab.turbo-restore.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.turbo-restore.spec.ts),
-[`lab.live-modal.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.live-modal.spec.ts), [`lab.live-drawer.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.live-drawer.spec.ts),
-[`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.value-matrix.spec.ts).
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`dialogState`), [`lab.turbo-restore.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.turbo-restore.spec.ts),
+[`lab.live-modal.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.live-modal.spec.ts), [`lab.live-drawer.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.live-drawer.spec.ts),
+[`lab.value-matrix.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.value-matrix.spec.ts).
 
 ## State × transition
 
@@ -544,8 +544,8 @@ expect(await darkAtFirstBody()).toBe(true);
 The same spec blocks `localStorage` (a getter that throws, as blocked site data does) and checks the choice still
 holds across a Turbo visit: the controller keeps it on `<html data-theme-choice>`.
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`recordDarkAtFirstBody`),
-[`theme-toggle.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/theme-toggle.spec.ts), [`csp.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/csp.spec.ts) (the layout's
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`recordDarkAtFirstBody`),
+[`theme-toggle.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/theme-toggle.spec.ts), [`csp.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/csp.spec.ts) (the layout's
 inline script alone).
 
 ## Timers on Playwright's clock
@@ -569,13 +569,13 @@ The clock also fakes `requestAnimationFrame` and `performance.now()`: keep the r
 or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time. An
 upstream recipe spec stays as upstream wrote it.
 
-Here: [`lab.turbo-stream-toast.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.turbo-stream-toast.spec.ts) (the pause tests),
-[`lab.side-nav.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.side-nav.spec.ts) (type-ahead).
+Here: [`lab.turbo-stream-toast.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.turbo-stream-toast.spec.ts) (the pause tests),
+[`lab.side-nav.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.side-nav.spec.ts) (type-ahead).
 
 ## Basic performance: counts, not timings
 
 Counts give the same result on every run, so they fail like any other assertion; timings belong to separate,
-repeated runs ([`PLAN-test-tiers.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/PLAN-test-tiers.md)). The monthly job times the same steps, report only
+repeated runs ([`PLAN-test-tiers.md`](https://github.com/xormania/uxor/blob/main/docs/PLAN-test-tiers.md)). The monthly job times the same steps, report only
 (*Monthly job*, *Timings*): with `PW_TIMINGS` set, `measure()` records each counted step's time and its longest
 interaction as a `timing` annotation of the test, and never fails a test on them. The release checks time their own
 steps with the same harness (`time()`), against a baseline (*Release checks*).
@@ -661,7 +661,7 @@ locally in Firefox and WebKit (October 2026, three times each), every step that 
 picker stayed open after a pick, a behavior to look at before WebKit joins CI. The request kinds are the likeliest to
 differ between browsers (Playwright reports each browser's own resource type).
 
-Here: [`tests/e2e/counts.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/counts.ts) (`trackCounts`), [`counts.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/counts.spec.ts)
+Here: [`tests/e2e/counts.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/counts.ts) (`trackCounts`), [`counts.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/counts.spec.ts)
 (the dropdown, modal and drawer opening and closing; the data table's sort, page and filter in a Turbo Frame and in
 Live; a Live action re-sorting rows; a date pick; typing in the editor).
 
@@ -685,7 +685,7 @@ await toggle.click();
 expect(await page.evaluate(() => (window as any).__transitions)).toEqual([]);
 ```
 
-Here: [`tests/e2e/theme-toggle.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/theme-toggle.spec.ts) ("a switch … runs no color transition").
+Here: [`tests/e2e/theme-toggle.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/theme-toggle.spec.ts) ("a switch … runs no color transition").
 
 ### No listener left behind
 
@@ -724,9 +724,9 @@ One tracker serves both this and the interaction counts (`trackListeners`, an in
 depending on whether its animation ended first, and a gating count must not depend on timing) and follows an
 `AbortSignal` removal. Each view keeps the rules its reader had before they shared the tracker.
 
-Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`trackGlobalListeners`, `listenerChanges`),
-[`lab.tooltip.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.tooltip.spec.ts), [`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.overlays.spec.ts),
-[`lab.popover.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.popover.spec.ts).
+Here: [`tests/e2e/fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`trackGlobalListeners`, `listenerChanges`),
+[`lab.tooltip.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.tooltip.spec.ts), [`lab.overlays.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.overlays.spec.ts),
+[`lab.popover.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.popover.spec.ts).
 
 ### One controller per element: count what it does
 
@@ -750,7 +750,7 @@ await menu.click();                                  // focuses the button, then
 expect(await page.evaluate(() => (window as any).__focusCalls)).toBe(2);
 ```
 
-Here: [`lab.mobile-nav.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.mobile-nav.spec.ts) ("repeated Turbo visits leave one controller…").
+Here: [`lab.mobile-nav.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.mobile-nav.spec.ts) ("repeated Turbo visits leave one controller…").
 
 ## Live Components
 
@@ -774,9 +774,9 @@ await page.locator('[data-controller~="live"]').first().evaluate(async (element)
 });
 ```
 
-Here: [`OrdersTableTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Live/OrdersTableTest.php) (a selection cut to the table's limit, hostile
-ids dropped, a full selection taking no more rows until cleared), [`SelectionTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/DataTableLive/SelectionTest.php)
-(the rule alone); in a browser, [`lab.date-picker.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/lab.date-picker.spec.ts) (the server's
+Here: [`OrdersTableTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Live/OrdersTableTest.php) (a selection cut to the table's limit, hostile
+ids dropped, a full selection taking no more rows until cleared), [`SelectionTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/DataTableLive/SelectionTest.php)
+(the rule alone); in a browser, [`lab.date-picker.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/lab.date-picker.spec.ts) (the server's
 value set from the page's code while a picker is open).
 
 ### Without a browser
@@ -790,7 +790,7 @@ curl -s -X POST "$base/_components/LiveOrders/goTo" -H 'Accept: application/vnd.
     -H 'X-Requested-With: XMLHttpRequest' --data-urlencode "data=$body"
 ```
 
-Here: [`tools/tests/live-action.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/live-action.php), [`check-fresh-app.sh`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/check-fresh-app.sh).
+Here: [`tools/tests/live-action.php`](https://github.com/xormania/uxor/blob/main/tools/tests/live-action.php), [`check-fresh-app.sh`](https://github.com/xormania/uxor/blob/main/tools/tests/check-fresh-app.sh).
 
 ## Server-side limits: what one request makes the server do
 
@@ -809,10 +809,10 @@ self::assertSame(['count', 'rows@9950'], $table->calls); // one count, one load,
 
 Through a real request, the same count comes from the profiler (below, *Counts from the profiler*).
 
-Here: [`demo/tests/DataTable/`](https://github.com/xormania/uxor/tree/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/DataTable), [`SelectionTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/DataTableLive/SelectionTest.php).
+Here: [`demo/tests/DataTable/`](https://github.com/xormania/uxor/tree/main/demo/tests/DataTable), [`SelectionTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/DataTableLive/SelectionTest.php).
 
 The same folder holds the data table's extension contracts, through a representative extension
-([`Fixtures/ProductsTable.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/DataTable/Fixtures/ProductsTable.php): a server sort field, numeric
+([`Fixtures/ProductsTable.php`](https://github.com/xormania/uxor/blob/main/demo/tests/DataTable/Fixtures/ProductsTable.php): a server sort field, numeric
 filter choices, a default sort, a prefix): what `TableQuery` makes of untrusted values, what `AbstractDataTable` reads
 from a request and takes as a row's id, and the page window, URLs and hidden fields of `DataTableView`. Each pins a
 boundary an app relies on, not every getter.
@@ -861,7 +861,7 @@ final class OrdersTableTest extends KernelTestCase
 `call('sortBy', ['column' => 'status'])` runs an action; `component()` gives the component as the next request would
 hydrate it, `render()` its HTML with a `crawler()`.
 
-Here: [`demo/tests/Live/OrdersTableTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Live/OrdersTableTest.php) (the page past the end, the
+Here: [`demo/tests/Live/OrdersTableTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Live/OrdersTableTest.php) (the page past the end, the
 page sizes, the sort limited to the sortable columns, the selection's limit).
 
 ### A Twig component rendered, and its snapshot
@@ -892,8 +892,8 @@ $html = self::getContainer()->get('twig')->createTemplate('<twig:Breadcrumb><twi
 - Snapshot what reviewers should see change; assert the rule itself (a tag allowlist, a link scheme) with the
   crawler, so a snapshot update cannot hide it.
 
-Here: [`demo/tests/Twig/ComponentsTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Twig/ComponentsTest.php),
-[`Html5Driver.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Snapshot/Html5Driver.php).
+Here: [`demo/tests/Twig/ComponentsTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Twig/ComponentsTest.php),
+[`Html5Driver.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Snapshot/Html5Driver.php).
 
 ### Counts from the profiler
 
@@ -914,11 +914,11 @@ self::assertSame(['OrdersTable: count', 'OrdersTable: rows@50'], $calls); // one
   collects only with `PROFILER_COLLECT=1` (below). No WebProfilerBundle is needed.
 - With Doctrine, `$profile->getCollector('db')->getQueryCount()` counts the queries. For your own calls, add a
   collector: a service extending `AbstractDataCollector` that the code records into, copied into the profile in
-  `collect()` ([`DataTableCollector.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/src/Demo/DataTableCollector.php)).
+  `collect()` ([`DataTableCollector.php`](https://github.com/xormania/uxor/blob/main/demo/src/Demo/DataTableCollector.php)).
 - A Live request too: pass the client to `createLiveComponent('OrdersTable', [], $client)`, call `enableProfiler()`,
   then `call()` the action. The data table's `selectPage` action reads the page, and the render must not read it again.
 
-Here: [`demo/tests/Functional/DataTableRequestsTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Functional/DataTableRequestsTest.php).
+Here: [`demo/tests/Functional/DataTableRequestsTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Functional/DataTableRequestsTest.php).
 
 **Before writing the assertion, read the numbers.** [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html)
 (`symfony/ai-mate`, a dev dependency of the demo, with `symfony/ai-symfony-mate-extension`) reads the demo's profiles
@@ -946,17 +946,17 @@ given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes,
 case. The URL corpus includes case and whitespace changes, C0 controls,
 character references, attribute breakouts, `Markup` values and stringable objects.
 
-Here: [`hostile-props.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/src/Command/HostilePropsCommand.php).
+Here: [`hostile-props.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](https://github.com/xormania/uxor/blob/main/demo/src/Command/HostilePropsCommand.php).
 
 What a server-side sanitizer or renderer returns is a string: test it where it runs, with PHPUnit, on the same hostile
 inputs, and keep the browser for the component that prints it. The editor's HTML policy and the Markdown renderer are
-unit tests ([`EditorHtmlPolicyTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Editor/EditorHtmlPolicyTest.php),
-[`MarkdownRendererTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/MarkdownEditor/MarkdownRendererTest.php)); the Editor and the
+unit tests ([`EditorHtmlPolicyTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Editor/EditorHtmlPolicyTest.php),
+[`MarkdownRendererTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/MarkdownEditor/MarkdownRendererTest.php)); the Editor and the
 MarkdownEditor given a hostile value stay in `hostile-props.spec.ts`, parsed by the browser.
 
 Their form types' limits (bytes against characters, Windows line breaks, null, a refused submit kept as sent) are
-form tests on `form.factory` ([`EditorTypeTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Editor/EditorTypeTest.php),
-[`MarkdownTypeTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/MarkdownEditor/MarkdownTypeTest.php)). A test that finds a fault not fixed yet
+form tests on `form.factory` ([`EditorTypeTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Editor/EditorTypeTest.php),
+[`MarkdownTypeTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/MarkdownEditor/MarkdownTypeTest.php)). A test that finds a fault not fixed yet
 asserts the wanted behavior and calls `markTestIncomplete()` with the finding when it fails, so it reports the fault
 without failing CI, and passes on its own once the fault is fixed.
 
@@ -968,7 +968,7 @@ script, Turbo's progress bar, inline `style` attributes).
 The headers come from one listener; a spec checks the policy itself (nonces, no `'unsafe-inline'`), and the fixture
 above fails every other test on a violation, so the whole suite runs under the policy.
 
-Here: [`csp.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/src/EventListener/SecurityHeadersListener.php).
+Here: [`csp.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](https://github.com/xormania/uxor/blob/main/demo/src/EventListener/SecurityHeadersListener.php).
 
 ## Production boot and route trust boundaries
 
@@ -978,10 +978,10 @@ a read-only route accepting another method, or a public POST route with no named
 The demo's kernel refuses production without an explicit opt-in and a unique secret. A kernel test tries the unsafe
 combinations and a real production boot. A second test reads the compiled route collection: every app controller's
 route carries one reviewed category, and its methods and CSRF mechanism agree with that category. The categories and
-the limit of the production opt-in are in [`DEMO-SECURITY.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/DEMO-SECURITY.md).
+the limit of the production opt-in are in [`DEMO-SECURITY.md`](https://github.com/xormania/uxor/blob/main/docs/DEMO-SECURITY.md).
 
-Here: [`ProductionConfigurationTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Security/ProductionConfigurationTest.php),
-[`RouteSecurityTest.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Security/RouteSecurityTest.php).
+Here: [`ProductionConfigurationTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Security/ProductionConfigurationTest.php),
+[`RouteSecurityTest.php`](https://github.com/xormania/uxor/blob/main/demo/tests/Security/RouteSecurityTest.php).
 
 ## Accessibility
 
@@ -1004,8 +1004,8 @@ await menu(page).click();                                                       
 await expectA11y(page, { impact: 'all', include: '#drawer-lab-mobile-nav' }, 'open'); // the component's own markup
 ```
 
-Here: [`fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts) (`expectA11y`, `controllersConnected`), [`a11y.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/a11y.spec.ts) (every page;
-[`tools/test-inventory.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/test-inventory.mjs) fails when a lab page of `LabController` is missing from its
+Here: [`fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts) (`expectA11y`, `controllersConnected`), [`a11y.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/a11y.spec.ts) (every page;
+[`tools/test-inventory.mjs`](https://github.com/xormania/uxor/blob/main/tools/test-inventory.mjs) fails when a lab page of `LabController` is missing from its
 `labPages`),
 and the specs of the dropzone, editor, markdown-editor, forms, demo-app, lab.side-nav, lab.section-nav, lab.mobile-nav
 and lab.nav-menu.
@@ -1020,9 +1020,39 @@ A script creates a new Symfony app, installs the kit as users do, and fetches it
 Docker project with the kit from GitHub. They share the steps a user takes (the packages, the recipes in order, the app
 they write); each keeps where the app runs, where the kit comes from and how the app is served.
 
-Here: [`fresh-install.sh`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/fresh-install.sh), [`docker-install.sh`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/docker-install.sh),
-their shared steps [`install-scenario.sh`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/install-scenario.sh),
-[`check-fresh-app.sh`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/check-fresh-app.sh).
+Here: [`fresh-install.sh`](https://github.com/xormania/uxor/blob/main/tools/tests/fresh-install.sh), [`docker-install.sh`](https://github.com/xormania/uxor/blob/main/tools/tests/docker-install.sh),
+their shared steps [`install-scenario.sh`](https://github.com/xormania/uxor/blob/main/tools/tests/install-scenario.sh),
+[`check-fresh-app.sh`](https://github.com/xormania/uxor/blob/main/tools/tests/check-fresh-app.sh).
+
+## The Composer package
+
+**Catches:** a `composer.json` that points at a moved path, a file the package needs left out of the archive or a
+development file let into it, an operation or Mate tool that reads outside its bounds, a tampered bundled reference,
+a CLI that no longer starts.
+
+The package (`xormania/uxor`, [`PLAN-composer-package.md`](https://github.com/xormania/uxor/blob/main/docs/PLAN-composer-package.md)) is tested from the repository
+root, apart from the demo: `composer install`, then `composer test`, which runs PHPUnit with
+`packages/uxor/phpunit.xml.dist`. Its three classes test the operations behind the CLI and the Mate tools on
+temporary projects, without booting one: component wiring (`ComponentWiringTest`), the catalog, reads, inspection,
+the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
+(`ReferenceBundleTest`: the generator on a temporary source, two runs byte for byte, a stale input `--check` reports
+without repairing, an index that names no commit). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
+`composer archive` and checks it against its own list of what must and must not be there, independent of
+`.gitattributes`: the list is the oracle for the export rules. CI's *Package* job runs them, after
+`composer validate --strict` and `php packages/uxor/tools/generate-reference.php --check` (the bundled references are
+what the generator makes of this checkout: it regenerates them into a temporary directory, compares byte for byte and
+lists the stale files), and ends with `vendor/bin/uxor list` and `catalog` as a smoke test. An independent consumer
+that installs the archive comes with a later job of the work order ([`TEST-INVENTORY.md`](https://github.com/xormania/uxor/blob/main/docs/TEST-INVENTORY.md), *The
+Composer package*).
+
+**Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
+references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
+SHA-256 of each input and of all of them (`source.inputs_sha256`, `sha256sum`'s lines for the sorted input paths,
+hashed again), and the ref their repository links use (`source.ref`, `main` unless `--ref` says otherwise).
+
+Here: [`packages/uxor/tests/`](https://github.com/xormania/uxor/tree/main/packages/uxor/tests),
+[`check-package.py`](https://github.com/xormania/uxor/blob/main/packages/uxor/tools/check-package.py),
+[`phpunit.xml.dist`](https://github.com/xormania/uxor/blob/main/packages/uxor/phpunit.xml.dist).
 
 ## Repository security policy
 
@@ -1036,10 +1066,10 @@ the dynamic demo's trusted preview boundary. A new or moved sink fails until its
 the manifest is an inventory, not a sanitizer. Unit cases plant each class of failure. CODEOWNERS protects the tool,
 manifest, tests, workflows and agent rules when the branch ruleset requires code-owner approval.
 
-Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/security-policy.mjs),
-[`security-sinks.json`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/security-sinks.json),
-[`security-policy.test.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/security-policy.test.mjs),
-[`AGENT-ASSURANCE.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/AGENT-ASSURANCE.md).
+Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/main/tools/security-policy.mjs),
+[`security-sinks.json`](https://github.com/xormania/uxor/blob/main/tools/security-sinks.json),
+[`security-policy.test.mjs`](https://github.com/xormania/uxor/blob/main/tools/tests/security-policy.test.mjs),
+[`AGENT-ASSURANCE.md`](https://github.com/xormania/uxor/blob/main/docs/AGENT-ASSURANCE.md).
 
 ### Locked and moving lanes
 
@@ -1072,8 +1102,8 @@ kit with a copy of `markCurrentLinks()` pasted into a controller (red), are in `
 *Tool tests* runs on every push. No behavior change comes with a move onto a shared module: the recipes' specs, the lab
 specs and the counts pass unchanged.
 
-Here: [`js-duplication.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/js-duplication.mjs), [`js-duplication.test.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/tests/js-duplication.test.mjs),
-with [`recipe-imports.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/recipe-imports.mjs) checking that each recipe installs the module it imports.
+Here: [`js-duplication.mjs`](https://github.com/xormania/uxor/blob/main/tools/js-duplication.mjs), [`js-duplication.test.mjs`](https://github.com/xormania/uxor/blob/main/tools/tests/js-duplication.test.mjs),
+with [`recipe-imports.mjs`](https://github.com/xormania/uxor/blob/main/tools/recipe-imports.mjs) checking that each recipe installs the module it imports.
 
 ## Fault catalog
 
@@ -1081,7 +1111,7 @@ with [`recipe-imports.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea776
 stops a test from failing: green before and after proves nothing about what the tests still detect.
 
 A cleanup is accepted when the same planted faults fail the same tests, by title, before and after it, and no test
-fails without them. The faults are named in [`.xorder/testing.json`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/.xorder/testing.json): each one a source edit
+fails without them. The faults are named in [`.xorder/testing.json`](https://github.com/xormania/uxor/blob/main/.xorder/testing.json): each one a source edit
 in the kit (or the demo's layout), the page or served asset that shows it took effect, and what it tests. xorder's plant
 helper applies one, syncs the demo, confirms it is served, runs the specs and restores the source and the synced
 copies, even when the run fails or is interrupted:
@@ -1091,7 +1121,7 @@ python3 scripts/xr.py ~/uxor plant calendar-select-nothing -- tests/e2e/calendar
 python3 scripts/xr.py ~/uxor plant --restore    # after an interrupted run; `sync --check` then shows no planted copy left in demo/
 ```
 
-The last cleanup, the duplicated helpers of [`TEST-INVENTORY.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/TEST-INVENTORY.md) moved into shared modules, in
+The last cleanup, the duplicated helpers of [`TEST-INVENTORY.md`](https://github.com/xormania/uxor/blob/main/docs/TEST-INVENTORY.md) moved into shared modules, in
 Chromium: the tests failing on each fault, the same before (the specs of `dev`) and after, title for title.
 
 | Fault (`.xorder/testing.json`) | Helpers it proves | Failing, before and after |
@@ -1205,7 +1235,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
 CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
-each shard runs [`tools/ci/playwright-summary.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/playwright-summary.mjs) on its
+each shard runs [`tools/ci/playwright-summary.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
 - **The job summary** (the run's *Summary* page, one section per shard, under its job's name: `Demo + Playwright (firefox 2/3)`) gives the counts, then each failed and each
@@ -1251,7 +1281,7 @@ public once, in the package's settings, so it does not count against private pac
 
 CI records its own numbers, report only, so a later change to the shards, workers, caches or setup can be measured
 instead of guessed. Nothing here has a threshold or changes a verdict: each step is `continue-on-error`, and the tool
-exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/ci-metrics.mjs)).
+exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/ci-metrics.mjs)).
 
 - **Each browser shard** writes `job-metrics.json` next to its results (`playwright-results-<browser>-<shard>`, 30
   days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the build
@@ -1285,7 +1315,7 @@ critical path while the others idle, and a split that drops or repeats a test.
 Playwright's `--shard=N/M` splits by test count. On the last count-split run on dev
 ([38103383677](https://github.com/xormania/uxor/actions/runs/38103383677)) Chromium's four shards summed 971, 746,
 699 and 626 s of test time (wall 498, 384, 366, 324 s), so the first ran almost three minutes longer than the last.
-CI now splits by time instead, with [`tools/ci/shard-plan.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/shard-plan.mjs) in each browser job's
+CI now splits by time instead, with [`tools/ci/shard-plan.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/shard-plan.mjs) in each browser job's
 *Plan the shard's tests* step:
 
 1. Playwright lists the job's tests (`--list --reporter=json`, the same projects as the run), so the plan follows
@@ -1379,8 +1409,8 @@ run with two.
 ### Jev diagnosis (advisory)
 
 When a job fails (for the browser shards, in CI, the release checks and the monthly *Browsers* jobs: when a test
-failed or was flaky), [`tools/ci/jev-diagnosis.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/jev-diagnosis.mjs) asks Jev (TypeSafe's model, pinned
-in [`tools/ci/jev-ci.json`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/jev-ci.json)) two questions about each failed attempt in
+failed or was flaky), [`tools/ci/jev-diagnosis.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/jev-diagnosis.mjs) asks Jev (TypeSafe's model, pinned
+in [`tools/ci/jev-ci.json`](https://github.com/xormania/uxor/blob/main/tools/ci/jev-ci.json)) two questions about each failed attempt in
 `failed-attempts.json`, retry-recovered ones included: which category of the policy's rubric the cause likely belongs
 to (`environment_failure`, `product_defect`, `test_defect`, `timing_assertion`, or `unknown`), and which of the
 supplied excerpts best helps investigate it (or none). It is a starting hypothesis for whoever investigates, not a
@@ -1390,11 +1420,11 @@ that does not validate gives an *unavailable* assessment, never a failure.
 It runs in two places, keeping the producer's workflow and tested code away from the key:
 
 1. **In the failed job, without the key:** the composite action
-   [`.github/actions/jev-diagnosis`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/.github/actions/jev-diagnosis/action.yml) builds the job's
+   [`.github/actions/jev-diagnosis`](https://github.com/xormania/uxor/blob/main/.github/actions/jev-diagnosis/action.yml) builds the job's
    `failed-attempts.json`, copies its server log and uploads both, with the job's name and shard, as
    `jev-input-<workflow>-<job>-<run>-<attempt>` (kept 3 days).
 2. **In an independent *Jev diagnosis* workflow, with the key:**
-   [`.github/workflows/jev.yml`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/.github/workflows/jev.yml) runs after a producing workflow completes. GitHub's
+   [`.github/workflows/jev.yml`](https://github.com/xormania/uxor/blob/main/.github/workflows/jev.yml) runs after a producing workflow completes. GitHub's
    `workflow_run` event loads this YAML from the default branch (`main`), so a pull request cannot replace the
    secret-bearing consumer by editing a relative reusable workflow. On a fresh runner where no package, image or
    test has run, it downloads only the source run ID and attempt's `jev-input` artifacts into the runner's temporary
@@ -1411,9 +1441,9 @@ The attempts come from one of three places:
 | Job | Its failed attempts | Server log | Artifact |
 |---|---|---|---|
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-chromium-…` |
-| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
+| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
@@ -1479,7 +1509,7 @@ and [environment secret protection](https://docs.github.com/en/actions/how-tos/d
 recipe's PHP line or method no PHPUnit test reaches, a mutant of it the tests let through, a controller method no
 browser test calls. Report-only: a low number fails nothing, it shows where a test is missing.
 
-[`.github/workflows/monthly.yml`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/.github/workflows/monthly.yml) runs on the 3rd of each month on `dev`, and by
+[`.github/workflows/monthly.yml`](https://github.com/xormania/uxor/blob/main/.github/workflows/monthly.yml) runs on the 3rd of each month on `dev`, and by
 hand before a release. Nothing of it runs on a push or a pull request: CI's jobs and test list stay as they are.
 
 | Job | What it measures | Where it reads |
@@ -1496,11 +1526,11 @@ measured line, no Infection log or one without a mutant, no recorded JS coverage
 shard as in CI; the coverage it recorded is still reported. Branches are not measured: PCOV measures lines.
 
 **Scope.** The demo's autoloader maps `App\UXor\…` to the recipes' own `src/` (`demo/composer.json`), so the
-tests run the recipes' files, not the copies `tools/sync-demo` writes. [`tools/monthly/php-scope.php`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/monthly/php-scope.php)
+tests run the recipes' files, not the copies `tools/sync-demo` writes. [`tools/monthly/php-scope.php`](https://github.com/xormania/uxor/blob/main/tools/monthly/php-scope.php)
 writes a PHPUnit configuration (the demo's, with absolute paths and its `<source>` set to every recipe's `src/`) and
 Infection's: the demo's own code, its copies of the recipes and the tests' fixtures are outside both. On the JS side,
-[`tests/e2e/coverage.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/coverage.ts) records only the scripts served from `/assets/controllers/`, and
-[`tools/monthly/js-coverage.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/monthly/js-coverage.mjs) keeps the recipes' controllers (not the demo's
+[`tests/e2e/coverage.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/coverage.ts) records only the scripts served from `/assets/controllers/`, and
+[`tools/monthly/js-coverage.mjs`](https://github.com/xormania/uxor/blob/main/tools/monthly/js-coverage.mjs) keeps the recipes' controllers (not the demo's
 own); vendor and importmap packages are never recorded. A line counts as run when its first character outside a
 comment ran; a controller no test loaded lists every method it declares. A test's own extra pages
 (`context.newPage()`) are not recorded.
@@ -1559,32 +1589,62 @@ alive after `disconnect()` (one visit hides it, fifty show it), a transition tha
 query string, a Live prop value or a form post that makes the server fail or echo markup, a sequence of clicks, keys,
 Back, Forward and theme switches that throws or connects a controller twice, a sanitizer whose output changes when
 sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 of
-[`PLAN-test-tiers.md`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/docs/PLAN-test-tiers.md): Chromium only, and not on every push.
+[`PLAN-test-tiers.md`](https://github.com/xormania/uxor/blob/main/docs/PLAN-test-tiers.md): Chromium only, and not on every push.
 
-[`.github/workflows/release-checks.yml`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/.github/workflows/release-checks.yml) runs on the release pull request
+[`.github/workflows/release-checks.yml`](https://github.com/xormania/uxor/blob/main/.github/workflows/release-checks.yml) runs on the release pull request
 (`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
-(Actions › *Release checks* › *Run workflow*). A passing scheduled or manual run (never a pull request's) uploads a
-`release-checks-passed-<sha>` artifact; the daily run counts one only from a successful scheduled or manual run of this
-workflow in this repository, and stops in seconds when it finds one. The *Release suite* job sets up the demo as CI's
-browser job does and runs `RELEASE_CHECKS=1 npx playwright test` with the `release`, `release-dark` and
-`release-harsh` projects named (a missing one is an error), then checks the structural
-evidence ([`tools/ci/release-evidence.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/release-evidence.mjs): each project ran a test, each release
-spec ran and skipped none), then the PHPUnit properties with a random seed (`--fail-on-empty-test-suite`). CI's browser
-job never runs them: those projects exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
+(Actions › *Release checks* › *Run workflow*). A passing scheduled run uploads a
+`release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful scheduled run of this workflow
+in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
+a change to either the target or the workflow requires another real scheduled pass.
+
+The workflow resolves the expected target once. Its checkout independently trusts only `refs/heads/dev` for a
+schedule, or the immutable triggering event SHA for a manual or pull-request run; the resolver output cannot select
+another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
+expected SHA before setup or tests run. If `dev` advances between resolution and checkout, the run fails closed and
+must retry. This branch boundary matters even without an explicit cache-save action: scheduled jobs have the default
+branch's cache scope. The runner, structural-evidence checker and diagnostic tools come from a separate checkout at
+`github.workflow_sha`; the evidence checker is resolved beside the runner, independently of a missing or modified
+target helper. Event,
+workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
+This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
+
+After preparing the demo, [`tools/ci/release-checks.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/release-checks.mjs) discovers the target's
+Playwright project contract and launches all three release projects with one worker. Current checkouts use
+`release`, `release-dark` and `release-harsh`. A temporary bridge also supports the exact legacy family on older
+`main` checkouts, including its legacy tag filter. Unknown, partial or mixed families and discovery errors fail;
+a failed suite never retries with another family. The saved `release-selection.json` supplies the same project
+and required-spec contract to structural evidence: every project ran a test and every release spec ran without
+skips. Missing reports remain fatal. Remove the legacy bridge when the supported `main` contract is retired.
+
+The PHPUnit properties still run with a random seed and `--fail-on-empty-test-suite`. CI's browser job never runs
+the release projects: they exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
 The required check is the *Release checks* job, which runs
 whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
 reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
 result artifacts and the passed marker are advisory: their upload never decides the verdict.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
+Issue updates identify the first failed step and failure category. Missing browser reports retain unavailable counts
+and seeds. A valid report with a global setup/run error and no reported failed test remains a general
+Playwright run failure; a parsed report alone does not establish that a browser test failed. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
+was written; the command's original exit status remains the verdict.
+
+**Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch.
+Merging the fix into `dev` alone does not repair the running scheduler. Promote the workflow and its control tools
+to `main` through the normal release process, then verify a fresh scheduled run against a recorded `dev` SHA actually
+executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
+close that operational acceptance gap. This change does not merge or dispatch a workflow automatically. The
+[issue 134 proof and coverage bundle](https://github.com/xormania/uxor/blob/main/docs/ci/issue-134/README.md) includes replay instructions, red/green receipts,
+coverage overlap, CI timing observations and the remaining acceptance matrix.
 
 | Group | Where | What it checks |
 |---|---|---|
-| Timings | [`release.timings.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/release.timings.spec.ts) | The key transitions of the data table in a frame and in Live (sort, page, filter), the editor (typing, bold), the Markdown editor (typing, the preview), the forms page (an invalid submit) and the `/demo` dashboard (a Turbo visit and Back), each run 5 times on a fresh page, timed by the interaction-count harness (`trackCounts().time()`, [`counts.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/counts.ts)): the duration until the update it waits for has landed, the longest interaction (INP), the total blocking time, and Chromium's style, layout and script time over the step |
-| Long session | [`release.long-session.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/release.long-session.spec.ts) | 50 Turbo visits and Backs across eight lab and form pages in one document; then, after the caches are dropped and a forced collection, `Memory.getDOMCounters` (documents, nodes, listeners) and the JS heap back at their level after two warm-up rounds, within the tolerance the spec states, the numbers in its `long-session` annotation |
-| Harsh conditions | the `release-harsh` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/fixtures.ts)): their behavior holds |
+| Timings | [`release.timings.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/release.timings.spec.ts) | The key transitions of the data table in a frame and in Live (sort, page, filter), the editor (typing, bold), the Markdown editor (typing, the preview), the forms page (an invalid submit) and the `/demo` dashboard (a Turbo visit and Back), each run 5 times on a fresh page, timed by the interaction-count harness (`trackCounts().time()`, [`counts.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/counts.ts)): the duration until the update it waits for has landed, the longest interaction (INP), the total blocking time, and Chromium's style, layout and script time over the step |
+| Long session | [`release.long-session.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/release.long-session.spec.ts) | 50 Turbo visits and Backs across eight lab and form pages in one document; then, after the caches are dropped and a forced collection, `Memory.getDOMCounters` (documents, nodes, listeners) and the JS heap back at their level after two warm-up rounds, within the tolerance the spec states, the numbers in its `long-session` annotation |
+| Harsh conditions | the `release-harsh` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/fixtures.ts)): their behavior holds |
 | Wide matrices | the `release-dark` project | The overlay specs (dropdown, modal, drawer, popover, tooltip, their Live labs) and the editor specs again in the dark theme; `smoke` runs them in the light one |
-| Fuzzing | [`release.fuzz.spec.ts`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/e2e/release.fuzz.spec.ts) | Seeded, 30 s per target (`FUZZ_BUDGET_MS`). Random query strings on the data table pages and random values for the Live data table's writable props, sent as the live controller sends them; random form posts on `/forms` and the lab's POST forms (long strings, unicode, markup, arrays where a value is expected, fields left out; the CSRF field kept, and one post in three through the page's own form in the browser): no 5xx, no slow answer, no injected element or handler, no CSP violation or console error. UI runs on the lab pages: random clicks (on controls and links that stay in the lab), keys, Back, Forward, the theme toggle and the system theme, each followed by a wait for the page to settle: no console or page error, and one Stimulus controller per element and identifier |
-| Properties | [`demo/tests/Property/`](https://github.com/xormania/uxor/tree/40d957cd1ea7766ac0dee742816948ce5ae05bc3/demo/tests/Property) (`--group property`) | `TableQuery::fromValues()` on any values and any table: the offset stays below `maxRows()`; the editor's HTML policy and the Markdown renderer on random hostile markup: no `<script>`, `on*` attribute or unsafe link, and the output is stable when sanitized again. CI runs them with a fixed seed and 300 runs; the release checks with a random seed and 2000 |
+| Fuzzing | [`release.fuzz.spec.ts`](https://github.com/xormania/uxor/blob/main/tests/e2e/release.fuzz.spec.ts) | Seeded, 30 s per target (`FUZZ_BUDGET_MS`). Random query strings on the data table pages and random values for the Live data table's writable props, sent as the live controller sends them; random form posts on `/forms` and the lab's POST forms (long strings, unicode, markup, arrays where a value is expected, fields left out; the CSRF field kept, and one post in three through the page's own form in the browser): no 5xx, no slow answer, no injected element or handler, no CSP violation or console error. UI runs on the lab pages: random clicks (on controls and links that stay in the lab), keys, Back, Forward, the theme toggle and the system theme, each followed by a wait for the page to settle: no console or page error, and one Stimulus controller per element and identifier |
+| Properties | [`demo/tests/Property/`](https://github.com/xormania/uxor/tree/main/demo/tests/Property) (`--group property`) | `TableQuery::fromValues()` on any values and any table: the offset stays below `maxRows()`; the editor's HTML policy and the Markdown renderer on random hostile markup: no `<script>`, `on*` attribute or unsafe link, and the output is stable when sanitized again. CI runs them with a fixed seed and 300 runs; the release checks with a random seed and 2000 |
 
 The release checks are selected by file and project, never by a Playwright tag: a tag starts with an at-sign, and
 that text, copied into a commit message or a pull request, reads as a GitHub account reference (`CONTRIBUTING.md`,
@@ -1592,8 +1652,8 @@ that text, copied into a commit message or a pull request, reads as a GitHub acc
 and example sizes. The monthly job's coverage run, like CI, has no release project to run.
 
 **Report only, for now.** The timings never fail a run: each timed step's metrics are printed against
-[`tests/perf/baseline.json`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tests/perf/baseline.json) in the job summary
-([`tools/ci/release-timings.mjs`](https://github.com/xormania/uxor/blob/40d957cd1ea7766ac0dee742816948ce5ae05bc3/tools/ci/release-timings.mjs)), until the owner sets a tolerance per metric (the
+[`tests/perf/baseline.json`](https://github.com/xormania/uxor/blob/main/tests/perf/baseline.json) in the job summary
+([`tools/ci/release-timings.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/release-timings.mjs)), until the owner sets a tolerance per metric (the
 plan's step 8). A behavior assertion, a leak counter over its tolerance, a fuzzing or property failure fails the run
 as any test does. `main`'s ruleset requires the *Release checks* check on the release pull request from 0.2.0 (decision 4
 of the plan): every failure above blocks the release; the timings do not until step 8. A recorded baseline comes only
@@ -1613,8 +1673,12 @@ heading", from `MarkupPropertyTest`).
 **The long session in this demo.** The demo runs Symfony's dev environment, where Stimulus logs every connect with its
 element; with the console recorded, as Playwright records it, each logged element keeps its detached page alive. The
 spec turns Stimulus' debug log off and discards the console's messages before each reading, so it measures what the
-page keeps. `Memory.prepareForLeakDetection` crashes Chromium 145's renderer (Playwright 1.58): the spec tries it in a
-page of its own and, where it fails, drops the same caches with `Memory.simulatePressureNotification`.
+page keeps. `Memory.prepareForLeakDetection` crashes the pinned Chromium 145.0.7632.6 renderer (Playwright 1.58.2),
+and its optional capability probe can consume most of the session's time budget. That exact build uses the existing
+`Memory.simulatePressureNotification` fallback directly, before the same forced collections and counter assertions.
+Other builds still probe the detector in a separate context and use the fallback when it fails. The annotation reports
+the selected mode. Unit cases in `tools/tests/leak-detector.test.mjs` cover selection; the unchanged long-session test
+checks the actual retained DOM and heap.
 
 **Locally**, with the demo up (`DEMO_URL=https://localhost` for the Docker demo):
 

@@ -555,20 +555,21 @@ calibration, coverage overlap, measured hosted timing and unresolved operational
 
 What `xormania/uxor` (`composer.json`, `packages/uxor/`) guarantees, and where it is tested
 ([`PLAN-composer-package.md`](PLAN-composer-package.md)). Its PHPUnit tests are outside `demo/tests/`, so they are
-named by path. CI's *Package* job runs the first six rows, *Changes* the classifier's cases.
+named by path. CI's *Package* job runs the first seven rows, *Changes* the classifier's cases.
 
 | Guarantee | Scope | Covered by |
 |---|---|---|
 | The root metadata is valid and strict: name, requirements, autoload, executable, Mate paths | static | `composer validate --strict` (*Package*) |
 | Component wiring checks report a missing Editor or Dropzone setup, recognize the documented one, and leave a custom asset layout unknown without executing the project's PHP importmap | unit (PHPUnit) | `packages/uxor/tests/ComponentWiringTest.php` (3 tests) |
 | Catalog search and paged reads keep Unicode and fail on an unknown path; a tampered or escaping indexed reference cannot be read; the workflow guide shares the pagination and the whitelist; inspection tells declared, installed and locked facts apart; the doctor reports runtime and dev placement and unknown wiring; a wrong root or a malformed project is a structured CLI error; Maker and Mate discovery is bound to the project, refuses command input and reports missing or malformed metadata without raw errors | unit, process (PHPUnit) | `packages/uxor/tests/OperationsTest.php` (8 tests) |
-| The reference generator is deterministic and records its provenance; a wrong revision, an uncommitted source, catalog drift and a missing recipe dependency are refused; every packaged document matches its SHA-256 and links only inside the bundle; the skills reach the resources without leaving their directories | unit (PHPUnit) | `packages/uxor/tests/ReferenceBundleTest.php` (7 tests) |
+| The reference generator reads a working tree, not Git: two runs are byte-identical; the index records each input's SHA-256 and their digest (`source.inputs_sha256`, recomputable from the index and with `sha256sum`) and the ref of its repository links, never a commit; committing the output or editing a file that is no input changes nothing, an uncommitted input is read as it is; `--check` lists a changed, missing or unexpected file, fails and repairs nothing, and fails at another ref; a bad ref, a symbolic-link input, catalog drift, a missing recipe dependency and a broken link are refused; every packaged document matches its SHA-256 and links only inside the bundle; the skills reach the resources without leaving their directories | unit, process (PHPUnit) | `packages/uxor/tests/ReferenceBundleTest.php` (10 tests) |
+| The bundled references are what the generator makes of this checkout: regenerated into a temporary directory and compared byte for byte | process | `php packages/uxor/tools/generate-reference.php --check` (*Package*) |
 | The archive both installs receive (`composer archive`) holds the files the checker lists, every executable `composer.json` declares, with its executable bit, its autoload and Mate paths, and no development file (`composer.lock`, `packages/uxor/{tests,tools,dev}`, `phpunit.xml.dist`); no entry escapes the archive | process integration | `packages/uxor/tools/check-package.py` (*Package*) |
 | The CLI starts from a root install and reads the bundled references | smoke | `vendor/bin/uxor list`, `vendor/bin/uxor catalog` (*Package*) |
-| A package-only change runs *Package* and not the browser jobs; `composer.json` and `.gitattributes` run both installs; another directory under `packages/` runs the kit's jobs too | unit | `tools/tests/ci-changes.sh` |
+| A package-only change runs *Package* and not the browser jobs; `composer.json` and `.gitattributes` run both installs; another directory under `packages/` runs the kit's jobs too; every input of the bundled references (the copied docs, `LICENSE`, `NOTICE`, the kit's and each recipe's `README.md` and `manifest.json`) runs *Package* | unit | `tools/tests/ci-changes.sh` |
 | The lint view removes only `packages/`: an unexpected root directory without a `manifest.json` still fails | | gap: by construction of *Lint kit* (`ci.yml`), no planted case |
 | An independent consumer installs the archive, initializes and rediscovers Mate, updates without losing its own content or customized components, and runs without development dependencies | | gap: the consumer job of the work order |
-| The bundled references match this checkout's docs | | gap: the references job (they describe UXor at `40d957c`) |
+| A link the references point at `main` exists there: a file added on `dev` is linked before it is released | | gap: links follow `source.ref`; a release can generate with `--ref=<tag>` (not done yet) |
 
 ## Pending: branches in flight
 

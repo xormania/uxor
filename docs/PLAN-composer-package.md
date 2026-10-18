@@ -34,7 +34,7 @@ UXor at `40d957c` and the companion at `614aa28`._
    | `composer.lock` | the package's development dependencies; consumers resolve their own | no |
    | `packages/uxor/bin/uxor`, `config/`, `src/` | the CLI, the service configuration, the PHP | yes |
    | `packages/uxor/INSTRUCTIONS.md`, `OPERATIONS.md`, `README.md`, `skills/{setup,build,verify}` | the guidance an agent reads, and the three Mate skills | yes |
-   | `packages/uxor/resources/uxor/` | the bundled references: 74 generated files, 73 of UXor's docs and recipe READMEs and the `index.json` holding each one's SHA-256; never edited by hand | yes |
+   | `packages/uxor/resources/uxor/` | the bundled references: 74 generated files, 73 of UXor's docs and recipe READMEs and the `index.json` holding each one's SHA-256 and the digest of the inputs; generated from this checkout by `php packages/uxor/tools/generate-reference.php`, never edited by hand | yes |
    | `packages/uxor/resources/workflows/` | the workflow guides the tools serve | yes |
    | `packages/uxor/tests/`, `phpunit.xml.dist` | the package's PHPUnit tests and configuration | no |
    | `packages/uxor/tools/` | `check-package.py` (the archive payload check), `ReferenceGenerator.php` and `generate-reference.php` | no |
@@ -66,6 +66,7 @@ UXor at `40d957c` and the companion at `614aa28`._
    | `.gitattributes` | the kit's jobs and *Package* |
    | `packages/uxor/` | *Package*; its markdown also *Contrast* |
    | any other path in `packages/` | the kit's jobs and *Package* |
+   | an input of the bundled references (*References* below) | its own jobs and *Package* |
 
    A package-only change does not run the browser matrix. Pushes to `dev` and `main` still run everything.
 7. **Local development.** `composer install` and `composer test` at the repository root, with PHP 8.4 or later. The
@@ -80,17 +81,34 @@ with its `CHANGELOG.md` entries and `docs/TEST-INVENTORY.md` rows.
 |---|---|
 | `foundation` | The root `composer.json` and `composer.lock`; `packages/uxor/` imported from the companion at `614aa28` and renamed to the UXor identity, with the executable's autoload path fixed for its new depth; the export rules; the *Package* job, the classifier rules and their cases; the lint view; this plan, CONTRIBUTING, AGENTS and the readmes. The bundled references are the ones generated from UXor at `40d957c` |
 | consumer | `packages/uxor/dev/`: the independent Symfony consumer installing the package from the candidate commit's archive (initialization, repeat discovery, an update that keeps consumer-written content and customized components, the app working without development dependencies), and the Docker and Serena development environment with its checks |
-| references | The references regenerated from this checkout: deterministic output, provenance from the hashes of the source files (not from the commit that holds the output, which no commit can name), and a CI check that regenerates into a temporary directory and compares |
+| references (delivered) | The references regenerated from this checkout: deterministic output, provenance from the hashes of the source files (not from the commit that holds the output, which no commit can name), and a CI check that regenerates into a temporary directory and compares. Delivered as below, *References* |
 | release | The release workflow's checks of both installs at the commit it tags, the Packagist refresh with a limited token from a job that runs no install, the check that Packagist shows the version and its commit, and a retry that reuses the same tag |
+
+## References
+
+The companion's generator required a clean source checkout and wrote its commit into the output: inside one
+repository, the output would have to name the commit that contains it (audit, `UXOR-AUD-PKG-004`). The references job
+replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.php`):
+
+- **Inputs.** The generator reads this repository's working tree, two levels above `packages/uxor/`, never Git: the
+  kit's `manifest.json`, `README.md`, `INSTALL.md`, `FOR-AGENTS.md`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`,
+  `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/TESTING.md`, and each recipe's `README.md` and
+  `manifest.json`. A doc can be edited, regenerated and committed once; a dirty or untracked file is read as it is.
+- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the branch or
+  tag its repository links use: `main` unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
+  lines for the sorted input paths: recomputable from the index's own hashes or from a checkout), the kit manifest's
+  SHA-256 and the license. A change to a file that is no input changes no byte of the output.
+- **Links.** A link to another copied document stays relative and resolves inside the bundle. A relative link to any
+  other file of the repository, and a link to this repository on a moving branch, point at `ref`; a link to a fixed
+  tag or commit is kept as written. The installed package's commit is Composer's to report, not the files'.
+- **Freshness.** `php packages/uxor/tools/generate-reference.php` writes `packages/uxor/resources/uxor/`; `--check`
+  regenerates into a temporary directory, compares byte for byte and fails with the changed, missing and unexpected
+  files, never repairing them. *Package* runs it, and every input runs *Package* (`tools/ci-changes.sh`).
 
 ## Deferred, and why
 
 - **The consumer fixture and the development environment** need their own job: they bring a second Composer root,
   Docker images and Serena, and their CI group. `packages/uxor/dev/` is already left out of the archive.
-- **Regenerating the references here.** The companion's generator requires a clean source checkout and writes its
-  commit into the output; inside one repository, the output would have to name the commit that contains it. Until the
-  references job lands, the bundled references describe UXor at `40d957c` and their index proves their content, not
-  their freshness (audit, `UXOR-AUD-PKG-004`).
 - **Publication.** Registering `xormania/uxor` on Packagist and holding its token are owner actions, not authorized
   by this plan. Until then, the package installs from the repository as a VCS dependency.
 - **The companion's consumers and retirement.** Moving an installed `xormania/uxorscient` to `xormania/uxor` is a

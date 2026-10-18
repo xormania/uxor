@@ -15,7 +15,7 @@ The tools have the uxor_ prefix. The uxor://catalog resource is a
 starting page; uxor://reference/INSTALL.md and component README resources
 provide detail. Use the reference tool's continuation offsets for long documents.
 
-Reference results identify their UXor source revision. Project inspection reports
+Reference results identify their UXor sources by digest. Project inspection reports
 observed metadata and explicit unknowns; application-owned files may differ from
 the reference. Use Toolkit for source installation and native Makers/Mate for
 framework work. Complete dependency, asset and configuration requirements before
