@@ -55,9 +55,10 @@ UXor at `40d957c` and the companion at `614aa28`._
    `version` field: Composer and Packagist read the tags. Older tags stay as they are: the first version with
    `composer.json` is the first one Composer can install.
 6. **CI groups.** The existing coordinator and the one *CI result* check stay. A new *Package* job runs
-   `composer validate --strict`, `composer install`, the PHP syntax of `packages/uxor/`, `composer test` (PHPUnit with
+   `composer validate --strict`, `composer install`, the PHP syntax of `packages/uxor/`, the freshness of the bundled
+   references (`php packages/uxor/tools/generate-reference.php --check`, *References* below), `composer test` (PHPUnit with
    `packages/uxor/phpunit.xml.dist`), `python3 packages/uxor/tools/check-package.py` (what the exported archive
-   holds) and a smoke run of `vendor/bin/uxor list` and `catalog`. `tools/ci-changes.sh` selects it:
+   holds) and a smoke run of `php packages/uxor/bin/uxor list` and `catalog`. `tools/ci-changes.sh` selects it:
 
    | A change to | runs |
    |---|---|
@@ -112,8 +113,9 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
 - **Publication.** Registering `xormania/uxor` on Packagist and holding its token are owner actions, not authorized
   by this plan. Until then, the package installs from the repository as a VCS dependency.
 - **The companion's consumers and retirement.** Moving an installed `xormania/uxorscient` to `xormania/uxor` is a
-  documented migration, written once the actual consumers are known. Archiving the companion repository is a separate
-  owner decision.
+  documented migration, written once the actual consumers are known: remove the old package first, since both ship
+  skills named `setup`, `build` and `verify` and Mate refuses the clash. Archiving the companion repository is a
+  separate owner decision.
 - **The audit's product and test defects** (`UXOR-AUD-PROD-*`, `UXOR-AUD-TEST-*`) are fixed in their own pull
   requests, outside this work order.
 

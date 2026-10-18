@@ -1037,13 +1037,13 @@ temporary projects, without booting one: component wiring (`ComponentWiringTest`
 the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
 (`ReferenceBundleTest`: the generator on a temporary source, two runs byte for byte, a stale input `--check` reports
 without repairing, an index that names no commit). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
-`composer archive` and checks it against its own list of what must and must not be there, independent of
+`git archive HEAD` (what GitHub serves) and checks it against its own list of what must and must not be there, independent of
 `.gitattributes`: the list is the oracle for the export rules. CI's *Package* job runs them, after
 `composer validate --strict` and `php packages/uxor/tools/generate-reference.php --check` (the bundled references are
 what the generator makes of this checkout: it regenerates them into a temporary directory, compares byte for byte and
-lists the stale files), and ends with `vendor/bin/uxor list` and `catalog` as a smoke test. An independent consumer
-that installs the archive comes with a later job of the work order ([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The
-Composer package*).
+lists the stale files), and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test. An independent
+consumer that installs the archive comes with a later job of the work order ([`TEST-INVENTORY.md`](TEST-INVENTORY.md),
+*The Composer package*).
 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the

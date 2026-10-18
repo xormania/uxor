@@ -674,7 +674,7 @@ jobs:
                   set -o pipefail
                   composer test 2>&1 | tee "$RUNNER_TEMP/jev-package-tests.log"
 
-            # `composer archive` of the repository, as Composer and GitHub ship it: the package's files are in it, the
+            # `git archive HEAD` of the repository, as GitHub ships it to the Toolkit and to Composer: the package's files are in it, the
             # development files are not (the runner's Python, standard library only)
             - name: The archive's payload
               id: archive
@@ -682,14 +682,15 @@ jobs:
                   set -o pipefail
                   python3 packages/uxor/tools/check-package.py 2>&1 | tee "$RUNNER_TEMP/jev-archive.log"
 
-            # the executable Composer installs for the root package (composer.json's bin)
-            - name: vendor/bin/uxor runs
+            # composer.json's executable, run from the checkout: Composer links a dependency's bin into vendor/bin, not
+            # the root package's own, so it finds the root vendor/autoload.php itself
+            - name: The uxor command runs
               id: smoke
               run: |
                   set -o pipefail
                   {
-                      vendor/bin/uxor list
-                      vendor/bin/uxor catalog --query=modal --limit=1 --format=json
+                      php packages/uxor/bin/uxor list
+                      php packages/uxor/bin/uxor catalog --query=modal --limit=1 --format=json
                   } 2>&1 | tee "$RUNNER_TEMP/jev-smoke.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
