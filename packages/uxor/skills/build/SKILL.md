@@ -11,7 +11,7 @@ Use this skill when implementing an application page or interaction with UXor.
 
 Read `uxor://catalog` to select relevant components and `uxor://reference/<recipe>/README.md` for their contracts, examples and follow-up integration. Read `uxor://reference/docs/GUIDE.md` for the relevant Turbo, Live Component and security behavior. `uxor://reference/docs/PROJECT-AGENTS-SNIPPET.md` contains UXor's practical project conventions.
 
-With Mate, use the project's invocation of `vendor/bin/mate resources:read <uri> --format=json`. Without that surface, locate the same documents at `vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` (the default Composer vendor directory; use the application's actual one). The source revision is recorded in the package's `packages/uxor/resources/uxor/index.json`. These documents describe reference behavior; inspect the application's installed copies too.
+With Mate, use the project's invocation of `vendor/bin/mate resources:read <uri> --format=json`. Without that surface, locate the same documents at `vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` (the default Composer vendor directory; use the application's actual one). The digest of the UXor files they are generated from is recorded in the package's `packages/uxor/resources/uxor/index.json`. These documents describe reference behavior; inspect the application's installed copies too.
 
 For bounded sections of long documents, inspect and use the installed `uxor_reference` tool. Keep catalog selection compact, then load detail for the chosen components.
 

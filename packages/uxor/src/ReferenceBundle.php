@@ -123,7 +123,10 @@ final class ReferenceBundle
         } catch (\JsonException $e) {
             throw new \RuntimeException('The UXor reference index is invalid.', 0, $e);
         }
-        if (!is_array($index) || 1 !== ($index['schema_version'] ?? null) || !is_array($index['source'] ?? null)
+        // Schema 2: the source is identified by its inputs' digest and the ref of its links, not by a commit.
+        if (!is_array($index) || 2 !== ($index['schema_version'] ?? null) || !is_array($index['source'] ?? null)
+            || !is_string($index['source']['ref'] ?? null)
+            || 1 !== preg_match('/^[a-f0-9]{64}$/D', (string) ($index['source']['inputs_sha256'] ?? ''))
             || !is_array($index['components'] ?? null) || !is_array($index['documents'] ?? null)) {
             throw new \RuntimeException('Unsupported UXor reference index schema.');
         }

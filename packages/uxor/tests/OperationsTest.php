@@ -29,8 +29,9 @@ final class OperationsTest extends TestCase
         $text = "# Modal\nAccessible café dialog.\n";
         file_put_contents($this->directory.'/references/docs/modal/README.md', $text);
         file_put_contents($this->directory.'/references/index.json', json_encode([
-            'schema_version' => 1,
-            'source' => ['repository' => 'https://github.com/xormania/uxor', 'revision' => str_repeat('a', 40), 'license' => 'MIT'],
+            'schema_version' => 2,
+            'source' => ['repository' => 'https://github.com/xormania/uxor', 'ref' => 'main', 'inputs_sha256' => str_repeat('a', 64),
+                'manifest_sha256' => str_repeat('b', 64), 'license' => 'MIT'],
             'components' => ['modal' => ['summary' => 'Accessible dialog', 'category' => 'overlay',
                 'manifest' => ['name' => 'modal'], 'documentation' => 'modal/README.md', 'source_url' => 'https://example.test/modal']],
             'documents' => ['modal/README.md' => ['path' => 'docs/modal/README.md', 'sha256' => hash('sha256', $text),

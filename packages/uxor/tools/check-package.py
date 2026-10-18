@@ -357,11 +357,11 @@ return static function (ContainerConfigurator $container): void {
         raise RuntimeError("The installed package's catalog tool was not discovered")
     catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=modal",
                                        "--limit=1", "--format=json"], application, capture=True), "catalog")
-    expected_revision = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["revision"]
+    expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
     if catalog is None or catalog.get("status") != "completed" or not catalog.get("data", {}).get("items"):
         raise RuntimeError("The discovered catalog tool could not read its exported references")
-    if catalog.get("reference", {}).get("uxor", {}).get("revision") != expected_revision:
-        raise RuntimeError("Catalog results do not identify the packaged UXor reference revision")
+    if catalog.get("reference", {}).get("uxor", {}).get("inputs_sha256") != expected_inputs:
+        raise RuntimeError("Catalog results do not identify the packaged UXor references by their inputs' digest")
     reference = operation_result(execute([*mate, "resources:read", "uxor://reference/FOR-AGENTS.md",
                                          "--format=json"], application, capture=True), "reference")
     if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
