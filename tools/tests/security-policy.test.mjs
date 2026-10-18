@@ -254,6 +254,18 @@ test('reads an executable without an extension in the language it names', () => 
     assert.deepEqual(sinkProblems([{ ...files[0], extension: undefined }], []), []);
 });
 
+test('finds Symfony Process as PHP process execution', () => {
+    const files = [{
+        path: 'packages/uxor/src/Runner.php',
+        source: '<?php\n$a = new Process($argv);\n$b = new PhpProcess($code);\n$c = Process::fromShellCommandline($line);\n$d->run();\n',
+    }];
+    const output = sinkProblems(files, []).join('\n');
+    assert.match(output, /Runner\.php:2: unreviewed php-process-execution/);
+    assert.match(output, /Runner\.php:3: unreviewed php-process-execution/);
+    assert.match(output, /Runner\.php:4: unreviewed php-process-execution/);
+    assert.doesNotMatch(output, /Runner\.php:5:/);
+});
+
 test('rejects tracked dependency, cache and browser-result paths', () => {
     assert.deepEqual(generatedPathProblems(['button/README.md', 'demo/src/Kernel.php']), []);
     const output = generatedPathProblems(['widget/node_modules/pkg/index.js', 'demo/public/assets/app.js', 'playwright-results/results.json']).join('\n');

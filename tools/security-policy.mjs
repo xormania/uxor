@@ -53,7 +53,8 @@ const sinkRules = [
     {
         id: 'php-process-execution',
         extensions: ['.php'],
-        pattern: /\b(?:eval|exec|shell_exec|system|passthru|popen|proc_open)\s*\(/g,
+        // the procedural functions, and Symfony Process (a Process or PhpProcess object, a shell command line)
+        pattern: /\b(?:eval|exec|shell_exec|system|passthru|popen|proc_open)\s*\(|\bnew\s+(?:Php)?Process\s*\(|\bProcess::fromShellCommandline\s*\(/g,
     },
     { id: 'php-unserialize', extensions: ['.php'], pattern: /\bunserialize\s*\(/g },
 ];
