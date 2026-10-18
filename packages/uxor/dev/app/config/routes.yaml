@@ -1,0 +1,7 @@
+controllers:
+    resource: '../src/Controller/'
+    type: attribute
+
+live_component:
+    resource: '@LiveComponentBundle/config/routes.php'
+    prefix: /_components

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "group": "bootstrap-2026-10-14",
+  "resources": [
+    {
+      "line_id": "php-serena/8.5-trixie",
+      "version": "1.1.2",
+      "identity": "ghcr.io/xormania/php-serena@sha256:9aa4981b585e76a812cc3070381e55488ffb86a850effa600779919c48b2d132",
+      "platform": "linux/amd64",
+      "service": "serena"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{% extends 'base.html.twig' %}
+{% block stylesheets %}<link rel="stylesheet" href="{{ asset('styles/workflow.css') }}">{% endblock %}
+{% form_theme form 'form/flowbite_layout.html.twig' %}
+{% block title %}Edit {{ customer.name }}{% endblock %}
+{% block body %}
+{% if app.request.headers.get('Turbo-Frame') == 'customer-editor' %}
+<turbo-frame id="customer-editor">
+    <twig:Modal id="customer-edit" open>
+        <twig:Modal:Trigger><twig:Button type="button" {{ ...modal_trigger_attrs }}>Reopen editor</twig:Button></twig:Modal:Trigger>
+        <twig:Modal:Content>
+            <twig:Modal:Header><twig:Modal:Title>Edit customer</twig:Modal:Title></twig:Modal:Header>
+            <twig:Modal:Body>
+                {{ include('customer/_form.html.twig') }}
+            </twig:Modal:Body>
+        </twig:Modal:Content>
+    </twig:Modal>
+</turbo-frame>
+{% else %}
+    <h1>Edit customer</h1>
+    <p><a href="{{ path('customers', app.request.query.all) }}">Back to customers</a></p>
+    {{ include('customer/_form.html.twig') }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Composer's vendor/bin proxy names the autoloader; run directly, this is either the repository's own checkout
+// (vendor/ at its root) or an installed copy (vendor/xormania/uxor/packages/uxor/bin, inside the application's vendor/)
+$autoload = $_composer_autoload_path ?? null;
+foreach ([__DIR__.'/../../../vendor/autoload.php', __DIR__.'/../../../../../autoload.php'] as $candidate) {
+    if (null === $autoload && is_file($candidate)) {
+        $autoload = $candidate;
+    }
+}
+if (null === $autoload || !is_file($autoload)) {
+    fwrite(STDERR, "Install Composer dependencies before running UXor.\n");
+    exit(1);
+}
+require $autoload;
+
+exit((new Xormania\UXor\Console\Application())->run());

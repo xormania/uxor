@@ -1,0 +1,17 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    csrf_protection: true
+    form: true
+    validation: true
+    session: true
+    router:
+        utf8: true
+    asset_mapper:
+        paths: ['assets/']
+        missing_import_mode: strict
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file

@@ -3,16 +3,17 @@
 # Which CI jobs a change could affect. Reads the changed paths, one per line, on stdin and prints one
 # `<job>=true|false` line per job of .github/workflows/ci.yml, for $GITHUB_OUTPUT. A job is skipped only when none of
 # the paths could change what it checks. A path not listed counts as part of the kit, which runs every job but
-# Contrast and Workflows (a recipe's templates and markdown run Contrast too). A workflow runs Workflows (actionlint)
-# and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed runs
-# everything.
+# Contrast, Workflows and Package (a recipe's templates and markdown run Contrast too, its README.md and manifest.json
+# Package too: the package's generated references copy them). A workflow runs Workflows
+# (actionlint) and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed
+# runs everything.
 #
 # Usage: git diff --name-only --no-renames <base> HEAD | tools/ci-changes.sh
 # Test:  tools/tests/ci-changes.sh
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site fresh-install contrast demo workflows)
+jobs=(lint-kit php static-site fresh-install contrast demo workflows package)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
@@ -25,11 +26,17 @@ while IFS= read -r path; do
         # The workflow and this script decide what runs: a change to either runs everything
         .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh) all ;;
 
+        # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
+        # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
+        # Package checks the copies are up to date (generate-reference.php --check)
+        docs/GUIDE.md | docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
+        LICENSE | NOTICE) on package ;;
+
         # Read by people and agents: Contrast checks the generated lists, the plans' status (tools/llms-txt.mjs
         # reads CHANGELOG.md for the links' ref) and what the markdown teaches (tools/docs-lint.mjs)
-        docs/* | CHANGELOG.md | CONTRIBUTING.md | FOR-AGENTS.md | AGENTS.md | SECURITY.md) on contrast ;;
+        docs/* | CHANGELOG.md | CONTRIBUTING.md | AGENTS.md | SECURITY.md) on contrast ;;
         .github/pull_request_template.md) on contrast ;;
-        LICENSE | NOTICE | .github/dependabot.yml) ;;
+        .github/dependabot.yml) ;;
 
         # The other workflows. CI cannot run them (they deploy, tag or upload), so it runs the jobs that run what they
         # run: pages.yml builds the static site, release.yml checks the install from GitHub (docker-install.sh) and
@@ -48,6 +55,14 @@ while IFS= read -r path; do
         # runs (the release projects, absent there, run with the same fixtures)
         .github/workflows/release-checks.yml) on demo workflows ;;
         .github/*) all ;;
+
+        # The Composer package xormania/uxor: the root composer.json and the implementation under packages/uxor/. The
+        # root metadata is in both archives, the kit's and the package's (one GitHub archive), so it runs the kit's
+        # install jobs too; the lock file is export-ignored and only the package installs from it. .gitattributes
+        # decides what both archives hold. The package's markdown runs Contrast too (the markdown rule below);
+        # .gitattributes, another directory under packages/ and the references' inputs in the kit are below, with the kit.
+        composer.json) on package lint-kit fresh-install ;;
+        composer.lock | packages/uxor/*) on package ;;
 
         # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
         # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
@@ -111,6 +126,14 @@ while IFS= read -r path; do
                 # manifest.json: llms.txt holds its description, name and homepage (tools/llms-txt.mjs)
                 */* | kit.css | README.md | INSTALL.md | manifest.json) on contrast ;;
             esac
+            # What both archives hold (.gitattributes' export-ignore), and another directory under packages/, which
+            # the archive also ships: Package checks its payload too. The kit's README.md, INSTALL.md and manifest.json,
+            # and a recipe's README.md and manifest.json (one level down, as the generator reads them), are inputs of
+            # the package's generated references: Package checks they are up to date
+            case "$path" in
+                .gitattributes | packages/* | README.md | INSTALL.md | manifest.json) on package ;;
+            esac
+            if [[ $path =~ ^[^/]+/(README\.md|manifest\.json)$ ]]; then on package; fi
             ;;
     esac
 

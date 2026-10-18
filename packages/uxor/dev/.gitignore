@@ -1,0 +1,21 @@
+/.tools/
+/.state/
+/app/.env.local
+/app/vendor/
+/app/var/
+/app/config/reference.php
+/app/public/assets/
+/app/assets/vendor/
+/app/.agents/
+/app/.claude/
+/app/AGENTS.md
+/app/CLAUDE.md
+/app/mate/.env
+/app/mate/AGENT_INSTRUCTIONS.md
+/app/mate/extensions.php
+/app/mate/src/
+**/__pycache__/
+# the consumer's browser check (package.json, playwright.config.mjs)
+/node_modules/
+/test-results/
+/playwright-report/
