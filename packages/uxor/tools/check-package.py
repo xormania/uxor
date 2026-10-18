@@ -52,6 +52,12 @@ REQUIRED_FILES = (
     "composer.json", "LICENSE", "README.md", "manifest.json",
     f"{PACKAGE_PATH}/INSTRUCTIONS.md", f"{PACKAGE_PATH}/OPERATIONS.md", f"{PACKAGE_PATH}/README.md",
 )
+# Everything else is refused: a new development file is caught even when nobody thought to list it. An exported
+# file is a root file below, a file of a recipe (a top-level directory whose manifest.json is exported) or one of
+# the package's entries below.
+ROOT_FILES = {"INSTALL.md", "LICENSE", "NOTICE", "README.md", "composer.json", "icon.svg", "kit.css", "kit.js",
+              "manifest.json"}
+PACKAGE_ENTRIES = {"INSTRUCTIONS.md", "OPERATIONS.md", "README.md", *PACKAGE_DIRECTORIES}
 
 
 def composer_command() -> list[str]:
@@ -112,6 +118,18 @@ def check_archive(archive: Path) -> int:
             if development_only(normalized):
                 raise RuntimeError(f"Development-only content exported: {normalized}")
             paths[normalized] = member
+
+        recipes = {name.split("/")[0] for name, entry in paths.items()
+                   if entry.isfile() and len(PurePosixPath(name).parts) == 2 and name.endswith("/manifest.json")}
+        package_parts = PurePosixPath(PACKAGE_PATH).parts
+        for name, entry in paths.items():
+            parts = PurePosixPath(name).parts
+            if not entry.isfile() or name in ROOT_FILES or parts[0] in recipes:
+                continue
+            if parts[:len(package_parts)] == package_parts and len(parts) > len(package_parts) \
+                    and parts[len(package_parts)] in PACKAGE_ENTRIES:
+                continue
+            raise RuntimeError(f"Exported file is neither part of the kit nor of the package: {name}")
 
         def exported_file(name: str) -> bool:
             return name in paths and paths[name].isfile()
