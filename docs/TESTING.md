@@ -1024,6 +1024,28 @@ Here: [`fresh-install.sh`](../tools/tests/fresh-install.sh), [`docker-install.sh
 their shared steps [`install-scenario.sh`](../tools/tests/install-scenario.sh),
 [`check-fresh-app.sh`](../tools/tests/check-fresh-app.sh).
 
+## The Composer package
+
+**Catches:** a `composer.json` that points at a moved path, a file the package needs left out of the archive or a
+development file let into it, an operation or Mate tool that reads outside its bounds, a tampered bundled reference,
+a CLI that no longer starts.
+
+The package (`xormania/uxor`, [`PLAN-composer-package.md`](PLAN-composer-package.md)) is tested from the repository
+root, apart from the demo: `composer install`, then `composer test`, which runs PHPUnit with
+`packages/uxor/phpunit.xml.dist`. Its three classes test the operations behind the CLI and the Mate tools on
+temporary projects, without booting one: component wiring (`ComponentWiringTest`), the catalog, reads, inspection,
+the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
+(`ReferenceBundleTest`). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
+`composer archive` and checks it against its own list of what must and must not be there, independent of
+`.gitattributes`: the list is the oracle for the export rules. CI's *Package* job runs them, after
+`composer validate --strict`, and ends with `vendor/bin/uxor list` and `catalog` as a smoke test. An independent
+consumer that installs the archive, and a check that the references match this checkout, come with later jobs of the
+work order ([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The Composer package*).
+
+Here: [`packages/uxor/tests/`](../packages/uxor/tests/),
+[`check-package.py`](../packages/uxor/tools/check-package.py),
+[`phpunit.xml.dist`](../packages/uxor/phpunit.xml.dist).
+
 ## Repository security policy
 
 **Catches:** a mutable external Action, privileged pull-request workflow, broad workflow permission, remote shell pipe,
