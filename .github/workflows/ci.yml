@@ -51,6 +51,7 @@ jobs:
             contrast: ${{ steps.jobs.outputs.contrast }}
             demo: ${{ steps.jobs.outputs.demo }}
             workflows: ${{ steps.jobs.outputs.workflows }}
+            package: ${{ steps.jobs.outputs.package }}
             base: ${{ steps.jobs.outputs.base }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -79,7 +80,7 @@ jobs:
                       echo "Work order $branch: its pull request into dev is $state"
                       if [ "$state" != ready ]; then
                           echo "wo-draft=true" >> "$GITHUB_OUTPUT"
-                          for job in lint-kit php static-site fresh-install contrast demo workflows; do
+                          for job in lint-kit php static-site fresh-install contrast demo workflows package; do
                               echo "$job=false" | tee -a "$GITHUB_OUTPUT"
                           done
                           exit 0
@@ -105,7 +106,7 @@ jobs:
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site fresh-install contrast demo workflows; do
+                  for job in lint-kit php static-site fresh-install contrast demo workflows package; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   tee -a "$GITHUB_OUTPUT" < "$RUNNER_TEMP/jobs"
@@ -254,22 +255,35 @@ jobs:
 
             # ux-toolkit-kit-lint reports every top-level directory without a manifest.json as an error
             # (demo/, tools/, .github/…), so lint the tree `ux:install` actually downloads: GitHub's
-            # archive honors .gitattributes export-ignore exactly like `git archive`.
+            # archive honors .gitattributes export-ignore exactly like `git archive`. The same archive is the Composer
+            # package xormania/uxor (composer.json, packages/uxor/): its runtime and agent files are in it, its
+            # development files are not (the Package job checks the whole payload).
             - name: Export the kit as GitHub's archive would
               run: |
                   mkdir "$RUNNER_TEMP/kit"
                   git archive HEAD | tar -x -C "$RUNNER_TEMP/kit"
                   echo "Exported:" && ls -A "$RUNNER_TEMP/kit"
-                  for path in demo docs tests tools .github .xorder package.json package-lock.json playwright.config.ts alert/tests; do
+                  for path in demo docs tests tools .github .xorder package.json package-lock.json playwright.config.ts alert/tests \
+                      composer.lock packages/uxor/tests packages/uxor/tools packages/uxor/dev packages/uxor/phpunit.xml.dist; do
                       if [ -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is not export-ignored"; exit 1; fi
                   done
+                  for path in composer.json packages/uxor/bin/uxor packages/uxor/src packages/uxor/INSTRUCTIONS.md; do
+                      if [ ! -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is export-ignored: the Composer package needs it"; exit 1; fi
+                  done
 
+            # Toolkit installs read the recipes' manifests one directory deep, so packages/ (no manifest.json) changes no
+            # install, but the lint rejects every top-level directory without one: it lints a copy without packages/.
+            # Only packages/ is removed, so any other unexpected directory still fails here.
             # (its output also goes to $RUNNER_TEMP/jev-lint.log, for the Jev step)
             - name: Lint
               id: lint
               run: |
                   set -o pipefail
-                  "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit" 2>&1 | tee "$RUNNER_TEMP/jev-lint.log"
+                  cp -a "$RUNNER_TEMP/kit" "$RUNNER_TEMP/kit-lint"
+                  # a manifest would make packages/ a recipe the Toolkit offers, and this lint would never see it
+                  if [ -e "$RUNNER_TEMP/kit/packages/manifest.json" ]; then echo "::error::packages/ must not be a recipe"; exit 1; fi
+                  rm -rf "$RUNNER_TEMP/kit-lint/packages"
+                  "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit-lint" 2>&1 | tee "$RUNNER_TEMP/jev-lint.log"
 
             - name: Debug (what the toolkit sees in the repository)
               run: |
@@ -601,6 +615,86 @@ jobs:
               with:
                   steps: ${{ toJSON(steps) }}
                   job: Fresh install (Symfony Docker, from GitHub)
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    # The Composer package xormania/uxor: the root composer.json and its implementation in packages/uxor/. Its metadata
+    # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
+    # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not)
+    # and the installed executable. It runs on the package's minimum PHP (composer.json: php >=8.4), pinned here so a
+    # later bump of the workflow's PHP_VERSION does not stop checking the minimum.
+    package:
+        name: Package
+        needs: changes
+        if: needs.changes.outputs.package == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: '8.4' # the package's minimum (composer.json: "php": ">=8.4")
+                  tools: composer:v2
+                  coverage: none
+
+            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
+            - name: composer.json is valid and composer.lock up to date
+              id: validate
+              run: |
+                  set -o pipefail
+                  composer validate --strict 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
+
+            - name: Install the package's dependencies
+              id: install
+              run: |
+                  set -o pipefail
+                  composer install --no-interaction --no-progress 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            # every tracked PHP file of the package, and its executable (PHP without the extension)
+            - name: Syntax
+              id: syntax
+              run: |
+                  set -o pipefail
+                  { git ls-files -z -- 'packages/uxor/*.php'; printf '%s\0' packages/uxor/bin/uxor; } \
+                      | xargs -0 -n1 php -l 2>&1 | tee "$RUNNER_TEMP/jev-syntax.log"
+
+            # (an id of its own: Kit PHP's PHPUnit step, id phpunit, is diagnosed from its JUnit report instead)
+            - name: PHPUnit
+              id: package-tests
+              run: |
+                  set -o pipefail
+                  composer test 2>&1 | tee "$RUNNER_TEMP/jev-package-tests.log"
+
+            # `git archive HEAD` of the repository, as GitHub ships it to the Toolkit and to Composer: the package's files are in it, the
+            # development files are not (the runner's Python, standard library only)
+            - name: The archive's payload
+              id: archive
+              run: |
+                  set -o pipefail
+                  python3 packages/uxor/tools/check-package.py 2>&1 | tee "$RUNNER_TEMP/jev-archive.log"
+
+            # composer.json's executable, run from the checkout: Composer links a dependency's bin into vendor/bin, not
+            # the root package's own, so it finds the root vendor/autoload.php itself
+            - name: The uxor command runs
+              id: smoke
+              run: |
+                  set -o pipefail
+                  {
+                      php packages/uxor/bin/uxor list
+                      php packages/uxor/bin/uxor catalog --query=modal --limit=1 --format=json
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-smoke.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Package
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     contrast:
@@ -1065,7 +1159,7 @@ jobs:
     result:
         name: CI result
         if: always()
-        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, contrast, workflows, demo]
+        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo]
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:

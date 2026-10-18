@@ -5,6 +5,13 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- The Composer package `xormania/uxor`, from this repository (`composer.json`, `packages/uxor/`): agent guidance and
+  development tools for projects using the kit, as a development dependency. It brings three Mate skills (`setup`,
+  `build`, `verify`), seven Mate tools (`uxor_*`), the `vendor/bin/uxor` command line and UXor's docs as bundled
+  references (`uxor://` resources). Recipes still install with `ux:install`.
+
 ## [0.3.0] - 2026-10-17
 
 ### Added

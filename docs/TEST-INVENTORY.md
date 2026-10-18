@@ -551,6 +551,25 @@ baseline is replaced. These local tests do not replace a fresh default-branch sc
 [issue 134 evidence bundle](ci/issue-134/README.md) records historical red/green behavior, semantic mutation
 calibration, coverage overlap, measured hosted timing and unresolved operational acceptance.
 
+## The Composer package
+
+What `xormania/uxor` (`composer.json`, `packages/uxor/`) guarantees, and where it is tested
+([`PLAN-composer-package.md`](PLAN-composer-package.md)). Its PHPUnit tests are outside `demo/tests/`, so they are
+named by path. CI's *Package* job runs the first six rows, *Changes* the classifier's cases.
+
+| Guarantee | Scope | Covered by |
+|---|---|---|
+| The root metadata is valid and strict, and `composer.lock` matches it | static | `composer validate --strict` (*Package*) |
+| Component wiring checks report a missing Editor or Dropzone setup, recognize the documented one, and leave a custom asset layout unknown without executing the project's PHP importmap | unit (PHPUnit) | `packages/uxor/tests/ComponentWiringTest.php` (3 tests) |
+| Catalog search and paged reads keep Unicode and fail on an unknown path; a tampered or escaping indexed reference cannot be read; the workflow guide shares the pagination and the whitelist; inspection tells declared, installed and locked facts apart; the doctor reports runtime and dev placement and unknown wiring; a wrong root or a malformed project is a structured CLI error; Maker and Mate discovery is bound to the project, refuses command input and reports missing or malformed metadata without raw errors | unit, process (PHPUnit) | `packages/uxor/tests/OperationsTest.php` (8 tests) |
+| The reference generator is deterministic and records its provenance; a wrong revision, an uncommitted source, catalog drift and a missing recipe dependency are refused; every packaged document matches its SHA-256 and links only inside the bundle; the skills reach the resources without leaving their directories | unit (PHPUnit) | `packages/uxor/tests/ReferenceBundleTest.php` (7 tests) |
+| The archive both installs receive (`git archive HEAD`, committed files only) holds the files the checker lists and every path `composer.json` declares (its executable, with its executable bit, its autoload and Mate paths), and nothing else: no development file (`composer.lock`, `packages/uxor/{tests,tools,dev}`, `phpunit.xml.dist`), nothing outside the kit's root files, its recipes and the package's entries; no entry escapes the archive | process integration | `packages/uxor/tools/check-package.py` (*Package*) |
+| The CLI starts from a root install and reads the bundled references | smoke | `php packages/uxor/bin/uxor list`, `catalog` (*Package*) |
+| A package-only change runs *Package* and not the browser jobs; `composer.json` and `.gitattributes` run both installs; another directory under `packages/` runs the kit's jobs too | unit | `tools/tests/ci-changes.sh` |
+| The lint view removes only `packages/`: an unexpected root directory without a `manifest.json` still fails | | gap: by construction of *Lint kit* (`ci.yml`), no planted case |
+| An independent consumer installs the archive, initializes and rediscovers Mate, updates without losing its own content or customized components, and runs without development dependencies | | gap: the consumer job of the work order |
+| The bundled references match this checkout's docs | | gap: the references job (they describe UXor at `40d957c`) |
+
 ## Pending: branches in flight
 
 None. `claude/mobile-nav` (mobile-nav) and `claude/vtabs` (section-nav, vertical tabs) have landed, with their rows

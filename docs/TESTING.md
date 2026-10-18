@@ -1024,6 +1024,30 @@ Here: [`fresh-install.sh`](../tools/tests/fresh-install.sh), [`docker-install.sh
 their shared steps [`install-scenario.sh`](../tools/tests/install-scenario.sh),
 [`check-fresh-app.sh`](../tools/tests/check-fresh-app.sh).
 
+## The Composer package
+
+**Catches:** a `composer.json` that points at a moved path, a file the package needs left out of the archive or a
+development file let into it, an operation or Mate tool that reads outside its bounds, a tampered bundled reference,
+a CLI that no longer starts.
+
+The package (`xormania/uxor`, [`PLAN-composer-package.md`](PLAN-composer-package.md)) is tested from the repository
+root, apart from the demo: `composer install`, then `composer test`, which runs PHPUnit with
+`packages/uxor/phpunit.xml.dist`. Its three classes test the operations behind the CLI and the Mate tools on
+temporary projects, without booting one: component wiring (`ComponentWiringTest`), the catalog, reads, inspection,
+the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
+(`ReferenceBundleTest`). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
+`git archive HEAD` (what GitHub serves; committed files only) and checks it against its own lists, independent of
+`.gitattributes`: the archive holds the files the script lists and every path `composer.json` declares, and nothing
+else: no development file, nothing outside the kit's root files, its recipes and the package's entries. The lists are
+the oracle for the export rules. CI's *Package* job runs them, after
+`composer validate --strict`, and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test. An independent
+consumer that installs the archive, and a check that the references match this checkout, come with later jobs of the
+work order ([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The Composer package*).
+
+Here: [`packages/uxor/tests/`](../packages/uxor/tests/),
+[`check-package.py`](../packages/uxor/tools/check-package.py),
+[`phpunit.xml.dist`](../packages/uxor/phpunit.xml.dist).
+
 ## Repository security policy
 
 **Catches:** a mutable external Action, privileged pull-request workflow, broad workflow permission, remote shell pipe,
@@ -1055,6 +1079,7 @@ ours in it is news from upstream: read the versions it resolved before looking f
 | *Fresh install* | `symfony/ux-toolkit` by version | `symfony/skeleton` 7.4.\* and every other package, as for a new user | the composer steps' logs |
 | *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image (its own `Dockerfile`, by tag, pulled at build: not the demo's pinned one), every other package | the last line (`ok: Symfony …`) and the logs |
 | *Workflows*, *Contrast* | actionlint and ShellCheck by version and SHA-256; `package-lock.json` | Node 22's patch release | the job's log |
+| *Package* | the root `composer.lock`; PHP 8.4, pinned in the job (the package's minimum) | the PHP patch release; Composer 2's release | the install step's log |
 
 The moving parts are on purpose: the install jobs are the kit as a user installs it, and the toolkit is pinned
 because it is experimental (`ci.yml`, `UX_TOOLKIT_VERSION`).
@@ -1413,7 +1438,7 @@ The attempts come from one of three places:
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
