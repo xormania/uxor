@@ -183,6 +183,13 @@ check 'package'                   packages/uxor/tests/OperationsTest.php
 check 'package'                   packages/uxor/bin/uxor packages/uxor/tools/check-package.py
 check 'contrast package'          packages/uxor/skills/build/SKILL.md
 check 'contrast package'          packages/uxor/INSTRUCTIONS.md
+# the independent consumer and its development environment (packages/uxor/dev/): Package runs its checks. Its own
+# package.json and browser check are not the kit's browser suite: they run neither Contrast nor the browser job
+check 'package'                   packages/uxor/dev/run.py packages/uxor/dev/tests/test_runner.py
+check 'package'                   packages/uxor/dev/app/composer.lock packages/uxor/dev/app/templates/development.html.twig
+check 'package'                   packages/uxor/dev/package.json packages/uxor/dev/e2e/customer-workflow.spec.mjs
+check 'package'                   packages/uxor/dev/compose.yaml packages/uxor/dev/Caddyfile
+check 'contrast package'          packages/uxor/dev/README.md
 # another directory under packages/ is shipped in the same archive: the kit's jobs, as for any unlisted path, and Package
 check "$kit_contrast package"     packages/other/x
 

@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+    <p><a href="{{ path('customers') }}">Customer workflow</a> (after <code>python3 packages/uxor/dev/install-uxor.py</code>)</p>
+    <main>
+        <h1>UXor development consumer</h1>
+        <p>This separate Symfony application consumes UXor's Composer package, xormania/uxor.</p>
+        <section data-controller="counter" aria-labelledby="stimulus-heading">
+            <h2 id="stimulus-heading">Stimulus readiness</h2>
+            <button type="button" data-action="counter#increment">Increment</button>
+            <output data-counter-target="output" aria-live="polite">0</output>
+        </section>
+        <section aria-labelledby="turbo-heading">
+            <h2 id="turbo-heading">Turbo readiness</h2>
+            <turbo-frame id="development-panel">
+                <a href="{{ path('development_panel') }}">Load the panel</a>
+            </turbo-frame>
+        </section>
+    </main>
+{% endblock %}

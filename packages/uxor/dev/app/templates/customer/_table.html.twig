@@ -1,0 +1,5 @@
+<twig:DataTable :table="table" id="customers" label="Customers">
+    <twig:block name="cell_edit">
+        <a id="edit-customer-{{ row.id }}" href="{{ path('customer_edit', app.request.query.all|merge({id: row.id})) }}" data-turbo-frame="customer-editor" class="font-medium text-fg-brand hover:underline" aria-label="Edit {{ row.name }}">Edit</a>
+    </twig:block>
+</twig:DataTable>

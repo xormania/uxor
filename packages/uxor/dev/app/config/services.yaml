@@ -1,0 +1,11 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude: '../src/{Kernel.php,Table/,Controller/CustomerController.php}'
+
+imports:
+    - { resource: workflow.php }
