@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "source_commit": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+  "source_spec_sha256": "67309448ce4981c3af15891f1891837a476baadecf82f8cdb35f43aeb5c14ce5",
+  "generated_original_sha256": "af51119a872adb4cd39aecc26e1e97f80a564f2b7e3ee599b76719766b0d45b7",
+  "generated_mutant_sha256": "dcba1285093d89da747700e173aa1154900603ef3b39de011cba2206857679d8",
+  "baseline_served": {
+    "url": "/assets/controllers/date_picker_controller-i_zi-q0.js",
+    "status": 200,
+    "sha256": "af51119a872adb4cd39aecc26e1e97f80a564f2b7e3ee599b76719766b0d45b7",
+    "bytes": 10956,
+    "sentinel_present": false
+  },
+  "mutation": "One unremoved window listener per date-picker connect; arrow captures this.element and retains the controller/element tree.",
+  "unchanged_contract": {
+    "visits": 50,
+    "warm_rounds": 2,
+    "test_timeout_ms": 300000,
+    "retries": 1,
+    "workers": 1,
+    "trace": "retain-on-failure",
+    "spec_and_fixture_edits": false
+  },
+  "asset_compile_exit": 0,
+  "created_asset_paths": [
+    "controllers/date_picker_controller-SVXykTG.js"
+  ],
+  "mutated_served": {
+    "url": "/assets/controllers/date_picker_controller-SVXykTG.js",
+    "status": 200,
+    "sha256": "dcba1285093d89da747700e173aa1154900603ef3b39de011cba2206857679d8",
+    "bytes": 11037,
+    "sentinel_present": true
+  },
+  "start_unix": 1792207682.2253966,
+  "test_exit_code": 1,
+  "elapsed_seconds": 76.82784748077393,
+  "stats": {
+    "startTime": "2026-10-17T03:28:03.727Z",
+    "duration": 75125.73999999999,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  },
+  "attempts": [
+    {
+      "retry": 0,
+      "status": "failed",
+      "duration_ms": 34901,
+      "counter_annotations": [
+        {
+          "type": "long-session",
+          "description": "{\"prepared\":\"Memory.simulatePressureNotification (the leak detector crashes this Chromium)\",\"documents\":{\"level\":5,\"after\":5,\"change\":0,\"limit\":5},\"nodes\":{\"level\":26488,\"after\":106630,\"change\":80142,\"limit\":28012},\"jsEventListeners\":{\"level\":46,\"after\":96,\"change\":50,\"limit\":68},\"jsHeapUsedSize\":{\"level\":6813364,\"after\":12481412,\"change\":5668048,\"limit\":8018988}}"
+        }
+      ],
+      "errors": [
+        "Error: nodes after 50 visits and Backs: level 26488, limit 28012\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m28012\u001b[39m\nReceived:    \u001b[31m106630\u001b[39m\n\n  139 |\n  140 |         for (const [key, { after: value, limit }] of Object.entries(report)) {\n> 141 |             expect(value, `${key} after ${VISITS} visits and Backs: level ${report[key].level}, limit ${limit}`).toBeLessThanOrEqual(limit);\n      |                                                                                                                  ^\n  142 |         }\n  143 |     });\n  144 | });\n    at /workspace/scratch/uxor-issue134-quality/full-release-local/release-checks-target/tests/e2e/release.long-session.spec.ts:141:114"
+      ],
+      "genuine_counter_assertion_red": true
+    },
+    {
+      "retry": 1,
+      "status": "failed",
+      "duration_ms": 34365,
+      "counter_annotations": [
+        {
+          "type": "long-session",
+          "description": "{\"prepared\":\"Memory.simulatePressureNotification (the leak detector crashes this Chromium)\",\"documents\":{\"level\":5,\"after\":5,\"change\":0,\"limit\":5},\"nodes\":{\"level\":26488,\"after\":106628,\"change\":80140,\"limit\":28012},\"jsEventListeners\":{\"level\":46,\"after\":96,\"change\":50,\"limit\":68},\"jsHeapUsedSize\":{\"level\":6709168,\"after\":12289676,\"change\":5580508,\"limit\":7904373}}"
+        }
+      ],
+      "errors": [
+        "Error: nodes after 50 visits and Backs: level 26488, limit 28012\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeLessThanOrEqual\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected: <= \u001b[32m28012\u001b[39m\nReceived:    \u001b[31m106628\u001b[39m\n\n  139 |\n  140 |         for (const [key, { after: value, limit }] of Object.entries(report)) {\n> 141 |             expect(value, `${key} after ${VISITS} visits and Backs: level ${report[key].level}, limit ${limit}`).toBeLessThanOrEqual(limit);\n      |                                                                                                                  ^\n  142 |         }\n  143 |     });\n  144 | });\n    at /workspace/scratch/uxor-issue134-quality/full-release-local/release-checks-target/tests/e2e/release.long-session.spec.ts:141:114"
+      ],
+      "genuine_counter_assertion_red": true
+    }
+  ],
+  "calibration_confirmed": true,
+  "mutated_asset_requested_by_browser": true,
+  "restoration": {
+    "controller_sha256": "af51119a872adb4cd39aecc26e1e97f80a564f2b7e3ee599b76719766b0d45b7",
+    "controller_matches_original": true,
+    "compiled_file_hashes_match": true,
+    "compiled_file_count": 182,
+    "extra_compiled_paths": [],
+    "served_original": {
+      "url": "/assets/controllers/date_picker_controller-i_zi-q0.js",
+      "status": 200,
+      "sha256": "af51119a872adb4cd39aecc26e1e97f80a564f2b7e3ee599b76719766b0d45b7",
+      "bytes": 10956,
+      "sentinel_present": false
+    },
+    "manifest_url_restored": true,
+    "tracked_status": "",
+    "served_original_matches_baseline": true
+  },
+  "browser_mutated_asset_evidence": [
+    {
+      "retry": 0,
+      "trace_path": "sentinel/test-results/release.long-session-relea-f584b--the-JS-heap-at-their-level-release/trace.zip",
+      "trace_sha256": "54a25697a45d5cefbd42ac87df4fa5b219424e9059e557cee9c5d18f027c88d9",
+      "entry": "1-trace.network",
+      "line": 24,
+      "startedDateTime": "2026-10-17T03:28:05.712Z",
+      "request_path": "/assets/controllers/date_picker_controller-SVXykTG.js",
+      "response_status": 200
+    },
+    {
+      "retry": 1,
+      "trace_path": "sentinel/test-results/release.long-session-relea-f584b--the-JS-heap-at-their-level-release-retry1/trace.zip",
+      "trace_sha256": "b1a0cbe90d29d999ea4a84534e6b80393580777144ef91d6109ba6b89319685d",
+      "entry": "1-trace.network",
+      "line": 25,
+      "startedDateTime": "2026-10-17T03:28:43.833Z",
+      "request_path": "/assets/controllers/date_picker_controller-SVXykTG.js",
+      "response_status": 200
+    }
+  ],
+  "asset_server_log_evidence": {
+    "path": "php-server-corrected.log",
+    "sha256_at_evidence_capture": "abdd606ca5be21729b81f0a057bc6ea66582b5b2d8c45da90411d216237ad62e",
+    "requests": [
+      {
+        "line": 696,
+        "text": "[Sat Oct 17 03:28:02 2026] 127.0.0.1:34770 [200]: GET /assets/controllers/date_picker_controller-SVXykTG.js",
+        "role": "manual preflight"
+      },
+      {
+        "line": 768,
+        "text": "[Sat Oct 17 03:28:05 2026] 127.0.0.1:58778 [200]: GET /assets/controllers/date_picker_controller-SVXykTG.js",
+        "role": "browser attempt request"
+      },
+      {
+        "line": 1454,
+        "text": "[Sat Oct 17 03:28:44 2026] 127.0.0.1:33506 [200]: GET /assets/controllers/date_picker_controller-SVXykTG.js",
+        "role": "browser attempt request"
+      }
+    ],
+    "note": "Line 696 is manual preflight only. Browser traces independently retain the 200 responses for each actual attempt."
+  },
+  "mutated_asset_evidence_method": "Each retained browser trace has an exact URL 200 network response, corroborated by server lines 768/1454 after test start; preflight alone is excluded."
+}

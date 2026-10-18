@@ -1,0 +1,9 @@
+{
+  "problem": "Native extracted PHP default session.save_path points to missing /var/lib/php/sessions; /forms fails SessionHandler::read before memory sampling.",
+  "fix": "PHP built-in server CLI -d session.save_path pointing to private scratch sessions directory; no application/configuration/assertion/CSP changes.",
+  "session_directory": "/workspace/scratch/uxor-release-red-2026-10-16/pinned-145-full-longsession/sessions",
+  "server_stopped": [
+    240561
+  ],
+  "earlier_base_artifacts": "base/ retained; both configured attempts failed before counters; not a leak-sentinel red."
+}

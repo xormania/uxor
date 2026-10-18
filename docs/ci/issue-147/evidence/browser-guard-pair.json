@@ -1,0 +1,58 @@
+[
+  {
+    "variant": "original",
+    "exit_code": 1,
+    "elapsed_seconds": 3.4552295207977295,
+    "stats": {
+      "startTime": "2026-10-17T03:37:00.717Z",
+      "duration": 2116.214,
+      "expected": 0,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "test_status": "failed",
+    "test_duration_ms": 292,
+    "helper_return": {
+      "ms": 127,
+      "variant": "original",
+      "name": "helper.return",
+      "supported": false,
+      "crashes": 1,
+      "contexts": 1,
+      "commands": 1
+    },
+    "events_sha256": "134dc73f87de12d85ff568bd6392b678d88452d5aba1ce1f6f6c1a8b3639b4ca",
+    "results_sha256": "0877d2fa1a62475a4f338accdd81d2f523727dbdb5ae2ca4f20f0ff5ec167eb6",
+    "errors": [
+      "Error: setup invariant: no capability-probe renderer crashes\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m0\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  48 |     record('helper.return', { supported, crashes, contexts, commands });\n  49 |     expect(supported).toBe(false);\n> 50 |     expect(crashes, 'setup invariant: no capability-probe renderer crashes').toBe(0);\n     |                                                                              ^\n  51 | });\n  52 |\n    at /workspace/scratch/uxor-release-red-2026-10-16/pinned-145-full-longsession/actual-guard-pair/pair.spec.ts:50:78"
+    ]
+  },
+  {
+    "variant": "fixed",
+    "exit_code": 0,
+    "elapsed_seconds": 2.885373115539551,
+    "stats": {
+      "startTime": "2026-10-17T03:37:04.037Z",
+      "duration": 1678.07,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    },
+    "test_status": "passed",
+    "test_duration_ms": 117,
+    "helper_return": {
+      "ms": 1,
+      "variant": "fixed",
+      "name": "helper.return",
+      "supported": false,
+      "crashes": 0,
+      "contexts": 0,
+      "commands": 0
+    },
+    "events_sha256": "44d372498e75a687b208ed5e4c1fe5fc7b432cf9662c18f14f4bfb5b0ded51a6",
+    "results_sha256": "84e10d1ce9ef972647c5fa7c8902e0c33e0640a6dbb6d2340ac40f3b313f6a63",
+    "errors": []
+  }
+]

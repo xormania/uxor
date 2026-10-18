@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-17T03:39:35.855429+00:00",
+  "files": {
+    "hosted-failure.json": {
+      "source_scratch_role": "current-failure/failure-summary.json",
+      "sha256": "4f674beea1f37af49150e8841afd223334db75f27444da0058a4ddee47fc2f0b",
+      "bytes": 8574,
+      "copied_verbatim": true
+    },
+    "hosted-diagnostic.json": {
+      "source_scratch_role": "hosted-diagnostic/diagnostic-summary.json",
+      "sha256": "dc662c7c3cc9dc67d454aca149751bd58211001592fd71c1c959af92d0ce16b9",
+      "bytes": 4945,
+      "copied_verbatim": true
+    },
+    "hosted-telemetry.json": {
+      "source_scratch_role": "hosted-diagnostic/telemetry-events.json",
+      "sha256": "21d73b323858e28b6594c6e3a192f448d8b4a0ffe164ef3515ca813631504206",
+      "bytes": 15262,
+      "copied_verbatim": true
+    },
+    "server-log-capture.json": {
+      "source_scratch_role": "current-failure/server-log-retention-evidence.json",
+      "sha256": "1f4a6f0995df634cd41c528f1e249135ba6e6f515c01875baf178debf8400cd4",
+      "bytes": 1249,
+      "copied_verbatim": true
+    },
+    "source-comparison.json": {
+      "source_scratch_role": "current-failure/prior-147-source-comparison.json",
+      "sha256": "f7d210af5bfabeb53851ebd755ea05469d57b068a1a4d113b4d980519dfe9c12",
+      "bytes": 1250,
+      "copied_verbatim": true
+    },
+    "pinned-sampling.json": {
+      "source_scratch_role": "pinned-145-diagnosis/sampling/receipt.json",
+      "sha256": "fd3be3648a747f87bbc0469745c1a47e26bca2a77107732d8c997ac41d761fee",
+      "bytes": 13843,
+      "copied_verbatim": true
+    },
+    "mock-cancellation.json": {
+      "source_scratch_role": "timeout-cancellation-proof/receipt.json",
+      "sha256": "84b2b18a83f91d1403a3b82e934ecc0c24be6ce6fa6ce2ef3f84781ba437e346",
+      "bytes": 2970,
+      "copied_verbatim": true
+    },
+    "mock-phases.jsonl": {
+      "source_scratch_role": "timeout-cancellation-proof/phases.jsonl",
+      "sha256": "9f9fcbdb851e4e1a0e695c9e463655ae2c9c9820e367e28a80df28059c74ba67",
+      "bytes": 3476,
+      "copied_verbatim": true
+    },
+    "sentinel.json": {
+      "source_scratch_role": "pinned-145-full-longsession/sentinel/receipt.json",
+      "sha256": "426cd566c6c45aec51fe2afbcd4269d7ea940e64a803b1087909334cd3b52ba9",
+      "bytes": 7563,
+      "copied_verbatim": true
+    },
+    "restoration-assets.json": {
+      "source_scratch_role": "pinned-145-full-longsession/restoration-backup/manifest.json",
+      "sha256": "269c41fb42b466a7ee3a9f2859956b58132ef397ffa408101bd66e221acaa15f",
+      "bytes": 22885,
+      "copied_verbatim": true
+    },
+    "fixed-provenance.json": {
+      "source_scratch_role": "pinned-145-full-longsession/actual-fixed-provenance.json",
+      "sha256": "d5ac138eb4161eef7ff4f09667f678aa27883f000e0cd567b3d6ca2ec871ebe2",
+      "bytes": 4185,
+      "copied_verbatim": true
+    },
+    "fixed-full.json": {
+      "source_scratch_role": "pinned-145-full-longsession/fixed/receipt.json",
+      "sha256": "87471e5cda664c0ed84b7a678cebed8b5749b015857fe2e01b7f36220d6d7460",
+      "bytes": 1714,
+      "copied_verbatim": true
+    },
+    "browser-guard-pair.json": {
+      "source_scratch_role": "pinned-145-full-longsession/actual-guard-pair/run-receipt.json",
+      "sha256": "a9a3649f0fb96cb41dd660f3e679b2e04fdf73ebef72f29803ce0774d6bfef23",
+      "bytes": 2205,
+      "copied_verbatim": true
+    },
+    "native-session.json": {
+      "source_scratch_role": "pinned-145-full-longsession/native-session-setup.json",
+      "sha256": "f5993edb592dd3076a7767587acf14090d1ef9cb4e971159c474edb064c139c0",
+      "bytes": 591,
+      "copied_verbatim": true
+    },
+    "unit-red-green.json": {
+      "source_scratch_role": "unit-red-green/receipt.json",
+      "sha256": "f522117439e34960f25bd7d790efc7f3b8c5beb7f7559f5bd6d6b254f43ba10c",
+      "bytes": 1207,
+      "copied_verbatim": true
+    },
+    "unit-red.log": {
+      "source_scratch_role": "unit-red-green/red.log",
+      "sha256": "73bf0e7ad0d12727cc6669018f21daa265fea4e9cd6d14fa9ecb051630a8124f",
+      "bytes": 1372,
+      "copied_verbatim": true
+    },
+    "unit-green.log": {
+      "source_scratch_role": "unit-red-green/green.log",
+      "sha256": "2ba5543114bfd79d0d788a7117279a719eb09d2b3772ed6f68056d91a66f4cd5",
+      "bytes": 471,
+      "copied_verbatim": true
+    },
+    "unit-cases.mjs": {
+      "source_role": "tools/tests/leak-detector.test.mjs",
+      "sha256": "4cda91de8a9b04d2a4a69bdbb89e151b531caee180ab45d9f52e712fa36dc2bf",
+      "bytes": 2652,
+      "copied_verbatim": true
+    },
+    "old-module.mjs": {
+      "source_role": "unit-red-green/red/tests/e2e/leak-detector.mjs",
+      "sha256": "124e85a7612b1886604f2de43372ed9cc96d7f757495626ae87ab15a19147d37",
+      "bytes": 471,
+      "copied_verbatim": true
+    },
+    "fixed-module.mjs": {
+      "source_role": "tests/e2e/leak-detector.mjs",
+      "sha256": "7798f5b56a838023d4cc1d3a65acd4f9e9dbe0b2ee4cd762c6be6fff6a3c1f12",
+      "bytes": 1108,
+      "copied_verbatim": true
+    }
+  },
+  "raw_file_reference_scope": "Embedded original commands/cwd/raw-file hashes describe execution scratch. Huge raw logs, generated browser reports, trace ZIPs and compiled assets are not shipped; their hashes and hosted run URLs are retained."
+}
