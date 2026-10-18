@@ -29,3 +29,14 @@
 /packages/uxor/tools export-ignore
 /packages/uxor/dev export-ignore
 /packages/uxor/phpunit.xml.dist export-ignore
+# Local build and test output is never tracked, but `composer archive` reads the working tree, not git: keep it out
+/vendor export-ignore
+/var export-ignore
+/node_modules export-ignore
+/.phpunit.cache export-ignore
+/packages/uxor/.phpunit.cache export-ignore
+/test-results export-ignore
+/playwright-report export-ignore
+/playwright-results export-ignore
+/blob-report export-ignore
+/coverage export-ignore
