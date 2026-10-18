@@ -40,7 +40,7 @@ UXor at `40d957c` and the companion at `614aa28`._
    | `packages/uxor/resources/workflows/` | the workflow guides the tools serve | yes |
    | `packages/uxor/tests/`, `phpunit.xml.dist` | the package's PHPUnit tests and configuration | no |
    | `packages/uxor/tools/` | `check-package.py` (the archive payload check), `ReferenceGenerator.php` and `generate-reference.php` | no |
-   | `packages/uxor/dev/` | the independent consumer and the Docker and Serena development environment (a later job) | no |
+   | `packages/uxor/dev/` | the independent consumer (`app/`, its own Composer root and lock file) and the Docker and Serena development environment, with its own browser check | no |
 
    The demo, the package and the consumer each keep their own Composer root and lock file.
 3. **One archive, two installers.** GitHub's archive of the repository is what `ux:install` downloads and what
@@ -83,8 +83,8 @@ with its `CHANGELOG.md` entries and `docs/TEST-INVENTORY.md` rows.
 | Job | Delivers |
 |---|---|
 | `foundation` | The root `composer.json` and `composer.lock`; `packages/uxor/` imported from the companion at `614aa28` and renamed to the UXor identity, with the executable's autoload path fixed for its new depth; the export rules; the *Package* job, the classifier rules and their cases; the lint view; this plan, CONTRIBUTING, AGENTS and the readmes. The bundled references are the ones generated from UXor at `40d957c` |
-| consumer | `packages/uxor/dev/`: the independent Symfony consumer installing the package from the candidate commit's archive (initialization, repeat discovery, an update that keeps consumer-written content and customized components, the app working without development dependencies), and the Docker and Serena development environment with its checks |
-| references (delivered) | The references regenerated from this checkout: deterministic output, provenance from the hashes of the source files (not from the commit that holds the output, which no commit can name), and a CI check that regenerates into a temporary directory and compares. Delivered as below, *References* |
+| `consumer` | `packages/uxor/dev/` imported from the companion at `614aa28` with the UXor identity: the independent Symfony consumer, whose path repository reaches the repository root (`../../../..`), and the Docker and Serena environment, with the repository, package and application roots kept apart (Compose mounts the whole repository and runs in the nested application). `install-uxor.py` installs the workflow's recipes from the commit under test, as a local Toolkit kit. *Package* runs the harness tests and `check-package.py --consumer`: the candidate's archive installed, initialized, discovered twice, updated with the consumer's own content kept, and rendered without development dependencies. Not in CI yet: the consumer's browser journey with recipes from the commit and its no-dev runtime check, and the Docker, support identity and Serena checks (`packages/uxor/dev/README.md`, *Checks*) |
+| `references` | The references regenerated from this checkout: deterministic output, provenance from the hashes of the source files (not from the commit that holds the output, which no commit can name), and a CI check that regenerates into a temporary directory and compares. Delivered as below, *References* |
 | release | The release workflow's checks of both installs at the commit it tags, the Packagist refresh with a limited token from a job that runs no install, the check that Packagist shows the version and its commit, and a retry that reuses the same tag |
 
 ## References
@@ -110,8 +110,11 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
 
 ## Deferred, and why
 
-- **The consumer fixture and the development environment** need their own job: they bring a second Composer root,
-  Docker images and Serena, and their CI group. `packages/uxor/dev/` is already left out of the archive.
+- **The consumer's browser journey and the prepared environment in CI.** The former companion ran them in two
+  workflows (a browser journey followed by a no-dev runtime check; `run.py up`, `check` and
+  `check-serena.py` in the xorder images). They need their own job, with Playwright's browsers, the xorder images and
+  their support policy, and a classifier output; the commands are in `packages/uxor/dev/README.md`, and the
+  harness tests in *Package* do not establish the provider's behavior (audit, `UXOR-AUD-PKG-006`).
 - **Publication.** Registering `xormania/uxor` on Packagist and holding its token are owner actions, not authorized
   by this plan. Until then, the package installs from the repository as a VCS dependency.
 - **The companion's consumers and retirement.** Moving an installed `xormania/uxorscient` to `xormania/uxor` is a

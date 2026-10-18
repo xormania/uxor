@@ -619,15 +619,18 @@ jobs:
 
     # The Composer package xormania/uxor: the root composer.json and its implementation in packages/uxor/. Its metadata
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
-    # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not)
-    # and the installed executable. It runs on the package's minimum PHP (composer.json: php >=8.4), pinned here so a
-    # later bump of the workflow's PHP_VERSION does not stop checking the minimum.
+    # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
+    # the development harness of packages/uxor/dev/, that archive installed and updated in the independent consumer
+    # (check-package.py --consumer) and the package's executable. It runs on the package's minimum PHP (composer.json:
+    # php >=8.4), pinned here so a later bump of the workflow's PHP_VERSION does not stop checking the minimum. Not here
+    # yet (packages/uxor/dev/README.md): the consumer's browser journey with recipes installed from this commit, and
+    # the Docker and Serena environment, which needs the xorder images and their support policy.
     package:
         name: Package
         needs: changes
         if: needs.changes.outputs.package == 'true'
         runs-on: ubuntu-latest
-        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        timeout-minutes: 18 # 15 (the consumer installs a Symfony application from Packagist), plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -636,6 +639,7 @@ jobs:
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: '8.4' # the package's minimum (composer.json: "php": ">=8.4")
+                  extensions: intl, mbstring, pdo_sqlite, zip # the consumer application's (packages/uxor/dev/app)
                   tools: composer:v2
                   coverage: none
 
@@ -683,6 +687,27 @@ jobs:
               run: |
                   set -o pipefail
                   python3 packages/uxor/tools/check-package.py 2>&1 | tee "$RUNNER_TEMP/jev-archive.log"
+
+            # The development harness of packages/uxor/dev/ (run.py, check-serena.py, composition.py): roots, ownership and
+            # provider-check ordering, without Docker or a provider (the runner's Python, standard library only)
+            - name: The consumer's development harness
+              id: harness
+              run: |
+                  set -o pipefail
+                  {
+                      python3 -m py_compile packages/uxor/dev/*.py packages/uxor/tools/check-package.py
+                      python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-harness.log"
+
+            # The independent consumer (packages/uxor/dev/app) installs this commit's archive as a Composer dependency:
+            # Mate initialization and discovery, its tools, references and three skills, a repeated initialization, an
+            # update to a newer archive that keeps consumer-written instructions and a custom component, then the
+            # application without development dependencies renders in production
+            - name: The archive in an independent consumer
+              id: consumer
+              run: |
+                  set -o pipefail
+                  python3 packages/uxor/tools/check-package.py --consumer 2>&1 | tee "$RUNNER_TEMP/jev-consumer.log"
 
             # composer.json's executable, run from the checkout: Composer links a dependency's bin into vendor/bin, not
             # the root package's own, so it finds the root vendor/autoload.php itself

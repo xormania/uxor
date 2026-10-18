@@ -1,0 +1,7 @@
+{% form_theme form 'form/flowbite_layout.html.twig' %}
+{{ form_start(form, {attr: {novalidate: true}}) }}
+    {{ form_errors(form) }}
+    {{ form_row(form.name, {attr: {autofocus: not form.vars.submitted or form.name.vars.errors|length > 0}}) }}
+    {{ form_row(form.email, {attr: {autofocus: form.email.vars.errors|length > 0}}) }}
+    <twig:Button type="submit">Save customer</twig:Button>
+{{ form_end(form) }}

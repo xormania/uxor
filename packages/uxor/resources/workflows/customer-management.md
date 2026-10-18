@@ -88,7 +88,7 @@ The example adapts the demo's request-scoped CSP nonce approach. A long-lived PH
 
 ## Reference implementation
 
-The fixture still lives in the former companion repository, xormania/uxorscient, until it moves into the UXor repository. These links are historical, pinned to a verified revision of the fixture there, so they keep working after the move:
+The fixture now lives in the UXor repository, in `packages/uxor/dev/app` (a development application, not part of the installed package), with its browser check in `packages/uxor/dev/e2e/`. The links below are historical: they point at a verified revision of the fixture in the former companion repository, xormania/uxorscient, so they keep working:
 
 - [Controller and response branches](https://github.com/xormania/uxorscient/blob/ebf5d4926927be88c735b888b096d24210a593d3/dev/app/src/Controller/CustomerController.php)
 - [Application table subclass](https://github.com/xormania/uxorscient/blob/ebf5d4926927be88c735b888b096d24210a593d3/dev/app/src/Table/CustomersTable.php)

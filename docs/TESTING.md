@@ -1043,9 +1043,18 @@ else: no development file, nothing outside the kit's root files, its recipes and
 the oracle for the export rules. CI's *Package* job runs them, after
 `composer validate --strict` and `php packages/uxor/tools/generate-reference.php --check` (the bundled references are
 what the generator makes of this checkout: it regenerates them into a temporary directory, compares byte for byte and
-lists the stale files), and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test. An independent
-consumer that installs the archive comes with a later job of the work order ([`TEST-INVENTORY.md`](TEST-INVENTORY.md),
-*The Composer package*).
+lists the stale files), and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test.
+
+The package is also tested from the side of an application that uses it, in `packages/uxor/dev/`
+([its README](../packages/uxor/dev/README.md)). `check-package.py --consumer` installs the same archive as a Composer
+dependency in a copy of the independent consumer (`packages/uxor/dev/app`): Mate's initialization and discovery, the
+package's tools, references and skills, a repeated initialization, an update to a newer archive that keeps the
+consumer's own instructions and a custom component, then a production render without development dependencies. The
+Python tests in `packages/uxor/dev/tests/` check the development runner and the Serena harness against a mocked
+provider: that the repository, package and application roots agree, and that a wrong binding is never reported as
+success. *Package* runs both. The consumer's browser journey (`packages/uxor/dev/e2e/`, with recipes installed from
+the commit under test by `install-uxor.py`), the Docker stack and Serena run by hand for now
+([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The Composer package*).
 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
@@ -1054,7 +1063,7 @@ hashed again), and the ref their repository links use (`source.ref`, `main` unle
 
 Here: [`packages/uxor/tests/`](../packages/uxor/tests/),
 [`check-package.py`](../packages/uxor/tools/check-package.py),
-[`phpunit.xml.dist`](../packages/uxor/phpunit.xml.dist).
+[`phpunit.xml.dist`](../packages/uxor/phpunit.xml.dist), [`packages/uxor/dev/`](../packages/uxor/dev/).
 
 ## Repository security policy
 
