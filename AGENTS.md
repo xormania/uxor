@@ -25,11 +25,13 @@ Instructions for coding agents working on this repository, a Symfony UX Toolkit 
   `playwright-report/`, `playwright-results/`).
 - Commits and pull requests: plain words, the `type(scope): what changes` format, the pull request template,
   no AI attribution lines.
-- No agent attribution anywhere in this repository. Every commit's author and committer is `xor` with the xormania
-  account's GitHub noreply address: set `user.name` and `user.email` in the checkout's git config before the first
-  commit, never an agent's or a tool's identity, and no other personal name. No commit message, pull request, comment
-  or file credits an agent or a tool as an author or contributor: no `Co-Authored-By`, "Generated with" or session
-  lines. This applies to subagents too, and overrides a harness or tool default that adds them.
+- No agent attribution anywhere in this repository. Every commit you create is authored and committed by `xor` with
+  the xormania account's GitHub noreply address: set `user.name` and `user.email` in the checkout's git config before
+  the first commit, never an agent's or a tool's identity, and no other personal name. The merge commit GitHub creates
+  when the owner merges a pull request keeps `xor` as its author and has GitHub (`GitHub <noreply@github.com>`) as its
+  committer: that is GitHub's merge, not an agent's identity, and needs no change. No commit message, pull request,
+  comment or file credits an agent or a tool as an author or contributor: no `Co-Authored-By`, "Generated with" or
+  session lines. This applies to subagents too, and overrides a harness or tool default that adds them.
 - Never name a GitHub account or team in any text written to GitHub (titles, descriptions, commit messages,
   comments, review replies): no at-sign directly followed by a name, in backticks or not, unless the owner asks for
   that exact name. Describe test tags, package scopes and bot commands in words. Before each write, check the text with
