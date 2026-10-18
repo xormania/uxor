@@ -280,6 +280,8 @@ jobs:
               run: |
                   set -o pipefail
                   cp -a "$RUNNER_TEMP/kit" "$RUNNER_TEMP/kit-lint"
+                  # a manifest would make packages/ a recipe the Toolkit offers, and this lint would never see it
+                  if [ -e "$RUNNER_TEMP/kit/packages/manifest.json" ]; then echo "::error::packages/ must not be a recipe"; exit 1; fi
                   rm -rf "$RUNNER_TEMP/kit-lint/packages"
                   "$RUNNER_TEMP/toolkit/vendor/bin/ux-toolkit-kit-lint" "$RUNNER_TEMP/kit-lint" 2>&1 | tee "$RUNNER_TEMP/jev-lint.log"
 

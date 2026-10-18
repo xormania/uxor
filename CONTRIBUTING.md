@@ -118,9 +118,9 @@ change to both paths.
 |---|---|
 | `LICENSE`, `NOTICE`, `.github/dependabot.yml` | nothing |
 | `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*) |
-| `kit.js`, `manifest.json`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| `.gitattributes` (what both installs receive) | the same and *Package* |
-| a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, `README.md`, `INSTALL.md`, any file in a directory no other row names | the same and *Contrast* |
+| `kit.js`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
+| a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, `README.md`, `INSTALL.md`, `manifest.json` (`llms.txt` holds its name, homepage and description), any file in a directory no other row names | the jobs of `kit.js` (above) and *Contrast* |
+| `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*, *Lint kit*, both *Fresh install* jobs: the kit's archive holds it too |
 | `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
@@ -161,9 +161,10 @@ install* jobs install from the complete archive, `packages/` included.
 
 *Package* checks the Composer package: `composer validate --strict`, `composer install`, the syntax of its PHP,
 `composer test` (PHPUnit, `packages/uxor/phpunit.xml.dist`), `python3 packages/uxor/tools/check-package.py` (the
-repository's archive, `git archive HEAD` as GitHub serves it, holds the files the script lists, every path `composer.json`
-declares, and none of the development files: the script's own list, not `.gitattributes`, is what the export rules
-must produce), the development harness of `packages/uxor/dev/` (its Python tests), `python3
+repository's archive, `git archive HEAD` as GitHub serves it, committed files only, holds the files the script lists
+and every path `composer.json` declares, and nothing else: no development file, nothing outside the kit's root files,
+its recipes and the package's entries; the script's own lists, not `.gitattributes`, are what the export rules must
+produce), the development harness of `packages/uxor/dev/` (its Python tests), `python3
 packages/uxor/tools/check-package.py --consumer` (that archive installed as a Composer dependency in a copy of the
 independent consumer: Mate's initialization and discovery, its tools, references and three skills, an update to a
 newer archive that keeps the consumer's own instructions and a custom component, then the application rendering in
@@ -220,7 +221,7 @@ actionlint                                          # every workflow, with Shell
 
 composer validate --strict                          # the root composer.json, the Composer package xormania/uxor, and that composer.lock matches it (see Setup)
 composer test                                       # the package's PHPUnit tests (packages/uxor/tests/, packages/uxor/phpunit.xml.dist)
-python3 packages/uxor/tools/check-package.py        # the archive both installs receive (git archive HEAD) holds what the script lists and composer.json declares, and no development file
+python3 packages/uxor/tools/check-package.py        # the archive both installs receive holds what the script lists and composer.json declares, and nothing else: no development file, nothing outside the kit's root files, its recipes and the package's entries. It checks git archive HEAD, committed files only: commit first
 php packages/uxor/bin/uxor list                     # the CLI starts and reads the bundled references
 python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'   # the consumer's development harness (roots, ownership, provider-check order), no Docker or PHP
 python3 packages/uxor/tools/check-package.py --consumer   # that archive installed, updated and run without dev dependencies in the independent consumer (downloads its dependencies)
@@ -255,8 +256,8 @@ shard: a warning per attempt and the `jev-run-<source run>-<source attempt>` art
 fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. Every other job that can
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
-install* jobs, *Contrast*, *Workflows*, *Changes*, the monthly PHP job, both audits, *Mentions*, the release's install
-check, tag and release, and the gallery's build. The
+install* jobs, *Contrast*, *Workflows*, *Changes*, *Package*, the monthly PHP job, both audits, *Mentions*, the
+release's install check, tag and release, and the gallery's build. The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
 without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
 consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
@@ -604,13 +605,15 @@ under `### Added`, `### Changed`, `### Fixed` or `### Removed`, as Keep a Change
 
 Versions are git tags `X.Y.Z` ([Semantic Versioning](https://semver.org/)) without a `v`: the toolkit cannot
 install a `v` tag (see [`docs/NOTES.md`](docs/NOTES.md)). The version is declared in one place: a
-`## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`.
+`## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field: Composer reads
+the version from the tag.
 
 A release is a pull request from `dev` to `main`, opened as a draft when the maintainer decides to release. Its own
 commit moves the entries under `## [Unreleased]` to the new `## [X.Y.Z] - YYYY-MM-DD` section and updates the compare
 links at the bottom. It also runs `node tools/llms-txt.mjs`, which points `llms.txt`'s links at the new tag (*Docs*). Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
-version, *Removed* or anything that breaks an installed recipe a major version (a minor one while the version is
-`0.x`). CI runs on this pull request like on any other, and so do the release checks (`release-checks.yml`: timings, harsh
+version, *Removed* or anything that breaks an installed recipe, or the Composer package's commands, Mate tools,
+`uxor://` resources or skills, a major version (a minor one while the version is `0.x`). CI runs on this pull request
+like on any other, and so do the release checks (`release-checks.yml`: timings, harsh
 conditions, long sessions, wide matrices, fuzzing and properties; [`docs/TESTING.md`](docs/TESTING.md), *Release
 checks*). Their timings are reported against the baseline and fail nothing until their tolerances are set; everything else in
 them can fail. `main`'s ruleset requires the *Release checks* check beside *CI result* from 0.2.0
