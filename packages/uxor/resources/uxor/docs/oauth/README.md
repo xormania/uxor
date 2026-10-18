@@ -58,9 +58,20 @@ If this firewall already has an entry point, choose the one that displays your c
 access rules must permit anonymous requests to the provider start and callback routes, and to your login page,
 before any rule requiring authentication. Keep link and unlink protected; their controllers also enforce full
 authentication and CSRF protection. If you change the OAuth route prefix, adjust the public rule to match it.
-Symfony's configured user provider must reload the users returned by your identity store on subsequent requests. The default
-attribute-controller route loader discovers `OAuthController`; an application with custom route loading imports
-`src/UXor/OAuth/OAuthController.php` as attribute routes.
+Symfony's configured user provider must reload the users returned by your identity store on subsequent requests.
+
+Symfony's `routing.controllers` loader, which current skeletons use in `config/routes.yaml`, discovers
+`OAuthController`. An application whose `config/routes.yaml` loads controllers by path (`resource: ../src/Controller/`,
+as older skeletons do) never reaches `src/UXor/OAuth/`, so it imports the controller itself:
+
+```yaml
+# config/routes.yaml (only when controllers are loaded by path)
+uxor_oauth:
+    resource: ../src/UXor/OAuth/OAuthController.php
+    type: attribute
+```
+
+`bin/console debug:router uxor_oauth_start` shows the route once it is loaded.
 
 ```twig
 {# templates/security/login.html.twig #}
