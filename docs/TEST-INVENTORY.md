@@ -555,7 +555,8 @@ calibration, coverage overlap, measured hosted timing and unresolved operational
 
 What `xormania/uxor` (`composer.json`, `packages/uxor/`) guarantees, and where it is tested
 ([`PLAN-composer-package.md`](PLAN-composer-package.md)). Its PHPUnit tests are outside `demo/tests/`, so they are
-named by path. CI's *Package* job runs the first six rows, *Changes* the classifier's cases.
+named by path. CI's *Package* job runs the first six rows and the consumer's rows that name it, *Changes* the
+classifier's cases.
 
 | Guarantee | Scope | Covered by |
 |---|---|---|
@@ -567,7 +568,10 @@ named by path. CI's *Package* job runs the first six rows, *Changes* the classif
 | The CLI starts from a root install and reads the bundled references | smoke | `php packages/uxor/bin/uxor list`, `catalog` (*Package*) |
 | A package-only change runs *Package* and not the browser jobs; `composer.json` and `.gitattributes` run both installs; another directory under `packages/` runs the kit's jobs too | unit | `tools/tests/ci-changes.sh` |
 | The lint view removes only `packages/`: an unexpected root directory without a `manifest.json` still fails | | gap: by construction of *Lint kit* (`ci.yml`), no planted case |
-| An independent consumer installs the archive, initializes and rediscovers Mate, updates without losing its own content or customized components, and runs without development dependencies | | gap: the consumer job of the work order |
+| An independent consumer installs the archive (a regular distribution, not a link), initializes Mate without replacing its own instructions, discovers the catalog tool, the `uxor://` references, the packaged instructions and the three skills, repeats initialization without touching its own content, updates to a newer archive whose refreshed guidance replaces the old one while its instructions and a custom component stay, and renders `/health` and `/` in production without development dependencies | process integration | `packages/uxor/tools/check-package.py --consumer` (*Package*), on a copy of `packages/uxor/dev/app` |
+| The development runner and Serena harness: the repository, package and application roots agree (Composer's path repository, Compose's mount, Caddy's root, Docker's working directory, Serena's bound application); worktrees get separate stacks and ports; the provider is a clean pinned checkout; the support policy is checked before a pull; the secret is private and kept; a wrong application binding, a wrong health response or a failed REPL cell is never reported as success | unit (mocked provider) | `packages/uxor/dev/tests/test_runner.py` (13 tests), `test_composition.py` (3), `test_serena_check.py` (2) (*Package*) |
+| The customer workflow with recipes installed from the commit under test: search, edit validation, saving through a stream and history in a browser, then the selected components without development dependencies | browser, process | gap: `packages/uxor/dev/e2e/customer-workflow.spec.mjs` and `check-workflow-runtime.php` exist, not in CI yet |
+| The xorder Docker stack, its support identity, and Serena's symbol lookup, session, partial-failure recovery and composition with the package | integration (real provider) | gap: `run.py up`, `check`, `check-serena.py --package` exist, not in CI yet |
 | The bundled references match this checkout's docs | | gap: the references job (they describe UXor at `40d957c`) |
 
 ## Pending: branches in flight

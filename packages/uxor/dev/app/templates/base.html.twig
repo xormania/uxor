@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}UXor development{% endblock %}</title>
+        <meta name="csp-nonce" nonce="{{ app.request.attributes.get('csp_nonce') }}">
+        {% block stylesheets %}{% endblock %}
+        {% block javascripts %}{{ importmap('app', {nonce: app.request.attributes.get('csp_nonce'), 'data-turbo-track': 'reload'}) }}{% endblock %}
+    </head>
+    <body>{% block body %}{% endblock %}</body>
+</html>
