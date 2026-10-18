@@ -78,8 +78,9 @@ the demo with `php -S 127.0.0.1:8000 -t demo/public`. PHP's built-in server only
 JavaScript in `demo/public/assets/`, so compile again after each change.
 
 The Composer package is developed at the repository root, with PHP 8.4 or later and Composer, apart from the demo:
-`composer install` (the root `vendor/`, from `composer.lock`), then `composer test`, and `vendor/bin/uxor list` to
-run its CLI. It has its own requirements and lock file; the demo keeps `demo/composer.json` and `demo/vendor/`.
+`composer install` (the root `vendor/`, from `composer.lock`), then `composer test`, and `php packages/uxor/bin/uxor list`
+to run its CLI (Composer links `vendor/bin/uxor` in the applications that install the package, not in its own
+checkout). It has its own requirements and lock file; the demo keeps `demo/composer.json` and `demo/vendor/`.
 
 To inspect the running demo from the command line (the profile of a request, the container's services), the demo
 ships [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) as a dev dependency: set
@@ -156,9 +157,9 @@ install* jobs install from the complete archive, `packages/` included.
 
 *Package* checks the Composer package: `composer validate --strict`, `composer install`, the syntax of its PHP,
 `composer test` (PHPUnit, `packages/uxor/phpunit.xml.dist`), `python3 packages/uxor/tools/check-package.py` (the
-repository's archive, built with `composer archive`, holds the files the script lists, every path `composer.json`
+repository's archive, `git archive HEAD` as GitHub serves it, holds the files the script lists, every path `composer.json`
 declares, and none of the development files: the script's own list, not `.gitattributes`, is what the export rules
-must produce) and a smoke run of `vendor/bin/uxor list` and `vendor/bin/uxor catalog`.
+must produce) and a smoke run of `php packages/uxor/bin/uxor list` and `catalog`.
 
 *Workflows* runs [actionlint](https://github.com/rhysd/actionlint) with ShellCheck on every workflow: YAML, expressions,
 job graph, action and reusable workflow inputs, and the shell of each `run` step. Then it runs
@@ -209,8 +210,8 @@ actionlint                                          # every workflow, with Shell
 
 composer validate --strict                          # the root composer.json, the Composer package xormania/uxor, and that composer.lock matches it (see Setup)
 composer test                                       # the package's PHPUnit tests (packages/uxor/tests/, packages/uxor/phpunit.xml.dist)
-python3 packages/uxor/tools/check-package.py        # the archive both installs receive (composer archive) holds what the script lists and composer.json declares, and no development file
-vendor/bin/uxor list && vendor/bin/uxor catalog     # the CLI starts and reads the bundled references
+python3 packages/uxor/tools/check-package.py        # the archive both installs receive (git archive HEAD) holds what the script lists and composer.json declares, and no development file
+php packages/uxor/bin/uxor list                     # the CLI starts and reads the bundled references
 ```
 
 The PHP tests render the recipes as the demo has them, and the demo's pages with their CSS: run `tools/sync-demo` and

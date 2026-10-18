@@ -2,7 +2,8 @@
 """Check the repository archive that both delivery routes install: the Toolkit kit and the Composer package.
 
 The UX Toolkit (ux:install) and Composer (xormania/uxor) install the same archive of this repository. The archive
-is built with `composer archive` at the repository root, then checked against an explicit list that is kept
+is `git archive HEAD` at the repository root, what GitHub serves as both the Toolkit's download and Composer's
+dist (committed files only: untracked local files cannot reach it), then checked against an explicit list that is kept
 independent of .gitattributes on purpose: this script is the oracle for what the export rules must produce.
 """
 
@@ -34,8 +35,8 @@ FIXTURE = PACKAGE / "dev/app"
 FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development"}
 
 # Development-only content: no exported path may be inside these directories or be one of these files.
-# `composer archive` exports untracked working-tree files too (it does not read .gitignore), so local tool output
-# such as vendor/ or Playwright reports must be export-ignored as well.
+# Local tool output (vendor/, Playwright reports) is never committed, so `git archive` leaves it out; it is listed for
+# archives built some other way (`composer archive` reads the working tree and not .gitignore).
 DEVELOPMENT_DIRECTORIES = (
     ".git", ".github", ".phpunit.cache", ".xorder", "blob-report", "coverage", "demo", "docs", "node_modules",
     "playwright-report", "playwright-results", "test-results", "tests", "tools", "var", "vendor",
@@ -272,10 +273,10 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
              "--no-interaction", "--no-progress"], application)
     installed = application / "vendor" / PACKAGE_NAME
     metadata = json.loads((application / "vendor/composer/installed.json").read_text())
-    companion = next(package for package in metadata["packages"] if package["name"] == PACKAGE_NAME)
-    if installed.is_symlink() or companion["version"] != "0.0.1" or companion.get("installation-source") != "dist":
+    installed_package = next(package for package in metadata["packages"] if package["name"] == PACKAGE_NAME)
+    if installed.is_symlink() or installed_package["version"] != "0.0.1" or installed_package.get("installation-source") != "dist":
         raise RuntimeError("Composer update did not install the newer archive as a regular distribution")
-    if companion.get("dist", {}).get("url") != archive.as_uri():
+    if installed_package.get("dist", {}).get("url") != archive.as_uri():
         raise RuntimeError("Installed package metadata does not identify the newer archive")
     if json.loads((installed / "composer.json").read_text()).get("version") != "0.0.1":
         raise RuntimeError("Updated package files do not match Composer's installed version")
@@ -294,7 +295,7 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
     catalog = operation_result(execute([php, "vendor/bin/mate", "tools:call", "uxor_catalog",
                                        "--query=modal", "--limit=1", "--format=json"], application, capture=True), "catalog")
     if catalog is None or catalog.get("status") != "completed" or catalog.get("reference", {}).get("version") != "0.0.1":
-        raise RuntimeError("The updated Mate tool does not report the newly installed companion version")
+        raise RuntimeError("The updated Mate tool does not report the newly installed package version")
     print("Composer update and native Mate refresh verified: newer archive installed; guidance and skills replaced; consumer instructions and custom component preserved.")
 
 
@@ -363,16 +364,16 @@ return static function (ContainerConfigurator $container): void {
     if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
         raise RuntimeError("The installed reference resource could not be read through Mate")
     skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))
-    companion_skills = [skill for skill in skills.get("skills", []) if skill.get("package") == PACKAGE_NAME]
-    if {skill["original_name"] for skill in companion_skills} != {"setup", "build", "verify"}:
+    package_skills = [skill for skill in skills.get("skills", []) if skill.get("package") == PACKAGE_NAME]
+    if {skill["original_name"] for skill in package_skills} != {"setup", "build", "verify"}:
         raise RuntimeError("Mate did not discover all three packaged UXor skills")
-    for skill in companion_skills:
+    for skill in package_skills:
         if not skill["enabled"] or not (application / ".agents/skills" / skill["installed_name"] / "SKILL.md").is_file():
-            raise RuntimeError("A companion skill was discovered but not installed for agents")
+            raise RuntimeError("A packaged skill was discovered but not installed for agents")
     # Mate nests the package's headings, so look for the heading text of the packaged INSTRUCTIONS.md.
     if not re.search(r"Building with UXor\b", (application / "mate/AGENT_INSTRUCTIONS.md").read_text()):
         raise RuntimeError("Packaged UXor instructions were not materialized for agents")
-    build = next(skill for skill in companion_skills if skill["original_name"] == "build")
+    build = next(skill for skill in package_skills if skill["original_name"] == "build")
     build_skill = application / ".agents/skills" / build["installed_name"] / "SKILL.md"
     for materialized in (application / "mate/AGENT_INSTRUCTIONS.md", build_skill):
         if old_marker not in materialized.read_text():
@@ -383,7 +384,7 @@ return static function (ContainerConfigurator $container): void {
     execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
     execute([*composer_command(), "install", "--no-dev", "--prefer-dist", "--no-interaction", "--no-progress"], application)
     if installed.exists():
-        raise RuntimeError("The development-only companion remains installed after --no-dev")
+        raise RuntimeError("The development-only package remains installed after --no-dev")
     execute([php, "bin/console", "cache:clear", "--env=prod", "--no-debug", "--no-interaction"], application)
     render = r"""
 require 'vendor/autoload.php';
@@ -414,7 +415,7 @@ def main() -> None:
     temporary = Path(tempfile.mkdtemp(prefix="uxor-package-"))
     try:
         subprocess.run(
-            [*composer_command(), "archive", "--format=tar", "--file=uxor", f"--dir={temporary}"],
+            ["git", "archive", "--format=tar", f"--output={temporary / 'uxor.tar'}", "HEAD"],
             cwd=ROOT,
             check=True,
         )
