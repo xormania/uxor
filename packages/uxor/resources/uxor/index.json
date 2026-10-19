@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "main",
-        "inputs_sha256": "5324ca4da8f7e312b228cec2d73558adecd4812b3db86ee521d3207f7cbc67a6",
+        "inputs_sha256": "1ba9c6411129672a8433f0e605548f1d1c5a1208588db87c03cce1b2cc5aa56b",
         "manifest_sha256": "5932e947a1a9b9b6c58d7871c119401eae05bb8aef098b7a0a7d82e9479d03c8",
         "license": "MIT"
     },
@@ -1877,8 +1877,8 @@
         },
         "editor/README.md": {
             "path": "docs/editor/README.md",
-            "sha256": "0aa067d72757eb7175340bd3c0bb8f58762d0c65a536e16b57b62ffe2f3df6f5",
-            "source_sha256": "0aa067d72757eb7175340bd3c0bb8f58762d0c65a536e16b57b62ffe2f3df6f5",
+            "sha256": "87d367df4ee949aefc507de02c91bef5cc2cd267b47d3e54e7b38b9c408d531e",
+            "source_sha256": "87d367df4ee949aefc507de02c91bef5cc2cd267b47d3e54e7b38b9c408d531e",
             "source_url": "https://github.com/xormania/uxor/blob/main/editor/README.md"
         },
         "empty-state/README.md": {
@@ -2051,8 +2051,8 @@
         },
         "side-nav/README.md": {
             "path": "docs/side-nav/README.md",
-            "sha256": "fe0ce664c9bf2b07b78fcba613a30ca0e8748071a24f39c6180c08c15cd465d5",
-            "source_sha256": "fe0ce664c9bf2b07b78fcba613a30ca0e8748071a24f39c6180c08c15cd465d5",
+            "sha256": "b68c209f8d50fa78a00713b0b405c49ea51b749530c85a1325d3c2e5bd463ecf",
+            "source_sha256": "b68c209f8d50fa78a00713b0b405c49ea51b749530c85a1325d3c2e5bd463ecf",
             "source_url": "https://github.com/xormania/uxor/blob/main/side-nav/README.md"
         },
         "sidebar/README.md": {

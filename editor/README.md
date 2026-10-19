@@ -111,7 +111,8 @@ extensions and `EditorHtmlPolicy` together.
 ## Accessibility
 
 - The editable area is a multiline textbox named by its label, described by its help and errors.
-- The toolbar is a named `role="toolbar"` with one tab stop and arrow keys; every button has a name.
+- The toolbar is a named `role="toolbar"` with one tab stop and arrow keys; every button has a name. The H2 and H3
+  buttons' names start with the text they show ("H2, heading 2"), so a speech-input user can say it.
 - The counter shows the characters used and turns red past `maxChars`.
 
 ## Security

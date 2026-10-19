@@ -53,6 +53,9 @@ A multi-level navigation tree: links grouped in branches that open and close, at
 - **Structure:** `SideNav` is the tree (`role="tree"`), `SideNav:Item` a link and `SideNav:Branch` a labelled branch
   holding items and branches, nested as deep as needed. The tree is not a landmark: put it in a `<nav>` with a
   name, or in a `Sidebar`, which is one.
+- **Names:** a branch is named by its row, the label it shows: its children sit in a `role="group"`, which browsers
+  leave out of the branch's name, as the WAI-ARIA tree view examples do. It has no `aria-label`, so its name is
+  always its visible text, which a speech-input user can say.
 - **Current page:** on every connect, Turbo visits included, the controller marks the item whose link has the current
   URL's path (`aria-current="page"`); a link to a fragment of the page (`#…`) is never marked. `route` also marks it
   on the server, and its branches then render open, so a full page load shows them open from the first paint.

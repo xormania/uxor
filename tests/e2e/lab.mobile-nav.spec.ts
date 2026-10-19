@@ -25,7 +25,8 @@ async function drawerState(page: Page) {
         const dialog = document.getElementById('drawer-lab-mobile-nav') as HTMLDialogElement;
         const button = document.querySelector('[aria-controls="drawer-lab-mobile-nav"]')!;
         const active = document.activeElement;
-        const label = (element: Element) => (element.getAttribute('aria-label') ?? element.textContent ?? '').trim();
+        // a branch is named by its row's label, without its children's
+        const label = (element: Element) => (element.getAttribute('aria-label') ?? (element.querySelector(':scope > [data-side-nav-toggle] > [data-side-nav-label]') ?? element).textContent ?? '').trim();
         let focus = 'elsewhere';
         if (active === button) {
             focus = 'menu button';
@@ -49,7 +50,8 @@ async function expectDrawer(page: Page, open: boolean, focus?: string) {
 async function treeState(tree: ReturnType<typeof drawerTree>) {
     return tree.evaluate((element) => {
         const items = [...element.querySelectorAll<HTMLElement>('[role="treeitem"]')];
-        const name = (item: HTMLElement) => (item.getAttribute('aria-label') ?? item.textContent ?? '').trim();
+        // a branch is named by its row's label, without its children's
+        const name = (item: HTMLElement) => (item.getAttribute('aria-label') ?? (item.querySelector(':scope > [data-side-nav-toggle] > [data-side-nav-label]') ?? item).textContent ?? '').trim();
         return {
             open: items.filter((item) => 'true' === item.getAttribute('aria-expanded')).map(name),
             current: items.filter((item) => 'page' === item.getAttribute('aria-current')).map(name),
