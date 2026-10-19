@@ -234,8 +234,9 @@ export default class extends Controller {
         return this.treeitems().filter((item) => this.parentOf(item) === branch);
     }
 
+    /** The label typed ahead on: a branch's is the label of its row, without its icon or its children's. */
     labelOf(item) {
-        return (item.getAttribute('aria-label') ?? item.textContent).trim().toLowerCase();
+        return (item.getAttribute('aria-label') ?? (item.querySelector(':scope > [data-side-nav-toggle] > [data-side-nav-label]') ?? item).textContent).trim().toLowerCase();
     }
 
     /** A branch's place in the tree, from the names of the branches around it: a path stays the same on every page. */
