@@ -42,6 +42,22 @@ final class ComponentsTest extends KernelTestCase
         self::assertCount(1, $rendered->crawler()->filter('div'));
     }
 
+    public function testACalendarDayShowsItsNumberAsTheBrowserWritesIt(): void
+    {
+        // the server writes a day as the controller does (Intl's `{day: 'numeric'}`), before any script: Korean "19일",
+        // as the button's name has it ("2026년 10월 19일 월요일"), Czech "19.", Lithuanian "05"; Cyrillic Bosnian and English "19"
+        $days = ['ko' => '19일', 'ko-KR' => '19일', 'cs' => '19.', 'zh_Hant_TW' => '19日', 'lt' => '05', 'bs_Cyrl' => '19', 'en' => '19'];
+        foreach ($days as $locale => $day) {
+            $date = 'lt' === $locale ? '2026-10-05' : '2026-10-19';
+            $rendered = $this->renderTwigComponent('Calendar', ['locale' => $locale, 'month' => '2026-10-01', 'today' => '2026-10-01']);
+            $button = $rendered->crawler()->filter(\sprintf('button[data-day="%s"]', $date));
+            self::assertSame($day, trim($button->text()), $locale);
+            if (str_starts_with($locale, 'ko')) {
+                self::assertStringContainsString($day, (string) $button->attr('aria-label'), $locale);
+            }
+        }
+    }
+
     public function testBreadcrumb(): void
     {
         // a component with parts: a template in the `<twig:…>` syntax, as a page writes it

@@ -141,7 +141,9 @@ A range cannot span a disabled day: a click past one starts a new range.
 
 ## Accessibility
 
-- Each month is a `role="grid"` named by its caption; each day is a button named by its full date.
+- Each month is a `role="grid"` named by its caption; each day is a button named by its full date. The server writes
+  a day's number as the browser does (Korean "19일", Czech "19."), so the name holds the text the button shows before
+  the controller connects too.
 - Arrow keys move by day and week (swapped in right-to-left), Home and End to the week's ends, Page Up and Page Down by
   month; one day takes the Tab focus.
 - Disabled days are disabled buttons, struck through.
