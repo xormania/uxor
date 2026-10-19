@@ -13,7 +13,7 @@
 {%- set _open = open or 'aria-current="page"' in _content -%}
 <li role="treeitem" aria-expanded="{{ _open ? 'true' : 'false' }}" tabindex="-1"
     data-side-nav-target="branch" data-side-nav-name="{{ name ?? label }}"
-    {{ attributes.defaults({class: 'focus:outline-none'|tailwind_classes}) }}>
+    {{ attributes.defaults({class: 'pointer-events-none focus:outline-none *:pointer-events-auto'|tailwind_classes}) }}>
     <span data-side-nav-toggle class="flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-base px-2 font-medium text-body hover:bg-neutral-secondary-medium hover:text-heading [:focus-visible>&]:ring-2 [:focus-visible>&]:ring-brand-medium">
         {%- if _icon|trim is not empty %}
             <span class="inline-flex size-5 shrink-0 items-center justify-center" aria-hidden="true">{{ _icon }}</span>

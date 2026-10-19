@@ -179,6 +179,7 @@ States: open branches (saved in `sessionStorage`), the current item, the roving 
 |---|---|---|
 | Tree structure, the current branch rendered open | E2E lab | lab.side-nav "the tree has the ARIA tree structure, and the branch of the current page renders open" |
 | Keyboard: arrows, Home, End, type-ahead, Enter | E2E lab | lab.side-nav "the keyboard moves through the shown treeitems, opens and closes branches and follows links" |
+| Assistive technology's click on a branch (dispatched to the treeitem) opens and closes it; a pointer's click beside its children does nothing | E2E lab | lab.side-nav "the keyboard moves through the shown treeitems…" (failed before the fix: the branch stayed closed) |
 | Visits, Back, Forward, reload, state saved after the snapshot | E2E lab | lab.side-nav "the open branches hold across Turbo visits, Back, Forward and a reload, over the cached copy of the page" |
 | Fragment links never current | E2E lab | lab.side-nav "a link to a fragment of the page is never the current page" |
 | N visits | E2E lab | lab.side-nav "repeated Turbo visits leave one controller on the tree" |
@@ -344,6 +345,7 @@ modifiers, locale; the picker closed or open, typed text valid or invalid.
 
 | Recipe | Transition | Scope | Covered by |
 |---|---|---|---|
+| calendar | The server writes a day's number as the browser does (Korean "19일", as the day's name has it; Czech "19."; Lithuanian "05"; Cyrillic Bosnian and English "19") | Twig | ComponentsTest "testACalendarDayShowsItsNumberAsTheBrowserWritesIt" (failed before the fix: Korean "19") |
 | calendar | Keys, month and year dropdowns and their bounds, modifiers gone in a re-render, impossible dates, form submit, one input and one change per pick, ranges over disabled days, multiple mode inputs | E2E demo | calendar (11 tests) |
 | calendar | The month and year menus readable whatever the system scheme: system dark with the light theme chosen and the reverse, the page and the preview `<html>` and both selects compute the chosen `color-scheme`, the options keep >= 4.5:1 against the native menu | E2E demo | calendar "system … theme chosen › the month and year options are readable…" (2; failed before the fix: `colorScheme` "normal", options white on white in the dark case) |
 | calendar | A form reset cancelled by another listener (a capture listener on `form.reset()` and the reset button, a listener after the calendar's on the button) leaves the selection; the next reset brings back the date rendered with `calendar:select` source `reset`; a calendar disconnected while its reset waits does nothing | E2E demo | calendar "a reset another listener cancels leaves the selection…" (failed before the deferred reset: the cancelled reset brought back 2026-03-10) |

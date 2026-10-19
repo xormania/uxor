@@ -12,6 +12,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `side-nav`: a branch has no `aria-label` any more: its name is its row, the label it shows. axe-core 4.14 read that
   label as differing from the branch's text, which holds its children's; browsers leave the children's group out of
   the name, so it stays the label.
+- `side-nav`: assistive technology's click on a branch (a TalkBack double-tap, a speech command) opens or closes it; it
+  landed on the branch rather than its row, and did nothing.
+- `calendar`: the server writes a day's number as the browser does, so Korean shows "19일" (as the day's name has it,
+  which axe-core 4.14 requires) and Czech, Danish, Norwegian and others "19.", before the controller connects as after.
 
 ## [0.3.0] - 2026-10-18
 
