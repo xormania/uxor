@@ -5,6 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Fixed
+
+- `editor`: the H2 and H3 toolbar buttons are named "H2, heading 2" and "H3, heading 3", so their names hold the text
+  they show (WCAG 2.5.3, Label in Name) and a speech-input user can say it.
+
 ## [0.3.0] - 2026-10-18
 
 ### Added
