@@ -16,7 +16,8 @@ const branches = ['Guides', 'Advanced', 'Reference'] as const;
 async function treeState(page: Page) {
     return tree(page).evaluate((element) => {
         const items = [...element.querySelectorAll<HTMLElement>('[role="treeitem"]')];
-        const name = (item: HTMLElement) => (item.getAttribute('aria-label') ?? item.textContent ?? '').trim();
+        // a branch is named by its row's label, without its children's
+        const name = (item: HTMLElement) => (item.getAttribute('aria-label') ?? (item.querySelector(':scope > [data-side-nav-toggle] > [data-side-nav-label]') ?? item).textContent ?? '').trim();
         return {
             open: items.filter((item) => item.hasAttribute('aria-expanded') && 'true' === item.getAttribute('aria-expanded')).map(name),
             current: items.filter((item) => 'page' === item.getAttribute('aria-current')).map(name),
@@ -46,9 +47,9 @@ test('the tree has the ARIA tree structure, and the branch of the current page r
     await expect(treeitem(page, 'Reference').getByRole('group')).toBeHidden();
     // the server opened them: the page's HTML, before any controller
     const html = await (await page.request.get('/lab/side-nav/three')).text();
-    expect(html).toMatch(/aria-label="Guides" aria-expanded="false"/); // the lab marks the current page from the URL only
+    expect(html).toMatch(/aria-expanded="false" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Guides"/); // the lab marks the current page from the URL only
     const demo = await (await page.request.get('/demo/settings/profile')).text();
-    expect(demo).toMatch(/aria-label="Settings" aria-expanded="true"/); // `route` marks it on the server
+    expect(demo).toMatch(/aria-expanded="true" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Settings"/); // `route` marks it on the server
 });
 
 test('the keyboard moves through the shown treeitems, opens and closes branches and follows links', async ({ page }) => {
