@@ -43,3 +43,15 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+# Symfony's fallback logger (the demo has no Monolog) writes to stderr from the error level. A client error logs at
+# that level, and some tests provoke one on purpose (an invalid CSRF token answers 403), while Infection (monthly.yml)
+# stops its initial test run at the first line on stderr. In tests it starts at critical, the level of a server
+# error (5xx), which still shows.
+when@test:
+    services:
+        logger:
+            class: Symfony\Component\HttpKernel\Log\Logger
+            arguments:
+                $minLevel: critical
+                $requestStack: '@request_stack'
