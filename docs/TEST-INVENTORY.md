@@ -179,6 +179,7 @@ States: open branches (saved in `sessionStorage`), the current item, the roving 
 |---|---|---|
 | Tree structure, the current branch rendered open | E2E lab | lab.side-nav "the tree has the ARIA tree structure, and the branch of the current page renders open" |
 | Keyboard: arrows, Home, End, type-ahead, Enter | E2E lab | lab.side-nav "the keyboard moves through the shown treeitems, opens and closes branches and follows links" |
+| Assistive technology's click on a branch (dispatched to the treeitem) opens and closes it; a pointer's click beside its children does nothing | E2E lab | lab.side-nav "the keyboard moves through the shown treeitems…" (failed before the fix: the branch stayed closed) |
 | Visits, Back, Forward, reload, state saved after the snapshot | E2E lab | lab.side-nav "the open branches hold across Turbo visits, Back, Forward and a reload, over the cached copy of the page" |
 | Fragment links never current | E2E lab | lab.side-nav "a link to a fragment of the page is never the current page" |
 | N visits | E2E lab | lab.side-nav "repeated Turbo visits leave one controller on the tree" |

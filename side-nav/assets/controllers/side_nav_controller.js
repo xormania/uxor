@@ -112,8 +112,10 @@ export default class extends Controller {
     }
 
     toggleFromClick(event) {
-        const row = event.target.closest('[data-side-nav-toggle]');
-        const branch = row?.parentElement;
+        // a click on a branch's row, or on the branch itself: assistive technology's click (a TalkBack double-tap, a
+        // speech command) is dispatched to the treeitem, which no pointer hits (it has `pointer-events: none`, its
+        // children have them back, so a click beside its children toggles nothing)
+        const branch = this.branchTargets.includes(event.target) ? event.target : event.target.closest('[data-side-nav-toggle]')?.parentElement;
         if (branch && this.branchTargets.includes(branch)) {
             this.setOpen(branch, 'true' !== branch.getAttribute('aria-expanded'));
             branch.focus();

@@ -107,6 +107,17 @@ test('the keyboard moves through the shown treeitems, opens and closes branches 
     await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'false');
     expect((await treeState(page)).tabStops).toEqual(['Guides']);
 
+    // assistive technology's click (a TalkBack double-tap, a speech command) lands on the treeitem itself, and toggles it
+    await treeitem(page, 'Guides').evaluate((branch) => (branch as HTMLElement).click());
+    await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'true');
+    // a pointer's click beside the children, on the branch's own box, toggles nothing
+    const group = await treeitem(page, 'Guides').getByRole('group').boundingBox();
+    await page.mouse.click(group!.x - 4, group!.y + group!.height / 2);
+    await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'true');
+    await treeitem(page, 'Guides').evaluate((branch) => (branch as HTMLElement).click());
+    await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'false');
+    await expect(treeitem(page, 'Guides')).toBeFocused();
+
     // Enter follows a link, as a Turbo visit
     const sameDocument = await markDocument(page);
     await press('ArrowRight', 'Guides');
