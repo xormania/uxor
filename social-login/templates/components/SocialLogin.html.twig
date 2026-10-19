@@ -1,0 +1,62 @@
+{%- props
+    ## array The provider rows: `provider`, `href`, and optional `label` and `providerLabel` (see the README).
+    providers = [],
+    ## 'login'|'signup' Whether the default copy describes signing in or creating an account.
+    mode = 'login',
+    ## string|null The card's `h1`; without it, the mode's default title.
+    title = null,
+    ## string|null The line below the title; without it, the mode's default explanation.
+    description = null,
+    ## string|null A safe, human-readable authentication message; never pass a provider's raw error response.
+    feedback = null,
+    ## 'danger'|'warning'|'success' The style of the authentication feedback.
+    feedbackVariant = 'danger',
+    ## string The label between providers and optional password-form content.
+    separatorLabel = 'Or use your email',
+    ## string|null The registration or sign-in page linked below the card. A URL other than relative or http(s) renders `#`.
+    alternativeHref = null,
+    ## string|null The bottom link's label; without it, the mode's default text.
+    alternativeLabel = null
+-%}
+{#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
+{%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
+{%- set mode = mode|lower in ['login', 'signup'] ? mode|lower : 'login' -%}
+{%- set feedbackVariant = feedbackVariant in ['danger', 'warning', 'success'] ? feedbackVariant : 'danger' -%}
+{%- set _alternative_href = (alternativeHref ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' ? alternativeHref ~ '' : '#' -%}
+{%- set _content -%}
+    {##- An optional password form or other application-specific authentication content, rendered after the providers. -#}
+    {%- block content %}{% endblock -%}
+{%- endset -%}
+<div {{ attributes.defaults({class: 'w-full'|tailwind_classes}) }}>
+    <twig:Card>
+        <twig:Card:Header>
+            <twig:Card:Title as="h1" class="text-xl">{{ title|default(mode == 'signup' ? 'Create your account' : 'Sign in to your account', true) ~ '' }}</twig:Card:Title>
+            <p class="mt-2 text-sm text-body">{{ description|default(mode == 'signup' ? 'Choose how to create your account.' : 'Choose how to sign in.', true) ~ '' }}</p>
+        </twig:Card:Header>
+        <twig:Card:Content>
+            {%- if feedback %}
+                <twig:Alert :variant="feedbackVariant" class="mb-6"><twig:Alert:Description>{{ feedback ~ '' }}</twig:Alert:Description></twig:Alert>
+            {%- endif %}
+            {%- if providers|length %}
+                <ul class="mx-auto w-full max-w-45 space-y-3" aria-label="{{ mode == 'signup' ? 'Registration providers' : 'Sign-in providers' }}">
+                    {%- for item in providers %}
+                        <li><twig:OAuthProviderButton :provider="item.provider" :href="item.href" :label="item.label ?? null" :providerLabel="item.providerLabel ?? null" /></li>
+                    {%- endfor %}
+                </ul>
+            {%- endif %}
+            {%- if _content|trim %}
+                {%- if providers|length %}
+                    <div class="my-6 flex items-center gap-3 text-sm text-body">
+                        <span class="h-px flex-1 bg-neutral-quaternary" aria-hidden="true"></span>
+                        <span>{{ separatorLabel ~ '' }}</span>
+                        <span class="h-px flex-1 bg-neutral-quaternary" aria-hidden="true"></span>
+                    </div>
+                {%- endif %}
+                {{ _content }}
+            {%- endif %}
+            {%- if alternativeHref %}
+                <p class="mt-6 text-center text-sm text-body"><a href="{{ _alternative_href }}" class="font-medium text-fg-brand underline hover:no-underline">{{ alternativeLabel|default(mode == 'signup' ? 'Already have an account? Sign in' : 'Create an account', true) ~ '' }}</a></p>
+            {%- endif %}
+        </twig:Card:Content>
+    </twig:Card>
+</div>

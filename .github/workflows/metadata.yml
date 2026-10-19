@@ -1,0 +1,69 @@
+name: Metadata
+
+# Outbound text on GitHub names no account or team unless .github/mention-allowlist does (CONTRIBUTING.md, *Commits and
+# pull requests*; tools/check-github-mentions.mjs): a pull request's title, its description and every commit message it
+# brings. GitHub copies the title and the description into the merge commit, so checking them here checks the merge
+# commit before it exists. Dependabot's pull requests are left out: GitHub writes their text, and it names the npm
+# packages it updates (a scope reads like an account).
+on:
+    pull_request:
+        types: [opened, edited, reopened, synchronize]
+
+permissions:
+    contents: read
+
+jobs:
+    mentions:
+        name: Mentions
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
+        runs-on: ubuntu-latest
+        timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+            # The text reaches the script through the environment, never through the command line. Diagnostics redact
+            # rejected account tokens before tee captures them, so Jev cannot publish those references again.
+            - name: Title and description
+              id: title
+              env:
+                  TITLE: ${{ github.event.pull_request.title }}
+                  BODY: ${{ github.event.pull_request.body }}
+              run: |
+                  set -o pipefail
+                  {
+                      status=0
+                      printf '%s\n' "$TITLE" | node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface pull-request-title || status=1
+                      printf '%s\n' "$BODY" | node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface pull-request-description || status=1
+                      exit $status
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-title.log"
+            - name: Commit messages
+              id: commits
+              env:
+                  BASE: ${{ github.event.pull_request.base.sha }}
+                  HEAD: ${{ github.event.pull_request.head.sha }}
+              run: |
+                  set -o pipefail
+                  {
+                      status=0
+                      for commit in $(git rev-list "$BASE..$HEAD"); do
+                          git log -1 --format=%B "$commit" |
+                              node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface "commit $commit" || status=1
+                      done
+                      exit $status
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-commits.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Mentions
+                  artifact: jev-input-metadata-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}

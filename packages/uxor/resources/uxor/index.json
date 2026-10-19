@@ -1,0 +1,2149 @@
+{
+    "schema_version": 2,
+    "source": {
+        "repository": "https://github.com/xormania/uxor",
+        "ref": "main",
+        "inputs_sha256": "5324ca4da8f7e312b228cec2d73558adecd4812b3db86ee521d3207f7cbc67a6",
+        "manifest_sha256": "5932e947a1a9b9b6c58d7871c119401eae05bb8aef098b7a0a7d82e9479d03c8",
+        "license": "MIT"
+    },
+    "kit": {
+        "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-v1.json",
+        "name": "UXor",
+        "description": "Flowbite v4 and Tailwind CSS v4 components, layouts, blocks and a form theme for Symfony UX, with all behavior in Stimulus controllers so they keep working under Turbo and Live Components.",
+        "license": "MIT",
+        "homepage": "https://github.com/xormania/uxor",
+        "color": "hsl(221,79%,48%)",
+        "icon": "icon.svg",
+        "dependencies": {
+            "npm": [
+                "flowbite@^4.0.2"
+            ],
+            "importmap": [
+                "flowbite/dist/flowbite.min.css@^4.0.2"
+            ]
+        }
+    },
+    "components": {
+        "alert": {
+            "summary": "A message for information, success, a warning or an error, optionally dismissible.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Alert",
+                "version-added": "2.35",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "04696dca62755d20f80687fdbb48cd5b5aee00dc45bc8d2b23e32fb7da381e5f",
+            "documentation": "alert/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/alert"
+        },
+        "autocomplete": {
+            "summary": "Searchable selects with Symfony UX Autocomplete (Tom Select), styled with the theme: one choice, several, values typed by the user, options searched on the server. Works through the form theme ('autocomplete' => true) and as an Autocomplete component outside forms.",
+            "category": "Forms",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Autocomplete",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "select",
+                        "form-theme"
+                    ],
+                    "composer": [
+                        "symfony/ux-autocomplete:^3.5"
+                    ]
+                }
+            },
+            "manifest_sha256": "04eec39486e599b3fd33abaad42802c76a12fe14a06a64793f9c828297f2db46",
+            "documentation": "autocomplete/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/autocomplete"
+        },
+        "avatar": {
+            "summary": "A user's picture, with a fallback, in several sizes, round or with rounded corners.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Avatar",
+                "version-added": "3.0",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0",
+                        "symfony/ux-icons"
+                    ]
+                }
+            },
+            "manifest_sha256": "fb7ac5dc5deb59bf9614a07da706e39879d1abb7063ef91f178ff2b80f72e738",
+            "documentation": "avatar/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/avatar"
+        },
+        "badge": {
+            "summary": "A small label or count next to other content, such as a number of comments.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Badge",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "1c39def126a7d174856be8a5ae5f5d476b7be7170e01106c077351e2d8cee403",
+            "documentation": "badge/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/badge"
+        },
+        "breadcrumb": {
+            "summary": "A trail of links showing where the current page sits in the site hierarchy.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Breadcrumb",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "94ac45c53af1addbd435d5f2f09a8ef3334b3fc32fb5791a6ed18bc03cb14010",
+            "documentation": "breadcrumb/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/breadcrumb"
+        },
+        "button": {
+            "summary": "A button, or a link that looks like one, in several colors, sizes and styles.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Button",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "00132bd2c466414f4bd8af924de9b223b0b19211bd673a1c9c0f2f0f34c8257d",
+            "documentation": "button/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/button"
+        },
+        "button-group": {
+            "summary": "Several buttons or links joined into one control.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Button Group",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "7bc0d39da2bc96a4ac066b36df326fc8eb69b06c9c5a816e5d01480e3f593321",
+            "documentation": "button-group/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/button-group"
+        },
+        "calendar": {
+            "summary": "Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a model prop for Live Components.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Calendar",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "twig/intl-extra:^3.24.0",
+                        "symfony/ux-icons",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "d832563cf80dd03f3023bf5d675ab5534a55d7f389984662420dceeb8b9adcf8",
+            "documentation": "calendar/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/calendar"
+        },
+        "card": {
+            "summary": "A box grouping related content: text, images, a form.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Card",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "902a852b14c9bfd4e31b795dcb8242ceb35ee6c89e63ccc8c65fa4db9e5bcdbf",
+            "documentation": "card/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/card"
+        },
+        "chart": {
+            "summary": "Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or ChartBuilderInterface, updated in place by Live Components.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Chart",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "theme"
+                    ],
+                    "composer": [
+                        "symfony/ux-chartjs:^3.5",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ],
+                    "importmap": [
+                        "chart.js"
+                    ]
+                }
+            },
+            "manifest_sha256": "57abc1e330e239156000412a874f769451e7dd1ae798cea613af7655beea3bcf",
+            "documentation": "chart/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/chart"
+        },
+        "checkbox": {
+            "summary": "A square box to select one or more options.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Checkbox",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "0cf661f730cbfae8fba7c18449de2a314baa578ccf215e16e77ffca5a9a288d8",
+            "documentation": "checkbox/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/checkbox"
+        },
+        "connected-accounts": {
+            "summary": "Connected provider identities with distinct CSRF-protected POST connection and disconnection forms, and explanations for unavailable actions.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "ConnectedAccounts",
+                "description": "An account settings card with CSRF-protected connection forms and explicit unavailable-action feedback.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "card",
+                        "alert",
+                        "button"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "9e23e58e7375820193ab0183c42b35f468db24cf36f040bbdeaf4d1baf6f51fa",
+            "documentation": "connected-accounts/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/connected-accounts"
+        },
+        "dashboard-home": {
+            "summary": "A dashboard home: page header, key figures, two cards and a table of recent orders.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "DashboardHome",
+                "description": "A dashboard home: page header, key figures, two cards and a table of recent orders.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "layouts",
+                        "page-header",
+                        "stat-card",
+                        "card",
+                        "progress",
+                        "table",
+                        "badge"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "5e23030eb2c5447f383adb5714d0faad95cd8f77db82d2c2569a49269f6deaf6",
+            "documentation": "dashboard-home/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/dashboard-home"
+        },
+        "data-table": {
+            "summary": "A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into src/UXor/.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "DataTable",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "src/": "src/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "table",
+                        "pagination",
+                        "input",
+                        "select",
+                        "button",
+                        "empty-state",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/http-foundation",
+                        "symfony/ux-icons",
+                        "symfony/ux-turbo:^3.5",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "06db7ef4ba50e167f700cc21f1e8678497028e390f893e38e3e56f5dcad588af",
+            "documentation": "data-table/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/data-table"
+        },
+        "data-table-live": {
+            "summary": "data-table as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into src/UXor/.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "DataTableLive",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "src/": "src/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "data-table",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/ux-live-component:^3.5",
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "6c659b6c3abc88e3ac78680d0f64e5cd84723bdbe4f22cb86578f31b42d4e645",
+            "documentation": "data-table-live/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/data-table-live"
+        },
+        "date-picker": {
+            "summary": "A date or a range picked in a calendar that opens from a button or a typed field; a DateType opts in through the form theme.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "DatePicker",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "calendar",
+                        "popover"
+                    ],
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "twig/intl-extra:^3.24.0",
+                        "symfony/ux-icons",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "2a8cb0a4e541d397c7e76942cb1e0aa47dd1fef0acef970d502247b84409db74",
+            "documentation": "date-picker/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/date-picker"
+        },
+        "drawer": {
+            "summary": "A panel sliding over one side of the page, for navigation, filters or details, as a native <dialog>.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Drawer",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "button",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "d6abe823ac7ac0cafced8f04d40372111566902e1726a8dabe42ebe0ebffae31",
+            "documentation": "drawer/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/drawer"
+        },
+        "dropdown": {
+            "summary": "A menu that opens from a button and closes when the user clicks or focuses outside it.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Dropdown",
+                "version-added": "3.0",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "floating",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "1b5ea0d492da850a7b679627c9611f7d10aec7673eb57c161a1beadf7b168431",
+            "documentation": "dropdown/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/dropdown"
+        },
+        "dropzone": {
+            "summary": "File uploads with Symfony UX Dropzone, styled with the theme: drag and drop or browse, a preview of the picked image, several files that add up across picks, keyboard focus kept after a pick or a removal; a DropzoneType renders as one through the form theme.",
+            "category": "Forms",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Dropzone",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "form-theme",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/ux-dropzone:^3.5",
+                        "symfony/ux-icons",
+                        "symfony/ux-twig-component:^3.5",
+                        "twig/html-extra:^3.24.0",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "ca9564e363281aad155d78b78ed8959be57093bb351824c22647ad7f42d3fa11",
+            "documentation": "dropzone/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/dropzone"
+        },
+        "editor": {
+            "summary": "A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. EditorType sanitizes every submit (symfony/html-sanitizer), and flowbite_editor_html prints stored HTML.",
+            "category": "Forms",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Editor",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "src/": "src/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "form-theme",
+                        "popover",
+                        "button",
+                        "input",
+                        "label"
+                    ],
+                    "composer": [
+                        "symfony/form",
+                        "symfony/html-sanitizer",
+                        "symfony/ux-icons",
+                        "symfony/ux-twig-component:^3.5",
+                        "twig/html-extra:^3.24.0",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ],
+                    "importmap": [
+                        "@tiptap/core",
+                        "@tiptap/extension-blockquote",
+                        "@tiptap/extension-bold",
+                        "@tiptap/extension-code",
+                        "@tiptap/extension-document",
+                        "@tiptap/extension-hard-break",
+                        "@tiptap/extension-heading",
+                        "@tiptap/extension-horizontal-rule",
+                        "@tiptap/extension-italic",
+                        "@tiptap/extension-link",
+                        "@tiptap/extension-list",
+                        "@tiptap/extension-paragraph",
+                        "@tiptap/extension-strike",
+                        "@tiptap/extension-text",
+                        "@tiptap/extension-underline",
+                        "@tiptap/extensions"
+                    ]
+                }
+            },
+            "manifest_sha256": "b401942813331abd0e23a23d2651d024c273ad5cf8c21730bf5cb61e86640dda",
+            "documentation": "editor/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/editor"
+        },
+        "empty-state": {
+            "summary": "What a list or page shows when it has nothing yet, with a way forward.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "EmptyState",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "93536bc1f193055153305ad037718854238c41192adb94830a83484a70347471",
+            "documentation": "empty-state/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/empty-state"
+        },
+        "floating": {
+            "summary": "The positioning shared by dropdown, popover (so date-picker) and tooltip, one JavaScript module: a floating element placed next to the element it belongs to, flipped to the other side when it does not fit, kept in the viewport and following it on scroll and resize.",
+            "category": "Shared code",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Floating",
+                "copy-files": {
+                    "assets/": "assets/"
+                }
+            },
+            "manifest_sha256": "47c17b040131a83bad0e194a8bf1a4e0afd75232846854f118637a7c1f899b45",
+            "documentation": "floating/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/floating"
+        },
+        "forgot-password": {
+            "summary": "A card asking for an email address to send a password reset link, then confirming it was sent.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "ForgotPasswordForm",
+                "description": "A card asking for an email address to send a password reset link, then confirming it was sent.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "card",
+                        "alert",
+                        "button",
+                        "form-theme"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0",
+                        "symfony/validator"
+                    ]
+                }
+            },
+            "manifest_sha256": "7c624ff79a75b61d7a741c84aea718195e8034b9683a3c2d097596e1b71d96bf",
+            "documentation": "forgot-password/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/forgot-password"
+        },
+        "form-field": {
+            "summary": "A labelled form control with its help text and error message, wired by id (used by the form theme).",
+            "category": "Forms",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "FormField",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "a4c35427121c9d9335d92097a843345b461e41f8e9cb2398b53474ada6fe17eb",
+            "documentation": "form-field/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/form-field"
+        },
+        "form-theme": {
+            "summary": "A Symfony form theme that renders every row through FormField and every control through the kit's Input, Select, Textarea, Checkbox, Radio, Label and Button components.",
+            "category": "Forms",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Form theme",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "form-field",
+                        "input",
+                        "select",
+                        "textarea",
+                        "checkbox",
+                        "radio",
+                        "label",
+                        "button"
+                    ],
+                    "composer": [
+                        "symfony/form"
+                    ]
+                }
+            },
+            "manifest_sha256": "ab0a927df4efc5a8e38749b259ae21027757ece0a09f53e69f49b75aaea82d75",
+            "documentation": "form-theme/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/form-theme"
+        },
+        "indicator": {
+            "summary": "A dot or number placed on another element: a status, a count, a loading label.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Indicator",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "c777f3f9fabd9862aa48b066976248498871775e27a074e0b35fedbb094652ef",
+            "documentation": "indicator/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/indicator"
+        },
+        "input": {
+            "summary": "A single-line field for any input type: text, email, number, password, URL…",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Input",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "ee01720ef89ddf27089b52349ebe270fe0f13261b40d6818f2f0b9b37aecea18",
+            "documentation": "input/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/input"
+        },
+        "kbd": {
+            "summary": "A keyboard key or shortcut shown in text.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Kbd",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "26b884d289c56493cdd22460e0bc4518d3217e5abf2db7c21ce449a7dfc607f8",
+            "documentation": "kbd/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/kbd"
+        },
+        "label": {
+            "summary": "A text element that identifies form controls and other content.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Label",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "dd1b93a76ab77b8a8a2b4d8bccc7fc62d09ef9ca1253c16bef00f0a9037b8829",
+            "documentation": "label/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/label"
+        },
+        "layouts": {
+            "summary": "Page layouts to extend: an app shell with sidebar, navbar with its menu, and mobile nav, a centered column for login, signup and password reset, settings, errors and a blank page.",
+            "category": "Layouts",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Layouts",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "theme-toggle",
+                        "toast",
+                        "sidebar",
+                        "navbar",
+                        "page-header",
+                        "section-nav",
+                        "mobile-nav",
+                        "nav-menu",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/asset-mapper",
+                        "symfony/ux-turbo:^3.5"
+                    ]
+                }
+            },
+            "manifest_sha256": "155e6cabbcf051d2350a1fc616ffaa806c3e32f84d56a64c8d778085a8235165",
+            "documentation": "layouts/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/layouts"
+        },
+        "login": {
+            "summary": "A sign-in card rendering a Symfony login form through the form theme, with the last authentication error.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "LoginForm",
+                "description": "A sign-in card rendering a Symfony login form through the form theme, with the last authentication error.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "card",
+                        "alert",
+                        "button",
+                        "form-theme"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0",
+                        "symfony/security-bundle"
+                    ]
+                }
+            },
+            "manifest_sha256": "36ffe424772a0c964223d8add8ead6aa5503d46c68085807a132b0df5c6402d4",
+            "documentation": "login/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/login"
+        },
+        "markdown-editor": {
+            "summary": "A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. MarkdownType limits the source, and flowbite_markdown_html prints it.",
+            "category": "Forms",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "MarkdownEditor",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "src/": "src/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "form-theme"
+                    ],
+                    "composer": [
+                        "league/commonmark:^2.8",
+                        "symfony/form",
+                        "symfony/html-sanitizer",
+                        "symfony/ux-icons",
+                        "symfony/ux-live-component:^3.5",
+                        "symfony/ux-twig-component:^3.5",
+                        "twig/html-extra:^3.24.0",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "17d8230ba30049eb76483fa45d5180e48127960a01bcad10ffbf172a2bf1be5d",
+            "documentation": "markdown-editor/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/markdown-editor"
+        },
+        "mobile-nav": {
+            "summary": "The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "MobileNav",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "drawer",
+                        "navigation"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "13f5b5d0633004b58bc9f4292cc3ce666bfe08c756759276efdc001b77151393",
+            "documentation": "mobile-nav/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/mobile-nav"
+        },
+        "modal": {
+            "summary": "A dialog over the page, as a native <dialog>, with a close button.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Modal",
+                "version-added": "2.35",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "button",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "91bd3cdb51386c308af55e725525e81b37b7497a43b73d9654576c76f924bd7d",
+            "documentation": "modal/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/modal"
+        },
+        "nav-menu": {
+            "summary": "The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "NavMenu",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "navigation"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "cabc3c53a6d01bce2b45da94944fde1a60a129d0f66a2cdb1fbc5152bc0d65f3",
+            "documentation": "nav-menu/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/nav-menu"
+        },
+        "navbar": {
+            "summary": "The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Navbar",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "c587b139b1887ac546ad98f5b58a830aa8d6b7b378d7b604b4f9a23e418ba1d5",
+            "documentation": "navbar/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/navbar"
+        },
+        "navigation": {
+            "summary": "What the navigation recipes (nav-menu, sidebar, side-nav, section-nav, mobile-nav) share, one JavaScript module: the current page's link marked aria-current=\"page\", whether a click on a link navigates this tab, a navigation opened over the page closed once the screen grows.",
+            "category": "Shared code",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Navigation",
+                "copy-files": {
+                    "assets/": "assets/"
+                }
+            },
+            "manifest_sha256": "25008d9d880151aa8e4139534be4022dbf5bf86f7c046cbae51a9bab6df37d40",
+            "documentation": "navigation/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/navigation"
+        },
+        "not-found": {
+            "summary": "The content of a 404 (or any error) page: status, title, explanation and a way back.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "NotFound",
+                "description": "The content of a 404 (or any error) page: status, title, explanation and a way back.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "button"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "bfc5d623f53e5126cd8ea778a08044223bf126047a25d40cdc89cc031d2c4096",
+            "documentation": "not-found/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/not-found"
+        },
+        "oauth": {
+            "summary": "Symfony OAuth2/OIDC authentication, provider adapters, expiring attempts and explicit account connections, with an authentication layout.",
+            "category": "Authentication",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "OAuth",
+                "description": "Server-side OAuth2 and OpenID Connect sign-in, with expiring attempts, Symfony Security and account connections.",
+                "copy-files": {
+                    "src/": "src/",
+                    "templates/": "templates/",
+                    "config/": "config/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "social-login",
+                        "connected-accounts",
+                        "layouts"
+                    ],
+                    "composer": [
+                        "symfony/security-bundle",
+                        "symfony/security-csrf",
+                        "symfony/cache",
+                        "league/oauth2-client:^2.9",
+                        "league/oauth2-github:^3.1",
+                        "league/oauth2-google:^5.0",
+                        "league/oauth2-facebook:^2.2",
+                        "firebase/php-jwt:^7.2",
+                        "guzzlehttp/guzzle:^7.8",
+                        "guzzlehttp/psr7:^2.6"
+                    ]
+                }
+            },
+            "manifest_sha256": "8457fc40da91bd11bbc65bc8fca00d6e3b22f360ac83bfba48c0588cdceb85e9",
+            "documentation": "oauth/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/oauth"
+        },
+        "oauth-provider-button": {
+            "summary": "A Google, Facebook, GitHub or custom provider sign-in link with an enforced full browser handoff and no Turbo prefetch; Google uses its official local light and dark artwork.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "OAuthProviderButton",
+                "description": "A provider sign-in link that starts the application's OAuth flow with a full browser navigation.",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "button"
+                    ],
+                    "composer": [
+                        "symfony/asset",
+                        "symfony/asset-mapper",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "0e310fd6164c85095966e424c46d455336c0d0fccbb5615cbe7f1674611b43aa",
+            "documentation": "oauth-provider-button/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/oauth-provider-button"
+        },
+        "page-header": {
+            "summary": "The top of a page: its title, a short description and the page's actions.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "PageHeader",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "c08d14a22c9ae5a3986a95b8118853fe22c074144607fa23aa258824dd0def09",
+            "documentation": "page-header/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/page-header"
+        },
+        "pagination": {
+            "summary": "Links to the pages of a long list.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Pagination",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "button"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "f159540eaa71414df4a4611683e7a72913b35d21475727d54ef3a0ea3238f2aa",
+            "documentation": "pagination/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/pagination"
+        },
+        "popover": {
+            "summary": "Free content anchored to a button (text, links, a small form) in a non-modal dialog that closes on Escape, a click outside or when the focus leaves it.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Popover",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "floating",
+                        "turbo"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "db1fea2c7fb84a08a6881c732ab78f40258f93867b14bd582095472bccb34b98",
+            "documentation": "popover/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/popover"
+        },
+        "progress": {
+            "summary": "A bar showing how far a task has come.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Progress",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "adbac3cc0fafb2b5779f3a48c201870ce8db3b6410403de9e4031c6a1f813dac",
+            "documentation": "progress/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/progress"
+        },
+        "radio": {
+            "summary": "A round button to choose one option among several.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Radio",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "c9983504fceb37abd2c5e524c65908d122de46ea7988c1d69ef2b47460cba04b",
+            "documentation": "radio/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/radio"
+        },
+        "section-nav": {
+            "summary": "Vertical tabs that navigate: one link per page of a group of pages (settings), the current one marked, a column on large screens and a strip that scrolls sideways on small ones.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "SectionNav",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "navigation"
+                    ],
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "7851def2b6f86eb8ca914a785794e898c649f5aa3dd3c1bf58bcadc63148f353",
+            "documentation": "section-nav/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/section-nav"
+        },
+        "select": {
+            "summary": "A list to choose one or more options.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Select",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "d5b608041596ed18aaf189c5fb57df40ad051d87a51ad2b38fec842f3a9657dd",
+            "documentation": "select/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/select"
+        },
+        "settings-profile": {
+            "summary": "A profile settings card: avatar, name and a Symfony form rendered through the form theme.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "SettingsProfile",
+                "description": "A profile settings card: avatar, name and a Symfony form rendered through the form theme.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "card",
+                        "avatar",
+                        "button",
+                        "form-theme"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "17cbe5b749227cc71b5fc9f3feb1780ee5f8f7b2ed6321cd5215aa226e152fd4",
+            "documentation": "settings-profile/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/settings-profile"
+        },
+        "side-nav": {
+            "summary": "A multi-level navigation tree: links in branches that open and close, at any depth, with the keyboard of an ARIA tree view; the open branches hold across Turbo visits, and the branch of the current page opens.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "SideNav",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "navigation"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "2a9fd787c4e30ebbcb747345b4d9a189c89d5cf9693fa6da93ad64e7a84f65f1",
+            "documentation": "side-nav/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/side-nav"
+        },
+        "sidebar": {
+            "summary": "The app's main navigation: grouped links with icons and counts, collapsible to icons, opened over the page on small screens.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Sidebar",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "navigation"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "e7328461f692f01e13810594b46e16a5ee2a708f5bdb19f243a239fa516c6d43",
+            "documentation": "sidebar/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/sidebar"
+        },
+        "signup": {
+            "summary": "A registration card rendering a Symfony form through the form theme.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "SignupForm",
+                "description": "A registration card rendering a Symfony form through the form theme.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "card",
+                        "button",
+                        "form-theme"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0",
+                        "symfony/validator"
+                    ]
+                }
+            },
+            "manifest_sha256": "440a831520ca4bdf582ebb0a4c9f8c3b0ee71d67961f496108c17736abc43b13",
+            "documentation": "signup/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/signup"
+        },
+        "skeleton": {
+            "summary": "Placeholders shaped like the content that is loading.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Skeleton",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "683944c21d59c8e8de0de6789a1dee27b346af8207ee0db83066d8c457cfdec4",
+            "documentation": "skeleton/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/skeleton"
+        },
+        "social-login": {
+            "summary": "Provider login or registration choices, safe feedback and an optional password-form slot in one authentication card.",
+            "category": "Blocks",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "block",
+                "name": "SocialLogin",
+                "description": "A provider login or registration card with feedback and optional password-form content.",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "card",
+                        "alert",
+                        "oauth-provider-button"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "45bf52199e439cd74b42d59ab753965eff70fd42689acdd346b7c9c8fce327f5",
+            "documentation": "social-login/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/social-login"
+        },
+        "spinner": {
+            "summary": "A spinning indicator for a loading state.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Spinner",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "6dbe314ef15a5335be8f9a42d47abc004b4b6221cd70610b27d538657a0789ef",
+            "documentation": "spinner/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/spinner"
+        },
+        "stat-card": {
+            "summary": "A key figure with its label and, optionally, how it changed over a period.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "StatCard",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "abe21109088e364b48fd2db72025a6ffafd2a9d005321ca306b26fc1acda4bd0",
+            "documentation": "stat-card/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/stat-card"
+        },
+        "table": {
+            "summary": "Rows and columns of data.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Table",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "ae77e6204f31b8bcc7432d929b7afc83faad656857cd109057992d74235c809c",
+            "documentation": "table/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/table"
+        },
+        "tabs": {
+            "summary": "Tabs that switch between panels in place, in a row or a column, with the arrow keys of the WAI-ARIA tabs pattern.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Tabs",
+                "version-added": "2.35",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "f1b3729c502a6617f604edf463a6ecdc28844e4efe6f7b96734aa60b8734bdb0",
+            "documentation": "tabs/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/tabs"
+        },
+        "textarea": {
+            "summary": "A multi-line text field, for a comment or a description.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Textarea",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "f85ec79bb3da7b130743ccc185f0920e42b38384e45b1cfd4ce4444f806f6c0e",
+            "documentation": "textarea/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/textarea"
+        },
+        "theme": {
+            "summary": "Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (fg-on-*), as one stylesheet to import in assets/styles/app.css. A role is a named color with a light and a dark value, used as a utility: bg-brand, text-heading, border-default.",
+            "category": "Theme",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Theme",
+                "copy-files": {
+                    "assets/": "assets/"
+                }
+            },
+            "manifest_sha256": "f9d03296c4c922eebde9095e04c8cac045e18da4ddb069024ad6fd063d62e065",
+            "documentation": "theme/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/theme"
+        },
+        "theme-toggle": {
+            "summary": "A button switching between the light and dark themes, remembered in localStorage and following the system preference until the user chooses.",
+            "category": "Theme",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "ThemeToggle",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "bfd76110ef50087ba0d6788417353dd1bab7d1e5449e55d230d18ed8403374e1",
+            "documentation": "theme-toggle/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/theme-toggle"
+        },
+        "toast": {
+            "summary": "Short-lived notifications in a fixed region, added on page load or by Turbo Streams, dismissed after a timeout or by the user.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Toast",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "turbo"
+                    ],
+                    "composer": [
+                        "symfony/ux-icons",
+                        "twig/extra-bundle",
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "efa3ae95c1426db53832845b4f8e1570f9fde9cd7cdbcfce10cc396d256b506c",
+            "documentation": "toast/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/toast"
+        },
+        "toggle": {
+            "summary": "A switch for an on/off setting.",
+            "category": "Basic components",
+            "manifest": {
+                "$schema": "../../../schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Toggle",
+                "version-added": "2.35",
+                "copy-files": {
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "42b6c83d080252dd453adf2a1b7f436fddf242fdd52c54a74dc6fc706534bf8b",
+            "documentation": "toggle/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/toggle"
+        },
+        "tooltip": {
+            "summary": "A short text shown while a control is hovered or focused, also announced as its description.",
+            "category": "More components",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Tooltip",
+                "copy-files": {
+                    "assets/": "assets/",
+                    "templates/": "templates/"
+                },
+                "dependencies": {
+                    "recipe": [
+                        "floating"
+                    ],
+                    "composer": [
+                        "twig/html-extra:^3.24.0",
+                        "symfony/ux-twig-component:^3.5",
+                        "tales-from-a-dev/twig-tailwind-extra:^1.3.0"
+                    ]
+                }
+            },
+            "manifest_sha256": "50e982e64a1605d321a56514bef7f6e459f03cb3a3b408e38d45204226f7cf06",
+            "documentation": "tooltip/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/tooltip"
+        },
+        "turbo": {
+            "summary": "What the recipes ask about Turbo's copies of a page, one JavaScript module: whether a turbo:before-cache leaves the page on screen (a frame visit promoted to history) or an element is moved into the next page (data-turbo-permanent), and whether a controller connects in a cached copy.",
+            "category": "Shared code",
+            "manifest": {
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+                "type": "component",
+                "name": "Turbo",
+                "copy-files": {
+                    "assets/": "assets/"
+                }
+            },
+            "manifest_sha256": "56df70b6b56e0fda89f01100f3136c64a84f280184df94ec2d8a3a1dc468a9a1",
+            "documentation": "turbo/README.md",
+            "source_url": "https://github.com/xormania/uxor/tree/main/turbo"
+        }
+    },
+    "documents": {
+        "FOR-AGENTS.md": {
+            "path": "docs/FOR-AGENTS.md",
+            "sha256": "c3282e5f198f4dc97f62e81df7010a7fb11b692984420ac233acc96d0c18b287",
+            "source_sha256": "0c2560406c87a30a9dffd5ec30cb21d571732df340af5ff4dd3edbc5c2123dde",
+            "source_url": "https://github.com/xormania/uxor/blob/main/FOR-AGENTS.md"
+        },
+        "INSTALL.md": {
+            "path": "docs/INSTALL.md",
+            "sha256": "c616bd6d2e831254b42d0a56247e1c180d937ccfb4b1c8b5f010030ccdaf69cd",
+            "source_sha256": "c616bd6d2e831254b42d0a56247e1c180d937ccfb4b1c8b5f010030ccdaf69cd",
+            "source_url": "https://github.com/xormania/uxor/blob/main/INSTALL.md"
+        },
+        "LICENSE": {
+            "path": "docs/LICENSE",
+            "sha256": "f637d9418eb0dae0cd2a1dfc197ecdb616bba0282d0c743ad0dc4ff58dbba5b8",
+            "source_sha256": "f637d9418eb0dae0cd2a1dfc197ecdb616bba0282d0c743ad0dc4ff58dbba5b8",
+            "source_url": "https://github.com/xormania/uxor/blob/main/LICENSE"
+        },
+        "NOTICE": {
+            "path": "docs/NOTICE",
+            "sha256": "479503335c81108bc17a5d674406dcf0b79bfd5c2e122f1c8c028923122044d4",
+            "source_sha256": "479503335c81108bc17a5d674406dcf0b79bfd5c2e122f1c8c028923122044d4",
+            "source_url": "https://github.com/xormania/uxor/blob/main/NOTICE"
+        },
+        "README.md": {
+            "path": "docs/README.md",
+            "sha256": "166b0b055ef99ef30421f13658b3f38408b90306f3d5658037f685f81152985c",
+            "source_sha256": "02ce7a1661e0159b5d2a8b538d51b89e4dba67d0e9213f2813b6f2c7ded7afb7",
+            "source_url": "https://github.com/xormania/uxor/blob/main/README.md"
+        },
+        "alert/README.md": {
+            "path": "docs/alert/README.md",
+            "sha256": "4cda3b643420385612cc05df7c7f87a5afab3ae0fff50c663598c7ba0a9e775a",
+            "source_sha256": "4cda3b643420385612cc05df7c7f87a5afab3ae0fff50c663598c7ba0a9e775a",
+            "source_url": "https://github.com/xormania/uxor/blob/main/alert/README.md"
+        },
+        "autocomplete/README.md": {
+            "path": "docs/autocomplete/README.md",
+            "sha256": "29de4b5c6dccbbe73090efea7ee2a096b229b5f4bf0346082cd19625051167df",
+            "source_sha256": "29de4b5c6dccbbe73090efea7ee2a096b229b5f4bf0346082cd19625051167df",
+            "source_url": "https://github.com/xormania/uxor/blob/main/autocomplete/README.md"
+        },
+        "avatar/README.md": {
+            "path": "docs/avatar/README.md",
+            "sha256": "df9e54c0b697cd3b450e218b8b2fff2b914cc8bb7bcffbb72287ced595d803ab",
+            "source_sha256": "df9e54c0b697cd3b450e218b8b2fff2b914cc8bb7bcffbb72287ced595d803ab",
+            "source_url": "https://github.com/xormania/uxor/blob/main/avatar/README.md"
+        },
+        "badge/README.md": {
+            "path": "docs/badge/README.md",
+            "sha256": "86094b9475a23200ba1b729262e1342341a60a17e279cec67fdf5eeaf59e0fde",
+            "source_sha256": "86094b9475a23200ba1b729262e1342341a60a17e279cec67fdf5eeaf59e0fde",
+            "source_url": "https://github.com/xormania/uxor/blob/main/badge/README.md"
+        },
+        "breadcrumb/README.md": {
+            "path": "docs/breadcrumb/README.md",
+            "sha256": "bdd8caff9d93d074b0590bc12ec9ab37778c030010baa6329fd440d513a95608",
+            "source_sha256": "bdd8caff9d93d074b0590bc12ec9ab37778c030010baa6329fd440d513a95608",
+            "source_url": "https://github.com/xormania/uxor/blob/main/breadcrumb/README.md"
+        },
+        "button-group/README.md": {
+            "path": "docs/button-group/README.md",
+            "sha256": "9a2ba1dda7a0ad36b37af844305ee29f8a0e9272375dfe6da12d5a0a951f7d41",
+            "source_sha256": "9a2ba1dda7a0ad36b37af844305ee29f8a0e9272375dfe6da12d5a0a951f7d41",
+            "source_url": "https://github.com/xormania/uxor/blob/main/button-group/README.md"
+        },
+        "button/README.md": {
+            "path": "docs/button/README.md",
+            "sha256": "29fc524bda1f720b97139f44f0c8ba228f112d23cdf7d8967832fcf29e3ae14f",
+            "source_sha256": "29fc524bda1f720b97139f44f0c8ba228f112d23cdf7d8967832fcf29e3ae14f",
+            "source_url": "https://github.com/xormania/uxor/blob/main/button/README.md"
+        },
+        "calendar/README.md": {
+            "path": "docs/calendar/README.md",
+            "sha256": "bcce3d937d8697b8b476df56fa6abd172c14d58eebdd4da6f0c8fed880d3e5ab",
+            "source_sha256": "bcce3d937d8697b8b476df56fa6abd172c14d58eebdd4da6f0c8fed880d3e5ab",
+            "source_url": "https://github.com/xormania/uxor/blob/main/calendar/README.md"
+        },
+        "card/README.md": {
+            "path": "docs/card/README.md",
+            "sha256": "09c805cbacb4a93dad20a1cc745fe8344e4b0d80741ff375d0eba3c7b064799a",
+            "source_sha256": "09c805cbacb4a93dad20a1cc745fe8344e4b0d80741ff375d0eba3c7b064799a",
+            "source_url": "https://github.com/xormania/uxor/blob/main/card/README.md"
+        },
+        "chart/README.md": {
+            "path": "docs/chart/README.md",
+            "sha256": "c00a4eea5962b787ae8c5521302d13474f60ed0abbedd2d0ceaf75c2305b0e34",
+            "source_sha256": "c00a4eea5962b787ae8c5521302d13474f60ed0abbedd2d0ceaf75c2305b0e34",
+            "source_url": "https://github.com/xormania/uxor/blob/main/chart/README.md"
+        },
+        "checkbox/README.md": {
+            "path": "docs/checkbox/README.md",
+            "sha256": "619cca19fb1f491d89f8a7842f359f4243a41bd92dc0d24282042350772cdfa2",
+            "source_sha256": "619cca19fb1f491d89f8a7842f359f4243a41bd92dc0d24282042350772cdfa2",
+            "source_url": "https://github.com/xormania/uxor/blob/main/checkbox/README.md"
+        },
+        "connected-accounts/README.md": {
+            "path": "docs/connected-accounts/README.md",
+            "sha256": "898ca51e0320346c7d27530887eb0a359e20234103e063bbbf2f8a132d163027",
+            "source_sha256": "898ca51e0320346c7d27530887eb0a359e20234103e063bbbf2f8a132d163027",
+            "source_url": "https://github.com/xormania/uxor/blob/main/connected-accounts/README.md"
+        },
+        "dashboard-home/README.md": {
+            "path": "docs/dashboard-home/README.md",
+            "sha256": "67dc9dd98bfca7f8f85ceac2978da33ce7b1243d60639188c4c9f20b94de91f0",
+            "source_sha256": "67dc9dd98bfca7f8f85ceac2978da33ce7b1243d60639188c4c9f20b94de91f0",
+            "source_url": "https://github.com/xormania/uxor/blob/main/dashboard-home/README.md"
+        },
+        "data-table-live/README.md": {
+            "path": "docs/data-table-live/README.md",
+            "sha256": "2b85c7c7658308b5bba3a4dbab9a361eb1b8c7ef9125645c6cf1b54b8e55cbf6",
+            "source_sha256": "2b85c7c7658308b5bba3a4dbab9a361eb1b8c7ef9125645c6cf1b54b8e55cbf6",
+            "source_url": "https://github.com/xormania/uxor/blob/main/data-table-live/README.md"
+        },
+        "data-table/README.md": {
+            "path": "docs/data-table/README.md",
+            "sha256": "9e8f61e192aea4827fcf726491110a49d545a0504b94e5b049da092af9f4a952",
+            "source_sha256": "9e8f61e192aea4827fcf726491110a49d545a0504b94e5b049da092af9f4a952",
+            "source_url": "https://github.com/xormania/uxor/blob/main/data-table/README.md"
+        },
+        "date-picker/README.md": {
+            "path": "docs/date-picker/README.md",
+            "sha256": "3acf3e9f237b876e2250e94deffc9d6063c1c996b2acf7993a9c342b98ca7135",
+            "source_sha256": "3acf3e9f237b876e2250e94deffc9d6063c1c996b2acf7993a9c342b98ca7135",
+            "source_url": "https://github.com/xormania/uxor/blob/main/date-picker/README.md"
+        },
+        "docs/GUIDE.md": {
+            "path": "docs/docs/GUIDE.md",
+            "sha256": "c944ece418ad7de571533085518bda53bf54b6d4733beec95f7a53a223f14f6c",
+            "source_sha256": "5acdb23f7685c90f4086ac3596d018083f7f643bf3a1b8e83e45349866cd0e56",
+            "source_url": "https://github.com/xormania/uxor/blob/main/docs/GUIDE.md"
+        },
+        "docs/PROJECT-AGENTS-SNIPPET.md": {
+            "path": "docs/docs/PROJECT-AGENTS-SNIPPET.md",
+            "sha256": "d435a01fb58f5567a5f778214df4bdbfa2dffebb9029c24123b386cf10fe8ba9",
+            "source_sha256": "d435a01fb58f5567a5f778214df4bdbfa2dffebb9029c24123b386cf10fe8ba9",
+            "source_url": "https://github.com/xormania/uxor/blob/main/docs/PROJECT-AGENTS-SNIPPET.md"
+        },
+        "docs/RECIPES.md": {
+            "path": "docs/docs/RECIPES.md",
+            "sha256": "ff0ab6ea8c5f50abf44ba42d9eafdc57ff5c629ab4db679b0168186b052aa17b",
+            "source_sha256": "ff0ab6ea8c5f50abf44ba42d9eafdc57ff5c629ab4db679b0168186b052aa17b",
+            "source_url": "https://github.com/xormania/uxor/blob/main/docs/RECIPES.md"
+        },
+        "docs/TESTING.md": {
+            "path": "docs/docs/TESTING.md",
+            "sha256": "3bd83279e173ea532dcac05a1aea6f9969989a76be455a812517a2b840af56d5",
+            "source_sha256": "cbfb5af9613f0609244a50db0d41e3fa714c84c8c519d48dffced23f0e8e5844",
+            "source_url": "https://github.com/xormania/uxor/blob/main/docs/TESTING.md"
+        },
+        "drawer/README.md": {
+            "path": "docs/drawer/README.md",
+            "sha256": "82ffac8ebb97cf73f3df23952590f4c78fceafcabe040556ef5ac4e525cdaf21",
+            "source_sha256": "82ffac8ebb97cf73f3df23952590f4c78fceafcabe040556ef5ac4e525cdaf21",
+            "source_url": "https://github.com/xormania/uxor/blob/main/drawer/README.md"
+        },
+        "dropdown/README.md": {
+            "path": "docs/dropdown/README.md",
+            "sha256": "08f6f970d64a3801565dc0365eb46b5b81a054db1245689904cd761923f372d3",
+            "source_sha256": "08f6f970d64a3801565dc0365eb46b5b81a054db1245689904cd761923f372d3",
+            "source_url": "https://github.com/xormania/uxor/blob/main/dropdown/README.md"
+        },
+        "dropzone/README.md": {
+            "path": "docs/dropzone/README.md",
+            "sha256": "d3e17197c72fd89f8ff8bcb60e4d0f5c3ce78f3f0a9f37da59afcb456f117a99",
+            "source_sha256": "d3e17197c72fd89f8ff8bcb60e4d0f5c3ce78f3f0a9f37da59afcb456f117a99",
+            "source_url": "https://github.com/xormania/uxor/blob/main/dropzone/README.md"
+        },
+        "editor/README.md": {
+            "path": "docs/editor/README.md",
+            "sha256": "0aa067d72757eb7175340bd3c0bb8f58762d0c65a536e16b57b62ffe2f3df6f5",
+            "source_sha256": "0aa067d72757eb7175340bd3c0bb8f58762d0c65a536e16b57b62ffe2f3df6f5",
+            "source_url": "https://github.com/xormania/uxor/blob/main/editor/README.md"
+        },
+        "empty-state/README.md": {
+            "path": "docs/empty-state/README.md",
+            "sha256": "14b4a4d27efa34ec26acb7fab3e1c56505f92b3796fa931505405e52ef5d6250",
+            "source_sha256": "14b4a4d27efa34ec26acb7fab3e1c56505f92b3796fa931505405e52ef5d6250",
+            "source_url": "https://github.com/xormania/uxor/blob/main/empty-state/README.md"
+        },
+        "floating/README.md": {
+            "path": "docs/floating/README.md",
+            "sha256": "001a5efdb89047c9b3147f004efb32b1f96c0c1c8e920c4179f33278b14f10fc",
+            "source_sha256": "001a5efdb89047c9b3147f004efb32b1f96c0c1c8e920c4179f33278b14f10fc",
+            "source_url": "https://github.com/xormania/uxor/blob/main/floating/README.md"
+        },
+        "forgot-password/README.md": {
+            "path": "docs/forgot-password/README.md",
+            "sha256": "e378e27cf5bd9ff3afeebf7189c76f4989b1e267f858d3107fd84a9e0757ab17",
+            "source_sha256": "e378e27cf5bd9ff3afeebf7189c76f4989b1e267f858d3107fd84a9e0757ab17",
+            "source_url": "https://github.com/xormania/uxor/blob/main/forgot-password/README.md"
+        },
+        "form-field/README.md": {
+            "path": "docs/form-field/README.md",
+            "sha256": "e77992465b6b9479877eab8c7cf3418d745eeb35f027f192cd324751de16f154",
+            "source_sha256": "e77992465b6b9479877eab8c7cf3418d745eeb35f027f192cd324751de16f154",
+            "source_url": "https://github.com/xormania/uxor/blob/main/form-field/README.md"
+        },
+        "form-theme/README.md": {
+            "path": "docs/form-theme/README.md",
+            "sha256": "7ca0f42b7a42730e374734260eb2b64aa389973b367b456862e7fdb49c7406d8",
+            "source_sha256": "7ca0f42b7a42730e374734260eb2b64aa389973b367b456862e7fdb49c7406d8",
+            "source_url": "https://github.com/xormania/uxor/blob/main/form-theme/README.md"
+        },
+        "indicator/README.md": {
+            "path": "docs/indicator/README.md",
+            "sha256": "2d2a6e597ad4d12f4368e76beab46527d889a93824a99c9a580031305d04664a",
+            "source_sha256": "2d2a6e597ad4d12f4368e76beab46527d889a93824a99c9a580031305d04664a",
+            "source_url": "https://github.com/xormania/uxor/blob/main/indicator/README.md"
+        },
+        "input/README.md": {
+            "path": "docs/input/README.md",
+            "sha256": "2f9f1794802a2a793bd64903b8d1f2470991df6453ca06f95897ce5924862dfc",
+            "source_sha256": "2f9f1794802a2a793bd64903b8d1f2470991df6453ca06f95897ce5924862dfc",
+            "source_url": "https://github.com/xormania/uxor/blob/main/input/README.md"
+        },
+        "kbd/README.md": {
+            "path": "docs/kbd/README.md",
+            "sha256": "cbcb607dfb0c2c88ba8cb8932faa5c0e9b52aa1fb7f01598e90a8265c4a49770",
+            "source_sha256": "cbcb607dfb0c2c88ba8cb8932faa5c0e9b52aa1fb7f01598e90a8265c4a49770",
+            "source_url": "https://github.com/xormania/uxor/blob/main/kbd/README.md"
+        },
+        "label/README.md": {
+            "path": "docs/label/README.md",
+            "sha256": "553a46f3500c93cc4f2a35963d15083978ac83b1c07f2c3f80cb9e045559df9c",
+            "source_sha256": "553a46f3500c93cc4f2a35963d15083978ac83b1c07f2c3f80cb9e045559df9c",
+            "source_url": "https://github.com/xormania/uxor/blob/main/label/README.md"
+        },
+        "layouts/README.md": {
+            "path": "docs/layouts/README.md",
+            "sha256": "c16aac068882ec963321a3675c0b13a320608b6577ac457bf644f94313c186cf",
+            "source_sha256": "c16aac068882ec963321a3675c0b13a320608b6577ac457bf644f94313c186cf",
+            "source_url": "https://github.com/xormania/uxor/blob/main/layouts/README.md"
+        },
+        "login/README.md": {
+            "path": "docs/login/README.md",
+            "sha256": "f8121a8b95bb5ed7ddf499fc668a58cd3c694c85cbf25a2db202862dd15d4687",
+            "source_sha256": "f8121a8b95bb5ed7ddf499fc668a58cd3c694c85cbf25a2db202862dd15d4687",
+            "source_url": "https://github.com/xormania/uxor/blob/main/login/README.md"
+        },
+        "markdown-editor/README.md": {
+            "path": "docs/markdown-editor/README.md",
+            "sha256": "36630b2b1f348b081583500e65050b8542b42c045434889804c5464d5c32a6cc",
+            "source_sha256": "36630b2b1f348b081583500e65050b8542b42c045434889804c5464d5c32a6cc",
+            "source_url": "https://github.com/xormania/uxor/blob/main/markdown-editor/README.md"
+        },
+        "mobile-nav/README.md": {
+            "path": "docs/mobile-nav/README.md",
+            "sha256": "a95fb34291446b4320f857521c200e3761a7b7627b3ee486b358719d8b416ba4",
+            "source_sha256": "a95fb34291446b4320f857521c200e3761a7b7627b3ee486b358719d8b416ba4",
+            "source_url": "https://github.com/xormania/uxor/blob/main/mobile-nav/README.md"
+        },
+        "modal/README.md": {
+            "path": "docs/modal/README.md",
+            "sha256": "03c06c286c5707b099626a5b2668458ddd9a9f1e9837eb7bfe2a78807b7a6272",
+            "source_sha256": "03c06c286c5707b099626a5b2668458ddd9a9f1e9837eb7bfe2a78807b7a6272",
+            "source_url": "https://github.com/xormania/uxor/blob/main/modal/README.md"
+        },
+        "nav-menu/README.md": {
+            "path": "docs/nav-menu/README.md",
+            "sha256": "4ebaee870cc5e1d9c2d2a007929e745c27b2bc74803bba5abecc9f57a731894c",
+            "source_sha256": "4ebaee870cc5e1d9c2d2a007929e745c27b2bc74803bba5abecc9f57a731894c",
+            "source_url": "https://github.com/xormania/uxor/blob/main/nav-menu/README.md"
+        },
+        "navbar/README.md": {
+            "path": "docs/navbar/README.md",
+            "sha256": "d1aec76f0e50b7fab57930c1c5221bce1d8224b3a95dd6f1d6119fc03036aba7",
+            "source_sha256": "d1aec76f0e50b7fab57930c1c5221bce1d8224b3a95dd6f1d6119fc03036aba7",
+            "source_url": "https://github.com/xormania/uxor/blob/main/navbar/README.md"
+        },
+        "navigation/README.md": {
+            "path": "docs/navigation/README.md",
+            "sha256": "0686bc2b66cdbff98de4c79dcb6c94bc69896696abcbb4831dd97419f1dcda94",
+            "source_sha256": "0686bc2b66cdbff98de4c79dcb6c94bc69896696abcbb4831dd97419f1dcda94",
+            "source_url": "https://github.com/xormania/uxor/blob/main/navigation/README.md"
+        },
+        "not-found/README.md": {
+            "path": "docs/not-found/README.md",
+            "sha256": "ebfa2a0ef654916731373485cdcc7d2ad12bf2c4205a60247cce69b026146cb5",
+            "source_sha256": "ebfa2a0ef654916731373485cdcc7d2ad12bf2c4205a60247cce69b026146cb5",
+            "source_url": "https://github.com/xormania/uxor/blob/main/not-found/README.md"
+        },
+        "oauth-provider-button/README.md": {
+            "path": "docs/oauth-provider-button/README.md",
+            "sha256": "511fcdcf119fd603511330ecd9556317e962cc34a7afd797aa77865aa06d3add",
+            "source_sha256": "511fcdcf119fd603511330ecd9556317e962cc34a7afd797aa77865aa06d3add",
+            "source_url": "https://github.com/xormania/uxor/blob/main/oauth-provider-button/README.md"
+        },
+        "oauth/README.md": {
+            "path": "docs/oauth/README.md",
+            "sha256": "dbe68e5eb4309190f55d8c48218ef8c065e1b016cba1096faec2f3f63b2868c9",
+            "source_sha256": "dbe68e5eb4309190f55d8c48218ef8c065e1b016cba1096faec2f3f63b2868c9",
+            "source_url": "https://github.com/xormania/uxor/blob/main/oauth/README.md"
+        },
+        "page-header/README.md": {
+            "path": "docs/page-header/README.md",
+            "sha256": "e43feb3ceffdeeb0557e5ad91b7badca0e953deba589c8eaae97d8ae81531fe4",
+            "source_sha256": "e43feb3ceffdeeb0557e5ad91b7badca0e953deba589c8eaae97d8ae81531fe4",
+            "source_url": "https://github.com/xormania/uxor/blob/main/page-header/README.md"
+        },
+        "pagination/README.md": {
+            "path": "docs/pagination/README.md",
+            "sha256": "ea38b18d1a99d54a148006ea3f4e6b8fc24d65e7498e093d25a95c2ade755e37",
+            "source_sha256": "ea38b18d1a99d54a148006ea3f4e6b8fc24d65e7498e093d25a95c2ade755e37",
+            "source_url": "https://github.com/xormania/uxor/blob/main/pagination/README.md"
+        },
+        "popover/README.md": {
+            "path": "docs/popover/README.md",
+            "sha256": "5344305533a5a1a607ab6ef65f35465f683feba5a6a5a7452ebd595738c2d0a0",
+            "source_sha256": "5344305533a5a1a607ab6ef65f35465f683feba5a6a5a7452ebd595738c2d0a0",
+            "source_url": "https://github.com/xormania/uxor/blob/main/popover/README.md"
+        },
+        "progress/README.md": {
+            "path": "docs/progress/README.md",
+            "sha256": "68b6b00d7aefcfbf502ab57ed66f3c118525af18d4bb20be4144c70cb64e4684",
+            "source_sha256": "68b6b00d7aefcfbf502ab57ed66f3c118525af18d4bb20be4144c70cb64e4684",
+            "source_url": "https://github.com/xormania/uxor/blob/main/progress/README.md"
+        },
+        "radio/README.md": {
+            "path": "docs/radio/README.md",
+            "sha256": "c9c38bc50c106732b8bc507f6ffd3201536b551e4a31ce141f8f7b6b5cdb3dc3",
+            "source_sha256": "c9c38bc50c106732b8bc507f6ffd3201536b551e4a31ce141f8f7b6b5cdb3dc3",
+            "source_url": "https://github.com/xormania/uxor/blob/main/radio/README.md"
+        },
+        "section-nav/README.md": {
+            "path": "docs/section-nav/README.md",
+            "sha256": "c2af930c610241579e1efa97b5314c116ff38db0d214b8eb9b3267403c421e02",
+            "source_sha256": "c2af930c610241579e1efa97b5314c116ff38db0d214b8eb9b3267403c421e02",
+            "source_url": "https://github.com/xormania/uxor/blob/main/section-nav/README.md"
+        },
+        "select/README.md": {
+            "path": "docs/select/README.md",
+            "sha256": "4cf02f4048e7f1bdbf9fb05c28635cc2651604fba4c128612236e57557e292ac",
+            "source_sha256": "4cf02f4048e7f1bdbf9fb05c28635cc2651604fba4c128612236e57557e292ac",
+            "source_url": "https://github.com/xormania/uxor/blob/main/select/README.md"
+        },
+        "settings-profile/README.md": {
+            "path": "docs/settings-profile/README.md",
+            "sha256": "c92839f5e0543a2998c7337825f957d9ad914fb10c8b4c72340bcbc83ba1363a",
+            "source_sha256": "c92839f5e0543a2998c7337825f957d9ad914fb10c8b4c72340bcbc83ba1363a",
+            "source_url": "https://github.com/xormania/uxor/blob/main/settings-profile/README.md"
+        },
+        "side-nav/README.md": {
+            "path": "docs/side-nav/README.md",
+            "sha256": "fe0ce664c9bf2b07b78fcba613a30ca0e8748071a24f39c6180c08c15cd465d5",
+            "source_sha256": "fe0ce664c9bf2b07b78fcba613a30ca0e8748071a24f39c6180c08c15cd465d5",
+            "source_url": "https://github.com/xormania/uxor/blob/main/side-nav/README.md"
+        },
+        "sidebar/README.md": {
+            "path": "docs/sidebar/README.md",
+            "sha256": "5a512e9b5d3bc40aa9791171ed59951121f508185fed6048b6aae8964d80d2f4",
+            "source_sha256": "5a512e9b5d3bc40aa9791171ed59951121f508185fed6048b6aae8964d80d2f4",
+            "source_url": "https://github.com/xormania/uxor/blob/main/sidebar/README.md"
+        },
+        "signup/README.md": {
+            "path": "docs/signup/README.md",
+            "sha256": "e04fb4f142ebc4001c42131cf419e5ccf220a2921c9f8ea4d334268e4daf1b2e",
+            "source_sha256": "e04fb4f142ebc4001c42131cf419e5ccf220a2921c9f8ea4d334268e4daf1b2e",
+            "source_url": "https://github.com/xormania/uxor/blob/main/signup/README.md"
+        },
+        "skeleton/README.md": {
+            "path": "docs/skeleton/README.md",
+            "sha256": "0f57ea18cba7d79089187ee161951cc0b04dc0675bcd122a8373f9b842923e06",
+            "source_sha256": "0f57ea18cba7d79089187ee161951cc0b04dc0675bcd122a8373f9b842923e06",
+            "source_url": "https://github.com/xormania/uxor/blob/main/skeleton/README.md"
+        },
+        "social-login/README.md": {
+            "path": "docs/social-login/README.md",
+            "sha256": "109b05dbf9c41d16f740fc5b5ea644dd63599ff9b84fbaad533f713808a75ef6",
+            "source_sha256": "109b05dbf9c41d16f740fc5b5ea644dd63599ff9b84fbaad533f713808a75ef6",
+            "source_url": "https://github.com/xormania/uxor/blob/main/social-login/README.md"
+        },
+        "spinner/README.md": {
+            "path": "docs/spinner/README.md",
+            "sha256": "f3f9e87bad6d49089627b7717bf404ce530ff321bfcb9669cbfa6192024e9590",
+            "source_sha256": "f3f9e87bad6d49089627b7717bf404ce530ff321bfcb9669cbfa6192024e9590",
+            "source_url": "https://github.com/xormania/uxor/blob/main/spinner/README.md"
+        },
+        "stat-card/README.md": {
+            "path": "docs/stat-card/README.md",
+            "sha256": "cb41cf7113fe2e3a40ee7154bd81aa08f87fca078039ca807b2c3056ba650363",
+            "source_sha256": "cb41cf7113fe2e3a40ee7154bd81aa08f87fca078039ca807b2c3056ba650363",
+            "source_url": "https://github.com/xormania/uxor/blob/main/stat-card/README.md"
+        },
+        "table/README.md": {
+            "path": "docs/table/README.md",
+            "sha256": "9ead34ea32b241fa07690391741f69330db266a327a4243ade460ee633d7e7be",
+            "source_sha256": "9ead34ea32b241fa07690391741f69330db266a327a4243ade460ee633d7e7be",
+            "source_url": "https://github.com/xormania/uxor/blob/main/table/README.md"
+        },
+        "tabs/README.md": {
+            "path": "docs/tabs/README.md",
+            "sha256": "e9ea8732a1b4c5a830322836e4b5cb699013aecc89b26d8d2bf87fb7f06d36c3",
+            "source_sha256": "e9ea8732a1b4c5a830322836e4b5cb699013aecc89b26d8d2bf87fb7f06d36c3",
+            "source_url": "https://github.com/xormania/uxor/blob/main/tabs/README.md"
+        },
+        "textarea/README.md": {
+            "path": "docs/textarea/README.md",
+            "sha256": "c5ab4f9efa4ddefc0e6e042eca56855db94be14230eda334e2e10cf99b2d7b0b",
+            "source_sha256": "c5ab4f9efa4ddefc0e6e042eca56855db94be14230eda334e2e10cf99b2d7b0b",
+            "source_url": "https://github.com/xormania/uxor/blob/main/textarea/README.md"
+        },
+        "theme-toggle/README.md": {
+            "path": "docs/theme-toggle/README.md",
+            "sha256": "57e10c637716b59013cd23da0519b9ca674c97189804a47ebb04e54ddacfd1bd",
+            "source_sha256": "57e10c637716b59013cd23da0519b9ca674c97189804a47ebb04e54ddacfd1bd",
+            "source_url": "https://github.com/xormania/uxor/blob/main/theme-toggle/README.md"
+        },
+        "theme/README.md": {
+            "path": "docs/theme/README.md",
+            "sha256": "28c483dcbc3e4968dd06eaadfdfb74390ad9a08cd4e4767c0eae39a19e3e7406",
+            "source_sha256": "28c483dcbc3e4968dd06eaadfdfb74390ad9a08cd4e4767c0eae39a19e3e7406",
+            "source_url": "https://github.com/xormania/uxor/blob/main/theme/README.md"
+        },
+        "toast/README.md": {
+            "path": "docs/toast/README.md",
+            "sha256": "09608fbf4660c7bb9e7339c45485c6f71eab9b1cc409453cd3c917b6ff233ec3",
+            "source_sha256": "09608fbf4660c7bb9e7339c45485c6f71eab9b1cc409453cd3c917b6ff233ec3",
+            "source_url": "https://github.com/xormania/uxor/blob/main/toast/README.md"
+        },
+        "toggle/README.md": {
+            "path": "docs/toggle/README.md",
+            "sha256": "ff8da8c5f07cc31fa6380ea08c29dda69c22a4fff13c268621ecae3f6588072c",
+            "source_sha256": "ff8da8c5f07cc31fa6380ea08c29dda69c22a4fff13c268621ecae3f6588072c",
+            "source_url": "https://github.com/xormania/uxor/blob/main/toggle/README.md"
+        },
+        "tooltip/README.md": {
+            "path": "docs/tooltip/README.md",
+            "sha256": "6c294d7a9139e1e0457c0045ef928a9756b2e37c75d5f82fc2085eaee58854d0",
+            "source_sha256": "6c294d7a9139e1e0457c0045ef928a9756b2e37c75d5f82fc2085eaee58854d0",
+            "source_url": "https://github.com/xormania/uxor/blob/main/tooltip/README.md"
+        },
+        "turbo/README.md": {
+            "path": "docs/turbo/README.md",
+            "sha256": "d2c7997c7228dfd50739a5e8eba7d1982f9f755183b49efd5fd79d6825a3b043",
+            "source_sha256": "d2c7997c7228dfd50739a5e8eba7d1982f9f755183b49efd5fd79d6825a3b043",
+            "source_url": "https://github.com/xormania/uxor/blob/main/turbo/README.md"
+        }
+    }
+}

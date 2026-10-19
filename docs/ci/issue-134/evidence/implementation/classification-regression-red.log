@@ -1,0 +1,35 @@
+✖ a valid report with a global error and no failed test does not claim a browser test failure (94.905576ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 180.277495
+
+✖ failing tests:
+
+test at tools/tests/release-checks-workflow.test.mjs:311:1
+✖ a valid report with a global error and no failed test does not claim a browser test failure (94.905576ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   category: 'browser test failure',
+  -   category: 'Playwright run failure (no failed test reported)',
+      step: 'Playwright (release checks)'
+    }
+  
+      at TestContext.<anonymous> (file:///workspace/uxor/tools/tests/release-checks-workflow.test.mjs:345:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { category: 'browser test failure', step: 'Playwright (release checks)' },
+    expected: { category: 'Playwright run failure (no failed test reported)', step: 'Playwright (release checks)' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

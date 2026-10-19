@@ -1024,6 +1024,47 @@ Here: [`fresh-install.sh`](../tools/tests/fresh-install.sh), [`docker-install.sh
 their shared steps [`install-scenario.sh`](../tools/tests/install-scenario.sh),
 [`check-fresh-app.sh`](../tools/tests/check-fresh-app.sh).
 
+## The Composer package
+
+**Catches:** a `composer.json` that points at a moved path, a file the package needs left out of the archive or a
+development file let into it, an operation or Mate tool that reads outside its bounds, a tampered bundled reference,
+a CLI that no longer starts.
+
+The package (`xormania/uxor`, [`PLAN-composer-package.md`](PLAN-composer-package.md)) is tested from the repository
+root, apart from the demo: `composer install`, then `composer test`, which runs PHPUnit with
+`packages/uxor/phpunit.xml.dist`. Its three classes test the operations behind the CLI and the Mate tools on
+temporary projects, without booting one: component wiring (`ComponentWiringTest`), the catalog, reads, inspection,
+the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
+(`ReferenceBundleTest`: the generator on a temporary source, two runs byte for byte, a stale input `--check` reports
+without repairing, an index that names no commit). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
+`git archive HEAD` (what GitHub serves; committed files only) and checks it against its own lists, independent of
+`.gitattributes`: the archive holds the files the script lists and every path `composer.json` declares, and nothing
+else: no development file, nothing outside the kit's root files, its recipes and the package's entries. The lists are
+the oracle for the export rules. CI's *Package* job runs them, after
+`composer validate --strict` and `php packages/uxor/tools/generate-reference.php --check` (the bundled references are
+what the generator makes of this checkout: it regenerates them into a temporary directory, compares byte for byte and
+lists the stale files), and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test.
+
+The package is also tested from the side of an application that uses it, in `packages/uxor/dev/`
+([its README](../packages/uxor/dev/README.md)). `check-package.py --consumer` installs the same archive as a Composer
+dependency in a copy of the independent consumer (`packages/uxor/dev/app`): Mate's initialization and discovery, the
+package's tools, references and skills, a repeated initialization, an update to a newer archive that keeps the
+consumer's own instructions and a custom component, then a production render without development dependencies. The
+Python tests in `packages/uxor/dev/tests/` check the development runner and the Serena harness against a mocked
+provider: that the repository, package and application roots agree, and that a wrong binding is never reported as
+success. *Package* runs both. The consumer's browser journey (`packages/uxor/dev/e2e/`, with recipes installed from
+the commit under test by `install-uxor.py`), the Docker stack and Serena run by hand for now
+([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The Composer package*).
+
+**Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
+references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
+SHA-256 of each input and of all of them (`source.inputs_sha256`, `sha256sum`'s lines for the sorted input paths,
+hashed again), and the ref their repository links use (`source.ref`, `main` unless `--ref` says otherwise).
+
+Here: [`packages/uxor/tests/`](../packages/uxor/tests/),
+[`check-package.py`](../packages/uxor/tools/check-package.py),
+[`phpunit.xml.dist`](../packages/uxor/phpunit.xml.dist), [`packages/uxor/dev/`](../packages/uxor/dev/).
+
 ## Repository security policy
 
 **Catches:** a mutable external Action, privileged pull-request workflow, broad workflow permission, remote shell pipe,
@@ -1055,6 +1096,7 @@ ours in it is news from upstream: read the versions it resolved before looking f
 | *Fresh install* | `symfony/ux-toolkit` by version | `symfony/skeleton` 7.4.\* and every other package, as for a new user | the composer steps' logs |
 | *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image (its own `Dockerfile`, by tag, pulled at build: not the demo's pinned one), every other package | the last line (`ok: Symfony …`) and the logs |
 | *Workflows*, *Contrast* | actionlint and ShellCheck by version and SHA-256; `package-lock.json` | Node 22's patch release | the job's log |
+| *Package* | the root `composer.lock`; PHP 8.4, pinned in the job (the package's minimum) | the PHP patch release; Composer 2's release | the install step's log |
 
 The moving parts are on purpose: the install jobs are the kit as a user installs it, and the toolkit is pinned
 because it is experimental (`ci.yml`, `UX_TOOLKIT_VERSION`).
@@ -1239,11 +1281,13 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 
 ### CI metrics
 
-The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache:<branch>`:
-every branch reads its own tag, then `dev` and `main` (a push run could read the GitHub Actions cache only from its own
-branch and `main`, so a new branch rebuilt from main's stale cache). Chromium's shard 1 writes the branch's tag; a failed
-write never fails the build. `monthly.yml` and `release-checks.yml` read the `dev` and `main` tags and write none; a
-workflow that reads a cache no build writes fails `tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
+The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache`, with
+two tags, `dev` and `main`, which every build reads (a push run could read the GitHub Actions cache only from its own
+branch and `main`, so a new branch rebuilt from main's stale cache). CI's *Build cache* job writes them, on pushes to
+`dev` and `main` only, and it is the only job that holds `packages: write`: no branch's run, and no package, image or
+test a run executes, holds a token that can write a package. A failed write never fails CI. `monthly.yml` and
+`release-checks.yml` read the same tags and write none; a workflow that reads a cache no build writes fails
+`tools/tests/workflow-cache.test.mjs`. Only CI writes it: a local build reads it, never pushes, since a local checkout can hold
 `.env.local` (`demo/.dockerignore` keeps it out of the image anyway). The package holds the public demo's layers; make it
 public once, in the package's settings, so it does not count against private package storage.
 
@@ -1286,9 +1330,9 @@ Playwright's `--shard=N/M` splits by test count. On the last count-split run on 
 CI now splits by time instead, with [`tools/ci/shard-plan.mjs`](../tools/ci/shard-plan.mjs) in each browser job's
 *Plan the shard's tests* step:
 
-1. Playwright lists the job's tests (`--list --reporter=json`, the same projects and `--grep-invert @release` as the
-   run), so the plan follows `playwright.config.ts`: the screenshot and `a11y.spec.ts` tests in Chromium only, the
-   release checks nowhere, a new spec at once.
+1. Playwright lists the job's tests (`--list --reporter=json`, the same projects as the run), so the plan follows
+   `playwright.config.ts`: the screenshot and `a11y.spec.ts` tests in Chromium only, the release checks nowhere (their
+   projects exist only with `RELEASE_CHECKS` set), a new spec at once.
 2. Each listed test gets its time from the committed `tests/shard-timings.json` (its last attempt in a recent run, to
    100 ms; a test with none gets its file's mean, then its project's), and the tests go longest first to the least
    loaded shard (greedy LPT; ties to the lowest shard, so every shard job computes the same plan from the same inputs).
@@ -1327,9 +1371,14 @@ verdict, and a slower run only makes the split less even, never incomplete. The 
 375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
 
 **Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
-artifact: the committed file merged with that run's durations (a browser whose every shard reported replaces its
-times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Refresh when
-the shard balance in *CI metrics* drifts or the plan asks for it, from a green run on `dev`:
+artifact: the timings the run planned from, merged with its durations (a browser whose every shard reported replaces
+its times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Each run
+plans from the newest of those: CI's *Changes* job reads `shard-timings.json` from the `ci-metrics` artifact of
+`dev`'s last green push run, checks that it is schema 1 with a time for every test, and shares it with every shard as
+the run's `shard-timings-<run>-<attempt>` artifact, so all shards plan from the same file. Without one (no green run
+yet, an expired artifact, a file that does not check out) the run plans from the committed `tests/shard-timings.json`,
+and the run's summary says which it used. The committed file is the fallback; refresh it now and then, from a green
+run on `dev`:
 
 ```bash
 gh run download <run> --pattern 'ci-metrics-*' --dir /tmp/ci-metrics
@@ -1371,36 +1420,57 @@ run with two.
 
 ### Jev diagnosis (advisory)
 
-When a job fails (for the browser shards, in CI and in the monthly *Browsers* jobs: when a test failed or was flaky), a
-later step, [`tools/ci/jev-diagnosis.mjs`](../tools/ci/jev-diagnosis.mjs), asks Jev (TypeSafe's model, pinned in
-[`tools/ci/jev-ci.json`](../tools/ci/jev-ci.json)) two questions about each failed attempt in
+When a job fails (for the browser shards, in CI, the release checks and the monthly *Browsers* jobs: when a test
+failed or was flaky), [`tools/ci/jev-diagnosis.mjs`](../tools/ci/jev-diagnosis.mjs) asks Jev (TypeSafe's model, pinned
+in [`tools/ci/jev-ci.json`](../tools/ci/jev-ci.json)) two questions about each failed attempt in
 `failed-attempts.json`, retry-recovered ones included: which category of the policy's rubric the cause likely belongs
 to (`environment_failure`, `product_defect`, `test_defect`, `timing_assertion`, or `unknown`), and which of the
 supplied excerpts best helps investigate it (or none). It is a starting hypothesis for whoever investigates, not a
-verdict: the test result decides, the step may fail or time out (110 seconds, 3 minutes with its upload, which each
-job's `timeout-minutes` counts) without changing the job, and a missing key, a provider error or an answer that does
-not validate gives an *unavailable* assessment, never a failure.
+verdict: the test result decides, nothing waits for the diagnosis, and a missing key, a provider error or an answer
+that does not validate gives an *unavailable* assessment, never a failure.
 
-Every job calls the same step, the composite action
-[`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml): it builds the job's
-`failed-attempts.json`, runs the diagnosis and uploads the assessments. The attempts come from one of three places:
+It runs in two places, keeping the producer's workflow and tested code away from the key:
+
+1. **In the failed job, without the key:** the composite action
+   [`.github/actions/jev-diagnosis`](../.github/actions/jev-diagnosis/action.yml) builds the job's
+   `failed-attempts.json`, copies its server log and uploads both, with the job's name and shard, as
+   `jev-input-<workflow>-<job>-<run>-<attempt>` (kept 3 days).
+2. **In an independent *Jev diagnosis* workflow, with the key:**
+   [`.github/workflows/jev.yml`](../.github/workflows/jev.yml) runs after a producing workflow completes. GitHub's
+   `workflow_run` event loads this YAML from the default branch (`main`), so a pull request cannot replace the
+   secret-bearing consumer by editing a relative reusable workflow. On a fresh runner where no package, image or
+   test has run, it downloads only the source run ID and attempt's `jev-input` artifacts into the runner's temporary
+   directory. Every producer key is included: a *Release* run can also hold the nested *Pages* build's inputs.
+   Artifacts are data, never executable code, and stay outside the trusted checkout. The diagnosis runs `tools/ci`
+   from the literal `main` branch when the source ran on `main`, or literal `dev` otherwise. No artifact, pull request
+   field or source SHA chooses the executable code. Its assessments are the `jev-run-<source run>-<source attempt>`
+   artifact. Assessment provenance identifies the source SHA, run ID and attempt; the consumer's default-branch
+   commit never substitutes for the code that was tested. A change to the diagnosis script becomes active after it reaches the selected trusted branch; its
+   cases run on the change itself. Fork-head runs are skipped, preserving the same-repository credential boundary.
+
+The attempts come from one of three places:
 
 | Job | Its failed attempts | Server log | Artifact |
 |---|---|---|---|
-| *Demo + Playwright*, monthly *Browsers* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-<browser>-<shard>-<run>-<attempt>`, `monthly-jev-<kind>-<browser>-<shard>` |
-| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-phpunit-<run>-<attempt>` |
-| *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-tools-<run>-<attempt>` |
-| *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-<job id>-<run>-<attempt>` |
+| *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-chromium-…` |
+| *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
+| *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
 What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
-log (a checkout, a tool's download) gets no diagnosis: the step writes nothing to the summary and uploads nothing.
+log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing, and the consumer finds nothing.
+
+The newly collecting *Changes*, audit, *Mentions* and monthly PHP jobs reserve three minutes beyond their original
+job limits for the collector and its upload. *Mentions* also uses the checker's `--redact` option before capturing
+its output: rejected account tokens become a neutral marker, while the source, line, column, destination and failure
+status remain. The captured attempts and any Jev excerpts therefore cannot publish those rejected references again.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*
-  section on the run's *Summary* page; and the `jev-<browser>-<shard>-<run>-<attempt>` artifact, kept 30 days, with one
-  `attempts/<NN>-<test>/assessment.json` per failed attempt (the request sent, the validated answer with its
+  section on the independent *Jev diagnosis* run's *Summary* page; and the `jev-run-<source run>-<source attempt>` artifact, kept 30
+  days, with, per collected job, one `attempts/<NN>-<test>/assessment.json` per failed attempt (the request sent, the validated answer with its
   probabilities, the policy, the model, the elapsed time) and `summary.md`.
 - **Confidence:** each answer comes with Jev's confidence. Below 0.65 (the policy's `min_confidence`) the category is
   shown as `unknown` and no excerpt is selected; the answer itself stays in `assessment.json`. The threshold decides
@@ -1410,6 +1480,10 @@ log (a checkout, a tool's download) gets no diagnosis: the step writes nothing t
   *not assessed: cap*. Attempts left when the 90-second budget runs out are *not assessed: deadline*. Each request
   holds at most 8 excerpts and 28,000 bytes (server log excerpts are dropped first, then error excerpts, and the
   omissions are recorded); one retry on 429 or 529, 8 seconds per request.
+  Across all collected jobs, the workflow spends at most 10 minutes diagnosing them, within its 15-minute job.
+  Each command gets at most 110 seconds and no more than the total budget remaining. Budget exhaustion warns and
+  leaves later jobs without assessments; completed assessments are still uploaded. The diagnosis step has an
+  11-minute limit, leaving at least four minutes for setup and upload.
 - **What leaves the runner:** the attempt's identity (file, line, title, project, retry, outcome), excerpts of its
   error and of the demo's server log during the attempt (`docker compose logs --timestamps php`, ±5 seconds), sent to
   TypeSafe. For a failed step, its error is its name, its command as the workflow writes it (not the values of its
@@ -1417,11 +1491,29 @@ log (a checkout, a tool's download) gets no diagnosis: the step writes nothing t
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is given to this step alone (`pages.yml` receives it from `release.yml` for its build's
-step, and for nothing else); without it (a fork's run, for instance) every attempt is *unavailable
+The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone. Producers neither read it nor forward it;
+`tools/security-policy.mjs` checks that boundary. Without a configured key, every collected attempt is *unavailable
 (missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
 them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
+
+**Rollout and secret scope.** The independent consumer starts only after `jev.yml` reaches the default branch through
+the normal release. A branch or `dev` copy cannot register a `workflow_run` consumer; until that release, producers
+still upload their inputs but this new consumer does not run. The old secret-bearing caller jobs are removed.
+This change closes the producer's relative-workflow path; it does not make repository secrets inaccessible to a
+malicious collaborator who can add another workflow on a branch. To enforce that stronger boundary, the owner moves
+the key to a dedicated environment, restricts deployment branches to the protected default branch, removes any
+repository or organization copy available to this repository, and configures the diagnosis job to use that
+environment. Optional required reviewers add approval before secret access. Never claim that a code condition or
+trusted checkout alone enforces this repository setting.
+
+The workflow's data boundary is exercised by `tools/tests/jev-boundary.test.mjs`: hostile branch names cannot choose
+a checkout; source run and attempt select the download; both release and nested gallery inputs reach only the trusted
+script, even with executable artifact files and shell syntax in metadata. The existing diagnosis cases verify its
+request sanitization and bounded transport. The consumer restores no dependency cache and installs no project code.
+See GitHub's [reusable workflow resolution](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
+[workflow_run event and artifact example](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run),
+and [environment secret protection](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments).
 
 ## Monthly job
 
@@ -1492,7 +1584,7 @@ php tools/monthly/php-scope.php coverage/php
 node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml
 (cd demo && php /path/to/infection.phar --configuration=../coverage/php/infection.json5 --threads=max)
 node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json
-JS_COVERAGE=$PWD/coverage/js/raw DEMO_URL=https://localhost npx playwright test --project=smoke --project=examples --grep-invert @release   # Chromium projects; add --shard as in CI
+JS_COVERAGE=$PWD/coverage/js/raw DEMO_URL=https://localhost npx playwright test --project=smoke --project=examples   # Chromium projects; add --shard as in CI
 node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw
 node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-coverage.json \
     --infection coverage/php/infection-summary.json --js coverage/js/js-coverage.json [--previous monthly.json]
@@ -1513,33 +1605,63 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 
 [`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request
 (`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
-(Actions › *Release checks* › *Run workflow*). A passing scheduled or manual run (never a pull request's) uploads a
-`release-checks-passed-<sha>` artifact; the daily run counts one only from a successful scheduled or manual run of this
-workflow in this repository, and stops in seconds when it finds one. The *Release suite* job sets up the demo as CI's
-browser job does and runs `RELEASE_CHECKS=1 npx playwright test --grep @release` with the `smoke`,
-`smoke-dark@release` and `harsh@release` projects named (a missing one is an error), then checks the structural
-evidence ([`tools/ci/release-evidence.mjs`](../tools/ci/release-evidence.mjs): each project ran a test, each release
-spec ran and skipped none), then the PHPUnit properties with a random seed (`--fail-on-empty-test-suite`). CI's browser
-job leaves the same tests out (`--grep-invert @release`). The required check is the *Release checks* job, which runs
+(Actions › *Release checks* › *Run workflow*). A passing scheduled run uploads a
+`release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful scheduled run of this workflow
+in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
+a change to either the target or the workflow requires another real scheduled pass.
+
+The workflow resolves the expected target once. Its checkout independently trusts only `refs/heads/dev` for a
+schedule, or the immutable triggering event SHA for a manual or pull-request run; the resolver output cannot select
+another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
+expected SHA before setup or tests run. If `dev` advances between resolution and checkout, the run fails closed and
+must retry. This branch boundary matters even without an explicit cache-save action: scheduled jobs have the default
+branch's cache scope. The runner, structural-evidence checker and diagnostic tools come from a separate checkout at
+`github.workflow_sha`; the evidence checker is resolved beside the runner, independently of a missing or modified
+target helper. Event,
+workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
+This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
+
+After preparing the demo, [`tools/ci/release-checks.mjs`](../tools/ci/release-checks.mjs) discovers the target's
+Playwright project contract and launches all three release projects with one worker. Current checkouts use
+`release`, `release-dark` and `release-harsh`. A temporary bridge also supports the exact legacy family on older
+`main` checkouts, including its legacy tag filter. Unknown, partial or mixed families and discovery errors fail;
+a failed suite never retries with another family. The saved `release-selection.json` supplies the same project
+and required-spec contract to structural evidence: every project ran a test and every release spec ran without
+skips. Missing reports remain fatal. Remove the legacy bridge when the supported `main` contract is retired.
+
+The PHPUnit properties still run with a random seed and `--fail-on-empty-test-suite`. CI's browser job never runs
+the release projects: they exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
+The required check is the *Release checks* job, which runs
 whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
 reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
 result artifacts and the passed marker are advisory: their upload never decides the verdict.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
+Issue updates identify the first failed step and failure category. Missing browser reports retain unavailable counts
+and seeds. A valid report with a global setup/run error and no reported failed test remains a general
+Playwright run failure; a parsed report alone does not establish that a browser test failed. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
+was written; the command's original exit status remains the verdict.
+
+**Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch.
+Merging the fix into `dev` alone does not repair the running scheduler. Promote the workflow and its control tools
+to `main` through the normal release process, then verify a fresh scheduled run against a recorded `dev` SHA actually
+executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
+close that operational acceptance gap. This change does not merge or dispatch a workflow automatically. The
+[issue 134 proof and coverage bundle](ci/issue-134/README.md) includes replay instructions, red/green receipts,
+coverage overlap, CI timing observations and the remaining acceptance matrix.
 
 | Group | Where | What it checks |
 |---|---|---|
 | Timings | [`release.timings.spec.ts`](../tests/e2e/release.timings.spec.ts) | The key transitions of the data table in a frame and in Live (sort, page, filter), the editor (typing, bold), the Markdown editor (typing, the preview), the forms page (an invalid submit) and the `/demo` dashboard (a Turbo visit and Back), each run 5 times on a fresh page, timed by the interaction-count harness (`trackCounts().time()`, [`counts.ts`](../tests/e2e/counts.ts)): the duration until the update it waits for has landed, the longest interaction (INP), the total blocking time, and Chromium's style, layout and script time over the step |
 | Long session | [`release.long-session.spec.ts`](../tests/e2e/release.long-session.spec.ts) | 50 Turbo visits and Backs across eight lab and form pages in one document; then, after the caches are dropped and a forced collection, `Memory.getDOMCounters` (documents, nodes, listeners) and the JS heap back at their level after two warm-up rounds, within the tolerance the spec states, the numbers in its `long-session` annotation |
-| Harsh conditions | the `harsh@release` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](../tests/e2e/fixtures.ts)): their behavior holds |
-| Wide matrices | the `smoke-dark@release` project | The overlay specs (dropdown, modal, drawer, popover, tooltip, their Live labs) and the editor specs again in the dark theme; `smoke` runs them in the light one |
+| Harsh conditions | the `release-harsh` project | The data tables, the editor, the date picker, the autocomplete and the chart specs again, with the CPU 4 times slower (`Emulation.setCPUThrottlingRate`), DevTools' "Slow 4G" network and a phone's viewport (`harshConditions`, [`fixtures.ts`](../tests/e2e/fixtures.ts)): their behavior holds |
+| Wide matrices | the `release-dark` project | The overlay specs (dropdown, modal, drawer, popover, tooltip, their Live labs) and the editor specs again in the dark theme; `smoke` runs them in the light one |
 | Fuzzing | [`release.fuzz.spec.ts`](../tests/e2e/release.fuzz.spec.ts) | Seeded, 30 s per target (`FUZZ_BUDGET_MS`). Random query strings on the data table pages and random values for the Live data table's writable props, sent as the live controller sends them; random form posts on `/forms` and the lab's POST forms (long strings, unicode, markup, arrays where a value is expected, fields left out; the CSRF field kept, and one post in three through the page's own form in the browser): no 5xx, no slow answer, no injected element or handler, no CSP violation or console error. UI runs on the lab pages: random clicks (on controls and links that stay in the lab), keys, Back, Forward, the theme toggle and the system theme, each followed by a wait for the page to settle: no console or page error, and one Stimulus controller per element and identifier |
 | Properties | [`demo/tests/Property/`](../demo/tests/Property/) (`--group property`) | `TableQuery::fromValues()` on any values and any table: the offset stays below `maxRows()`; the editor's HTML policy and the Markdown renderer on random hostile markup: no `<script>`, `on*` attribute or unsafe link, and the output is stable when sanitized again. CI runs them with a fixed seed and 300 runs; the release checks with a random seed and 2000 |
 
-A project's name is part of its tests' titles, so `@release` in `harsh@release` and `smoke-dark@release` tags every
-test they run; Firefox's and WebKit's projects leave `@release` out. Neither project compares screenshots: the
-baselines are the light theme's, at desktop and example sizes. The monthly job's Chromium coverage run leaves
-`@release` out, as CI does: with V8 coverage recording, the long session's first visit never loaded and the test
-ran out of its five minutes (monthly run 1, twice).
+The release checks are selected by file and project, never by a Playwright tag: a tag starts with an at-sign, and
+that text, copied into a commit message or a pull request, reads as a GitHub account reference (`CONTRIBUTING.md`,
+*Commits and pull requests*). No release project compares screenshots: the baselines are the light theme's, at desktop
+and example sizes. The monthly job's coverage run, like CI, has no release project to run.
 
 **Report only, for now.** The timings never fail a run: each timed step's metrics are printed against
 [`tests/perf/baseline.json`](../tests/perf/baseline.json) in the job summary
@@ -1555,7 +1677,7 @@ whose inline styles the demo's policy blocks: the form fuzzing checks markup and
 (a 2xx, a redirect, the form's 422) and the status alone on the others; the browser gets a 400's status with an empty
 page.
 
-**Replaying.** Fuzzing and the properties print their seed: `SEED=<seed> npx playwright test tests/e2e/release.fuzz.spec.ts`
+**Replaying.** Fuzzing and the properties print their seed: `RELEASE_CHECKS=1 SEED=<seed> npx playwright test tests/e2e/release.fuzz.spec.ts --project=release`
 or `SEED=<seed> PROPERTY_RUNS=2000 bin/phpunit --group property` (in `demo/`) runs the same values again. A failure
 found becomes a tier 1 test once fixed (the first: `EditorHtmlPolicyTest`'s "a heading in an unwrapped block in a
 heading", from `MarkupPropertyTest`).
@@ -1563,18 +1685,22 @@ heading", from `MarkupPropertyTest`).
 **The long session in this demo.** The demo runs Symfony's dev environment, where Stimulus logs every connect with its
 element; with the console recorded, as Playwright records it, each logged element keeps its detached page alive. The
 spec turns Stimulus' debug log off and discards the console's messages before each reading, so it measures what the
-page keeps. `Memory.prepareForLeakDetection` crashes Chromium 145's renderer (Playwright 1.58): the spec tries it in a
-page of its own and, where it fails, drops the same caches with `Memory.simulatePressureNotification`.
+page keeps. `Memory.prepareForLeakDetection` crashes the pinned Chromium 145.0.7632.6 renderer (Playwright 1.58.2),
+and its optional capability probe can consume most of the session's time budget. That exact build uses the existing
+`Memory.simulatePressureNotification` fallback directly, before the same forced collections and counter assertions.
+Other builds still probe the detector in a separate context and use the fallback when it fails. The annotation reports
+the selected mode. Unit cases in `tools/tests/leak-detector.test.mjs` cover selection; the unchanged long-session test
+checks the actual retained DOM and heap.
 
 **Locally**, with the demo up (`DEMO_URL=https://localhost` for the Docker demo):
 
 ```sh
-RELEASE_CHECKS=1 npx playwright test --grep @release --workers=1     # every release check (RELEASE_CHECKS adds the dark and harsh projects), Chromium, as CI runs them (one worker: the timings must not share the machine)
-npx playwright test tests/e2e/release.long-session.spec.ts --project=smoke
-FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=smoke
+RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # every release check, Chromium, as CI runs them (one worker: the timings must not share the machine)
+RELEASE_CHECKS=1 npx playwright test tests/e2e/release.long-session.spec.ts --project=release
+RELEASE_CHECKS=1 FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=release
 (cd demo && SEED=$RANDOM PROPERTY_RUNS=2000 bin/phpunit --group property)
 # the timings against the baseline, and a baseline recorded from them (one worker: the timings are the point)
-PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/timings.json npx playwright test tests/e2e/release.timings.spec.ts --project=smoke --workers=1 --reporter=json
+RELEASE_CHECKS=1 PLAYWRIGHT_JSON_OUTPUT_NAME=test-results/timings.json npx playwright test tests/e2e/release.timings.spec.ts --project=release --workers=1 --reporter=json
 node tools/ci/release-timings.mjs --baseline tests/perf/baseline.json test-results/timings.json
 node tools/ci/release-timings.mjs --record tests/perf/baseline.json --commit "$(git rev-parse HEAD)" test-results/timings.json
 ```
@@ -1588,3 +1714,28 @@ report says to record it again. The first file was recorded locally on `dev` (`3
 development machine, one worker) with harness 1, whose duration ended before the frame that presents the update; harness
 2 counts that frame, so the report waits for CI's first `record` run, whose machine also sets the numbers the
 tolerances will be read against.
+
+## Mocked provider authentication
+
+**Catches:** a sign-in demonstration that bypasses the installed callback or only renders a public dashboard, a
+provider handoff accidentally fetched by Turbo, a lost protected-page destination, or an expired session trapped
+inside a Frame.
+
+The OAuth demo uses a dedicated firewall and session-backed example account store. A local consent page creates a
+one-use provider grant bound to the verifier, nonce and callback. The actual OAuthClient, controller and authenticator
+consume it and establish Symfony's session; a subsequent protected request forces the configured user provider to
+reload the user. Adapter tests separately run real League code exchanges through mocked HTTP and real signed Google
+JWTs. No browser acceptance journey calls loginUser or treats an arbitrary callback query as an identity.
+
+A local mock must not send a token HTTP request back into the same single-process PHP test server: that deadlocks.
+Keep local browser consent and substitute the remote transport or provider boundary. Use the existing markDocument
+helper to establish the full handoff and later retained-document Turbo visit. Clearing real session cookies before a
+protected Frame request proves authentication recovery without fabricating a login response. The detailed callback
+validation matrix stays in PHPUnit; browser tests own the observable journeys.
+
+Here: `demo/tests/OAuth/ProviderTest.php`, `demo/tests/OAuth/OAuthFlowTest.php` and `tests/e2e/oauth.spec.ts`.
+
+The shared fresh-install scenario also installs `oauth`, then binds a disposable application's own user/store and
+provider fixture. The smoke check starts from an anonymous protected request, follows the installed start and callback
+routes, checks the exact saved query string, and makes a separate protected request to prove user-provider refresh.
+Both existing install lanes run these checks; no additional CI job or duplicated callback matrix is needed.

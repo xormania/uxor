@@ -1,0 +1,22 @@
+{
+  "command": [
+    "python3",
+    "/workspace/uxor/docs/ci/issue-134/reproduce.py"
+  ],
+  "cwd": "/tmp",
+  "exit_status": 0,
+  "output": "/tmp/uxor-issue134-proof-g60on_or",
+  "script_sha256": "aa897d58473ccd08b2e9e64b326bd36db3fc41cfcf17bfcbbcd173c215f29dd9",
+  "replay_receipts": 14,
+  "log_hashes_verified": true,
+  "focused_snapshot": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+  "focused_tests": {
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0
+  },
+  "output_guards": {
+    "nonempty_rejected_file_preserved": true,
+    "in_checkout_rejected": true
+  }
+}

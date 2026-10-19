@@ -1,0 +1,4 @@
+symfonycasts_tailwind:
+    input_css: 'assets/styles/workflow.css'
+    binary: '%env(default::TAILWIND_BINARY)%'
+    binary_version: 'v4.3.3'

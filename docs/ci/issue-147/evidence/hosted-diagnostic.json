@@ -1,0 +1,152 @@
+{
+  "schema": 1,
+  "observedAt": "2026-10-17T03:31:15.235254+00:00",
+  "runId": 38997813082,
+  "head": "6e3920fd750e2edbb547f50e36eb5b0bc6475b31",
+  "conclusion": "success",
+  "sourceLog": "release-suite.log",
+  "sourceLogSha256": "515372420585fee0f399388087229601fef4f0919bb2eb3dcb191fb994aa0ec2",
+  "browserCounts": {
+    "passed": 136,
+    "failed": 0,
+    "flaky": 0,
+    "skipped": 0,
+    "source": {
+      "line": 2228,
+      "text": "2026-10-17T03:29:30.6462589Z | 136 | 0 | 0 | 0 |"
+    }
+  },
+  "longSession": {
+    "displayedDurationSeconds": 236.5,
+    "durationSource": {
+      "line": 2247,
+      "text": "2026-10-17T03:29:30.6473422Z | 236.5 s | 1 | [release] tests/e2e/release.long-session.spec.ts:279 \u203a release long session \u203a 50 Turbo visits and Backs leave the DOM counters and the JS heap at their level |"
+    },
+    "phaseSummary": {
+      "sourceLine": 1754,
+      "testedSha": "6e3920fd750e2edbb547f50e36eb5b0bc6475b31",
+      "project": "release",
+      "retry": 0,
+      "workerIndex": 0,
+      "utc": "2026-10-17T03:18:08.306Z",
+      "elapsedMs": 220226,
+      "remainingBudgetUpperBoundMs": 79774,
+      "phase": "main.goto",
+      "event": "summary",
+      "requestsStarted": 52,
+      "responses": 52,
+      "requestsFinished": 52,
+      "requestsFailed": 0,
+      "probe.crash": 1,
+      "probe.close": 1,
+      "probe.context.close": 1,
+      "main.commit": 2,
+      "main.domcontentloaded": 1,
+      "main.load": 1,
+      "phases": [
+        {
+          "name": "probe.context.create",
+          "completed": true,
+          "phaseElapsedMs": 9
+        },
+        {
+          "name": "probe.page.create",
+          "completed": true,
+          "phaseElapsedMs": 29
+        },
+        {
+          "name": "probe.cdp.create",
+          "completed": true,
+          "phaseElapsedMs": 3
+        },
+        {
+          "name": "probe.prepare",
+          "completed": false,
+          "phaseElapsedMs": 218990
+        },
+        {
+          "name": "probe.context.close",
+          "completed": true,
+          "phaseElapsedMs": 55
+        },
+        {
+          "name": "main.goto",
+          "completed": true,
+          "phaseElapsedMs": 1137
+        }
+      ],
+      "pendingRequests": 0,
+      "pendingSample": [],
+      "pendingSampleTruncated": false,
+      "omitted": 0
+    },
+    "reportedMode": "Memory.simulatePressureNotification (the leak detector crashes this Chromium)",
+    "counters": {
+      "documents": {
+        "level": 5,
+        "after": 5,
+        "change": 0,
+        "limit": 5
+      },
+      "nodes": {
+        "level": 6969,
+        "after": 6969,
+        "change": 0,
+        "limit": 7517
+      },
+      "jsEventListeners": {
+        "level": 34,
+        "after": 34,
+        "change": 0,
+        "limit": 56
+      },
+      "jsHeapUsedSize": {
+        "level": 5520404,
+        "after": 6073336,
+        "change": 552932,
+        "limit": 6596732
+      }
+    },
+    "counterSource": {
+      "line": 1756,
+      "text": "2026-10-17T03:18:24.5620430Z long session, 50 visits and Backs (caches dropped by Memory.simulatePressureNotification (the leak detector crashes this Chromium)): {\"documents\":{\"level\":5,\"after\":5,\"change\":0,\"limit\":5},\"nodes\":{\"level\":6969,\"after\":6969,\"change\":0,\"limit\":7517},\"jsEventListeners\":{\"level\":34,\"after\":34,\"change\":0,\"limit\":56},\"jsHeapUsedSize\":{\"level\":5520404,\"after\":6073336,\"change\":552932,\"limit\":6596732}}"
+    },
+    "heartbeatCount": 7,
+    "probePrepareHeartbeatsAllNoRequests": true
+  },
+  "phpProperties": {
+    "seed": 768870151,
+    "propertyRuns": 2000,
+    "tests": 4,
+    "assertions": 32003,
+    "seedSource": {
+      "line": 1919,
+      "text": "2026-10-17T03:29:27.1547240Z Property tests: SEED=768870151 PROPERTY_RUNS=2000"
+    },
+    "resultSource": {
+      "line": 1929,
+      "text": "2026-10-17T03:29:29.6072051Z OK (4 tests, 32003 assertions)"
+    }
+  },
+  "fuzz": {
+    "seed": 1121016966,
+    "source": {
+      "line": 1707,
+      "text": "2026-10-17T03:12:24.2137913Z fuzz: SEED=1121016966 (replay with SEED=1121016966), budget 30000 ms per target"
+    }
+  },
+  "timing": {
+    "runSeconds": 1107.0,
+    "suiteSeconds": 1094.0,
+    "setupSeconds": 56.0,
+    "browserSeconds": 1032.0,
+    "afterBrowserSeconds": 6.0
+  },
+  "limits": [
+    "Optional telemetry adds observations; this passing run is diagnostic evidence, not a fix validation.",
+    "The 218990ms failed probe is directly measured in this run, but previous failed runs lack phase telemetry and remain distinct evidence.",
+    "No initial navigation was pending during the observed probe wait; main.goto later completed in1137ms.",
+    "The notice API returned no live annotations and exposed all four custom notices only after the job completed.",
+    "Actual artifact ZIP contents remain undownloaded; official workflow-log archive succeeded and its suite entry was extracted after path/size validation."
+  ]
+}

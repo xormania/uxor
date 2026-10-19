@@ -1,0 +1,27 @@
+services:
+    _defaults: { autowire: true, autoconfigure: true }
+
+    # The demo substitutes only the remote provider. The installed callback and Symfony firewall stay real.
+    app.oauth_demo.github:
+        class: App\OAuth\MockProvider
+        arguments: { $provider: github }
+        tags: [uxor.demo.oauth_provider]
+    app.oauth_demo.google:
+        class: App\OAuth\MockProvider
+        arguments: { $provider: google }
+        tags: [uxor.demo.oauth_provider]
+    app.oauth_demo.facebook:
+        class: App\OAuth\MockProvider
+        arguments: { $provider: facebook }
+        tags: [uxor.demo.oauth_provider]
+
+    App\UXor\OAuth\ProviderRegistry:
+        arguments:
+            $providers: ['@app.oauth_demo.github', '@app.oauth_demo.google', '@app.oauth_demo.facebook']
+    App\UXor\OAuth\OAuthAttemptStore: ~
+    App\UXor\OAuth\OAuthClient: ~
+    App\UXor\OAuth\IdentityStoreInterface: '@App\OAuth\DemoIdentityStore'
+    App\UXor\OAuth\OAuthAuthenticator:
+        arguments: { $loginRoute: app_oauth_demo_login }
+    App\UXor\OAuth\OAuthController:
+        arguments: { $loginRoute: app_oauth_demo_login, $defaultTargetRoute: app_oauth_demo_account }

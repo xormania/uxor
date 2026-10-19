@@ -1,0 +1,14 @@
+{% extends 'base.html.twig' %}
+{% block stylesheets %}<link rel="stylesheet" href="{{ asset('styles/workflow.css') }}">{% endblock %}
+{% block title %}Customers — UXor consumer{% endblock %}
+{% block body %}
+    <main>
+        <h1 class="mb-4 text-3xl font-semibold text-heading">Customers</h1>
+        <p class="mb-6 text-body">A complete application workflow using normally installed UXor components.</p>
+        <p class="mb-4"><a href="{{ path('development_home') }}">Development home</a></p>
+        {% for message in app.flashes('success') %}<twig:Toast:Stream variant="success">{{ message }}</twig:Toast:Stream>{% endfor %}
+        {{ include('customer/_table.html.twig') }}
+        <turbo-frame id="customer-editor"></turbo-frame>
+    </main>
+    <twig:ToastRegion />
+{% endblock %}

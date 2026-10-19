@@ -1,0 +1,7 @@
+# Compact evidence scope
+
+JSON receipts and small unit logs preserve original proof data. Full hosted logs, generated Playwright results/directories, trace ZIPs, copied binaries, dependencies and compiled assets are not shipped. Embedded command/cwd/raw-file paths describe original execution context; their hashes identify unshipped raw sources, not required bundle inputs. [Source index](source-index.json) hashes copied receipt bytes; [bundle hashes](bundle-hashes.json) cover every shipped file except the manifest itself.
+
+Hosted URLs: [failed acceptance](https://github.com/xormania/uxor/actions/runs/38994766044), [instrumented diagnostic](https://github.com/xormania/uxor/actions/runs/38997813082). Their structured summaries include source-log SHA256s and line observations. Hosted diagnostic telemetry is primitive event/timing data, not retained DOM handles. Native sentinel trace hashes identify locally inspected artifacts; hosted artifact metadata remains unverified contents.
+
+[Unit snapshots](unit-cases.mjs), [old adapted module](old-module.mjs), [actual fixed module](fixed-module.mjs) are only replay inputs. The replay imports neither a browser package nor a network service. Original source lives at [production helper](../../../../tests/e2e/leak-detector.mjs) and [permanent tests](../../../../tools/tests/leak-detector.test.mjs). This directory is excluded from the consumer archive by the existing docs export boundary.

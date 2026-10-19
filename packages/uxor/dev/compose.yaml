@@ -1,0 +1,33 @@
+services:
+  php:
+    image: ${UXOR_DEV_PHP_IMAGE:?use packages/uxor/dev/run.py to select the locked image}
+    platform: linux/amd64
+    working_dir: /workspace/packages/uxor/dev/app
+    environment:
+      PUID: ${UXOR_DEV_UID:-1000}
+      PGID: ${UXOR_DEV_GID:-1000}
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      XDEBUG_MODE: "off"
+      COMPOSER_CACHE_DIR: /home/dev/.cache/composer
+    volumes:
+      # the whole repository: the consumer installs the package from its root (a Composer path repository)
+      - ../../..:/workspace
+      - ./Caddyfile:/etc/frankenphp/Caddyfile:ro
+      - composer_cache:/home/dev
+      - caddy_data:/data
+      - caddy_config:/config
+    ports:
+      - "127.0.0.1:${UXOR_DEV_HTTP_PORT:-21080}:8080"
+    command: ["frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile"]
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1:8080/health') === 'uxor-ready' ? 0 : 1);"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+
+volumes:
+  composer_cache:
+  caddy_data:
+  caddy_config:

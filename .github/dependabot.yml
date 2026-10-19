@@ -1,6 +1,8 @@
 # Weekly update pull requests, one per ecosystem: the GitHub Actions (pinned by commit, with the version in a comment),
-# the npm packages of the Playwright tests and the demo's base images (demo/Dockerfile, pinned by digest: a new digest
-# for the same tag, or a newer tag), against `dev` like any pull request. CI runs on each; nothing merges on its own.
+# the npm packages of the Playwright tests, the Composer package's development lock file (composer.lock, which the
+# Package job installs; users resolve composer.json's ranges themselves) and the demo's base images (demo/Dockerfile,
+# pinned by digest: a new digest for the same tag, or a newer tag), against `dev` like any pull request. CI runs on
+# each; nothing merges on its own.
 # The browser image is not here: its tag follows @playwright/test (tools/playwright-image.json, docs/NOTES.md).
 version: 2
 updates:
@@ -29,6 +31,17 @@ updates:
           - dependency-name: '@playwright/test'
       groups:
           npm:
+              patterns: ['*']
+
+    - package-ecosystem: composer
+      directory: /
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+      groups:
+          composer:
               patterns: ['*']
 
     - package-ecosystem: docker

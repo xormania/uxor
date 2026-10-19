@@ -1,0 +1,5 @@
+<turbo-stream action="replace" target="customers"><template>{{ include('customer/_table.html.twig') }}</template></turbo-stream>
+<turbo-stream action="replace" target="customer-editor"><template>
+    <turbo-frame id="customer-editor" data-controller="customer-saved" data-customer-saved-id-value="{{ customer.id }}"></turbo-frame>
+</template></turbo-stream>
+<twig:Toast:Stream variant="success" timeout="0">Customer saved.</twig:Toast:Stream>

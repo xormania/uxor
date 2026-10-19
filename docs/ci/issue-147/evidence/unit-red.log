@@ -1,0 +1,25 @@
+✖ the known crashing Chromium build uses the fallback without opening a probe (1.172509ms)
+✔ another build still proves that its detector and renderer work before selecting it (0.94282ms)
+✔ an unsupported detector in another build still falls back and closes its context (0.202485ms)
+✔ a detector that loses its renderer is not selected (1.338257ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 86.506718
+
+✖ failing tests:
+
+test at tools/tests/leak-detector.test.mjs:36:1
+✖ the known crashing Chromium build uses the fallback without opening a probe (1.172509ms)
+  Error: the known crashing renderer must not be started
+      at Object.newContext (file:///workspace/scratch/uxor-release-red-2026-10-16/unit-red-green/red/tools/tests/leak-detector.test.mjs:42:19)
+      at leakDetectorRuns (file:///workspace/scratch/uxor-release-red-2026-10-16/unit-red-green/red/tests/e2e/leak-detector.mjs:2:35)
+      at TestContext.<anonymous> (file:///workspace/scratch/uxor-release-red-2026-10-16/unit-red-green/red/tools/tests/leak-detector.test.mjs:45:24)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)

@@ -1,0 +1,313 @@
+{
+  "schema": 1,
+  "observedAt": "2026-10-17T02:55:09.161784+00:00",
+  "runId": 38994766044,
+  "runAttempt": 1,
+  "event": "pull_request",
+  "headBranch": "dev",
+  "apiHeadSha": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+  "testedCheckoutSha": "f69b17fc9b252e2c1b99e05b26d1a6a61e2215bd",
+  "testedRef": "148/merge",
+  "conclusion": "failure",
+  "sourceLog": "release-suite-run-archive.log",
+  "sourceLogSha256": "5e867347c977173a31396341ab468b5f6fc3990cc1f56c8e40d02325353fc810",
+  "provenanceSource": {
+    "line": 3108,
+    "text": "2026-10-17T02:48:09.4828373Z - Tested commit: `f69b17fc9b252e2c1b99e05b26d1a6a61e2215bd` (148/merge)"
+  },
+  "browserCounts": {
+    "passed": 135,
+    "failed": 1,
+    "flaky": 0,
+    "skipped": 0,
+    "total": 136,
+    "source": {
+      "line": 3106,
+      "text": "2026-10-17T02:48:09.4827988Z | 135 | 1 | 0 | 0 |"
+    }
+  },
+  "failedTest": {
+    "file": "tests/e2e/release.long-session.spec.ts",
+    "line": 107,
+    "title": "50 Turbo visits and Backs leave the DOM counters and the JS heap at their level",
+    "attempts": [
+      {
+        "retry": 0,
+        "status": "timedOut",
+        "displayedSeconds": 300.1,
+        "source": {
+          "line": 3120,
+          "text": "2026-10-17T02:48:09.4834561Z   Attempt 1 (retry 0), timedOut at tests/e2e/release.long-session.spec.ts:107, 300.1 s:"
+        }
+      },
+      {
+        "retry": 1,
+        "status": "timedOut",
+        "displayedSeconds": 300.2,
+        "source": {
+          "line": 3126,
+          "text": "2026-10-17T02:48:09.4835742Z   Attempt 2 (retry 1), timedOut at tests/e2e/release.long-session.spec.ts:107, 300.2 s: the same error"
+        }
+      }
+    ],
+    "navigationError": {
+      "line": 2268,
+      "text": "2026-10-17T02:47:59.3690030Z     Error: page.goto: browserContext.close: Target page, context or browser has been closed"
+    },
+    "limit": "The error identifies initial navigation after leakDetectorRuns; context closure may be timeout cleanup and does not establish the earlier stall cause. No memory-counter assertion failure is shown."
+  },
+  "fuzz": {
+    "seed": 2017826280,
+    "source": {
+      "line": 2117,
+      "text": "2026-10-17T02:25:35.9156448Z fuzz: SEED=2017826280 (replay with SEED=2017826280), budget 30000 ms per target"
+    }
+  },
+  "phpProperties": {
+    "seed": 1051090524,
+    "propertyRuns": 2000,
+    "tests": 4,
+    "assertions": 32003,
+    "seedSource": {
+      "line": 2342,
+      "text": "2026-10-17T02:47:59.8121262Z Property tests: SEED=1051090524 PROPERTY_RUNS=2000"
+    },
+    "resultSource": {
+      "line": 2352,
+      "text": "2026-10-17T02:48:02.0324049Z OK (4 tests, 32003 assertions)"
+    }
+  },
+  "gates": [
+    {
+      "name": "What to check",
+      "conclusion": "success",
+      "queueSeconds": 2.0,
+      "jobSeconds": 4.0
+    },
+    {
+      "name": "Release suite",
+      "conclusion": "failure",
+      "queueSeconds": 2.0,
+      "jobSeconds": 1445.0
+    },
+    {
+      "name": "Release checks",
+      "conclusion": "failure",
+      "queueSeconds": 2.0,
+      "jobSeconds": 3.0
+    },
+    {
+      "name": "Release checks issue",
+      "conclusion": "skipped",
+      "queueSeconds": 0,
+      "jobSeconds": 0
+    }
+  ],
+  "suiteSteps": [
+    {
+      "name": "Set up job",
+      "conclusion": "success",
+      "seconds": 3.0
+    },
+    {
+      "name": "Check out the workflow tools",
+      "conclusion": "success",
+      "seconds": 1.0
+    },
+    {
+      "name": "Check out the target",
+      "conclusion": "success",
+      "seconds": 2.0
+    },
+    {
+      "name": "Verify the tested revision",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+      "conclusion": "success",
+      "seconds": 1.0
+    },
+    {
+      "name": "Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+      "conclusion": "success",
+      "seconds": 6.0
+    },
+    {
+      "name": "Name the build cache",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Build the demo image",
+      "conclusion": "success",
+      "seconds": 19.0
+    },
+    {
+      "name": "Start the demo (composer install on first start)",
+      "conclusion": "success",
+      "seconds": 11.0
+    },
+    {
+      "name": "Sync recipes into the demo",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Install Playwright",
+      "conclusion": "success",
+      "seconds": 30.0
+    },
+    {
+      "name": "Prepare the tests",
+      "conclusion": "success",
+      "seconds": 3.0
+    },
+    {
+      "name": "Playwright (release checks)",
+      "conclusion": "failure",
+      "seconds": 1353.0
+    },
+    {
+      "name": "Release evidence",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "PHPUnit properties (random seed)",
+      "conclusion": "success",
+      "seconds": 3.0
+    },
+    {
+      "name": "Read the results",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Classify a release failure",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Timings against the baseline (report only)",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "conclusion": "success",
+      "seconds": 2.0
+    },
+    {
+      "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "conclusion": "skipped",
+      "seconds": 0
+    },
+    {
+      "name": "Demo logs",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "conclusion": "success",
+      "seconds": 2.0
+    },
+    {
+      "name": "Jev diagnosis (advisory)",
+      "conclusion": "success",
+      "seconds": 3.0
+    },
+    {
+      "name": "Collect failed release steps",
+      "conclusion": "skipped",
+      "seconds": 0
+    },
+    {
+      "name": "Jev diagnosis of release steps (advisory)",
+      "conclusion": "skipped",
+      "seconds": 0
+    },
+    {
+      "name": "Record the tested commit",
+      "conclusion": "skipped",
+      "seconds": 0
+    },
+    {
+      "name": "Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+      "conclusion": "skipped",
+      "seconds": 0
+    },
+    {
+      "name": "Playwright summary",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Post Build the demo image",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Post Run docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069",
+      "conclusion": "success",
+      "seconds": 1.0
+    },
+    {
+      "name": "Post Run actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1",
+      "conclusion": "skipped",
+      "seconds": 0
+    },
+    {
+      "name": "Post Check out the target",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Post Check out the workflow tools",
+      "conclusion": "success",
+      "seconds": 0
+    },
+    {
+      "name": "Complete job",
+      "conclusion": "success",
+      "seconds": 0
+    }
+  ],
+  "timing": {
+    "runApiSpanSeconds": 1460.0,
+    "suiteSeconds": 1445.0,
+    "setupBeforeBrowserSeconds": 77.0,
+    "browserStepSeconds": 1353.0,
+    "afterBrowserSeconds": 15.0
+  },
+  "artifacts": [
+    {
+      "id": 12087700584,
+      "name": "jev-input-release-checks-chromium-38994766044-1",
+      "sizeBytes": 1807833,
+      "publishedDigest": "sha256:ea8db726db0c3f4bc3d4dad8c86af5a029d8b5c9e0eddd2b6f70e26bb72ce558",
+      "contentsDownloaded": false
+    },
+    {
+      "id": 12087395784,
+      "name": "release-checks-results",
+      "sizeBytes": 225831,
+      "publishedDigest": "sha256:5c548e619c6f2199628c70d0dd74ed02af29f0dc2075d804a23c3c7e8aad89ab",
+      "contentsDownloaded": false
+    },
+    {
+      "id": 12086144977,
+      "name": "release-checks-report",
+      "sizeBytes": 2828124,
+      "publishedDigest": "sha256:c9015d94421234a56386f5b32cf45d2bbe99b5499e7b46ac625be8a484842563",
+      "contentsDownloaded": false
+    }
+  ],
+  "limits": [
+    "Logs were obtained from the ordinary official workflow-run archive after the single per-job log request was blocked. No unchanged resource retry or route substitution was used.",
+    "Archive paths were validated; only the suite log was extracted. Trace/results artifact ZIPs remain undownloaded.",
+    "Prior147 comparison proves equal relevant test/config source and matching symptoms, not a root cause."
+  ]
+}

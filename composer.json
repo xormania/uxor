@@ -1,0 +1,41 @@
+{
+    "name": "xormania/uxor",
+    "description": "UXor, a Symfony UX Toolkit kit: agent guidance and development tools for building with it, installed with Composer.",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://github.com/xormania/uxor",
+    "authors": [{"name": "xormania"}],
+    "require": {
+        "php": ">=8.4",
+        "symfony/ai-mate": "^0.14",
+        "symfony/ai-symfony-mate-extension": "^0.14",
+        "symfony/console": "^7.4 || ^8.0",
+        "symfony/filesystem": "^7.4 || ^8.0",
+        "symfony/process": "^7.4 || ^8.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^12.5"
+    },
+    "autoload": {
+        "psr-4": {"Xormania\\UXor\\": "packages/uxor/src/"}
+    },
+    "autoload-dev": {
+        "psr-4": {"Xormania\\UXor\\Tests\\": "packages/uxor/tests/"}
+    },
+    "bin": ["packages/uxor/bin/uxor"],
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {"symfony/ai-mate-composer-plugin": true}
+    },
+    "extra": {
+        "ai-mate": {
+            "scan-dirs": ["packages/uxor/src/Mate"],
+            "includes": ["packages/uxor/config/services.php"],
+            "instructions": "packages/uxor/INSTRUCTIONS.md",
+            "skills": ["packages/uxor/skills"]
+        }
+    },
+    "scripts": {
+        "test": "@php vendor/bin/phpunit -c packages/uxor/phpunit.xml.dist"
+    }
+}

@@ -5,6 +5,22 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-18
+
+### Added
+
+- `oauth`: installed Symfony authentication with Google, Facebook and GitHub, single-use provider-bound attempts, PKCE and Google ID-token validation, safe return paths and explicit account connections.
+
+- `oauth-provider-button`: provider sign-in links with full browser navigation, no Turbo prefetch and Google's official light and dark button artwork served locally.
+- `social-login`: login and registration cards with provider choices, safe authentication feedback and an optional password-form slot.
+- `connected-accounts`: account connection settings with distinct CSRF-protected POST forms, provider subjects for disconnection, preserved settings return paths and explained unavailable actions.
+- The Composer package `xormania/uxor`, from this repository (`composer.json`, `packages/uxor/`): agent guidance and
+  development tools for projects using the kit, as a development dependency. It brings three Mate skills (`setup`,
+  `build`, `verify`), seven Mate tools (`uxor_*`), the `vendor/bin/uxor` command line and UXor's docs as bundled
+  references (`uxor://` resources). Recipes still install with `ux:install`. The references are generated from this
+  repository's docs, recipe READMEs and manifests, and CI checks they are up to date; their index identifies them by
+  the digest of the files they copy, not by a commit.
+
 ## [0.2.0] - 2026-10-11
 
 ### Added
@@ -274,6 +290,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.0...HEAD
+[0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/xormania/uxor/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/xormania/uxor/releases/tag/0.1.0

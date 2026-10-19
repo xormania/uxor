@@ -1,0 +1,20 @@
+{
+  "runner_exit": 1,
+  "stats": {
+    "startTime": "2026-10-16T21:13:58.273Z",
+    "duration": 83.54200000000014,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": [
+    "Error: Global setup failed before any browser test"
+  ],
+  "summary_exit": 0,
+  "summary_outputs": "status=valid\npassed=0\nfailed=0\nflaky=0\nskipped=0\n",
+  "classification": {
+    "category": "browser test failure",
+    "step": "Playwright (release checks)"
+  }
+}

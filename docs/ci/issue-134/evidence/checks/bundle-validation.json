@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "observed_at_utc": "2026-10-16T22:13:11.687522+00:00",
+  "result": "passed",
+  "local_markdown_links": 69,
+  "historical_command_receipts": 14,
+  "historical_stdout_stderr_hashes": 28,
+  "original_218_case_snapshot_sources": "previously verified against committed b683745 blobs",
+  "checkout_trust_219_case_snapshot_sources": "unchanged from committed f8c5fcd blobs",
+  "current_220_case_snapshot_sources": "verified against working tree",
+  "security_red_green_test_source": "identical SHA256; verified",
+  "control_checker_red_green_test_source": "identical SHA256; verified",
+  "raw_log_whitespace": "Preserved verbatim for hash verification; excluded from authored-source whitespace checks."
+}

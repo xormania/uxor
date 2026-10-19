@@ -77,6 +77,8 @@ final class HostilePropsCommand
         ['ForgotPasswordForm', 'loginHref', '<twig:ForgotPasswordForm :form="form" :loginHref="value" />', 'Back to sign in', 'forgot-password'],
         ['SignupForm', 'loginHref', '<twig:SignupForm :form="form" :loginHref="value" />', 'Sign in', 'signup'],
         ['NotFound', 'homeHref', '<twig:NotFound :homeHref="value" />', 'Back to the homepage', null],
+        ['OAuthProviderButton', 'href', '<twig:OAuthProviderButton provider="github" :href="value" />', 'Continue with GitHub', null],
+        ['SocialLogin', 'alternativeHref', '<twig:SocialLogin :alternativeHref="value" />', 'Create an account', null],
     ];
 
     /** Inline event handlers, which every component drops, next to ordinary attributes, which it renders as given. */
@@ -149,6 +151,7 @@ final class HostilePropsCommand
         'Modal:Title' => ['<twig:Modal id="m"><twig:Modal:Content><twig:Modal:Title %2$s>Text</twig:Modal:Title></twig:Modal:Content></twig:Modal>', null],
         'NavMenu:Link' => ['<twig:NavMenu><twig:NavMenu:Link href="/x" %2$s>Text</twig:NavMenu:Link></twig:NavMenu>', null],
         'NavMenu:Submenu' => ['<twig:NavMenu><twig:NavMenu:Submenu label="More" %2$s><twig:NavMenu:Link href="/x">Text</twig:NavMenu:Link></twig:NavMenu:Submenu></twig:NavMenu>', null],
+        'OAuthProviderButton' => ['<twig:OAuthProviderButton provider="github" href="/oauth/github/start" %2$s />', null],
         'PageHeader' => ['<twig:PageHeader title="Title" %2$s />', null],
         'SectionNav:Item' => ['<ul><twig:SectionNav:Item href="/x" %2$s>Text</twig:SectionNav:Item></ul>', null],
         'SettingsProfile' => ['<twig:SettingsProfile :form="form" name="Bonnie Green" email="bonnie@example.com" %2$s />', 'settings-profile'],
@@ -341,7 +344,7 @@ final class HostilePropsCommand
                     'input' => self::describe($value),
                     // the URL as text: what the browser must read, whatever the type of the value
                     'text' => (string) $value,
-                    'hostile' => $hostile,
+                    'hostile' => $hostile || (\in_array($component, ['OAuthProviderButton', 'SocialLogin'], true) && preg_match('/^(?:mailto|tel):/i', (string) $value)),
                     'html' => $this->render($markup, $context),
                 ];
             }

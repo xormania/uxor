@@ -11,3 +11,9 @@
 # The demo app keeps its own .gitignore (vendor/, var/, public/assets/, assets/vendor/)
 /tests/e2e/examples/recipes/
 /tests/.prepare/
+
+# The Composer package (composer.json, packages/uxor/): its dependencies, PHPUnit's cache and the bytecode Python
+# writes beside its tools (packages/uxor/tools/check-package.py)
+/vendor/
+/packages/uxor/.phpunit.cache/
+__pycache__/

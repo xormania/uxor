@@ -25,7 +25,7 @@ other than GET, or when a public reference route accepts POST without a named CS
 | Category | Paths | Contract |
 |---|---|---|
 | `public-read` | `/`, `/r/{recipe}` | Reads kit metadata and README examples; GET only. |
-| `public-reference` | `/demo/*`, `/forms*` | Reference forms and layouts. POST is handled by a Symfony form or by the firewall, with CSRF enabled; effects stay in the demo session. |
+| `public-reference` | `/demo/*`, `/forms*`, `/oauth-demo/*` | Reference forms and layouts. POST is handled by a Symfony form or by the firewall, with CSRF enabled; effects stay in the demo session. |
 | `trusted-code-preview` | `/preview/{recipe}/{example}` | GET only. Compiles Twig from the checked-out repository; the repository is trusted code, not user content. |
 | `development-only` | `/lab/*` | Test scenarios, including uploads, Live actions and Turbo Stream endpoints. Never a public application surface. |
 
@@ -42,3 +42,15 @@ own object-level authorization in every Live action and autocomplete endpoint.
 - `tests/e2e/csp.spec.ts` requests the running application and checks its production-style browser headers and nonce
   policy.
 - `tools/build-static.sh` exports the public copy and checks every saved page, link and form.
+
+## OAuth reference fixture
+
+The `/oauth-demo` consent pages replace remote providers with session-bound, expiring, one-use grants. A dedicated
+`oauth_demo` firewall covers `/oauth` and `/oauth-demo`; its callback uses the installed kit authenticator. The account
+and private-content routes require ROLE_USER, and later requests reload the local fixture user through the user
+provider. These protected routes prove authentication rather than relying on the existing public dashboard.
+
+Consent POSTs use Symfony forms. Core connection and disconnection POSTs require full authentication and their named
+CSRF tokens; identity ownership and remaining-sign-in rules are enforced by the example store. The fixture's records
+live in the demo session and are not a durable production account store. The public static export includes recipe
+presentation examples and explanations, never the protected demonstration routes or executable mock callbacks.

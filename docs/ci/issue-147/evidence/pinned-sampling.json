@@ -1,0 +1,468 @@
+{
+  "schema": 1,
+  "source_commit": "5b1e0a071fcfa151b9243fc889ceb16233a7c836",
+  "source_sha256": "67309448ce4981c3af15891f1891837a476baadecf82f8cdb35f43aeb5c14ce5",
+  "original_helper_sha256": "96446b10bb1050a48f5c2b1c84b37f119d2c7ff6b8b1cde60d1a21a2a63dc27c",
+  "image": "ghcr.io/xormania/playwright-browser@sha256:a9af6ee615412e5e941c1e164beddd157e9eca4c1701e5a08e09f84c016ca9c6",
+  "runtime": {
+    "chromium": "145.0.7632.6",
+    "playwright": "1.58.2",
+    "node": "v24.19.0",
+    "php": "8.4.26",
+    "transport": "remote run-server and exposeNetwork <loopback>",
+    "trace": "retain-on-failure"
+  },
+  "command": "timeout 85s node <frozen target>/node_modules/@playwright/test/cli.js test --config <this directory>/playwright.config.mjs",
+  "exit_code": 0,
+  "stats": {
+    "startTime": "2026-10-17T03:12:15.146Z",
+    "duration": 18572.456,
+    "expected": 20,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "configured_tests": 20,
+  "max_failures": 1,
+  "retries": 0,
+  "diagnostic_per_test_ms": 20000,
+  "global_diagnostic_ms": 80000,
+  "external_process_bound_s": 85,
+  "original_acceptance_timeout_unchanged_ms": 300000,
+  "workers_observed": [
+    0
+  ],
+  "trials": [
+    {
+      "trial": 1,
+      "worker": 0,
+      "probe_ms": 143,
+      "probe_context_close_ms": 65,
+      "goto_load_ms": 703,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 888
+    },
+    {
+      "trial": 2,
+      "worker": 0,
+      "probe_ms": 89,
+      "probe_context_close_ms": 28,
+      "goto_load_ms": 603,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 725
+    },
+    {
+      "trial": 3,
+      "worker": 0,
+      "probe_ms": 81,
+      "probe_context_close_ms": 23,
+      "goto_load_ms": 608,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 728
+    },
+    {
+      "trial": 4,
+      "worker": 0,
+      "probe_ms": 86,
+      "probe_context_close_ms": 28,
+      "goto_load_ms": 578,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 693
+    },
+    {
+      "trial": 5,
+      "worker": 0,
+      "probe_ms": 81,
+      "probe_context_close_ms": 25,
+      "goto_load_ms": 651,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 759
+    },
+    {
+      "trial": 6,
+      "worker": 0,
+      "probe_ms": 80,
+      "probe_context_close_ms": 24,
+      "goto_load_ms": 592,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 710
+    },
+    {
+      "trial": 7,
+      "worker": 0,
+      "probe_ms": 92,
+      "probe_context_close_ms": 32,
+      "goto_load_ms": 722,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 846
+    },
+    {
+      "trial": 8,
+      "worker": 0,
+      "probe_ms": 100,
+      "probe_context_close_ms": 22,
+      "goto_load_ms": 621,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 756
+    },
+    {
+      "trial": 9,
+      "worker": 0,
+      "probe_ms": 87,
+      "probe_context_close_ms": 27,
+      "goto_load_ms": 711,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 830
+    },
+    {
+      "trial": 10,
+      "worker": 0,
+      "probe_ms": 90,
+      "probe_context_close_ms": 27,
+      "goto_load_ms": 648,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 767
+    },
+    {
+      "trial": 11,
+      "worker": 0,
+      "probe_ms": 80,
+      "probe_context_close_ms": 27,
+      "goto_load_ms": 543,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 649
+    },
+    {
+      "trial": 12,
+      "worker": 0,
+      "probe_ms": 76,
+      "probe_context_close_ms": 19,
+      "goto_load_ms": 604,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 710
+    },
+    {
+      "trial": 13,
+      "worker": 0,
+      "probe_ms": 78,
+      "probe_context_close_ms": 27,
+      "goto_load_ms": 621,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 725
+    },
+    {
+      "trial": 14,
+      "worker": 0,
+      "probe_ms": 88,
+      "probe_context_close_ms": 26,
+      "goto_load_ms": 613,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 729
+    },
+    {
+      "trial": 15,
+      "worker": 0,
+      "probe_ms": 77,
+      "probe_context_close_ms": 20,
+      "goto_load_ms": 603,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 710
+    },
+    {
+      "trial": 16,
+      "worker": 0,
+      "probe_ms": 83,
+      "probe_context_close_ms": 21,
+      "goto_load_ms": 559,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 672
+    },
+    {
+      "trial": 17,
+      "worker": 0,
+      "probe_ms": 99,
+      "probe_context_close_ms": 25,
+      "goto_load_ms": 563,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 693
+    },
+    {
+      "trial": 18,
+      "worker": 0,
+      "probe_ms": 84,
+      "probe_context_close_ms": 21,
+      "goto_load_ms": 647,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 763
+    },
+    {
+      "trial": 19,
+      "worker": 0,
+      "probe_ms": 65,
+      "probe_context_close_ms": 20,
+      "goto_load_ms": 649,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 740
+    },
+    {
+      "trial": 20,
+      "worker": 0,
+      "probe_ms": 73,
+      "probe_context_close_ms": 22,
+      "goto_load_ms": 620,
+      "probe_result": false,
+      "probe_errors": [
+        "cdpSession.send: Protocol error (Memory.prepareForLeakDetection): Failed to run leak detection"
+      ],
+      "probe_crashes": 1,
+      "main_crashes": 0,
+      "main_request_failures": 0,
+      "http_status": 200,
+      "body_completed": true,
+      "body_done_ms": 725
+    }
+  ],
+  "ranges": {
+    "probe_ms": {
+      "min": 65,
+      "max": 143,
+      "median": 83.5
+    },
+    "probe_context_close_ms": {
+      "min": 19,
+      "max": 65,
+      "median": 25.0
+    },
+    "goto_load_ms": {
+      "min": 543,
+      "max": 722,
+      "median": 616.5
+    },
+    "body_done_ms": {
+      "min": 649,
+      "max": 888,
+      "median": 726.5
+    }
+  },
+  "tracked_native_target_status_after": "",
+  "limitations": [
+    "Diagnostic initial sequence only: no50-visit loop, memory-pressure counter sampling, leak assertions or full Release acceptance.",
+    "Cached authorized Xorder Debian13Chromium145 differs hosted Noble image; native PHP8.4.26 HTTProuter differs CI PHP8.5FrankenPHPHTTPS.",
+    "Original immutable source/helper remains5b1; diagnostic wrapper imports original fixtures and enables retain-on-failure tracing.",
+    "20declared identical focused cases keep worker0 and shared worker-scoped browser fixture; repeatEach was avoided because pinned Playwright uses repeat index in workerHash.",
+    "Fresh contexts and repeated initial sequences do not reproduce all preceding full-suite history or hosted scheduler/resource behavior.",
+    "No failure reproduced; all-pass sampling cannot prove a fix or root cause.",
+    "Resource snapshots are not a peak-load benchmark or isolated CPU measurement."
+  ],
+  "files": {
+    "initial-sequence.spec.ts": {
+      "sha256": "be307e4ed9655c3693476fc46258ee2790277ca76069dcdf676770f58d521ac1",
+      "bytes": 4336
+    },
+    "playwright.config.mjs": {
+      "sha256": "741786dd8a838d3b028d0e7ce3049537ec3ffca26e7d0732473113c560389771",
+      "bytes": 896
+    },
+    "package.json": {
+      "sha256": "1239d4d885dcad42201a27ed9324f8f0f760b78700d8db9ced39a511cffe7eae",
+      "bytes": 18
+    },
+    "phases.jsonl": {
+      "sha256": "74713b40a3eb0a80b637cf12f5df285b92281678fc93c62e66ff9d84e1d572d6",
+      "bytes": 235113
+    },
+    "run.log": {
+      "sha256": "dabd5ae69559fc20573e61431571a1f601bae264022d4449632cf034c172a9e5",
+      "bytes": 248468
+    },
+    "results.json": {
+      "sha256": "c308f01d467f0a98dd1f38aa5a2058d9db14f01c9d1a5ce9ae6e5f387174ee67",
+      "bytes": 414385
+    },
+    "resources-before.json": {
+      "sha256": "50add1f77d5689753f1665dbdb31319a535ae536e8188ce19f53c8af98aeba27",
+      "bytes": 779
+    },
+    "resources-after.json": {
+      "sha256": "10b7825e07c9a45122112eb921efcbbfecc1ccbcd13a484d9992248899de465d",
+      "bytes": 1208
+    },
+    "browser-server.log": {
+      "sha256": "df45e9c2143fd09577a1cdb35efa262ac9e861368f702fc456021439041317e6",
+      "bytes": 32
+    },
+    "php-server.log": {
+      "sha256": "26a10d128e44568f72790843f104d723cf8d6873fa1f08c28f882a0951a531ea",
+      "bytes": 220229
+    },
+    "cleanup.json": {
+      "sha256": "2e25aa050ca70476041e33457bbc27f4f4d218b1011fe5ee6357578ff827fe20",
+      "bytes": 350
+    }
+  },
+  "cleanup": {
+    "docker_container": "uxor-issue148-browser145-sampling",
+    "docker_stop_exit": 0,
+    "docker_stop_stdout": "uxor-issue148-browser145-sampling",
+    "docker_stop_stderr": "",
+    "native_php_stopped_pids": [
+      236384
+    ],
+    "no_pulls": true,
+    "native_php_exit_confirmed": 143,
+    "docker_run_exit_confirmed": 143,
+    "remaining_named_container": ""
+  }
+}

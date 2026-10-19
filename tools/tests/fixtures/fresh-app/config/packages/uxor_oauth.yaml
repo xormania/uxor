@@ -1,0 +1,28 @@
+services:
+    _defaults: { autowire: true, autoconfigure: true }
+
+    App\OAuth\InstallProvider: ~
+    App\OAuth\InstallIdentityStore: ~
+    App\UXor\OAuth\ProviderRegistry:
+        arguments: { $providers: ['@App\OAuth\InstallProvider'] }
+    App\UXor\OAuth\OAuthAttemptStore: ~
+    App\UXor\OAuth\OAuthClient: ~
+    App\UXor\OAuth\IdentityStoreInterface: '@App\OAuth\InstallIdentityStore'
+    App\UXor\OAuth\OAuthAuthenticator:
+        arguments: { $loginRoute: app_oauth_install_login }
+    App\UXor\OAuth\OAuthController:
+        arguments: { $loginRoute: app_oauth_install_login, $defaultTargetRoute: app_oauth_install_account }
+
+security:
+    providers:
+        oauth_install:
+            id: App\OAuth\InstallIdentityStore
+    firewalls:
+        dev:
+            pattern: ^/(_profiler|_wdt|assets|build)/
+            security: false
+        main:
+            lazy: true
+            provider: oauth_install
+            custom_authenticators: [App\UXor\OAuth\OAuthAuthenticator]
+            entry_point: App\UXor\OAuth\OAuthAuthenticator

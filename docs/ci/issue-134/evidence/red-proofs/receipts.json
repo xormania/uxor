@@ -1,0 +1,444 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-16T21:15:03Z",
+  "node_version": "v24.19.0",
+  "playwright_version": "1.58.2",
+  "sources": [
+    {
+      "commit": "9b2fa7309786cee435503de87cf0cd5f0a9d9782",
+      "tree": "cd04ea40ade6c5c5c029a4007cf405038baeb52a",
+      "files": {
+        ".github/workflows/release-checks.yml": {
+          "git_blob": "5f1c8d39d14774dfeadb72ecec0611d1e6ea3683",
+          "sha256": "92ceb47d01cf5143e2ce82988fe168c5116a28b0b7f6f7ef48c2075b94682c42"
+        },
+        "playwright.config.ts": {
+          "git_blob": "35e5b887c6934490a953254aec4730c29189de73",
+          "sha256": "22ad1de3f9ab36053f0ea7d2e7840f0547aa7c90bbc8917cb0a68f821a31d92a"
+        },
+        "tools/ci/playwright-summary.mjs": {
+          "git_blob": "bfdfa262f5f1708174d84e82a29a8cb503056b54",
+          "sha256": "36700074ddd40a887ddbb01c079005fec6ad7a2a38051daadd258dd340d550ee"
+        }
+      }
+    },
+    {
+      "commit": "40d957cd1ea7766ac0dee742816948ce5ae05bc3",
+      "tree": "579b8cc4dc4bd171861d843f0b10e9e8a97ead9f",
+      "files": {
+        ".github/workflows/release-checks.yml": {
+          "git_blob": "8c48daad5ed40858381f191a30e4f3dfff172221",
+          "sha256": "02c95555c292004d8d71b3b8b1b7dbd50c311d8c20a1e998c2d2eb4305132a8d"
+        },
+        "playwright.config.ts": {
+          "git_blob": "e713703e5d19c3ee28cfdb14a12fc6de6505b3cd",
+          "sha256": "3668ef9511cd686f40f6788ebb7353c35db251c1fd355e1f8a74da58ffe4c231"
+        },
+        "tools/ci/playwright-summary.mjs": {
+          "git_blob": "bfdfa262f5f1708174d84e82a29a8cb503056b54",
+          "sha256": "36700074ddd40a887ddbb01c079005fec6ad7a2a38051daadd258dd340d550ee"
+        }
+      }
+    },
+    {
+      "commit": "c128aeec88b1c17c753c21bc91d619a1e5027411",
+      "tree": "6e6bd84c2cfec74bae7c37d1f41d53cc10e84b1a",
+      "files": {
+        ".github/workflows/release-checks.yml": {
+          "git_blob": "115010b90519f6958c0c4aa924bb4f59510badb2",
+          "sha256": "ff768f2beae23c43ce61c4004546ad2b0c1ea6c278374ab879a3c4f0bf36e407"
+        },
+        "playwright.config.ts": {
+          "git_blob": "e713703e5d19c3ee28cfdb14a12fc6de6505b3cd",
+          "sha256": "3668ef9511cd686f40f6788ebb7353c35db251c1fd355e1f8a74da58ffe4c231"
+        },
+        "tools/ci/playwright-summary.mjs": {
+          "git_blob": "267c7726898c1a3bb643c252924cabaa4802d7cb",
+          "sha256": "d7774ece12a16e74eb29ce35063114e90f3b4bbe97ac8bafeddeca271f603039"
+        },
+        "tools/ci/release-checks.mjs": {
+          "git_blob": "869b3d6b34b189e8bb3e7ccaeefccf689723b2ac",
+          "sha256": "ac219847184d128de5b0a7c1019d9dfb38c7fa0be9dae224733ae16ba6769bcf"
+        },
+        "tools/tests/release-checks.test.mjs": {
+          "git_blob": "83668a19233365bb7711d9ae7259f35e880562c5",
+          "sha256": "8930ccd0e4f979ea55f7f26179c6fd1dd7daee0b1c38dbc5202b40cafdf7c170"
+        },
+        "tools/tests/release-checks-workflow.test.mjs": {
+          "git_blob": "36054da9c2aaddb1c38f5f45013d5688fb3d37a2",
+          "sha256": "7b976dbd06bcb030383fffbbe1ebc3d5f4c438a53b3c40afff467d1d2b9418ee"
+        }
+      }
+    }
+  ],
+  "discovery": {
+    "current": {
+      "tests": 11,
+      "projects_configured": [
+        "smoke",
+        "examples",
+        "smoke-firefox",
+        "examples-firefox",
+        "smoke-webkit",
+        "examples-webkit",
+        "release",
+        "release-dark",
+        "release-harsh"
+      ],
+      "tests_by_project": {
+        "release": 11,
+        "release-dark": 0,
+        "release-harsh": 0
+      },
+      "specs": [
+        "tests/e2e/release.fuzz.spec.ts",
+        "tests/e2e/release.long-session.spec.ts",
+        "tests/e2e/release.timings.spec.ts"
+      ]
+    },
+    "legacy": {
+      "tests": 11,
+      "projects_configured": [
+        "smoke",
+        "examples",
+        "smoke-firefox",
+        "examples-firefox",
+        "smoke-webkit",
+        "examples-webkit",
+        "smoke-dark@release",
+        "harsh@release"
+      ],
+      "tests_by_project": {
+        "smoke": 11,
+        "smoke-dark@release": 0,
+        "harsh@release": 0
+      },
+      "specs": [
+        "tests/e2e/release.fuzz.spec.ts",
+        "tests/e2e/release.long-session.spec.ts",
+        "tests/e2e/release.timings.spec.ts"
+      ]
+    }
+  },
+  "receipts": [
+    {
+      "id": "historical-main-selectors-vs-dev",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "--grep",
+        "@release",
+        "--workers=1",
+        "--project=smoke",
+        "--project=smoke-dark@release",
+        "--project=harsh@release",
+        "--list"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev",
+      "exit_status": 1,
+      "expected_exit_status": 1,
+      "stdout": "historical-main-selectors-vs-dev.stdout.log",
+      "stderr": "historical-main-selectors-vs-dev.stderr.log",
+      "elapsed_seconds": 1.276,
+      "assertion": "Playwright rejects the two obsolete project names before execution.",
+      "logs_sha256": {
+        "stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr": "8d0955ea01317e1867a7ae430ac7f21f5d0293dd8728f347128a42547f149be6"
+      }
+    },
+    {
+      "id": "current-release-spec-discovery",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "/release\\.[^/]*\\.spec\\.ts$",
+        "--list",
+        "--reporter=json",
+        "--project=release",
+        "--project=release-dark",
+        "--project=release-harsh"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev",
+      "exit_status": 0,
+      "expected_exit_status": 0,
+      "stdout": "current-release-spec-discovery.stdout.log",
+      "stderr": "current-release-spec-discovery.stderr.log",
+      "elapsed_seconds": 1.393,
+      "assertion": "The real pinned configuration accepts its own complete family; focused listing imports no Symfony inventory.",
+      "logs_sha256": {
+        "stdout": "f8e29fe0dac87207838224008a8c4e093f6f0cbef5c3c69306b19fcf9ec65858",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "legacy-release-spec-discovery",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "/release\\.[^/]*\\.spec\\.ts$",
+        "--list",
+        "--reporter=json",
+        "--project=smoke",
+        "--project=smoke-dark@release",
+        "--project=harsh@release",
+        "--grep",
+        "@release"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main",
+      "exit_status": 0,
+      "expected_exit_status": 0,
+      "stdout": "legacy-release-spec-discovery.stdout.log",
+      "stderr": "legacy-release-spec-discovery.stderr.log",
+      "elapsed_seconds": 1.423,
+      "assertion": "The real pinned configuration accepts its own complete family; focused listing imports no Symfony inventory.",
+      "logs_sha256": {
+        "stdout": "a36333f4ea07405da49e06d909673aca753a33e502183b1038b9369991eef640",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "obsolete-grep-vs-current-release-specs",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "node_modules/@playwright/test/cli.js",
+        "test",
+        "/release\\.[^/]*\\.spec\\.ts$",
+        "--list",
+        "--reporter=json",
+        "--project=release",
+        "--project=release-dark",
+        "--project=release-harsh",
+        "--grep",
+        "@release"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-dev",
+      "exit_status": 1,
+      "expected_exit_status": 1,
+      "stdout": "obsolete-grep-vs-current-release-specs.stdout.log",
+      "stderr": "obsolete-grep-vs-current-release-specs.stderr.log",
+      "elapsed_seconds": 1.504,
+      "assertion": "Renaming projects alone is insufficient: the obsolete grep selects no tests.",
+      "logs_sha256": {
+        "stdout": "eac6bd54a63761ced3f4ed8cb45396729c380517eb12bacb977cd2e8e915dfc3",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "historical-provenance",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main/tools/ci/playwright-summary.mjs",
+        "playwright-results/results.json"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/provenance-historical",
+      "exit_status": 2,
+      "expected_exit_status": 2,
+      "stdout": "historical-provenance.stdout.log",
+      "stderr": "historical-provenance.stderr.log",
+      "elapsed_seconds": 0.04,
+      "assertion": "A missing report remains fatal; inspect the tested-commit identity separately.",
+      "logs_sha256": {
+        "stdout": "9a6c57e529e10d97e89430827d6bd8e843601dadae15a2537206ae2a4e24d53f",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "fixed-provenance",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "/workspace/scratch/uxor-issue134-quality/red-proofs/fixed/tools/ci/playwright-summary.mjs",
+        "playwright-results/results.json"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/provenance-fixed",
+      "exit_status": 2,
+      "expected_exit_status": 2,
+      "stdout": "fixed-provenance.stdout.log",
+      "stderr": "fixed-provenance.stderr.log",
+      "elapsed_seconds": 0.038,
+      "assertion": "A missing report remains fatal; inspect the tested-commit identity separately.",
+      "logs_sha256": {
+        "stdout": "b0b8bfdeb5abb339b4efdd2762a544e50ddf6925b32f03e5bba3f76957715a91",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "historical-manual-marker",
+      "command": [
+        "bash",
+        "--noprofile",
+        "--norc",
+        "-eo",
+        "pipefail",
+        "-c",
+        "if [ \"$EVENT\" != schedule ]; then\n    echo \"run=true\" >> \"$GITHUB_OUTPUT\"\n    echo \"ref=\" >> \"$GITHUB_OUTPUT\"\n    exit 0\nfi\nhead=$(gh api \"repos/$REPO/commits/dev\" --jq .sha)\n# a run whose release checks passed uploads release-checks-passed-<the commit it tested>; only one of this\n# workflow, run on a schedule or by hand in this repository and ended in success, counts: an artifact of\n# that name from a pull request, a fork or another workflow proves nothing\npassed=0\nids=$(gh api \"repos/$REPO/actions/artifacts?name=release-checks-passed-$head&per_page=100\" \\\n    --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_repository_id == .workflow_run.repository_id) | .workflow_run.id')\nfor id in $ids; do\n    if [ -n \"$(gh api \"repos/$REPO/actions/runs/$id\" --jq 'select(.path == \".github/workflows/release-checks.yml\" and (.event == \"schedule\" or .event == \"workflow_dispatch\") and .conclusion == \"success\") | .id')\" ]; then\n        passed=1\n        echo \"run $id passed the release checks on $head\"\n        break\n    fi\ndone\necho \"dev is at $head; a trusted pass on it: $passed\"\nif [ \"$passed\" = 1 ]; then\n    echo \"run=false\" >> \"$GITHUB_OUTPUT\"\n    echo \"Nothing was merged into dev since the release checks last passed on it: none today\" >> \"$GITHUB_STEP_SUMMARY\"\nelse\n    echo \"run=true\" >> \"$GITHUB_OUTPUT\"\nfi\necho \"ref=$head\" >> \"$GITHUB_OUTPUT\""
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/target-main",
+      "exit_status": 0,
+      "expected_exit_status": 0,
+      "stdout": "historical-manual-marker.stdout.log",
+      "stderr": "historical-manual-marker.stderr.log",
+      "elapsed_seconds": 0.024,
+      "assertion": "A successful manual marker gives run=false; only fixed scheduling refuses this skip.",
+      "logs_sha256": {
+        "stdout": "2b6dff8a619e8a8e3502cda10d46cd7cc0e261ca33f7521afa8946bb3d4a74d9",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "fixed-manual-marker",
+      "command": [
+        "bash",
+        "--noprofile",
+        "--norc",
+        "-eo",
+        "pipefail",
+        "-c",
+        "if [ \"$EVENT\" != schedule ]; then\n    printf 'run=true\\nref=%s\\ntarget_ref=%s\\n' \"$GITHUB_SHA\" \"$GITHUB_REF_NAME\" >> \"$GITHUB_OUTPUT\"\n    exit 0\nfi\nhead=$(gh api \"repos/$REPO/commits/dev\" --jq .sha)\n# Only a successful schedule using this workflow revision proves scheduler compatibility.\n# Manual runs and old-format markers cannot hide a broken default-branch entry point.\npassed=0\nids=$(gh api \"repos/$REPO/actions/artifacts?name=release-checks-passed-v2-$head&per_page=100\" \\\n    --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_repository_id == .workflow_run.repository_id) | .workflow_run.id')\nfor id in $ids; do\n    if [ -n \"$(gh api \"repos/$REPO/actions/runs/$id\" --jq 'select(.path == \".github/workflows/release-checks.yml\" and .event == \"schedule\" and .head_sha == \"'\"$WORKFLOW_SHA\"'\" and .conclusion == \"success\") | .id')\" ]; then\n        passed=1\n        echo \"run $id passed the release checks on $head\"\n        break\n    fi\ndone\necho \"dev is at $head; a trusted pass on it: $passed\"\nif [ \"$passed\" = 1 ]; then\n    echo \"run=false\" >> \"$GITHUB_OUTPUT\"\n    echo \"Nothing was merged into dev since the release checks last passed on it: none today\" >> \"$GITHUB_STEP_SUMMARY\"\nelse\n    echo \"run=true\" >> \"$GITHUB_OUTPUT\"\nfi\necho \"ref=$head\" >> \"$GITHUB_OUTPUT\"\necho \"target_ref=dev\" >> \"$GITHUB_OUTPUT\""
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/fixed",
+      "exit_status": 0,
+      "expected_exit_status": 0,
+      "stdout": "fixed-manual-marker.stdout.log",
+      "stderr": "fixed-manual-marker.stderr.log",
+      "elapsed_seconds": 0.024,
+      "assertion": "A successful manual marker gives run=true; only fixed scheduling refuses this skip.",
+      "logs_sha256": {
+        "stdout": "496a90c84d73402f997a86a44f2cf1e5048b2bb805b71d98c1a75ffe2f4eb9da",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "fixed-focused-tests",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "tools/tests/release-checks.test.mjs",
+        "tools/tests/release-checks-workflow.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/fixed",
+      "exit_status": 0,
+      "expected_exit_status": 0,
+      "stdout": "fixed-focused-tests.stdout.log",
+      "stderr": "fixed-focused-tests.stderr.log",
+      "elapsed_seconds": 3.077,
+      "assertion": "The unchanged complete fixed tree passes both runner/workflow suites before mutation.",
+      "logs_sha256": {
+        "stdout": "1f6255ff72119ab3b4333b5518298240dbbe679bf4fe1a733ecd77e6ab487d09",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "mutation-pipeline-swallow",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-name-pattern",
+        "a launcher failure retains its exit status",
+        "tools/tests/release-checks-workflow.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/mutation-pipeline-swallow",
+      "exit_status": 1,
+      "expected_exit_status": 1,
+      "stdout": "mutation-pipeline-swallow.stdout.log",
+      "stderr": "mutation-pipeline-swallow.stderr.log",
+      "elapsed_seconds": 0.15,
+      "assertion": "Existing assertion rejects the deliberate mutation: 0 !== 37.",
+      "logs_sha256": {
+        "stdout": "25be26bc49cc21352f5cb27b84fe423ba63609b27f86d78c4c38fcac6ec4145d",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "mutation-manual-marker-trust",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-name-pattern",
+        "the scheduler reuses only",
+        "tools/tests/release-checks-workflow.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/mutation-manual-marker-trust",
+      "exit_status": 1,
+      "expected_exit_status": 1,
+      "stdout": "mutation-manual-marker-trust.stdout.log",
+      "stderr": "mutation-manual-marker-trust.stderr.log",
+      "elapsed_seconds": 0.174,
+      "assertion": "Existing assertion rejects the deliberate mutation: manual pass.",
+      "logs_sha256": {
+        "stdout": "4b39a757eeba431eaa0f18103f1e336c672b785ccffb2ac9929f76231ffe03c9",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "mutation-checkout-mismatch-ignored",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-name-pattern",
+        "checkout provenance must match",
+        "tools/tests/release-checks-workflow.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/mutation-checkout-mismatch-ignored",
+      "exit_status": 1,
+      "expected_exit_status": 1,
+      "stdout": "mutation-checkout-mismatch-ignored.stdout.log",
+      "stderr": "mutation-checkout-mismatch-ignored.stderr.log",
+      "elapsed_seconds": 0.162,
+      "assertion": "Existing assertion rejects the deliberate mutation: 0 !== 1.",
+      "logs_sha256": {
+        "stdout": "ba7a7b600a8cc86af105265c8214147504c3667a74a053f812bf0d97eed5af00",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "mutation-narrowed-contract-accepted",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "--test-name-pattern",
+        "evidence refuses a narrowed",
+        "tools/tests/release-checks.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/mutation-narrowed-contract-accepted",
+      "exit_status": 1,
+      "expected_exit_status": 1,
+      "stdout": "mutation-narrowed-contract-accepted.stdout.log",
+      "stderr": "mutation-narrowed-contract-accepted.stderr.log",
+      "elapsed_seconds": 0.333,
+      "assertion": "Existing assertion rejects the deliberate mutation: 0 !== 1.",
+      "logs_sha256": {
+        "stdout": "f55e9c20532325506e6421254f9133429d9314974a5ff497855e166615574d21",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    },
+    {
+      "id": "fixed-focused-tests-after-negative-calibration",
+      "command": [
+        "/opt/codex/runtimes/codex-primary-runtime/dependencies/node/bin/node",
+        "--test",
+        "tools/tests/release-checks.test.mjs",
+        "tools/tests/release-checks-workflow.test.mjs"
+      ],
+      "cwd": "/workspace/scratch/uxor-issue134-quality/red-proofs/fixed",
+      "exit_status": 0,
+      "expected_exit_status": 0,
+      "stdout": "fixed-focused-tests-after-negative-calibration.stdout.log",
+      "stderr": "fixed-focused-tests-after-negative-calibration.stderr.log",
+      "elapsed_seconds": 3.145,
+      "assertion": "All 17 unchanged runner/workflow tests are green again after the four independent red mutations.",
+      "logs_sha256": {
+        "stdout": "c4ec97cce7e1dd4a9133bab93801a0f08c4f2d656e24b833a81a7cb32863ae40",
+        "stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "limits": [
+    "Discovery only: no browser/application run.",
+    "Real configuration and real specs; focused release-file filter excludes non-release specs in dark/harsh projects.",
+    "Mutation receipts calibrate existing tests against complete fixed code; they are not historical failures.",
+    "No remote API or workflow execution and no scheduled default-branch operational proof."
+  ]
+}

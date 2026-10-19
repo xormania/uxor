@@ -1,0 +1,9 @@
+## Playwright: no test evidence
+
+no test evidence: tests not reached or report not written (playwright-results/results.json is missing)
+
+- Tested commit: `9b2fa7309786cee435503de87cf0cd5f0a9d9782` (main)
+- Shard: unknown
+- Runtime: Node v24.19.0
+
+::error title=Playwright::no test evidence: tests not reached or report not written (playwright-results/results.json is missing)

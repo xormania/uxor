@@ -1,7 +1,8 @@
-// .github/workflows/release.yml's release job, run step by step on a scratch repository whose main merges release pull
-// requests from dev, with `gh`, `git push` and tools/tests/docker-install.sh stubbed: which versions get an install
-// check, a tag and a Release, in which order, which one stays "Latest", and whether the job ends green so that the
-// gallery (`pages`, needs: release) is published. Each run step runs as GitHub runs it: bash --noprofile --norc -eo
+// .github/workflows/release.yml's check and release jobs, run step by step on a scratch repository whose main merges
+// release pull requests from dev, with `gh`, `git push` and tools/tests/docker-install.sh stubbed: which versions get an
+// install check (the check job, read-only), a tag and a Release (the release job, which runs no install), in which
+// order, which one stays "Latest", and whether the jobs end green so that the gallery (`pages`, needs: release) is
+// published. Each job gets a runner of its own (its own RUNNER_TEMP); the release job reads only the check job's outputs. Each run step runs as GitHub runs it: bash --noprofile --norc -eo
 // pipefail. Our workflow's layout only (a mapping per step, `run: |` blocks), not YAML at large.
 // Run: node --test tools/tests/*.test.mjs
 import { spawnSync } from 'node:child_process';
@@ -51,10 +52,27 @@ function steps(text, job) {
     return list;
 }
 
-/** `${{ steps.<id>.outputs.<name> }}` and the like, from the outputs so far. */
-function expand(value, outputs) {
+/** A job's `outputs:` mapping: name → `steps.<id>.outputs.<name>` or `needs.<job>.outputs.<name>`. */
+function jobOutputs(text, job) {
+    const lines = text.split('\n');
+    const start = lines.findIndex((line) => line === `    ${job}:`);
+    const head = lines.findIndex((line, i) => i > start && /^ {8}outputs:\s*$/.test(line));
+    const map = {};
+    for (let i = head + 1; i < lines.length && indent(lines[i]) > 8; i++) {
+        const entry = /^\s+([a-z-]+):\s*\$\{\{\s*(.*?)\s*\}\}/.exec(lines[i]);
+        if (entry) map[entry[1]] = entry[2];
+    }
+    return map;
+}
+
+/** `${{ steps.<id>.outputs.<name> }}`, `${{ needs.check.outputs.<name> }}`, from the outputs so far. */
+function expand(value, outputs, needs = {}) {
     return value.replace(/\$\{\{\s*(.*?)\s*\}\}/g, (_, expression) => {
         if (/^github\.token$/.test(expression)) return 'token';
+        // the commit CI passed on: the scratch repository's main
+        if (expression === 'github.event.workflow_run.head_sha || github.sha') return process.env.RELEASE_TEST_COMMIT ?? '';
+        const need = /^needs\.check\.outputs\.([a-z0-9_-]+)$/.exec(expression);
+        if (need) return needs[need[1]] ?? '';
         const output = /^steps\.([a-z0-9_-]+)\.outputs\.([a-z0-9_-]+)$/.exec(expression);
         assert.ok(output, `unknown expression ${expression}`);
         return outputs[output[1]]?.[output[2]] ?? '';
@@ -128,7 +146,7 @@ done
     writeFileSync(join(bin, 'gh'), `#!/usr/bin/env bash
 set -euo pipefail
 case "$1 $2" in
-    'release view') for v in \${GH_RELEASED:-}; do [ "$v" = "$3" ] && exit 0; done; echo 'release not found' >&2; exit 1 ;;
+    'release view') for v in \${GH_RELEASED:-} \${GH_RELEASED_LATE:-}; do [ "$v" = "$3" ] && exit 0; done; echo 'release not found' >&2; exit 1 ;;
     'release create')
         shift 2
         echo "gh release create $*" >> "$CALLS"
@@ -147,47 +165,63 @@ exec ${realGit} "$@"
     return { dir, repo, bin, rel1, rel2 };
 }
 
-/** The release job's run steps in order, as GitHub runs them: its result, the calls made, the log. */
-function runJob(fx, env = {}) {
-    const temp = join(fx.dir, 'runner-temp');
-    mkdirSync(temp, { recursive: true });
-    const calls = join(fx.dir, 'calls');
-    writeFileSync(calls, '');
+/** One job's run steps in order, as GitHub runs them on a fresh runner: its failure, its outputs, the log. */
+function runSteps(fx, job, env, calls, needs = {}) {
+    const temp = mkdtempSync(join(fx.dir, `${job}-temp-`));
     const outputs = {};
     let failed = false;
     let log = '';
-    const ran = [];
-    for (const [index, step] of steps(workflow, 'release').entries()) {
+    for (const [index, step] of steps(workflow, job).entries()) {
         if (!holds(step.if, outputs, failed)) continue;
-        if (step.uses) continue; // the checkout (the scratch repository is checked out) and the Jev diagnosis
+        if (step.uses) continue; // the checkout (the scratch repository is checked out) and the Jev step
         if (!step.run) continue;
         const script = join(temp, `step-${index}.sh`);
         const output = join(temp, `output-${index}`);
         writeFileSync(script, step.run);
         writeFileSync(output, '');
-        const stepEnv = Object.fromEntries(Object.entries(step.env).map(([k, v]) => [k, expand(v, outputs)]));
+        const stepEnv = Object.fromEntries(Object.entries(step.env).map(([k, v]) => [k, expand(v, outputs, needs)]));
         const run = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', script], {
             cwd: fx.repo,
             encoding: 'utf8',
             env: { PATH: `${fx.bin}:${process.env.PATH}`, HOME: fx.dir, RUNNER_TEMP: temp, GITHUB_OUTPUT: output, CALLS: calls, ...env, ...stepEnv },
         });
-        log += `--- ${step.name} (exit ${run.status})\n${run.stdout}${run.stderr}`;
-        ran.push(step.name);
+        log += `--- ${job}: ${step.name} (exit ${run.status})\n${run.stdout}${run.stderr}`;
         if (step.id) {
             outputs[step.id] = Object.fromEntries(readFileSync(output, 'utf8').split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
         }
         if (run.status !== 0 && step['continue-on-error'] !== 'true') failed = true;
     }
-    const versions = outputs.versions?.versions ?? '';
+    const mapped = Object.fromEntries(Object.entries(jobOutputs(workflow, job)).map(([name, expression]) => [name, expand(`\${{ ${expression} }}`, outputs, needs)]));
+    return { failed, outputs: mapped, log, temp };
+}
+
+/** The check job, then the release job when the check passed and found versions (`if: needs.check.outputs.versions != ''`). */
+function runJob(fx, env = {}, between = () => {}) {
+    const calls = join(fx.dir, 'calls');
+    writeFileSync(calls, '');
+    process.env.RELEASE_TEST_COMMIT = g(fx.repo, 'rev-parse', 'main');
+    const check = runSteps(fx, 'check', env, calls);
+    let log = check.log;
+    let failed = check.failed;
+    let release = null;
+    if (!check.failed && check.outputs.versions !== '') {
+        between();
+        release = runSteps(fx, 'release', env, calls, check.outputs);
+        log += release.log;
+        failed = release.failed;
+    }
+    const versions = check.outputs.versions ?? '';
     return {
         failed,
         // pages: needs: release, if: needs.release.outputs.versions != ''
-        pages: !failed && versions !== '',
+        pages: !failed && release !== null && versions !== '',
         versions,
         calls: readFileSync(calls, 'utf8').split('\n').filter(Boolean),
         log,
-        ran,
-        notes: (version) => (existsSync(join(temp, 'notes', `${version}.md`)) ? readFileSync(join(temp, 'notes', `${version}.md`), 'utf8') : null),
+        notes: (version) => {
+            const file = release && join(release.temp, 'notes', `${version}.md`);
+            return file && existsSync(file) ? readFileSync(file, 'utf8') : null;
+        },
     };
 }
 
@@ -289,6 +323,60 @@ test('every version released: nothing runs, and no gallery', () => {
         assert.deepEqual(job.calls, []);
         assert.equal(job.failed, false, job.log);
         assert.equal(job.pages, false);
+    } finally {
+        rmSync(fx.dir, { recursive: true, force: true });
+    }
+});
+
+test('the tag disappears between the install check and the release: no tag without its own install check', () => {
+    const fx = fixture();
+    try {
+        g(fx.repo, 'tag', '-a', '0.1.0', fx.rel1, '-m', 'UXor 0.1.0');
+        g(fx.repo, 'tag', '-a', '0.2.0', fx.rel2, '-m', 'UXor 0.2.0');
+        const job = runJob(fx, { GH_RELEASED: '0.1.0' }, () => g(fx.repo, 'tag', '-d', '0.2.0'));
+        assert.deepEqual(installs(job.calls), [], job.log);
+        assert.deepEqual(job.calls.filter((c) => c.startsWith('git push')), [], job.log);
+        assert.deepEqual(creates(job.calls), [], job.log);
+        assert.match(job.log, /::error::0\.2\.0: the install of [0-9a-f]+ was not checked/);
+        assert.equal(job.failed, true);
+        assert.equal(job.pages, false);
+    } finally {
+        rmSync(fx.dir, { recursive: true, force: true });
+    }
+});
+
+test('the release job runs no install check and keeps no git credentials; the check job cannot write', () => {
+    const release = steps(workflow, 'release');
+    assert.ok(release.every((step) => !/docker-install/.test(step.run ?? '')), 'the release job runs no install check');
+    const jobText = (job) => {
+        const lines = workflow.split('\n');
+        const start = lines.indexOf(`    ${job}:`);
+        let end = start + 1;
+        while (end < lines.length && !/^ {4}[a-z-]+:\s*$/.test(lines[end])) end++;
+        return lines.slice(start, end).join('\n');
+    };
+    assert.match(jobText('check'), /permissions:\s*\n\s+contents: read/);
+    assert.doesNotMatch(jobText('check'), /: write/);
+    for (const job of ['check', 'release']) {
+        assert.match(jobText(job), /persist-credentials: false/, `${job}: the checkout keeps no credentials`);
+        assert.match(jobText(job), /^\s+ref: main\s*$/m, `${job}: checks out main by name; the commit CI passed on is read as history`);
+    }
+});
+
+test('a release published by an overlapping run while this one waited: no second create, the job and the gallery go on', () => {
+    const fx = fixture();
+    try {
+        g(fx.repo, 'tag', '-a', '0.1.0', fx.rel1, '-m', 'UXor 0.1.0');
+        // the check job saw 0.2.0 unreleased; the other run published it before this release job ran
+        const env = { GH_RELEASED: '0.1.0' };
+        const job = runJob(fx, env, () => {
+            g(fx.repo, 'tag', '-a', '0.2.0', fx.rel2, '-m', 'UXor 0.2.0');
+            env.GH_RELEASED_LATE = '0.2.0';
+        });
+        assert.deepEqual(creates(job.calls), [], job.log);
+        assert.match(job.log, /0\.2\.0: already released/);
+        assert.equal(job.failed, false, job.log);
+        assert.equal(job.pages, true);
     } finally {
         rmSync(fx.dir, { recursive: true, force: true });
     }

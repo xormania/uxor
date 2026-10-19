@@ -19,8 +19,10 @@
  * "firefox 2/3"), RESULTS_ARTIFACT and REPORT_ARTIFACT (the names of the artifacts the workflow uploads this
  * directory and the HTML report as, quoted where the summary points at them), SETUP_STEPS and RUNTIME (lines of
  * "<name>=<value>": the outcome of each step before the tests, the versions the job found), TESTS_OUTCOME (the
- * Playwright step's outcome), GITHUB_SHA, GITHUB_REF_NAME, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID,
- * GITHUB_RUN_ATTEMPT.
+ * Playwright step's outcome), TESTED_SHA and TESTED_REF (the checkout actually used), RESOLVED_SHA and RESOLVED_REF
+ * (the selected target before checkout), GITHUB_SHA and GITHUB_REF_NAME (the triggering event), GITHUB_WORKFLOW_SHA
+ * and GITHUB_WORKFLOW_REF (the workflow definition), GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID,
+ * GITHUB_RUN_ATTEMPT. The event is kept separately and is never described as the tested checkout without TESTED_SHA.
  * Exit status: 0 the report was read (whatever its tests did), 2 no report (tests not reached or report not
  * written), 3 the report does not parse or is not a Playwright report, 4 tests not reached (a setup step failed or
  * the Playwright step did not run), 1 this script failed.
@@ -28,6 +30,7 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { runProvenance } from './run-provenance.mjs';
 
 const EXIT = { valid: 0, missing: 2, invalid: 3, notReached: 4 };
 const ERROR_LINES = 6;
@@ -38,9 +41,10 @@ const reportPath = resolve(process.argv[2] ?? 'playwright-results/results.json')
 const outDir = dirname(reportPath);
 const shownPath = relative(process.cwd(), reportPath) || reportPath;
 
+const source = runProvenance(env);
+const { provenance } = source;
 const run = {
-    sha: env.GITHUB_SHA ?? null,
-    ref: env.GITHUB_REF_NAME ?? null,
+    ...source,
     runUrl: env.GITHUB_RUN_ID && env.GITHUB_REPOSITORY
         ? `${env.GITHUB_SERVER_URL ?? 'https://github.com'}/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}`
         : null,
@@ -399,9 +403,11 @@ function summary(data) {
 
 function context(shard, projects, data) {
     const versions = { ...runtime, ...(data?.playwright ? { Playwright: data.playwright } : {}) };
-    const commit = run.sha ? `\`${run.sha}\`${run.ref ? ` (${run.ref})` : ''}` : 'unknown (GITHUB_SHA not set)';
     const lines = [
-        `- Tested commit: ${commit}`,
+        `- Tested commit: ${revision(provenance.checkout, 'unknown (TESTED_SHA not supplied)')}`,
+        `- Resolved target: ${revision(provenance.resolved, 'unknown (RESOLVED_SHA not supplied)')}`,
+        `- Event commit: ${revision(provenance.event, 'unknown (GITHUB_SHA not set)')}`,
+        `- Workflow definition: ${revision(provenance.workflow, 'unknown (GITHUB_WORKFLOW_SHA not set)')}`,
         `- Shard: ${shard ?? 'unknown'}${projects.length ? `; projects: ${projects.join(', ')}` : ''}${data?.durationMs != null ? `; ${seconds(data.durationMs)}` : ''}`,
         `- Runtime: ${Object.entries(versions).map(([name, version]) => `${name} ${version}`).join(', ')}`,
     ];
@@ -409,6 +415,11 @@ function context(shard, projects, data) {
         lines.push(`- Run: ${run.runUrl}${run.runAttempt ? ` (attempt ${run.runAttempt})` : ''}`);
     }
     return lines.join('\n') + '\n';
+}
+
+/** A supplied revision's commit and optional ref; event or target refs never fill in for a missing checkout ref. */
+function revision({ sha, ref }, unknown) {
+    return sha ? `\`${sha}\`${ref ? ` (${ref})` : ''}` : unknown;
 }
 
 function annotate(test) {

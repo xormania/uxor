@@ -1,0 +1,8 @@
+@import 'tailwindcss';
+@import '../vendor/flowbite/dist/flowbite.min.css';
+@import './uxor.css';
+@source '../../templates';
+@source '../controllers';
+
+body { font-family: system-ui, sans-serif; margin: 2rem auto; max-width: 64rem; padding: 0 1rem; }
+section { margin-block: 2rem; }

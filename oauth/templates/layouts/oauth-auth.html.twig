@@ -1,0 +1,8 @@
+{% extends 'layouts/auth.html.twig' %}
+
+{##- Authentication leaves a Turbo Frame in full and is never restored from a Turbo snapshot. -#}
+{% block head %}
+    {{ parent() }}
+    <meta name="turbo-visit-control" content="reload">
+    <meta name="turbo-cache-control" content="no-cache">
+{% endblock %}

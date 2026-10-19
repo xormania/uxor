@@ -54,5 +54,12 @@
         "contains": "_html|raw",
         "count": 1,
         "reason": "MarkdownRenderer disables raw HTML and images, then sanitizes the CommonMark output before this template receives it."
+    },
+    {
+        "path": "packages/uxor/src/NativeTools.php",
+        "rule": "php-process-execution",
+        "contains": "new Process($argv, $root, timeout: 30)",
+        "count": 1,
+        "reason": "Runs the bound project's own bin/console or vendor/bin/mate, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
     }
 ]

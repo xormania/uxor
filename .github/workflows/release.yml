@@ -1,9 +1,10 @@
 name: Release
 
 # A release pull request moves CHANGELOG.md's Unreleased entries to "## [X.Y.Z] - date" (CONTRIBUTING.md, Releases).
-# Once it is merged and CI has passed on main, for the newest version heading, if it has no GitHub Release, this checks
-# that the merge commit that added the heading installs from GitHub in a fresh Symfony Docker project, tags it (unless
-# the tag exists and points at that commit), and publishes the Release, "Latest", with the version's section of
+# Once it is merged and CI has passed on main, for the newest version heading, if it has no GitHub Release, the check job
+# (read-only) checks that the merge commit that added the heading installs from GitHub in a fresh Symfony Docker
+# project; the release job (which runs no install) tags it (unless the tag exists and points at that commit), and
+# publishes the Release, "Latest", with the version's section of
 # CHANGELOG.md at that commit, then the gallery (pages.yml). An older version that is tagged but has no Release gets
 # its Release from its notes, not "Latest" and without an install check (today's check installs today's recipes, not
 # that version's), after the newest one and on a best-effort basis: it never holds back the newest version or the
@@ -19,8 +20,11 @@ permissions:
     contents: read
 
 jobs:
-    release:
-        name: Tag and publish new versions
+    # The install check of the newest version, before any tag: with a read-only token, because it runs code this
+    # repository does not control (Symfony Docker, Composer packages, images). The release job below writes the tag and
+    # the Releases and runs only this repository's code.
+    check:
+        name: Check the new version's install
         # only after CI passed on a push to main of this repository; a manual run only on main
         if: >-
             github.event_name == 'workflow_run'
@@ -30,8 +34,100 @@ jobs:
             && github.event.workflow_run.head_repository.full_name == github.repository
             || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
         runs-on: ubuntu-latest
+        timeout-minutes: 33 # 30, plus 3 for the advisory Jev step
         outputs:
+            commit: ${{ steps.commit.outputs.commit }}
             versions: ${{ steps.versions.outputs.versions }}
+            newest: ${{ steps.versions.outputs.newest }}
+            checked: ${{ steps.install.outputs.checked }}
+        permissions:
+            contents: read
+        steps:
+            # main by name: the scripts that run are main's. The commit CI passed on is read as history, never checked
+            # out, and must be on main
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: main
+                  fetch-depth: 0 # the history and the tags: which commit added a version heading, which tags exist
+                  persist-credentials: false
+
+            - name: The commit CI passed on
+              id: commit
+              env:
+                  COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+              run: |
+                  git merge-base --is-ancestor "$COMMIT" HEAD || { echo "::error::$COMMIT is not on main"; exit 1; }
+                  echo "commit=$(git rev-parse "$COMMIT")" >> "$GITHUB_OUTPUT"
+
+            - name: Find the versions without a release
+              id: versions
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  COMMIT: ${{ steps.commit.outputs.commit }}
+              run: |
+                  versions=
+                  while read -r version; do
+                      gh release view "$version" > /dev/null 2>&1 || versions="$versions $version"
+                  done < <(git show "$COMMIT:CHANGELOG.md" | grep -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])')
+                  echo "versions=${versions# }" >> "$GITHUB_OUTPUT"
+                  # the version this release cuts: the only one with an install check, and the "Latest" Release
+                  echo "newest=$(git show "$COMMIT:CHANGELOG.md" | grep -m1 -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])')" >> "$GITHUB_OUTPUT"
+                  echo "To release: ${versions:- none}"
+
+            # before any install check: a tag that points at another commit than the one that adds its heading fails
+            # the run here (move or delete the tag by hand, CONTRIBUTING.md, Releases)
+            - name: Plan the tags
+              id: plan
+              if: steps.versions.outputs.versions != ''
+              env:
+                  VERSIONS: ${{ steps.versions.outputs.versions }}
+                  COMMIT: ${{ steps.commit.outputs.commit }}
+              run: |
+                  # shellcheck disable=SC2086 # the versions, split on spaces
+                  tools/release-plan.sh --dry-run --ref "$COMMIT" $VERSIONS
+                  # shellcheck disable=SC2086
+                  tools/release-plan.sh --ref "$COMMIT" --notes-dir "$RUNNER_TEMP/notes" $VERSIONS > "$RUNNER_TEMP/plan"
+
+            # The newest version, untagged: its commit installs from GitHub before any tag makes it a version (its
+            # output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step: tools/ci/step-attempts.mjs)
+            - name: Check the install
+              id: install
+              if: steps.versions.outputs.versions != ''
+              env:
+                  NEWEST: ${{ steps.versions.outputs.newest }}
+              run: |
+                  set -o pipefail
+                  {
+                      # the plan on its own descriptor: the install check's commands cannot read it from stdin
+                      while read -r -u 3 version commit state; do
+                          [ "$version" = "$NEWEST" ] || continue # an older version gets no install check
+                          echo "$version: $state, $(git log -1 --format='%h %s' "$commit")"
+                          if [ "$state" = untagged ]; then
+                              KIT_REF="$commit" tools/tests/docker-install.sh
+                              echo "checked=$commit" >> "$GITHUB_OUTPUT"
+                          fi
+                      done 3< "$RUNNER_TEMP/plan"
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            # Advisory diagnosis of the failed install check (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Check the new version's install
+                  artifact: jev-input-release-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    release:
+        name: Tag and publish new versions
+        needs: check
+        if: needs.check.outputs.versions != ''
+        runs-on: ubuntu-latest
+        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step
+        outputs:
+            versions: ${{ needs.check.outputs.versions }}
         # one release at a time; on the job, so that the skipped runs (CI on other branches and pull requests) never
         # take the place of a pending one
         concurrency:
@@ -40,63 +136,59 @@ jobs:
         permissions:
             contents: write
         steps:
-            # pinned by commit: this job can write tags and releases
+            # pinned by commit: this job can write tags and releases. No credentials are kept in the checkout: the tag's
+            # push below is the only command given the token for git
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
-                  # the commit CI passed on (a manual run: main)
-                  ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-                  fetch-depth: 0 # the history and the tags: which commit added a version heading, which tags exist
+                  ref: main
+                  fetch-depth: 0
+                  persist-credentials: false
 
-            - name: Find the versions without a release
-              id: versions
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  versions=
-                  while read -r version; do
-                      gh release view "$version" > /dev/null 2>&1 || versions="$versions $version"
-                  done < <(grep -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)
-                  echo "versions=${versions# }" >> "$GITHUB_OUTPUT"
-                  # the version this release cuts: the only one with an install check, and the "Latest" Release
-                  echo "newest=$(grep -m1 -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+(?=\])' CHANGELOG.md)" >> "$GITHUB_OUTPUT"
-                  echo "To release: ${versions:- none}"
-
-            # before any install check, tag or release: a tag that points at another commit than the one that adds its
-            # heading fails the run here (move or delete the tag by hand, CONTRIBUTING.md, Releases)
+            # the plan again, from main's code alone: the check job's files are never read here
             - name: Plan the tags and notes
               id: plan
-              if: steps.versions.outputs.versions != ''
               env:
-                  VERSIONS: ${{ steps.versions.outputs.versions }}
+                  VERSIONS: ${{ needs.check.outputs.versions }}
+                  COMMIT: ${{ needs.check.outputs.commit }}
               run: |
+                  git merge-base --is-ancestor "$COMMIT" HEAD || { echo "::error::$COMMIT is not on main"; exit 1; }
                   # shellcheck disable=SC2086 # the versions, split on spaces
-                  tools/release-plan.sh --dry-run $VERSIONS
+                  tools/release-plan.sh --dry-run --ref "$COMMIT" $VERSIONS
                   # shellcheck disable=SC2086
-                  tools/release-plan.sh --notes-dir "$RUNNER_TEMP/notes" $VERSIONS > "$RUNNER_TEMP/plan"
+                  tools/release-plan.sh --ref "$COMMIT" --notes-dir "$RUNNER_TEMP/notes" $VERSIONS > "$RUNNER_TEMP/plan"
 
-            # The newest version (its output also goes to $RUNNER_TEMP/jev-publish.log, for the Jev step:
-            # tools/ci/step-attempts.mjs)
-            - name: Tag, check the install, publish
+            # The newest version: tagged only if the check job checked the install of this very commit (its output also
+            # goes to $RUNNER_TEMP/jev-publish.log, for the Jev step: tools/ci/step-attempts.mjs)
+            - name: Tag and publish
               id: publish
-              if: steps.versions.outputs.versions != ''
               env:
                   GH_TOKEN: ${{ github.token }}
-                  NEWEST: ${{ steps.versions.outputs.newest }}
+                  NEWEST: ${{ needs.check.outputs.newest }}
+                  CHECKED: ${{ needs.check.outputs.checked }}
               run: |
                   set -o pipefail
                   {
                       git config user.name 'github-actions[bot]'
                       git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-                      # the plan on its own descriptor: the install check's commands cannot read it from stdin
-                      while read -r -u 3 version commit state; do
+                      while read -r version commit state; do
                           [ "$version" = "$NEWEST" ] || continue # an older version: the next step
+                          # published by an overlapping run while this one waited for the release slot: nothing to do
+                          if gh release view "$version" > /dev/null 2>&1; then
+                              echo "$version: already released"
+                              continue
+                          fi
                           echo "$version: $state, $(git log -1 --format='%h %s' "$commit")"
                           case "$state" in
                               untagged)
-                                  # check the install of the commit from GitHub before any tag makes it a version
-                                  KIT_REF="$commit" tools/tests/docker-install.sh
+                                  if [ "$CHECKED" != "$commit" ]; then
+                                      echo "::error::$version: the install of $commit was not checked (checked: ${CHECKED:-none}); re-run the workflow"
+                                      exit 1
+                                  fi
                                   git tag -a "$version" "$commit" -m "$(jq -r .name manifest.json) $version"
-                                  git push origin "refs/tags/$version"
+                                  # the token for this push alone, in git's environment, never in the checkout's config
+                                  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+                                      GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" \
+                                      git push origin "refs/tags/$version"
                                   ;;
                               tagged)
                                   # on the expected commit: by an earlier run, after its install check passed, or by
@@ -105,7 +197,7 @@ jobs:
                               *) echo "::error::$version: $state"; exit 1 ;;
                           esac
                           gh release create "$version" --verify-tag --latest --title "$version" --notes-file "$RUNNER_TEMP/notes/$version.md"
-                      done 3< "$RUNNER_TEMP/plan"
+                      done < "$RUNNER_TEMP/plan"
                   } 2>&1 | tee "$RUNNER_TEMP/jev-publish.log"
 
             # Older versions without a Release, after the newest one: a tagged one gets its Release from its notes at
@@ -113,15 +205,18 @@ jobs:
             # version lacks) or a tag. Best effort: a failure warns, and the job and the gallery go on.
             - name: Publish the older versions' releases
               id: older
-              if: steps.versions.outputs.versions != ''
               continue-on-error: true
               env:
                   GH_TOKEN: ${{ github.token }}
-                  NEWEST: ${{ steps.versions.outputs.newest }}
+                  NEWEST: ${{ needs.check.outputs.newest }}
               run: |
                   status=0
                   while read -r version commit state; do
                       [ "$version" != "$NEWEST" ] || continue
+                      if gh release view "$version" > /dev/null 2>&1; then
+                          echo "$version: already released"
+                          continue
+                      fi
                       case "$state" in
                           tagged)
                               echo "$version: tagged, publishing its Release (not Latest)"
@@ -139,21 +234,20 @@ jobs:
                   done < "$RUNNER_TEMP/plan"
                   exit "$status"
 
-            # Advisory diagnosis of the failed install check, tag or release (.github/actions/jev-diagnosis): never the
-            # job's verdict. This job runs only for this repository's main, like the key.
+            # Advisory diagnosis of the failed tag or release (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
               if: failure()
               continue-on-error: true
               timeout-minutes: 3
               uses: ./.github/actions/jev-diagnosis
               with:
-                  api-key: ${{ secrets.TYPESAFE_API_KEY }}
                   steps: ${{ toJSON(steps) }}
                   job: Tag and publish new versions
+                  artifact: jev-input-release-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     pages:
         name: Publish the gallery
-        needs: release
+        needs: [check, release]
         if: needs.release.outputs.versions != ''
         permissions:
             contents: read
@@ -161,6 +255,4 @@ jobs:
             id-token: write
         uses: ./.github/workflows/pages.yml
         with:
-            ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-        secrets:
-            TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }} # the build's advisory Jev diagnosis, and nothing else
+            ref: ${{ needs.check.outputs.commit }}

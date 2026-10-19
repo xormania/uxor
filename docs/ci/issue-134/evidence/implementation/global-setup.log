@@ -1,0 +1,10 @@
+Release selection: current (release, release-dark, release-harsh)
+Error: Global setup failed before any browser test
+
+   at ../global-setup.mjs:1
+
+> 1 | export default async function() { throw new Error('Global setup failed before any browser test'); }
+    |                                         ^
+  2 |
+    at default (/workspace/scratch/uxor-issue134-quality/implementation/global-setup/global-setup.mjs:1:41)
+

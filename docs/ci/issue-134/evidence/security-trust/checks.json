@@ -1,0 +1,33 @@
+[
+  {
+    "command": [
+      "/workspace/scratch/uxor-issue134-tools/actionlint",
+      "-shellcheck=/workspace/scratch/uxor-issue134-tools/shellcheck",
+      "-pyflakes="
+    ],
+    "exit": 0
+  },
+  {
+    "command": [
+      "node",
+      "tools/security-policy.mjs"
+    ],
+    "exit": 0
+  },
+  {
+    "command": [
+      "node",
+      "tools/docs-lint.mjs",
+      "docs/TESTING.md",
+      "docs/TEST-INVENTORY.md"
+    ],
+    "exit": 0
+  },
+  {
+    "command": [
+      "node",
+      "tools/test-inventory.mjs"
+    ],
+    "exit": 0
+  }
+]

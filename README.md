@@ -57,6 +57,15 @@ this command and commit them; run it again when your templates use new icons:
 php bin/console ux:icons:lock
 ```
 
+## Agent tooling
+
+The repository is also a Composer package, `xormania/uxor`, for the coding agent working on your project: three
+[Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
+and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
+setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
+recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](packages/uxor/README.md) says how to
+install it.
+
 ## Requirements
 
 | | |

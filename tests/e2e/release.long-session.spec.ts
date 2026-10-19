@@ -1,6 +1,7 @@
-import type { Browser, CDPSession, Page } from '@playwright/test';
+import type { CDPSession, Page } from '@playwright/test';
 import { test, expect, controllersConnected } from './fixtures';
 import { turboOperation } from './transitions';
+import { leakDetectorRuns } from './leak-detector.mjs';
 
 /*
  * Release checks (docs/PLAN-test-tiers.md, tier 3), long sessions: 50 Turbo visits and Backs across the demo, then
@@ -49,27 +50,6 @@ const TOLERANCE = {
 
 type Counters = Record<keyof typeof TOLERANCE, number>;
 
-/**
- * Whether this browser runs Chromium's leak detector: `Memory.prepareForLeakDetection`, tried once in a page of its
- * own context, never the page under test. Chromium 145 (Playwright 1.58's build, headless shell and full) answers
- * "Failed to run leak detection" and its renderer crashes, so where it fails the same caches are dropped the way a
- * memory-pressure signal drops them (`Memory.simulatePressureNotification`), before the same forced collection; the
- * report says which ran.
- */
-async function leakDetectorRuns(browser: Browser): Promise<boolean> {
-    const context = await browser.newContext();
-    try {
-        const probe = await context.newPage();
-        const cdp = await context.newCDPSession(probe);
-        await cdp.send('Memory.prepareForLeakDetection');
-        await probe.evaluate(() => 1); // the renderer survived it
-        return true;
-    } catch {
-        return false;
-    } finally {
-        await context.close().catch(() => undefined);
-    }
-}
 
 async function counters(cdp: CDPSession, leakDetector: boolean): Promise<Counters> {
     // the console's messages keep the objects they were given (DevTools holds them): none may keep a page alive
@@ -97,7 +77,7 @@ const visitAndBack = async (page: Page, url: string) => {
     await turboOperation(page, { url: HOME }, () => page.goBack());
 };
 
-test.describe('release long session', { tag: '@release' }, () => {
+test.describe('release long session', () => {
     test.skip(({ browserName }) => 'chromium' !== browserName, 'the leak-detection counters are Chromium\'s (CDP)');
 
     test(`${VISITS} Turbo visits and Backs leave the DOM counters and the JS heap at their level`, async ({ page, browser }) => {

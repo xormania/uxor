@@ -11,7 +11,7 @@
 
 # the recipes installed, in this order: a page block and its layouts, a form block, then each recipe with a PHP part or
 # Composer packages of its own
-install_recipes=(dashboard-home signup data-table data-table-live autocomplete date-picker chart dropzone editor markdown-editor)
+install_recipes=(dashboard-home signup data-table data-table-live autocomplete date-picker chart dropzone editor markdown-editor oauth)
 toolkit_version="${UX_TOOLKIT_VERSION:-3.5.1}"
 
 # README.md's install steps, command for command:

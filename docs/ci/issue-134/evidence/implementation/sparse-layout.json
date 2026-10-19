@@ -1,0 +1,9 @@
+{
+  "tools/ci/release-checks.mjs": true,
+  "tools/ci/run-provenance.mjs": true,
+  "tools/ci/step-attempts.mjs": true,
+  "tools/ci/playwright-summary.mjs": true,
+  "tools/ci/jev-ci.json": true,
+  ".github/actions/jev-diagnosis/action.yml": true,
+  ".github/workflows/release-checks.yml": true
+}

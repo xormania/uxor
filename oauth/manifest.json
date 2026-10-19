@@ -1,0 +1,30 @@
+{
+    "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
+    "type": "component",
+    "name": "OAuth",
+    "description": "Server-side OAuth2 and OpenID Connect sign-in, with expiring attempts, Symfony Security and account connections.",
+    "copy-files": {
+        "src/": "src/",
+        "templates/": "templates/",
+        "config/": "config/"
+    },
+    "dependencies": {
+        "recipe": [
+            "social-login",
+            "connected-accounts",
+            "layouts"
+        ],
+        "composer": [
+            "symfony/security-bundle",
+            "symfony/security-csrf",
+            "symfony/cache",
+            "league/oauth2-client:^2.9",
+            "league/oauth2-github:^3.1",
+            "league/oauth2-google:^5.0",
+            "league/oauth2-facebook:^2.2",
+            "firebase/php-jwt:^7.2",
+            "guzzlehttp/guzzle:^7.8",
+            "guzzlehttp/psr7:^2.6"
+        ]
+    }
+}

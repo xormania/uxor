@@ -18,27 +18,44 @@ jobs:
     npm-audit:
         name: npm audit
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         steps:
             # the pull request's merge commit and its first parent, the base branch
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   fetch-depth: 2
 
             - id: changed
               if: github.event_name == 'pull_request'
               run: git diff --quiet HEAD^1 HEAD -- package.json package-lock.json .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
 
-            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
-              run: npm audit --package-lock-only
+            - name: npm audit
+              id: audit
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              run: |
+                  set -o pipefail
+                  npm audit --package-lock-only 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: npm audit
+                  artifact: jev-input-audit-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     composer-audit:
         name: composer audit
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  persist-credentials: false
                   fetch-depth: 2
 
             - id: changed
@@ -46,13 +63,28 @@ jobs:
               run: git diff --quiet HEAD^1 HEAD -- demo/composer.json demo/composer.lock .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
 
             - if: github.event_name != 'pull_request' || steps.changed.outputs.files
-              uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+              uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: '8.4'
                   tools: composer:v2
                   coverage: none
 
             # the lock file only: nothing is installed
-            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
-              run: composer audit --locked
+            - name: composer audit
+              id: audit
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
               working-directory: demo
+              run: |
+                  set -o pipefail
+                  composer audit --locked 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: composer audit
+                  artifact: jev-input-audit-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
