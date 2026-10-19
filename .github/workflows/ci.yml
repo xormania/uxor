@@ -4,17 +4,22 @@ name: CI
 # runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
 # push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
 # release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml).
+# (.github/dependabot.yml). Once a day, on the default branch, the jobs that install unpinned upstream versions run
+# alone (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev
+# push that touches no install may no longer run.
 on:
     push:
         branches: ['**']
+    schedule:
+        - cron: '29 5 * * *'
     workflow_dispatch:
 
 permissions:
     contents: read
 
 concurrency:
-    group: ci-${{ github.ref }}
+    # the daily run in a group of its own: it never cancels, nor is cancelled by, a push to the default branch
+    group: ci-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
     cancel-in-progress: true
 
 env:
@@ -24,9 +29,11 @@ env:
 
 jobs:
     # Which jobs this change could affect (tools/ci-changes.sh): a job it cannot affect is skipped, and a skipped job
-    # passes the branch rulesets. Pushes to main and dev, a run by hand and a change to this workflow run everything. A
-    # branch is compared with where it left dev, so each push checks the whole pull request, not only its last commit
-    # (the rulesets require a branch to be up to date with its base before it merges, so that is the code that lands).
+    # passes the branch rulesets. Pushes to main, a run by hand and a change to this workflow run everything. A branch
+    # is compared with where it left dev, so each push checks the whole pull request, not only its last commit. A push to
+    # dev is compared with the commit of dev's last successful run, so every merge since is checked, those of a run that
+    # was cancelled or failed included; with none (a first run, a force push), everything runs. The daily run runs the
+    # installs only.
     #
     # A work order's own branch (claude/wo-<name>, not its jobs' claude/wo-<name>--<job>) runs nothing else while its pull
     # request into dev is a draft or not open: each job ran CI on its own branch before it merged. CI result then fails,
@@ -95,12 +102,27 @@ jobs:
                       base=
                   fi
                   echo "base=$base" >> "$GITHUB_OUTPUT"
+                  # dev: the commit of its last successful push run (dev changes only through reviewed pull requests, and
+                  # only a commit dev's history holds counts). Only for the jobs: Contrast's README pairing keeps no base
+                  from=$base
+                  if [ "$EVENT" = push ] && [ "$REF" = refs/heads/dev ]; then
+                      green=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=dev&event=push&status=success&per_page=10" \
+                          --jq ".workflow_runs[] | select(.head_repository.full_name == \"$REPO\") | .head_sha" 2>/dev/null | head -n1 || true)
+                      if [ -n "$green" ] && git merge-base --is-ancestor "$green" HEAD 2>/dev/null; then
+                          from=$green
+                      fi
+                  fi
                   # The classifier runs as it is at the base, which the change cannot edit: a branch that changes
                   # tools/ci-changes.sh is classified by the base's copy (which runs everything for that path), and a base
                   # without the script runs everything.
-                  if [ -n "$base" ] && git show "$base:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
-                      echo "Changed since $base:"
-                      git diff --name-only --no-renames "$base" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
+                  if [ "$EVENT" = schedule ]; then
+                      echo "The daily run: the installs of unpinned upstream versions only"
+                      for job in lint-kit php static-site fresh-install contrast demo workflows package; do
+                          case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
+                      done > "$RUNNER_TEMP/jobs"
+                  elif [ -n "$from" ] && git show "$from:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
+                      echo "Changed since $from:"
+                      git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
                   else
                       echo "Everything runs ($EVENT on $REF)"
                       : > "$RUNNER_TEMP/jobs"
@@ -345,6 +367,23 @@ jobs:
 
             - name: Repository security policy
               run: node tools/security-policy.mjs
+
+            # What any path can break, whichever jobs the change runs: the bundled references' links name files across the
+            # repository, the test inventory names specs, tests and tools, and the archive holds every root file. Package
+            # and Contrast run them too, with the jobs they belong to
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: none
+
+            - name: The bundled references are up to date
+              run: php packages/uxor/tools/generate-reference.php --check
+
+            - name: The test inventory names existing tests
+              run: node tools/test-inventory.mjs
+
+            - name: The archive holds what the kit and the package declare
+              run: python3 packages/uxor/tools/check-package.py
 
             - name: Every URL of the kit's repository is manifest.json's homepage
               run: node tools/name-check.mjs

@@ -71,7 +71,7 @@ UXor at `40d957c` and the companion at `614aa28`._
    | any other path in `packages/` | the kit's jobs, *Contrast* and *Package* |
    | an input of the bundled references (*References* below) | its own jobs and *Package* |
 
-   A package-only change does not run the browser matrix. Pushes to `dev` and `main` still run everything.
+   A package-only change does not run the browser matrix. Pushes to `main` still run everything; a push to `dev` is classified against `dev`'s last successful run.
 7. **Local development.** `composer install` and `composer test` at the repository root, with PHP 8.4 or later. The
    demo keeps its own `composer install` in `demo/`.
 
