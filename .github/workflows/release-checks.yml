@@ -42,16 +42,17 @@ concurrency:
 jobs:
     # What to check: dev's head for the schedule, unless the release checks already passed on that commit (an unexpired
     # release-checks-passed-v2-<sha> artifact, which a passing schedule uploads); the pull request's or the branch's own commit
-    # otherwise. A pull request skips the suite when it ran and passed on an earlier head of a pull request in this
-    # repository, against the same base, and every path changed since is one the suite never reads (the allowlist
-    # below): the release commit's CHANGELOG.md and llms.txt, docs, the Composer package.
+    # otherwise. A pull request skips the suite when it passed on an earlier head of a pull request in this repository,
+    # merged with the same base (its release-checks-pr-passed-v1-<base>-<head> marker), and every path changed since is
+    # one the suite never reads (the allowlist below): the release commit's CHANGELOG.md and llms.txt, docs, the
+    # Composer package.
     changed:
         name: What to check
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
             contents: read
-            actions: read # the release-checks-passed-v2-<sha> artifacts, and the pull request runs that passed
+            actions: read # the release-checks-passed-v2-<sha> and release-checks-pr-passed-v1-<base>-<head> artifacts
         outputs:
             run: ${{ steps.compare.outputs.run }}
             ref: ${{ steps.compare.outputs.ref }}
@@ -70,37 +71,39 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   WORKFLOW_SHA: ${{ github.workflow_sha }}
-                  HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-                  BASE_SHA: ${{ github.event.pull_request.base.sha }}
               run: |
                   if [ "$EVENT" = pull_request ]; then
                       run=true
-                      # The newest successful pull request run of this repository whose suite ran (not one that
-                      # skipped it), started after the base's head was committed: the base has not moved since
-                      base_time=$(git show -s --format=%ct "$BASE_SHA" 2>/dev/null || echo 9999999999)
+                      # The merge commit under test: its first parent is the base, its second the pull request's head
+                      read -r base head <<< "$(git cat-file -p "$GITHUB_SHA" 2>/dev/null | sed -n 's/^parent //p' | tr '\n' ' ')" || true
+                      # The newest successful pull request run of this repository that passed the suite on the same
+                      # base: its pass marker (release-checks-pr-passed-v1-<base>-<head>, below) names the parents of
+                      # the merge commit it tested
                       runs=$(gh api "repos/$REPO/actions/workflows/release-checks.yml/runs?event=pull_request&status=success&per_page=20" \
-                          --jq '.workflow_runs[] | select(.head_repository.full_name == "'"$REPO"'") | "\(.id) \(.head_sha) \(.run_started_at | fromdateiso8601)"' || true)
-                      while read -r id sha started; do
-                          [ -n "$id" ] && [ "$started" -gt "$base_time" ] || continue
-                          suite=$(gh api "repos/$REPO/actions/runs/$id/jobs?per_page=100" --jq '.jobs[] | select(.name == "Release suite") | .conclusion' < /dev/null || true)
-                          [ "$suite" = success ] || continue
+                          --jq '.workflow_runs[] | select(.head_repository.full_name == "'"$REPO"'") | .id' || true)
+                      for id in $runs; do
+                          [ -n "$base" ] && [ -n "$head" ] || break
+                          marker=$(gh api "repos/$REPO/actions/runs/$id/artifacts?per_page=100" \
+                              --jq '.artifacts[] | select(.expired | not) | .name | select(startswith("release-checks-pr-passed-v1-'"$base"'-"))' || true)
+                          sha=${marker#release-checks-pr-passed-v1-"$base"-}
+                          [ -n "$marker" ] && [ "$sha" != "$marker" ] || continue
                           git cat-file -e "$sha^{commit}" 2>/dev/null || break
+                          changed=$(git diff --name-only --no-renames "$sha" "$head") || break
                           # The paths the suite never reads: docs (the specs and tools only name them in comments), the
                           # changelog and llms.txt (a release commit's), the agent rules and the Composer package (the
                           # demo does not install it). Anything else, the workflow and its tools included, runs it.
-                          changed=$(git diff --name-only --no-renames "$sha" "$HEAD_SHA") || break
                           other=$(printf '%s\n' "$changed" | grep -vE '^(docs/|packages/uxor/|CHANGELOG\.md$|llms\.txt$|AGENTS\.md$)' || true)
                           if [ -z "$other" ]; then
                               run=false
-                              echo "Run $id passed the release suite on $sha; changed since, none of which the suite reads:"
+                              echo "Run $id passed the release suite on $sha against $base; changed since, none of which the suite reads:"
                               echo "$changed"
-                              echo "The release suite passed on $sha against the same base, and nothing it reads changed since: none on this head ($HEAD_SHA)" >> "$GITHUB_STEP_SUMMARY"
+                              echo "The release suite passed on $sha against the same base ($base), and nothing it reads changed since: none on this head ($head)" >> "$GITHUB_STEP_SUMMARY"
                           else
                               echo "Changed since $sha (run $id), read by the suite:"
                               echo "$other"
                           fi
                           break
-                      done <<< "$runs"
+                      done
                       printf 'run=%s\nref=%s\ntarget_ref=%s\n' "$run" "$GITHUB_SHA" "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
                       exit 0
                   fi
@@ -430,6 +433,31 @@ jobs:
                   name: release-checks-passed-v2-${{ steps.tested.outputs.sha }}
                   path: ${{ runner.temp }}/tested/commit
                   retention-days: 90
+
+            # The base and head this pull request run tested: the merge commit's parents, read from the commit object
+            # itself (the checkout is shallow). Read by the next run on a pull request in What to check, and advisory:
+            # without it that run tests again
+            - name: Record the tested base and head
+              id: tested-pr
+              if: ${{ success() && github.event_name == 'pull_request' }}
+              continue-on-error: true
+              run: |
+                  read -r base head extra <<< "$(git cat-file -p HEAD | sed -n 's/^parent //p' | tr '\n' ' ')"
+                  if [ -z "$head" ] || [ -n "$extra" ]; then
+                      echo "::warning::The tested commit is not a two-parent merge: no pass marker"
+                      exit 1
+                  fi
+                  mkdir -p "$RUNNER_TEMP/tested-pr"
+                  git rev-parse HEAD | tee "$RUNNER_TEMP/tested-pr/commit"
+                  printf 'base=%s\nhead=%s\n' "$base" "$head" >> "$GITHUB_OUTPUT"
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ success() && github.event_name == 'pull_request' && steps.tested-pr.outcome == 'success' }}
+              continue-on-error: true
+              with:
+                  name: release-checks-pr-passed-v1-${{ steps.tested-pr.outputs.base }}-${{ steps.tested-pr.outputs.head }}
+                  path: ${{ runner.temp }}/tested-pr/commit
+                  retention-days: 30
 
             # Last, so the end of the job log names what failed (after the demo's logs)
             - name: Playwright summary
