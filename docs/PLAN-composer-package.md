@@ -64,7 +64,7 @@ UXor at `40d957c` and the companion at `614aa28`._
 
    | A change to | runs |
    |---|---|
-   | `composer.json` | *Package*, *Lint kit*, both *Fresh install* jobs |
+   | `composer.json` | *Package* |
    | `composer.lock` | *Package* |
    | `.gitattributes` | the kit's jobs and *Package* |
    | `packages/uxor/` | *Package*; its markdown also *Contrast* |
