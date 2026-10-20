@@ -173,7 +173,7 @@ test('missing structural evidence remains fatal, and required evidence and brows
     assert.equal(evidence.status, 1, evidence.stdout + evidence.stderr);
 });
 
-test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted scheduled skip', (t) => {
+test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted skips', (t) => {
     const fx = scratch(t);
     const verdict = steps('verdict').find((step) => step.run);
     for (const [event, changed, run, suite, expected] of [
@@ -184,6 +184,9 @@ test('the required verdict rejects a failed or skipped suite and target resoluti
         ['schedule', 'success', 'false', 'skipped', 0],
         ['workflow_dispatch', 'success', 'false', 'skipped', 1],
         ['pull_request', 'success', 'true', 'failure', 1],
+        ['pull_request', 'success', 'true', 'skipped', 1],
+        ['pull_request', 'success', 'false', 'skipped', 0],
+        ['pull_request', 'failure', 'false', 'skipped', 1],
     ]) {
         const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite });
         assert.equal(out.status, expected, `${event}/${changed}/${run}/${suite}: ${out.stdout}${out.stderr}`);
@@ -250,6 +253,79 @@ printf '%s' "$payload" | jq -r "$4"`);
         assert.equal(values.ref, target, name);
         assert.equal(values.target_ref, 'dev', name);
         assert.match(readFileSync(calls, 'utf8'), new RegExp(`name=release-checks-passed-v2-${target}&`), 'legacy marker names are never queried');
+    }
+});
+
+test('a pull request skips the suite only after a same-repository pass on the same base, with nothing it reads changed since', (t) => {
+    const fx = scratch(t);
+    executable(fx, 'gh', `
+case "$2" in
+    */workflows/release-checks.yml/runs?*) payload="$API_RUNS" ;;
+    */actions/runs/*/jobs?*) payload="$API_JOBS" ;;
+    *) echo "unexpected API path: $2" >&2; exit 2 ;;
+esac
+printf '%s' "$payload" | jq -r "$4"`);
+    const git = (...args) => {
+        const out = spawnSync('git', args, {
+            cwd: fx.dir, encoding: 'utf8',
+            env: { ...process.env, GIT_AUTHOR_DATE: '2026-01-01T00:00:00Z', GIT_COMMITTER_DATE: '2026-01-01T00:00:00Z' },
+        });
+        assert.equal(out.status, 0, out.stderr);
+        return out.stdout.trim();
+    };
+    const commit = (path, text) => {
+        mkdirSync(join(fx.dir, path, '..'), { recursive: true });
+        writeFileSync(join(fx.dir, path), text);
+        git('add', path);
+        git('-c', 'user.name=Local proof', '-c', 'user.email=proof@example.invalid', 'commit', '-q', '-m', `test: ${path}`);
+        return git('rev-parse', 'HEAD');
+    };
+    git('init', '-q', '--initial-branch=main');
+    const base = commit('kit.css', 'base');
+    const passed = commit('calendar/Calendar.html.twig', 'passed');
+    const docs = (() => {
+        commit('CHANGELOG.md', 'release');
+        commit('llms.txt', 'links');
+        commit('docs/TESTING.md', 'docs');
+        commit('AGENTS.md', 'rules');
+        return commit('packages/uxor/README.md', 'package');
+    })();
+    const code = commit('calendar/Calendar.html.twig', 'changed');
+    const workflowChange = (() => {
+        git('checkout', '-q', docs);
+        return commit('.github/workflows/release-checks.yml', 'changed');
+    })();
+    const compare = steps('changed').find((step) => step.id === 'compare');
+    for (const [name, head, modify, expected, baseSha = base] of [
+        ['only paths the suite never reads', docs, () => {}, 'false'],
+        ['same head', passed, () => {}, 'false'],
+        ['a path the suite reads', code, () => {}, 'true'],
+        ['the workflow itself', workflowChange, () => {}, 'true'],
+        ['the earlier run skipped the suite', docs, (run, jobs) => { jobs[0].conclusion = 'skipped'; }, 'true'],
+        ['the base moved since', docs, (run) => { run.run_started_at = '2025-12-01T00:00:00Z'; }, 'true'],
+        ['a fork run', docs, (run) => { run.head_repository.full_name = 'fork/project'; }, 'true'],
+        ['an unknown commit', docs, (run) => { run.head_sha = 'd'.repeat(40); }, 'true'],
+        ['no earlier run', docs, (run, jobs, runs) => { runs.length = 0; }, 'true'],
+        ['an unknown head', 'f'.repeat(40), () => {}, 'true'],
+        ['an unknown base', docs, () => {}, 'true', 'f'.repeat(40)],
+    ]) {
+        const run = { id: 81, head_sha: passed, run_started_at: '2026-02-01T00:00:00Z', head_repository: { full_name: 'example/project' } };
+        const jobs = [{ name: 'Release suite', conclusion: 'success' }, { name: 'Release checks', conclusion: 'success' }];
+        const runs = [run];
+        modify(run, jobs, runs);
+        const output = join(fx.temp, 'compare-output');
+        writeFileSync(output, '');
+        const actual = shell(compare.run, fx, {
+            EVENT: 'pull_request', REPO: 'example/project', HEAD_SHA: head, BASE_SHA: baseSha,
+            GITHUB_SHA: 'e'.repeat(40), GITHUB_REF_NAME: '170/merge',
+            GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary'),
+            API_RUNS: JSON.stringify({ workflow_runs: runs }), API_JOBS: JSON.stringify({ jobs }),
+        });
+        assert.equal(actual.status, 0, `${name}: ${actual.stdout}${actual.stderr}`);
+        const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+        assert.equal(values.run, expected, name);
+        assert.equal(values.ref, 'e'.repeat(40), name);
+        assert.equal(values.target_ref, '170/merge', name);
     }
 });
 
