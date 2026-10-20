@@ -2,7 +2,7 @@
 
 # Versions
 # UXor: both base images pinned by digest (the tag's multi-platform index), bumped by Dependabot (docs/NOTES.md)
-FROM dunglas/frankenphp:1-php8.5@sha256:a052ae7cccd4a025eca17767e7acac57a4fc660a4f3dfc790be9b9cd5182d6e6 AS frankenphp_upstream
+FROM dunglas/frankenphp:1-php8.5@sha256:4a8eebee6b3bed92d01ffa6ec5b1bc2cb9c2ab7eeb546027a3f7e6a52937ebbb AS frankenphp_upstream
 
 # The different stages of this Dockerfile are meant to be built into separate images
 # https://docs.docker.com/build/building/multi-stage/#stop-at-a-specific-build-stage
