@@ -1610,6 +1610,15 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
 a change to either the target or the workflow requires another real scheduled pass.
 
+On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
+request in this repository merged with the same base, and every path changed since is one the suite never reads:
+`docs/`, `CHANGELOG.md`, `llms.txt`, `AGENTS.md` and `packages/uxor/`. A passing pull request run uploads a
+`release-checks-pr-passed-v1-<base>-<head>` artifact named by the two parents of the merge commit it tested, read from
+that commit, and the next run compares them with the parents of its own. The release commit (the changelog's version
+heading, `llms.txt`'s links) then costs no second suite. Any other path, the workflow and its tools included, runs it;
+so does a moved base, an earlier run without a marker (one that skipped the suite itself), a fork's run, or a commit
+the checkout cannot find.
+
 The workflow resolves the expected target once. Its checkout independently trusts only `refs/heads/dev` for a
 schedule, or the immutable triggering event SHA for a manual or pull-request run; the resolver output cannot select
 another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
@@ -1633,7 +1642,8 @@ The PHPUnit properties still run with a random seed and `--fail-on-empty-test-su
 the release projects: they exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
 The required check is the *Release checks* job, which runs
 whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
-reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
+reads as a pass; only a daily run that found the checks already passed, and a pull request skipped as above, pass
+without the suite. The reports, the
 result artifacts and the passed marker are advisory: their upload never decides the verdict.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
 Issue updates identify the first failed step and failure category. Missing browser reports retain unavailable counts

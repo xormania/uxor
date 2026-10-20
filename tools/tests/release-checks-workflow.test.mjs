@@ -173,7 +173,7 @@ test('missing structural evidence remains fatal, and required evidence and brows
     assert.equal(evidence.status, 1, evidence.stdout + evidence.stderr);
 });
 
-test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted scheduled skip', (t) => {
+test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted skips', (t) => {
     const fx = scratch(t);
     const verdict = steps('verdict').find((step) => step.run);
     for (const [event, changed, run, suite, expected] of [
@@ -184,6 +184,9 @@ test('the required verdict rejects a failed or skipped suite and target resoluti
         ['schedule', 'success', 'false', 'skipped', 0],
         ['workflow_dispatch', 'success', 'false', 'skipped', 1],
         ['pull_request', 'success', 'true', 'failure', 1],
+        ['pull_request', 'success', 'true', 'skipped', 1],
+        ['pull_request', 'success', 'false', 'skipped', 0],
+        ['pull_request', 'failure', 'false', 'skipped', 1],
     ]) {
         const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite });
         assert.equal(out.status, expected, `${event}/${changed}/${run}/${suite}: ${out.stdout}${out.stderr}`);
@@ -251,6 +254,123 @@ printf '%s' "$payload" | jq -r "$4"`);
         assert.equal(values.target_ref, 'dev', name);
         assert.match(readFileSync(calls, 'utf8'), new RegExp(`name=release-checks-passed-v2-${target}&`), 'legacy marker names are never queried');
     }
+});
+
+test('a pull request skips the suite only after a same-repository pass on the same base, with nothing it reads changed since', (t) => {
+    const fx = scratch(t);
+    executable(fx, 'gh', `
+case "$2" in
+    */workflows/release-checks.yml/runs?*) payload="$API_RUNS" ;;
+    */actions/runs/81/artifacts?*) payload="$API_ARTIFACTS" ;;
+    *) echo "unexpected API path: $2" >&2; exit 2 ;;
+esac
+printf '%s' "$payload" | jq -r "$4"`);
+    const git = (...args) => {
+        const out = spawnSync('git', ['-c', 'user.name=Local proof', '-c', 'user.email=proof@example.invalid', ...args], { cwd: fx.dir, encoding: 'utf8' });
+        assert.equal(out.status, 0, out.stderr);
+        return out.stdout.trim();
+    };
+    const commit = (path, text) => {
+        mkdirSync(join(fx.dir, path, '..'), { recursive: true });
+        writeFileSync(join(fx.dir, path), text);
+        git('add', path);
+        git('commit', '-q', '-m', `test: ${path}`);
+        return git('rev-parse', 'HEAD');
+    };
+    // The merge commit a pull_request run tests: the base first, the pull request's head second
+    const merge = (base, head) => {
+        git('checkout', '-q', '--detach', base);
+        git('merge', '-q', '--no-ff', '-m', 'test: merge', head);
+        return git('rev-parse', 'HEAD');
+    };
+    git('init', '-q', '--initial-branch=main');
+    const base = commit('kit.css', 'base');
+    const passed = commit('calendar/Calendar.html.twig', 'passed');
+    commit('CHANGELOG.md', 'release');
+    commit('llms.txt', 'links');
+    commit('docs/TESTING.md', 'docs');
+    commit('AGENTS.md', 'rules');
+    const docs = commit('packages/uxor/README.md', 'package');
+    const code = commit('calendar/Calendar.html.twig', 'changed');
+    git('checkout', '-q', docs);
+    const workflowChange = commit('.github/workflows/release-checks.yml', 'changed');
+    git('checkout', '-q', base);
+    const movedBase = commit('main-only.txt', 'moved');
+    const compare = steps('changed').find((step) => step.id === 'compare');
+    const marker = (b, h) => ({ name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false });
+    for (const [name, tested, modify, expected] of [
+        ['only paths the suite never reads', merge(base, docs), () => {}, 'false'],
+        ['same head', merge(base, passed), () => {}, 'false'],
+        ['a path the suite reads', merge(base, code), () => {}, 'true'],
+        ['the workflow itself', merge(base, workflowChange), () => {}, 'true'],
+        ['the base moved since', merge(movedBase, docs), () => {}, 'true'],
+        ['the earlier run left no marker', merge(base, docs), (runs, artifacts) => { artifacts.length = 1; }, 'true'],
+        ['an expired marker', merge(base, docs), (runs, artifacts) => { artifacts[1].expired = true; }, 'true'],
+        ['another base in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(movedBase, passed); }, 'true'],
+        ['a fork run', merge(base, docs), (runs) => { runs[0].head_repository.full_name = 'fork/project'; }, 'true'],
+        ['an unknown commit in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(base, 'd'.repeat(40)); }, 'true'],
+        ['no earlier run', merge(base, docs), (runs) => { runs.length = 0; }, 'true'],
+        ['not a merge commit', docs, () => {}, 'true'],
+        ['an unknown commit under test', 'f'.repeat(40), () => {}, 'true'],
+    ]) {
+        const runs = [{ id: 81, head_repository: { full_name: 'example/project' } }];
+        const artifacts = [{ name: 'release-checks-results', expired: false }, marker(base, passed)];
+        modify(runs, artifacts);
+        const output = join(fx.temp, 'compare-output');
+        writeFileSync(output, '');
+        const actual = shell(compare.run, fx, {
+            EVENT: 'pull_request', REPO: 'example/project', GITHUB_SHA: tested, GITHUB_REF_NAME: '170/merge',
+            GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary'),
+            API_RUNS: JSON.stringify({ workflow_runs: runs }), API_ARTIFACTS: JSON.stringify({ artifacts }),
+        });
+        assert.equal(actual.status, 0, `${name}: ${actual.stdout}${actual.stderr}`);
+        const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+        assert.equal(values.run, expected, `${name}: ${actual.stdout}${actual.stderr}`);
+        assert.equal(values.ref, tested, name);
+        assert.equal(values.target_ref, '170/merge', name);
+    }
+});
+
+test('only a passing pull request run records the base and head it tested, from the merge commit itself', (t) => {
+    const check = steps('checks');
+    const record = check.find((step) => step.id === 'tested-pr');
+    const upload = check.find((step) => step.with.name?.startsWith('release-checks-pr-passed-v1-'));
+    assert.ok(record && upload);
+    for (const [event, failed, recorded, expected] of [
+        ['pull_request', false, 'success', true],
+        ['pull_request', true, 'success', false],
+        ['pull_request', false, 'failure', false],
+        ['schedule', false, 'success', false],
+        ['workflow_dispatch', false, 'success', false],
+    ]) {
+        const ctx = { github: { event_name: event }, steps: { 'tested-pr': result(recorded) } };
+        assert.equal(holds(record.if, ctx, failed) && holds(upload.if, ctx, failed), expected, `${event}/${failed}/${recorded}`);
+    }
+    const fx = scratch(t);
+    const git = (...args) => {
+        const out = spawnSync('git', ['-c', 'user.name=Local proof', '-c', 'user.email=proof@example.invalid', ...args], { cwd: fx.dir, encoding: 'utf8' });
+        assert.equal(out.status, 0, out.stderr);
+        return out.stdout.trim();
+    };
+    git('init', '-q', '--initial-branch=main');
+    git('commit', '-q', '--allow-empty', '-m', 'test: base');
+    const base = git('rev-parse', 'HEAD');
+    git('checkout', '-q', '-b', 'topic');
+    git('commit', '-q', '--allow-empty', '-m', 'test: head');
+    const head = git('rev-parse', 'HEAD');
+    git('checkout', '-q', '--detach', base);
+    git('merge', '-q', '--no-ff', '-m', 'test: merge', head);
+    // the checkout is shallow: the parents come from the commit object, not from history
+    const shallow = join(fx.temp, 'shallow');
+    assert.equal(spawnSync('git', ['clone', '-q', '--depth=1', `file://${fx.dir}`, shallow]).status, 0);
+    const output = join(fx.temp, 'record-output');
+    writeFileSync(output, '');
+    const out = shell(record.run, { ...fx, dir: shallow }, { GITHUB_OUTPUT: output });
+    assert.equal(out.status, 0, out.stderr);
+    assert.equal(readFileSync(output, 'utf8'), `base=${base}\nhead=${head}\n`);
+    git('checkout', '-q', head);
+    const single = shell(record.run, fx, { GITHUB_OUTPUT: output });
+    assert.notEqual(single.status, 0, 'a commit that is not a merge records no marker');
 });
 
 test('checkout provenance must match the frozen target before the workflow exposes a tested revision', (t) => {
