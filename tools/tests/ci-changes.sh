@@ -69,8 +69,9 @@ check 'php static-site demo'      demo/templates/components/Input.html.twig
 check 'php static-site demo'      demo/README.md
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
-check "$kit_contrast package"     INSTALL.md
-check "$kit_contrast package"     README.md
+# the kit's README.md and INSTALL.md: no install, lint, PHP test or page reads them; Contrast and the references do
+check 'contrast package'          INSTALL.md
+check 'contrast package'          README.md
 
 # A workflow: actionlint reads it, and the jobs that run what it runs check that part (a workflow's own triggers run
 # the rest: audit.yml and codeql.yml run on the pull request that changes them)
@@ -83,13 +84,18 @@ check 'workflows'                 .github/actionlint.yaml
 # in Tool tests, on every run, so they select no job; the browser tests' opt-in coverage (tests/e2e/coverage.ts) is part
 # of the browser tests
 check 'workflows'                 .github/workflows/monthly.yml
-# release-checks.yml runs on the release pull request, daily and by hand, never on a push: the browser job runs its
-# setup; its report tool (tools/ci/release-timings.mjs) is the browser job's, its cases are Tool tests', the baseline
-# is read by the release checks only, with the browser tests
-check 'demo workflows'            .github/workflows/release-checks.yml
-check 'demo'                      tools/ci/release-timings.mjs tests/perf/baseline.json
+# release-checks.yml runs on the release pull request, daily and by hand, never on a push, and no CI job runs it:
+# actionlint only. Its tools (tools/ci/release-*.mjs) and specs (release.*.spec.ts, the leak detector) run in the release
+# projects only; their cases are Tool tests', the inventory names the specs (Contrast)
+check 'workflows'                 .github/workflows/release-checks.yml
+check ''                          tools/ci/release-timings.mjs tools/ci/release-checks.mjs tools/ci/release-evidence.mjs tools/ci/release-failure.mjs
+check 'demo'                      tests/perf/baseline.json
 check ''                          tools/tests/release-timings.test.mjs
-check 'contrast demo'             tests/e2e/release.fuzz.spec.ts
+check 'contrast'                  tests/e2e/release.fuzz.spec.ts tests/e2e/release.long-session.spec.ts
+check ''                          tests/e2e/leak-detector.mjs tools/tests/leak-detector.test.mjs
+# jev.yml and metadata.yml run on their own events: actionlint; CODEOWNERS and the mentions' allowlist: Tool tests
+check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml
+check ''                          .github/CODEOWNERS .github/mention-allowlist
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
 check 'demo'                      tests/e2e/coverage.ts
 check "$all"                      .github/workflows/ci.yml
@@ -98,7 +104,7 @@ check "$all"                      .github/actions/setup/action.yml
 check_git 'static-site workflows' 'git rm -q .github/workflows/pages.yml'
 check_git 'workflows'             'git rm -q .github/workflows/codeql.yml'
 check_git 'workflows'             'git rm -q .github/workflows/monthly.yml'
-check_git 'demo workflows'        'git rm -q .github/workflows/release-checks.yml'
+check_git 'workflows'             'git rm -q .github/workflows/release-checks.yml'
 check_git "$all"                  'git mv .github/workflows/pages.yml .github/workflows/site.yml'
 check_git "$all"                  'git mv .github/workflows/ci.yml .github/workflows/checks.yml'
 
@@ -138,15 +144,16 @@ check 'fresh-install'             tools/tests/install-scenario.sh
 check 'fresh-install'             tools/tests/live-action.php
 check 'fresh-install'             tools/tests/fixtures/fresh-app/templates/home.html.twig
 check 'demo'                      tools/tests/fixtures/sync-kit/manifest.json
-check 'demo'                      tools/ci/playwright-summary.mjs
-# the job metrics run in the browser job (job) and in CI result, which runs on every run (run)
-check 'demo'                      tools/ci/ci-metrics.mjs
+check 'demo'                      tools/ci/playwright-summary.mjs tools/ci/run-provenance.mjs
+# the job metrics run in advisory steps only (the browser job's, CI result's): their cases are Tool tests'
+check ''                          tools/ci/ci-metrics.mjs
 # the shard plan runs in the browser job (plan, verify) and in CI result (timings); the timings it reads are a test file
 check 'demo'                      tools/ci/shard-plan.mjs
 check 'demo'                      tests/shard-timings.json
 check ''                          tools/tests/shard-plan.test.mjs
-check 'php'                       tools/ci/junit-attempts.mjs
-check 'php demo'                  tools/ci/jev-diagnosis.mjs tools/ci/jev-ci.json
+# Jev's tools: advisory steps after a failure, and jev.yml's own checkout; their cases are Tool tests'
+check ''                          tools/ci/junit-attempts.mjs
+check ''                          tools/ci/jev-diagnosis.mjs tools/ci/jev-ci.json
 # a failed step's log as Jev's attempts: the jobs run it only after a failure, so only its cases (Tool tests) check it
 check ''                          tools/ci/step-attempts.mjs
 # a failed step's log as Jev's attempts: the jobs run it only after a failure, so only its cases (Tool tests) check it
@@ -158,10 +165,16 @@ check ''                          tools/tests/playwright-summary.test.mjs tools/
 check ''                          tools/tests/fixtures/junit/phpunit.xml tools/tests/fixtures/junit/node-test.xml
 check ''                          tools/tests/ci-metrics.test.mjs tools/tests/fixtures/ci-metrics/jobs.jsonl
 check 'php static-site demo'      tools/sync-demo
+# tools Tool tests runs against the real kit or its own config, on every run
+check ''                          tools/security-policy.mjs tools/security-sinks.json tools/check-github-mentions.mjs tools/hooks/commit-msg
+check ''                          tools/js-duplication.mjs tools/recipe-imports.mjs tools/kit-former-names.json
+check ''                          tools/tests/fixtures/release-checks/run.json
+check 'demo'                      tools/demo-php
 check 'php static-site fresh-install demo' demo/compose.yaml
 check 'php static-site fresh-install demo' demo/frankenphp/Caddyfile
 check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
-check "$kit_contrast package"     side-nav/README.md
+# a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
+check 'lint-kit static-site contrast demo package' side-nav/README.md
 check "$kit_contrast"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
 check "$kit_contrast"             theme/assets/styles/uxor.css
@@ -174,7 +187,7 @@ check "$kit package"              .gitattributes
 # manifest are copied into the package's references (Package); a deeper README is not
 check "$kit_contrast"             alert/templates/components/Alert.html.twig
 check "$kit_contrast"             data-table/src/Table/DataTable.php
-check "$kit_contrast package"     alert/README.md
+check 'lint-kit static-site contrast demo package' alert/README.md
 check "$kit_contrast package"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
 check "$kit_contrast"             alert/assets/manifest.json
@@ -185,10 +198,10 @@ check ''                          tools/tests/jev-diagnosis.test.mjs
 check ''                          tools/tests/step-attempts.test.mjs
 check "$kit_contrast"             docs/NOTES.md kit.css
 
-# The Composer package xormania/uxor. Its root metadata is in the kit's archive too (Lint kit, Fresh install); the lock
-# file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'
+# The Composer package xormania/uxor. Its root metadata is in the kit's archive too, but no install or lint reads it;
+# the lock file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'
 # inputs run Package (above); the generator and its output are under packages/uxor/
-check 'lint-kit fresh-install package' composer.json
+check 'package'                   composer.json
 check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
 check 'package'                   packages/uxor/tests/OperationsTest.php
@@ -207,6 +220,7 @@ check 'package'                   packages/uxor/dev/compose.yaml packages/uxor/d
 check 'contrast package'          packages/uxor/dev/README.md
 # another directory under packages/ is shipped in the same archive: the kit's jobs, as for any unlisted path, and Package
 check "$kit_contrast package"     packages/other/x
+check "$kit_contrast package"     packages/other/README.md
 
 if [ "$failures" -gt 0 ]; then
     exit 1

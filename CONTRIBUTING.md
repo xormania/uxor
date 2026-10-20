@@ -105,8 +105,12 @@ trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md
 ## Checks
 
 CI runs them on every push, each job only when the change could affect what it checks
-([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main` and `dev`, and a run by hand, run everything. A
-branch is compared with where it left `dev`, so each push checks the whole pull request. The rulesets require the one
+([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main`, and a run by hand, run everything. A
+branch is compared with where it left `dev`, so each push checks the whole pull request. A push to `dev` is compared
+with the commit of `dev`'s last successful run, so every merge since is checked (one whose run was cancelled or failed
+too); with none, everything runs. *Tool tests* runs on every push, and checks what any path can break: the bundled
+references' links, the test inventory's names and the archive's payload. Once a day, on `main`, the jobs that install
+unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). The rulesets require the one
 *CI result* check, which passes when every job passed or was skipped, and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
 queue; a work order's jobs need not be up to date with it, *Work orders* below). CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
@@ -121,17 +125,19 @@ change to both paths.
 | `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them |
 | `kit.js`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, any file in a directory no other row names | the jobs of `kit.js` (above) and *Contrast* |
-| `manifest.json` (`llms.txt` holds its name, homepage and description), `README.md`, `INSTALL.md`, a recipe's `README.md` or `manifest.json` (the generated references copy them) | the jobs of `kit.js` (above), *Contrast* and *Package* |
+| `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them) | the jobs of `kit.js` (above), *Contrast* and *Package* |
+| a recipe's `README.md` (the toolkit's lint checks its headings, the static site and the browser tests render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package* |
+| `README.md`, `INSTALL.md` (no install, lint, PHP test or page reads them) | *Contrast*, *Package* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
-| `composer.json` | *Package*, *Lint kit*, both *Fresh install* jobs: the kit's archive holds it too |
+| `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
 | `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
+| a release check's spec, `tests/e2e/release.*.spec.ts` (it runs in the release projects only) | *Contrast* |
+| `tests/e2e/leak-detector.mjs` (a release spec's; its cases run in *Tool tests*) | nothing else |
 | any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/playwright-image.mjs`, `tools/playwright-image.json`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
-| `tools/ci/junit-attempts.mjs` | *Kit PHP* |
-| `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json` | *Kit PHP*, *Demo + Playwright* |
-| `tools/ci/step-attempts.mjs` | nothing else: the jobs run it only after a failure, so its cases (*Tool tests*) check it |
-| any other file in `tools/ci/` (the browser job's results summary, job metrics and shard plan; *CI result*, on every run, also runs `ci-metrics.mjs` and the shard timings) | *Demo + Playwright* |
+| `tools/ci/junit-attempts.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/step-attempts.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/release-*.mjs` | nothing else: they run in advisory steps, in `jev.yml` or in the release checks only, so their cases (*Tool tests*) check them |
+| any other file in `tools/ci/` (the browser job's results summary and its provenance, the shard plan; *CI result*, on every run, also runs the shard timings) | *Demo + Playwright* |
 | `tools/tests/*.test.mjs`, `tools/tests/fixtures/playwright-results/`, `tools/tests/fixtures/junit/`, `tools/tests/fixtures/ci-metrics/`, `tools/monthly/` (every tool's cases, and the monthly report tools) | nothing else: *Tool tests* runs all the tools' cases on every run, in seconds, with no install |
 | `package.json`, `package-lock.json` | *Contrast*, *Demo + Playwright* |
 | any other markdown file outside `demo/` | *Contrast* (`tools/docs-lint.mjs`, `tools/icon-lint.mjs`), and the jobs its path runs |
@@ -142,6 +148,8 @@ change to both paths.
 | `tools/build-static.sh` | *Static site* |
 | `tools/phpstan.neon` | *Kit PHP* |
 | `tools/release-plan.sh`, `tools/tests/release-plan.sh` | *Workflows* |
+| `tools/security-policy.mjs`, `tools/security-sinks.json`, `tools/check-github-mentions.mjs`, `tools/hooks/`, `tools/js-duplication.mjs`, `tools/recipe-imports.mjs`, `tools/kit-former-names.json`, `tools/tests/fixtures/release-checks/` | nothing else: *Tool tests* runs them against the real kit or their own config |
+| `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |
 | `tools/tests/fresh-install.sh`, `docker-install.sh`, their shared steps `install-scenario.sh`, `check-fresh-app.sh`, `live-action.php`, `tools/tests/fixtures/fresh-app/` | both *Fresh install* jobs |
 | any other file in `tools/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
@@ -151,7 +159,9 @@ change to both paths.
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
-| `.github/workflows/release-checks.yml` | *Workflows*, *Demo + Playwright* (its setup, and the same projects and fixtures); it runs on the release pull request, daily on `dev` and by hand, never on a push |
+| `.github/workflows/release-checks.yml` | *Workflows*; it runs on the release pull request, daily on `dev` and by hand, never on a push |
+| `.github/workflows/jev.yml`, `.github/workflows/metadata.yml` | *Workflows*; they run on their own events |
+| `.github/CODEOWNERS`, `.github/mention-allowlist` | nothing else: *Tool tests* reads them (the security policy, the mention check's cases) |
 | `.github/actions/jev-diagnosis/` | *Workflows* (actionlint checks every call's inputs); a passing job never runs the Jev step |
 | `.github/workflows/ci.yml`, `tools/ci-changes.sh`, `tools/tests/ci-changes.sh`, any other file in `.github/` (a new or renamed workflow) | everything |
 
