@@ -42,7 +42,7 @@ process.exit(scenario.runStatus);
 `);
     return {
         dir,
-        run: (mode = 'run', runner = script) => spawnSync(process.execPath, [runner, mode], { cwd: dir, encoding: 'utf8', env: { ...process.env, PLAYWRIGHT_JSON_OUTPUT_FILE: join(dir, 'wrong.json'), PLAYWRIGHT_JSON_OUTPUT_NAME: 'wrong.json' } }),
+        run: (mode = 'run', runner = script, lane = 'all') => spawnSync(process.execPath, [runner, mode], { cwd: dir, encoding: 'utf8', env: { ...process.env, RELEASE_LANE: lane, PLAYWRIGHT_JSON_OUTPUT_FILE: join(dir, 'wrong.json'), PLAYWRIGHT_JSON_OUTPUT_NAME: 'wrong.json' } }),
         calls: () => readFileSync(join(dir, 'calls.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line)),
         selection: () => JSON.parse(readFileSync(join(dir, 'playwright-results/release-selection.json'), 'utf8')),
     };
@@ -196,4 +196,37 @@ test('unsupported runner arguments are usage errors without discovery', (t) => {
     const fx = fixture(t);
     assert.equal(fx.run('list').status, 64);
     assert.equal(existsSync(join(fx.dir, 'calls.jsonl')), false);
+});
+
+for (const family of ['current', 'legacy']) {
+    test(`the three ${family} lanes partition the whole project contract and retain their own evidence`, (t) => {
+        const selected = [];
+        for (const [index, lane] of ['release', 'dark', 'harsh'].entries()) {
+            const project = projects[family][index];
+            const files = lane === 'release' ? requiredSpecs : ['behavior.spec.ts'];
+            const results = { suites: files.map((file) => ({ file, specs: [{ file, tests: [{ projectName: project, status: 'expected' }] }] })) };
+            const fx = fixture(t, family, { results });
+            const run = fx.run('run', script, lane);
+            assert.equal(run.status, 0, run.stdout + run.stderr);
+            const args = fx.calls()[1].args;
+            assert.deepEqual(args.filter((arg) => arg.startsWith('--project=')), [`--project=${project}`]);
+            assert.ok(args.includes(`--workers=${lane === 'release' ? 1 : 2}`));
+            selected.push(...fx.selection().projects);
+            assert.equal(fx.run('evidence', script, lane).status, 0);
+            assert.equal(fx.run('evidence').status, 1, 'a lane report cannot stand in for the complete suite');
+            assert.equal(fx.run('evidence', script, lane === 'dark' ? 'harsh' : 'dark').status, 1, 'a different lane cannot accept this saved selection');
+            results.suites = [];
+            writeFileSync(join(fx.dir, 'playwright-results/results.json'), JSON.stringify(results));
+            assert.equal(fx.run('evidence', script, lane).status, 1, 'an empty lane fails structural evidence');
+        }
+        assert.deepEqual(selected, projects[family], 'all required projects run once across the matrix');
+    });
+}
+
+test('an unsupported lane cannot launch a suite or accept another saved contract', (t) => {
+    const fx = fixture(t);
+    assert.equal(fx.run('run', script, 'typo').status, 1);
+    assert.equal(fx.calls().length, 1, 'only discovery ran');
+    assert.equal(fx.run().status, 0);
+    assert.equal(fx.run('evidence', script, 'typo').status, 1);
 });

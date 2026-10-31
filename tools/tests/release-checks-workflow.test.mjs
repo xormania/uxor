@@ -55,7 +55,7 @@ function steps(job) {
 function expressionValue(condition, context = {}, failed = false) {
     const expression = condition.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
         .replace(/\b(success|failure|always|cancelled)\(\)/g, (_, name) => JSON.stringify({ success: !failed, failure: failed, always: true, cancelled: false }[name]))
-        .replace(/\b(?:steps|github|needs)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
+        .replace(/\b(?:steps|github|needs|matrix)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
     const operators = expression.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+)\b/g, '');
     assert.match(operators, /^[\s!<>=&|().-]*$/, `unsupported condition ${condition}`);
     return Function(`return (${expression});`)();
@@ -188,13 +188,13 @@ test('the required verdict rejects a failed or skipped suite and target resoluti
         ['pull_request', 'success', 'false', 'skipped', 0],
         ['pull_request', 'failure', 'false', 'skipped', 1],
     ]) {
-        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite });
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success' });
         assert.equal(out.status, expected, `${event}/${changed}/${run}/${suite}: ${out.stdout}${out.stderr}`);
     }
 });
 
 test('failed or pull-request runs cannot record a reusable pass marker', () => {
-    const check = steps('checks');
+    const check = steps('complete');
     const record = check.find((step) => step.id === 'tested');
     const upload = check.find((step) => step.with.name?.startsWith('release-checks-passed-'));
     assert.ok(record && upload);
@@ -208,6 +208,34 @@ test('failed or pull-request runs cannot record a reusable pass marker', () => {
     ]) {
         const ctx = { github: { event_name: event }, steps: { tested: result(recorded) } };
         assert.equal(holds(record.if, ctx, failed) && holds(upload.if, ctx, failed), expected, `${event}/${failed}/${recorded}`);
+    }
+});
+
+test('the matrix cannot publish passes or baselines until all lanes and their frozen checkout succeeded', (t) => {
+    assert.match(jobText('checks'), /fail-fast: false/);
+    assert.match(jobText('checks'), /lane: \[release, dark, harsh\]/);
+    assert.match(jobText('checks'), /RELEASE_LANE: \$\{\{ matrix.lane \}\}/);
+    assert.doesNotMatch(jobText('checks'), /name: release-(?:checks-(?:pr-)?passed|baseline)/);
+    const complete = jobText('complete').match(/^        if: (.*)$/m)[1];
+    for (const state of ['success', 'failure', 'cancelled', 'skipped']) {
+        assert.equal(holds(complete, { needs: { changed: { outputs: { run: 'true' } }, checks: { result: state } } }), state === 'success');
+    }
+    for (const lane of ['release', 'dark', 'harsh']) {
+        const properties = steps('checks').find((step) => step.id === 'properties');
+        assert.equal(holds(properties.if, { matrix: { lane }, steps: { start: result('success') } }), lane === 'release', 'PHP properties run once');
+    }
+    const verdict = steps('verdict').find((step) => step.run);
+    const fx = scratch(t);
+    for (const complete of ['failure', 'skipped', 'cancelled']) {
+        const out = shell(verdict.run, fx, { EVENT: 'pull_request', CHANGED: 'success', RUN: 'true', SUITE: 'success', COMPLETE: complete });
+        assert.equal(out.status, 1, 'no required pass without aggregate completion');
+    }
+    assert.equal(steps('complete').find((step) => step.id === 'provenance')['continue-on-error'], undefined);
+    const record = steps('complete').find((step) => step.with.name === 'release-baseline');
+    assert.ok(record.if.includes('success()'));
+    assert.equal(record['continue-on-error'], undefined);
+    for (const step of steps('checks').filter((step) => step.uses?.includes('upload-artifact') || step.uses?.includes('jev-diagnosis'))) {
+        assert.ok((step.with.name ?? step.with.artifact).includes('${{ matrix.lane }}'), 'concurrent lanes have distinct artifacts');
     }
 });
 
@@ -332,7 +360,7 @@ printf '%s' "$payload" | jq -r "$4"`);
 });
 
 test('only a passing pull request run records the base and head it tested, from the merge commit itself', (t) => {
-    const check = steps('checks');
+    const check = steps('complete');
     const record = check.find((step) => step.id === 'tested-pr');
     const upload = check.find((step) => step.with.name?.startsWith('release-checks-pr-passed-v1-'));
     assert.ok(record && upload);
@@ -394,7 +422,7 @@ test('checkout provenance must match the frozen target before the workflow expos
     }
 });
 
-test('checkout trust rejects a substituted resolver revision and a moving dev head before executing target code', (t) => {
+for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a substituted resolver revision and a moving dev head before executing target code`, (t) => {
     const fx = scratch(t);
     const git = (...args) => {
         const run = spawnSync('git', args, { cwd: fx.dir, encoding: 'utf8', env: { PATH: process.env.PATH } });
@@ -413,8 +441,8 @@ test('checkout trust rejects a substituted resolver revision and a moving dev he
     const substitutedSha = commit('resolver-selected code outside the maintained branch');
     git('checkout', 'dev');
     const advancedDev = commit('dev advanced after target resolution');
-    const checkout = steps('checks').find((step) => step.id === 'checkout');
-    const provenance = stepIn(workflow, 'checks', 'provenance');
+    const checkout = steps(job).find((step) => step.id === 'checkout');
+    const provenance = stepIn(workflow, job, 'provenance');
     const output = join(fx.temp, 'environment');
     const executed = join(fx.dir, 'target-executed');
 

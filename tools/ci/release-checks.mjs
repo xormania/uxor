@@ -7,8 +7,10 @@
  * Run from the target checkout, even when this script comes from a separate immutable control checkout:
  *   node tools/ci/release-checks.mjs run
  *   node tools/ci/release-checks.mjs evidence
- * run records the exact selection before executing; evidence validates it and requires all three projects and release
- * specs in the target's JSON report using this control checkout's checker. Missing or unreadable evidence fails.
+ * RELEASE_LANE=release|dark|harsh partitions the three projects for independent hosted jobs. The release lane has
+ * one worker (isolated measurements); the behavior lanes have two. Without it, run the whole suite serially.
+ * run records the exact selection before executing; evidence derives its required contract from the caller's lane,
+ * using this control checkout's checker. Missing or unreadable evidence fails.
  * Exit statuses from Playwright are preserved;
  * an invalid contract exits 1, bad usage 64. Tests: node --test tools/tests/release-checks.test.mjs
  */
@@ -28,8 +30,16 @@ const resultsFile = resolve(directory, 'results.json');
 const playwright = resolve('node_modules/@playwright/test/cli.js');
 const evidenceChecker = fileURLToPath(new URL('./release-evidence.mjs', import.meta.url));
 
-function selection(family) {
-    return { schema: 1, family, projects: families[family], specs, grep: family === 'legacy' ? '@release' : null };
+function lane() {
+    const value = process.env.RELEASE_LANE ?? 'all';
+    if (!['all', 'release', 'dark', 'harsh'].includes(value)) throw new Error(`unknown release lane: ${value}`);
+    return value;
+}
+
+function selection(family, part = 'all') {
+    const grep = family === 'legacy' ? '@release' : null;
+    if (part === 'all') return { schema: 1, family, projects: families[family], specs, grep };
+    return { schema: 2, family, lane: part, projects: [families[family][['release', 'dark', 'harsh'].indexOf(part)]], specs: part === 'release' ? specs : [], grep };
 }
 
 function discover(report) {
@@ -44,7 +54,7 @@ function discover(report) {
     for (const [family, projects] of Object.entries(families)) {
         const expected = projects.filter((name) => name !== 'smoke');
         if (projects.every((name) => names.includes(name)) && releaseNames.length === expected.length && releaseNames.every((name) => expected.includes(name))) {
-            return selection(family);
+            return selection(family, lane());
         }
     }
     throw new Error(`unknown, partial or mixed release project family: ${names.join(', ') || '(none)'}`);
@@ -55,7 +65,8 @@ function readSelection() {
     if (!saved || !Object.hasOwn(families, saved.family)) {
         throw new Error('release selection has no supported family');
     }
-    const expected = selection(saved.family);
+    // The caller's lane is authority: a saved selection cannot narrow the evidence this job must provide.
+    const expected = selection(saved.family, lane());
     if (Object.keys(saved).sort().join(',') !== Object.keys(expected).sort().join(',') ||
         Object.keys(expected).some((key) => JSON.stringify(saved[key]) !== JSON.stringify(expected[key]))) {
         throw new Error('release selection does not match the complete supported contract');
@@ -99,7 +110,8 @@ function run() {
     }
     writeFileSync(selectionFile, `${JSON.stringify(chosen, null, 2)}\n`);
     console.log(`Release selection: ${chosen.family} (${chosen.projects.join(', ')})`);
-    const args = ['test', ...chosen.projects.map((project) => `--project=${project}`), '--workers=1', '--reporter=list,html,json'];
+    const workers = ['dark', 'harsh'].includes(lane()) ? 2 : 1;
+    const args = ['test', ...chosen.projects.map((project) => `--project=${project}`), `--workers=${workers}`, '--reporter=list,html,json'];
     if (chosen.grep) args.push('--grep', chosen.grep);
     return status(spawnSync(process.execPath, [playwright, ...args], {
         env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: resultsFile, PLAYWRIGHT_HTML_OPEN: 'never' }, stdio: 'inherit',
