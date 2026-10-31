@@ -607,7 +607,10 @@ the `commit-msg` hook (*Setup*) each commit before it is made. The hook is a sel
 `core.hooksPath` pointed at the repository: hooks in a tracked folder run whatever the branch checked out holds. A clone
 set up the earlier way runs `git config --unset core.hooksPath` once; a name meant to be notified goes in
 [`.github/mention-allowlist`](.github/mention-allowlist) first. Dependabot's pull requests are left out: GitHub writes
-their text.
+their text. When a release brings those messages again, the commit check verifies the merged Dependabot pull request
+in this repository through GitHub's API: its merge commit and its bot-authored commits are left out too. A human
+commit added to that pull request still gets checked. A matching subject or Git author string grants no exemption,
+and an unavailable API leaves the rejected message rejected. The release's own title and description are checked.
 
 Use plain words throughout, and no AI attribution lines (`Co-Authored-By`, "Generated with" footers). Pull requests
 are merged with a merge commit (no squash, no rebase), so every commit of the branch lands on `dev`, then on
