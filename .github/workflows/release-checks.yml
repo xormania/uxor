@@ -135,19 +135,21 @@ jobs:
                   echo "target_ref=dev" >> "$GITHUB_OUTPUT"
 
     checks:
-        name: Release suite
+        name: Release suite (${{ matrix.lane }})
         needs: changed
         if: needs.changed.outputs.run == 'true'
         runs-on: ubuntu-latest
-        # The suite plus 3 minutes for one advisory diagnosis route and its upload.
+        # Each lane keeps its own demo and browser; measurements never share a runner with other tests.
+        strategy:
+            fail-fast: false
+            matrix:
+                lane: [release, dark, harsh]
         timeout-minutes: 48
         defaults:
             run:
                 working-directory: release-checks-target
-        outputs:
-            failure_category: ${{ steps.failure.outputs.category }}
-            failed_step: ${{ steps.failure.outputs.step }}
         env:
+            RELEASE_LANE: ${{ matrix.lane }}
             RELEASE_RUNNER: ../tools/ci/release-checks.mjs
             RELEASE_TOOLS: ../tools/ci
             XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
@@ -256,9 +258,8 @@ jobs:
                   DEMO_URL: https://localhost
               run: node tools/prepare-tests.mjs
 
-            # Every release check, Chromium only (playwright.config.ts: the release, release-dark and release-harsh
-            # projects). One worker: the timings must not share the machine with
-            # another test (two workers made them up to 3 times slower). Fuzzing prints its seed; SEED=<seed> replays it.
+            # One project per lane: release (timings, fuzz, long session) has one worker; dark and harsh have two.
+            # Each job has its own machine, so behavior tests never compete with the timing measurements.
             - name: Playwright (release checks)
               id: tests
               env:
@@ -279,7 +280,7 @@ jobs:
             # printed, and SEED=<seed> PROPERTY_RUNS=2000 bin/phpunit --group property replays it
             - name: PHPUnit properties (random seed)
               id: properties
-              if: ${{ !cancelled() && steps.start.outcome == 'success' }}
+              if: ${{ !cancelled() && matrix.lane == 'release' && steps.start.outcome == 'success' }}
               working-directory: release-checks-target/demo
               run: |
                   seed=$(( (RANDOM << 15) | RANDOM ))
@@ -294,8 +295,8 @@ jobs:
               env:
                   SHARD: 1/1
                   BROWSER: chromium
-                  RESULTS_ARTIFACT: release-checks-results
-                  REPORT_ARTIFACT: release-checks-report
+                  RESULTS_ARTIFACT: release-checks-results-${{ matrix.lane }}
+                  REPORT_ARTIFACT: release-checks-report-${{ matrix.lane }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
                       Verify the tested revision=${{ steps.provenance.outcome }}
@@ -322,7 +323,7 @@ jobs:
             # specs did not pass) is said here, never a pass
             - name: Timings against the baseline (report only)
               id: timings
-              if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+              if: ${{ !cancelled() && matrix.lane == 'release' && steps.tests.outcome != 'skipped' }}
               continue-on-error: true
               env:
                   RECORD: ${{ github.event_name == 'workflow_dispatch' && inputs.record }}
@@ -342,19 +343,11 @@ jobs:
               if: ${{ !cancelled() }}
               continue-on-error: true # a report, never the verdict
               with:
-                  name: release-checks-results
+                  name: release-checks-results-${{ matrix.lane }}
                   path: |
                       release-checks-target/playwright-results/
-                      release-checks-target/release-timings/release-timings.md
+                      release-checks-target/release-timings/
                   retention-days: 30
-
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && inputs.record && steps.tests.outcome == 'success' && steps.properties.outcome == 'success' && steps.evidence.outcome == 'success' && steps.timings.outcome == 'success' }}
-              with:
-                  name: release-baseline
-                  path: release-checks-target/release-timings/baseline.json
-                  if-no-files-found: error
-                  retention-days: 90
 
             # the end of the server log here, after the test results; the whole log in test-results/ (uploaded below)
             - name: Demo logs
@@ -369,7 +362,7 @@ jobs:
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
               continue-on-error: true # a report, never the verdict
               with:
-                  name: release-checks-report
+                  name: release-checks-report-${{ matrix.lane }}
                   path: |
                       release-checks-target/playwright-report/
                       release-checks-target/test-results/
@@ -385,9 +378,9 @@ jobs:
               with:
                   attempts: release-checks-target/playwright-results/failed-attempts.json
                   compose-logs: release-checks-target/demo
-                  shard: release-checks chromium
+                  shard: release-checks ${{ matrix.lane }} chromium
                   dir: ${{ runner.temp }}/jev-release-checks
-                  artifact: jev-input-release-checks-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+                  artifact: jev-input-release-checks-${{ matrix.lane }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
 
             # A discovery/configuration failure may write no browser attempts. Collect its captured command
             # instead, preserving the failed step's exit status and leaving diagnosis advisory and key-free.
@@ -410,9 +403,51 @@ jobs:
               with:
                   attempts: ${{ runner.temp }}/release-step-attempts.json
                   compose-logs: release-checks-target/demo
-                  shard: release-checks chromium
+                  shard: release-checks ${{ matrix.lane }} chromium
                   dir: ${{ runner.temp }}/jev-release-steps
-                  artifact: jev-input-release-checks-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+                  artifact: jev-input-release-checks-${{ matrix.lane }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
+
+            # Last, so the end of the job log names what failed (after the demo's logs)
+            - name: Playwright summary
+              if: ${{ !cancelled() }}
+              run: |
+                  cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
+
+    # Only a complete matrix may publish a reusable pass or a recorded baseline. A lane can never clear another lane.
+    complete:
+        name: Complete release suite
+        needs: [changed, checks]
+        if: needs.changed.outputs.run == 'true' && needs.checks.result == 'success'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        defaults:
+            run:
+                working-directory: release-checks-target
+        steps:
+            - id: checkout
+              name: Check out the target
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  # A scheduled job has main's cache scope: execute only the maintained dev branch. Other events
+                  # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
+                  # If dev advances after resolution, provenance fails before any target code runs.
+                  ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}
+                  path: release-checks-target
+
+            - name: Verify the tested revision
+              id: provenance
+              env:
+                  RESOLVED_SHA: ${{ needs.changed.outputs.ref }}
+                  RESOLVED_REF: ${{ needs.changed.outputs.target_ref }}
+              run: |
+                  tested=$(git rev-parse HEAD)
+                  if [ "$tested" != "$RESOLVED_SHA" ]; then
+                      echo "::error::Checkout $tested differs from resolved target $RESOLVED_SHA"
+                      exit 1
+                  fi
+                  printf 'TESTED_SHA=%s\nTESTED_REF=%s\nRESOLVED_SHA=%s\nRESOLVED_REF=%s\n' \
+                      "$tested" "$RESOLVED_REF" "$RESOLVED_SHA" "$RESOLVED_REF" >> "$GITHUB_ENV"
 
             # The commit this run tested, read by the next scheduled run's first job: a successful scheduled run's
             # only (never a pull request's or manual run's), and advisory: without it the next daily run tests again
@@ -459,11 +494,21 @@ jobs:
                   path: ${{ runner.temp }}/tested-pr/commit
                   retention-days: 30
 
-            # Last, so the end of the job log names what failed (after the demo's logs)
-            - name: Playwright summary
-              if: ${{ !cancelled() }}
-              run: |
-                  cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
+            # The candidate is data only, written by the isolated timing lane; publish it only after every lane passed.
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ github.event_name == 'workflow_dispatch' && inputs.record }}
+              continue-on-error: true
+              with:
+                  name: release-checks-results-release
+                  path: release-record
+
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ success() && github.event_name == 'workflow_dispatch' && inputs.record && hashFiles('release-record/release-timings/baseline.json') != '' }}
+              with:
+                  name: release-baseline
+                  path: release-record/release-timings/baseline.json
+                  if-no-files-found: error
+                  retention-days: 90
 
     # The required check (main's ruleset: *Release checks*): it runs whatever happened before it and fails unless the
     # suite passed, so a failed or skipped suite, or a failed What to check, can never read as a pass. Only a scheduled
@@ -471,7 +516,7 @@ jobs:
     # with nothing it reads changed since, pass without the suite.
     verdict:
         name: Release checks
-        needs: [changed, checks]
+        needs: [changed, checks, complete]
         if: ${{ always() }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -481,6 +526,7 @@ jobs:
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
                   SUITE: ${{ needs.checks.result }}
+                  COMPLETE: ${{ needs.complete.result }}
               run: |
                   if [ "$CHANGED" != success ]; then
                       echo "::error::What to check ended with $CHANGED: no verdict on the release checks"
@@ -494,8 +540,8 @@ jobs:
                       echo "The release suite passed on an earlier head against the same base, and nothing it reads changed since"
                       exit 0
                   fi
-                  if [ "$SUITE" != success ]; then
-                      echo "::error::The release suite ended with ${SUITE:-no result}"
+                  if [ "$SUITE" != success ] || [ "$COMPLETE" != success ]; then
+                      echo "::error::The release lanes ended with ${SUITE:-no result}; completion: ${COMPLETE:-no result}"
                       exit 1
                   fi
                   echo "The release suite passed"
@@ -505,8 +551,8 @@ jobs:
     # it. Pull requests and runs by hand show their result where they ran.
     issue:
         name: Release checks issue
-        needs: [changed, checks]
-        if: ${{ always() && github.event_name == 'schedule' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' }}
+        needs: [changed, checks, complete]
+        if: ${{ always() && github.event_name == 'schedule' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' && needs.complete.result != 'cancelled' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
@@ -518,13 +564,15 @@ jobs:
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
                   RESULT: ${{ needs.checks.result }}
-                  CATEGORY: ${{ needs.checks.outputs.failure_category }}
-                  FAILED_STEP: ${{ needs.checks.outputs.failed_step }}
+                  COMPLETE: ${{ needs.complete.result }}
                   COMMIT: ${{ needs.changed.outputs.ref }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
+                  if [ "$RUN" = true ] && [ "$RESULT" = success ] && [ "$COMPLETE" != success ]; then
+                      RESULT=$COMPLETE
+                  fi
                   open=$(gh issue list --repo "$REPO" --label release-checks --state open --limit 1 --json number --jq '.[0].number // empty')
-                  if [ "$CHANGED" = success ] && { [ "$RESULT" = success ] || [ "$RUN" = false ]; }; then
+                  if [ "$CHANGED" = success ] && { { [ "$RESULT" = success ] && [ "$COMPLETE" = success ]; } || [ "$RUN" = false ]; }; then
                       if [ -n "$open" ]; then
                           gh issue close "$open" --repo "$REPO" --comment "The release checks passed on dev at $COMMIT: $RUN_URL"
                       fi
@@ -533,7 +581,7 @@ jobs:
                   if [ "$CHANGED" != success ]; then
                       body="The daily release checks could not tell what to check (What to check: **$CHANGED**), so no suite ran: $RUN_URL"
                   else
-                      body="The daily release checks ended with **$RESULT** on dev at $COMMIT: $RUN_URL. Failure: ${CATEGORY:-suite failure}; first failed step: ${FAILED_STEP:-unavailable}. Browser counts and replay seeds are available only when tests produced them; see the job summary and captured logs."
+                      body="The daily release checks ended with **$RESULT** on dev at $COMMIT: $RUN_URL. Each lane's summary and artifacts identify its failure category and first failed step. Browser counts and replay seeds are available only when tests produced them; see the per-lane summaries and captured logs."
                   fi
                   if [ -n "$open" ]; then
                       gh issue comment "$open" --repo "$REPO" --body "$body"
