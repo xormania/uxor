@@ -4,7 +4,8 @@ name: Metadata
 # pull requests*; tools/check-github-mentions.mjs): a pull request's title, its description and every commit message it
 # brings. GitHub copies the title and the description into the merge commit, so checking them here checks the merge
 # commit before it exists. Dependabot's pull requests are left out: GitHub writes their text, and it names the npm
-# packages it updates (a scope reads like an account).
+# packages it updates (a scope reads like an account). When a later release brings those messages again, GitHub's
+# merged pull request metadata proves which merge commits and bot-authored commits have that same exemption.
 on:
     pull_request:
         types: [opened, edited, reopened, synchronize]
@@ -18,6 +19,9 @@ jobs:
         if: github.event.pull_request.user.login != 'dependabot[bot]'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
+        permissions:
+            contents: read
+            pull-requests: read # verify inherited dependency-update commits through their merged pull requests
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -46,13 +50,40 @@ jobs:
               env:
                   BASE: ${{ github.event.pull_request.base.sha }}
                   HEAD: ${{ github.event.pull_request.head.sha }}
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
               run: |
                   set -o pipefail
                   {
+                      # Commit subjects and author strings alone prove nothing. Only a merged Dependabot PR in this
+                      # repository can exempt its merge commit or a bot-authored commit in its actual commit list.
+                      dependency_update() {
+                          local sha=$1 updates number merged supplied
+                          updates=$(gh api --paginate "repos/$REPO/commits/$sha/pulls?per_page=100" \
+                              --jq '.[] | select(.user.id == 49699333 and .user.login == "dependabot[bot]" and .user.type == "Bot" and .merged_at != null and .base.repo.full_name == env.REPO) | [.number, .merge_commit_sha] | join(" ")' 2>/dev/null) || return 1
+                          while read -r number merged; do
+                              [ -n "$number" ] || continue
+                              [ "$merged" != "$sha" ] || return 0
+                              supplied=$(METADATA_COMMIT="$sha" gh api --paginate "repos/$REPO/pulls/$number/commits?per_page=100" \
+                                  --jq '.[] | select(.sha == env.METADATA_COMMIT and .author.id == 49699333 and .author.login == "dependabot[bot]" and .author.type == "Bot") | .sha' 2>/dev/null) || return 1
+                              [ "$supplied" != "$sha" ] || return 0
+                          done <<< "$updates"
+                          return 1
+                      }
                       status=0
-                      for commit in $(git rev-list "$BASE..$HEAD"); do
-                          git log -1 --format=%B "$commit" |
-                              node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface "commit $commit" || status=1
+                      commits=$(git rev-list "$BASE..$HEAD") || exit 1
+                      for commit in $commits; do
+                          git log -1 --format=%B "$commit" > "$RUNNER_TEMP/metadata-message" || exit 1
+                          checked=0
+                          node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface "commit $commit" \
+                              "$RUNNER_TEMP/metadata-message" > "$RUNNER_TEMP/metadata-diagnostics" 2>&1 || checked=$?
+                          [ "$checked" != 0 ] || continue
+                          if [ "$checked" = 1 ] && dependency_update "$commit"; then
+                              echo "Commit $commit belongs to a merged dependency update: the existing bot exemption applies"
+                          else
+                              cat "$RUNNER_TEMP/metadata-diagnostics"
+                              status=1
+                          fi
                       done
                       exit $status
                   } 2>&1 | tee "$RUNNER_TEMP/jev-commits.log"
