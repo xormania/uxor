@@ -1614,7 +1614,13 @@ On the release pull request, the suite runs again on a new head unless it alread
 request in this repository merged with the same base, and every path changed since is one the suite never reads:
 `docs/`, `CHANGELOG.md`, `llms.txt`, `AGENTS.md` and `packages/uxor/`. A passing pull request run uploads a
 `release-checks-pr-passed-v1-<base>-<head>` artifact named by the two parents of the merge commit it tested, read from
-that commit, and the next run compares them with the parents of its own. The release commit (the changelog's version
+that commit. The consumer downloads the marker as a bounded ZIP and reads its single `commit` entry without
+extracting files. It verifies the producing run's repository, workflow, event and successful conclusion through
+GitHub, then looks up the recorded merge commit's two parents. The first must be the current base; the second must
+be that producing run's immutable `head_sha` (Actions reports the PR head here, not the synthetic merge SHA).
+The artifact name must match those independently verified parents. A filename alone cannot claim a future head,
+and malformed, unavailable or mismatched evidence runs the suite again. Only then does the next run compare the
+verified head with its own. The release commit (the changelog's version
 heading, `llms.txt`'s links) then costs no second suite. Any other path, the workflow and its tools included, runs it;
 so does a moved base, an earlier run without a marker (one that skipped the suite itself), a fork's run, or a commit
 the checkout cannot find.

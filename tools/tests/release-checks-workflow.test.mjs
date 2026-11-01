@@ -290,6 +290,9 @@ test('a pull request skips the suite only after a same-repository pass on the sa
 case "$2" in
     */workflows/release-checks.yml/runs?*) payload="$API_RUNS" ;;
     */actions/runs/81/artifacts?*) payload="$API_ARTIFACTS" ;;
+    */actions/runs/81) [ "$FAIL_API" != producer ] || exit 1; payload="$API_PRODUCER" ;;
+    */actions/artifacts/91/zip) [ "$FAIL_API" != zip ] || exit 1; cat "$MARKER_ZIP"; exit 0 ;;
+    */git/commits/*) [ "$FAIL_API" != commit ] || exit 1; payload="$API_MERGE" ;;
     *) echo "unexpected API path: $2" >&2; exit 2 ;;
 esac
 printf '%s' "$payload" | jq -r "$4"`);
@@ -324,8 +327,10 @@ printf '%s' "$payload" | jq -r "$4"`);
     const workflowChange = commit('.github/workflows/release-checks.yml', 'changed');
     git('checkout', '-q', base);
     const movedBase = commit('main-only.txt', 'moved');
+    const provenMerge = merge(base, passed);
+    const futureMerge = merge(base, docs);
     const compare = steps('changed').find((step) => step.id === 'compare');
-    const marker = (b, h) => ({ name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false });
+    const marker = (b, h) => ({ id: 91, name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false });
     for (const [name, tested, modify, expected] of [
         ['only paths the suite never reads', merge(base, docs), () => {}, 'false'],
         ['same head', merge(base, passed), () => {}, 'false'],
@@ -340,16 +345,52 @@ printf '%s' "$payload" | jq -r "$4"`);
         ['no earlier run', merge(base, docs), (runs) => { runs.length = 0; }, 'true'],
         ['not a merge commit', docs, () => {}, 'true'],
         ['an unknown commit under test', 'f'.repeat(40), () => {}, 'true'],
+        ['a marker named for a future head the producer did not test', futureMerge, (runs, artifacts) => { artifacts[1] = marker(base, docs); }, 'true'],
+        ['a forged future merge in both the marker name and contents', futureMerge, (runs, artifacts, proof) => {
+            artifacts[1] = marker(base, docs);
+            proof.content = `${futureMerge}\n`;
+            proof.commit = { sha: futureMerge, parents: [{ sha: base }, { sha: docs }] };
+        }, 'true'],
+        ['producer head differs from the recorded head', futureMerge, (runs, artifacts, proof) => { proof.run.head_sha = docs; }, 'true'],
+        ['producer was a manual run', futureMerge, (runs, artifacts, proof) => { proof.run.event = 'workflow_dispatch'; }, 'true'],
+        ['producer was another workflow', futureMerge, (runs, artifacts, proof) => { proof.run.path = '.github/workflows/ci.yml'; }, 'true'],
+        ['producer was unsuccessful', futureMerge, (runs, artifacts, proof) => { proof.run.conclusion = 'failure'; }, 'true'],
+        ['producer repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.repository.full_name = 'other/project'; }, 'true'],
+        ['producer head repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.head_repository.full_name = 'fork/project'; }, 'true'],
+        ['recorded merge base differs', futureMerge, (runs, artifacts, proof) => { proof.commit.parents[0].sha = movedBase; }, 'true'],
+        ['recorded commit is not the requested SHA', futureMerge, (runs, artifacts, proof) => { proof.commit.sha = 'd'.repeat(40); }, 'true'],
+        ['recorded commit is not a two-parent merge', futureMerge, (runs, artifacts, proof) => { proof.commit.parents.length = 1; }, 'true'],
+        ['malformed commit text', futureMerge, (runs, artifacts, proof) => { proof.content = 'not a commit'; }, 'true'],
+        ['missing commit entry', futureMerge, (runs, artifacts, proof) => { proof.filename = '../commit'; }, 'true'],
+        ['extra archive entry', futureMerge, (runs, artifacts, proof) => { proof.extra = true; }, 'true'],
+        ['oversized archive', futureMerge, (runs, artifacts, proof) => { proof.oversized = true; }, 'true'],
+        ['unavailable producer metadata', futureMerge, (runs, artifacts, proof) => { proof.fail = 'producer'; }, 'true'],
+        ['unavailable artifact contents', futureMerge, (runs, artifacts, proof) => { proof.fail = 'zip'; }, 'true'],
+        ['unavailable recorded merge', futureMerge, (runs, artifacts, proof) => { proof.fail = 'commit'; }, 'true'],
     ]) {
         const runs = [{ id: 81, head_repository: { full_name: 'example/project' } }];
         const artifacts = [{ name: 'release-checks-results', expired: false }, marker(base, passed)];
-        modify(runs, artifacts);
+        const proof = {
+            run: { head_sha: passed, path: file, event: 'pull_request', conclusion: 'success',
+                repository: { full_name: 'example/project' }, head_repository: { full_name: 'example/project' } },
+            commit: { sha: provenMerge, parents: [{ sha: base }, { sha: passed }] },
+            content: `${provenMerge}\n`, filename: 'commit', extra: false, fail: '', oversized: false,
+        };
+        modify(runs, artifacts, proof);
+        const zip = join(fx.temp, 'marker.zip');
+        const zipped = spawnSync('python3', ['-c', `import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], 'w') as archive:
+    archive.writestr(sys.argv[2], sys.argv[3])
+    if sys.argv[4] == 'true': archive.writestr('extra', 'data')`, zip, proof.filename, proof.content, String(proof.extra)], { encoding: 'utf8' });
+        assert.equal(zipped.status, 0, zipped.stderr);
+        if (proof.oversized) writeFileSync(zip, Buffer.alloc(65537));
         const output = join(fx.temp, 'compare-output');
         writeFileSync(output, '');
         const actual = shell(compare.run, fx, {
             EVENT: 'pull_request', REPO: 'example/project', GITHUB_SHA: tested, GITHUB_REF_NAME: '170/merge',
             GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary'),
             API_RUNS: JSON.stringify({ workflow_runs: runs }), API_ARTIFACTS: JSON.stringify({ artifacts }),
+            API_PRODUCER: JSON.stringify(proof.run), API_MERGE: JSON.stringify(proof.commit), MARKER_ZIP: zip, FAIL_API: proof.fail,
         });
         assert.equal(actual.status, 0, `${name}: ${actual.stdout}${actual.stderr}`);
         const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));

@@ -83,11 +83,33 @@ jobs:
                           --jq '.workflow_runs[] | select(.head_repository.full_name == "'"$REPO"'") | .id' || true)
                       for id in $runs; do
                           [ -n "$base" ] && [ -n "$head" ] || break
-                          marker=$(gh api "repos/$REPO/actions/runs/$id/artifacts?per_page=100" \
-                              --jq '.artifacts[] | select(.expired | not) | .name | select(startswith("release-checks-pr-passed-v1-'"$base"'-"))' || true)
-                          sha=${marker#release-checks-pr-passed-v1-"$base"-}
-                          [ -n "$marker" ] && [ "$sha" != "$marker" ] || continue
-                          git cat-file -e "$sha^{commit}" 2>/dev/null || break
+                          producer=$(gh api "repos/$REPO/actions/runs/$id" \
+                              --jq 'select(.path == ".github/workflows/release-checks.yml" and .event == "pull_request" and .conclusion == "success" and .repository.full_name == env.REPO and .head_repository.full_name == env.REPO) | .head_sha' 2>/dev/null) || continue
+                          [[ "$producer" =~ ^[0-9a-f]{40}$ ]] || continue
+                          candidate=$(gh api "repos/$REPO/actions/runs/$id/artifacts?per_page=100" \
+                              --jq '[.artifacts[] | select(.expired | not) | select(.name | startswith("release-checks-pr-passed-v1-'"$base"'-"))] | first // empty | [.id, .name] | join(" ")' 2>/dev/null) || continue
+                          read -r artifact marker extra <<< "$candidate"
+                          [[ "$artifact" =~ ^[0-9]+$ ]] && [ -z "$extra" ] || continue
+                          # Names are claims, not proof. Read only a bounded commit file from the ZIP, without
+                          # extracting it; then ask GitHub for that immutable merge commit's parents. Actions' REST
+                          # head_sha is the PR head (not its synthetic merge), so its second parent must be producer.
+                          recorded=$(gh api "repos/$REPO/actions/artifacts/$artifact/zip" 2>/dev/null | python3 -c '
+                  import io, re, sys, zipfile
+                  raw = sys.stdin.buffer.read(65537)
+                  if len(raw) > 65536: sys.exit(1)
+                  with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                      entries = archive.infolist()
+                      if len(entries) != 1 or entries[0].filename != "commit" or entries[0].file_size not in (40, 41): sys.exit(1)
+                      data = archive.read(entries[0])
+                  if not re.fullmatch(rb"[0-9a-f]{40}\n?", data): sys.exit(1)
+                  print(data.decode("ascii").strip())
+                  ' 2>/dev/null) || continue
+                          parents=$(RECORDED_MERGE="$recorded" gh api "repos/$REPO/git/commits/$recorded" \
+                              --jq 'select(.sha == env.RECORDED_MERGE and (.parents | length) == 2) | .parents | map(.sha) | join(" ")' 2>/dev/null) || continue
+                          read -r proved_base sha extra <<< "$parents"
+                          [ -z "$extra" ] && [ "$proved_base" = "$base" ] && [ "$sha" = "$producer" ] || continue
+                          [ "$marker" = "release-checks-pr-passed-v1-$proved_base-$sha" ] || continue
+                          git cat-file -e "$sha^{commit}" 2>/dev/null || continue
                           changed=$(git diff --name-only --no-renames "$sha" "$head") || break
                           # The paths the suite never reads: docs (the specs and tools only name them in comments), the
                           # changelog and llms.txt (a release commit's), the agent rules and the Composer package (the
