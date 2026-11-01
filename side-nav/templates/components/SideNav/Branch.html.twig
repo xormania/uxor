@@ -11,16 +11,17 @@
 {%- set _content %}{##- The branch's children: `SideNav:Item`s and nested `SideNav:Branch`es. -#}{% block content %}{% endblock %}{% endset -%}
 {%- set _icon %}{##- The branch's icon, kept visible when a `Sidebar` around the tree is collapsed. -#}{% block icon %}{% endblock %}{% endset -%}
 {%- set _open = open or 'aria-current="page"' in _content -%}
-<li role="treeitem" aria-label="{{ label }}" aria-expanded="{{ _open ? 'true' : 'false' }}" tabindex="-1"
+<li role="treeitem" aria-expanded="{{ _open ? 'true' : 'false' }}" tabindex="-1"
     data-side-nav-target="branch" data-side-nav-name="{{ name ?? label }}"
-    {{ attributes.defaults({class: 'focus:outline-none'|tailwind_classes}) }}>
-    <span data-side-nav-toggle class="flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-base px-2 font-medium text-body hover:bg-neutral-secondary-medium hover:text-heading [:focus-visible>&]:ring-2 [:focus-visible>&]:ring-brand-medium" aria-hidden="true">
+    {{ attributes.defaults({class: 'pointer-events-none focus:outline-none *:pointer-events-auto'|tailwind_classes}) }}>
+    <span data-side-nav-toggle class="flex min-h-11 cursor-pointer select-none items-center gap-3 rounded-base px-2 font-medium text-body hover:bg-neutral-secondary-medium hover:text-heading [:focus-visible>&]:ring-2 [:focus-visible>&]:ring-brand-medium">
         {%- if _icon|trim is not empty %}
-            <span class="inline-flex size-5 shrink-0 items-center justify-center">{{ _icon }}</span>
+            <span class="inline-flex size-5 shrink-0 items-center justify-center" aria-hidden="true">{{ _icon }}</span>
         {%- endif %}
-        <span class="min-w-0 flex-1 truncate group-data-collapsed/sidebar:sr-only">{{ label }}</span>
-        <twig:ux:icon name="flowbite:chevron-right-outline" class="size-4 shrink-0 transition-transform motion-reduce:transition-none! group-data-collapsed/sidebar:hidden [[aria-expanded=true]>*>&]:rotate-90" />
+        <span data-side-nav-label class="min-w-0 flex-1 truncate group-data-collapsed/sidebar:sr-only">{{ label }}</span>
+        <twig:ux:icon name="flowbite:chevron-right-outline" aria-hidden="true" class="size-4 shrink-0 transition-transform motion-reduce:transition-none! group-data-collapsed/sidebar:hidden [[aria-expanded=true]>*>&]:rotate-90" />
     </span>
+    {#- the branch is named by its row: browsers leave a role="group" out of its name, an unnamed one (a name would join it) -#}
     <ul role="group" class="ms-4.5 mt-1 space-y-1 border-s border-default ps-2 group-data-collapsed/sidebar:hidden [[aria-expanded=false]>&]:hidden">
         {{- _content -}}
     </ul>

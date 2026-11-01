@@ -53,6 +53,9 @@ A multi-level navigation tree: links grouped in branches that open and close, at
 - **Structure:** `SideNav` is the tree (`role="tree"`), `SideNav:Item` a link and `SideNav:Branch` a labelled branch
   holding items and branches, nested as deep as needed. The tree is not a landmark: put it in a `<nav>` with a
   name, or in a `Sidebar`, which is one.
+- **Names:** a branch is named by its row, the label it shows: its children sit in a `role="group"`, which browsers
+  leave out of the branch's name, as the WAI-ARIA tree view examples do. It has no `aria-label`, so its name is
+  always its visible text, which a speech-input user can say.
 - **Current page:** on every connect, Turbo visits included, the controller marks the item whose link has the current
   URL's path (`aria-current="page"`); a link to a fragment of the page (`#…`) is never marked. `route` also marks it
   on the server, and its branches then render open, so a full page load shows them open from the first paint.
@@ -69,7 +72,8 @@ A multi-level navigation tree: links grouped in branches that open and close, at
 - **Keyboard:** the tree is one Tab stop, on the current page's item when it is shown. Up and Down move between the
   shown items; Right opens a branch, then moves into it; Left closes a branch, then moves to its parent; Home and End
   go to the first and last item; typing letters moves to the next item starting with them. Enter or Space follows a
-  link, or opens or closes a branch. A click on a branch's row opens or closes it.
+  link, or opens or closes a branch. A click on a branch's row opens or closes it, and so does assistive technology's
+  click on the branch (a TalkBack double-tap, a speech command); a click beside its children does nothing.
 - **Turbo:** the tree works on every page or inside a `data-turbo-permanent` element; such an element needs an `id`.
 - **Motion:** a branch's chevron turns with a transform transition, which stops under `prefers-reduced-motion`.
 

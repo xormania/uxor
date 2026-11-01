@@ -20,6 +20,8 @@ const RUNS = Number(process.env.TIMING_RUNS ?? 5);
 test.describe('release timings', () => {
     test.skip(({ browserName }) => 'chromium' !== browserName, 'the renderer metrics are Chromium\'s');
     test.describe.configure({ timeout: 180_000 });
+    // A bad interaction must fail before consuming the whole repeated-measurement budget (and its retry).
+    test.use({ actionTimeout: 10_000, navigationTimeout: 30_000 });
 
     /** RUNS fresh pages: `open` loads one, `steps` warm up once uncounted, then are timed in order. */
     async function timeRuns(page: Page, open: () => Promise<void>, steps: [string, () => Promise<unknown>][], warmUp = true) {
@@ -128,7 +130,10 @@ test.describe('release timings', () => {
         await timeRuns(page, () => page.goto('/demo').then(() => undefined), [
             ['dashboard visit', async () => {
                 await turboOperation(page, { url: '/demo/settings/profile' }, async () => {
-                    await main.getByRole('treeitem', { name: 'Settings' }).click();
+                    // The branch wrapper intentionally rejects pointer clicks. ArrowRight opens it when closed,
+                    // or moves into it when already open after a warm-up or a restored Turbo snapshot.
+                    await main.getByRole('treeitem', { name: 'Settings' }).focus();
+                    await page.keyboard.press('ArrowRight');
                     await main.getByRole('treeitem', { name: 'Profile' }).focus();
                     await page.keyboard.press('Enter');
                 });

@@ -51,6 +51,11 @@
 {#- a date is a `Y-m-d` string that names a real day: anything else (a typo, a raw form submission) is dropped, never parsed -#}
 {%- set _isDate = '/^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$/' -%}
 {%- set _locale = locale ?? app.request.locale|default(null) -%}
+{#- a day's number as the browser writes it (Intl's `{day: 'numeric'}`, the controller's), not ICU's bare `d`: these languages
+    write it another way (CLDR's pattern for the skeleton `d`, in ICU 75 and 77; Bosnian in Cyrillic keeps `d`), and
+    Korean's "19일" is also how the button's name has it -#}
+{%- set _localeKey = (_locale ?? '')|replace({'-': '_'})|lower -%}
+{%- set _dayPattern = _localeKey starts with 'bs_cyrl' ? 'd' : ({bs: 'd.', cs: 'd.', da: 'd.', dsb: 'd.', fo: 'd.', hr: 'd.', hsb: 'd.', ie: 'd.', nb: 'd.', nn: 'd.', no: 'd.', sk: 'd.', sl: 'd.', ii: 'dꑍ', ja: 'd日', yue: 'd日', zh: 'd日', ko: 'd일', lt: 'dd'}[_localeKey|split('_')|first] ?? 'd') -%}
 {%- set _today = (today is not null and today matches _isDate and today|date('Y-m-d') == today) ? today : 'now'|date('Y-m-d') -%}
 {%- set _selected = null == selected ? [] : ((selected is iterable ? selected : [selected])|filter(value => value is not null and value matches _isDate and value|date('Y-m-d') == value)|map(value => value ~ '')|reduce((carry, value) => carry|merge([value]), [])) -%}
 {%- if 'single' == mode -%}{%- set _selected = _selected|slice(0, 1) -%}{%- elseif 'range' == mode -%}{%- set _selected = _selected|slice(0, 2) -%}{%- endif -%}
@@ -235,7 +240,7 @@
                                             class="{{ _dayButtonClass }}"
                                             {%- if _isDisabled %} disabled{% endif %}
                                         >
-                                            {{- _date|format_date(pattern: 'd', locale: _locale) -}}
+                                            {{- _date|format_date(pattern: _dayPattern, locale: _locale) -}}
                                         </button>
                                     </td>
                                 {%- endfor -%}

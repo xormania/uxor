@@ -55,7 +55,7 @@ function steps(job) {
 function expressionValue(condition, context = {}, failed = false) {
     const expression = condition.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
         .replace(/\b(success|failure|always|cancelled)\(\)/g, (_, name) => JSON.stringify({ success: !failed, failure: failed, always: true, cancelled: false }[name]))
-        .replace(/\b(?:steps|github|needs)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
+        .replace(/\b(?:steps|github|needs|matrix)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
     const operators = expression.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+)\b/g, '');
     assert.match(operators, /^[\s!<>=&|().-]*$/, `unsupported condition ${condition}`);
     return Function(`return (${expression});`)();
@@ -173,7 +173,7 @@ test('missing structural evidence remains fatal, and required evidence and brows
     assert.equal(evidence.status, 1, evidence.stdout + evidence.stderr);
 });
 
-test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted scheduled skip', (t) => {
+test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted skips', (t) => {
     const fx = scratch(t);
     const verdict = steps('verdict').find((step) => step.run);
     for (const [event, changed, run, suite, expected] of [
@@ -184,14 +184,17 @@ test('the required verdict rejects a failed or skipped suite and target resoluti
         ['schedule', 'success', 'false', 'skipped', 0],
         ['workflow_dispatch', 'success', 'false', 'skipped', 1],
         ['pull_request', 'success', 'true', 'failure', 1],
+        ['pull_request', 'success', 'true', 'skipped', 1],
+        ['pull_request', 'success', 'false', 'skipped', 0],
+        ['pull_request', 'failure', 'false', 'skipped', 1],
     ]) {
-        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite });
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success' });
         assert.equal(out.status, expected, `${event}/${changed}/${run}/${suite}: ${out.stdout}${out.stderr}`);
     }
 });
 
 test('failed or pull-request runs cannot record a reusable pass marker', () => {
-    const check = steps('checks');
+    const check = steps('complete');
     const record = check.find((step) => step.id === 'tested');
     const upload = check.find((step) => step.with.name?.startsWith('release-checks-passed-'));
     assert.ok(record && upload);
@@ -205,6 +208,34 @@ test('failed or pull-request runs cannot record a reusable pass marker', () => {
     ]) {
         const ctx = { github: { event_name: event }, steps: { tested: result(recorded) } };
         assert.equal(holds(record.if, ctx, failed) && holds(upload.if, ctx, failed), expected, `${event}/${failed}/${recorded}`);
+    }
+});
+
+test('the matrix cannot publish passes or baselines until all lanes and their frozen checkout succeeded', (t) => {
+    assert.match(jobText('checks'), /fail-fast: false/);
+    assert.match(jobText('checks'), /lane: \[release, dark, harsh\]/);
+    assert.match(jobText('checks'), /RELEASE_LANE: \$\{\{ matrix.lane \}\}/);
+    assert.doesNotMatch(jobText('checks'), /name: release-(?:checks-(?:pr-)?passed|baseline)/);
+    const complete = jobText('complete').match(/^        if: (.*)$/m)[1];
+    for (const state of ['success', 'failure', 'cancelled', 'skipped']) {
+        assert.equal(holds(complete, { needs: { changed: { outputs: { run: 'true' } }, checks: { result: state } } }), state === 'success');
+    }
+    for (const lane of ['release', 'dark', 'harsh']) {
+        const properties = steps('checks').find((step) => step.id === 'properties');
+        assert.equal(holds(properties.if, { matrix: { lane }, steps: { start: result('success') } }), lane === 'release', 'PHP properties run once');
+    }
+    const verdict = steps('verdict').find((step) => step.run);
+    const fx = scratch(t);
+    for (const complete of ['failure', 'skipped', 'cancelled']) {
+        const out = shell(verdict.run, fx, { EVENT: 'pull_request', CHANGED: 'success', RUN: 'true', SUITE: 'success', COMPLETE: complete });
+        assert.equal(out.status, 1, 'no required pass without aggregate completion');
+    }
+    assert.equal(steps('complete').find((step) => step.id === 'provenance')['continue-on-error'], undefined);
+    const record = steps('complete').find((step) => step.with.name === 'release-baseline');
+    assert.ok(record.if.includes('success()'));
+    assert.equal(record['continue-on-error'], undefined);
+    for (const step of steps('checks').filter((step) => step.uses?.includes('upload-artifact') || step.uses?.includes('jev-diagnosis'))) {
+        assert.ok((step.with.name ?? step.with.artifact).includes('${{ matrix.lane }}'), 'concurrent lanes have distinct artifacts');
     }
 });
 
@@ -253,6 +284,164 @@ printf '%s' "$payload" | jq -r "$4"`);
     }
 });
 
+test('a pull request skips the suite only after a same-repository pass on the same base, with nothing it reads changed since', (t) => {
+    const fx = scratch(t);
+    executable(fx, 'gh', `
+case "$2" in
+    */workflows/release-checks.yml/runs?*) payload="$API_RUNS" ;;
+    */actions/runs/81/artifacts?*) payload="$API_ARTIFACTS" ;;
+    */actions/runs/81) [ "$FAIL_API" != producer ] || exit 1; payload="$API_PRODUCER" ;;
+    */actions/artifacts/91/zip) [ "$FAIL_API" != zip ] || exit 1; cat "$MARKER_ZIP"; exit 0 ;;
+    */git/commits/*) [ "$FAIL_API" != commit ] || exit 1; payload="$API_MERGE" ;;
+    *) echo "unexpected API path: $2" >&2; exit 2 ;;
+esac
+printf '%s' "$payload" | jq -r "$4"`);
+    const git = (...args) => {
+        const out = spawnSync('git', ['-c', 'user.name=Local proof', '-c', 'user.email=proof@example.invalid', ...args], { cwd: fx.dir, encoding: 'utf8' });
+        assert.equal(out.status, 0, out.stderr);
+        return out.stdout.trim();
+    };
+    const commit = (path, text) => {
+        mkdirSync(join(fx.dir, path, '..'), { recursive: true });
+        writeFileSync(join(fx.dir, path), text);
+        git('add', path);
+        git('commit', '-q', '-m', `test: ${path}`);
+        return git('rev-parse', 'HEAD');
+    };
+    // The merge commit a pull_request run tests: the base first, the pull request's head second
+    const merge = (base, head) => {
+        git('checkout', '-q', '--detach', base);
+        git('merge', '-q', '--no-ff', '-m', 'test: merge', head);
+        return git('rev-parse', 'HEAD');
+    };
+    git('init', '-q', '--initial-branch=main');
+    const base = commit('kit.css', 'base');
+    const passed = commit('calendar/Calendar.html.twig', 'passed');
+    commit('CHANGELOG.md', 'release');
+    commit('llms.txt', 'links');
+    commit('docs/TESTING.md', 'docs');
+    commit('AGENTS.md', 'rules');
+    const docs = commit('packages/uxor/README.md', 'package');
+    const code = commit('calendar/Calendar.html.twig', 'changed');
+    git('checkout', '-q', docs);
+    const workflowChange = commit('.github/workflows/release-checks.yml', 'changed');
+    git('checkout', '-q', base);
+    const movedBase = commit('main-only.txt', 'moved');
+    const provenMerge = merge(base, passed);
+    const futureMerge = merge(base, docs);
+    const compare = steps('changed').find((step) => step.id === 'compare');
+    const marker = (b, h) => ({ id: 91, name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false });
+    for (const [name, tested, modify, expected] of [
+        ['only paths the suite never reads', merge(base, docs), () => {}, 'false'],
+        ['same head', merge(base, passed), () => {}, 'false'],
+        ['a path the suite reads', merge(base, code), () => {}, 'true'],
+        ['the workflow itself', merge(base, workflowChange), () => {}, 'true'],
+        ['the base moved since', merge(movedBase, docs), () => {}, 'true'],
+        ['the earlier run left no marker', merge(base, docs), (runs, artifacts) => { artifacts.length = 1; }, 'true'],
+        ['an expired marker', merge(base, docs), (runs, artifacts) => { artifacts[1].expired = true; }, 'true'],
+        ['another base in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(movedBase, passed); }, 'true'],
+        ['a fork run', merge(base, docs), (runs) => { runs[0].head_repository.full_name = 'fork/project'; }, 'true'],
+        ['an unknown commit in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(base, 'd'.repeat(40)); }, 'true'],
+        ['no earlier run', merge(base, docs), (runs) => { runs.length = 0; }, 'true'],
+        ['not a merge commit', docs, () => {}, 'true'],
+        ['an unknown commit under test', 'f'.repeat(40), () => {}, 'true'],
+        ['a marker named for a future head the producer did not test', futureMerge, (runs, artifacts) => { artifacts[1] = marker(base, docs); }, 'true'],
+        ['a forged future merge in both the marker name and contents', futureMerge, (runs, artifacts, proof) => {
+            artifacts[1] = marker(base, docs);
+            proof.content = `${futureMerge}\n`;
+            proof.commit = { sha: futureMerge, parents: [{ sha: base }, { sha: docs }] };
+        }, 'true'],
+        ['producer head differs from the recorded head', futureMerge, (runs, artifacts, proof) => { proof.run.head_sha = docs; }, 'true'],
+        ['producer was a manual run', futureMerge, (runs, artifacts, proof) => { proof.run.event = 'workflow_dispatch'; }, 'true'],
+        ['producer was another workflow', futureMerge, (runs, artifacts, proof) => { proof.run.path = '.github/workflows/ci.yml'; }, 'true'],
+        ['producer was unsuccessful', futureMerge, (runs, artifacts, proof) => { proof.run.conclusion = 'failure'; }, 'true'],
+        ['producer repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.repository.full_name = 'other/project'; }, 'true'],
+        ['producer head repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.head_repository.full_name = 'fork/project'; }, 'true'],
+        ['recorded merge base differs', futureMerge, (runs, artifacts, proof) => { proof.commit.parents[0].sha = movedBase; }, 'true'],
+        ['recorded commit is not the requested SHA', futureMerge, (runs, artifacts, proof) => { proof.commit.sha = 'd'.repeat(40); }, 'true'],
+        ['recorded commit is not a two-parent merge', futureMerge, (runs, artifacts, proof) => { proof.commit.parents.length = 1; }, 'true'],
+        ['malformed commit text', futureMerge, (runs, artifacts, proof) => { proof.content = 'not a commit'; }, 'true'],
+        ['missing commit entry', futureMerge, (runs, artifacts, proof) => { proof.filename = '../commit'; }, 'true'],
+        ['extra archive entry', futureMerge, (runs, artifacts, proof) => { proof.extra = true; }, 'true'],
+        ['oversized archive', futureMerge, (runs, artifacts, proof) => { proof.oversized = true; }, 'true'],
+        ['unavailable producer metadata', futureMerge, (runs, artifacts, proof) => { proof.fail = 'producer'; }, 'true'],
+        ['unavailable artifact contents', futureMerge, (runs, artifacts, proof) => { proof.fail = 'zip'; }, 'true'],
+        ['unavailable recorded merge', futureMerge, (runs, artifacts, proof) => { proof.fail = 'commit'; }, 'true'],
+    ]) {
+        const runs = [{ id: 81, head_repository: { full_name: 'example/project' } }];
+        const artifacts = [{ name: 'release-checks-results', expired: false }, marker(base, passed)];
+        const proof = {
+            run: { head_sha: passed, path: file, event: 'pull_request', conclusion: 'success',
+                repository: { full_name: 'example/project' }, head_repository: { full_name: 'example/project' } },
+            commit: { sha: provenMerge, parents: [{ sha: base }, { sha: passed }] },
+            content: `${provenMerge}\n`, filename: 'commit', extra: false, fail: '', oversized: false,
+        };
+        modify(runs, artifacts, proof);
+        const zip = join(fx.temp, 'marker.zip');
+        const zipped = spawnSync('python3', ['-c', `import sys, zipfile
+with zipfile.ZipFile(sys.argv[1], 'w') as archive:
+    archive.writestr(sys.argv[2], sys.argv[3])
+    if sys.argv[4] == 'true': archive.writestr('extra', 'data')`, zip, proof.filename, proof.content, String(proof.extra)], { encoding: 'utf8' });
+        assert.equal(zipped.status, 0, zipped.stderr);
+        if (proof.oversized) writeFileSync(zip, Buffer.alloc(65537));
+        const output = join(fx.temp, 'compare-output');
+        writeFileSync(output, '');
+        const actual = shell(compare.run, fx, {
+            EVENT: 'pull_request', REPO: 'example/project', GITHUB_SHA: tested, GITHUB_REF_NAME: '170/merge',
+            GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary'),
+            API_RUNS: JSON.stringify({ workflow_runs: runs }), API_ARTIFACTS: JSON.stringify({ artifacts }),
+            API_PRODUCER: JSON.stringify(proof.run), API_MERGE: JSON.stringify(proof.commit), MARKER_ZIP: zip, FAIL_API: proof.fail,
+        });
+        assert.equal(actual.status, 0, `${name}: ${actual.stdout}${actual.stderr}`);
+        const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+        assert.equal(values.run, expected, `${name}: ${actual.stdout}${actual.stderr}`);
+        assert.equal(values.ref, tested, name);
+        assert.equal(values.target_ref, '170/merge', name);
+    }
+});
+
+test('only a passing pull request run records the base and head it tested, from the merge commit itself', (t) => {
+    const check = steps('complete');
+    const record = check.find((step) => step.id === 'tested-pr');
+    const upload = check.find((step) => step.with.name?.startsWith('release-checks-pr-passed-v1-'));
+    assert.ok(record && upload);
+    for (const [event, failed, recorded, expected] of [
+        ['pull_request', false, 'success', true],
+        ['pull_request', true, 'success', false],
+        ['pull_request', false, 'failure', false],
+        ['schedule', false, 'success', false],
+        ['workflow_dispatch', false, 'success', false],
+    ]) {
+        const ctx = { github: { event_name: event }, steps: { 'tested-pr': result(recorded) } };
+        assert.equal(holds(record.if, ctx, failed) && holds(upload.if, ctx, failed), expected, `${event}/${failed}/${recorded}`);
+    }
+    const fx = scratch(t);
+    const git = (...args) => {
+        const out = spawnSync('git', ['-c', 'user.name=Local proof', '-c', 'user.email=proof@example.invalid', ...args], { cwd: fx.dir, encoding: 'utf8' });
+        assert.equal(out.status, 0, out.stderr);
+        return out.stdout.trim();
+    };
+    git('init', '-q', '--initial-branch=main');
+    git('commit', '-q', '--allow-empty', '-m', 'test: base');
+    const base = git('rev-parse', 'HEAD');
+    git('checkout', '-q', '-b', 'topic');
+    git('commit', '-q', '--allow-empty', '-m', 'test: head');
+    const head = git('rev-parse', 'HEAD');
+    git('checkout', '-q', '--detach', base);
+    git('merge', '-q', '--no-ff', '-m', 'test: merge', head);
+    // the checkout is shallow: the parents come from the commit object, not from history
+    const shallow = join(fx.temp, 'shallow');
+    assert.equal(spawnSync('git', ['clone', '-q', '--depth=1', `file://${fx.dir}`, shallow]).status, 0);
+    const output = join(fx.temp, 'record-output');
+    writeFileSync(output, '');
+    const out = shell(record.run, { ...fx, dir: shallow }, { GITHUB_OUTPUT: output });
+    assert.equal(out.status, 0, out.stderr);
+    assert.equal(readFileSync(output, 'utf8'), `base=${base}\nhead=${head}\n`);
+    git('checkout', '-q', head);
+    const single = shell(record.run, fx, { GITHUB_OUTPUT: output });
+    assert.notEqual(single.status, 0, 'a commit that is not a merge records no marker');
+});
+
 test('checkout provenance must match the frozen target before the workflow exposes a tested revision', (t) => {
     const fx = scratch(t);
     const actual = 'a'.repeat(40);
@@ -274,7 +463,7 @@ test('checkout provenance must match the frozen target before the workflow expos
     }
 });
 
-test('checkout trust rejects a substituted resolver revision and a moving dev head before executing target code', (t) => {
+for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a substituted resolver revision and a moving dev head before executing target code`, (t) => {
     const fx = scratch(t);
     const git = (...args) => {
         const run = spawnSync('git', args, { cwd: fx.dir, encoding: 'utf8', env: { PATH: process.env.PATH } });
@@ -293,8 +482,8 @@ test('checkout trust rejects a substituted resolver revision and a moving dev he
     const substitutedSha = commit('resolver-selected code outside the maintained branch');
     git('checkout', 'dev');
     const advancedDev = commit('dev advanced after target resolution');
-    const checkout = steps('checks').find((step) => step.id === 'checkout');
-    const provenance = stepIn(workflow, 'checks', 'provenance');
+    const checkout = steps(job).find((step) => step.id === 'checkout');
+    const provenance = stepIn(workflow, job, 'provenance');
     const output = join(fx.temp, 'environment');
     const executed = join(fx.dir, 'target-executed');
 

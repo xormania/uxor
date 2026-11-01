@@ -1452,7 +1452,7 @@ The attempts come from one of three places:
 
 | Job | Its failed attempts | Server log | Artifact |
 |---|---|---|---|
-| *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-chromium-…` |
+| *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-<lane>-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
 | *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
@@ -1610,6 +1610,21 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
 a change to either the target or the workflow requires another real scheduled pass.
 
+On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
+request in this repository merged with the same base, and every path changed since is one the suite never reads:
+`docs/`, `CHANGELOG.md`, `llms.txt`, `AGENTS.md` and `packages/uxor/`. A passing pull request run uploads a
+`release-checks-pr-passed-v1-<base>-<head>` artifact named by the two parents of the merge commit it tested, read from
+that commit. The consumer downloads the marker as a bounded ZIP and reads its single `commit` entry without
+extracting files. It verifies the producing run's repository, workflow, event and successful conclusion through
+GitHub, then looks up the recorded merge commit's two parents. The first must be the current base; the second must
+be that producing run's immutable `head_sha` (Actions reports the PR head here, not the synthetic merge SHA).
+The artifact name must match those independently verified parents. A filename alone cannot claim a future head,
+and malformed, unavailable or mismatched evidence runs the suite again. Only then does the next run compare the
+verified head with its own. The release commit (the changelog's version
+heading, `llms.txt`'s links) then costs no second suite. Any other path, the workflow and its tools included, runs it;
+so does a moved base, an earlier run without a marker (one that skipped the suite itself), a fork's run, or a commit
+the checkout cannot find.
+
 The workflow resolves the expected target once. Its checkout independently trusts only `refs/heads/dev` for a
 schedule, or the immutable triggering event SHA for a manual or pull-request run; the resolver output cannot select
 another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
@@ -1622,21 +1637,33 @@ workflow, resolved target and actual checkout revisions are recorded separately 
 This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
 
 After preparing the demo, [`tools/ci/release-checks.mjs`](https://github.com/xormania/uxor/blob/main/tools/ci/release-checks.mjs) discovers the target's
-Playwright project contract and launches all three release projects with one worker. Current checkouts use
+Playwright project contract before launching its assigned lane. Three jobs run concurrently on separate machines:
+`release` (timings, fuzzing and long sessions) uses one worker, while `dark` and `harsh` use two workers each.
+Timing measurements never compete with either behavior lane. Current checkouts use
 `release`, `release-dark` and `release-harsh`. A temporary bridge also supports the exact legacy family on older
 `main` checkouts, including its legacy tag filter. Unknown, partial or mixed families and discovery errors fail;
-a failed suite never retries with another family. The saved `release-selection.json` supplies the same project
-and required-spec contract to structural evidence: every project ran a test and every release spec ran without
-skips. Missing reports remain fatal. Remove the legacy bridge when the supported `main` contract is retired.
+a failed suite never retries with another family. Each lane saves its project and required-spec contract in
+`release-selection.json`; evidence independently derives the expected contract from the assigned `RELEASE_LANE`,
+so a saved contract cannot narrow it. The three lanes partition the required projects exactly once; the `release`
+lane also requires every release spec to run without skips. Missing or empty lane reports remain fatal. With no
+`RELEASE_LANE`, the runner retains the complete serial suite for local use. Remove the legacy bridge when the supported `main` contract is retired.
 
-The PHPUnit properties still run with a random seed and `--fail-on-empty-test-suite`. CI's browser job never runs
+The PHPUnit properties run once in the `release` lane, with a random seed and `--fail-on-empty-test-suite`.
+The dashboard timing scenario opens Settings through the keyboard, including after a warm-up has left it open;
+the branch wrapper intentionally rejects pointer clicks. Timing scenarios retain their repeated-measurement budget,
+with individual actions limited to 10 seconds and navigations to 30 seconds. CI's browser job never runs
 the release projects: they exist only with `RELEASE_CHECKS` set, and `smoke` ignores `release.*.spec.ts`.
 The required check is the *Release checks* job, which runs
-whatever happened before it: it fails when *What to check* failed or the suite did not pass, so a skipped suite never
-reads as a pass; only a daily run that found the checks already passed passes without the suite. The reports, the
-result artifacts and the passed marker are advisory: their upload never decides the verdict.
+whatever happened before it: it fails when *What to check*, any lane or *Complete release suite* did not pass, so a skipped suite never
+reads as a pass; only a daily run that found the checks already passed, and a pull request skipped as above, pass
+without the suite. The reports, the
+result artifacts and the passed marker are advisory: their upload never decides the verdict. Each lane has distinct
+`release-checks-results-<lane>`, `release-checks-report-<lane>` and Jev input artifacts. *Complete release suite*
+independently verifies the frozen checkout again and publishes pass markers only after every lane passed; a single
+lane cannot publish a reusable suite pass. Recorded baselines are candidates in the timing lane's results artifact
+until this aggregate job publishes `release-baseline`, again only after all lanes passed.
 A daily run that fails opens one issue labeled `release-checks`, or comments on the open one; a green one closes it.
-Issue updates identify the first failed step and failure category. Missing browser reports retain unavailable counts
+Issue updates link the run; each lane's summary and artifacts identify its first failed step and failure category. Missing browser reports retain unavailable counts
 and seeds. A valid report with a global setup/run error and no reported failed test remains a general
 Playwright run failure; a parsed report alone does not establish that a browser test failed. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
 was written; the command's original exit status remains the verdict.
@@ -1695,7 +1722,7 @@ checks the actual retained DOM and heap.
 **Locally**, with the demo up (`DEMO_URL=https://localhost` for the Docker demo):
 
 ```sh
-RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # every release check, Chromium, as CI runs them (one worker: the timings must not share the machine)
+RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # every release check locally, serially; CI uses three isolated lanes
 RELEASE_CHECKS=1 npx playwright test tests/e2e/release.long-session.spec.ts --project=release
 RELEASE_CHECKS=1 FUZZ_BUDGET_MS=60000 npx playwright test tests/e2e/release.fuzz.spec.ts --project=release
 (cd demo && SEED=$RANDOM PROPERTY_RUNS=2000 bin/phpunit --group property)

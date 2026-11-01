@@ -16,7 +16,8 @@ const branches = ['Guides', 'Advanced', 'Reference'] as const;
 async function treeState(page: Page) {
     return tree(page).evaluate((element) => {
         const items = [...element.querySelectorAll<HTMLElement>('[role="treeitem"]')];
-        const name = (item: HTMLElement) => (item.getAttribute('aria-label') ?? item.textContent ?? '').trim();
+        // a branch is named by its row's label, without its children's
+        const name = (item: HTMLElement) => (item.getAttribute('aria-label') ?? (item.querySelector(':scope > [data-side-nav-toggle] > [data-side-nav-label]') ?? item).textContent ?? '').trim();
         return {
             open: items.filter((item) => item.hasAttribute('aria-expanded') && 'true' === item.getAttribute('aria-expanded')).map(name),
             current: items.filter((item) => 'page' === item.getAttribute('aria-current')).map(name),
@@ -46,9 +47,9 @@ test('the tree has the ARIA tree structure, and the branch of the current page r
     await expect(treeitem(page, 'Reference').getByRole('group')).toBeHidden();
     // the server opened them: the page's HTML, before any controller
     const html = await (await page.request.get('/lab/side-nav/three')).text();
-    expect(html).toMatch(/aria-label="Guides" aria-expanded="false"/); // the lab marks the current page from the URL only
+    expect(html).toMatch(/aria-expanded="false" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Guides"/); // the lab marks the current page from the URL only
     const demo = await (await page.request.get('/demo/settings/profile')).text();
-    expect(demo).toMatch(/aria-label="Settings" aria-expanded="true"/); // `route` marks it on the server
+    expect(demo).toMatch(/aria-expanded="true" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Settings"/); // `route` marks it on the server
 });
 
 test('the keyboard moves through the shown treeitems, opens and closes branches and follows links', async ({ page }) => {
@@ -105,6 +106,17 @@ test('the keyboard moves through the shown treeitems, opens and closes branches 
     await expect(treeitem(page, 'Guides')).toBeFocused();
     await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'false');
     expect((await treeState(page)).tabStops).toEqual(['Guides']);
+
+    // assistive technology's click (a TalkBack double-tap, a speech command) lands on the treeitem itself, and toggles it
+    await treeitem(page, 'Guides').evaluate((branch) => (branch as HTMLElement).click());
+    await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'true');
+    // a pointer's click beside the children, on the branch's own box, toggles nothing
+    const group = await treeitem(page, 'Guides').getByRole('group').boundingBox();
+    await page.mouse.click(group!.x - 4, group!.y + group!.height / 2);
+    await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'true');
+    await treeitem(page, 'Guides').evaluate((branch) => (branch as HTMLElement).click());
+    await expect(treeitem(page, 'Guides')).toHaveAttribute('aria-expanded', 'false');
+    await expect(treeitem(page, 'Guides')).toBeFocused();
 
     // Enter follows a link, as a Turbo visit
     const sameDocument = await markDocument(page);
