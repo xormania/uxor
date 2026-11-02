@@ -1437,7 +1437,7 @@ It runs in two places, keeping the producer's workflow and tested code away from
    `jev-input-<workflow>-<job>-<run>-<attempt>` (kept 3 days).
 2. **In an independent *Jev diagnosis* workflow, with the key:**
    [`.github/workflows/jev.yml`](../.github/workflows/jev.yml) runs after a producing workflow completes. GitHub's
-   `workflow_run` event loads this YAML from the default branch (`main`), so a pull request cannot replace the
+   `workflow_run` event loads this YAML from the default branch (`dev`), so a pull request cannot replace the
    secret-bearing consumer by editing a relative reusable workflow. On a fresh runner where no package, image or
    test has run, it downloads only the source run ID and attempt's `jev-input` artifacts into the runner's temporary
    directory. Every producer key is included: a *Release* run can also hold the nested *Pages* build's inputs.
@@ -1497,9 +1497,9 @@ The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone. Produ
 them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
 
-**Rollout and secret scope.** The independent consumer starts only after `jev.yml` reaches the default branch through
-the normal release. A branch or `dev` copy cannot register a `workflow_run` consumer; until that release, producers
-still upload their inputs but this new consumer does not run. The old secret-bearing caller jobs are removed.
+**Rollout and secret scope.** A change to the consumer takes effect once `jev.yml` is merged into the default branch,
+`dev`. A copy on any other branch cannot register a `workflow_run` consumer; until the merge, producers still upload
+their inputs and the default branch's consumer reads them. The old secret-bearing caller jobs are removed.
 This change closes the producer's relative-workflow path; it does not make repository secrets inaccessible to a
 malicious collaborator who can add another workflow on a branch. To enforce that stronger boundary, the owner moves
 the key to a dedicated environment, restricts deployment branches to the protected default branch, removes any
@@ -1634,7 +1634,8 @@ branch's cache scope. The runner, structural-evidence checker and diagnostic too
 `github.workflow_sha`; the evidence checker is resolved beside the runner, independently of a missing or modified
 target helper. Event,
 workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
-This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
+The scheduled run's workflow and target are both `dev` (the default branch), but they are still read at different
+moments, so the target is checked against the commit resolved first.
 
 After preparing the demo, [`tools/ci/release-checks.mjs`](../tools/ci/release-checks.mjs) discovers the target's
 Playwright project contract before launching its assigned lane. Three jobs run concurrently on separate machines:
@@ -1668,10 +1669,9 @@ and seeds. A valid report with a global setup/run error and no reported failed t
 Playwright run failure; a parsed report alone does not establish that a browser test failed. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
 was written; the command's original exit status remains the verdict.
 
-**Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch.
-Merging the fix into `dev` alone does not repair the running scheduler. Promote the workflow and its control tools
-to `main` through the normal release process, then verify a fresh scheduled run against a recorded `dev` SHA actually
-executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
+**Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch, `dev`:
+merging the fix into `dev` repairs the running scheduler. Verify a fresh scheduled run against a recorded `dev` SHA
+actually executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
 close that operational acceptance gap. This change does not merge or dispatch a workflow automatically. The
 [issue 134 proof and coverage bundle](ci/issue-134/README.md) includes replay instructions, red/green receipts,
 coverage overlap, CI timing observations and the remaining acceptance matrix.

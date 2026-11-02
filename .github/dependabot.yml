@@ -2,7 +2,7 @@
 # the npm packages of the Playwright tests, the Composer package's development lock file (composer.lock, which the
 # Package job installs; users resolve composer.json's ranges themselves) and the demo's base images (demo/Dockerfile,
 # pinned by digest: a new digest for the same tag, or a newer tag), against `dev` like any pull request. CI runs on
-# each; nothing merges on its own.
+# each; nothing merges on its own. Security updates ignore target-branch and go to the default branch, also `dev`.
 # The browser image is not here: its tag follows @playwright/test (tools/playwright-image.json, docs/NOTES.md).
 version: 2
 updates:
