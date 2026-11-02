@@ -11,7 +11,7 @@ name: Release checks
 # - Once a day on dev, when dev changed since the last successful compatible scheduled run: it first compares dev's head with the
 #   commit that run tested (GitHub API) and stops in seconds when nothing was merged. A failure opens one issue labeled
 #   `release-checks`, or comments on the open one, instead of failing anyone's pull request after the fact; a green run
-#   closes it. The schedule runs the workflow as the default branch (dev) has it.
+#   closes it. The schedule runs the workflow as the default branch has it.
 # - By hand (Actions › Release checks › Run workflow), on the branch it is started from; with `record`, it also uploads
 #   the run's timings as a new tests/perf/baseline.json (artifact release-baseline), which changes only through a pull
 #   request that shows the old and new numbers.
@@ -195,7 +195,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  # A scheduled job has the default branch's cache scope: execute only dev. Other events
+                  # A scheduled job has main's cache scope: execute only the maintained dev branch. Other events
                   # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
                   # If dev advances after resolution, provenance fails before any target code runs.
                   ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}
@@ -215,8 +215,8 @@ jobs:
                   printf 'TESTED_SHA=%s\nTESTED_REF=%s\nRESOLVED_SHA=%s\nRESOLVED_REF=%s\n' \
                       "$tested" "$RESOLVED_REF" "$RESOLVED_SHA" "$RESOLVED_REF" >> "$GITHUB_ENV"
 
-            # no npm cache: a cache the default branch's run saved would be read by every other branch's runs, and a
-            # pull request or manual run must not save one from its own code (as monthly.yml)
+            # no npm cache: the scheduled run executes dev's code in the default branch's context, so a cache it saved would
+            # come from code main has not taken yet (as monthly.yml)
             - id: node
               uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
@@ -451,7 +451,7 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  # A scheduled job has the default branch's cache scope: execute only dev. Other events
+                  # A scheduled job has main's cache scope: execute only the maintained dev branch. Other events
                   # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
                   # If dev advances after resolution, provenance fails before any target code runs.
                   ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}

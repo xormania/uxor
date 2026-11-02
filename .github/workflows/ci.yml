@@ -4,9 +4,9 @@ name: CI
 # runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
 # push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
 # release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml). Once a day, on the default branch (dev), the jobs that install unpinned upstream versions
-# run alone (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a
-# dev push that touches no install may no longer run.
+# (.github/dependabot.yml). Once a day, on the default branch, the jobs that install unpinned upstream versions run
+# alone (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev
+# push that touches no install may no longer run.
 on:
     push:
         branches: ['**']
@@ -18,7 +18,7 @@ permissions:
     contents: read
 
 concurrency:
-    # the daily run in a group of its own: it never cancels, nor is cancelled by, a push to the default branch (dev)
+    # the daily run in a group of its own: it never cancels, nor is cancelled by, a push to the default branch
     group: ci-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
     cancel-in-progress: true
 

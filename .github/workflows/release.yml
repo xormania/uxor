@@ -9,9 +9,7 @@ name: Release
 # its Release from its notes, not "Latest" and without an install check (today's check installs today's recipes, not
 # that version's), after the newest one and on a best-effort basis: it never holds back the newest version or the
 # gallery. tools/release-plan.sh decides the commit, the tag and the notes, and refuses a tag that points elsewhere;
-# CI runs it as a dry run. A failed run can be re-run: it picks up where it stopped. GitHub loads this workflow_run
-# workflow, and the pages.yml it calls, from the default branch (dev): a change to either takes effect once merged
-# into dev, not at the next release.
+# CI runs it as a dry run. A failed run can be re-run: it picks up where it stopped.
 on:
     workflow_run:
         workflows: [CI]
