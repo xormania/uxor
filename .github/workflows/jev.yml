@@ -1,7 +1,7 @@
 name: Jev diagnosis
 
 # The advisory Jev (TypeSafe) diagnosis of the failed attempts a workflow's jobs collected (.github/actions/jev-diagnosis,
-# docs/TESTING.md, *Jev diagnosis*). GitHub loads this workflow_run consumer from the default branch, not the
+# docs/TESTING.md, *Jev diagnosis*). GitHub loads this workflow_run consumer from the default branch (dev), not the
 # producing branch or pull request. Producers only upload data; none receives or forwards the key. The key reaches
 # a fresh runner that runs the trusted branch's tools/ci: main for a source run on main, dev otherwise. Artifacts
 # stay outside the trusted checkout and are never executed. This is advisory: no source verdict waits for it.

@@ -8,7 +8,7 @@ name: Monthly
 # screenshot compared with the Chromium baselines, and the timings of the key interactions. A report that cannot be
 # made (no coverage driver, no recorded coverage, Infection not run, no timing, no screenshot compared) fails its job
 # instead of reporting 0; a low number fails nothing, and neither does a screenshot difference or a timing. A behavior
-# test that fails fails its job, in every engine, as in CI. The schedule runs the workflow as the default branch has it. Actions are pinned by commit;
+# test that fails fails its job, in every engine, as in CI. The schedule runs the workflow as the default branch (dev) has it. Actions are pinned by commit;
 # Dependabot proposes their updates (.github/dependabot.yml).
 on:
     schedule:
@@ -205,8 +205,8 @@ jobs:
                   persist-credentials: false
                   ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
-            # no npm cache: the scheduled run executes dev's code in the default branch's context, so a cache it saved would
-            # come from code main has not taken yet; once a month, the install costs little
+            # no npm cache: a cache the default branch's run saved would be read by every other branch's runs, and a
+            # manual run must not save one from the branch it was started from; once a month, the install costs little
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 22
