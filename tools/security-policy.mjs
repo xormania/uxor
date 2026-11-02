@@ -61,13 +61,17 @@ const sinkRules = [
 
 const normalize = (path) => path.split(sep).join('/');
 
-// The only jobs that may hold a write permission, and which (a new one is a trust-boundary change, reviewed here)
+// The only jobs that may hold a write permission, and which (a new one is a trust-boundary change, reviewed here).
+// A start job runs on main, from the schedule, and only starts its workflow on dev (gh workflow run), which needs
+// actions: write; it checks nothing out and runs nothing else.
 const jobWrites = {
-    'ci.yml': { cache: ['packages'] },
+    'audit.yml': { start: ['actions'] },
+    'ci.yml': { cache: ['packages'], start: ['actions'] },
     'codeql.yml': { analyze: ['security-events'] },
+    'monthly.yml': { start: ['actions'] },
     'pages.yml': { deploy: ['pages', 'id-token'] },
     'release.yml': { release: ['contents'], pages: ['pages', 'id-token'] },
-    'release-checks.yml': { issue: ['issues'] },
+    'release-checks.yml': { issue: ['issues'], start: ['actions'] },
 };
 
 // The independent trusted diagnosis workflow alone reads secrets. Producers collect data without credentials.

@@ -109,8 +109,11 @@ CI runs them on every push, each job only when the change could affect what it c
 branch is compared with where it left `dev`, so each push checks the whole pull request. A push to `dev` is compared
 with the commit of `dev`'s last successful run, so every merge since is checked (one whose run was cancelled or failed
 too); with none, everything runs. *Tool tests* runs on every push, and checks what any path can break: the bundled
-references' links, the test inventory's names and the archive's payload. Once a day, on `main`, the jobs that install
-unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). The rulesets require the one
+references' links, the test inventory's names and the archive's payload. Once a day, on `dev`, the jobs that install
+unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). GitHub runs every schedule on the
+default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
+job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
+release. The rulesets require the one
 *CI result* check, which passes when every job passed or was skipped, and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
 queue; a work order's jobs need not be up to date with it, *Work orders* below). CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's

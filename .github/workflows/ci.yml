@@ -4,22 +4,28 @@ name: CI
 # runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
 # push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
 # release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml). Once a day, on the default branch, the jobs that install unpinned upstream versions run
-# alone (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev
-# push that touches no install may no longer run.
+# (.github/dependabot.yml). Once a day the jobs that install unpinned upstream versions run alone, on dev (the Changes
+# job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
+# no install may no longer run. GitHub runs a schedule on the default branch, main: that run only starts the daily run
+# on dev (the Start on dev job), so a failure shows on dev, where its fix lands, and main changes only by a release.
 on:
     push:
         branches: ['**']
     schedule:
         - cron: '29 5 * * *'
     workflow_dispatch:
+        inputs:
+            daily:
+                description: 'The daily run: the installs of unpinned upstream versions only (what the schedule starts on dev)'
+                type: boolean
+                default: false
 
 permissions:
     contents: read
 
 concurrency:
-    # the daily run in a group of its own: it never cancels, nor is cancelled by, a push to the default branch
-    group: ci-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
+    # the schedule's start and the daily run in groups of their own: neither cancels, nor is cancelled by, a push
+    group: ci-${{ github.event_name == 'schedule' && 'schedule' || inputs.daily && 'daily' || github.ref }}
     cancel-in-progress: true
 
 env:
@@ -28,6 +34,21 @@ env:
     UX_TOOLKIT_VERSION: '3.5.1'
 
 jobs:
+    # The schedule's run, on main: it only starts the daily run on dev (gh workflow run, a workflow_dispatch event, which
+    # the job's token may create) and runs nothing else, so it cannot fail on what the daily run finds
+    start:
+        name: Start on dev
+        if: github.event_name == 'schedule'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            actions: write # start ci.yml on dev
+        steps:
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: gh workflow run ci.yml --repo "$REPO" --ref dev -f daily=true
+
     # Which jobs this change could affect (tools/ci-changes.sh): a job it cannot affect is skipped, and a skipped job
     # passes the branch rulesets. Pushes to main, a run by hand and a change to this workflow run everything. A branch
     # is compared with where it left dev, so each push checks the whole pull request, not only its last commit. A push to
@@ -42,6 +63,7 @@ jobs:
     # request's state again (CONTRIBUTING.md, *Work orders*).
     changes:
         name: Changes
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
@@ -75,6 +97,7 @@ jobs:
             - id: jobs
               env:
                   EVENT: ${{ github.event_name }}
+                  DAILY: ${{ inputs.daily }}
                   REF: ${{ github.ref }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
@@ -115,7 +138,7 @@ jobs:
                   # The classifier runs as it is at the base, which the change cannot edit: a branch that changes
                   # tools/ci-changes.sh is classified by the base's copy (which runs everything for that path), and a base
                   # without the script runs everything.
-                  if [ "$EVENT" = schedule ]; then
+                  if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ]; then
                       echo "The daily run: the installs of unpinned upstream versions only"
                       for job in lint-kit php static-site fresh-install contrast demo workflows package; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
@@ -335,6 +358,7 @@ jobs:
     # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
     tools:
         name: Tool tests
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -1231,7 +1255,7 @@ jobs:
     # pull request pending forever; this passes when every job passed or was skipped as unaffected.
     result:
         name: CI result
-        if: always()
+        if: ${{ always() && github.event_name != 'schedule' }}
         needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo]
         runs-on: ubuntu-latest
         timeout-minutes: 5

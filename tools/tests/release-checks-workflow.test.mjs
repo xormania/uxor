@@ -55,7 +55,7 @@ function steps(job) {
 function expressionValue(condition, context = {}, failed = false) {
     const expression = condition.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
         .replace(/\b(success|failure|always|cancelled)\(\)/g, (_, name) => JSON.stringify({ success: !failed, failure: failed, always: true, cancelled: false }[name]))
-        .replace(/\b(?:steps|github|needs|matrix)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
+        .replace(/\b(?:steps|github|needs|matrix|inputs)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''));
     const operators = expression.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+)\b/g, '');
     assert.match(operators, /^[\s!<>=&|().-]*$/, `unsupported condition ${condition}`);
     return Function(`return (${expression});`)();
@@ -177,12 +177,13 @@ test('the required verdict rejects a failed or skipped suite and target resoluti
     const fx = scratch(t);
     const verdict = steps('verdict').find((step) => step.run);
     for (const [event, changed, run, suite, expected] of [
-        ['schedule', 'success', 'true', 'success', 0],
-        ['schedule', 'success', 'true', 'failure', 1],
-        ['schedule', 'success', 'true', 'skipped', 1],
-        ['schedule', 'failure', '', 'skipped', 1],
-        ['schedule', 'success', 'false', 'skipped', 0],
+        ['daily', 'success', 'true', 'success', 0],
+        ['daily', 'success', 'true', 'failure', 1],
+        ['daily', 'success', 'true', 'skipped', 1],
+        ['daily', 'failure', '', 'skipped', 1],
+        ['daily', 'success', 'false', 'skipped', 0],
         ['workflow_dispatch', 'success', 'false', 'skipped', 1],
+        ['schedule', 'success', 'false', 'skipped', 1],
         ['pull_request', 'success', 'true', 'failure', 1],
         ['pull_request', 'success', 'true', 'skipped', 1],
         ['pull_request', 'success', 'false', 'skipped', 0],
@@ -193,21 +194,44 @@ test('the required verdict rejects a failed or skipped suite and target resoluti
     }
 });
 
-test('failed or pull-request runs cannot record a reusable pass marker', () => {
+test('only a passing daily run on dev records a reusable pass marker', () => {
     const check = steps('complete');
     const record = check.find((step) => step.id === 'tested');
     const upload = check.find((step) => step.with.name?.startsWith('release-checks-passed-'));
     assert.ok(record && upload);
-    for (const [event, failed, recorded, expected] of [
-        ['schedule', false, 'success', true],
-        ['workflow_dispatch', false, 'success', false],
-        ['pull_request', false, 'success', false],
-        ['schedule', true, 'success', false],
-        ['workflow_dispatch', true, 'success', false],
-        ['schedule', false, 'failure', false],
+    for (const [event, daily, ref, failed, recorded, expected] of [
+        ['workflow_dispatch', true, 'refs/heads/dev', false, 'success', true],
+        ['workflow_dispatch', true, 'refs/heads/feature', false, 'success', false],
+        ['workflow_dispatch', false, 'refs/heads/dev', false, 'success', false],
+        ['pull_request', '', 'refs/pull/7/merge', false, 'success', false],
+        ['schedule', '', 'refs/heads/main', false, 'success', false],
+        ['workflow_dispatch', true, 'refs/heads/dev', true, 'success', false],
+        ['workflow_dispatch', true, 'refs/heads/dev', false, 'failure', false],
     ]) {
-        const ctx = { github: { event_name: event }, steps: { tested: result(recorded) } };
-        assert.equal(holds(record.if, ctx, failed) && holds(upload.if, ctx, failed), expected, `${event}/${failed}/${recorded}`);
+        const ctx = { github: { event_name: event, ref }, inputs: { daily }, steps: { tested: result(recorded) } };
+        assert.equal(holds(record.if, ctx, failed) && holds(upload.if, ctx, failed), expected, `${event}/${daily}/${ref}/${failed}/${recorded}`);
+    }
+});
+
+test('the schedule only starts the daily run on dev, and nothing else runs on it', () => {
+    const start = steps('start');
+    assert.equal(start.length, 1);
+    assert.match(start[0].run, /^gh workflow run release-checks\.yml --repo "\$REPO" --ref dev -f daily=true$/);
+    assert.doesNotMatch(jobText('start'), /actions\/checkout/);
+    for (const job of ['changed', 'verdict']) {
+        const condition = jobText(job).match(/^        if: (.*)$/m)[1];
+        assert.equal(holds(condition, { github: { event_name: 'schedule' } }), false, `${job} does not run on the schedule`);
+    }
+    const issue = jobText('issue').match(/^        if: (.*)$/m)[1];
+    const needs = { changed: { result: 'success' }, checks: { result: 'failure' }, complete: { result: 'skipped' } };
+    for (const [event, daily, ref, expected] of [
+        ['workflow_dispatch', true, 'refs/heads/dev', true],
+        ['workflow_dispatch', true, 'refs/heads/feature', false],
+        ['workflow_dispatch', false, 'refs/heads/dev', false],
+        ['schedule', '', 'refs/heads/main', false],
+        ['pull_request', '', 'refs/pull/7/merge', false],
+    ]) {
+        assert.equal(holds(issue, { github: { event_name: event, ref }, inputs: { daily }, needs }), expected, `issue: ${event}/${daily}/${ref}`);
     }
 });
 
@@ -239,13 +263,12 @@ test('the matrix cannot publish passes or baselines until all lanes and their fr
     }
 });
 
-test('the scheduler reuses only an unexpired same-repository schedule pass from this workflow revision', (t) => {
+test('the daily run reuses only an unexpired same-repository daily pass on dev from this workflow revision', (t) => {
     const fx = scratch(t);
     // gh's --jq filtering is part of the trust decision, so use jq against the API fixtures instead of prefiltering
     // canned ids in the stub. jq, like bash and git, is available on the workflow's Ubuntu runner.
     executable(fx, 'gh', `
 case "$2" in
-    */commits/dev) payload="$API_HEAD" ;;
     */actions/artifacts?*) echo "$2" >> "$API_CALLS"; payload="$API_ARTIFACTS" ;;
     */actions/runs/73) payload="$API_RUN" ;;
     *) echo "unexpected API path: $2" >&2; exit 2 ;;
@@ -255,25 +278,27 @@ printf '%s' "$payload" | jq -r "$4"`);
     const definition = 'b'.repeat(40);
     const compare = steps('changed').find((step) => step.id === 'compare');
     for (const [name, modify, expected] of [
-        ['trusted current schedule', () => {}, 'false'],
-        ['manual pass', (a, run) => { run.event = 'workflow_dispatch'; }, 'true'],
+        ['trusted daily pass', () => {}, 'false'],
+        ['a run on another branch', (a, run) => { run.head_branch = 'feature'; }, 'true'],
+        ['an old scheduled pass', (a, run) => { run.event = 'schedule'; }, 'true'],
+        ['a pull request pass', (a, run) => { run.event = 'pull_request'; }, 'true'],
         ['old workflow revision', (a, run) => { run.head_sha = 'c'.repeat(40); }, 'true'],
-        ['failed scheduled run', (a, run) => { run.conclusion = 'failure'; }, 'true'],
+        ['failed daily run', (a, run) => { run.conclusion = 'failure'; }, 'true'],
         ['another workflow', (a, run) => { run.path = '.github/workflows/ci.yml'; }, 'true'],
         ['fork artifact', (a) => { a.workflow_run.head_repository_id = 11; }, 'true'],
         ['expired artifact', (a) => { a.expired = true; }, 'true'],
     ]) {
         const artifact = { expired: false, workflow_run: { id: 73, repository_id: 10, head_repository_id: 10 } };
-        const run = { id: 73, path: file, event: 'schedule', head_sha: definition, conclusion: 'success' };
+        const run = { id: 73, path: file, event: 'workflow_dispatch', head_branch: 'dev', head_sha: definition, conclusion: 'success' };
         modify(artifact, run);
         const output = join(fx.temp, 'compare-output');
         const calls = join(fx.temp, 'api-calls');
         writeFileSync(output, '');
         writeFileSync(calls, '');
         const actual = shell(compare.run, fx, {
-            EVENT: 'schedule', REPO: 'example/project', WORKFLOW_SHA: definition,
+            EVENT: 'daily', REPO: 'example/project', WORKFLOW_SHA: definition, GITHUB_SHA: target,
             GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary'), API_CALLS: calls,
-            API_HEAD: JSON.stringify({ sha: target }), API_ARTIFACTS: JSON.stringify({ artifacts: [artifact] }), API_RUN: JSON.stringify(run),
+            API_ARTIFACTS: JSON.stringify({ artifacts: [artifact] }), API_RUN: JSON.stringify(run),
         });
         assert.equal(actual.status, 0, `${name}: ${actual.stdout}${actual.stderr}`);
         const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
@@ -489,14 +514,14 @@ for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a 
 
     // Render the actual checkout action's ref, perform that checkout using real Git, then run the actual provenance
     // shell. Only after it passes may a target command run. Resolver output is not its own source of trust: the
-    // maintained branch or immutable triggering event must independently agree with the frozen target.
+    // immutable triggering event must independently agree with the frozen target. The daily run is a dispatch on dev:
+    // it executes the dev commit it was started on, even when dev advances while it runs.
+    assert.equal(checkout.with.ref, '${{ github.sha }}', 'no event checks out a branch name');
     for (const [name, event, resolved, expectedCheckout, expectedStatus] of [
-        ['schedule cannot substitute another commit', 'schedule', substitutedSha, advancedDev, 1],
-        ['manual dispatch cannot substitute another commit', 'workflow_dispatch', substitutedSha, eventSha, 1],
+        ['daily run cannot substitute another commit', 'workflow_dispatch', substitutedSha, eventSha, 1],
+        ['daily run cannot be moved to an advanced dev', 'workflow_dispatch', advancedDev, eventSha, 1],
         ['pull request cannot substitute another commit', 'pull_request', substitutedSha, eventSha, 1],
-        ['dev advancing after resolution fails closed', 'schedule', eventSha, advancedDev, 1],
-        ['stable scheduled target executes', 'schedule', advancedDev, advancedDev, 0],
-        ['manual dispatch retains its immutable event', 'workflow_dispatch', eventSha, eventSha, 0],
+        ['daily run retains its immutable event', 'workflow_dispatch', eventSha, eventSha, 0],
         ['pull request retains its immutable event', 'pull_request', eventSha, eventSha, 0],
     ]) {
         const ref = expressionValue(checkout.with.ref, {
@@ -508,7 +533,7 @@ for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a 
         writeFileSync(output, '');
         rmSync(executed, { force: true });
         const checked = shell(`${provenance.run}\nprintf 'target command ran\\n' > target-executed`, fx, {
-            RESOLVED_SHA: resolved, RESOLVED_REF: event === 'schedule' ? 'dev' : 'event', GITHUB_ENV: output,
+            RESOLVED_SHA: resolved, RESOLVED_REF: event === 'workflow_dispatch' ? 'dev' : 'event', GITHUB_ENV: output,
         });
         assert.equal(checked.status, expectedStatus, `${name}: ${checked.stdout}${checked.stderr}`);
         assert.equal(actual, expectedCheckout, name);
@@ -519,14 +544,6 @@ for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a 
         }
     }
 
-    // A missing maintained branch must not turn an identically named tag into trusted scheduled code.
-    git('branch', '-D', 'dev');
-    git('tag', 'dev', substitutedSha);
-    const missingBranch = spawnSync('git', ['checkout', '--detach', expressionValue(checkout.with.ref, {
-        github: { event_name: 'schedule', sha: eventSha },
-        needs: { changed: { outputs: { ref: substitutedSha } } },
-    })], { cwd: fx.dir, encoding: 'utf8', env: { PATH: process.env.PATH } });
-    assert.notEqual(missingBranch.status, 0, 'a dev tag cannot replace the maintained branch');
 });
 
 test('issue classification names the first causal failure without turning advisory failures into failures', async () => {
