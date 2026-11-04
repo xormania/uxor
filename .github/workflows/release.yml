@@ -4,12 +4,13 @@ name: Release
 # Once it is merged and CI has passed on main, for the newest version heading, if it has no GitHub Release, the check job
 # (read-only) checks that the merge commit that added the heading installs from GitHub in a fresh Symfony Docker
 # project; the release job (which runs no install) tags it (unless the tag exists and points at that commit), and
-# publishes the Release, "Latest", with the version's section of
-# CHANGELOG.md at that commit, then the gallery (pages.yml). An older version that is tagged but has no Release gets
-# its Release from its notes, not "Latest" and without an install check (today's check installs today's recipes, not
-# that version's), after the newest one and on a best-effort basis: it never holds back the newest version or the
-# gallery. tools/release-plan.sh decides the commit, the tag and the notes, and refuses a tag that points elsewhere;
-# CI runs it as a dry run. A failed run can be re-run: it picks up where it stopped.
+# publishes the Release, "Latest", with the version's section of CHANGELOG.md at that commit, then the gallery
+# (pages.yml, given the newest version: it builds that version's tag commit). An older version that is tagged but has
+# no Release gets its Release from its notes, not "Latest" and without an install check (today's check installs today's
+# recipes, not that version's), after the newest one and on a best-effort basis: it never holds back the newest version
+# or the gallery. tools/release-plan.sh decides the commit, the tag and the notes, and refuses a tag that points
+# elsewhere; CI runs it as a dry run. A failed run can be re-run: it picks up where it stopped. A gallery that failed to
+# build or deploy after its Release exists is rebuilt by a manual run of Pages on main (the latest release).
 on:
     workflow_run:
         workflows: [CI]
@@ -255,4 +256,6 @@ jobs:
             id-token: write
         uses: ./.github/workflows/pages.yml
         with:
-            ref: ${{ needs.check.outputs.commit }}
+            # the version this release cuts, which pages.yml resolves to its published Release and its tag's commit
+            # (never the commit this run's CI passed on, which can be a later one)
+            release: ${{ needs.check.outputs.newest }}

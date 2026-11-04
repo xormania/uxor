@@ -1,17 +1,30 @@
 name: Pages
 
 # The demo's showcase as a static site on GitHub Pages: the index, every recipe page and every README example in both
-# themes, rendered by `bin/console app:export-static`, with the /demo application's pages. release.yml calls it once
-# it has published a version; a manual run builds main, or dev as a preview of the next release (the site then shows
-# dev until a release or a manual run on main deploys it again).
+# themes, rendered by `bin/console app:export-static`, with the /demo application's pages. The site always shows the
+# latest published release (docs/PLAN-docs-automation.md): release.yml calls it once it has published a version, and a
+# manual run on main rebuilds the latest release (a repair after a failed build or deployment), never a branch. Work on
+# dev is built and checked by CI's *Static site* job and never replaces the site.
+#
+# One release identity throughout: *Which release* resolves the version to a published, non-draft, non-prerelease
+# Release that is GitHub's latest, and the commit its tag points at; the build checks out that commit, builds it with
+# its own tools/build-static.sh, checks the pages name that version, and writes release.json beside them; the deploy
+# checks again that the version is still the latest, at that commit, so an older run never replaces a newer release's
+# site.
 on:
     workflow_call:
         inputs:
-            ref:
-                description: The commit to build the site from
+            release:
+                description: The version to publish (X.Y.Z), which must be the latest published release
                 type: string
                 required: true
     workflow_dispatch:
+        inputs:
+            release:
+                description: 'The release to rebuild (X.Y.Z), which must be the latest published one; empty: the latest'
+                type: string
+                required: false
+                default: ''
 
 permissions:
     contents: read
@@ -21,34 +34,103 @@ concurrency:
     cancel-in-progress: false
 
 jobs:
+    # The release to publish: no branch fallback, a version that is not the latest published Release stops here
+    resolve:
+        name: Which release
+        # a manual run only from main (from release.yml, the event is release.yml's own)
+        if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        outputs:
+            version: ${{ steps.release.outputs.version }}
+            commit: ${{ steps.release.outputs.commit }}
+        steps:
+            - id: release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  REQUESTED: ${{ inputs.release }}
+              run: |
+                  # GitHub's latest Release: never a draft or a prerelease
+                  latest=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
+                  if [ -z "$latest" ]; then
+                      echo "::error::No published release: nothing to publish"
+                      exit 1
+                  fi
+                  version=${REQUESTED:-$latest}
+                  if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      echo "::error::'$version' is not a release version (X.Y.Z)"
+                      exit 1
+                  fi
+                  if [ -z "$(gh api "repos/$REPO/releases/tags/$version" --jq 'select(.draft == false and .prerelease == false) | .tag_name' 2>/dev/null || true)" ]; then
+                      echo "::error::$version is not a published release (missing, a draft or a prerelease)"
+                      exit 1
+                  fi
+                  if [ "$version" != "$latest" ]; then
+                      echo "::error::$version is not the latest release ($latest): the site shows the latest one"
+                      exit 1
+                  fi
+                  # the commit the tag points at, an annotated tag peeled
+                  commit=$(gh api "repos/$REPO/commits/$version" --jq .sha)
+                  if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then
+                      echo "::error::$version: no commit for its tag"
+                      exit 1
+                  fi
+                  echo "Publishing release $version, commit $commit"
+                  printf 'version=%s\ncommit=%s\n' "$version" "$commit" >> "$GITHUB_OUTPUT"
+
     build:
         name: Build the site
-        # a manual run only on main, or on dev as a preview (from release.yml, the event is release.yml's own)
-        if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+        needs: resolve
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis)
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  ref: ${{ inputs.ref || github.sha }}
-                  fetch-depth: 0 # the tags: the latest release goes in the install commands
+                  ref: ${{ needs.resolve.outputs.commit }}
+                  fetch-depth: 0 # the tags: the release's own tag names it in the install commands
+            - name: Check the release's tag
+              id: tag
+              env:
+                  VERSION: ${{ needs.resolve.outputs.version }}
+                  COMMIT: ${{ needs.resolve.outputs.commit }}
+              run: |
+                  tagged=$(git rev-parse --verify --quiet "refs/tags/$VERSION^{commit}" || true)
+                  if [ "$(git rev-parse HEAD)" != "$COMMIT" ] || [ "$tagged" != "$COMMIT" ]; then
+                      echo "::error::The checkout ($(git rev-parse HEAD)) and the tag $VERSION (${tagged:-none}) are not the resolved commit $COMMIT"
+                      exit 1
+                  fi
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
                   php-version: '8.4'
                   extensions: intl # the calendar formats dates with twig/intl-extra
                   tools: composer
                   coverage: none
-            # the same build and checks as CI's Static site job; the install commands name the release (the output also
-            # goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
-            # a call from release.yml builds a commit of main; a manual run builds the branch it was started on
+            # the same build and checks as CI's Static site job, with the release's own script: the checkout is the
+            # tag's commit, so --release-from-tags names exactly that version (the output also goes to
+            # $RUNNER_TEMP/jev-build.log, for the Jev step)
             - name: Build and check the site
               id: build
-              env:
-                  BRANCH: ${{ inputs.ref && 'main' || github.ref_name }}
               run: |
                   set -o pipefail
-                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch="$BRANCH" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch=main 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+            # The site the deploy uploads names this release: its install command installs it, and release.json
+            # records the version and the commit for the deploy's own check and for anyone reading the site
+            - name: Check the release identity
+              id: identity
+              env:
+                  VERSION: ${{ needs.resolve.outputs.version }}
+                  COMMIT: ${{ needs.resolve.outputs.commit }}
+              run: |
+                  kit="$(jq -r .homepage manifest.json):$VERSION"
+                  if ! grep -qF -- "$kit" _site/index.html; then
+                      echo "::error::The site's install command does not install $kit"
+                      exit 1
+                  fi
+                  jq -n --arg version "$VERSION" --arg commit "$COMMIT" --arg repository "$(jq -r .homepage manifest.json)" \
+                      '{version: $version, commit: $commit, repository: $repository}' > _site/release.json
+                  cat _site/release.json
             # Advisory diagnosis of a failed build (.github/actions/jev-diagnosis): never the job's verdict. Called from
             # release.yml, the run's workflow is release.yml's, so this one names itself; the key comes from the caller.
             - name: Jev diagnosis (advisory)
@@ -67,15 +149,32 @@ jobs:
 
     deploy:
         name: Deploy
-        needs: build
+        needs: [resolve, build]
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
+            contents: read # the Releases, for the freshness check
             pages: write
             id-token: write
         environment:
             name: github-pages
             url: ${{ steps.deployment.outputs.page_url }}
         steps:
+            # Still the latest release, at the same commit: a run that waited behind a newer release's run (the pages
+            # concurrency group serializes them, it does not order them) or was re-run later deploys nothing
+            - name: Check the release is still the latest
+              id: fresh
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  VERSION: ${{ needs.resolve.outputs.version }}
+                  COMMIT: ${{ needs.resolve.outputs.commit }}
+              run: |
+                  latest=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
+                  commit=$(gh api "repos/$REPO/commits/$VERSION" --jq .sha 2>/dev/null || true)
+                  if [ "$latest" != "$VERSION" ] || [ "$commit" != "$COMMIT" ]; then
+                      echo "::error::This site is release $VERSION at $COMMIT; the latest release is now ${latest:-unknown}${commit:+, its tag at $commit}. Not deploying: run Pages again for the latest"
+                      exit 1
+                  fi
             - id: deployment
               uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

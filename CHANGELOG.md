@@ -16,6 +16,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   landed on the branch rather than its row, and did nothing.
 - `calendar`: the server writes a day's number as the browser does, so Korean shows "19일" (as the day's name has it,
   which axe-core 4.14 requires) and Czech, Danish, Norwegian and others "19.", before the controller connects as after.
+- The gallery (<https://xormania.github.io/uxor/>) shows only the latest published release, built from the commit its
+  tag points at, never a branch or the later commit a release's CI passed on; its footer's README and changelog links
+  name that release instead of `main`.
 
 ## [0.3.0] - 2026-10-18
 
