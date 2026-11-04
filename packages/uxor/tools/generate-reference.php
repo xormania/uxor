@@ -13,7 +13,7 @@ require __DIR__.'/ReferenceGenerator.php';
 
 $options = getopt('', ['source:', 'output:', 'ref:', 'check', 'help'], $rest);
 if (isset($options['help']) || $rest < $argc) {
-    fwrite(isset($options['help']) ? STDOUT : STDERR, "Usage: php packages/uxor/tools/generate-reference.php [--ref=<branch or tag, default ".ReferenceGenerator::DEFAULT_REF.">] [--check]\n");
+    fwrite(isset($options['help']) ? STDOUT : STDERR, "Usage: php packages/uxor/tools/generate-reference.php [--ref=<tag or branch, default: the latest version in CHANGELOG.md>] [--check]\n");
     exit(isset($options['help']) ? 0 : 2);
 }
 foreach (['source', 'output', 'ref'] as $name) {
@@ -24,15 +24,15 @@ foreach (['source', 'output', 'ref'] as $name) {
 }
 $source = $options['source'] ?? ReferenceGenerator::repositoryRoot();
 $output = $options['output'] ?? dirname(__DIR__).'/resources/uxor';
-$ref = $options['ref'] ?? ReferenceGenerator::DEFAULT_REF;
-$command = 'php packages/uxor/tools/generate-reference.php'.(isset($options['ref']) ? ' --ref='.$ref : '');
+$command = 'php packages/uxor/tools/generate-reference.php'.(isset($options['ref']) ? ' --ref='.$options['ref'] : '');
 
 $generator = new ReferenceGenerator();
 $temporary = null;
 $status = 0;
 try {
-    $files = $generator->build($source, $ref);
+    $files = $generator->build($source, $options['ref'] ?? null);
     $index = json_decode($files['index.json'], true, 512, JSON_THROW_ON_ERROR);
+    $ref = $index['source']['ref'];
     if (isset($options['check'])) {
         $temporary = sys_get_temp_dir().'/uxor-references-'.bin2hex(random_bytes(8));
         $generator->write($files, $temporary);

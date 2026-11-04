@@ -38,6 +38,8 @@ final class ReferenceBundleTest extends TestCase
             'button/templates/Button.html.twig' => "<button>{% block content %}{% endblock %}</button>\n",
             'icon.svg' => "<svg/>\n",
             'tools/example.php' => "<?php // Example\n",
+            // the latest version heading is the default ref, unreleased entries or not: never a branch
+            'CHANGELOG.md' => "# Changelog\n\n## [Unreleased]\n\n### Fixed\n\n- A fix.\n\n## [1.4.0] - 2026-01-02\n\n## [1.0.0] - 2025-01-01\n",
         ];
         foreach ($files as $path => $content) {
             if (!is_dir(dirname($this->source.'/'.$path))) {
@@ -65,14 +67,14 @@ final class ReferenceBundleTest extends TestCase
         $index = json_decode($files['index.json'], true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(2, $index['schema_version']);
         self::assertSame(['repository', 'ref', 'inputs_sha256', 'manifest_sha256', 'license'], array_keys($index['source']));
-        self::assertSame('main', $index['source']['ref']);
+        self::assertSame('1.4.0', $index['source']['ref']);
         self::assertSame(['button'], array_keys($index['components']));
         self::assertSame('A useful button.', $index['components']['button']['summary']);
         self::assertSame('Basic components', $index['components']['button']['category']);
         self::assertSame(['symfony/ux-twig-component:^3.5'], $index['components']['button']['manifest']['dependencies']['composer']);
         self::assertSame('button/README.md', $index['components']['button']['documentation']);
-        self::assertSame(ReferenceGenerator::REPOSITORY.'/tree/main/button', $index['components']['button']['source_url']);
-        self::assertSame(ReferenceGenerator::REPOSITORY.'/blob/main/README.md', $index['documents']['README.md']['source_url']);
+        self::assertSame(ReferenceGenerator::REPOSITORY.'/tree/1.4.0/button', $index['components']['button']['source_url']);
+        self::assertSame(ReferenceGenerator::REPOSITORY.'/blob/1.4.0/README.md', $index['documents']['README.md']['source_url']);
         self::assertSame(hash_file('sha256', $this->source.'/README.md'), $index['documents']['README.md']['source_sha256']);
         self::assertSame(hash('sha256', $files['docs/README.md']), $index['documents']['README.md']['sha256']);
         self::assertSame(self::inputsDigest($index), $index['source']['inputs_sha256']);
@@ -86,10 +88,10 @@ final class ReferenceBundleTest extends TestCase
 
         // A copied document stays a relative link; any other file of the repository is linked at the ref
         self::assertStringContainsString('[Local](button/README.md)', $files['docs/README.md']);
-        self::assertStringContainsString('[Source]('.ReferenceGenerator::REPOSITORY.'/blob/main/tools/example.php#example)', $files['docs/README.md']);
-        self::assertStringContainsString('![Logo](https://raw.githubusercontent.com/xormania/uxor/main/icon.svg)', $files['docs/README.md']);
-        self::assertStringContainsString('[Tools]('.ReferenceGenerator::REPOSITORY.'/tree/main/tools)', $files['docs/FOR-AGENTS.md']);
-        self::assertStringContainsString('<https://raw.githubusercontent.com/xormania/uxor/main/FOR-AGENTS.md>', $files['docs/README.md']);
+        self::assertStringContainsString('[Source]('.ReferenceGenerator::REPOSITORY.'/blob/1.4.0/tools/example.php#example)', $files['docs/README.md']);
+        self::assertStringContainsString('![Logo](https://raw.githubusercontent.com/xormania/uxor/1.4.0/icon.svg)', $files['docs/README.md']);
+        self::assertStringContainsString('[Tools]('.ReferenceGenerator::REPOSITORY.'/tree/1.4.0/tools)', $files['docs/FOR-AGENTS.md']);
+        self::assertStringContainsString('<https://raw.githubusercontent.com/xormania/uxor/1.4.0/FOR-AGENTS.md>', $files['docs/README.md']);
         // a link to a fixed tag is kept as written
         self::assertStringContainsString('[Release](https://github.com/xormania/uxor/blob/1.0.0/CHANGELOG.md)', $files['docs/README.md']);
 
@@ -160,6 +162,14 @@ final class ReferenceBundleTest extends TestCase
         self::assertSame(1, $this->script(['--check', '--ref=1.0.0'])[0]);
     }
 
+    public function testNoReleaseInTheChangelogIsAnErrorNeverABranch(): void
+    {
+        file_put_contents($this->source.'/CHANGELOG.md', "# Changelog\n\n## [Unreleased]\n\n- A fix.\n");
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('no `## [X.Y.Z]` heading');
+        (new ReferenceGenerator())->build($this->source);
+    }
+
     public function testWrongRefIsRejected(): void
     {
         $this->expectException(RuntimeException::class);
@@ -206,7 +216,7 @@ final class ReferenceBundleTest extends TestCase
         $index = json_decode(file_get_contents($root.'/index.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(ReferenceGenerator::SCHEMA_VERSION, $index['schema_version']);
         self::assertArrayNotHasKey('revision', $index['source']);
-        self::assertSame(ReferenceGenerator::DEFAULT_REF, $index['source']['ref']);
+        self::assertSame(ReferenceGenerator::releaseRef(ReferenceGenerator::repositoryRoot()), $index['source']['ref']);
         self::assertSame(self::inputsDigest($index), $index['source']['inputs_sha256']);
         self::assertSame($index['source'], (new ReferenceBundle($root))->metadata());
         self::assertNotEmpty($index['components']);

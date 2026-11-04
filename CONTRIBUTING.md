@@ -457,10 +457,11 @@ it with `--check`, which fails when:
 - `FOR-AGENTS.md` or `docs/PROJECT-AGENTS-SNIPPET.md` names a recipe that does not exist (`ux:install <name>`, a
   `<name>/README.md` link).
 
-`llms.txt` links the raw files of the tree it describes, never `main`: the version of the newest `## [X.Y.Z]`
-heading in `CHANGELOG.md` (the tag `release.yml` puts on the commit that adds it), or `dev` while
-`## [Unreleased]` has entries. A release pull request therefore rewrites it to the new tag, and the first pull
-request that adds an unreleased entry after a release rewrites it back to `dev`: `--check` says when.
+`llms.txt` describes a published release, never a branch: the version of the newest `## [X.Y.Z]` heading in
+`CHANGELOG.md` (the tag `release.yml` puts on the commit that adds it). On the release pull request, before the tag
+exists, the script writes it from the working tree with its links at that version; once the tag exists, `llms.txt`
+is the copy the tag holds, so a recipe merged since never appears in it before its release. The script reads the
+tags (`git fetch --tags` in a shallow clone); `--check` says when the file differs.
 
 **What the docs teach.** Agents copy examples from the markdown, so `node tools/docs-lint.mjs` (also in *Contrast*)
 fails a code block, in any markdown file outside `demo/`, that shows `initFlowbite`, `import 'flowbite'` or a
@@ -565,6 +566,12 @@ Examples: `feat(stat-card): show the trend as text`, `fix(layouts): every layout
 a release is a pull request from `dev` to `main` (*Releases* below). Work made of several pull requests goes through
 a work order (below); a single change stays one branch and one pull request into `dev`.
 
+**Trying unreleased work in an app.** The consumer documentation (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`,
+`llms.txt`, the gallery) always names a release ([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)).
+Installing from a branch is for contributors: `--kit=https://github.com/xormania/uxor:dev` takes the work merged
+since the last release, and a full 40-character commit SHA takes one commit (a branch name holding `/`, such as
+`feat/x`, does not work: use its SHA). Without a version, `ux:install` takes the default branch, `main`.
+
 **Work orders:** one objective delivered in several reviewable parts, without each part merging into `dev` on its own.
 
 - **Branches:** the work order is `claude/wo-<name>`, made from `dev`; each part (a job) is
@@ -632,7 +639,7 @@ the version from the tag.
 
 A release is a pull request from `dev` to `main`, opened as a draft when the maintainer decides to release. Its own
 commit moves the entries under `## [Unreleased]` to the new `## [X.Y.Z] - YYYY-MM-DD` section and updates the compare
-links at the bottom. It also runs `node tools/llms-txt.mjs`, which points `llms.txt`'s links at the new tag (*Docs*). Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
+links at the bottom. It also runs `node tools/llms-txt.mjs`, which writes `llms.txt` for the new version with its links at the new tag (*Docs*), and `php packages/uxor/tools/generate-reference.php`, which points the package's bundled references at it: both take the version from the new `## [X.Y.Z]` heading, so the commit release.yml tags already holds them. Until a version is tagged, `llms.txt` and the references keep describing the last release. Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
 version, *Removed* or anything that breaks an installed recipe, or the Composer package's commands, Mate tools,
 `uxor://` resources or skills, a major version (a minor one while the version is `0.x`). CI runs on this pull request
 like on any other, and so do the release checks (`release-checks.yml`: timings, harsh

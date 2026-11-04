@@ -36,13 +36,12 @@ Then set up Tailwind CSS, Flowbite's stylesheet and the `theme` recipe as the *T
 sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands above). After that, install recipes:
 
 ```bash
-# from main: the last release
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
-
-# from a release tag (`0.1.0`), a branch (`dev`: the work since the last release), or a full 40-character commit
-# SHA (no "/": use the SHA for feat/x)
+# <version>: a release, the latest one on https://github.com/xormania/uxor/releases unless you need an older one
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
+
+Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
+that is not released yet. [`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
 
 `ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
 packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.

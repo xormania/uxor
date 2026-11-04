@@ -7,7 +7,7 @@ recipe into your project, where you own it. Every behavior is a Stimulus control
 Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
 
-![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/main/docs/images/dashboard-dark.png)
+![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/0.3.0/docs/images/dashboard-dark.png)
 
 ## Install
 
@@ -36,13 +36,12 @@ Then set up Tailwind CSS, Flowbite's stylesheet and the `theme` recipe as the *T
 sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands above). After that, install recipes:
 
 ```bash
-# from main: the last release
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
-
-# from a release tag (`0.1.0`), a branch (`dev`: the work since the last release), or a full 40-character commit
-# SHA (no "/": use the SHA for feat/x)
+# <version>: a release, the latest one on https://github.com/xormania/uxor/releases unless you need an older one
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
+
+Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
+that is not released yet. [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.0/CHANGELOG.md) lists what each version changes.
 
 `ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
 packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
@@ -63,7 +62,7 @@ The repository is also a Composer package, `xormania/uxor`, for the coding agent
 [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
 and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
 setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
-recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/main/packages/uxor/README.md) says how to
+recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.0/packages/uxor/README.md) says how to
 install it.
 
 ## Requirements
@@ -82,10 +81,10 @@ install it.
 - [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
 - [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
 - [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
-- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt), and paste
+- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.0/llms.txt), and paste
   [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
-- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/main/CHANGELOG.md): what each version changes.
-- [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md): the repository layout, the checks and the conventions.
+- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.0/CHANGELOG.md): what each version changes.
+- [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.0/CONTRIBUTING.md): the repository layout, the checks and the conventions.
 - [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
 
 ## License

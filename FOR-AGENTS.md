@@ -34,7 +34,7 @@ composer require symfony/asset-mapper symfony/stimulus-bundle
 composer require symfonycasts/tailwind-bundle
 php bin/console tailwind:init          # keep Tailwind's major version 4
 php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
-php bin/console ux:install theme --kit=https://github.com/xormania/uxor
+php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
 ```
 
 Then make `assets/styles/app.css` start with these imports, in this order:
@@ -56,8 +56,11 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
    `composer require` command: run it.
 
    ```bash
-   php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
+   php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
    ```
+
+   `<version>` is a release (`X.Y.Z`): the one the project's recipes came from, else the latest on the
+   [Releases](https://github.com/xormania/uxor/releases) page. Never leave it out, and never install a branch.
 
 3. Read the recipe's README before using it: `<recipe>/README.md` in this repository.
 4. Pages extend `layouts/app.html.twig` (`ux:install layouts`), or `auth`, `settings`, `error` or `blank`. A block
@@ -240,8 +243,8 @@ Recipes are copies the project owns. Commit first, then reinstall from a newer v
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
-Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](CHANGELOG.md)). Without a version, `ux:install` takes `main`, the last
-release; `:dev` takes the work merged since.
+Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](CHANGELOG.md)). Always name one: without a version, `ux:install`
+takes the repository's default branch, which can hold work that is not released yet.
 
 ## Quick reference
 

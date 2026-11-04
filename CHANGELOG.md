@@ -19,6 +19,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - The gallery (<https://xormania.github.io/uxor/>) shows only the latest published release, built from the commit its
   tag points at, never a branch or the later commit a release's CI passed on; its footer's README and changelog links
   name that release instead of `main`.
+- The install instructions (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`, the project agents snippet, the recipe
+  list) always name a release, `--kit=https://github.com/xormania/uxor:<version>`: they said that without a version
+  `ux:install` takes the last release, but the default branch can hold unreleased work. `llms.txt` describes the latest
+  release, never `dev`, and the Composer package's bundled references link that release instead of `main`.
+  Installing from a branch is now in `CONTRIBUTING.md`, for contributors.
 
 ## [0.3.0] - 2026-10-18
 
