@@ -6,25 +6,21 @@ name: Pages
 # manual run on main rebuilds the latest release (a repair after a failed build or deployment), never a branch. Work on
 # dev is built and checked by CI's *Static site* job and never replaces the site.
 #
-# One release identity throughout: *Which release* resolves the version to a published, non-draft, non-prerelease
-# Release that is GitHub's latest, and the commit its tag points at; the build checks out that commit, builds it with
-# its own tools/build-static.sh, checks the pages name that version, and writes release.json beside them; the deploy
-# checks again that the version is still the latest, at that commit, so an older run never replaces a newer release's
-# site.
+# One release identity throughout: *Which release* reads GitHub's latest Release (never a draft or a prerelease) and the
+# commit its tag points at, from the API alone: no input chooses what is checked out (CodeQL: cache poisoning, the
+# build runs in the default branch's context). release.yml's version is only compared with it. The build checks out
+# that commit, builds it with its own tools/build-static.sh, checks the pages name that version, and writes
+# release.json beside them; the deploy checks again that the version is still the latest, at that commit, so an older
+# run never replaces a newer release's site.
 on:
     workflow_call:
         inputs:
             release:
-                description: The version to publish (X.Y.Z), which must be the latest published release
+                description: The version release.yml published (X.Y.Z), which must be the latest Release
                 type: string
                 required: true
+    # by hand on main: rebuilds the latest release
     workflow_dispatch:
-        inputs:
-            release:
-                description: 'The release to rebuild (X.Y.Z), which must be the latest published one; empty: the latest'
-                type: string
-                required: false
-                default: ''
 
 permissions:
     contents: read
@@ -45,29 +41,24 @@ jobs:
             version: ${{ steps.release.outputs.version }}
             commit: ${{ steps.release.outputs.commit }}
         steps:
+            # what to publish, from GitHub's Releases alone
             - id: release
               env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
-                  REQUESTED: ${{ inputs.release }}
               run: |
                   # GitHub's latest Release: never a draft or a prerelease
-                  latest=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
-                  if [ -z "$latest" ]; then
+                  version=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
+                  if [ -z "$version" ]; then
                       echo "::error::No published release: nothing to publish"
                       exit 1
                   fi
-                  version=${REQUESTED:-$latest}
                   if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                      echo "::error::'$version' is not a release version (X.Y.Z)"
+                      echo "::error::The latest release '$version' is not a version (X.Y.Z)"
                       exit 1
                   fi
                   if [ -z "$(gh api "repos/$REPO/releases/tags/$version" --jq 'select(.draft == false and .prerelease == false) | .tag_name' 2>/dev/null || true)" ]; then
                       echo "::error::$version is not a published release (missing, a draft or a prerelease)"
-                      exit 1
-                  fi
-                  if [ "$version" != "$latest" ]; then
-                      echo "::error::$version is not the latest release ($latest): the site shows the latest one"
                       exit 1
                   fi
                   # the commit the tag points at, an annotated tag peeled
@@ -78,6 +69,17 @@ jobs:
                   fi
                   echo "Publishing release $version, commit $commit"
                   printf 'version=%s\ncommit=%s\n' "$version" "$commit" >> "$GITHUB_OUTPUT"
+            # release.yml's version is the latest release, or nothing is published (a newer one came out meanwhile)
+            - id: expected
+              if: inputs.release != ''
+              env:
+                  EXPECTED: ${{ inputs.release }}
+                  VERSION: ${{ steps.release.outputs.version }}
+              run: |
+                  if [ "$EXPECTED" != "$VERSION" ]; then
+                      echo "::error::$EXPECTED is not the latest release ($VERSION): the site shows the latest one"
+                      exit 1
+                  fi
 
     build:
         name: Build the site

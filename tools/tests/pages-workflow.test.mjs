@@ -52,37 +52,46 @@ function api(dir, { latest = '0.4.0', releases = {}, commits = {} } = {}) {
     return file;
 }
 
-function resolve(t, requested, fixtures) {
+function resolve(t, fixtures) {
     const dir = scratch(t);
     const output = join(dir, 'output');
     writeFileSync(output, '');
-    const run = shell(stepIn(workflow, 'resolve', 'release').run, dir, { API: api(dir, fixtures), REQUESTED: requested, GITHUB_OUTPUT: output });
+    const run = shell(stepIn(workflow, 'resolve', 'release').run, dir, { API: api(dir, fixtures), GITHUB_OUTPUT: output });
     const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').filter(Boolean).map((line) => line.split('=')));
     return { status: run.status, log: run.stdout + run.stderr, values };
 }
 
 test('the site publishes the latest published release, at the commit its tag points at', (t) => {
-    for (const requested of ['', '0.4.0']) {
-        const { status, log, values } = resolve(t, requested);
-        assert.equal(status, 0, log);
-        assert.deepEqual(values, { version: '0.4.0', commit: sha('a') });
-    }
+    const { status, log, values } = resolve(t);
+    assert.equal(status, 0, log);
+    assert.deepEqual(values, { version: '0.4.0', commit: sha('a') });
 });
 
-test('no branch, draft, prerelease, older or malformed release is ever published', (t) => {
-    for (const [name, requested, fixtures, message] of [
-        ['an older release', '0.3.0', {}, /0\.3\.0 is not the latest release \(0\.4\.0\)/],
-        ['a branch name', 'dev', {}, /'dev' is not a release version/],
-        ['a draft', '0.4.0', { releases: { '0.4.0': { draft: true } } }, /not a published release/],
-        ['a prerelease', '0.4.0', { releases: { '0.4.0': { prerelease: true } } }, /not a published release/],
-        ['a tag without a Release', '0.5.0', {}, /0\.5\.0 is not a published release/],
-        ['no published release at all', '', { latest: '' }, /No published release/],
-        ['a tag GitHub resolves to no commit', '', { commits: { '0.4.0': 'not-a-commit' } }, /no commit for its tag/],
+test('no draft, prerelease, malformed or missing release is ever published', (t) => {
+    for (const [name, fixtures, message] of [
+        ['a draft', { releases: { '0.4.0': { draft: true } } }, /not a published release/],
+        ['a prerelease', { releases: { '0.4.0': { prerelease: true } } }, /not a published release/],
+        ['a latest tag that is not a version', { latest: 'dev' }, /'dev' is not a version/],
+        ['no published release at all', { latest: '' }, /No published release/],
+        ['a tag GitHub resolves to no commit', { commits: { '0.4.0': 'not-a-commit' } }, /no commit for its tag/],
     ]) {
-        const { status, log, values } = resolve(t, requested, fixtures);
+        const { status, log, values } = resolve(t, fixtures);
         assert.equal(status, 1, `${name}: ${log}`);
         assert.match(log, message, name);
         assert.deepEqual(values, {}, `${name}: no release is handed to the build`);
+    }
+});
+
+test('what the build checks out comes from the Releases alone; release.yml version is only compared with it', (t) => {
+    // no input reaches the step whose outputs choose the checkout (CodeQL: cache poisoning)
+    const release = workflow.slice(workflow.indexOf('            - id: release'), workflow.indexOf('            - id: expected'));
+    assert.doesNotMatch(release, /inputs\./);
+    assert.match(workflow, /^\s+ref: \$\{\{ needs\.resolve\.outputs\.commit \}\}$/m);
+    const expected = stepIn(workflow, 'resolve', 'expected').run;
+    for (const [given, status] of [['0.4.0', 0], ['0.3.0', 1], ['dev', 1]]) {
+        const run = shell(expected, scratch(t), { EXPECTED: given, VERSION: '0.4.0' });
+        assert.equal(run.status, status, `${given}: ${run.stdout}${run.stderr}`);
+        if (status) assert.match(run.stdout + run.stderr, /is not the latest release \(0\.4\.0\)/);
     }
 });
 

@@ -677,12 +677,14 @@ whose commit's workflows differed from `main`'s), push the tag by hand
 (`git tag -a X.Y.Z <merge commit> -m "UXor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
 checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`,
 given the version it released). The gallery always shows the latest published release
-([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)): `pages.yml` resolves the version to a published,
-non-draft, non-prerelease Release that is GitHub's latest, builds the commit its tag points at, checks the pages
-install that version, writes `release.json` (the version and the commit) beside them, and before deploying checks the
-release is still the latest at that commit, so an older or re-run build never replaces a newer release's site. If the
-gallery fails after its Release exists, run `pages.yml` by hand on `main` (it rebuilds the latest release; a version
-given must be that one), or *Re-run failed jobs* (a full re-run finds the release done and skips the gallery). No
+([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)): `pages.yml` reads GitHub's latest Release (never a
+draft or a prerelease) and the commit its tag points at from the API alone, and stops if release.yml's version is not
+that one; no input chooses what is checked out, since the build runs in the default branch's context (CodeQL's cache
+poisoning). It builds that commit, checks the pages install that version, writes `release.json` (the version and the
+commit) beside them, and before deploying checks the release is still the latest at that commit, so an older or
+re-run build never replaces a newer release's site. If the gallery fails after its Release exists, run `pages.yml` by
+hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a full re-run finds the release done
+and skips the gallery). No
 branch is ever published: work on `dev` is built and checked by CI's *Static site* job, on every push, so a page that
 does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`
 (`pages.yml` adds `--release-from-tags` and `--branch=main` on the tag's commit, so the install commands name that
