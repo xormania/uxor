@@ -8,8 +8,10 @@ name: Monthly
 # screenshot compared with the Chromium baselines, and the timings of the key interactions. A report that cannot be
 # made (no coverage driver, no recorded coverage, Infection not run, no timing, no screenshot compared) fails its job
 # instead of reporting 0; a low number fails nothing, and neither does a screenshot difference or a timing. A behavior
-# test that fails fails its job, in every engine, as in CI. The schedule runs the workflow as the default branch (dev) has it. Actions are pinned by commit;
-# Dependabot proposes their updates (.github/dependabot.yml).
+# test that fails fails its job, in every engine, as in CI. GitHub runs the schedule on the default branch, main: that
+# run only starts this workflow on dev (the Start on dev job), so the month's run is a run on dev, with dev's copy of
+# this file, and a failure shows on dev, not main. Actions are pinned by commit; Dependabot proposes their updates
+# (.github/dependabot.yml).
 on:
     schedule:
         - cron: '37 4 3 * *' # the 3rd of each month, 04:37 UTC
@@ -28,7 +30,7 @@ permissions:
     contents: read
 
 concurrency:
-    group: monthly-${{ github.event_name == 'schedule' && 'dev' || github.ref_name }}
+    group: monthly-${{ github.event_name == 'schedule' && 'schedule' || github.ref_name }}
     cancel-in-progress: false
 
 env:
@@ -37,18 +39,32 @@ env:
     INFECTION_SHA256: 24e9d2ab5fc5613be6b9fea99cfd2c689234d6e6053f339b8f5e05136246070a # infection.phar
 
 jobs:
+    # The schedule's run, on main: it only starts this workflow on dev (gh workflow run, a workflow_dispatch event, which
+    # the job's token may create) and runs nothing else, so it cannot fail on what the month's run finds
+    start:
+        name: Start on dev
+        if: github.event_name == 'schedule'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            actions: write # start monthly.yml on dev
+        steps:
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: gh workflow run monthly.yml --repo "$REPO" --ref dev
+
     # The demo's PHPUnit tests (demo/tests) with PCOV over the recipes' src/ only (tools/monthly/php-scope.php: not the
     # demo's code, its copies of the recipes or the tests' fixtures), then Infection on the same directories and tests.
     php:
         name: PHP coverage and mutants
-        if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
+        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository))
         runs-on: ubuntu-latest
         timeout-minutes: 48 # 45 for the job, plus 3 for the advisory collector and its upload
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
               with:
@@ -180,7 +196,7 @@ jobs:
     # A behavior test or a count that fails fails its job, as in CI; Jev diagnoses each failed attempt, as in CI.
     browsers:
         name: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
-        if: github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)
+        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository))
         runs-on: ubuntu-latest
         timeout-minutes: 45
         env:
@@ -203,10 +219,9 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
-            # no npm cache: a cache the default branch's run saved would be read by every other branch's runs, and a
-            # manual run must not save one from the branch it was started from; once a month, the install costs little
+            # no npm cache: a run by hand, the month's included, must not save a cache from the branch it was started on
+            # that other branches' runs would read; once a month, the install costs little
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 22
@@ -391,7 +406,7 @@ jobs:
     report:
         name: Monthly report
         needs: [php, browsers]
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)) }}
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
@@ -401,7 +416,6 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  ref: ${{ github.event_name == 'schedule' && 'dev' || '' }} # empty: the branch the run was started from
 
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
@@ -459,7 +473,7 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
-                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+                  REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
               run: |
                   note="no earlier successful run of this workflow on $REF"
                   file=
@@ -488,7 +502,7 @@ jobs:
               env:
                   PREVIOUS: ${{ steps.previous.outputs.file }}
                   NOTE: ${{ steps.previous.outputs.note }}
-                  REF: ${{ github.event_name == 'schedule' && 'dev' || github.event_name == 'pull_request' && format('{0} into {1} (#{2})', github.head_ref, github.base_ref, github.event.pull_request.number) || github.ref_name }}
+                  REF: ${{ github.event_name == 'pull_request' && format('{0} into {1} (#{2})', github.head_ref, github.base_ref, github.event.pull_request.number) || github.ref_name }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
                   args=(--out coverage/trends --ref "$REF" --commit "$(git rev-parse HEAD)" --run "$RUN_URL" --previous-note "$NOTE")

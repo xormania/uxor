@@ -110,7 +110,10 @@ branch is compared with where it left `dev`, so each push checks the whole pull 
 with the commit of `dev`'s last successful run, so every merge since is checked (one whose run was cancelled or failed
 too); with none, everything runs. *Tool tests* runs on every push, and checks what any path can break: the bundled
 references' links, the test inventory's names and the archive's payload. Once a day, on `dev`, the jobs that install
-unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). The rulesets require the one
+unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). GitHub runs every schedule on the
+default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
+job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
+release. The rulesets require the one
 *CI result* check, which passes when every job passed or was skipped, and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
 queue; a work order's jobs need not be up to date with it, *Work orders* below). CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
@@ -278,8 +281,8 @@ failed job collects its attempts with one composite action, [`.github/actions/je
 without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
 consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
 it runs the trusted branch's `tools/ci`, and producers never receive or forward the key. Diagnostics and assessments
-appear in that separate run, as `jev-run-<source run>-<source attempt>`. A change to the consumer takes effect once it
-is merged into the default branch, `dev`. See *Jev diagnosis* in the same section for rollout and the environment setting
+appear in that separate run, as `jev-run-<source run>-<source attempt>`. It becomes active when the consumer reaches
+the default branch through a release. See *Jev diagnosis* in the same section for rollout and the environment setting
 needed to protect a repository secret from a malicious branch writer.
 
 - `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
@@ -558,11 +561,8 @@ side effect. A visual change is a commit of its own:
 
 Examples: `feat(stat-card): show the trend as text`, `fix(layouts): every layout shows flash messages`.
 
-**Branches:** `dev` is the default branch; `main` holds released code only. Work branches start from `dev` and their
-pull requests target `dev`; a release is a pull request from `dev` to `main` (*Releases* below). Scheduled runs (CI's
-daily installs, the audits, CodeQL, the release checks, the monthly job), Dependabot's security updates and the
-`workflow_run` workflows (*Release*, *Jev diagnosis*) all run from `dev`, so a new advisory or an upstream change shows
-on `dev`, and `main` changes only through a release. Work made of several pull requests goes through
+**Branches:** `main` holds released code only. Work branches start from `dev` and their pull requests target `dev`;
+a release is a pull request from `dev` to `main` (*Releases* below). Work made of several pull requests goes through
 a work order (below); a single change stays one branch and one pull request into `dev`.
 
 **Work orders:** one objective delivered in several reviewable parts, without each part merging into `dev` on its own.

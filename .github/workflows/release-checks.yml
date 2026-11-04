@@ -8,10 +8,12 @@ name: Release checks
 #
 # - On the release pull request (dev to main): main's ruleset requires this check from 0.2.0 (decision 4 of the plan;
 #   its timings report and fail nothing until their tolerances are set, step 8).
-# - Once a day on dev, when dev changed since the last successful compatible scheduled run: it first compares dev's head with the
+# - Once a day on dev, when dev changed since the last successful daily run: it first compares dev's head with the
 #   commit that run tested (GitHub API) and stops in seconds when nothing was merged. A failure opens one issue labeled
 #   `release-checks`, or comments on the open one, instead of failing anyone's pull request after the fact; a green run
-#   closes it. The schedule runs the workflow as the default branch (dev) has it.
+#   closes it. GitHub runs the schedule on the default branch, main: that run only starts the daily run on dev (the
+#   Start on dev job: a workflow_dispatch with `daily`), so the daily run is dev's, with dev's copy of this file, and
+#   a failure shows on dev, never main.
 # - By hand (Actions › Release checks › Run workflow), on the branch it is started from; with `record`, it also uploads
 #   the run's timings as a new tests/perf/baseline.json (artifact release-baseline), which changes only through a pull
 #   request that shows the old and new numbers.
@@ -31,23 +33,43 @@ on:
                 description: 'Upload the run''s timings as a new tests/perf/baseline.json (artifact release-baseline)'
                 type: boolean
                 default: false
+            daily:
+                description: 'The daily run (what the schedule starts): on dev only, skipped when the checks already passed on its head'
+                type: boolean
+                default: false
 
 permissions:
     contents: read
 
 concurrency:
-    group: release-checks-${{ github.event_name == 'schedule' && 'dev' || github.ref }}
+    group: release-checks-${{ github.event_name == 'schedule' && 'schedule' || github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-    # What to check: dev's head for the schedule, unless the release checks already passed on that commit (an unexpired
-    # release-checks-passed-v2-<sha> artifact, which a passing schedule uploads); the pull request's or the branch's own commit
+    # The schedule's run, on main: it only starts the daily run on dev (gh workflow run, a workflow_dispatch event, which
+    # the job's token may create) and runs nothing else, so it cannot fail on what the daily run finds
+    start:
+        name: Start on dev
+        if: github.event_name == 'schedule'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            actions: write # start release-checks.yml on dev
+        steps:
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: gh workflow run release-checks.yml --repo "$REPO" --ref dev -f daily=true
+
+    # What to check: dev's head for the daily run, unless the release checks already passed on that commit (an unexpired
+    # release-checks-passed-v2-<sha> artifact, which a passing daily run uploads); the pull request's or the branch's own commit
     # otherwise. A pull request skips the suite when it passed on an earlier head of a pull request in this repository,
     # merged with the same base (its release-checks-pr-passed-v1-<base>-<head> marker), and every path changed since is
     # one the suite never reads (the allowlist below): the release commit's CHANGELOG.md and llms.txt, docs, the
     # Composer package.
     changed:
         name: What to check
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
@@ -67,7 +89,8 @@ jobs:
 
             - id: compare
               env:
-                  EVENT: ${{ github.event_name }}
+                  # daily: the run the schedule starts on dev (a workflow_dispatch with `daily`, on dev only)
+                  EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.event_name }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   WORKFLOW_SHA: ${{ github.workflow_sha }}
@@ -129,18 +152,19 @@ jobs:
                       printf 'run=%s\nref=%s\ntarget_ref=%s\n' "$run" "$GITHUB_SHA" "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
                       exit 0
                   fi
-                  if [ "$EVENT" != schedule ]; then
+                  if [ "$EVENT" != daily ]; then
                       printf 'run=true\nref=%s\ntarget_ref=%s\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
                       exit 0
                   fi
-                  head=$(gh api "repos/$REPO/commits/dev" --jq .sha)
-                  # Only a successful schedule using this workflow revision proves scheduler compatibility.
-                  # Manual runs and old-format markers cannot hide a broken default-branch entry point.
+                  # the daily run tests the dev commit it was started on, which the checkout below checks out
+                  head=$GITHUB_SHA
+                  # Only a successful daily run on dev using this workflow revision counts. Other manual runs, and
+                  # old-format markers, cannot hide a broken daily entry point.
                   passed=0
                   ids=$(gh api "repos/$REPO/actions/artifacts?name=release-checks-passed-v2-$head&per_page=100" \
                       --jq '.artifacts[] | select(.expired | not) | select(.workflow_run.head_repository_id == .workflow_run.repository_id) | .workflow_run.id')
                   for id in $ids; do
-                      if [ -n "$(gh api "repos/$REPO/actions/runs/$id" --jq 'select(.path == ".github/workflows/release-checks.yml" and .event == "schedule" and .head_sha == "'"$WORKFLOW_SHA"'" and .conclusion == "success") | .id')" ]; then
+                      if [ -n "$(gh api "repos/$REPO/actions/runs/$id" --jq 'select(.path == ".github/workflows/release-checks.yml" and .event == "workflow_dispatch" and .head_branch == "dev" and .head_sha == "'"$WORKFLOW_SHA"'" and .conclusion == "success") | .id')" ]; then
                           passed=1
                           echo "run $id passed the release checks on $head"
                           break
@@ -195,10 +219,10 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  # A scheduled job has the default branch's cache scope: execute only dev. Other events
-                  # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
-                  # If dev advances after resolution, provenance fails before any target code runs.
-                  ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}
+                  # Every event executes its immutable event revision: the daily run, the dev commit it was started on.
+                  # Resolver output is a comparison, not checkout authority: a resolved target that differs fails
+                  # provenance before any target code runs.
+                  ref: ${{ github.sha }}
                   path: release-checks-target
 
             - name: Verify the tested revision
@@ -215,8 +239,8 @@ jobs:
                   printf 'TESTED_SHA=%s\nTESTED_REF=%s\nRESOLVED_SHA=%s\nRESOLVED_REF=%s\n' \
                       "$tested" "$RESOLVED_REF" "$RESOLVED_SHA" "$RESOLVED_REF" >> "$GITHUB_ENV"
 
-            # no npm cache: a cache the default branch's run saved would be read by every other branch's runs, and a
-            # pull request or manual run must not save one from its own code (as monthly.yml)
+            # no npm cache: a run by hand, the daily one included, must not save a cache from the branch it was started
+            # on that other branches' runs would read (as monthly.yml)
             - id: node
               uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
@@ -451,10 +475,10 @@ jobs:
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  # A scheduled job has the default branch's cache scope: execute only dev. Other events
-                  # execute their immutable event revision. Resolver output is a comparison, not checkout authority.
-                  # If dev advances after resolution, provenance fails before any target code runs.
-                  ref: ${{ github.event_name == 'schedule' && 'refs/heads/dev' || github.sha }}
+                  # Every event executes its immutable event revision: the daily run, the dev commit it was started on.
+                  # Resolver output is a comparison, not checkout authority: a resolved target that differs fails
+                  # provenance before any target code runs.
+                  ref: ${{ github.sha }}
                   path: release-checks-target
 
             - name: Verify the tested revision
@@ -471,20 +495,20 @@ jobs:
                   printf 'TESTED_SHA=%s\nTESTED_REF=%s\nRESOLVED_SHA=%s\nRESOLVED_REF=%s\n' \
                       "$tested" "$RESOLVED_REF" "$RESOLVED_SHA" "$RESOLVED_REF" >> "$GITHUB_ENV"
 
-            # The commit this run tested, read by the next scheduled run's first job: a successful scheduled run's
-            # only (never a pull request's or manual run's), and advisory: without it the next daily run tests again
+            # The commit this run tested, read by the next daily run's first job: a successful daily run's only (never
+            # a pull request's or another manual run's), and advisory: without it the next daily run tests again
             - name: Record the tested commit
               id: tested
-              if: ${{ success() && github.event_name == 'schedule' }}
+              if: ${{ success() && inputs.daily && github.ref == 'refs/heads/dev' }}
               continue-on-error: true
               run: |
                   mkdir -p "$RUNNER_TEMP/tested"
                   git rev-parse HEAD | tee "$RUNNER_TEMP/tested/commit"
                   echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-            # named by the commit: the next scheduled run asks for this name, one API call, nothing downloaded
+            # named by the commit: the next daily run asks for this name, one API call, nothing downloaded
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ success() && github.event_name == 'schedule' && steps.tested.outcome == 'success' }}
+              if: ${{ success() && inputs.daily && github.ref == 'refs/heads/dev' && steps.tested.outcome == 'success' }}
               continue-on-error: true
               with:
                   name: release-checks-passed-v2-${{ steps.tested.outputs.sha }}
@@ -533,18 +557,18 @@ jobs:
                   retention-days: 90
 
     # The required check (main's ruleset: *Release checks*): it runs whatever happened before it and fails unless the
-    # suite passed, so a failed or skipped suite, or a failed What to check, can never read as a pass. Only a scheduled
+    # suite passed, so a failed or skipped suite, or a failed What to check, can never read as a pass. Only a daily
     # run that found the checks already passed on dev's head, and a pull request whose suite passed on an earlier head
     # with nothing it reads changed since, pass without the suite.
     verdict:
         name: Release checks
         needs: [changed, checks, complete]
-        if: ${{ always() }}
+        if: ${{ always() && github.event_name != 'schedule' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         steps:
             - env:
-                  EVENT: ${{ github.event_name }}
+                  EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.event_name }}
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
                   SUITE: ${{ needs.checks.result }}
@@ -554,7 +578,7 @@ jobs:
                       echo "::error::What to check ended with $CHANGED: no verdict on the release checks"
                       exit 1
                   fi
-                  if [ "$EVENT" = schedule ] && [ "$RUN" = false ]; then
+                  if [ "$EVENT" = daily ] && [ "$RUN" = false ]; then
                       echo "The release checks already passed on dev's head: nothing to run today"
                       exit 0
                   fi
@@ -568,13 +592,13 @@ jobs:
                   fi
                   echo "The release suite passed"
 
-    # The scheduled run's verdict on one issue labeled release-checks: a failure (of the suite, or of What to check: no
+    # The daily run's verdict on one issue labeled release-checks: a failure (of the suite, or of What to check: no
     # verdict) opens it or comments on the open one; a pass, or the checks found already passed on dev's head, closes
     # it. Pull requests and runs by hand show their result where they ran.
     issue:
         name: Release checks issue
         needs: [changed, checks, complete]
-        if: ${{ always() && github.event_name == 'schedule' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' && needs.complete.result != 'cancelled' }}
+        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' && needs.complete.result != 'cancelled' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
