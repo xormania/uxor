@@ -16,7 +16,7 @@ on:
     workflow_dispatch:
         inputs:
             daily:
-                description: 'The daily run: the installs of unpinned upstream versions only (what the schedule starts on dev)'
+                description: 'On dev only, the daily run: the installs of unpinned upstream versions only (what the schedule starts)'
                 type: boolean
                 default: false
 
@@ -25,7 +25,7 @@ permissions:
 
 concurrency:
     # the schedule's start and the daily run in groups of their own: neither cancels, nor is cancelled by, a push
-    group: ci-${{ github.event_name == 'schedule' && 'schedule' || inputs.daily && 'daily' || github.ref }}
+    group: ci-${{ github.event_name == 'schedule' && 'schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.ref }}
     cancel-in-progress: true
 
 env:
@@ -138,7 +138,9 @@ jobs:
                   # The classifier runs as it is at the base, which the change cannot edit: a branch that changes
                   # tools/ci-changes.sh is classified by the base's copy (which runs everything for that path), and a base
                   # without the script runs everything.
-                  if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ]; then
+                  # the daily run on dev only: elsewhere `daily` is ignored and everything runs, so a dispatch on a
+                  # branch cannot pass CI result with its checks skipped
+                  if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: the installs of unpinned upstream versions only"
                       for job in lint-kit php static-site fresh-install contrast demo workflows package; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
