@@ -133,21 +133,56 @@ jobs:
                   jq -n --arg version "$VERSION" --arg commit "$COMMIT" --arg repository "$(jq -r .homepage manifest.json)" \
                       '{version: $version, commit: $commit, repository: $repository}' > _site/release.json
                   cat _site/release.json
-            # Advisory diagnosis of a failed build (.github/actions/jev-diagnosis): never the job's verdict. Called from
-            # release.yml, the run's workflow is release.yml's, so this one names itself; the key comes from the caller.
-            - name: Jev diagnosis (advisory)
-              if: failure()
-              continue-on-error: true
-              timeout-minutes: 3
-              uses: ./.github/actions/jev-diagnosis
+            # The failed build's log, for the *Jev diagnosis* job below: no local action runs in this job, which checks
+            # out a commit chosen at run time in the default branch's context (CodeQL: cache poisoning)
+            - if: failure() && steps.build.outcome == 'failure'
+              continue-on-error: true # a report, never the verdict
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
-                  steps: ${{ toJSON(steps) }}
-                  workflow: .github/workflows/pages.yml
-                  job: Build the site
-                  artifact: jev-input-pages-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  name: pages-build-log-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/jev-build.log
+                  retention-days: 1
+                  if-no-files-found: ignore
             - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
               with:
                   path: _site
+
+    # Advisory diagnosis of a failed build (.github/actions/jev-diagnosis): never the verdict. On its own runner, with
+    # this workflow's own tools and no checkout of the release: it reads the build's log from the artifact above and
+    # collects it as the build job's step `build`. Called from release.yml, the run's workflow is release.yml's, so it
+    # names this file; the key comes from the caller (jev.yml).
+    diagnose:
+        name: Jev diagnosis (advisory)
+        needs: build
+        if: failure() && needs.build.result == 'failure'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        continue-on-error: true
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  ref: ${{ github.workflow_sha }}
+                  sparse-checkout: |
+                      tools/ci
+                      .github/actions/jev-diagnosis
+                      .github/workflows/pages.yml
+                  sparse-checkout-cone-mode: false
+            - id: log
+              continue-on-error: true
+              uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  name: pages-build-log-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}
+            - if: steps.log.outcome == 'success'
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: '{"build":{"outcome":"failure","conclusion":"failure","outputs":{}}}'
+                  job-id: build
+                  workflow: .github/workflows/pages.yml
+                  job: Build the site
+                  artifact: jev-input-pages-build-${{ github.run_id }}-${{ github.run_attempt }}
 
     deploy:
         name: Deploy

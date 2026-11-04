@@ -144,3 +144,33 @@ test('release.yml hands Pages the version it released, never the commit its CI p
     assert.match(workflow, /^\s+if: github\.event_name != 'workflow_dispatch' \|\| github\.ref == 'refs\/heads\/main'$/m);
     assert.doesNotMatch(workflow, /github\.ref_name|github\.sha/);
 });
+
+test('no local action runs where the release is checked out; the Jev job collects the build log with its own tools', (t) => {
+    const job = (name) => {
+        const start = workflow.indexOf(`\n    ${name}:\n`);
+        const next = workflow.slice(start + 1).search(/\n {4}[a-z-]+:\n/);
+        return workflow.slice(start, next < 0 ? undefined : start + 1 + next);
+    };
+    // the build checks out a commit chosen at run time, in the default branch's context: no local action there
+    // (CodeQL: cache poisoning)
+    assert.doesNotMatch(job('build'), /uses: \.\//);
+    const jev = job('diagnose');
+    assert.match(jev, /ref: \$\{\{ github\.workflow_sha \}\}/);
+    assert.doesNotMatch(jev, /outputs\.commit/);
+    assert.match(jev, /job-id: build/);
+    // the step the Jev job names is the build job's build step, whose log the build uploads
+    assert.equal(stepIn(workflow, 'build', 'build').name, 'Build and check the site');
+    const steps = JSON.parse(/steps: '([^']+)'/.exec(jev)[1]);
+    assert.deepEqual(Object.keys(steps), ['build']);
+
+    // step-attempts names the build job's step from another job, with --job
+    const dir = scratch(t);
+    writeFileSync(join(dir, 'jev-build.log'), 'PHP Fatal error: the export failed\n');
+    const out = join(dir, 'attempts.json');
+    const run = spawnSync('node', [join(root, 'tools/ci/step-attempts.mjs'), '--steps', JSON.stringify(steps), '--logs', dir,
+        '--workflow', join(root, '.github/workflows/pages.yml'), '--job', 'build', out], { encoding: 'utf8', env: { PATH: process.env.PATH } });
+    assert.equal(run.status, 0, run.stderr);
+    const [attempt] = JSON.parse(readFileSync(out, 'utf8')).attempts;
+    assert.equal(attempt.title, 'Build and check the site');
+    assert.match(attempt.error, /tools\/build-static\.sh _site/);
+});

@@ -276,7 +276,7 @@ fail the job, and the attempt's sanitized error and server log excerpts are sent
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
 install* jobs, *Contrast*, *Workflows*, *Changes*, *Package*, the monthly PHP job, both audits, *Mentions*, the
-release's install check, tag and release, and the gallery's build. The
+release's install check, tag and release, and the gallery's build (collected by `pages.yml`'s own *Jev diagnosis* job from the build's log, since the build job checks out a release and runs no local action). The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
 without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
 consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
