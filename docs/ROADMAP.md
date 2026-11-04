@@ -47,6 +47,7 @@ building **Turbo-driven apps** get rich UX from installed recipes with as little
 | — | Deferred | Cropper, Map, sortable lists, virtual grid, Uppy, FullCalendar, "select all matching" | — | open |
 | — | Docs pairing | A deterministic script replaces the `Docs-waiver:` trailers of `tools/readme-pairing.mjs`: it decides from the change itself whether a recipe's README must change. Not started | — | open |
 | — | Composer package | Decided 2026-10-16, outside the roadmap's packages: the agent guidance and development tools ship from this repository as the root Composer package `xormania/uxor`, its code in `packages/uxor/`, on the kit's version sequence; recipes still install with `ux:install`. Work order `claude/wo-composer-package`, details in [`PLAN-composer-package.md`](PLAN-composer-package.md) | — | open |
+| — | Docs automation | Adopted 2026-11-04, outside the roadmap's packages: the public site and the consumer documentation describe the selected published release, recipe pages render their whole README with a generated API, and the site gets canonical URLs, a sitemap and a published `llms.txt`. Three stages, one pull request each into `dev`; details in [`PLAN-docs-automation.md`](PLAN-docs-automation.md) | — | open |
 
 D and C can run in parallel because they touch different recipes.
 
