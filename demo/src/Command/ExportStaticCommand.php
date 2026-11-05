@@ -17,8 +17,8 @@ use Symfony\Component\HttpKernel\TerminableInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page,
- * every README example in both themes, and the /demo application's pages. Each page goes through the kernel as a GET
+ * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page and
+ * its portable Markdown (r/<recipe>.md), every README example in both themes, and the /demo application's pages. Each page goes through the kernel as a GET
  * request under the site's base path, so Symfony prints the links and asset URLs the site needs.
  *
  * Run `tailwind:build` and `asset-map:compile` first: the compiled assets are copied next to the pages. The /lab and
@@ -109,6 +109,7 @@ final class ExportStaticCommand
         yield '/' => 'index.html';
         foreach ($this->kit->getRecipes() as $recipe) {
             yield '/r/'.$recipe->name => 'r/'.$recipe->name.'/index.html';
+            yield '/r/'.$recipe->name.'.md' => 'r/'.$recipe->name.'.md';
             foreach ($this->kit->getExamples($recipe) as $example) {
                 foreach (['light', 'dark'] as $theme) {
                     $preview = \sprintf('preview/%s/%s', $recipe->name, $example['id']);
@@ -144,6 +145,11 @@ final class ExportStaticCommand
         }
 
         $html = (string) $response->getContent();
+        // a recipe's Markdown is saved as the page gave it: what follows rewrites HTML
+        if (str_ends_with($path, '.md')) {
+            return $html;
+        }
+
         // A file cannot depend on the query string: the previews are saved per theme, in their own directory. A
         // preview's own links (a table's sort and page links) carry more parameters after the theme: they follow it.
         $html = preg_replace_callback(

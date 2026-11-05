@@ -70,15 +70,7 @@ final class RecipeDocs
     private function resolveLinks(string $html, Recipe $recipe, ?string $ref): string
     {
         return preg_replace_callback('#<a href="(?![a-z][a-z0-9+.-]*:|/|\#)([^"\#]*)(\#[^"]*)?"#i', function (array $match) use ($recipe, $ref): string {
-            $parts = [];
-            foreach (explode('/', $recipe->name.'/'.html_entity_decode($match[1])) as $part) {
-                if ('..' === $part) {
-                    array_pop($parts);
-                } elseif ('' !== $part && '.' !== $part) {
-                    $parts[] = $part;
-                }
-            }
-            $path = implode('/', $parts);
+            $path = self::repositoryPath($recipe, html_entity_decode($match[1]));
             $fragment = $match[2] ?? '';
 
             if (preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1])) {
@@ -118,6 +110,57 @@ final class RecipeDocs
      */
     public function markdown(Recipe $recipe, string $release): string
     {
-        return $this->ref->during($release, fn (): string => $this->renderer->renderAsMarkdown($this->kit->getKit(), $recipe));
+        $markdown = $this->ref->during($release, fn (): string => $this->renderer->renderAsMarkdown($this->kit->getKit(), $recipe));
+
+        return $this->resolveMarkdownLinks($markdown, $recipe, $release);
+    }
+
+    /**
+     * The Markdown is saved beside the other recipes' (`/r/<recipe>.md`), not in the repository: a link to another
+     * recipe's README becomes that file, the fragment kept, and any other relative link its file on GitHub at the
+     * release. Code blocks are left as they are: a link there is an example's.
+     */
+    private function resolveMarkdownLinks(string $markdown, Recipe $recipe, string $release): string
+    {
+        $fence = null;
+        $lines = [];
+        foreach (explode("\n", $markdown) as $line) {
+            if (preg_match('/^\h*(`{3,}|~{3,})/', $line, $marker)) {
+                if (null === $fence) {
+                    $fence = $marker[1];
+                } elseif (str_starts_with(ltrim($line), $fence)) {
+                    $fence = null;
+                }
+            } elseif (null === $fence) {
+                $line = preg_replace_callback('/\]\((?![a-z][a-z0-9+.-]*:|\/|#)([^)\s#]*)(#[^)\s]*)?\)/i', function (array $match) use ($recipe, $release): string {
+                    $path = self::repositoryPath($recipe, $match[1]);
+                    $url = preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1])
+                        ? $readme[1].'.md'
+                        : \sprintf('%s/blob/%s/%s', $this->kit->getManifest()->homepage, $release, $path);
+
+                    return ']('.$url.($match[2] ?? '').')';
+                }, $line) ?? $line;
+            }
+            $lines[] = $line;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * A path a recipe's README gives, relative to its directory, from the repository's root.
+     */
+    private static function repositoryPath(Recipe $recipe, string $relative): string
+    {
+        $parts = [];
+        foreach (explode('/', $recipe->name.'/'.$relative) as $part) {
+            if ('..' === $part) {
+                array_pop($parts);
+            } elseif ('' !== $part && '.' !== $part) {
+                $parts[] = $part;
+            }
+        }
+
+        return implode('/', $parts);
     }
 }

@@ -57,18 +57,39 @@ final class ShowcaseController extends AbstractController
             }
         }
 
-        // the static copy installs the release it shows (or, built from a branch, that branch); the dev server, the
-        // repository's default branch
-        $export = $request->attributes->get('_static_export');
-        $ref = \is_array($export) ? ($export['release'] ?? $export['branch'] ?? 'main') : null;
-
         return $this->render('showcase/recipe.html.twig', [
             'kit' => $this->kit->getKit(),
             'recipe' => $found,
-            'doc' => $this->docs->page($found, \is_string($ref) ? $ref : null),
+            'doc' => $this->docs->page($found, self::ref($request)),
             'dependencies' => $dependencies,
             'groups' => $this->getGroups(),
         ]);
+    }
+
+    /**
+     * The recipe's documentation as portable Markdown, for a consumer or their agent: what the page shows, its examples
+     * as code, its install step at the release, its links to other recipes to their Markdown beside it.
+     */
+    #[Route('/r/{recipe}.md', name: 'app_recipe_markdown', requirements: ['recipe' => '[a-z0-9][a-z0-9-]*'], methods: ['GET'])]
+    public function recipeMarkdown(string $recipe, Request $request): Response
+    {
+        if (null === $found = $this->kit->getRecipe($recipe)) {
+            throw $this->createNotFoundException(\sprintf('Recipe "%s" does not exist in the kit.', $recipe));
+        }
+
+        return new Response($this->docs->markdown($found, self::ref($request) ?? 'main'), headers: ['Content-Type' => 'text/markdown; charset=UTF-8']);
+    }
+
+    /**
+     * The ref a page installs: the release a static copy shows (or, built from a branch, that branch); on the dev
+     * server, none (the repository's default branch).
+     */
+    private static function ref(Request $request): ?string
+    {
+        $export = $request->attributes->get('_static_export');
+        $ref = \is_array($export) ? ($export['release'] ?? $export['branch'] ?? 'main') : null;
+
+        return \is_string($ref) ? $ref : null;
     }
 
     /**
