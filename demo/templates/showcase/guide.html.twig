@@ -1,0 +1,14 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ title }}: {{ kit_reader.manifest.name }}{% endblock %}
+
+{% block description %}{{ description|raw }}{% endblock %}
+
+{% block body %}
+    {#- a consumer guide from the repository, rendered by App\Kit\GuideDocs: its own title, its sections, its install
+        commands at the release this copy shows -#}
+    <div class="recipe-doc mx-auto min-w-0 max-w-4xl" data-testid="guide">
+        {{ doc|raw }}
+        <p class="mt-10 text-sm"><a href="{{ path('app_guide_markdown', {name: name}) }}" type="text/markdown">This guide as Markdown</a></p>
+    </div>
+{% endblock %}

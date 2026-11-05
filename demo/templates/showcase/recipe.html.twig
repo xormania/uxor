@@ -2,9 +2,10 @@
 
 {% block title %}{{ recipe.manifest.name }}: {{ kit.manifest.name }}{% endblock %}
 
+{% block description %}{{ (recipe.description ?: recipe.manifest.name)|plain_markdown|raw }}{% endblock %}
+
 {% block body %}
     {%- set static_export = app.request.attributes.get('_static_export') -%}
-    {%- set kit_url = kit.manifest.homepage ~ (static_export ? ':' ~ (static_export.release ?? static_export.branch ?? 'main') : '') -%}
     {%- set source = kit.manifest.homepage ~ '/tree/' ~ (static_export.commit ?? 'main') ~ '/' ~ recipe.name -%}
     {%- set is_page = 'block' == recipe.manifest.type.value or 'layouts' == recipe.name -%}
 
@@ -51,70 +52,44 @@
                 </p>
             {%- endif %}
 
-            <div class="mt-8 grid gap-6 xl:grid-cols-2">
-                <section class="min-w-0" aria-labelledby="install-heading">
-                    <h2 id="install-heading" class="font-semibold text-heading">Install</h2>
-                    <pre tabindex="0" class="mt-3 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading"><code>php bin/console ux:install {{ recipe.name }} \
-    --kit={{ kit_url }}</code></pre>
-                    <p class="mt-3 flex gap-4 text-sm">
-                        <a href="{{ source }}/README.md" class="underline hover:text-heading">README</a>
-                        <a href="{{ source }}" class="underline hover:text-heading">Source</a>
-                    </p>
-                </section>
-                <section class="min-w-0" aria-labelledby="installs-heading">
-                    <h2 id="installs-heading" class="font-semibold text-heading">What it installs</h2>
-                    <dl class="mt-3 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
-                        <dt class="font-medium text-heading">Copies</dt>
-                        <dd>
-                            {% for source_path, destination in recipe.manifest.copyFiles %}
-                                <code>{{ source_path }}</code> → <code>{{ destination }}</code>{% if not loop.last %}<br>{% endif %}
-                            {% else %}
-                                nothing
+            <section class="mt-8 min-w-0" aria-labelledby="installs-heading">
+                <h2 id="installs-heading" class="font-semibold text-heading">What it installs</h2>
+                <dl class="mt-3 grid grid-cols-[max-content_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
+                    <dt class="font-medium text-heading">Copies</dt>
+                    <dd>
+                        {% for source_path, destination in recipe.manifest.copyFiles %}
+                            <code>{{ source_path }}</code> → <code>{{ destination }}</code>{% if not loop.last %}<br>{% endif %}
+                        {% else %}
+                            nothing
+                        {% endfor %}
+                    </dd>
+                    {% if dependencies.recipes %}
+                        <dt class="font-medium text-heading">Recipes</dt>
+                        <dd class="flex flex-wrap gap-x-3">
+                            {% for dependency in dependencies.recipes %}
+                                <a href="{{ path('app_recipe', {recipe: dependency.name}) }}" class="underline hover:text-heading">{{ dependency.name }}</a>
                             {% endfor %}
                         </dd>
-                        {% if dependencies.recipes %}
-                            <dt class="font-medium text-heading">Recipes</dt>
-                            <dd class="flex flex-wrap gap-x-3">
-                                {% for dependency in dependencies.recipes %}
-                                    <a href="{{ path('app_recipe', {recipe: dependency.name}) }}" class="underline hover:text-heading">{{ dependency.name }}</a>
-                                {% endfor %}
-                            </dd>
+                    {% endif %}
+                    {% for group, label in {composer: 'Composer', npm: 'npm', importmap: 'Importmap'} %}
+                        {% if dependencies[group] %}
+                            <dt class="font-medium text-heading">{{ label }}</dt>
+                            <dd>{% for dependency in dependencies[group] %}<code>{{ dependency }}</code>{% if not loop.last %}<br>{% endif %}{% endfor %}</dd>
                         {% endif %}
-                        {% for group, label in {composer: 'Composer', npm: 'npm', importmap: 'Importmap'} %}
-                            {% if dependencies[group] %}
-                                <dt class="font-medium text-heading">{{ label }}</dt>
-                                <dd>{% for dependency in dependencies[group] %}<code>{{ dependency }}</code>{% if not loop.last %}<br>{% endif %}{% endfor %}</dd>
-                            {% endif %}
-                        {% endfor %}
-                    </dl>
-                </section>
-            </div>
-
-            <section class="mt-12" aria-labelledby="examples-heading">
-                <h2 id="examples-heading" class="text-2xl font-semibold text-heading">Examples <span class="font-normal text-body" data-testid="example-count">({{ examples|length }})</span></h2>
-                {% for example in examples %}
-                    <article id="{{ example.id }}" class="mt-6 overflow-hidden rounded-base border border-default" data-testid="example" data-example="{{ example.id }}">
-                        <h3 class="border-b border-default px-4 py-3 font-semibold text-heading">
-                            <a href="#{{ example.id }}" class="hover:underline">{{ example.id|replace({'-': ' '})|capitalize }}</a>
-                        </h3>
-                        <div class="grid md:grid-cols-2">
-                            {% for theme in ['light', 'dark'] %}
-                                <figure class="{{ loop.first ? 'md:border-r' : 'border-t md:border-t-0' }} border-default">
-                                    <iframe src="{{ path('app_preview', {recipe: recipe.name, example: example.id, theme: theme}) }}"
-                                            title="{{ example.id }} ({{ theme }})" loading="lazy"
-                                            data-controller="preview-frame"
-                                            class="{{ is_page ? 'h-[32rem]' : 'h-72' }} block w-full"></iframe>
-                                    <figcaption class="border-t border-default px-4 py-1.5 text-xs">{{ theme|capitalize }}</figcaption>
-                                </figure>
-                            {% endfor %}
-                        </div>
-                        <details class="border-t border-default text-sm">
-                            <summary class="cursor-pointer px-4 py-2 font-medium hover:text-heading">Code</summary>
-                            <pre tabindex="0" class="overflow-x-auto bg-neutral-secondary-medium p-4 text-heading"><code>{{ example.code }}</code></pre>
-                        </details>
-                    </article>
-                {% endfor %}
+                    {% endfor %}
+                </dl>
+                <p class="mt-3 flex gap-4 text-sm">
+                    <a href="{{ source }}/README.md" class="underline hover:text-heading">README</a>
+                    <a href="{{ path('app_recipe_markdown', {recipe: recipe.name}) }}" type="text/markdown" class="underline hover:text-heading">Markdown</a>
+                    <a href="{{ source }}" class="underline hover:text-heading">Source</a>
+                </p>
             </section>
+
+            {#- the README, rendered by the UX Toolkit (App\Kit\RecipeDocs): its prose, its install steps at the
+                release this copy shows, its examples as their preview pages, its API tables -#}
+            <div class="recipe-doc group/doc mt-10 min-w-0"{{ is_page ? ' data-page' : '' }} data-testid="recipe-doc">
+                {{ doc|raw }}
+            </div>
         </div>
     </div>
 {% endblock %}

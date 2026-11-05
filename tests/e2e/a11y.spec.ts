@@ -7,6 +7,8 @@ const labPages = ['live-dropdown', 'live-modal', 'live-table', 'live-drawer', 'l
 
 const pages = [
     '/',
+    '/install',
+    '/guide',
     '/forms',
     '/forms/parity',
     '/demo',

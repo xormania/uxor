@@ -3,7 +3,9 @@ name: Audit
 # Known advisories in the locked npm packages of the Playwright tests and the demo's locked Composer packages (the
 # Symfony and UX packages the recipes install, and the PHP test tools): weekly, as advisories appear without any change
 # here, and on every pull request that changes a lockfile. On a pull request each audit runs only when its own files
-# changed, so an advisory in one ecosystem does not fail a pull request that only touches the other.
+# changed, so an advisory in one ecosystem does not fail a pull request that only touches the other. GitHub runs the
+# schedule on the default branch, main: that run only starts the audit on dev (the Start on dev job), so an advisory
+# shows on dev, where its fix lands (Dependabot's update pull requests target dev), and main changes only by a release.
 on:
     schedule:
         - cron: '17 6 * * 1'
@@ -15,8 +17,24 @@ permissions:
     contents: read
 
 jobs:
+    # The schedule's run, on main: it only starts this workflow on dev (gh workflow run, a workflow_dispatch event, which
+    # the job's token may create) and audits nothing, so it cannot fail on an advisory
+    start:
+        name: Start on dev
+        if: github.event_name == 'schedule'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            actions: write # start audit.yml on dev
+        steps:
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: gh workflow run audit.yml --repo "$REPO" --ref dev
+
     npm-audit:
         name: npm audit
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         steps:
@@ -50,6 +68,7 @@ jobs:
 
     composer-audit:
         name: composer audit
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         steps:

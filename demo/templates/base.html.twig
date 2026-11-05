@@ -7,7 +7,21 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{% block title %}{{ kit_reader.manifest.name }} demo{% endblock %}</title>
-        <meta name="description" content="Flowbite 4 and Tailwind CSS 4 components, layouts, blocks and a form theme for the Symfony UX Toolkit, with all behavior in Stimulus controllers.">
+        {#- a page's description block prints plain text unescaped: it is escaped once, here, where it is printed -#}
+        {%- set description = block('description') is defined ? block('description')|trim : 'Flowbite 4 and Tailwind CSS 4 components, layouts, blocks and a form theme for the Symfony UX Toolkit, with all behavior in Stimulus controllers.' %}
+        <meta name="description" content="{{ description }}">
+        {#- the static copy's public pages: their canonical URL (each is saved as <path>/index.html) and what a link to them
+            shows when shared; app:export-static gives the site's public URL -#}
+        {%- if static_export.site_url ?? null %}
+            {%- set canonical = static_export.site_url ~ ('/' == app.request.pathInfo ? '/' : app.request.pathInfo|trim('/', 'right') ~ '/') %}
+        <link rel="canonical" href="{{ canonical }}">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="{{ kit_reader.manifest.name }}">
+        <meta property="og:title" content="{{ block('title')|trim }}">
+        <meta property="og:description" content="{{ description }}">
+        <meta property="og:url" content="{{ canonical }}">
+        <meta name="twitter:card" content="summary">
+        {%- endif %}
         <link rel="icon" href="data:,">
         {# The request's Content Security Policy nonces, as the layouts recipe prints them (Turbo gives this one to the <style> of its progress bar). #}
         <meta name="csp-nonce" nonce="{{ csp_style_nonce }}">
@@ -68,8 +82,12 @@
         <footer class="border-t border-default">
             <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-sm">
                 <p>MIT licensed.</p>
-                <a href="{{ repository }}/blob/main/README.md" class="underline hover:text-heading">README</a>
-                <a href="{{ repository }}/blob/main/CHANGELOG.md" class="underline hover:text-heading">Changelog</a>
+                {#- the README and the changelog of the release a static copy shows; the security policy is the current one -#}
+                {%- set doc_ref = static_export.release ?? 'main' %}
+                <a href="{{ path('app_guide', {name: 'install'}) }}" class="underline hover:text-heading">Getting started</a>
+                <a href="{{ path('app_guide', {name: 'guide'}) }}" class="underline hover:text-heading">Guide</a>
+                <a href="{{ repository }}/blob/{{ doc_ref }}/README.md" class="underline hover:text-heading">README</a>
+                <a href="{{ repository }}/blob/{{ doc_ref }}/CHANGELOG.md" class="underline hover:text-heading">Changelog</a>
                 <a href="{{ repository }}/releases" class="underline hover:text-heading">Releases</a>
                 <a href="{{ repository }}/blob/main/SECURITY.md" class="underline hover:text-heading">Security</a>
             </div>

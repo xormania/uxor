@@ -44,8 +44,9 @@ final class StaticExportBannerTest extends WebTestCase
     public static function installCommands(): iterable
     {
         foreach (['/', '/r/button'] as $path) {
-            yield $path.' branch' => [$path, ['branch' => 'dev'], '--kit=https://github.com/xormania/uxor:dev<'];
-            yield $path.' release' => [$path, ['release' => '0.2.0', 'branch' => 'dev'], '--kit=https://github.com/xormania/uxor:0.2.0<'];
+            // the end of the command: a code block's text, or its line, ends there
+            yield $path.' branch' => [$path, ['branch' => 'dev'], '#--kit=https://github\.com/xormania/uxor:dev\s*<#'];
+            yield $path.' release' => [$path, ['release' => '0.2.0', 'branch' => 'dev'], '#--kit=https://github\.com/xormania/uxor:0\.2\.0\s*<#'];
         }
     }
 
@@ -55,7 +56,7 @@ final class StaticExportBannerTest extends WebTestCase
     #[DataProvider('installCommands')]
     public function testTheInstallCommandNamesTheReleaseOrElseTheBranch(string $path, array $context, string $expected): void
     {
-        self::assertStringContainsString($expected, self::banner($context, $path));
+        self::assertMatchesRegularExpression($expected, self::banner($context, $path));
     }
 
     /**
@@ -87,11 +88,27 @@ final class StaticExportBannerTest extends WebTestCase
         self::assertSame(1, substr_count($html, 'A static copy of the demo application'));
     }
 
+    /**
+     * The footer's README and changelog are those of the release a static copy shows; a copy that is not a release, and
+     * the live demo, link the current ones on main. The security policy is always the current one.
+     */
+    public function testTheFooterLinksTheReleasesReadmeAndChangelog(): void
+    {
+        $release = self::banner(['release' => '0.2.0', 'branch' => 'main']);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/0.2.0/README.md"', $release);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/0.2.0/CHANGELOG.md"', $release);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/main/SECURITY.md"', $release);
+
+        $branch = self::banner(['branch' => 'dev']);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/main/README.md"', $branch);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/main/CHANGELOG.md"', $branch);
+    }
+
     public function testTheLiveDemoNamesNoRef(): void
     {
         $client = static::createClient();
         $client->request('GET', '/r/button');
 
-        self::assertStringContainsString('--kit=https://github.com/xormania/uxor<', (string) $client->getResponse()->getContent());
+        self::assertMatchesRegularExpression('#--kit=https://github\.com/xormania/uxor\s*<#', (string) $client->getResponse()->getContent());
     }
 }

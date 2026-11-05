@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Kit\GuideDocs;
 use App\Kit\KitReader;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -17,8 +18,10 @@ use Symfony\Component\HttpKernel\TerminableInterface;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page,
- * every README example in both themes, and the /demo application's pages. Each page goes through the kernel as a GET
+ * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page and
+ * its portable Markdown (r/<recipe>.md), every README example in both themes, the consumer guides (install, guide)
+ * and theirs, sitemap.xml and llms.txt, and the /demo application's pages. The site's public URL (--site-url) goes into
+ * the canonical links, the sitemap and llms.txt. Each page goes through the kernel as a GET
  * request under the site's base path, so Symfony prints the links and asset URLs the site needs.
  *
  * Run `tailwind:build` and `asset-map:compile` first: the compiled assets are copied next to the pages. The /lab and
@@ -66,6 +69,8 @@ final class ExportStaticCommand
         ?string $commit = null,
         #[Option(description: 'The branch the commit is on, named in the banner of a site that is not a release')]
         string $branch = 'main',
+        #[Option(description: 'The public URL the site is served at, for its canonical links, sitemap and llms.txt (default: the GitHub Pages URL of manifest.json\'s homepage under the base path)')]
+        ?string $siteUrl = null,
     ): int {
         $basePath = rtrim($basePath, '/');
         if ('' !== $basePath && !preg_match('#^(/[A-Za-z0-9._-]+)+$#', $basePath)) {
@@ -86,7 +91,8 @@ final class ExportStaticCommand
         $filesystem->remove($dir);
         $filesystem->mirror($assets, $dir.'/assets');
 
-        $context = ['release' => $release ?: null, 'latest_release' => $latestRelease ?: null, 'commit' => $commit ?: null, 'branch' => $branch ?: 'main', 'server_only' => self::SERVER_ONLY];
+        $siteUrl = rtrim($siteUrl ?: self::pagesUrl($this->kit->getManifest()->homepage, $basePath), '/');
+        $context = ['release' => $release ?: null, 'latest_release' => $latestRelease ?: null, 'commit' => $commit ?: null, 'branch' => $branch ?: 'main', 'server_only' => self::SERVER_ONLY, 'site_url' => $siteUrl];
         $pages = 0;
         foreach ($this->getPaths() as $path => $file) {
             $html = $this->render($basePath, $path, $context);
@@ -102,13 +108,28 @@ final class ExportStaticCommand
     }
 
     /**
+     * Where GitHub Pages serves a repository's project site: https://<owner>.github.io<base path>.
+     */
+    public static function pagesUrl(string $homepage, string $basePath): string
+    {
+        if (!preg_match('#^https://github\.com/([A-Za-z0-9-]+)/#', $homepage, $owner)) {
+            throw new \InvalidArgumentException(\sprintf('Cannot tell the GitHub Pages URL of "%s": pass --site-url.', $homepage));
+        }
+
+        return \sprintf('https://%s.github.io%s', strtolower($owner[1]), $basePath);
+    }
+
+    /**
      * @return iterable<string, string> each path to request, and the file to save it as
      */
     private function getPaths(): iterable
     {
         yield '/' => 'index.html';
+        yield '/sitemap.xml' => 'sitemap.xml';
+        yield '/llms.txt' => 'llms.txt';
         foreach ($this->kit->getRecipes() as $recipe) {
             yield '/r/'.$recipe->name => 'r/'.$recipe->name.'/index.html';
+            yield '/r/'.$recipe->name.'.md' => 'r/'.$recipe->name.'.md';
             foreach ($this->kit->getExamples($recipe) as $example) {
                 foreach (['light', 'dark'] as $theme) {
                     $preview = \sprintf('preview/%s/%s', $recipe->name, $example['id']);
@@ -116,13 +137,17 @@ final class ExportStaticCommand
                 }
             }
         }
+        foreach (array_keys(GuideDocs::GUIDES) as $guide) {
+            yield '/'.$guide => $guide.'/index.html';
+            yield '/'.$guide.'.md' => $guide.'.md';
+        }
         foreach (['', '/login', '/signup', '/forgot-password', '/settings/profile', '/settings/notifications', '/settings/billing', '/blank'] as $page) {
             yield '/demo'.$page => ltrim('demo'.$page.'/index.html', '/');
         }
     }
 
     /**
-     * @param array{release: ?string, latest_release: ?string, commit: ?string, branch: string, server_only: array<string, string>} $context
+     * @param array{release: ?string, latest_release: ?string, commit: ?string, branch: string, server_only: array<string, string>, site_url: string} $context
      */
     private function render(string $basePath, string $path, array $context): string
     {
@@ -144,6 +169,11 @@ final class ExportStaticCommand
         }
 
         $html = (string) $response->getContent();
+        // a Markdown file, the sitemap and llms.txt are saved as the page gave them: what follows rewrites HTML
+        if (1 === preg_match('/\.(?:md|xml|txt)$/', $path)) {
+            return $html;
+        }
+
         // A file cannot depend on the query string: the previews are saved per theme, in their own directory. A
         // preview's own links (a table's sort and page links) carry more parameters after the theme: they follow it.
         $html = preg_replace_callback(

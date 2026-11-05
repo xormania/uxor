@@ -5,6 +5,31 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-05
+
+### Added
+
+- Each recipe's documentation as portable Markdown, for a consumer or their agent:
+  `https://xormania.github.io/uxor/r/<recipe>.md`, linked from its gallery page. It has the README's prose, the
+  examples as code, the install step at the release the gallery shows and the API tables; its links to other recipes
+  point to their Markdown beside it.
+- The gallery publishes the getting-started guide (`INSTALL.md`) and the guide (`docs/GUIDE.md`) as pages, `/install`
+  and `/guide`, linked from every page's footer, and as Markdown (`/install.md`, `/guide.md`). On the gallery of a
+  release, their install commands name it; their links reach the recipe pages, each other, or the file on GitHub at
+  the release.
+- The gallery tells search engines and agents what it holds: each public page (the index, the guides, every recipe
+  page) names its canonical URL on `https://xormania.github.io/uxor/` and has its own description and sharing
+  metadata; the standalone previews are `noindex`, their recipe page being the one to find; `sitemap.xml` lists the
+  public pages; and `llms.txt` is published on the site, its links to the recipes and guides pointing at the site's
+  Markdown.
+
+### Changed
+
+- The gallery's recipe pages show the recipe's whole README, rendered by the UX Toolkit: its usage notes, its examples
+  (each preview in both themes, with its code), its install steps (the command at the release the page shows, and the
+  manual steps) and its API tables, generated from the components' declared props and blocks. They linked to the
+  README before.
+
 ### Fixed
 
 - `editor`: the H2 and H3 toolbar buttons are named "H2, heading 2" and "H3, heading 3", so their names hold the text
@@ -16,6 +41,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   landed on the branch rather than its row, and did nothing.
 - `calendar`: the server writes a day's number as the browser does, so Korean shows "19일" (as the day's name has it,
   which axe-core 4.14 requires) and Czech, Danish, Norwegian and others "19.", before the controller connects as after.
+- The gallery (<https://xormania.github.io/uxor/>) shows only the latest published release, built from the commit its
+  tag points at, never a branch or the later commit a release's CI passed on; its footer's README and changelog links
+  name that release instead of `main`.
+- The install instructions (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`, the project agents snippet, the recipe
+  list) always name a release, `--kit=https://github.com/xormania/uxor:<version>`: they said that without a version
+  `ux:install` takes the last release, but the default branch can hold unreleased work. `llms.txt` describes the latest
+  release, never `dev`, and the Composer package's bundled references link that release instead of `main`.
+  Installing from a branch is now in `CONTRIBUTING.md`, for contributors.
 
 ## [0.3.0] - 2026-10-18
 
@@ -302,7 +335,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.1...HEAD
+[0.3.1]: https://github.com/xormania/uxor/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/xormania/uxor/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/xormania/uxor/releases/tag/0.1.0

@@ -1522,7 +1522,8 @@ recipe's PHP line or method no PHPUnit test reaches, a mutant of it the tests le
 browser test calls. Report-only: a low number fails nothing, it shows where a test is missing.
 
 [`.github/workflows/monthly.yml`](../.github/workflows/monthly.yml) runs on the 3rd of each month on `dev`, and by
-hand before a release. Nothing of it runs on a push or a pull request: CI's jobs and test list stay as they are.
+hand before a release. GitHub runs the schedule on `main`, the default branch; that run only starts the month's run
+on `dev`, so a failure shows on `dev`. Nothing of it runs on a push or a pull request: CI's jobs and test list stay as they are.
 
 | Job | What it measures | Where it reads |
 |---|---|---|
@@ -1605,10 +1606,12 @@ sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 o
 
 [`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request
 (`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
-(Actions › *Release checks* › *Run workflow*). A passing scheduled run uploads a
-`release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful scheduled run of this workflow
-in this repository using the same workflow revision. Manual runs and older markers cannot suppress the scheduler;
-a change to either the target or the workflow requires another real scheduled pass.
+(Actions › *Release checks* › *Run workflow*). GitHub runs the schedule on the default branch, `main`; that run only
+starts the daily run on `dev` (a *Run workflow* with `daily`, by its *Start on dev* job), so the daily run is `dev`'s,
+with `dev`'s copy of the workflow, and its failures show on `dev`, never on `main`. A passing daily run uploads a
+`release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful daily run on `dev` of this workflow
+in this repository using the same workflow revision. Other manual runs, pull request runs and older markers cannot
+suppress it; a change to either the target or the workflow requires another real daily pass.
 
 On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
 request in this repository merged with the same base, and every path changed since is one the suite never reads:
@@ -1625,16 +1628,13 @@ heading, `llms.txt`'s links) then costs no second suite. Any other path, the wor
 so does a moved base, an earlier run without a marker (one that skipped the suite itself), a fork's run, or a commit
 the checkout cannot find.
 
-The workflow resolves the expected target once. Its checkout independently trusts only `refs/heads/dev` for a
-schedule, or the immutable triggering event SHA for a manual or pull-request run; the resolver output cannot select
-another revision to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen
-expected SHA before setup or tests run. If `dev` advances between resolution and checkout, the run fails closed and
-must retry. This branch boundary matters even without an explicit cache-save action: scheduled jobs have the default
-branch's cache scope. The runner, structural-evidence checker and diagnostic tools come from a separate checkout at
+The workflow resolves the expected target once. Its checkout independently trusts only the immutable triggering
+event SHA (for the daily run, the `dev` commit it was started on); the resolver output cannot select another revision
+to execute. The checkout lives under `release-checks-target/`, and its HEAD must equal the frozen expected SHA before
+setup or tests run. The runner, structural-evidence checker and diagnostic tools come from a separate checkout at
 `github.workflow_sha`; the evidence checker is resolved beside the runner, independently of a missing or modified
 target helper. Event,
 workflow, resolved target and actual checkout revisions are recorded separately in the summary and JSON artifacts.
-This matters because a scheduled event uses `main`'s workflow while testing `dev`'s implementation.
 
 After preparing the demo, [`tools/ci/release-checks.mjs`](../tools/ci/release-checks.mjs) discovers the target's
 Playwright project contract before launching its assigned lane. Three jobs run concurrently on separate machines:
@@ -1668,11 +1668,10 @@ and seeds. A valid report with a global setup/run error and no reported failed t
 Playwright run failure; a parsed report alone does not establish that a browser test failed. A failed Playwright invocation is captured for the existing advisory Jev step even if no browser attempt
 was written; the command's original exit status remains the verdict.
 
-**Deployment of a scheduler repair:** GitHub selects scheduled workflow instructions from the default branch.
-Merging the fix into `dev` alone does not repair the running scheduler. Promote the workflow and its control tools
-to `main` through the normal release process, then verify a fresh scheduled run against a recorded `dev` SHA actually
-executes all required projects/specs and PHP properties. A manual feature/dev pass is useful evidence but cannot
-close that operational acceptance gap. This change does not merge or dispatch a workflow automatically. The
+**Deployment of a repair:** the daily run uses `dev`'s copy of the workflow, so a fix to it takes effect once merged
+into `dev`. Only the *Start on dev* job comes from `main`: a change to it reaches the schedule through the normal
+release. Verify a fresh daily run against a recorded `dev` SHA actually executes all required projects/specs and PHP
+properties. This change does not merge or dispatch a workflow automatically. The
 [issue 134 proof and coverage bundle](ci/issue-134/README.md) includes replay instructions, red/green receipts,
 coverage overlap, CI timing observations and the remaining acceptance matrix.
 

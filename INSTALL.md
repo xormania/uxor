@@ -35,8 +35,10 @@ The kit is tested with Flowbite 4. `importmap:update` ignores the version constr
 2. Install the `theme` recipe. It copies `assets/styles/uxor.css`: Flowbite's color roles (named colors with a light and a dark value, used as `bg-brand`, `text-heading`, `border-default`…), with this kit's contrast fixes. Then make `assets/styles/app.css` start with these imports, in this order (Flowbite's stylesheet after Tailwind, the theme last):
 
 ```
-php bin/console ux:install theme --kit=https://github.com/xormania/uxor
+php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
 ```
+
+`<version>` is a release (`X.Y.Z`): the latest one on the [Releases](https://github.com/xormania/uxor/releases) page, the same for every recipe of a project.
 
 ```css
 @import 'tailwindcss';
@@ -53,5 +55,5 @@ php bin/console ux:install theme --kit=https://github.com/xormania/uxor
 3. Install the recipes you need; [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Each `ux:install` prints a `composer require` command for the packages the recipe needs: run it.
 
 ```
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```

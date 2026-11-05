@@ -15,12 +15,13 @@ use RuntimeException;
  * It reads the canonical inputs from a working tree (by default the repository holding this file), never from Git:
  * the output depends on their bytes only, not on the commit that holds them, so it can be generated before the commit
  * that contains it. The index records the inputs' digest (`source.inputs_sha256`) and the ref its repository links
- * use (`source.ref`), never a commit of the repository holding the bundle.
+ * use (`source.ref`), never a commit of the repository holding the bundle. That ref is a release: by default the
+ * version of CHANGELOG.md's latest `## [X.Y.Z]` heading, the tag release.yml puts on the commit that adds it, so the
+ * bundle a release ships links that release (docs/PLAN-docs-automation.md), never a branch that moves away from it.
  */
 final class ReferenceGenerator
 {
     public const REPOSITORY = 'https://github.com/xormania/uxor';
-    public const DEFAULT_REF = 'main';
     public const SCHEMA_VERSION = 2;
 
     /** The documents copied as they are, besides each recipe's README.md. */
@@ -55,10 +56,25 @@ final class ReferenceGenerator
     }
 
     /** @return array<string, string> Paths relative to the generated bundle directory, sorted, with their bytes. */
-    public function build(string $source, string $ref = self::DEFAULT_REF): array
+    /**
+     * The release the references link by default: the version of the source's CHANGELOG.md latest `## [X.Y.Z]`
+     * heading. No heading is an error, never a branch.
+     */
+    public static function releaseRef(string $source): string
     {
+        $changelog = @file_get_contents($source.'/CHANGELOG.md');
+        if (false === $changelog || !preg_match('~^## \[(\d+\.\d+\.\d+)\]~m', $changelog, $match)) {
+            throw new RuntimeException('CHANGELOG.md has no `## [X.Y.Z]` heading: no release for the links (give one with --ref).');
+        }
+
+        return $match[1];
+    }
+
+    public function build(string $source, ?string $ref = null): array
+    {
+        $ref ??= self::releaseRef($source);
         if (!preg_match('~^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9._-]+)*$~D', $ref) || str_contains($ref, '..') || strlen($ref) > 100) {
-            throw new RuntimeException('Use a branch or tag name of this repository as --ref (default '.self::DEFAULT_REF.').');
+            throw new RuntimeException('Use a tag or branch name of this repository as --ref (default: the latest version in CHANGELOG.md).');
         }
         $root = realpath($source);
         if (false === $root || !is_dir($root)) {

@@ -109,8 +109,11 @@ CI runs them on every push, each job only when the change could affect what it c
 branch is compared with where it left `dev`, so each push checks the whole pull request. A push to `dev` is compared
 with the commit of `dev`'s last successful run, so every merge since is checked (one whose run was cancelled or failed
 too); with none, everything runs. *Tool tests* runs on every push, and checks what any path can break: the bundled
-references' links, the test inventory's names and the archive's payload. Once a day, on `main`, the jobs that install
-unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). The rulesets require the one
+references' links, the test inventory's names and the archive's payload. Once a day, on `dev`, the jobs that install
+unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). GitHub runs every schedule on the
+default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
+job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
+release. The rulesets require the one
 *CI result* check, which passes when every job passed or was skipped, and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
 queue; a work order's jobs need not be up to date with it, *Work orders* below). CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
@@ -155,7 +158,7 @@ change to both paths.
 | `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
-| `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
+| `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
@@ -273,7 +276,7 @@ fail the job, and the attempt's sanitized error and server log excerpts are sent
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
 install* jobs, *Contrast*, *Workflows*, *Changes*, *Package*, the monthly PHP job, both audits, *Mentions*, the
-release's install check, tag and release, and the gallery's build. The
+release's install check, tag and release, and the gallery's build (collected by `pages.yml`'s own *Jev diagnosis* job from the build's log, since the build job checks out a release and runs no local action). The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
 without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
 consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
@@ -454,10 +457,11 @@ it with `--check`, which fails when:
 - `FOR-AGENTS.md` or `docs/PROJECT-AGENTS-SNIPPET.md` names a recipe that does not exist (`ux:install <name>`, a
   `<name>/README.md` link).
 
-`llms.txt` links the raw files of the tree it describes, never `main`: the version of the newest `## [X.Y.Z]`
-heading in `CHANGELOG.md` (the tag `release.yml` puts on the commit that adds it), or `dev` while
-`## [Unreleased]` has entries. A release pull request therefore rewrites it to the new tag, and the first pull
-request that adds an unreleased entry after a release rewrites it back to `dev`: `--check` says when.
+`llms.txt` describes a published release, never a branch: the version of the newest `## [X.Y.Z]` heading in
+`CHANGELOG.md` (the tag `release.yml` puts on the commit that adds it). On the release pull request, before the tag
+exists, the script writes it from the working tree with its links at that version; once the tag exists, `llms.txt`
+is the copy the tag holds, so a recipe merged since never appears in it before its release. The script reads the
+tags (`git fetch --tags` in a shallow clone); `--check` says when the file differs.
 
 **What the docs teach.** Agents copy examples from the markdown, so `node tools/docs-lint.mjs` (also in *Contrast*)
 fails a code block, in any markdown file outside `demo/`, that shows `initFlowbite`, `import 'flowbite'` or a
@@ -489,7 +493,10 @@ demo does (`demo/src/Kit/KitReader.php`): a block opening at the start of a line
 one but that the demo skips (indented in a list, JSON that does not parse, `"preview"` not `true`) fails, and so does
 a recipe without a README. `tools/build-static.sh` (*Static site*, `pages.yml`) runs it again with `--site` after
 `app:export-static`: every recipe needs its `r/<recipe>/` page and a link from the index, every example its light and
-dark preview pages, and a saved page that no source names fails too.
+dark preview pages, and a saved page that no source names fails too. It then checks the discovery files: `sitemap.xml`
+lists every recipe page under the base path and neither of them names the export's own origin, and each Markdown file
+`llms.txt` links on the site is one the copy holds (`app:export-static --site-url`, by default the repository's GitHub
+Pages URL).
 
 **READMEs state the manifest.** `node tools/readme-versions.mjs` (in *Contrast*) reads each recipe's `README.md`.
 It must have the `::: installation` line, on a line of its own outside code blocks: the toolkit renders the install
@@ -562,6 +569,12 @@ Examples: `feat(stat-card): show the trend as text`, `fix(layouts): every layout
 a release is a pull request from `dev` to `main` (*Releases* below). Work made of several pull requests goes through
 a work order (below); a single change stays one branch and one pull request into `dev`.
 
+**Trying unreleased work in an app.** The consumer documentation (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`,
+`llms.txt`, the gallery) always names a release ([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)).
+Installing from a branch is for contributors: `--kit=https://github.com/xormania/uxor:dev` takes the work merged
+since the last release, and a full 40-character commit SHA takes one commit (a branch name holding `/`, such as
+`feat/x`, does not work: use its SHA). Without a version, `ux:install` takes the default branch, `main`.
+
 **Work orders:** one objective delivered in several reviewable parts, without each part merging into `dev` on its own.
 
 - **Branches:** the work order is `claude/wo-<name>`, made from `dev`; each part (a job) is
@@ -629,7 +642,7 @@ the version from the tag.
 
 A release is a pull request from `dev` to `main`, opened as a draft when the maintainer decides to release. Its own
 commit moves the entries under `## [Unreleased]` to the new `## [X.Y.Z] - YYYY-MM-DD` section and updates the compare
-links at the bottom. It also runs `node tools/llms-txt.mjs`, which points `llms.txt`'s links at the new tag (*Docs*). Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
+links at the bottom. It also runs `node tools/llms-txt.mjs`, which writes `llms.txt` for the new version with its links at the new tag (*Docs*), and `php packages/uxor/tools/generate-reference.php`, which points the package's bundled references at it: both take the version from the new `## [X.Y.Z]` heading, so the commit release.yml tags already holds them. Until a version is tagged, `llms.txt` and the references keep describing the last release. Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
 version, *Removed* or anything that breaks an installed recipe, or the Composer package's commands, Mate tools,
 `uxor://` resources or skills, a major version (a minor one while the version is `0.x`). CI runs on this pull request
 like on any other, and so do the release checks (`release-checks.yml`: timings, harsh
@@ -672,13 +685,24 @@ script changes. If GitHub refuses the workflow's tag push
 ("refusing to allow a GitHub App to create or update workflow … without `workflows` permission", as for `0.1.0`,
 whose commit's workflows differed from `main`'s), push the tag by hand
 (`git tag -a X.Y.Z <merge commit> -m "UXor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
-checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`);
-if that part fails, use *Re-run failed jobs* (a full re-run finds the release done and skips the gallery), or run
-`pages.yml` by hand on `main`. To preview the next release's gallery before it, run `pages.yml` by hand on `dev`: the
-live site shows `dev` (its install commands name the `dev` branch) until a release or a run on `main`
-deploys again; GitHub only deploys from a branch the `github-pages` environment allows. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
-not the release: both run `tools/build-static.sh <dir> --base-path=/<repository>` (`pages.yml` adds
-`--release-from-tags` and `--branch`: the install commands name the release, or else the branch), which installs the demo, saves the pages with
-`app:export-static` and checks them. Locally, delete `demo/public/assets/` after it, or the demo serves those copies.
+checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`,
+given the version it released). The gallery always shows the latest published release
+([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)): `pages.yml` reads GitHub's latest Release (never a
+draft or a prerelease) and the commit its tag points at from the API alone, and stops if release.yml's version is not
+that one; no input chooses what is checked out, since the build runs in the default branch's context (CodeQL's cache
+poisoning). It builds that commit, checks the pages install that version, writes `release.json` (the version and the
+commit) beside them, and before deploying checks the release is still the latest at that commit, so an older or
+re-run build never replaces a newer release's site. After deploying it checks the site where readers get it, at the
+URL Pages gives: `release.json` holds that version and commit; the index, `r/button/` and the guides name their
+canonical URL at that address; the sitemap, `llms.txt` and `r/button.md` answer. It asks again for about two minutes
+while Pages serves the new deployment, then fails the run, with the problem in its log. If the gallery fails after its
+Release exists, run `pages.yml` by hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a
+full re-run finds the release done and skips the gallery). No branch is ever published: work on `dev` is built and
+checked by CI's *Static site* job, on every push, so a page that
+does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`
+(`pages.yml` adds `--release-from-tags` and `--branch=main` on the tag's commit, so the install commands name that
+release), which installs the demo, saves the pages with `app:export-static` and checks them. Documentation
+corrections reach the gallery through an ordinary release; a documentation-only patch release is fine (the plan's
+decision 1). Locally, delete `demo/public/assets/` after it, or the demo serves those copies.
 In that copy, Live Components are switched off and the recipe pages say what needs the server
 (`ExportStaticCommand::SERVER_ONLY`): add a recipe there when its examples need Symfony behind them.
