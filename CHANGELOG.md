@@ -5,6 +5,13 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- The gallery's recipe pages show the recipe's whole README, rendered by the UX Toolkit: its usage notes, its examples
+  (each preview in both themes, with its code), its install steps (the command at the release the page shows, and the
+  manual steps) and its API tables, generated from the components' declared props and blocks. They linked to the
+  README before.
+
 ### Fixed
 
 - `editor`: the H2 and H3 toolbar buttons are named "H2, heading 2" and "H3, heading 3", so their names hold the text

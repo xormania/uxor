@@ -53,7 +53,7 @@ final class RecipeDocsTest extends KernelTestCase
         // each example is the gallery's preview page, in both themes
         $examples = self::kit()->getExamples($recipe);
         self::assertCount(\count($examples), $previews = array_filter($examples, fn (array $example): bool => true === ($example['options']['preview'] ?? null)));
-        self::assertSame(\count($previews), substr_count($html, 'data-testid="doc-preview"'));
+        self::assertSame(\count($previews), substr_count($html, 'data-testid="example"'));
         foreach ($previews as $example) {
             foreach (['light', 'dark'] as $theme) {
                 self::assertStringContainsString(\sprintf('src="/preview/badge/%s?theme=%s"', $example['id'], $theme), $html);
@@ -104,7 +104,7 @@ final class RecipeDocsTest extends KernelTestCase
         $html = $docs->html($recipe, '0.3.0')->html;
         $markdown = $docs->markdown($recipe, '0.3.0');
 
-        self::assertStringContainsString('<h3 id="content-what-you-can-override">What you can override</h3>', $html);
+        self::assertStringContainsString('<h3 id="what-you-can-override">What you can override</h3>', $html);
         self::assertStringContainsString('src="/preview/data-table/default?theme=light"', $html);
         // the README's own account of the server round trips, in both formats
         foreach (['## Usage', '### What you can override', '### URL and history'] as $heading) {
@@ -133,7 +133,7 @@ final class RecipeDocsTest extends KernelTestCase
             $markdown = $docs->markdown($recipe, '0.3.0');
 
             $previews = array_filter(self::kit()->getExamples($recipe), fn (array $example): bool => true === ($example['options']['preview'] ?? null));
-            self::assertSame(\count($previews), substr_count($html, 'data-testid="doc-preview"'), "$name: every example has its preview page");
+            self::assertSame(\count($previews), substr_count($html, 'data-testid="example"'), "$name: every example has its preview page");
             self::assertDoesNotMatchRegularExpression('/^:{2,3} /m', $html, "$name: no directive left in HTML");
             self::assertDoesNotMatchRegularExpression('/^:{2,3} /m', $markdown, "$name: no directive left in Markdown");
             self::assertDoesNotMatchRegularExpression('/^```\S+\h+\{/m', $markdown, "$name: no render metadata in Markdown");

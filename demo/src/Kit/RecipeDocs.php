@@ -44,7 +44,8 @@ final class RecipeDocs
     {
         // the renderer's own default, without the popover extension: the API tables print the descriptions
         // (templates/bundles/UXToolkitBundle/doc/_api_reference.md.twig)
-        $environment = new Environment(['heading_permalink' => ['insert' => 'none', 'apply_id_to_heading' => true]]);
+        // the headings' ids are their slugs, as the gallery's example anchors were (`/r/badge#large-badges`)
+        $environment = new Environment(['heading_permalink' => ['insert' => 'none', 'apply_id_to_heading' => true, 'id_prefix' => '', 'fragment_prefix' => '']]);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());
         $environment->addExtension(new HeadingPermalinkExtension());
@@ -56,6 +57,17 @@ final class RecipeDocs
         $previews = new ExamplePreviewUrls($this->kit->getExamples($recipe), $recipe->name, $this->urls);
 
         return $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
+    }
+
+    /**
+     * The documentation on the recipe page, which prints the recipe's name and description itself: the HTML without
+     * the README's title and the paragraph under it (the description, KitReader's first paragraph).
+     */
+    public function page(Recipe $recipe, ?string $ref = null): string
+    {
+        $html = $this->html($recipe, $ref)->html;
+
+        return preg_replace('#^\s*<h1\b[^>]*>.*?</h1>\s*(?:<p>.*?</p>\s*)?#s', '', $html, 1) ?? $html;
     }
 
     /**

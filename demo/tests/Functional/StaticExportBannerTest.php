@@ -44,8 +44,9 @@ final class StaticExportBannerTest extends WebTestCase
     public static function installCommands(): iterable
     {
         foreach (['/', '/r/button'] as $path) {
-            yield $path.' branch' => [$path, ['branch' => 'dev'], '--kit=https://github.com/xormania/uxor:dev<'];
-            yield $path.' release' => [$path, ['release' => '0.2.0', 'branch' => 'dev'], '--kit=https://github.com/xormania/uxor:0.2.0<'];
+            // the end of the command: a code block's text, or its line, ends there
+            yield $path.' branch' => [$path, ['branch' => 'dev'], '#--kit=https://github\.com/xormania/uxor:dev\s*<#'];
+            yield $path.' release' => [$path, ['release' => '0.2.0', 'branch' => 'dev'], '#--kit=https://github\.com/xormania/uxor:0\.2\.0\s*<#'];
         }
     }
 
@@ -55,7 +56,7 @@ final class StaticExportBannerTest extends WebTestCase
     #[DataProvider('installCommands')]
     public function testTheInstallCommandNamesTheReleaseOrElseTheBranch(string $path, array $context, string $expected): void
     {
-        self::assertStringContainsString($expected, self::banner($context, $path));
+        self::assertMatchesRegularExpression($expected, self::banner($context, $path));
     }
 
     /**
@@ -108,6 +109,6 @@ final class StaticExportBannerTest extends WebTestCase
         $client = static::createClient();
         $client->request('GET', '/r/button');
 
-        self::assertStringContainsString('--kit=https://github.com/xormania/uxor<', (string) $client->getResponse()->getContent());
+        self::assertMatchesRegularExpression('#--kit=https://github\.com/xormania/uxor\s*<#', (string) $client->getResponse()->getContent());
     }
 }

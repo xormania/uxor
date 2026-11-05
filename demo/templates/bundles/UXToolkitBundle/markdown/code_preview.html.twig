@@ -1,10 +1,12 @@
-{#- An example's preview: the gallery's preview page (App\Kit\ExamplePreviewUrls) in both themes, as the recipe page shows it -#}
+{#- An example: the gallery's preview page (App\Kit\ExamplePreviewUrls, whose last segment is the example's id) in both
+    themes; a block's preview is taller, inside a `group/doc` element marked `data-page` (the recipe page) -#}
 {%- if previewUrl %}
-    <div class="grid overflow-hidden rounded-base border border-default md:grid-cols-2" data-testid="doc-preview">
+    {%- set example = previewUrl|split('/')|last %}
+    <div id="example-{{ example }}" class="grid overflow-hidden rounded-base border border-default md:grid-cols-2" data-testid="example" data-example="{{ example }}">
         {%- for theme in ['light', 'dark'] %}
             <figure class="{{ loop.first ? 'md:border-r' : 'border-t md:border-t-0' }} border-default">
-                <iframe src="{{ previewUrl }}?theme={{ theme }}" title="Preview ({{ theme }})" loading="lazy"
-                        data-controller="preview-frame" class="block h-72 w-full"></iframe>
+                <iframe src="{{ previewUrl }}?theme={{ theme }}" title="{{ example }} ({{ theme }})" loading="lazy"
+                        data-controller="preview-frame" class="block h-72 w-full group-data-page/doc:h-[32rem]"></iframe>
                 <figcaption class="border-t border-default px-4 py-1.5 text-xs">{{ theme|capitalize }}</figcaption>
             </figure>
         {%- endfor %}
