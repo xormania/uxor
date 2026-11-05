@@ -1,0 +1,11 @@
+{#- Toolkit's `::: tabs` (the install steps, an example's Preview and Code) as the kit's Tabs; id_prefix from App\Kit\DocTabsRenderer -#}
+<twig:Tabs defaultValue="{{ active_tab_id }}" idPrefix="{{ id_prefix }}" class="mt-4">
+    <twig:Tabs:List variant="line">
+        {%- for tab in tabs %}
+            <twig:Tabs:Trigger value="{{ tab.id }}">{{ tab.title }}</twig:Tabs:Trigger>
+        {%- endfor %}
+    </twig:Tabs:List>
+    {%- for tab in tabs %}
+        <twig:Tabs:Content value="{{ tab.id }}" class="min-w-0">{{ tab.content|raw }}</twig:Tabs:Content>
+    {%- endfor %}
+</twig:Tabs>
