@@ -16,8 +16,9 @@
     & a { @apply underline hover:text-heading; }
     & :not(pre) > code { @apply rounded-sm bg-neutral-secondary-medium px-1 py-0.5 text-sm break-words text-heading; }
     & pre { @apply mt-4 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading; }
-    /* a table scrolls in its own box, never the page (the narrowest phone) */
-    & table { @apply mt-4 block max-w-full overflow-x-auto text-sm; }
+    /* a table scrolls in its own box (App\Kit\RecipeDocs wraps it, focusable), never the page (the narrowest phone) */
+    & .recipe-doc-table { @apply mt-4 max-w-full overflow-x-auto; }
+    & table { @apply text-sm; }
     & th { @apply border-b border-default px-3 py-2 text-left font-semibold whitespace-nowrap text-heading; }
     & td { @apply border-b border-default px-3 py-2 align-top; }
     & td:first-child code, & td:nth-child(3) code { @apply whitespace-nowrap; }

@@ -56,7 +56,20 @@ final class RecipeDocs
 
         $previews = new ExamplePreviewUrls($this->kit->getExamples($recipe), $recipe->name, $this->urls);
 
-        return $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
+        $doc = $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
+
+        return new RenderedRecipeDoc(self::focusableScrolling($doc->html), $doc->tableOfContents);
+    }
+
+    /**
+     * A code block and a table scroll sideways when they are wider than the page: each can take the focus, so a
+     * keyboard reaches what is past its edge (axe: scrollable-region-focusable). CommonMark writes them bare.
+     */
+    private static function focusableScrolling(string $html): string
+    {
+        $html = str_replace('<pre>', '<pre tabindex="0">', $html);
+
+        return str_replace(['<table>', '</table>'], ['<div class="recipe-doc-table" tabindex="0"><table>', '</table></div>'], $html);
     }
 
     /**

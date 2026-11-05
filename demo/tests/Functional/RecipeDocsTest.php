@@ -135,6 +135,9 @@ final class RecipeDocsTest extends KernelTestCase
             $previews = array_filter(self::kit()->getExamples($recipe), fn (array $example): bool => true === ($example['options']['preview'] ?? null));
             self::assertSame(\count($previews), substr_count($html, 'data-testid="example"'), "$name: every example has its preview page");
             self::assertDoesNotMatchRegularExpression('/^:{2,3} /m', $html, "$name: no directive left in HTML");
+            // what can scroll sideways can take the focus (axe: scrollable-region-focusable)
+            self::assertDoesNotMatchRegularExpression('/<pre(?![^>]*\btabindex="0")/', $html, "$name: every code block focusable");
+            self::assertSame(substr_count($html, '<table>'), substr_count($html, '<div class="recipe-doc-table" tabindex="0"><table>'), "$name: every table in a focusable box");
             self::assertDoesNotMatchRegularExpression('/^:{2,3} /m', $markdown, "$name: no directive left in Markdown");
             self::assertDoesNotMatchRegularExpression('/^```\S+\h+\{/m', $markdown, "$name: no render metadata in Markdown");
             self::assertStringNotContainsString('--kit '.basename(\dirname(__DIR__, 3)), $markdown, "$name: never Toolkit's own install line");
