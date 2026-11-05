@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Kit\GuideDocs;
 use App\Kit\KitReader;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -18,7 +19,8 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page and
- * its portable Markdown (r/<recipe>.md), every README example in both themes, and the /demo application's pages. Each page goes through the kernel as a GET
+ * its portable Markdown (r/<recipe>.md), every README example in both themes, the consumer guides (install, guide)
+ * and theirs, and the /demo application's pages. Each page goes through the kernel as a GET
  * request under the site's base path, so Symfony prints the links and asset URLs the site needs.
  *
  * Run `tailwind:build` and `asset-map:compile` first: the compiled assets are copied next to the pages. The /lab and
@@ -116,6 +118,10 @@ final class ExportStaticCommand
                     yield '/'.$preview.'?theme='.$theme => $preview.'/'.$theme.'/index.html';
                 }
             }
+        }
+        foreach (array_keys(GuideDocs::GUIDES) as $guide) {
+            yield '/'.$guide => $guide.'/index.html';
+            yield '/'.$guide.'.md' => $guide.'.md';
         }
         foreach (['', '/login', '/signup', '/forgot-password', '/settings/profile', '/settings/notifications', '/settings/billing', '/blank'] as $page) {
             yield '/demo'.$page => ltrim('demo'.$page.'/index.html', '/');

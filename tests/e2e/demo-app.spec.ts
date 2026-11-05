@@ -269,7 +269,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
-    for (const path of ['/', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
+    for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
         test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
             await page.goto(path);

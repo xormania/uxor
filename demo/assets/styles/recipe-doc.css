@@ -4,6 +4,8 @@
  * tabs, alerts and previews inside are the kit's components and the gallery's preview markup, styled already.
  */
 .recipe-doc {
+    /* a guide's own title (a recipe page prints the recipe's name itself) */
+    & > h1 { @apply text-3xl font-bold tracking-tight break-words text-heading; }
     & > h2 { @apply mt-12 text-2xl font-semibold text-heading; }
     & > h2:first-child { @apply mt-0; }
     & > h3 { @apply mt-8 text-lg font-semibold break-words text-heading; }

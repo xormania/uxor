@@ -70,6 +70,8 @@
                 <p>MIT licensed.</p>
                 {#- the README and the changelog of the release a static copy shows; the security policy is the current one -#}
                 {%- set doc_ref = static_export.release ?? 'main' %}
+                <a href="{{ path('app_guide', {name: 'install'}) }}" class="underline hover:text-heading">Getting started</a>
+                <a href="{{ path('app_guide', {name: 'guide'}) }}" class="underline hover:text-heading">Guide</a>
                 <a href="{{ repository }}/blob/{{ doc_ref }}/README.md" class="underline hover:text-heading">README</a>
                 <a href="{{ repository }}/blob/{{ doc_ref }}/CHANGELOG.md" class="underline hover:text-heading">Changelog</a>
                 <a href="{{ repository }}/releases" class="underline hover:text-heading">Releases</a>

@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Kit\GuideDocs;
 use App\Kit\KitReader;
 use App\Kit\RecipeDocs;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -20,6 +21,7 @@ final class ShowcaseController extends AbstractController
     public function __construct(
         private readonly KitReader $kit,
         private readonly RecipeDocs $docs,
+        private readonly GuideDocs $guides,
     ) {
     }
 
@@ -78,6 +80,28 @@ final class ShowcaseController extends AbstractController
         }
 
         return new Response($this->docs->markdown($found, self::ref($request) ?? 'main'), headers: ['Content-Type' => 'text/markdown; charset=UTF-8']);
+    }
+
+    /**
+     * A consumer guide, from the repository (GuideDocs): getting started (INSTALL.md) or the guide (docs/GUIDE.md).
+     */
+    #[Route('/{name}', name: 'app_guide', requirements: ['name' => 'install|guide'], methods: ['GET'])]
+    public function guide(string $name, Request $request): Response
+    {
+        return $this->render('showcase/guide.html.twig', [
+            'title' => GuideDocs::GUIDES[$name]['title'],
+            'name' => $name,
+            'doc' => $this->guides->html($name, self::ref($request)),
+        ]);
+    }
+
+    /**
+     * The same guide as portable Markdown.
+     */
+    #[Route('/{name}.md', name: 'app_guide_markdown', requirements: ['name' => 'install|guide'], methods: ['GET'])]
+    public function guideMarkdown(string $name, Request $request): Response
+    {
+        return new Response($this->guides->markdown($name, self::ref($request) ?? 'main'), headers: ['Content-Type' => 'text/markdown; charset=UTF-8']);
     }
 
     /**

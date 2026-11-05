@@ -11,6 +11,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   `https://xormania.github.io/uxor/r/<recipe>.md`, linked from its gallery page. It has the README's prose, the
   examples as code, the install step at the release the gallery shows and the API tables; its links to other recipes
   point to their Markdown beside it.
+- The gallery publishes the getting-started guide (`INSTALL.md`) and the guide (`docs/GUIDE.md`) as pages, `/install`
+  and `/guide`, linked from every page's footer, and as Markdown (`/install.md`, `/guide.md`). On the gallery of a
+  release, their install commands name it; their links reach the recipe pages, each other, or the file on GitHub at
+  the release.
 
 ### Changed
 
