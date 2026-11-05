@@ -2,6 +2,8 @@
 
 {% block title %}{{ recipe.manifest.name }}: {{ kit.manifest.name }}{% endblock %}
 
+{% block description %}{{ (recipe.description ?: recipe.manifest.name)|plain_markdown|raw }}{% endblock %}
+
 {% block body %}
     {%- set static_export = app.request.attributes.get('_static_export') -%}
     {%- set source = kit.manifest.homepage ~ '/tree/' ~ (static_export.commit ?? 'main') ~ '/' ~ recipe.name -%}

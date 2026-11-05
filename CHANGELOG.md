@@ -15,6 +15,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   and `/guide`, linked from every page's footer, and as Markdown (`/install.md`, `/guide.md`). On the gallery of a
   release, their install commands name it; their links reach the recipe pages, each other, or the file on GitHub at
   the release.
+- The gallery tells search engines and agents what it holds: each public page (the index, the guides, every recipe
+  page) names its canonical URL on `https://xormania.github.io/uxor/` and has its own description and sharing
+  metadata; the standalone previews are `noindex`, their recipe page being the one to find; `sitemap.xml` lists the
+  public pages; and `llms.txt` is published on the site, its links to the recipes and guides pointing at the site's
+  Markdown.
 
 ### Changed
 

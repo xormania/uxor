@@ -36,7 +36,7 @@ final class RecipePageTest extends WebTestCase
         $html = self::page('badge', ['release' => '0.4.0']);
 
         self::assertSame(1, substr_count($html, '<h1'), "one title: the page's, not the README's too");
-        self::assertSame(1, substr_count($html, 'The badge component can be used to complement'), 'the description once, under the title');
+        self::assertSame(1, substr_count((string) strstr($html, '<body'), 'The badge component can be used to complement'), 'the description once on the page, under the title (and in its <meta>)');
         foreach (['installation' => 'Installation', 'usage' => 'Usage', 'examples' => 'Examples', 'api-reference' => 'API Reference'] as $id => $heading) {
             self::assertStringContainsString(\sprintf('<h2 id="%s">%s</h2>', $id, $heading), $html);
         }
