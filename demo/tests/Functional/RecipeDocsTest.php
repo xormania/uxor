@@ -146,4 +146,30 @@ final class RecipeDocsTest extends KernelTestCase
             }
         }
     }
+    public function testAReadmesLinksToOtherReadmesLandOnTheirRecipePagesAtAHeadingThatExists(): void
+    {
+        $html = [];
+        foreach (array_keys(self::kit()->getRecipes()) as $name) {
+            self::ensureKernelShutdown(); // as in the test above: a kernel per recipe
+            $html[$name] = self::docs()->html(self::recipe($name), '0.3.0')->html;
+        }
+
+        $links = 0;
+        foreach ($html as $name => $page) {
+            preg_match_all('/<a href="([^"]*)"/', $page, $hrefs);
+            foreach ($hrefs[1] as $href) {
+                self::assertMatchesRegularExpression('#^(?:[a-z][a-z0-9+.-]*:|/|\#)#i', $href, "$name: no link left relative to the repository");
+                if (preg_match('#^/r/([a-z0-9-]+)(?:\#(.+))?$#', $href, $target)) {
+                    ++$links;
+                    self::assertArrayHasKey($target[1], $html, "$name links $href");
+                    if (isset($target[2])) {
+                        self::assertStringContainsString(\sprintf('id="%s"', $target[2]), $html[$target[1]], "$name links $href: the heading exists");
+                    }
+                }
+            }
+        }
+        self::assertGreaterThanOrEqual(10, $links, 'the READMEs link each other (button to spinner, navbar to nav-menu, ...)');
+        self::assertStringContainsString('<a href="/r/spinner">spinner component</a>', $html['button']);
+        self::assertStringContainsString('<a href="/r/layouts#back-and-forms">', $html['calendar']);
+    }
 }

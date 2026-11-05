@@ -58,7 +58,37 @@ final class RecipeDocs
 
         $doc = $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
 
-        return new RenderedRecipeDoc(self::focusableScrolling($doc->html), $doc->tableOfContents);
+        return new RenderedRecipeDoc($this->resolveLinks(self::focusableScrolling($doc->html), $recipe, $ref), $doc->tableOfContents);
+    }
+
+    /**
+     * A README links other files by their path in the repository (`../spinner/README.md#usage`), which the gallery
+     * does not serve: a recipe's README becomes its gallery page, the fragment kept (the headings' ids are their slugs,
+     * as GitHub's); any other file, its page on GitHub at the ref the page installs. Absolute paths, fragments and URLs
+     * with a scheme stay as they are.
+     */
+    private function resolveLinks(string $html, Recipe $recipe, ?string $ref): string
+    {
+        return preg_replace_callback('#<a href="(?![a-z][a-z0-9+.-]*:|/|\#)([^"\#]*)(\#[^"]*)?"#i', function (array $match) use ($recipe, $ref): string {
+            $parts = [];
+            foreach (explode('/', $recipe->name.'/'.html_entity_decode($match[1])) as $part) {
+                if ('..' === $part) {
+                    array_pop($parts);
+                } elseif ('' !== $part && '.' !== $part) {
+                    $parts[] = $part;
+                }
+            }
+            $path = implode('/', $parts);
+            $fragment = $match[2] ?? '';
+
+            if (preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1])) {
+                $url = $this->urls->generate('app_recipe', ['recipe' => $readme[1]]);
+            } else {
+                $url = \sprintf('%s/blob/%s/%s', $this->kit->getManifest()->homepage, $ref ?? 'main', $path);
+            }
+
+            return \sprintf('<a href="%s%s"', htmlspecialchars($url, \ENT_QUOTES), $fragment);
+        }, $html) ?? $html;
     }
 
     /**
