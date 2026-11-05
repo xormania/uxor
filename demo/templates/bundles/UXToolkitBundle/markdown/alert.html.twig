@@ -1,0 +1,2 @@
+{#- A `> [!NOTE]`-style alert as the kit's Alert -#}
+<twig:Alert variant="{{ {danger: 'danger', caution: 'danger', warning: 'warning', tip: 'success'}[variant] ?? 'brand' }}" class="mt-4">{{ content|raw }}</twig:Alert>
