@@ -3,8 +3,8 @@
 You are a coding agent, and your human just gave you this repository's URL. This page tells you what UXor
 gives you, how to set a Symfony project up for it, and how to build pages with it while writing as little code as
 possible. The same text, as plain markdown:
-<https://raw.githubusercontent.com/xormania/uxor/main/FOR-AGENTS.md>. Every page of the kit, with one line
-each: [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt).
+<https://raw.githubusercontent.com/xormania/uxor/0.3.0/FOR-AGENTS.md>. Every page of the kit, with one line
+each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.0/llms.txt).
 
 ## What you get
 
@@ -34,7 +34,7 @@ composer require symfony/asset-mapper symfony/stimulus-bundle
 composer require symfonycasts/tailwind-bundle
 php bin/console tailwind:init          # keep Tailwind's major version 4
 php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
-php bin/console ux:install theme --kit=https://github.com/xormania/uxor
+php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
 ```
 
 Then make `assets/styles/app.css` start with these imports, in this order:
@@ -56,8 +56,11 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
    `composer require` command: run it.
 
    ```bash
-   php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor
+   php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
    ```
+
+   `<version>` is a release (`X.Y.Z`): the one the project's recipes came from, else the latest on the
+   [Releases](https://github.com/xormania/uxor/releases) page. Never leave it out, and never install a branch.
 
 3. Read the recipe's README before using it: `<recipe>/README.md` in this repository.
 4. Pages extend `layouts/app.html.twig` (`ux:install layouts`), or `auth`, `settings`, `error` or `blank`. A block
@@ -69,7 +72,7 @@ The same repository is the Composer package `xormania/uxor`, a development depen
 (`setup`, `build`, `verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
 `vendor/bin/uxor` to search the recipes, read their READMEs from the package, and check the project's setup.
 It installs no recipe: keep using `ux:install`. Install it as
-[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/main/packages/uxor/README.md) says, with your human's agreement, since it changes the
+[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.0/packages/uxor/README.md) says, with your human's agreement, since it changes the
 project's `composer.json`.
 
 ## Which recipe
@@ -240,14 +243,14 @@ Recipes are copies the project owns. Commit first, then reinstall from a newer v
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
-Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/main/CHANGELOG.md)). Without a version, `ux:install` takes `main`, the last
-release; `:dev` takes the work merged since.
+Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.0/CHANGELOG.md)). Always name one: without a version, `ux:install`
+takes the repository's default branch, which can hold work that is not released yet.
 
 ## Quick reference
 
 | You need | Read |
 |---|---|
-| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt) |
+| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.0/llms.txt) |
 | The rules to paste into the project | [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) |
 | Every recipe, one line each | [`docs/RECIPES.md`](docs/RECIPES.md) |
 | A recipe's props and examples | `<recipe>/README.md` |
@@ -255,4 +258,4 @@ release; `:dev` takes the work merged since.
 | Turbo, Live Components, security | [`docs/GUIDE.md`](docs/GUIDE.md#turbo-and-live-components) |
 | Every example rendered, light and dark | <https://xormania.github.io/uxor/> |
 | Testing an app built with the kit (Turbo, Live, CSP, request limits) | [`docs/TESTING.md`](docs/TESTING.md) |
-| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/main/AGENTS.md) |
+| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.0/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.0/AGENTS.md) |

@@ -1,7 +1,8 @@
 # Recipes
 
 Every recipe of the kit, by group: install one with
-`php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor`, after the setup in the
+`php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>` (a release: the latest on the
+[Releases](https://github.com/xormania/uxor/releases) page), after the setup in the
 [README](../README.md#install).
 
 Recipes marked ✦ come with a Stimulus controller, copied to `assets/controllers/` and loaded by StimulusBundle.

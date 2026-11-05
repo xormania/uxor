@@ -12,8 +12,8 @@ Its recipes are copied into `templates/components/`, `templates/layouts/`, `temp
 
 - **Use the kit's components, not raw Flowbite HTML.** `<twig:Button>`, `<twig:Modal>`, `<twig:Dropdown>`,
   `<twig:Toast:Stream>`, `<twig:FormField>`… A missing one is installed with
-  `php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor` (the kit's
-  `docs/RECIPES.md` lists them), not written by hand.
+  `php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>`, `<version>` the release the
+  project's recipes came from (the kit's `docs/RECIPES.md` lists them), not written by hand.
 - **No Flowbite JavaScript.** Never `import 'flowbite'` or call `initFlowbite()`: behavior lives in the
   recipes' Stimulus controllers, which survive Turbo visits and Live Component re-renders.
 - **Colors through the theme's roles only**: `bg-brand`, `text-heading`, `text-body`, `border-default`,

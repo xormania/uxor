@@ -2,10 +2,11 @@
 // Writes the agent-facing lists of recipes from docs/RECIPES.md's tables (the row a person reads is the line an agent
 // reads), checked against the directories holding a manifest.json, so a recipe cannot be left out or listed twice:
 //
-// - llms.txt (https://llmstxt.org/): the kit's pages for agents, one line each, linked as raw markdown. The links
-//   point at the tree this file describes: the version of CHANGELOG.md's latest `## [X.Y.Z]` heading, which is the
-//   tag release.yml puts on the commit that adds the heading, or `dev` while `## [Unreleased]` has entries. Never
-//   `main`, which moves away from an installed tag.
+// - llms.txt (https://llmstxt.org/): the kit's pages for agents, one line each, linked as raw markdown. It describes a
+//   published release, never a branch (docs/PLAN-docs-automation.md): the version of CHANGELOG.md's latest
+//   `## [X.Y.Z]` heading, the tag release.yml puts on the commit that adds the heading. On that commit, before the tag
+//   exists, it is written from the working tree with its links at the version; once the tag exists, it is the tag's own
+//   llms.txt, so work merged since (a recipe not released yet) never appears in it. The tags must be fetched.
 // - FOR-AGENTS.md, *Which recipe*: the table between the `recipes:start` and `recipes:end` comments.
 //
 // It also checks that FOR-AGENTS.md and docs/PROJECT-AGENTS-SNIPPET.md name only recipes that exist
@@ -15,6 +16,7 @@
 //
 //   node tools/llms-txt.mjs           # writes llms.txt and the FOR-AGENTS.md table
 //   node tools/llms-txt.mjs --check   # fails when either is not what this script writes, or a check fails (CI)
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -26,16 +28,17 @@ const read = (path) => readFileSync(join(root, path), 'utf8');
 const plain = (text) => text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/\s*✦\s*/g, ' ').trim();
 const errors = [];
 
-// The ref the links name: CHANGELOG.md's first section is `## [Unreleased]` (with or without entries), then the
-// versions, newest first
+// The release the links name: CHANGELOG.md's latest `## [X.Y.Z]` heading (its versions come newest first, after
+// `## [Unreleased]`), never a branch
 const changelog = read('CHANGELOG.md');
-const unreleased = changelog.match(/^## \[Unreleased\][^\n]*\n([\s\S]*?)(?=^## \[)/m);
-const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
-const ref = unreleased && /^\s*- /m.test(unreleased[1]) ? 'dev' : version;
+const ref = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1];
 if (!ref) {
-    console.error('CHANGELOG.md has no unreleased entry and no `## [X.Y.Z]` heading: no ref for the links.');
+    console.error('CHANGELOG.md has no `## [X.Y.Z]` heading: no release for the links.');
     process.exit(1);
 }
+// once the release is tagged, its llms.txt is the one the tag holds
+const tagged = spawnSync('git', ['-C', root, 'show', `refs/tags/${ref}:llms.txt`], { encoding: 'utf8' });
+const released = tagged.status === 0 ? tagged.stdout : null;
 const manifest = JSON.parse(read('manifest.json'));
 // the kit's name and repository: manifest.json's name and homepage (tools/kit-identity.mjs)
 const kit = kitIdentity(manifest);
@@ -81,11 +84,9 @@ const lines = [
     '',
     `> ${manifest.description}`,
     '',
-    `A Symfony UX Toolkit kit: install a recipe with \`php bin/console ux:install <recipe> --kit=${kit.homepage}\`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.`,
+    `A Symfony UX Toolkit kit: install a recipe with \`php bin/console ux:install <recipe> --kit=${kit.homepage}:${ref}\`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.`,
     '',
-    ref === 'dev'
-        ? `The links below point at \`dev\`, the work merged since the last release: install with \`--kit=${kit.homepage}:dev\` to get what they describe.`
-        : `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=${kit.homepage}:${ref}\`.`,
+    `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=${kit.homepage}:${ref}\`.`,
     '',
     '## Start here',
     '',
@@ -113,7 +114,7 @@ lines.push(
     `- [Contributing](${raw}/CONTRIBUTING.md): changing the kit itself: layout, conventions, checks`,
     '',
 );
-const llms = lines.join('\n');
+const llms = released ?? lines.join('\n');
 
 // --- FOR-AGENTS.md, *Which recipe*: one table per group, as docs/RECIPES.md has them (without the ✦)
 const start = '<!-- recipes:start: written by tools/llms-txt.mjs from docs/RECIPES.md\'s tables; edit those, then run it -->';
@@ -212,19 +213,19 @@ if (process.argv.includes('--check')) {
     for (const [path, output] of outputs) {
         const current = existsSync(join(root, path)) ? read(path) : '';
         if (current !== output) {
-            errors.push(`${path} is stale: run \`node tools/llms-txt.mjs\` and commit the result.`);
+            errors.push(`${path} is stale: run \`node tools/llms-txt.mjs\` (with the release tags fetched: git fetch --tags) and commit the result.`);
         }
     }
     if (errors.length) {
         errors.forEach((error) => console.error(error));
         process.exit(1);
     }
-    console.log(`llms.txt and FOR-AGENTS.md are up to date (${listed.length} recipes, links at ${ref}); ${plans.length} plans and the roadmap checked.`);
+    console.log(`llms.txt and FOR-AGENTS.md are up to date (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}); ${plans.length} plans and the roadmap checked.`);
 } else {
     for (const [path, output] of outputs) {
         writeFileSync(join(root, path), output);
     }
     errors.forEach((error) => console.error(error));
-    console.log(`Wrote llms.txt and FOR-AGENTS.md (${listed.length} recipes, links at ${ref}).`);
+    console.log(`Wrote llms.txt and FOR-AGENTS.md (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}).`);
     process.exit(errors.length ? 1 : 0);
 }
