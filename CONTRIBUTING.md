@@ -696,9 +696,9 @@ re-run build never replaces a newer release's site. After deploying it checks th
 URL Pages gives: `release.json` holds that version and commit; the index, `r/button/` and the guides name their
 canonical URL at that address; the sitemap, `llms.txt` and `r/button.md` answer. It asks again for about two minutes
 while Pages serves the new deployment, then fails the run, with the problem in its log. If the gallery fails after its
-Release exists, run `pages.yml` by hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a full re-run finds the release done
-and skips the gallery). No
-branch is ever published: work on `dev` is built and checked by CI's *Static site* job, on every push, so a page that
+Release exists, run `pages.yml` by hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a
+full re-run finds the release done and skips the gallery). No branch is ever published: work on `dev` is built and
+checked by CI's *Static site* job, on every push, so a page that
 does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`
 (`pages.yml` adds `--release-from-tags` and `--branch=main` on the tag's commit, so the install commands name that
 release), which installs the demo, saves the pages with `app:export-static` and checks them. Documentation
