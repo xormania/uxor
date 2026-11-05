@@ -44,7 +44,8 @@ final class RecipeDocs
     {
         // the renderer's own default, without the popover extension: the API tables print the descriptions
         // (templates/bundles/UXToolkitBundle/doc/_api_reference.md.twig)
-        $environment = new Environment(['heading_permalink' => ['insert' => 'none', 'apply_id_to_heading' => true]]);
+        // the headings' ids are their slugs, as the gallery's example anchors were (`/r/badge#large-badges`)
+        $environment = new Environment(['heading_permalink' => ['insert' => 'none', 'apply_id_to_heading' => true, 'id_prefix' => '', 'fragment_prefix' => '']]);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());
         $environment->addExtension(new HeadingPermalinkExtension());
@@ -55,7 +56,61 @@ final class RecipeDocs
 
         $previews = new ExamplePreviewUrls($this->kit->getExamples($recipe), $recipe->name, $this->urls);
 
-        return $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
+        $doc = $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
+
+        return new RenderedRecipeDoc($this->resolveLinks(self::focusableScrolling($doc->html), $recipe, $ref), $doc->tableOfContents);
+    }
+
+    /**
+     * A README links other files by their path in the repository (`../spinner/README.md#usage`), which the gallery
+     * does not serve: a recipe's README becomes its gallery page, the fragment kept (the headings' ids are their slugs,
+     * as GitHub's); any other file, its page on GitHub at the ref the page installs. Absolute paths, fragments and URLs
+     * with a scheme stay as they are.
+     */
+    private function resolveLinks(string $html, Recipe $recipe, ?string $ref): string
+    {
+        return preg_replace_callback('#<a href="(?![a-z][a-z0-9+.-]*:|/|\#)([^"\#]*)(\#[^"]*)?"#i', function (array $match) use ($recipe, $ref): string {
+            $parts = [];
+            foreach (explode('/', $recipe->name.'/'.html_entity_decode($match[1])) as $part) {
+                if ('..' === $part) {
+                    array_pop($parts);
+                } elseif ('' !== $part && '.' !== $part) {
+                    $parts[] = $part;
+                }
+            }
+            $path = implode('/', $parts);
+            $fragment = $match[2] ?? '';
+
+            if (preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1])) {
+                $url = $this->urls->generate('app_recipe', ['recipe' => $readme[1]]);
+            } else {
+                $url = \sprintf('%s/blob/%s/%s', $this->kit->getManifest()->homepage, $ref ?? 'main', $path);
+            }
+
+            return \sprintf('<a href="%s%s"', htmlspecialchars($url, \ENT_QUOTES), $fragment);
+        }, $html) ?? $html;
+    }
+
+    /**
+     * A code block and a table scroll sideways when they are wider than the page: each can take the focus, so a
+     * keyboard reaches what is past its edge (axe: scrollable-region-focusable). CommonMark writes them bare.
+     */
+    private static function focusableScrolling(string $html): string
+    {
+        $html = str_replace('<pre>', '<pre tabindex="0">', $html);
+
+        return str_replace(['<table>', '</table>'], ['<div class="recipe-doc-table" tabindex="0"><table>', '</table></div>'], $html);
+    }
+
+    /**
+     * The documentation on the recipe page, which prints the recipe's name and description itself: the HTML without
+     * the README's title and the paragraph under it (the description, KitReader's first paragraph).
+     */
+    public function page(Recipe $recipe, ?string $ref = null): string
+    {
+        $html = $this->html($recipe, $ref)->html;
+
+        return preg_replace('#^\s*<h1\b[^>]*>.*?</h1>\s*(?:<p>.*?</p>\s*)?#s', '', $html, 1) ?? $html;
     }
 
     /**

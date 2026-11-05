@@ -3,7 +3,9 @@
 namespace App\Controller;
 
 use App\Kit\KitReader;
+use App\Kit\RecipeDocs;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\UX\Toolkit\Dependency\ImportmapPackageDependency;
@@ -17,6 +19,7 @@ final class ShowcaseController extends AbstractController
 {
     public function __construct(
         private readonly KitReader $kit,
+        private readonly RecipeDocs $docs,
     ) {
     }
 
@@ -34,7 +37,7 @@ final class ShowcaseController extends AbstractController
     }
 
     #[Route('/r/{recipe}', name: 'app_recipe', requirements: ['recipe' => '[a-z0-9][a-z0-9-]*'], methods: ['GET'])]
-    public function recipe(string $recipe): Response
+    public function recipe(string $recipe, Request $request): Response
     {
         if (null === $found = $this->kit->getRecipe($recipe)) {
             throw $this->createNotFoundException(\sprintf('Recipe "%s" does not exist in the kit.', $recipe));
@@ -54,10 +57,15 @@ final class ShowcaseController extends AbstractController
             }
         }
 
+        // the static copy installs the release it shows (or, built from a branch, that branch); the dev server, the
+        // repository's default branch
+        $export = $request->attributes->get('_static_export');
+        $ref = \is_array($export) ? ($export['release'] ?? $export['branch'] ?? 'main') : null;
+
         return $this->render('showcase/recipe.html.twig', [
             'kit' => $this->kit->getKit(),
             'recipe' => $found,
-            'examples' => $this->kit->getExamples($found),
+            'doc' => $this->docs->page($found, \is_string($ref) ? $ref : null),
             'dependencies' => $dependencies,
             'groups' => $this->getGroups(),
         ]);

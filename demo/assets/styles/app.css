@@ -10,4 +10,5 @@
 @import "../../../dropzone/assets/styles/uxor-dropzone.css";
 @import "../../../editor/assets/styles/uxor-editor.css";
 @import "./xor.css";
+@import "./recipe-doc.css";
 @source "../../..";

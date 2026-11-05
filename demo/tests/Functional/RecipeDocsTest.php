@@ -53,7 +53,7 @@ final class RecipeDocsTest extends KernelTestCase
         // each example is the gallery's preview page, in both themes
         $examples = self::kit()->getExamples($recipe);
         self::assertCount(\count($examples), $previews = array_filter($examples, fn (array $example): bool => true === ($example['options']['preview'] ?? null)));
-        self::assertSame(\count($previews), substr_count($html, 'data-testid="doc-preview"'));
+        self::assertSame(\count($previews), substr_count($html, 'data-testid="example"'));
         foreach ($previews as $example) {
             foreach (['light', 'dark'] as $theme) {
                 self::assertStringContainsString(\sprintf('src="/preview/badge/%s?theme=%s"', $example['id'], $theme), $html);
@@ -104,7 +104,7 @@ final class RecipeDocsTest extends KernelTestCase
         $html = $docs->html($recipe, '0.3.0')->html;
         $markdown = $docs->markdown($recipe, '0.3.0');
 
-        self::assertStringContainsString('<h3 id="content-what-you-can-override">What you can override</h3>', $html);
+        self::assertStringContainsString('<h3 id="what-you-can-override">What you can override</h3>', $html);
         self::assertStringContainsString('src="/preview/data-table/default?theme=light"', $html);
         // the README's own account of the server round trips, in both formats
         foreach (['## Usage', '### What you can override', '### URL and history'] as $heading) {
@@ -133,8 +133,11 @@ final class RecipeDocsTest extends KernelTestCase
             $markdown = $docs->markdown($recipe, '0.3.0');
 
             $previews = array_filter(self::kit()->getExamples($recipe), fn (array $example): bool => true === ($example['options']['preview'] ?? null));
-            self::assertSame(\count($previews), substr_count($html, 'data-testid="doc-preview"'), "$name: every example has its preview page");
+            self::assertSame(\count($previews), substr_count($html, 'data-testid="example"'), "$name: every example has its preview page");
             self::assertDoesNotMatchRegularExpression('/^:{2,3} /m', $html, "$name: no directive left in HTML");
+            // what can scroll sideways can take the focus (axe: scrollable-region-focusable)
+            self::assertDoesNotMatchRegularExpression('/<pre(?![^>]*\btabindex="0")/', $html, "$name: every code block focusable");
+            self::assertSame(substr_count($html, '<table>'), substr_count($html, '<div class="recipe-doc-table" tabindex="0"><table>'), "$name: every table in a focusable box");
             self::assertDoesNotMatchRegularExpression('/^:{2,3} /m', $markdown, "$name: no directive left in Markdown");
             self::assertDoesNotMatchRegularExpression('/^```\S+\h+\{/m', $markdown, "$name: no render metadata in Markdown");
             self::assertStringNotContainsString('--kit '.basename(\dirname(__DIR__, 3)), $markdown, "$name: never Toolkit's own install line");
@@ -142,5 +145,31 @@ final class RecipeDocsTest extends KernelTestCase
                 self::assertStringContainsString("ux:install $name --kit=https://github.com/xormania/uxor:0.3.0", $markdown, $name);
             }
         }
+    }
+    public function testAReadmesLinksToOtherReadmesLandOnTheirRecipePagesAtAHeadingThatExists(): void
+    {
+        $html = [];
+        foreach (array_keys(self::kit()->getRecipes()) as $name) {
+            self::ensureKernelShutdown(); // as in the test above: a kernel per recipe
+            $html[$name] = self::docs()->html(self::recipe($name), '0.3.0')->html;
+        }
+
+        $links = 0;
+        foreach ($html as $name => $page) {
+            preg_match_all('/<a href="([^"]*)"/', $page, $hrefs);
+            foreach ($hrefs[1] as $href) {
+                self::assertMatchesRegularExpression('#^(?:[a-z][a-z0-9+.-]*:|/|\#)#i', $href, "$name: no link left relative to the repository");
+                if (preg_match('#^/r/([a-z0-9-]+)(?:\#(.+))?$#', $href, $target)) {
+                    ++$links;
+                    self::assertArrayHasKey($target[1], $html, "$name links $href");
+                    if (isset($target[2])) {
+                        self::assertStringContainsString(\sprintf('id="%s"', $target[2]), $html[$target[1]], "$name links $href: the heading exists");
+                    }
+                }
+            }
+        }
+        self::assertGreaterThanOrEqual(10, $links, 'the READMEs link each other (button to spinner, navbar to nav-menu, ...)');
+        self::assertStringContainsString('<a href="/r/spinner">spinner component</a>', $html['button']);
+        self::assertStringContainsString('<a href="/r/layouts#back-and-forms">', $html['calendar']);
     }
 }

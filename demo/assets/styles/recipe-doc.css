@@ -1,0 +1,25 @@
+/*
+ * A recipe's README as the recipe page renders it (App\Kit\RecipeDocs, templates/showcase/recipe.html.twig): the
+ * CommonMark HTML carries no classes, so its elements take the gallery's type and the kit's color roles here. The
+ * tabs, alerts and previews inside are the kit's components and the gallery's preview markup, styled already.
+ */
+.recipe-doc {
+    & > h2 { @apply mt-12 text-2xl font-semibold text-heading; }
+    & > h2:first-child { @apply mt-0; }
+    & > h3 { @apply mt-8 text-lg font-semibold break-words text-heading; }
+    & > h4 { @apply mt-6 font-semibold text-heading; }
+    & p, & > ul, & > ol { @apply mt-4 max-w-3xl; }
+    /* the README's own lists only: the tabs inside are lists too */
+    & > ul, & > :where(ul, ol) ul { @apply list-disc ps-6; }
+    & > ol, & > :where(ul, ol) ol { @apply list-decimal ps-6; }
+    & > :where(ul, ol) li + li { @apply mt-1; }
+    & a { @apply underline hover:text-heading; }
+    & :not(pre) > code { @apply rounded-sm bg-neutral-secondary-medium px-1 py-0.5 text-sm break-words text-heading; }
+    & pre { @apply mt-4 overflow-x-auto rounded-base bg-neutral-secondary-medium p-4 text-sm text-heading; }
+    /* a table scrolls in its own box (App\Kit\RecipeDocs wraps it, focusable), never the page (the narrowest phone) */
+    & .recipe-doc-table { @apply mt-4 max-w-full overflow-x-auto; }
+    & table { @apply text-sm; }
+    & th { @apply border-b border-default px-3 py-2 text-left font-semibold whitespace-nowrap text-heading; }
+    & td { @apply border-b border-default px-3 py-2 align-top; }
+    & td:first-child code, & td:nth-child(3) code { @apply whitespace-nowrap; }
+}
