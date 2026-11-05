@@ -67,3 +67,29 @@ fi
 
 # the sources against the saved pages: a recipe or a README example without its page fails
 node tools/fence-coverage.mjs --site "$dir"
+
+# the discovery files (docs/PLAN-docs-automation.md, Stage 3): the sitemap lists every recipe page under the base path
+# and never the export's own origin, and each Markdown file llms.txt links on the site is one the copy holds
+for file in sitemap.xml llms.txt; do
+    [ -s "$dir/$file" ] || { echo "::error::no $file in the site"; exit 1; }
+done
+if grep -lE '//(localhost|127\.0\.0\.1)[:/]' "$dir/sitemap.xml" "$dir/llms.txt"; then
+    echo "::error::the sitemap or llms.txt names the export's own origin instead of the site's"
+    exit 1
+fi
+for page in "$dir"/r/*/index.html; do
+    recipe=$(basename "$(dirname "$page")")
+    grep -q "${base_path}/r/${recipe}/</loc>" "$dir/sitemap.xml" || { echo "::error::sitemap.xml does not list the ${recipe} page"; exit 1; }
+done
+# the site's URL is the sitemap's first entry, the index
+site_url=$(grep -oE '<loc>[^<]+</loc>' "$dir/sitemap.xml" | head -n 1 | sed -E 's#^<loc>(.*)/</loc>$#\1#')
+grep -oF "($site_url/" "$dir/llms.txt" >/dev/null || { echo "::error::llms.txt links no Markdown of the site ($site_url)"; exit 1; }
+missing=$(grep -oE '\([^)]+\.md\)' "$dir/llms.txt" | sed -E 's#^\((.*)\)$#\1#' | while read -r url; do
+    case "$url" in
+        "$site_url"/*) [ -f "$dir/${url#"$site_url"/}" ] || echo "$url" ;;
+    esac
+done)
+if [ -n "$missing" ]; then
+    echo "::error::llms.txt links Markdown the site does not hold: $missing"
+    exit 1
+fi

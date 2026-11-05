@@ -7,7 +7,21 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{% block title %}{{ kit_reader.manifest.name }} demo{% endblock %}</title>
-        <meta name="description" content="Flowbite 4 and Tailwind CSS 4 components, layouts, blocks and a form theme for the Symfony UX Toolkit, with all behavior in Stimulus controllers.">
+        {#- a page's description block prints plain text unescaped: it is escaped once, here, where it is printed -#}
+        {%- set description = block('description') is defined ? block('description')|trim : 'Flowbite 4 and Tailwind CSS 4 components, layouts, blocks and a form theme for the Symfony UX Toolkit, with all behavior in Stimulus controllers.' %}
+        <meta name="description" content="{{ description }}">
+        {#- the static copy's public pages: their canonical URL (each is saved as <path>/index.html) and what a link to them
+            shows when shared; app:export-static gives the site's public URL -#}
+        {%- if static_export.site_url ?? null %}
+            {%- set canonical = static_export.site_url ~ ('/' == app.request.pathInfo ? '/' : app.request.pathInfo|trim('/', 'right') ~ '/') %}
+        <link rel="canonical" href="{{ canonical }}">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="{{ kit_reader.manifest.name }}">
+        <meta property="og:title" content="{{ block('title')|trim }}">
+        <meta property="og:description" content="{{ description }}">
+        <meta property="og:url" content="{{ canonical }}">
+        <meta name="twitter:card" content="summary">
+        {%- endif %}
         <link rel="icon" href="data:,">
         {# The request's Content Security Policy nonces, as the layouts recipe prints them (Turbo gives this one to the <style> of its progress bar). #}
         <meta name="csp-nonce" nonce="{{ csp_style_nonce }}">

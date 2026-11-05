@@ -6,6 +6,9 @@ use App\Kit\GuideDocs;
 use App\Kit\KitReader;
 use App\Kit\RecipeDocs;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Filesystem\Filesystem;
+use Symfony\Component\Filesystem\Path;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -90,6 +93,7 @@ final class ShowcaseController extends AbstractController
     {
         return $this->render('showcase/guide.html.twig', [
             'title' => GuideDocs::GUIDES[$name]['title'],
+            'description' => GuideDocs::GUIDES[$name]['description'],
             'name' => $name,
             'doc' => $this->guides->html($name, self::ref($request)),
         ]);
@@ -102,6 +106,64 @@ final class ShowcaseController extends AbstractController
     public function guideMarkdown(string $name, Request $request): Response
     {
         return new Response($this->guides->markdown($name, self::ref($request) ?? 'main'), headers: ['Content-Type' => 'text/markdown; charset=UTF-8']);
+    }
+
+    /**
+     * The site's public pages for search engines: the index, the guides and every recipe page, at their canonical URLs.
+     * Not the previews (noindex: each recipe page shows its own), the /demo application nor the Markdown copies.
+     */
+    #[Route('/sitemap.xml', name: 'app_sitemap', methods: ['GET'])]
+    public function sitemap(Request $request): Response
+    {
+        $site = self::siteUrl($request);
+        $paths = ['/', ...array_map(static fn (string $guide): string => '/'.$guide.'/', array_keys(GuideDocs::GUIDES))];
+        foreach (array_keys($this->kit->getRecipes()) as $recipe) {
+            $paths[] = '/r/'.$recipe.'/';
+        }
+
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'."\n";
+        foreach ($paths as $path) {
+            $xml .= '  <url><loc>'.htmlspecialchars($site.$path, \ENT_XML1).'</loc></url>'."\n";
+        }
+
+        return new Response($xml.'</urlset>'."\n", headers: ['Content-Type' => 'application/xml; charset=UTF-8']);
+    }
+
+    /**
+     * The repository's llms.txt (the index of the release, tools/llms-txt.mjs), for the site: its links to a recipe's
+     * README and to the guides point at the Markdown this site renders from them (directives expanded, install steps at
+     * the release), the others stay on GitHub.
+     */
+    #[Route('/llms.txt', name: 'app_llms', methods: ['GET'])]
+    public function llms(Request $request, #[Autowire('%app.kit_dir%')] string $kitDir): Response
+    {
+        $site = self::siteUrl($request);
+        $guides = array_flip(array_map(static fn (array $guide): string => $guide['file'], GuideDocs::GUIDES));
+        $text = (string) preg_replace_callback(
+            '#\]\('.preg_quote(str_replace('https://github.com/', 'https://raw.githubusercontent.com/', $this->kit->getManifest()->homepage), '#').'/[^/)]+/([^)\s]+)\)#',
+            function (array $match) use ($site, $guides): string {
+                if (preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $match[1], $readme) && null !== $this->kit->getRecipe($readme[1])) {
+                    return ']('.$site.'/r/'.$readme[1].'.md)';
+                }
+
+                return isset($guides[$match[1]]) ? ']('.$site.'/'.$guides[$match[1]].'.md)' : $match[0];
+            },
+            (new Filesystem())->readFile(Path::join($kitDir, 'llms.txt')),
+        );
+
+        return new Response($text, headers: ['Content-Type' => 'text/plain; charset=UTF-8']);
+    }
+
+    /**
+     * The site's public URL, without a trailing slash: the static copy's (app:export-static --site-url), else this
+     * request's.
+     */
+    private static function siteUrl(Request $request): string
+    {
+        $export = $request->attributes->get('_static_export');
+        $site = \is_array($export) ? ($export['site_url'] ?? null) : null;
+
+        return \is_string($site) ? $site : $request->getSchemeAndHttpHost().$request->getBasePath();
     }
 
     /**

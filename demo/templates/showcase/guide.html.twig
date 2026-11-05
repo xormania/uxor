@@ -2,6 +2,8 @@
 
 {% block title %}{{ title }}: {{ kit_reader.manifest.name }}{% endblock %}
 
+{% block description %}{{ description|raw }}{% endblock %}
+
 {% block body %}
     {#- a consumer guide from the repository, rendered by App\Kit\GuideDocs: its own title, its sections, its install
         commands at the release this copy shows -#}

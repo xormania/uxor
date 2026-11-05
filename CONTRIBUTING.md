@@ -493,7 +493,10 @@ demo does (`demo/src/Kit/KitReader.php`): a block opening at the start of a line
 one but that the demo skips (indented in a list, JSON that does not parse, `"preview"` not `true`) fails, and so does
 a recipe without a README. `tools/build-static.sh` (*Static site*, `pages.yml`) runs it again with `--site` after
 `app:export-static`: every recipe needs its `r/<recipe>/` page and a link from the index, every example its light and
-dark preview pages, and a saved page that no source names fails too.
+dark preview pages, and a saved page that no source names fails too. It then checks the discovery files: `sitemap.xml`
+lists every recipe page under the base path and neither of them names the export's own origin, and each Markdown file
+`llms.txt` links on the site is one the copy holds (`app:export-static --site-url`, by default the repository's GitHub
+Pages URL).
 
 **READMEs state the manifest.** `node tools/readme-versions.mjs` (in *Contrast*) reads each recipe's `README.md`.
 It must have the `::: installation` line, on a line of its own outside code blocks: the toolkit renders the install

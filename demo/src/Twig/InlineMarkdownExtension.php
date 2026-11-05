@@ -15,7 +15,19 @@ final class InlineMarkdownExtension extends AbstractExtension
     {
         return [
             new TwigFilter('inline_markdown', self::render(...), ['is_safe' => ['html']]),
+            new TwigFilter('plain_markdown', self::plain(...)),
         ];
+    }
+
+    /**
+     * The text alone, for a page's description: `code` spans without their backticks, [links](…) as their text. Not
+     * HTML: Twig escapes it where it is printed.
+     */
+    public static function plain(string $markdown): string
+    {
+        $text = preg_replace('/`([^`]+)`/', '$1', $markdown) ?? $markdown;
+
+        return preg_replace('/\[([^\]]+)\]\([^)\s]+\)/', '$1', $text) ?? $text;
     }
 
     /**
