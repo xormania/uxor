@@ -5,6 +5,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-05
+
 ### Added
 
 - Each recipe's documentation as portable Markdown, for a consumer or their agent:
@@ -333,7 +335,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.1...HEAD
+[0.3.1]: https://github.com/xormania/uxor/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/xormania/uxor/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/xormania/uxor/releases/tag/0.1.0

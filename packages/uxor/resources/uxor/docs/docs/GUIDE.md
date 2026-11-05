@@ -113,7 +113,7 @@ unchecked. On top of escaping, the components check what shapes their markup:
 
 `tests/e2e/hostile-props.spec.ts` renders each of these props with hostile values and checks what the browser parses.
 The kit's demo enforces a strict Content Security Policy, and every browser test fails on a violation. Report a
-vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/0.3.0/SECURITY.md).
+vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/0.3.1/SECURITY.md).
 
 ## Versioning
 
@@ -121,4 +121,4 @@ Versions are git tags `X.Y.Z`, without a `v`: GitHub names the archive of a `v1.
 which the toolkit then cannot find. Install one with `--kit=https://github.com/xormania/uxor:<version>`, the latest
 release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
 default branch, which can hold work that is not released yet.
-[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.0/CHANGELOG.md) lists what each version changes.
+[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.1/CHANGELOG.md) lists what each version changes.
