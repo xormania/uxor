@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { stepIn } from '../ci/step-attempts.mjs';
@@ -173,4 +173,78 @@ test('no local action runs where the release is checked out; the Jev job collect
     const [attempt] = JSON.parse(readFileSync(out, 'utf8')).attempts;
     assert.equal(attempt.title, 'Build and check the site');
     assert.match(attempt.error, /tools\/build-static\.sh _site/);
+});
+
+// the deployed site as curl gets it: files under a fixture directory, by their path after the site's URL; a missing
+// one answers 404 (curl -f fails); release.json answers only from the READY_AFTER-th request on (a deployment Pages
+// is still propagating)
+function deployedSite(t, files) {
+    const dir = scratch(t);
+    const site = join(dir, 'site');
+    for (const [path, body] of Object.entries(files)) {
+        const file = join(site, path.endsWith('/') ? `${path}index.html` : path);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, body);
+    }
+    writeFileSync(join(dir, 'bin', 'curl'), `#!/usr/bin/env bash
+url=\${!#}
+path=\${url#https://example.github.io/project/}
+[ -z "$path" ] || [ "\${path%/}" != "$path" ] && path="\${path}index.html"
+if [ "$path" = release.json ]; then
+    count=$(( $(cat "$SITE_DIR/../count" 2>/dev/null || echo 0) + 1 )); echo "$count" > "$SITE_DIR/../count"
+    [ "$count" -ge "\${READY_AFTER:-1}" ] || exit 22
+fi
+[ -f "$SITE_DIR/$path" ] || exit 22
+cat "$SITE_DIR/$path"
+`);
+    chmodSync(join(dir, 'bin', 'curl'), 0o755);
+    return { dir, site };
+}
+
+function liveSite(overrides = {}) {
+    const url = 'https://example.github.io/project';
+    const page = (path) => `<html><head><link rel="canonical" href="${url}/${path}"></head></html>`;
+    return {
+        'release.json': JSON.stringify({ version: '0.4.0', commit: sha('a'), repository: 'https://github.com/example/project' }),
+        'index.html': page(''),
+        'r/button/': page('r/button/'),
+        'install/': page('install/'),
+        'guide/': page('guide/'),
+        'sitemap.xml': `<urlset><url><loc>${url}/</loc></url><url><loc>${url}/r/button/</loc></url></urlset>`,
+        'llms.txt': `# Project\n\n- [button](${url}/r/button.md): a button\n`,
+        'r/button.md': '# Button\n\nA button.\n',
+        ...overrides,
+    };
+}
+
+test('the deploy checks the site where readers get it: the release it shows, its pages, sitemap, llms.txt and Markdown', (t) => {
+    const check = stepIn(workflow, 'deploy', 'live').run;
+    const run = (files, env = {}) => {
+        const { dir, site } = deployedSite(t, files);
+        const result = shell(check, dir, { SITE_DIR: site, PAGE_URL: 'https://example.github.io/project/', VERSION: '0.4.0', COMMIT: sha('a'), ATTEMPTS: '1', WAIT: '0', ...env });
+        return { status: result.status, log: result.stdout + result.stderr };
+    };
+
+    const ok = run(liveSite());
+    assert.equal(ok.status, 0, ok.log);
+    assert.match(ok.log, /shows release 0\.4\.0/);
+
+    for (const [name, site, message] of [
+        ['an older release still served', liveSite({ 'release.json': JSON.stringify({ version: '0.3.0', commit: sha('b') }) }), /release\.json is .*0\.3\.0.*not 0\.4\.0/],
+        ['a page naming another host as canonical', liveSite({ 'r/button/': '<link rel="canonical" href="https://elsewhere.example/r/button/">' }), /\/r\/button\/ does not name https:\/\/example\.github\.io\/project\/r\/button\/ as its canonical URL/],
+        ['a guide missing', liveSite({ 'guide/': undefined }), /\/guide\/ does not answer/],
+        ['a sitemap under another base path', liveSite({ 'sitemap.xml': '<loc>https://example.github.io/r/button/</loc>' }), /sitemap\.xml does not list/],
+        ["llms.txt linking the repository's README", liveSite({ 'llms.txt': '- [button](https://raw.githubusercontent.com/example/project/0.4.0/button/README.md)' }), /llms\.txt does not link/],
+        ["a recipe's Markdown missing", liveSite({ 'r/button.md': undefined }), /r\/button\.md does not answer/],
+    ]) {
+        const failed = run(Object.fromEntries(Object.entries(site).filter(([, body]) => undefined !== body)));
+        assert.equal(failed.status, 1, `${name}: ${failed.log}`);
+        assert.match(failed.log, message, name);
+        assert.match(failed.log, /::error::The deployed site at https:\/\/example\.github\.io\/project:/, name);
+    }
+
+    // a deployment Pages is still propagating: asked again, it passes once it answers
+    const late = run(liveSite(), { ATTEMPTS: '3', READY_AFTER: '3' });
+    assert.equal(late.status, 0, late.log);
+    assert.match(late.log, /Attempt 1: release\.json does not answer[\s\S]*Attempt 2:/);
 });

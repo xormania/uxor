@@ -158,7 +158,7 @@ change to both paths.
 | `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
-| `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check and the deploy's freshness check are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
+| `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
@@ -692,8 +692,11 @@ draft or a prerelease) and the commit its tag points at from the API alone, and 
 that one; no input chooses what is checked out, since the build runs in the default branch's context (CodeQL's cache
 poisoning). It builds that commit, checks the pages install that version, writes `release.json` (the version and the
 commit) beside them, and before deploying checks the release is still the latest at that commit, so an older or
-re-run build never replaces a newer release's site. If the gallery fails after its Release exists, run `pages.yml` by
-hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a full re-run finds the release done
+re-run build never replaces a newer release's site. After deploying it checks the site where readers get it, at the
+URL Pages gives: `release.json` holds that version and commit; the index, `r/button/` and the guides name their
+canonical URL at that address; the sitemap, `llms.txt` and `r/button.md` answer. It asks again for about two minutes
+while Pages serves the new deployment, then fails the run, with the problem in its log. If the gallery fails after its
+Release exists, run `pages.yml` by hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a full re-run finds the release done
 and skips the gallery). No
 branch is ever published: work on `dev` is built and checked by CI's *Static site* job, on every push, so a page that
 does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`

@@ -215,3 +215,43 @@ jobs:
                   fi
             - id: deployment
               uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+            # The site as deployed, at the URL GitHub Pages gives it: the release it shows (release.json), the index, a
+            # recipe page and the guides, each naming its canonical URL at that address, and the sitemap, llms.txt and a
+            # recipe's Markdown. What the build checked in its files, checked where readers get it: a base path or a
+            # host that differs shows only here. Pages may take a moment to serve a new deployment: asked again for
+            # about two minutes before failing.
+            - name: Check the deployed site
+              id: live
+              env:
+                  PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+                  VERSION: ${{ needs.resolve.outputs.version }}
+                  COMMIT: ${{ needs.resolve.outputs.commit }}
+                  ATTEMPTS: '8'
+                  WAIT: '15'
+              run: |
+                  site=${PAGE_URL%/}
+                  get() { curl -fsSL --max-time 20 "$site/$1"; }
+                  live() {
+                      problem=''
+                      release=$(get release.json) || { problem='release.json does not answer'; return 1; }
+                      [ "$(jq -r .version <<<"$release")" = "$VERSION" ] && [ "$(jq -r .commit <<<"$release")" = "$COMMIT" ] \
+                          || { problem="release.json is $(jq -c '{version, commit}' <<<"$release"), not $VERSION at $COMMIT"; return 1; }
+                      for page in '' r/button/ install/ guide/; do
+                          html=$(get "$page") || { problem="/$page does not answer"; return 1; }
+                          grep -qF "<link rel=\"canonical\" href=\"$site/$page\">" <<<"$html" \
+                              || { problem="/$page does not name $site/$page as its canonical URL"; return 1; }
+                      done
+                      get sitemap.xml | grep -qF "<loc>$site/r/button/</loc>" || { problem="sitemap.xml does not list $site/r/button/"; return 1; }
+                      get llms.txt | grep -qF "($site/r/button.md)" || { problem="llms.txt does not link $site/r/button.md"; return 1; }
+                      get r/button.md | grep -q '^# Button' || { problem='r/button.md does not answer the recipe'"'"'s Markdown'; return 1; }
+                  }
+                  for attempt in $(seq "$ATTEMPTS"); do
+                      if live; then
+                          echo "The deployed site at $site shows release $VERSION ($COMMIT)"
+                          exit 0
+                      fi
+                      echo "Attempt $attempt: $problem"
+                      [ "$attempt" -lt "$ATTEMPTS" ] && sleep "$WAIT"
+                  done
+                  echo "::error::The deployed site at $site: $problem"
+                  exit 1
