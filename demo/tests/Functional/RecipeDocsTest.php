@@ -146,7 +146,7 @@ final class RecipeDocsTest extends KernelTestCase
             }
         }
     }
-    public function testAReadmesLinksToOtherReadmesLandOnTheirRecipePagesAtAHeadingThatExists(): void
+    public function testAReadmesLinksToOtherReadmesLandOnTheirRecipePagesAndMarkdown(): void
     {
         $html = [];
         foreach (array_keys(self::kit()->getRecipes()) as $name) {
@@ -169,6 +169,19 @@ final class RecipeDocsTest extends KernelTestCase
             }
         }
         self::assertGreaterThanOrEqual(10, $links, 'the READMEs link each other (button to spinner, navbar to nav-menu, ...)');
+
+        // the same links in the portable Markdown, saved beside the other recipes' (r/<recipe>.md), outside code blocks
+        foreach (array_keys($html) as $name) {
+            self::ensureKernelShutdown();
+            $markdown = (string) preg_replace('/^(`{3,}).*?^\1\h*$/ms', '', self::docs()->markdown(self::recipe($name), '0.3.0'));
+            preg_match_all('/\]\(([^)\s]*)\)/', $markdown, $targets);
+            foreach ($targets[1] as $target) {
+                if (!preg_match('#^(?:[a-z][a-z0-9+.-]*:|/|\#)#i', $target)) {
+                    self::assertMatchesRegularExpression('/^[a-z0-9-]+\.md(?:#[a-z0-9-]+)?$/', $target, "$name: a relative link is another recipe's Markdown");
+                    self::assertArrayHasKey((string) strstr($target, '.md', true), $html, "$name links $target");
+                }
+            }
+        }
         self::assertStringContainsString('<a href="/r/spinner">spinner component</a>', $html['button']);
         self::assertStringContainsString('<a href="/r/layouts#back-and-forms">', $html['calendar']);
     }

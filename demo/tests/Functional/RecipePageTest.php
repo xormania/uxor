@@ -75,4 +75,21 @@ final class RecipePageTest extends WebTestCase
         self::assertStringContainsString('data-example="default"', $html);
         self::assertStringContainsString('<h3 id="what-you-can-override">What you can override</h3>', $html);
     }
+    public function testTheRecipesMarkdownIsItsDocumentationAtTheReleaseWithItsLinksBesideIt(): void
+    {
+        $kernel = static::bootKernel();
+        $request = Request::create('/r/button.md');
+        $request->attributes->set('_static_export', ['release' => '0.4.0', 'latest_release' => '0.4.0', 'commit' => 'abc1234def', 'branch' => 'main', 'server_only' => []]);
+        $response = $kernel->handle($request, HttpKernelInterface::MAIN_REQUEST, false);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('text/markdown; charset=UTF-8', $response->headers->get('Content-Type'));
+        $markdown = (string) $response->getContent();
+        self::assertStringStartsWith("# Button\n", $markdown);
+        self::assertStringContainsString('php bin/console ux:install button --kit=https://github.com/xormania/uxor:0.4.0', $markdown);
+        self::assertStringContainsString('[spinner component](spinner.md)', $markdown, 'the spinner README, saved beside it');
+        self::assertStringNotContainsString('{"preview"', $markdown);
+
+        self::assertStringContainsString('<a href="/r/button.md" type="text/markdown"', self::page('button'), 'the page links it');
+    }
 }

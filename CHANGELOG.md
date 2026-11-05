@@ -5,6 +5,13 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- Each recipe's documentation as portable Markdown, for a consumer or their agent:
+  `https://xormania.github.io/uxor/r/<recipe>.md`, linked from its gallery page. It has the README's prose, the
+  examples as code, the install step at the release the gallery shows and the API tables; its links to other recipes
+  point to their Markdown beside it.
+
 ### Changed
 
 - The gallery's recipe pages show the recipe's whole README, rendered by the UX Toolkit: its usage notes, its examples
