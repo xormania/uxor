@@ -39,6 +39,10 @@ inputs:
         description: The caller's workflow file, where step-attempts.mjs reads a step's name and command (default the run's, GITHUB_WORKFLOW_REF; a reusable workflow names its own)
         required: false
         default: ''
+    job-id:
+        description: The id of the job whose steps `steps` describes, when another job collects them (step-attempts.mjs --job; default this job's, GITHUB_JOB)
+        required: false
+        default: ''
     server-log:
         description: A server log whose lines in each attempt's time span are evidence
         required: false
@@ -76,6 +80,7 @@ runs:
               JEV_JUNIT_PROJECT: ${{ inputs.junit-project }}
               JEV_STEPS: ${{ inputs.steps }}
               JEV_WORKFLOW: ${{ inputs.workflow }}
+              JEV_JOB_ID: ${{ inputs.job-id }}
               JEV_SERVER_LOG: ${{ inputs.server-log }}
               JEV_COMPOSE: ${{ inputs.compose-logs }}
               JEV_JOB: ${{ inputs.job }}
@@ -90,7 +95,7 @@ runs:
               elif [ -n "$JEV_JUNIT" ]; then
                   node tools/ci/junit-attempts.mjs "$JEV_JUNIT" "$attempts" ${JEV_JUNIT_PROJECT:+--project "$JEV_JUNIT_PROJECT"}
               elif [ -n "$JEV_STEPS" ]; then
-                  node tools/ci/step-attempts.mjs --steps "$JEV_STEPS" --logs "$RUNNER_TEMP" ${JEV_WORKFLOW:+--workflow "$JEV_WORKFLOW"} "$attempts"
+                  node tools/ci/step-attempts.mjs --steps "$JEV_STEPS" --logs "$RUNNER_TEMP" ${JEV_WORKFLOW:+--workflow "$JEV_WORKFLOW"} ${JEV_JOB_ID:+--job "$JEV_JOB_ID"} "$attempts"
                   if [ "$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).attempts.length' "$attempts")" = 0 ]; then
                       echo "skip=true" >> "$GITHUB_OUTPUT"
                       echo "No step that failed the job captured its log: nothing for Jev to diagnose"

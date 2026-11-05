@@ -87,6 +87,22 @@ final class StaticExportBannerTest extends WebTestCase
         self::assertSame(1, substr_count($html, 'A static copy of the demo application'));
     }
 
+    /**
+     * The footer's README and changelog are those of the release a static copy shows; a copy that is not a release, and
+     * the live demo, link the current ones on main. The security policy is always the current one.
+     */
+    public function testTheFooterLinksTheReleasesReadmeAndChangelog(): void
+    {
+        $release = self::banner(['release' => '0.2.0', 'branch' => 'main']);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/0.2.0/README.md"', $release);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/0.2.0/CHANGELOG.md"', $release);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/main/SECURITY.md"', $release);
+
+        $branch = self::banner(['branch' => 'dev']);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/main/README.md"', $branch);
+        self::assertStringContainsString('https://github.com/xormania/uxor/blob/main/CHANGELOG.md"', $branch);
+    }
+
     public function testTheLiveDemoNamesNoRef(): void
     {
         $client = static::createClient();

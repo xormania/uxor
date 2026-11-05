@@ -158,7 +158,7 @@ change to both paths.
 | `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
-| `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload) |
+| `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check and the deploy's freshness check are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
 | `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
@@ -276,7 +276,7 @@ fail the job, and the attempt's sanitized error and server log excerpts are sent
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
 install* jobs, *Contrast*, *Workflows*, *Changes*, *Package*, the monthly PHP job, both audits, *Mentions*, the
-release's install check, tag and release, and the gallery's build. The
+release's install check, tag and release, and the gallery's build (collected by `pages.yml`'s own *Jev diagnosis* job from the build's log, since the build job checks out a release and runs no local action). The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
 without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
 consumes that source run and attempt's artifacts after completion. GitHub loads its YAML from the default branch;
@@ -675,13 +675,21 @@ script changes. If GitHub refuses the workflow's tag push
 ("refusing to allow a GitHub App to create or update workflow … without `workflows` permission", as for `0.1.0`,
 whose commit's workflows differed from `main`'s), push the tag by hand
 (`git tag -a X.Y.Z <merge commit> -m "UXor X.Y.Z" && git push origin X.Y.Z`) and re-run the workflow: it
-checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`);
-if that part fails, use *Re-run failed jobs* (a full re-run finds the release done and skips the gallery), or run
-`pages.yml` by hand on `main`. To preview the next release's gallery before it, run `pages.yml` by hand on `dev`: the
-live site shows `dev` (its install commands name the `dev` branch) until a release or a run on `main`
-deploys again; GitHub only deploys from a branch the `github-pages` environment allows. CI's *Static site* job builds the same pages on every push, so a page that does not render fails a pull request,
-not the release: both run `tools/build-static.sh <dir> --base-path=/<repository>` (`pages.yml` adds
-`--release-from-tags` and `--branch`: the install commands name the release, or else the branch), which installs the demo, saves the pages with
-`app:export-static` and checks them. Locally, delete `demo/public/assets/` after it, or the demo serves those copies.
+checks the tag and publishes the Release. After a release, it publishes the gallery on GitHub Pages (`pages.yml`,
+given the version it released). The gallery always shows the latest published release
+([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)): `pages.yml` reads GitHub's latest Release (never a
+draft or a prerelease) and the commit its tag points at from the API alone, and stops if release.yml's version is not
+that one; no input chooses what is checked out, since the build runs in the default branch's context (CodeQL's cache
+poisoning). It builds that commit, checks the pages install that version, writes `release.json` (the version and the
+commit) beside them, and before deploying checks the release is still the latest at that commit, so an older or
+re-run build never replaces a newer release's site. If the gallery fails after its Release exists, run `pages.yml` by
+hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a full re-run finds the release done
+and skips the gallery). No
+branch is ever published: work on `dev` is built and checked by CI's *Static site* job, on every push, so a page that
+does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`
+(`pages.yml` adds `--release-from-tags` and `--branch=main` on the tag's commit, so the install commands name that
+release), which installs the demo, saves the pages with `app:export-static` and checks them. Documentation
+corrections reach the gallery through an ordinary release; a documentation-only patch release is fine (the plan's
+decision 1). Locally, delete `demo/public/assets/` after it, or the demo serves those copies.
 In that copy, Live Components are switched off and the recipe pages say what needs the server
 (`ExportStaticCommand::SERVER_ONLY`): add a recipe there when its examples need Symfony behind them.
