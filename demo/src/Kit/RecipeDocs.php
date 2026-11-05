@@ -58,40 +58,37 @@ final class RecipeDocs
 
         $doc = $this->ref->during($ref, fn (): RenderedRecipeDoc => $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment));
 
-        return new RenderedRecipeDoc($this->resolveLinks(self::focusableScrolling($doc->html), $recipe, $ref), $doc->tableOfContents);
+        $html = DocMarkup::resolveHtmlLinks(DocMarkup::focusableScrolling($doc->html), $recipe->name, fn (string $path): string => $this->recipePageUrl($path) ?? $this->repositoryUrl($path, $ref));
+
+        return new RenderedRecipeDoc($html, $doc->tableOfContents);
     }
 
     /**
      * A README links other files by their path in the repository (`../spinner/README.md#usage`), which the gallery
-     * does not serve: a recipe's README becomes its gallery page, the fragment kept (the headings' ids are their slugs,
-     * as GitHub's); any other file, its page on GitHub at the ref the page installs. Absolute paths, fragments and URLs
-     * with a scheme stay as they are.
+     * does not serve: a recipe's README becomes its gallery page (the fragment kept: the headings' ids are their slugs,
+     * as GitHub's), or null for any other file.
      */
-    private function resolveLinks(string $html, Recipe $recipe, ?string $ref): string
+    public function recipePageUrl(string $path): ?string
     {
-        return preg_replace_callback('#<a href="(?![a-z][a-z0-9+.-]*:|/|\#)([^"\#]*)(\#[^"]*)?"#i', function (array $match) use ($recipe, $ref): string {
-            $path = self::repositoryPath($recipe, html_entity_decode($match[1]));
-            $fragment = $match[2] ?? '';
+        $recipe = $this->readmeRecipe($path);
 
-            if (preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1])) {
-                $url = $this->urls->generate('app_recipe', ['recipe' => $readme[1]]);
-            } else {
-                $url = \sprintf('%s/blob/%s/%s', $this->kit->getManifest()->homepage, $ref ?? 'main', $path);
-            }
-
-            return \sprintf('<a href="%s%s"', htmlspecialchars($url, \ENT_QUOTES), $fragment);
-        }, $html) ?? $html;
+        return null !== $recipe ? $this->urls->generate('app_recipe', ['recipe' => $recipe]) : null;
     }
 
     /**
-     * A code block and a table scroll sideways when they are wider than the page: each can take the focus, so a
-     * keyboard reaches what is past its edge (axe: scrollable-region-focusable). CommonMark writes them bare.
+     * The same file in the portable Markdown, saved under `r/` beside the other recipes': its name there, or null.
      */
-    private static function focusableScrolling(string $html): string
+    public function readmeRecipe(string $path): ?string
     {
-        $html = str_replace('<pre>', '<pre tabindex="0">', $html);
+        return preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1]) ? $readme[1] : null;
+    }
 
-        return str_replace(['<table>', '</table>'], ['<div class="recipe-doc-table" tabindex="0"><table>', '</table></div>'], $html);
+    /**
+     * A file of the repository on GitHub, at the ref the page installs (the default branch without one).
+     */
+    public function repositoryUrl(string $path, ?string $ref): string
+    {
+        return \sprintf('%s/blob/%s/%s', $this->kit->getManifest()->homepage, $ref ?? 'main', $path);
     }
 
     /**
@@ -112,55 +109,7 @@ final class RecipeDocs
     {
         $markdown = $this->ref->during($release, fn (): string => $this->renderer->renderAsMarkdown($this->kit->getKit(), $recipe));
 
-        return $this->resolveMarkdownLinks($markdown, $recipe, $release);
-    }
-
-    /**
-     * The Markdown is saved beside the other recipes' (`/r/<recipe>.md`), not in the repository: a link to another
-     * recipe's README becomes that file, the fragment kept, and any other relative link its file on GitHub at the
-     * release. Code blocks are left as they are: a link there is an example's.
-     */
-    private function resolveMarkdownLinks(string $markdown, Recipe $recipe, string $release): string
-    {
-        $fence = null;
-        $lines = [];
-        foreach (explode("\n", $markdown) as $line) {
-            if (preg_match('/^\h*(`{3,}|~{3,})/', $line, $marker)) {
-                if (null === $fence) {
-                    $fence = $marker[1];
-                } elseif (str_starts_with(ltrim($line), $fence)) {
-                    $fence = null;
-                }
-            } elseif (null === $fence) {
-                $line = preg_replace_callback('/\]\((?![a-z][a-z0-9+.-]*:|\/|#)([^)\s#]*)(#[^)\s]*)?\)/i', function (array $match) use ($recipe, $release): string {
-                    $path = self::repositoryPath($recipe, $match[1]);
-                    $url = preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $path, $readme) && null !== $this->kit->getRecipe($readme[1])
-                        ? $readme[1].'.md'
-                        : \sprintf('%s/blob/%s/%s', $this->kit->getManifest()->homepage, $release, $path);
-
-                    return ']('.$url.($match[2] ?? '').')';
-                }, $line) ?? $line;
-            }
-            $lines[] = $line;
-        }
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * A path a recipe's README gives, relative to its directory, from the repository's root.
-     */
-    private static function repositoryPath(Recipe $recipe, string $relative): string
-    {
-        $parts = [];
-        foreach (explode('/', $recipe->name.'/'.$relative) as $part) {
-            if ('..' === $part) {
-                array_pop($parts);
-            } elseif ('' !== $part && '.' !== $part) {
-                $parts[] = $part;
-            }
-        }
-
-        return implode('/', $parts);
+        // saved beside the other recipes' (`r/<recipe>.md`): a link to another recipe's README is that file
+        return DocMarkup::resolveMarkdownLinks($markdown, $recipe->name, fn (string $path): string => null !== ($other = $this->readmeRecipe($path)) ? $other.'.md' : $this->repositoryUrl($path, $release));
     }
 }
