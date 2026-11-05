@@ -280,7 +280,15 @@ test.describe('at 320px', () => {
             const box = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, scroll: element.scrollWidth, client: element.clientWidth }));
             expect(box.right, 'the heading ends inside the page').toBeLessThanOrEqual(widths.client);
             expect(box.scroll, 'the heading wraps its text').toBeLessThanOrEqual(box.client);
-            const text = await page.locator('body').innerText();
+            // the page's text without its code: a recipe page shows the README's code blocks and inline code,
+            // where backticks are what the code says (a Markdown example, a template literal)
+            const text = await page.evaluate(() => {
+                let rest = document.body.innerText;
+                for (const code of document.querySelectorAll('pre, :not(pre) > code')) {
+                    rest = rest.replace((code as HTMLElement).innerText, '');
+                }
+                return rest;
+            });
             expect(text).not.toMatch(/\]\(https?:/);
             expect(text).not.toMatch(/`[^`\n]+`/);
             if (path.startsWith('/r/')) {
