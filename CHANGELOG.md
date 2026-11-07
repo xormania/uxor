@@ -7,6 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Fixed
 
+- Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
+  cover the consumer harness's PHP and browser dependencies. Remaining source comments and a breadcrumb test sample now
+  describe UXor without promising Flowbite parity.
 - Repository and consumer guidance now state that the official Symfony UX `flowbite-4` kit is a reference only.
   UXor owns its design, interfaces, behavior and tests; Toolkit installation support, Flowbite CSS and icons are
   current integrations that can evolve with UXor's requirements.

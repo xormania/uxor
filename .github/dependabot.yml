@@ -1,6 +1,7 @@
 # Weekly update pull requests, one per ecosystem: the GitHub Actions (pinned by commit, with the version in a comment),
 # the npm packages of the Playwright tests, the Composer package's development lock file (composer.lock, which the
-# Package job installs; users resolve composer.json's ranges themselves), the demo's lock file (demo/composer.lock)
+# Package job installs; users resolve composer.json's ranges themselves), the demo's lock file (demo/composer.lock),
+# the consumer harness (Composer in packages/uxor/dev/app, npm browser checks in packages/uxor/dev)
 # and the demo's base images (demo/Dockerfile,
 # pinned by digest: a new digest for the same tag, or a newer tag), against `dev` like any pull request. CI runs on
 # each; nothing merges on its own.
@@ -34,6 +35,18 @@ updates:
           npm:
               patterns: ['*']
 
+    # These browser checks install Chromium for their own Playwright version (packages/uxor/dev/README.md).
+    - package-ecosystem: npm
+      directory: /packages/uxor/dev
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+      groups:
+          consumer-npm:
+              patterns: ['*']
+
     - package-ecosystem: composer
       directory: /
       target-branch: dev
@@ -56,6 +69,17 @@ updates:
           prefix: chore
       groups:
           demo-composer:
+              patterns: ['*']
+
+    - package-ecosystem: composer
+      directory: /packages/uxor/dev/app
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+      groups:
+          consumer-composer:
               patterns: ['*']
 
     - package-ecosystem: docker

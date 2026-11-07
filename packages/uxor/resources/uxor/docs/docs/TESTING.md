@@ -1085,6 +1085,27 @@ Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/
 
 ### Locked and moving lanes
 
+The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm lockfiles with
+`npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`:
+
+| Project | Lockfile |
+|---|---|
+| Repository browser tests | `package-lock.json` |
+| Consumer browser checks | `packages/uxor/dev/package-lock.json` |
+| Package and its development tools | `composer.lock` |
+| Demo | `demo/composer.lock` |
+| Consumer harness | `packages/uxor/dev/app/composer.lock` |
+
+It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand on the selected branch, and on pull
+requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
+audit runs; a workflow change runs them all. Audits read the lockfiles without installing dependencies or
+executing project scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
+artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all five locks
+against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
+the consumer browser checks install Chromium for their own Playwright version.
+`tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection
+and audit shell steps with local fixtures.
+
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of
 ours in it may reflect a dependency release: read the versions it resolved before looking for a regression.
 
