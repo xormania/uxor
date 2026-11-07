@@ -289,7 +289,7 @@ jobs:
               working-directory: release-checks-target/demo
               run: docker compose exec -T php php ../tools/sync-demo
 
-            # The browser runs in upstream's Playwright image (see playwright.config.ts), as in CI
+            # The browser runs in the Playwright image pinned by UXor (see playwright.config.ts), as in CI
             - name: Install Playwright
               id: install
               run: |

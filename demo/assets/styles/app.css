@@ -1,7 +1,6 @@
 /*
- * Same stylesheet as the UX Toolkit generates for the previews of the flowbite-4 kit
- * (symfony/ux src/Toolkit/src/Preview/PreviewAssetsGenerator.php), pointed at this repository:
- * Tailwind, the kit's importmap stylesheets, the kit's kit.css, and the kit's sources.
+ * UXor demo styles: Tailwind CSS, Flowbite CSS, the kit's theme and recipe styles,
+ * and the demo's branding and documentation styles. Sources cover this repository.
  */
 @import "tailwindcss";
 @import "../vendor/flowbite/dist/flowbite.min.css";

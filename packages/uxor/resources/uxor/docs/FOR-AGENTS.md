@@ -8,10 +8,16 @@ each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.1/llms.txt).
 
 ## What you get
 
-UXor is a [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
+UXor is an independently maintained Symfony UI library, currently distributed as a
+[Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
 components, Stimulus controllers, a form theme, page layouts and blocks (ready-made parts of a page), styled with
 Flowbite v4 and Tailwind CSS v4. Each one is a recipe: `php bin/console ux:install <recipe>` copies its files into
 the project, which then owns them.
+
+The official Symfony UX `flowbite-4` kit was an initial reference only. Use UXor's documentation and the project's
+installed code for UXor behavior; there is no requirement to match that reference kit's names, markup or tests.
+Toolkit installation support, Flowbite CSS and the icon set describe current integrations that can evolve with
+UXor's requirements and compatibility commitments.
 
 - Every behavior is a Stimulus controller, so components keep working through Turbo visits, Turbo Frames and
   Streams, and Live Component re-renders. There is no Flowbite JavaScript.
@@ -85,7 +91,7 @@ Every recipe, as [`docs/RECIPES.md`](docs/RECIPES.md) lists it:
 
 | Install | What it is |
 |---|---|
-| [`theme`](theme/README.md) | Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. A role is a named color with a light and a dark value, used as a utility: `bg-brand`, `text-heading`, `border-default`. |
+| [`theme`](theme/README.md) | UXor's light and dark color roles, including text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. The theme uses Flowbite's role names and adds UXor's contrast and chart colors. Use roles through utilities such as `bg-brand`, `text-heading` and `border-default`. |
 | [`theme-toggle`](theme-toggle/README.md) | A button switching between the light and dark themes, remembered in `localStorage` and following the system preference until the user chooses. |
 
 **Shared code**

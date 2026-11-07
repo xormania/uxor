@@ -566,8 +566,9 @@ await expect(toast).toBeVisible();
 ```
 
 The clock also fakes `requestAnimationFrame` and `performance.now()`: keep the real clock where a test observes frames
-or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time. An
-upstream recipe spec stays as upstream wrote it.
+or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time.
+Recipe specs and screenshot baselines test UXor's behavior, including its compatibility commitments. Adapt them as
+UXor evolves; their origin in the initial reference kit does not require matching that kit's implementation or tests.
 
 Here: [`lab.turbo-stream-toast.spec.ts`](https://github.com/xormania/uxor/blob/0.3.1/tests/e2e/lab.turbo-stream-toast.spec.ts) (the pause tests),
 [`lab.side-nav.spec.ts`](https://github.com/xormania/uxor/blob/0.3.1/tests/e2e/lab.side-nav.spec.ts) (type-ahead).
@@ -1085,7 +1086,7 @@ Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/
 ### Locked and moving lanes
 
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of
-ours in it is news from upstream: read the versions it resolved before looking for a regression.
+ours in it may reflect a dependency release: read the versions it resolved before looking for a regression.
 
 | Job | Fixed | Resolved at each run | Where the versions are |
 |---|---|---|---|
@@ -1171,7 +1172,7 @@ browser has two projects in `playwright.config.ts` (`browserProjects()`): `smoke
 pixels, with a baseline or two screenshots with each other, is tagged `@screenshot` (`screenshotAnnotation()` in
 `tests/e2e/examples/fixtures.ts` tags every baseline test, `testState()` included; `forms.spec.ts`' parity test and
 `baselines.spec.ts` carry the tag themselves), and the Firefox and WebKit projects leave it out (`grepInvert`): the
-baselines are Chromium's, rendered in upstream's Playwright image. A new screenshot test takes the tag: without it,
+baselines are Chromium's, rendered in UXor's pinned Playwright image. A new screenshot test takes the tag: without it,
 the other engines compare it with a baseline that is not theirs (`examples-*`) or that does not exist (`smoke-*`), and
 fail.
 

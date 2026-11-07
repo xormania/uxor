@@ -126,7 +126,7 @@ while IFS= read -r path; do
         demo/tests/* | demo/src/Controller/LabController.php) on php static-site demo contrast ;;
         demo/*) on php static-site demo ;;
 
-        # A recipe's own tests (upstream specs, screenshot baselines): only the browser tests read them, and the
+        # A recipe's own specs and screenshot baselines: only the browser tests read them, and the
         # inventory check which specs exist
         */tests/*.spec.ts) on contrast demo ;;
         */tests/*) on demo ;;

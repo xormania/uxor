@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * The Docker image the browser runs in: upstream's Playwright image (mcr.microsoft.com/playwright), in which the
+ * UXor's browser runtime uses Microsoft's Playwright image (mcr.microsoft.com/playwright), in which the
  * screenshot baselines were taken. tools/playwright-image.json pins it by digest, `<image>:v<version>-noble@sha256:…`,
  * so the browser cannot change under the tests when Microsoft republishes the tag. Its tag must name the
  * @playwright/test version package-lock.json locks: the client and the browser server speak the same protocol, and a

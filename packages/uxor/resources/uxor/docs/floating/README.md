@@ -44,8 +44,7 @@ export default class extends Controller {
 
 It exports:
 
-- `position(floating, reference, { placement, offset })` places `floating` next to `reference` the way Popper does
-  for Flowbite, so the element lands on the same pixels as Flowbite's own: `position: absolute`, then
+- `position(floating, reference, { placement, offset })` places `floating` next to `reference` with `position: absolute`, then
   `transform: translate(x, y)` in the coordinates of its containing block, rounded to device pixels. `placement` is
   `top`, `bottom`, `left` or `right`, optionally with `-start` or `-end` (`bottom` when empty); `offset` is the gap in
   pixels. The element flips to the opposite side when it overflows the viewport on its side and fits on the other;

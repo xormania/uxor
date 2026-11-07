@@ -1,6 +1,6 @@
 # Button Group
 
-The button group component from Flowbite can be used to stack together multiple buttons and links inside a single element.
+Groups buttons and links in one element, horizontally or vertically.
 
 ```twig {"preview":true}
 <twig:ButtonGroup>

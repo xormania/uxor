@@ -21,9 +21,9 @@ if (demoURL) {
 }
 
 /*
- * The browser runs in the same Docker image as upstream's toolkit tests (symfony/ux
- * src/Toolkit/assets/playwright.config.ts), so screenshots match the baselines copied from upstream. It is pinned by
- * digest in tools/playwright-image.json, whose tag must be this @playwright/test version (tools/playwright-image.mjs).
+ * The browser runs in UXor's pinned Playwright image so screenshot comparisons use a reproducible browser runtime.
+ * tools/playwright-image.json pins its digest; the tag must match this @playwright/test version
+ * (tools/playwright-image.mjs). UXor maintains its own tests and screenshot baselines.
  * PW_BROWSER_SERVER overrides the command (e.g. `--network host` where port publishing is unavailable).
  */
 const browserServer =
@@ -46,7 +46,7 @@ if (!process.env.TEST_WORKER_INDEX) {
 
 /*
  * Two projects per browser: `smoke` (tests/e2e/*.spec.ts, desktop viewport) and `examples` (every README example and
- * the upstream recipe specs, at upstream's 800x600 viewport; screenshots live in <recipe>/tests/screenshots/). Chromium's
+ * the recipe specs, at the configured 800x600 viewport; screenshots live in <recipe>/tests/screenshots/). Chromium's
  * keep their plain names; Firefox's and WebKit's are suffixed: smoke-firefox, examples-webkit...
  *
  * Firefox and WebKit run the behavior tests only: every test tagged @screenshot (it compares pixels: a baseline, or two

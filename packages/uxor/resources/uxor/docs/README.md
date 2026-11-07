@@ -1,11 +1,16 @@
 # UXor
 
-A [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit built on the free
+An independently maintained Symfony UI library, currently distributed as a
+[Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit and styled with the free
 [Flowbite](https://flowbite.com/) v4 library and Tailwind CSS v4: a theme, Twig components, a form theme, page layouts
 and ready-made blocks such as a login card or a dashboard, each one a recipe. `php bin/console ux:install` copies a
 recipe into your project, where you own it. Every behavior is a Stimulus controller, so components keep working with
 Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
+
+The official Symfony UX `flowbite-4` kit was an initial reference only. UXor follows its own requirements and
+compatibility commitments, with no requirement to track that kit's names, markup, behavior or tests. Toolkit
+installation support, Flowbite CSS and the icon set are current implementation choices that can evolve with UXor.
 
 ![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/0.3.1/docs/images/dashboard-dark.png)
 

@@ -51,7 +51,7 @@ The dropdown component can be used to show a list of menu items when clicking on
     <twig:Dropdown:Content>
         <twig:Dropdown:Header>
             <span class="block text-sm text-heading font-medium">Bonnie Green</span>
-            <span class="block text-sm truncate">name@flowbite.com</span>
+            <span class="block text-sm truncate">name@example.com</span>
         </twig:Dropdown:Header>
         <twig:Dropdown:Group>
             <twig:Dropdown:Item as="a" href="#">Link item</twig:Dropdown:Item>
@@ -84,7 +84,7 @@ The dropdown component can be used to show a list of menu items when clicking on
 The menu opens on its `placement` side, `offsetDistance` pixels from the trigger, flips to the other side when it does
 not fit there (a `left` or `right` menu with room on neither side, as on a phone, opens below the trigger, or above
 it, rather than pushing the page sideways), and shifts along the trigger to stay in the viewport; while open it follows the trigger on scroll and
-resize, and the final placement is in `data-popper-placement`, as with Flowbite's Popper. The placing is the
+resize, and the final placement is in `data-popper-placement`. The placing is the
 `floating` recipe's module (`assets/lib/uxor-floating.js`), which `ux:install dropdown` installs with it:
 `popover` and `tooltip` place their content with the same module.
 
@@ -215,7 +215,7 @@ Use this example to show extra information outside of the list of menu items ins
                 </twig:Avatar>
                 <div class="text-sm">
                     <div class="font-medium text-heading">Bonnie Green</div>
-                    <div class="truncate text-body">name@flowbite.com</div>
+                    <div class="truncate text-body">name@example.com</div>
                 </div>
                 <twig:Badge border="bordered">PRO</twig:Badge>
             </twig:Dropdown:Header>

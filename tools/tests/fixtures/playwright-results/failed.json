@@ -1,6 +1,6 @@
 {
   "config": {
-    "rootDir": "/runner/work/flowbite-xor/flowbite-xor",
+    "rootDir": "/runner/work/uxor/uxor",
     "version": "1.58.2",
     "shard": { "current": 1, "total": 3 },
     "projects": [{ "id": "smoke", "name": "smoke" }, { "id": "examples", "name": "examples" }]
@@ -31,8 +31,8 @@
                   "status": "failed",
                   "duration": 5000,
                   "error": { "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator: getByRole('dialog')\nExpected: hidden\nReceived: visible\nTimeout:  5000ms\n\nCall log:\n  - Expect \"toBeHidden\" with timeout 5000ms" },
-                  "errors": [{ "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator: getByRole('dialog')\nExpected: hidden\nReceived: visible\nTimeout:  5000ms\n\nCall log:\n  - Expect \"toBeHidden\" with timeout 5000ms", "location": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/transitions.ts", "line": 88, "column": 9 } }],
-                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/transitions.ts", "line": 88, "column": 9 }
+                  "errors": [{ "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeHidden\u001b[2m()\u001b[22m failed\n\nLocator: getByRole('dialog')\nExpected: hidden\nReceived: visible\nTimeout:  5000ms\n\nCall log:\n  - Expect \"toBeHidden\" with timeout 5000ms", "location": { "file": "/runner/work/uxor/uxor/tests/e2e/transitions.ts", "line": 88, "column": 9 } }],
+                  "errorLocation": { "file": "/runner/work/uxor/uxor/tests/e2e/transitions.ts", "line": 88, "column": 9 }
                 },
                 {
                   "retry": 1,
@@ -73,7 +73,7 @@
                   "duration": 700,
                   "error": { "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" },
                   "errors": [{ "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" }],
-                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/examples/recipes/alert.alert.spec.ts", "line": 14, "column": 5 }
+                  "errorLocation": { "file": "/runner/work/uxor/uxor/tests/e2e/examples/recipes/alert.alert.spec.ts", "line": 14, "column": 5 }
                 },
                 {
                   "retry": 1,
@@ -81,7 +81,7 @@
                   "duration": 650,
                   "error": { "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" },
                   "errors": [{ "message": "Error: expect(received).toBe(expected)\n\nExpected: 2\nReceived: 3" }],
-                  "errorLocation": { "file": "/runner/work/flowbite-xor/flowbite-xor/tests/e2e/examples/recipes/alert.alert.spec.ts", "line": 14, "column": 5 }
+                  "errorLocation": { "file": "/runner/work/uxor/uxor/tests/e2e/examples/recipes/alert.alert.spec.ts", "line": 14, "column": 5 }
                 }
               ]
             }

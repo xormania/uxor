@@ -12,7 +12,7 @@ Use the table component to show text, images, links, and other elements inside a
     <twig:Table>
         <twig:Table:Caption>
             Our products
-            <p class="mt-1.5 text-sm font-normal text-body">Browse a list of Flowbite products designed to help you work and play, stay organized, get answers, keep in touch, grow your business, and more.</p>
+            <p class="mt-1.5 text-sm font-normal text-body">Browse our product catalog for tools that help you work and play, stay organized, find answers, keep in touch, grow your business, and more.</p>
         </twig:Table:Caption>
         <twig:Table:Header class="border-t">
             <twig:Table:Row>

@@ -20,7 +20,7 @@ const baseEnv = {
     PATH: process.env.PATH,
     GITHUB_SHA: '0123456789abcdef0123456789abcdef01234567',
     GITHUB_REF_NAME: 'claude/ci-shards',
-    GITHUB_REPOSITORY: 'xorman/flowbite-xor',
+    GITHUB_REPOSITORY: 'xormania/uxor',
     GITHUB_RUN_ID: '42',
     GITHUB_RUN_ATTEMPT: '1',
 };
@@ -193,7 +193,7 @@ test('run: every job\'s queue and duration, the run\'s wall time, and where the 
     assert.deepEqual(changes.steps.map((s) => [s.name, s.durationMs]), [['Set up job', 2000], ["The script's own cases", 23000], ['Complete job', 5000]]);
     assert.deepEqual(json.run, { wallMs: 780000, jobs: 5, longestJob: 'Demo + Playwright (chromium 1/4)', longestJobMs: 710000 });
     assert.deepEqual(json.demoSteps['Build the demo image'], { chromium: 90000, firefox: 60000 });
-    assert.deepEqual(json.demoSteps['Playwright (smoke + every README example + upstream recipe specs)'], { chromium: 347500, firefox: 145000 });
+    assert.deepEqual(json.demoSteps['Playwright (smoke + every README example + UXor recipe specs)'], { chromium: 347500, firefox: 145000 });
     assert.equal(json.demoSteps['The sync leaves tracked files unchanged'], undefined, 'a skipped step is no time spent');
     assert.match(markdown, /### Browser jobs, step by step/);
     assert.match(markdown, /\| Build the demo image \| 90\.0 s \| 60\.0 s \| – \|/);

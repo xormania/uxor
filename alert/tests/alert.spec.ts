@@ -1,6 +1,6 @@
 import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
 
-describeRecipe('flowbite-4/alert', () => {
+describeRecipe('uxor/alert', () => {
     testState('hides an alert when its close button is clicked', {
         example: 'dismissing',
         state: 'danger-dismissed',
@@ -16,7 +16,7 @@ describeRecipe('flowbite-4/alert', () => {
     });
 
     test('dismisses each alert independently', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/alert/dismissing');
+        await gotoExample('uxor/alert/dismissing');
         const alerts = page.getByRole('alert');
         const info = alerts.filter({ hasText: 'A simple info alert' });
         const dark = alerts.filter({ hasText: 'A simple dark alert' });
@@ -32,7 +32,7 @@ describeRecipe('flowbite-4/alert', () => {
     });
 
     test('dismisses an alert with the keyboard', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/alert/dismissing');
+        await gotoExample('uxor/alert/dismissing');
         const alert = page.getByRole('alert').filter({ hasText: 'A simple warning alert' });
         await alert.getByRole('button', { name: 'Close' }).focus();
 
