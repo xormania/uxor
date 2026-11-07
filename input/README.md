@@ -15,7 +15,7 @@ The input field is an important part of the form element that can be used to cre
         </div>
         <div>
             <twig:Label for="company">Company</twig:Label>
-            <twig:Input id="company" type="text" placeholder="Flowbite" required />
+            <twig:Input id="company" type="text" placeholder="Acme" required />
         </div>
         <div>
             <twig:Label for="phone">Phone number</twig:Label>
@@ -23,7 +23,7 @@ The input field is an important part of the form element that can be used to cre
         </div>
         <div>
             <twig:Label for="website">Website URL</twig:Label>
-            <twig:Input id="website" type="url" placeholder="flowbite.com" required />
+            <twig:Input id="website" type="url" placeholder="example.com" required />
         </div>
         <div>
             <twig:Label for="visitors">Unique visitors (per month)</twig:Label>

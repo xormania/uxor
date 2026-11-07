@@ -2,6 +2,10 @@
 
 Agent guidance and development tools for building Symfony applications with [UXor](https://github.com/xormania/uxor).
 
+UXor is independently maintained; the official Symfony UX `flowbite-4` kit was an initial reference only. This
+package documents UXor's behavior and current integrations, which evolve under UXor's requirements and compatibility
+commitments rather than a requirement to match the reference kit.
+
 `xormania/uxor` is UXor's Composer package, a development dependency of a Symfony application. It brings UXor's
 references, task guidance and project diagnostics into an agent's workflow, through
 [Symfony AI Mate](https://github.com/symfony/ai-mate) and a command line:

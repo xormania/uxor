@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}{{ kit.manifest.name }}: Flowbite components for Symfony UX{% endblock %}
+{% block title %}{{ kit.manifest.name }}: components for Symfony UX{% endblock %}
 
 {% block hero %}
     {%- set example_total = example_counts|reduce((total, count) => total + count, 0) -%}
@@ -8,7 +8,7 @@
         <div class="mx-auto max-w-7xl px-4 pt-16 pb-14 sm:pt-24 sm:pb-20">
             <div class="flex flex-wrap gap-2">
                 <twig:Badge variant="brand">Symfony UX Toolkit kit</twig:Badge>
-                <twig:Badge variant="gray">Flowbite 4</twig:Badge>
+                <twig:Badge variant="gray">Flowbite CSS 4</twig:Badge>
                 <twig:Badge variant="gray">Tailwind CSS 4</twig:Badge>
                 <twig:Badge variant="gray">Stimulus</twig:Badge>
             </div>
@@ -47,7 +47,7 @@
             {% for item in [
                 {icon: 'flowbite:fire-outline', title: 'Stimulus only', text: 'Every behavior is a Stimulus controller, no initFlowbite(): components keep working across Turbo visits and Live Component re-renders.'},
                 {icon: 'flowbite:lock-outline', title: 'Strict CSP', text: 'No inline script, style or event handler, so the components run under a nonce-based Content Security Policy.'},
-                {icon: 'flowbite:moon-outline', title: 'Light and dark', text: 'Flowbite’s color roles for both themes, with contrast fixes checked in CI, and a toggle that remembers the choice.'},
+                {icon: 'flowbite:moon-outline', title: 'Light and dark', text: 'UXor’s color roles for both themes, with contrast fixes checked in CI, and a toggle that remembers the choice.'},
                 {icon: 'flowbite:check-circle-outline', title: 'Tested in a browser', text: 'Every example on this site is compared with a screenshot in both themes, and every page passes an axe accessibility scan.'},
             ] %}
                 <li class="rounded-base border border-default p-5">

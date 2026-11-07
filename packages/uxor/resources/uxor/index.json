@@ -3,14 +3,14 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.1",
-        "inputs_sha256": "ba0aaa8e40501bb4f390258f37b6c109a77eb4d74802c43fd072c740f327bd4e",
-        "manifest_sha256": "5932e947a1a9b9b6c58d7871c119401eae05bb8aef098b7a0a7d82e9479d03c8",
+        "inputs_sha256": "33efd7a6dd1eb46f895b882d77ddfe0f2074d07c2451aa5408bee83522d51f37",
+        "manifest_sha256": "e624eb4fc71ef5a830e675f43e1dfc822dafee22ccac88290d3586304d6bc54a",
         "license": "MIT"
     },
     "kit": {
         "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-v1.json",
         "name": "UXor",
-        "description": "Flowbite v4 and Tailwind CSS v4 components, layouts, blocks and a form theme for Symfony UX, with all behavior in Stimulus controllers so they keep working under Turbo and Live Components.",
+        "description": "UXor components, layouts, blocks and a form theme for Symfony UX, styled with Tailwind CSS v4 and Flowbite CSS v4, with Stimulus behavior for Turbo and Live Components.",
         "license": "MIT",
         "homepage": "https://github.com/xormania/uxor",
         "color": "hsl(221,79%,48%)",
@@ -29,10 +29,9 @@
             "summary": "A message for information, success, a warning or an error, optionally dismissible.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Alert",
-                "version-added": "2.35",
                 "copy-files": {
                     "assets/": "assets/",
                     "templates/": "templates/"
@@ -47,7 +46,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "04696dca62755d20f80687fdbb48cd5b5aee00dc45bc8d2b23e32fb7da381e5f",
+            "manifest_sha256": "c5bd441924655c8a55d17ee7e7cdbab24ff5f7a94ca9ac1c80d3f860b8c4884a",
             "documentation": "alert/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/alert"
         },
@@ -80,10 +79,9 @@
             "summary": "A user's picture, with a fallback, in several sizes, round or with rounded corners.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Avatar",
-                "version-added": "3.0",
                 "copy-files": {
                     "assets/": "assets/",
                     "templates/": "templates/"
@@ -98,7 +96,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "fb7ac5dc5deb59bf9614a07da706e39879d1abb7063ef91f178ff2b80f72e738",
+            "manifest_sha256": "d3049fc5865f465a296af9a00df1be8b7a2797e6595708875362c3e015adfa5d",
             "documentation": "avatar/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/avatar"
         },
@@ -106,10 +104,9 @@
             "summary": "A small label or count next to other content, such as a number of comments.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Badge",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -122,7 +119,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "1c39def126a7d174856be8a5ae5f5d476b7be7170e01106c077351e2d8cee403",
+            "manifest_sha256": "638e9668865541eb7c5d10fe069f1143b83de4ee7f70ac7035e782e6ba1c2de1",
             "documentation": "badge/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/badge"
         },
@@ -153,10 +150,9 @@
             "summary": "A button, or a link that looks like one, in several colors, sizes and styles.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Button",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -169,7 +165,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "00132bd2c466414f4bd8af924de9b223b0b19211bd673a1c9c0f2f0f34c8257d",
+            "manifest_sha256": "3fa89c193eae8b71eb4d69c7326f7aa5dbee639bc1ffb14ce40db8f3f0a2374b",
             "documentation": "button/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/button"
         },
@@ -177,10 +173,9 @@
             "summary": "Several buttons or links joined into one control.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Button Group",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -193,7 +188,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "7bc0d39da2bc96a4ac066b36df326fc8eb69b06c9c5a816e5d01480e3f593321",
+            "manifest_sha256": "b6eb5074aa5355c1118738ebb1ced2ba14e10675cba4f1bdbab8c102a6dfc50a",
             "documentation": "button-group/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/button-group"
         },
@@ -227,10 +222,9 @@
             "summary": "A box grouping related content: text, images, a form.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Card",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -242,7 +236,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "902a852b14c9bfd4e31b795dcb8242ceb35ee6c89e63ccc8c65fa4db9e5bcdbf",
+            "manifest_sha256": "a294c225f0690d4c71dccfba9989c0595df0d4c2d107993948fd1255b9978bcb",
             "documentation": "card/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/card"
         },
@@ -280,10 +274,9 @@
             "summary": "A square box to select one or more options.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Checkbox",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -295,7 +288,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "0cf661f730cbfae8fba7c18449de2a314baa578ccf215e16e77ffca5a9a288d8",
+            "manifest_sha256": "eac92d01c1b5a340fa387031d9f03d938fa0cb218aaee5bc41918a670c72ac26",
             "documentation": "checkbox/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/checkbox"
         },
@@ -488,10 +481,9 @@
             "summary": "A menu that opens from a button and closes when the user clicks or focuses outside it.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Dropdown",
-                "version-added": "3.0",
                 "copy-files": {
                     "assets/": "assets/",
                     "templates/": "templates/"
@@ -509,7 +501,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "1b5ea0d492da850a7b679627c9611f7d10aec7673eb57c161a1beadf7b168431",
+            "manifest_sha256": "fe2640280929ae32a92b1c4db742f67f6645a1f803386f74b30a92c04e1c90ba",
             "documentation": "dropdown/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/dropdown"
         },
@@ -718,10 +710,9 @@
             "summary": "A dot or number placed on another element: a status, a count, a loading label.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Indicator",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -734,7 +725,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "c777f3f9fabd9862aa48b066976248498871775e27a074e0b35fedbb094652ef",
+            "manifest_sha256": "339c1c5d2ac2df0116fcf72ba4b40cc3b36b0573cb68c8cd87d414f33ad15041",
             "documentation": "indicator/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/indicator"
         },
@@ -742,10 +733,9 @@
             "summary": "A single-line field for any input type: text, email, number, password, URL…",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Input",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -757,7 +747,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "ee01720ef89ddf27089b52349ebe270fe0f13261b40d6818f2f0b9b37aecea18",
+            "manifest_sha256": "425c5e294bf4b6e35c3c4604edb115b7a353fe778fcd5125a41bf1bcbbd8b32d",
             "documentation": "input/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/input"
         },
@@ -765,10 +755,9 @@
             "summary": "A keyboard key or shortcut shown in text.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Kbd",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -780,7 +769,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "26b884d289c56493cdd22460e0bc4518d3217e5abf2db7c21ce449a7dfc607f8",
+            "manifest_sha256": "bbb5dfafb2ed89c226edc2ad86af58ca26d78ba1c367ffddbd7ee9d5fe2d93a2",
             "documentation": "kbd/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/kbd"
         },
@@ -788,10 +777,9 @@
             "summary": "A text element that identifies form controls and other content.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Label",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -804,7 +792,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "dd1b93a76ab77b8a8a2b4d8bccc7fc62d09ef9ca1253c16bef00f0a9037b8829",
+            "manifest_sha256": "33184d57b10f7f48543cade5b70b3dd5c32622cc9e5f9ec9529690d60ce78dd7",
             "documentation": "label/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/label"
         },
@@ -936,10 +924,9 @@
             "summary": "A dialog over the page, as a native <dialog>, with a close button.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Modal",
-                "version-added": "2.35",
                 "copy-files": {
                     "assets/": "assets/",
                     "templates/": "templates/"
@@ -958,7 +945,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "91bd3cdb51386c308af55e725525e81b37b7497a43b73d9654576c76f924bd7d",
+            "manifest_sha256": "d723fcdc43afe847cf4bba0a25708aee5c320098d18bbeb411f3b3d2ced01ac1",
             "documentation": "modal/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/modal"
         },
@@ -1146,10 +1133,9 @@
             "summary": "Links to the pages of a long list.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Pagination",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1165,7 +1151,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "f159540eaa71414df4a4611683e7a72913b35d21475727d54ef3a0ea3238f2aa",
+            "manifest_sha256": "d61f4510b638d8581b3660cb012271bc2bc5dd75bb15ae189728d2fd44abc49a",
             "documentation": "pagination/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/pagination"
         },
@@ -1223,10 +1209,9 @@
             "summary": "A round button to choose one option among several.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Radio",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1238,7 +1223,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "c9983504fceb37abd2c5e524c65908d122de46ea7988c1d69ef2b47460cba04b",
+            "manifest_sha256": "252b23c038d597d854223f68238115f0bf5daed0de7d3ed857ef56c7baabcb4a",
             "documentation": "radio/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/radio"
         },
@@ -1273,10 +1258,9 @@
             "summary": "A list to choose one or more options.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Select",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1288,7 +1272,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "d5b608041596ed18aaf189c5fb57df40ad051d87a51ad2b38fec842f3a9657dd",
+            "manifest_sha256": "c2930d80bc402be6905c6c564fd9278afd0a8083e91a5fd968841215816d5e2f",
             "documentation": "select/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/select"
         },
@@ -1408,10 +1392,9 @@
             "summary": "Placeholders shaped like the content that is loading.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Skeleton",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1424,7 +1407,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "683944c21d59c8e8de0de6789a1dee27b346af8207ee0db83066d8c457cfdec4",
+            "manifest_sha256": "b4d8a15dfd81ef30d983aabbee9ec290795146565acf89df7ff259144e6692a9",
             "documentation": "skeleton/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/skeleton"
         },
@@ -1460,10 +1443,9 @@
             "summary": "A spinning indicator for a loading state.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Spinner",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1475,7 +1457,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "6dbe314ef15a5335be8f9a42d47abc004b4b6221cd70610b27d538657a0789ef",
+            "manifest_sha256": "aa66c8e54fe95df5fbafc956f62d8aefa2a8cde4f790d8680bc0837e7e7f4ed2",
             "documentation": "spinner/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/spinner"
         },
@@ -1506,10 +1488,9 @@
             "summary": "Rows and columns of data.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Table",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1522,7 +1503,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "ae77e6204f31b8bcc7432d929b7afc83faad656857cd109057992d74235c809c",
+            "manifest_sha256": "cc465819927ea98295c761f45efd8a7251cf8ea0b2b2dace4420c5fd98d08a73",
             "documentation": "table/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/table"
         },
@@ -1530,10 +1511,9 @@
             "summary": "Tabs that switch between panels in place, in a row or a column, with the arrow keys of the WAI-ARIA tabs pattern.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Tabs",
-                "version-added": "2.35",
                 "copy-files": {
                     "assets/": "assets/",
                     "templates/": "templates/"
@@ -1547,7 +1527,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "f1b3729c502a6617f604edf463a6ecdc28844e4efe6f7b96734aa60b8734bdb0",
+            "manifest_sha256": "96a71f90c604d62cd03fcd4f696f1107b4f8312e1b2a6315f0be70447c94a74c",
             "documentation": "tabs/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/tabs"
         },
@@ -1555,10 +1535,9 @@
             "summary": "A multi-line text field, for a comment or a description.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Textarea",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1570,12 +1549,12 @@
                     ]
                 }
             },
-            "manifest_sha256": "f85ec79bb3da7b130743ccc185f0920e42b38384e45b1cfd4ce4444f806f6c0e",
+            "manifest_sha256": "1ea07bb47a5233a63d73d20e69b75666ad2e8d586721976c313163440837519a",
             "documentation": "textarea/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/textarea"
         },
         "theme": {
-            "summary": "Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (fg-on-*), as one stylesheet to import in assets/styles/app.css. A role is a named color with a light and a dark value, used as a utility: bg-brand, text-heading, border-default.",
+            "summary": "UXor's light and dark color roles, including text on a solid fill (fg-on-*), as one stylesheet to import in assets/styles/app.css. The theme uses Flowbite's role names and adds UXor's contrast and chart colors. Use roles through utilities such as bg-brand, text-heading and border-default.",
             "category": "Theme",
             "manifest": {
                 "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
@@ -1645,10 +1624,9 @@
             "summary": "A switch for an on/off setting.",
             "category": "Basic components",
             "manifest": {
-                "$schema": "../../../schema-kit-recipe-v1.json",
+                "$schema": "https://raw.githubusercontent.com/symfony/ux/f152d0ba5b403e8086e90ce8f09bcade1405e217/src/Toolkit/schema-kit-recipe-v1.json",
                 "type": "component",
                 "name": "Toggle",
-                "version-added": "2.35",
                 "copy-files": {
                     "templates/": "templates/"
                 },
@@ -1660,7 +1638,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "42b6c83d080252dd453adf2a1b7f436fddf242fdd52c54a74dc6fc706534bf8b",
+            "manifest_sha256": "9822a4ce88a789fd70aa921b3908c63cce1a1bccde878945a8f1730827a3c993",
             "documentation": "toggle/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/toggle"
         },
@@ -1709,14 +1687,14 @@
     "documents": {
         "FOR-AGENTS.md": {
             "path": "docs/FOR-AGENTS.md",
-            "sha256": "8e769af65e93fc1e835f1b7474ad90b4e5dba7f51c4c4fdda46977b6eaf9fe68",
-            "source_sha256": "9ed4697e997247fdfdf53f595b3971a04a5bc6ee98b4c9b67ae8ebb314fcc267",
+            "sha256": "63c5270733676c04b41b3dcaa46a6f8a9ed3b329c930b54e874a12f00c36f539",
+            "source_sha256": "147835336c0bb7e81a834cefef8272e154bf644c28dfdcc4c93ce40ee84eb6e2",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/FOR-AGENTS.md"
         },
         "INSTALL.md": {
             "path": "docs/INSTALL.md",
-            "sha256": "c09d8906da6813c19e4a044b59bde67c613c370509781066c40faa3d75559829",
-            "source_sha256": "c09d8906da6813c19e4a044b59bde67c613c370509781066c40faa3d75559829",
+            "sha256": "4205110c3b6b68987e2e02b29c381178d1e1eaf9b0291ffcc6436ad856493f8e",
+            "source_sha256": "4205110c3b6b68987e2e02b29c381178d1e1eaf9b0291ffcc6436ad856493f8e",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/INSTALL.md"
         },
         "LICENSE": {
@@ -1733,14 +1711,14 @@
         },
         "README.md": {
             "path": "docs/README.md",
-            "sha256": "faf0d84364a465ef5d26e943f48f62393909929a4c37c29b8a4d51c8c1146d82",
-            "source_sha256": "9df379fa0ca89d0bc229dfa25dad53fb2b494dc64316166dcc09d2b8c0fcdb60",
+            "sha256": "52d485215baf84ce42974b1f48da24c02954611bf85d724e8dfc466e1a61057e",
+            "source_sha256": "acd850d4583618fac60ddfad65edf66aa319e5e6194206014cf5d88b009c4a3f",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/README.md"
         },
         "alert/README.md": {
             "path": "docs/alert/README.md",
-            "sha256": "4cda3b643420385612cc05df7c7f87a5afab3ae0fff50c663598c7ba0a9e775a",
-            "source_sha256": "4cda3b643420385612cc05df7c7f87a5afab3ae0fff50c663598c7ba0a9e775a",
+            "sha256": "83e12441271c3e10b96032c9e55040f56f946565b83c6387cc2301ad940ac09c",
+            "source_sha256": "83e12441271c3e10b96032c9e55040f56f946565b83c6387cc2301ad940ac09c",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/alert/README.md"
         },
         "autocomplete/README.md": {
@@ -1751,8 +1729,8 @@
         },
         "avatar/README.md": {
             "path": "docs/avatar/README.md",
-            "sha256": "df9e54c0b697cd3b450e218b8b2fff2b914cc8bb7bcffbb72287ced595d803ab",
-            "source_sha256": "df9e54c0b697cd3b450e218b8b2fff2b914cc8bb7bcffbb72287ced595d803ab",
+            "sha256": "4f3753787fa913791b87c421fa46d0f65f8f480275b07022be4852d727006063",
+            "source_sha256": "4f3753787fa913791b87c421fa46d0f65f8f480275b07022be4852d727006063",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/avatar/README.md"
         },
         "badge/README.md": {
@@ -1769,8 +1747,8 @@
         },
         "button-group/README.md": {
             "path": "docs/button-group/README.md",
-            "sha256": "9a2ba1dda7a0ad36b37af844305ee29f8a0e9272375dfe6da12d5a0a951f7d41",
-            "source_sha256": "9a2ba1dda7a0ad36b37af844305ee29f8a0e9272375dfe6da12d5a0a951f7d41",
+            "sha256": "e426154fef87e9edbe32f60cafa781362870ec59e9aa67716cf1d674cfd7edd8",
+            "source_sha256": "e426154fef87e9edbe32f60cafa781362870ec59e9aa67716cf1d674cfd7edd8",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/button-group/README.md"
         },
         "button/README.md": {
@@ -1841,20 +1819,20 @@
         },
         "docs/PROJECT-AGENTS-SNIPPET.md": {
             "path": "docs/docs/PROJECT-AGENTS-SNIPPET.md",
-            "sha256": "0c0c12590da57ab96656365cc234a7d87045fb554b78b3d2de305c45d893cca2",
-            "source_sha256": "0c0c12590da57ab96656365cc234a7d87045fb554b78b3d2de305c45d893cca2",
+            "sha256": "86c1f2b89586ba400c74508b850a47b038282111a9fbaf0f74ec6fd1a71045b3",
+            "source_sha256": "86c1f2b89586ba400c74508b850a47b038282111a9fbaf0f74ec6fd1a71045b3",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/docs/PROJECT-AGENTS-SNIPPET.md"
         },
         "docs/RECIPES.md": {
             "path": "docs/docs/RECIPES.md",
-            "sha256": "f32028ea09510f8876aab65c580e8da8fec3d51220a492b04d65ea5d17194776",
-            "source_sha256": "f32028ea09510f8876aab65c580e8da8fec3d51220a492b04d65ea5d17194776",
+            "sha256": "4041b206b987cad35e5c3bbe62cd351c809623156a8aeebef48974743c07a4a1",
+            "source_sha256": "4041b206b987cad35e5c3bbe62cd351c809623156a8aeebef48974743c07a4a1",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/docs/RECIPES.md"
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "66d4d27c65ec2f80ee2b9011c781da157596051c6d1f2c48e39403d52b5f5bbb",
-            "source_sha256": "198a8b1f7d9cf4e1b9ddba6e9ebde43c23595519b5a49045f5da7981ae7f4ae3",
+            "sha256": "38b506c13275bf22bcdf2875a48a89a160c0e6f032e85271000bf09d0e21679e",
+            "source_sha256": "0567fcf072dcb963ac5900b3c83cb4b42be4278135ef9c9457ec86fd8bcb1a89",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/docs/TESTING.md"
         },
         "drawer/README.md": {
@@ -1865,8 +1843,8 @@
         },
         "dropdown/README.md": {
             "path": "docs/dropdown/README.md",
-            "sha256": "08f6f970d64a3801565dc0365eb46b5b81a054db1245689904cd761923f372d3",
-            "source_sha256": "08f6f970d64a3801565dc0365eb46b5b81a054db1245689904cd761923f372d3",
+            "sha256": "67ba05c215888d5a7d2b12c9baae6a06a8a908ad28b9eeb2a2280c4471e264fb",
+            "source_sha256": "67ba05c215888d5a7d2b12c9baae6a06a8a908ad28b9eeb2a2280c4471e264fb",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/dropdown/README.md"
         },
         "dropzone/README.md": {
@@ -1889,8 +1867,8 @@
         },
         "floating/README.md": {
             "path": "docs/floating/README.md",
-            "sha256": "001a5efdb89047c9b3147f004efb32b1f96c0c1c8e920c4179f33278b14f10fc",
-            "source_sha256": "001a5efdb89047c9b3147f004efb32b1f96c0c1c8e920c4179f33278b14f10fc",
+            "sha256": "267b618c41881128a308f35c6447d9265b8081ac08bafb7841b14974e204283e",
+            "source_sha256": "267b618c41881128a308f35c6447d9265b8081ac08bafb7841b14974e204283e",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/floating/README.md"
         },
         "forgot-password/README.md": {
@@ -1919,8 +1897,8 @@
         },
         "input/README.md": {
             "path": "docs/input/README.md",
-            "sha256": "2f9f1794802a2a793bd64903b8d1f2470991df6453ca06f95897ce5924862dfc",
-            "source_sha256": "2f9f1794802a2a793bd64903b8d1f2470991df6453ca06f95897ce5924862dfc",
+            "sha256": "f8a5c9de49e0c1a6ac5eec8a535d40993c1236756f03823dff2caf3ed9cb0e4c",
+            "source_sha256": "f8a5c9de49e0c1a6ac5eec8a535d40993c1236756f03823dff2caf3ed9cb0e4c",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/input/README.md"
         },
         "kbd/README.md": {
@@ -2093,8 +2071,8 @@
         },
         "table/README.md": {
             "path": "docs/table/README.md",
-            "sha256": "9ead34ea32b241fa07690391741f69330db266a327a4243ade460ee633d7e7be",
-            "source_sha256": "9ead34ea32b241fa07690391741f69330db266a327a4243ade460ee633d7e7be",
+            "sha256": "8baf95f79e61c6c2fc2773662f05f4cb9516945ccbe281a63f780169d17cb8c1",
+            "source_sha256": "8baf95f79e61c6c2fc2773662f05f4cb9516945ccbe281a63f780169d17cb8c1",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/table/README.md"
         },
         "tabs/README.md": {
@@ -2117,8 +2095,8 @@
         },
         "theme/README.md": {
             "path": "docs/theme/README.md",
-            "sha256": "ba6eae1e75ce295c6c9fa131a9134d1f8228233da411269f9a41a565dd783eef",
-            "source_sha256": "28c483dcbc3e4968dd06eaadfdfb74390ad9a08cd4e4767c0eae39a19e3e7406",
+            "sha256": "54be401062a0623dfd08a54b06f5c6162317da48cf67b5ce261803fc8090b98a",
+            "source_sha256": "ba770c5dd5bc55cbaf206304592f061b86354fd63fa66fac412cbd31cc0c7cd4",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/theme/README.md"
         },
         "toast/README.md": {

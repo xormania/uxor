@@ -1,10 +1,17 @@
 # Contributing to UXor
 
-UXor is a Symfony UX Toolkit kit: `manifest.json` at the root, one recipe per top-level directory
+UXor is an independently maintained Symfony UI library, currently distributed as a Symfony UX Toolkit kit:
+`manifest.json` at the root, one recipe per top-level directory
 holding a `manifest.json`. The same repository is the Composer package `xormania/uxor`, agent guidance and development
 tools for projects using the kit: `composer.json` at the root, its code in `packages/uxor/`
 ([`docs/PLAN-composer-package.md`](docs/PLAN-composer-package.md)). This page covers the repository, the conventions,
 adding a recipe, and the commit and pull request standard.
+
+The official Symfony UX `flowbite-4` kit was an initial reference only. UXor's requirements and compatibility
+commitments govern its design, APIs, documentation and tests; inherited names, markup and behavior carry no
+requirement to match that kit. Toolkit installation support, Flowbite CSS and the icon set are current integration
+choices, which can change as UXor's needs change. Preserve legal attribution in `NOTICE` and assess changes to
+shipped interfaces for compatibility, regardless of where their implementation began.
 
 ## Repository layout
 
@@ -54,7 +61,7 @@ same way unless users of the kit or of the package need it.
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker): FrankenPHP in worker mode, PHP 8.5,
 HTTPS. You need Docker and Node.js (CI uses 22); no PHP on your machine. Playwright's browser also runs in Docker,
-in the same `mcr.microsoft.com/playwright` image as the Symfony UX Toolkit's own tests, pinned by digest in
+in the `mcr.microsoft.com/playwright` image pinned for UXor by digest in
 `tools/playwright-image.json`, so screenshots match the committed baselines. After bumping `@playwright/test`, run
 `node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
 
@@ -110,7 +117,7 @@ branch is compared with where it left `dev`, so each push checks the whole pull 
 with the commit of `dev`'s last successful run, so every merge since is checked (one whose run was cancelled or failed
 too); with none, everything runs. *Tool tests* runs on every push, and checks what any path can break: the bundled
 references' links, the test inventory's names and the archive's payload. Once a day, on `dev`, the jobs that install
-unpinned upstream versions run alone (both *Fresh install* jobs and *Package*). GitHub runs every schedule on the
+freshly resolved dependency versions run alone (both *Fresh install* jobs and *Package*). GitHub runs every schedule on the
 default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
 job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
 release. The rulesets require the one
@@ -361,7 +368,8 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
   - a controller's `@target`, `@value` and `@action` comment tags, if it has any, match its code.
 - **Naming.** Recipe folders in lower kebab case (`stat-card`), components in PascalCase (`StatCard`, parts
   `Sidebar:Item`), controller files in snake case and used in kebab case (`theme_toggle_controller.js`,
-  `data-controller="theme-toggle"`). Copied recipe and controller names stay unchanged.
+  `data-controller="theme-toggle"`). Recipe and controller names are UXor interfaces; their origin does not constrain
+  naming. Treat changes to shipped names as compatibility changes and document any migration.
 - **Colors** only through the theme's role utilities (`bg-brand`, `text-heading`, `border-default`…); text on a solid
   fill through its on-fill role (`text-fg-on-brand` on `bg-brand`, `fg-on-dark` on `bg-dark`…).
 - **CSS order.** `flowbite.min.css` loads after Tailwind's utilities, so when both define a class, Flowbite's copy
@@ -395,8 +403,8 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 
 ## Adding a recipe
 
-1. Create `<recipe>/manifest.json`. Copy the `$schema` line from one of this kit's own recipes (`stat-card`): the
-   copied ones carry a path that only resolves in `symfony/ux`. Then set:
+1. Create `<recipe>/manifest.json`. Copy the pinned `$schema` URL from one of this kit's own recipes (`stat-card`),
+   which describes the current Toolkit installation format. Then set:
    - `type`: `component`, or `block` for a page section;
    - `name`: the component name (`StatCard`);
    - `copy-files`: `{"templates/": "templates/"}`, plus `"assets/": "assets/"` when the recipe has a controller and
@@ -511,7 +519,7 @@ included) fails unless its `README.md` changed too, or a commit of the branch wa
 paragraph of its message:
 
 ```text
-fix(alert): order the variant classes as Flowbite does
+fix(alert): correct the variant class order
 
 Docs-waiver: alert class order only, nothing the README shows changes
 ```

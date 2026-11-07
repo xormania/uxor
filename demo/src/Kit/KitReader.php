@@ -69,8 +69,8 @@ final class KitReader
     /**
      * The README examples of a recipe: every fenced block whose info string carries a JSON object.
      *
-     * Ported from symfony/ux main (f152d0b) Recipe::getExamples(), which also gives each example the
-     * id its upstream screenshots are named after; symfony/ux-toolkit v3.5.1 returns no ids yet.
+     * Ported from Symfony UX Toolkit's Recipe::getExamples() (symfony/ux f152d0b), which assigns
+     * example ids usable for screenshot comparisons; symfony/ux-toolkit v3.5.1 returns no ids yet.
      *
      * @return list<array{id: string, language: string, code: string, options: array<string, mixed>}>
      */

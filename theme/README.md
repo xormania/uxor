@@ -1,6 +1,6 @@
 # Theme
 
-The Flowbite color roles (light and dark) with this kit's contrast fixes and its roles for text on a solid fill, as one stylesheet for `assets/styles/app.css`.
+UXor's light and dark color roles, including text on solid fills, as one stylesheet for `assets/styles/app.css`.
 
 ## Installation
 
@@ -8,7 +8,7 @@ The Flowbite color roles (light and dark) with this kit's contrast fixes and its
 
 ## Usage
 
-The recipe copies `assets/styles/uxor.css`, Flowbite's theme with every color role checked for contrast. A role is a named color used through utilities such as `bg-brand`, `text-heading` or `border-default`. The file defines the roles (`@theme`), their dark values (`.dark`) and the `dark:` variant (`@custom-variant dark`), and gives Turbo Drive's progress bar the brand color. Import it after Tailwind and Flowbite's stylesheet in `assets/styles/app.css`:
+The recipe copies `assets/styles/uxor.css`, UXor's theme, which uses Flowbite's role names and adds its own contrast and chart colors. A role is a named color used through utilities such as `bg-brand`, `text-heading` or `border-default`. The file defines the roles (`@theme`), their dark values (`.dark`) and the `dark:` variant (`@custom-variant dark`), and gives Turbo Drive's progress bar the brand color. Import it after Tailwind and Flowbite's stylesheet in `assets/styles/app.css`:
 
 ```css
 @import "tailwindcss";
@@ -33,8 +33,8 @@ The browser's own controls follow the theme too: the file sets `color-scheme: li
 
 Text on a solid fill, such as a brand button, an indicator, a calendar's selected day, the active pill tab, a tooltip
 or an avatar group's count, uses the `fg-on-*` role of that fill: `text-fg-on-brand` on `bg-brand`, and
-`fg-on-success`, `fg-on-danger`, `fg-on-warning` and `fg-on-dark` on theirs. The toggle's knob is `bg-knob`. Flowbite's
-theme has no such roles: they are this kit's addition to `uxor.css`. Every one is white, in both themes.
+`fg-on-success`, `fg-on-danger`, `fg-on-warning` and `fg-on-dark` on theirs. The toggle's knob is `bg-knob`. UXor defines
+these roles in `uxor.css`. Every on-fill text role is white, in both themes.
 
 With a light brand color, white text on it is hard to read: in your copy of `uxor.css` (the project owns it,
 like every file a recipe copies), set `--color-fg-on-brand` to a dark color, in `@theme` and in `.dark`:

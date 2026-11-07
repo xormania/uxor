@@ -12,7 +12,7 @@ Each recipe's README has its examples, props and usage.
 
 | Recipe | |
 |---|---|
-| [`theme`](../theme/README.md) | Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. A role is a named color with a light and a dark value, used as a utility: `bg-brand`, `text-heading`, `border-default`. |
+| [`theme`](../theme/README.md) | UXor's light and dark color roles, including text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. The theme uses Flowbite's role names and adds UXor's contrast and chart colors. Use roles through utilities such as `bg-brand`, `text-heading` and `border-default`. |
 | [`theme-toggle`](../theme-toggle/README.md) ✦ | A button switching between the light and dark themes, remembered in `localStorage` and following the system preference until the user chooses. |
 
 ## Shared code

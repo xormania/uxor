@@ -17,7 +17,7 @@ function convert(report, env = {}, args = []) {
     const out = join(mkdtempSync(join(tmpdir(), 'junit-')), 'failed-attempts.json');
     const run = spawnSync(process.execPath, [script, report, out, ...args], {
         encoding: 'utf8',
-        env: { PATH: process.env.PATH, GITHUB_SHA: 'abc', GITHUB_WORKSPACE: '/runner/work/flowbite-xor/flowbite-xor', ...env },
+        env: { PATH: process.env.PATH, GITHUB_SHA: 'abc', GITHUB_WORKSPACE: '/runner/work/uxor/uxor', ...env },
     });
     return { code: run.status, stderr: run.stderr, data: run.status === 0 ? JSON.parse(readFileSync(out, 'utf8')) : null };
 }
@@ -59,7 +59,7 @@ test('a report with no failure has no attempt; a missing or unreadable report is
 const nodeFixture = join(root, 'tools/tests/fixtures/junit/node-test.xml');
 
 test("Node's JUnit: each failed test becomes one attempt, its file and line from the failure's stack", () => {
-    const { code, stderr, data } = convert(nodeFixture, { GITHUB_WORKSPACE: '/home/runner/work/flowbite-xor/flowbite-xor' }, ['--project', 'node']);
+    const { code, stderr, data } = convert(nodeFixture, { GITHUB_WORKSPACE: '/home/runner/work/uxor/uxor' }, ['--project', 'node']);
     assert.equal(code, 0, stderr);
     assert.equal(data.shard, 'node');
     assert.deepEqual(data.projects, ['node']);

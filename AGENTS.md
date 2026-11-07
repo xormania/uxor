@@ -1,7 +1,12 @@
 # AGENTS.md
 
-Instructions for coding agents working on this repository, a Symfony UX Toolkit kit.
+Instructions for coding agents working on UXor, an independently maintained Symfony UI library currently
+distributed as a Symfony UX Toolkit kit.
 
+- The official Symfony UX `flowbite-4` kit was an initial reference only. UXor's requirements and compatibility
+  commitments govern its design, names, behavior and tests; do not preserve or copy reference kit decisions merely
+  because of their origin. Toolkit installation support, Flowbite CSS and the icon set are current implementation
+  choices, evaluated against UXor's needs rather than permanent architectural constraints. Keep legal attribution.
 - Follow [`CONTRIBUTING.md`](CONTRIBUTING.md): conventions, adding a recipe, checks, commit and pull request
   standard. The same rules apply to people.
 - Repository map: the kit is at the root (`manifest.json`, one recipe per top-level directory). The Composer package

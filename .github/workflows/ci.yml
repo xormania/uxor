@@ -4,8 +4,8 @@ name: CI
 # runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
 # push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
 # release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml). Once a day the jobs that install unpinned upstream versions run alone, on dev (the Changes
-# job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
+# (.github/dependabot.yml). Once a day the install jobs that resolve consumer dependencies afresh run alone, on dev
+# (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
 # no install may no longer run. GitHub runs a schedule on the default branch, main: that run only starts the daily run
 # on dev (the Start on dev job), so a failure shows on dev, where its fix lands, and main changes only by a release.
 on:
@@ -16,7 +16,7 @@ on:
     workflow_dispatch:
         inputs:
             daily:
-                description: 'On dev only, the daily run: the installs of unpinned upstream versions only (what the schedule starts)'
+                description: 'On dev only, the daily run: install checks with fresh consumer dependency resolution (what the schedule starts)'
                 type: boolean
                 default: false
 
@@ -141,7 +141,7 @@ jobs:
                   # the daily run on dev only: elsewhere `daily` is ignored and everything runs, so a dispatch on a
                   # branch cannot pass CI result with its checks skipped
                   if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
-                      echo "The daily run: the installs of unpinned upstream versions only"
+                      echo "The daily run: install checks with fresh consumer dependency resolution"
                       for job in lint-kit php static-site fresh-install contrast demo workflows package; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
@@ -1078,9 +1078,9 @@ jobs:
               working-directory: demo
               run: docker compose exec -T php bash ../tools/tests/sync-demo.sh
 
-            # The browser runs in upstream's Playwright image (see playwright.config.ts), so the
-            # screenshots compare with the baselines copied from symfony/ux. The image holds the three browsers; the tests
-            # launch only the job's own. Each part's seconds go to the job's metrics.
+            # The browser runs in the Playwright image pinned by UXor (see playwright.config.ts), so
+            # screenshot comparisons use a reproducible browser environment and UXor's committed baselines. The image
+            # holds the three browsers; the tests launch only the job's own. Each part's seconds go to the job's metrics.
             - name: Install Playwright
               id: install
               run: |
@@ -1137,7 +1137,7 @@ jobs:
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks run in
             # release-checks.yml, not here (their projects exist only with RELEASE_CHECKS set)
-            - name: Playwright (smoke + every README example + upstream recipe specs)
+            - name: Playwright (smoke + every README example + UXor recipe specs)
               id: tests
               env:
                   DEMO_URL: https://localhost

@@ -1,8 +1,8 @@
 import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
 
-describeRecipe('flowbite-4/dropdown', () => {
+describeRecipe('uxor/dropdown', () => {
     test('closes on a click on its trigger', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/dropdown/default');
+        await gotoExample('uxor/dropdown/default');
         const trigger = page.getByRole('button', { name: 'Dropdown button' });
         await expect(page.getByRole('menu')).toBeVisible();
 
@@ -13,7 +13,7 @@ describeRecipe('flowbite-4/dropdown', () => {
     });
 
     test('opens with ArrowDown and closes with Escape', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/dropdown/default');
+        await gotoExample('uxor/dropdown/default');
         const trigger = page.getByRole('button', { name: 'Dropdown button' });
         await trigger.click();
         await expect(page.getByRole('menu')).toBeHidden();

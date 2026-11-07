@@ -1,6 +1,6 @@
 import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
 
-describeRecipe('flowbite-4/tabs', () => {
+describeRecipe('uxor/tabs', () => {
     testState('shows the panel of a clicked tab', {
         example: 'default',
         state: 'dashboard',
@@ -43,7 +43,7 @@ describeRecipe('flowbite-4/tabs', () => {
     });
 
     test('shows only the panel of the default tab on load', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/tabs/default');
+        await gotoExample('uxor/tabs/default');
 
         await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('aria-selected', 'true');
         await expect(page.getByRole('tab', { name: 'Profile' })).toHaveAttribute('data-state', 'active');
@@ -52,7 +52,7 @@ describeRecipe('flowbite-4/tabs', () => {
     });
 
     test('moves the selection from the previous tab to the clicked one', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/tabs/default');
+        await gotoExample('uxor/tabs/default');
         const profile = page.getByRole('tab', { name: 'Profile' });
         const settings = page.getByRole('tab', { name: 'Settings' });
 
@@ -67,7 +67,7 @@ describeRecipe('flowbite-4/tabs', () => {
     });
 
     test('selects a tab with Enter and Space', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/tabs/default');
+        await gotoExample('uxor/tabs/default');
 
         await page.getByRole('tab', { name: 'Contact' }).press('Enter');
 
@@ -80,7 +80,7 @@ describeRecipe('flowbite-4/tabs', () => {
     });
 
     test('keeps the disabled tab out of reach', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/tabs/tabs-with-underline');
+        await gotoExample('uxor/tabs/tabs-with-underline');
         const disabled = page.getByRole('tab', { name: 'Disabled' });
 
         await expect(disabled).toBeDisabled();
@@ -89,7 +89,7 @@ describeRecipe('flowbite-4/tabs', () => {
     });
 
     test('selects a tab of a list without panels', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/tabs/tabs-with-icons');
+        await gotoExample('uxor/tabs/tabs-with-icons');
         const contacts = page.getByRole('tab', { name: 'Contacts' });
 
         await contacts.click();

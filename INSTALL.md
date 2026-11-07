@@ -1,6 +1,13 @@
 # Getting started
 
-UXor is a Symfony UX Toolkit kit: Twig components, Stimulus controllers, a form theme, layouts and blocks (ready-made parts of a page), styled with [Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with `php bin/console ux:install`, once the project is set up as below.
+UXor is an independently maintained Symfony UI library, currently distributed as a Symfony UX Toolkit kit: Twig
+components, Stimulus controllers, a form theme, layouts and blocks (ready-made parts of a page), styled with
+[Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with
+`php bin/console ux:install`, once the project is set up as below.
+
+The official Symfony UX `flowbite-4` kit was an initial reference only. The Toolkit installer, Flowbite stylesheet
+and icon set are current integrations, not a requirement to track that kit. These setup instructions describe the
+current release; UXor's requirements and compatibility commitments govern how its integrations evolve.
 
 ## Requirements
 
@@ -32,7 +39,7 @@ npm install "flowbite@^4.0.2"
 
 The kit is tested with Flowbite 4. `importmap:update` ignores the version constraint and would install Flowbite's latest version, even a new major: to update the stylesheet, run the `importmap:require` command above again.
 
-2. Install the `theme` recipe. It copies `assets/styles/uxor.css`: Flowbite's color roles (named colors with a light and a dark value, used as `bg-brand`, `text-heading`, `border-default`…), with this kit's contrast fixes. Then make `assets/styles/app.css` start with these imports, in this order (Flowbite's stylesheet after Tailwind, the theme last):
+2. Install the `theme` recipe. It copies `assets/styles/uxor.css`: UXor's light and dark color roles, using Flowbite's role names and adding UXor's contrast and chart colors. Use roles through utilities such as `bg-brand`, `text-heading` and `border-default`. Then make `assets/styles/app.css` start with these imports, in this order (Flowbite's stylesheet after Tailwind, the theme last):
 
 ```
 php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
@@ -48,7 +55,7 @@ php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version
 /* ... or with Webpack Encore */
 /* @import 'flowbite/dist/flowbite.min.css'; */
 
-/* Flowbite's color roles, light and dark, from the `theme` recipe */
+/* UXor's color roles, light and dark, from the `theme` recipe */
 @import './uxor.css';
 ```
 

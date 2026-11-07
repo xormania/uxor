@@ -5,6 +5,15 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Fixed
+
+- Repository and consumer guidance now state that the official Symfony UX `flowbite-4` kit is a reference only.
+  UXor owns its design, interfaces, behavior and tests; Toolkit installation support, Flowbite CSS and icons are
+  current integrations that can evolve with UXor's requirements.
+- The gallery, kit description and icon identify UXor, and recipe documentation no longer claims that Flowbite
+  JavaScript is required or that reference-kit markup and behavior must be preserved. Legacy recipe schema paths,
+  reference-project version metadata and test identifiers are corrected.
+
 ## [0.3.1] - 2026-11-05
 
 ### Added
