@@ -5,8 +5,8 @@ import { isKeptOnCache } from '../lib/uxor-turbo.js';
 /**
  * Opens a `Dropdown` menu on click or hover, places it next to its trigger and handles the keyboard.
  *
- * It replaces Flowbite's `Dropdown` (and its Popper dependency) with the same behavior: the content
- * toggles `hidden`/`block` and `aria-hidden`, closes on a click outside, follows its trigger on scroll
+ * This UXor controller replaces Flowbite's `Dropdown` and its Popper dependency. The content toggles
+ * `hidden`/`block` and `aria-hidden`, closes on a click outside, follows its trigger on scroll
  * and resize while open, flips to the opposite side when it does not fit, and is shifted back into the
  * viewport along the trigger. Every listener is removed when it closes or disconnects. The menu closes before Turbo
  * caches the page, and a new controller starts closed: a copy of the page Turbo cached while it was open (Back) shows

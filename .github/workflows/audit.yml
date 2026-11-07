@@ -1,7 +1,7 @@
 name: Audit
 
-# Known advisories in the locked npm packages of the Playwright tests and the demo's locked Composer packages (the
-# Symfony and UX packages the recipes install, and the PHP test tools): weekly, as advisories appear without any change
+# Known advisories in both npm projects (repository tests and consumer browser checks) and all three Composer
+# projects (the package, demo and consumer harness): weekly, as advisories appear without any change
 # here, and on every pull request that changes a lockfile. On a pull request each audit runs only when its own files
 # changed, so an advisory in one ecosystem does not fail a pull request that only touches the other. GitHub runs the
 # schedule on the default branch, main: that run only starts the audit on dev (the Start on dev job), so an advisory
@@ -10,7 +10,18 @@ on:
     schedule:
         - cron: '17 6 * * 1'
     pull_request:
-        paths: [package.json, package-lock.json, demo/composer.json, demo/composer.lock, .github/workflows/audit.yml]
+        paths:
+            - package.json
+            - package-lock.json
+            - packages/uxor/dev/package.json
+            - packages/uxor/dev/package-lock.json
+            - composer.json
+            - composer.lock
+            - demo/composer.json
+            - demo/composer.lock
+            - packages/uxor/dev/app/composer.json
+            - packages/uxor/dev/app/composer.lock
+            - .github/workflows/audit.yml
     workflow_dispatch:
 
 permissions:
@@ -33,10 +44,18 @@ jobs:
               run: gh workflow run audit.yml --repo "$REPO" --ref dev
 
     npm-audit:
-        name: npm audit
+        name: npm audit (${{ matrix.project }})
         if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - project: tests
+                      directory: .
+                    - project: consumer
+                      directory: packages/uxor/dev
         steps:
             # the pull request's merge commit and its first parent, the base branch
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -46,11 +65,14 @@ jobs:
 
             - id: changed
               if: github.event_name == 'pull_request'
-              run: git diff --quiet HEAD^1 HEAD -- package.json package-lock.json .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
+              env:
+                  AUDIT_DIRECTORY: ${{ matrix.directory }}
+              run: git diff --quiet HEAD^1 HEAD -- "$AUDIT_DIRECTORY/package.json" "$AUDIT_DIRECTORY/package-lock.json" .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
 
             - name: npm audit
               id: audit
               if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              working-directory: ${{ matrix.directory }}
               run: |
                   set -o pipefail
                   npm audit --package-lock-only 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
@@ -63,14 +85,24 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: npm audit
-                  artifact: jev-input-audit-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  job: npm audit (${{ matrix.project }})
+                  artifact: jev-input-audit-${{ github.job }}-${{ matrix.project }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     composer-audit:
-        name: composer audit
+        name: composer audit (${{ matrix.project }})
         if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - project: package
+                      directory: .
+                    - project: demo
+                      directory: demo
+                    - project: consumer
+                      directory: packages/uxor/dev/app
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -79,7 +111,9 @@ jobs:
 
             - id: changed
               if: github.event_name == 'pull_request'
-              run: git diff --quiet HEAD^1 HEAD -- demo/composer.json demo/composer.lock .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
+              env:
+                  AUDIT_DIRECTORY: ${{ matrix.directory }}
+              run: git diff --quiet HEAD^1 HEAD -- "$AUDIT_DIRECTORY/composer.json" "$AUDIT_DIRECTORY/composer.lock" .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
 
             - if: github.event_name != 'pull_request' || steps.changed.outputs.files
               uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
@@ -92,7 +126,7 @@ jobs:
             - name: composer audit
               id: audit
               if: github.event_name != 'pull_request' || steps.changed.outputs.files
-              working-directory: demo
+              working-directory: ${{ matrix.directory }}
               run: |
                   set -o pipefail
                   composer audit --locked 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
@@ -105,5 +139,5 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: composer audit
-                  artifact: jev-input-audit-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  job: composer audit (${{ matrix.project }})
+                  artifact: jev-input-audit-${{ github.job }}-${{ matrix.project }}-${{ github.run_id }}-${{ github.run_attempt }}
