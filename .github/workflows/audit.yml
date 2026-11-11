@@ -1,6 +1,6 @@
 name: Audit
 
-# Known advisories in both npm projects (repository tests and consumer browser checks) and all three Composer
+# Known advisories in npm projects (repository tests, consumer browser checks and the semver oracle) and all three Composer
 # projects (the package, demo and consumer harness): weekly, as advisories appear without any change
 # here, and on every pull request that changes a lockfile. On a pull request each audit runs only when its own files
 # changed, so an advisory in one ecosystem does not fail a pull request that only touches the other. GitHub runs the
@@ -15,6 +15,8 @@ on:
             - package-lock.json
             - packages/uxor/dev/package.json
             - packages/uxor/dev/package-lock.json
+            - tools/tests/fixtures/npm-semver/package.json
+            - tools/tests/fixtures/npm-semver/package-lock.json
             - composer.json
             - composer.lock
             - demo/composer.json
@@ -56,6 +58,8 @@ jobs:
                       directory: .
                     - project: consumer
                       directory: packages/uxor/dev
+                    - project: semver-oracle
+                      directory: tools/tests/fixtures/npm-semver
         steps:
             # the pull request's merge commit and its first parent, the base branch
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

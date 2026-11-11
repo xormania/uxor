@@ -63,6 +63,20 @@ The demo itself has an executable deployment contract outside the recipe matrix:
 toolkit or profiler; `RouteSecurityTest` requires every app route to declare its trust category, allowed methods and,
 for a public POST route, its CSRF mechanism ([`DEMO-SECURITY.md`](DEMO-SECURITY.md)).
 
+## Runtime delivery recovery
+
+Runtime recovery tooling has a delivery boundary separate from the recipe matrix:
+
+| Guarantee | Scope | Coverage |
+| --- | --- | --- |
+| Package provenance, dependency closure, namespaces and invalid-path rejection | Node unit | Recovered `tools/tests/build-package-pilot.test.mjs`, existing Tool tests glob |
+| Toolkit mappings and Composer requirements | PHP/integration | Recovered `tools/tests/package-toolkit-plan.php`, `tools/tests/package-composer-contract.php`, `tools/tests/package-composer-build.mjs` |
+| Frontend selections, ownership and metadata reads | PHP unit/integration | Recovered `tools/tests/frontend-npm-ranges.php`, `tools/tests/frontend-contract.php`, `tools/tests/frontend-reader.php`; npm oracle checks range semantics |
+| Archive lifecycle through native Flex | Functional | Recovered `tools/tests/package-flex.sh`; application-owned import removal remains an open Flex 2.12 gap |
+
+See [the recovery record](MACHINERY-RECOVERY.md) for version and delivery distinctions and
+the dialog profile's pending browser observations. Exact run evidence belongs to the PR.
+
 ## The matrix: common transitions
 
 Columns are the plan's transitions. **Back** is a restoration visit from Turbo's cached copy; **Back, slow** is the

@@ -522,6 +522,25 @@ jobs:
                   php tools/sync-demo
                   (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
 
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+
+            # Reuse the installed demo's exact author libraries; these tests create no browser or second app.
+            # The separate native Flex lifecycle still has an unresolved application-import removal case.
+            - name: Runtime package authoring and frontend contracts
+              id: runtime
+              run: |
+                  find packages/uxor-pilot/src -name '*.php' -print0 | xargs -0 -n1 php -l
+                  php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php .
+                  php tools/tests/package-composer-contract.php demo/vendor/autoload.php
+                  PILOT_COMPOSER_AUTOLOAD=demo/vendor/autoload.php node --test tools/tests/package-composer-build.mjs
+                  php tools/tests/frontend-npm-ranges.php
+                  php tools/tests/frontend-contract.php
+                  php tools/tests/frontend-reader.php demo/vendor/autoload.php
+                  npm ci --prefix tools/tests/fixtures/npm-semver --ignore-scripts --no-audit --no-fund
+                  node tools/tests/frontend-npm-oracle.mjs
+
             # demo/tests: the data tables' limits (the deepest page, the loader calls, the selection), the Live table
             # through real Live requests, components rendered against their snapshots, the loader calls of one
             # request read from its profile, the editor's HTML policy and the Markdown renderer given hostile input, and

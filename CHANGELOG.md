@@ -5,6 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- Runtime recovery tooling assembles existing table and theme recipes into an unpublished Symfony bundle,
+  with source/requirement checks and isolated native Flex fixtures. The published package remains unchanged.
+
 ### Fixed
 
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
