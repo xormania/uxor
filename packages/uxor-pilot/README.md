@@ -51,6 +51,7 @@ php tools/tests/package-toolkit-plan.php demo/vendor/autoload.php .
 php tools/tests/package-composer-contract.php demo/vendor/autoload.php
 PILOT_COMPOSER_AUTOLOAD=demo/vendor/autoload.php node --test tools/tests/package-composer-build.mjs
 php tools/tests/frontend-npm-ranges.php
+php tools/tests/frontend-contract.php --policy-only
 php tools/tests/frontend-contract.php
 php tools/tests/frontend-reader.php demo/vendor/autoload.php
 npm ci --prefix tools/tests/fixtures/npm-semver --ignore-scripts --no-audit --no-fund
@@ -62,7 +63,8 @@ AssetMapper compilation. It checks selected dependencies and ownership; it neith
 npm dependencies nor undoes Composer/Flex mutations. The range parser supports its tested
 stable subset, checked against pinned npm semver in development tests.
 
-The recovered validator still reads the filesystem. Snapshot separation, automatic styles,
+The validator consumes explicit snapshots; the reader gathers filesystem observations.
+See [the snapshot boundary](../../docs/MACHINERY-ASSET-SNAPSHOTS.md). Automatic styles,
 themes, production tooling isolation and a published runtime identity remain subsequent
 work. The historical browser upgrade fixture is not copied here: it depends on a specific
 PHP/Twig/JS/CSS improvement absent from the current baseline.
