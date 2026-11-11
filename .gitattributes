@@ -40,3 +40,6 @@
 /playwright-results export-ignore
 /blob-report export-ignore
 /coverage export-ignore
+
+# Unpublished runtime-recovery sources are assembled separately, not shipped in the current package.
+/packages/uxor-pilot export-ignore
