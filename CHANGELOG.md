@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- Runtime frontend validation accepts captured package and import facts independently of the filesystem;
+  its snapshot reader retains missing, escaping and unreadable-file failures for the command/build guard.
 - Runtime recovery tooling assembles existing table and theme recipes into an unpublished Symfony bundle,
   with source/requirement checks and isolated native Flex fixtures. The published package remains unchanged.
 
