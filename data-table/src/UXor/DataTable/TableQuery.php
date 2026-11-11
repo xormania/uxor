@@ -32,7 +32,7 @@ final class TableQuery
      *
      * @param array{search?: mixed, filters?: mixed, sort?: mixed, direction?: mixed, page?: mixed, pageSize?: mixed} $values
      */
-    public static function fromValues(array $values, AbstractDataTable $table): self
+    public static function fromValues(array $values, TableDefinition $table): self
     {
         $search = \is_string($values['search'] ?? null) ? trim($values['search']) : '';
         $search = mb_substr($search, 0, self::SEARCH_MAX_LENGTH);

@@ -5,6 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- Data table query normalization accepts a `TableDefinition` without an HTTP table or row loader. Existing
+  `AbstractDataTable` subclasses implement the contract and retain their request, query and loading behavior.
+
 ### Fixed
 
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
