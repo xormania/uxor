@@ -70,9 +70,22 @@ test('a picked image shows its name and its preview; a text file shows no image'
     await expect(page.getByLabel('Profile picture')).toBeFocused();
     await input(page).setInputFiles(text('notes.txt'));
     await expect(page.getByText('notes.txt')).toBeVisible();
+    await expect(page.locator('[data-symfony--ux-dropzone--dropzone-target="preview"]')).toBeVisible();
     await expect(image).toBeHidden();
     expect(await changes()).toEqual({ 'dropzone:change': 2 });
     await expectA11y(page, { impact: 'serious' });
+});
+
+test('a text file picked first shows its name and its Remove button, and no image preview', async ({ page }) => {
+    await page.goto(previewUrl('dropzone', 'default'));
+    await input(page).setInputFiles(text('notes.txt'));
+
+    await expect(page.getByRole('button', { name: 'Remove notes.txt' })).toBeVisible();
+    await expect(page.getByText('notes.txt')).toBeVisible();
+    await expect(page.getByText('Drag and drop or browse')).toBeHidden();
+    // shown or not, the box shows no image for a file that is not one
+    await expect(page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]')).toBeHidden();
+    expect(await fileCount(page)).toBe(1);
 });
 
 test('several files add up across picks, once each; Remove focuses the next file, then the input', async ({ page }) => {
