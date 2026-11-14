@@ -302,6 +302,8 @@ final class LabController extends AbstractController
         return $this->render('lab/autocomplete.html.twig', [
             'form' => $form,
             'submitted' => $request->query->getString('submitted'),
+            // ?clear=1: a multiple field whose list stays open after a choice and whose search empties (closeAfterSelect off, clearAfterSelect on)
+            'clear' => '1' === $request->query->getString('clear'),
             // ?bare=1: the page without the layouts' form-reset controller on <body>
             'form_reset' => !$request->query->getBoolean('bare'),
             'description' => self::SCENARIOS['autocomplete'],
