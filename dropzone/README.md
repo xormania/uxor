@@ -101,7 +101,9 @@ the Remove buttons. `attr.class` and `attr['data-controller']` go to the box, ev
 Dropzone deprecates a placeholder passed in `attr`: use the option. `'placeholder' => false` shows no main line (the
 box keeps its icon and hint, the input its label); a field that sets no placeholder keeps the default phrase, "Drag
 and drop or browse", with custom `attr` or without (the recipe's `DropzonePlaceholderExtension` tells the two apart,
-which UX Dropzone itself resolves alike).
+which UX Dropzone itself resolves alike). That extension adds one option of its own to `DropzoneType`,
+`uxor_placeholder_defaulted`: the kit's bookkeeping, not a setting, which `debug:form` marks internal; a value a field
+gives it is replaced.
 
 ```php
 use Symfony\Component\Validator\Constraints as Assert;
