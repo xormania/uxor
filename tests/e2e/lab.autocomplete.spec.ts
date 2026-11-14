@@ -103,6 +103,62 @@ for (const { label, select, typed, more, value } of [
     });
 }
 
+/*
+ * A remote field left in the middle of a search: Tom Select clears the search text when the field loses the focus, so
+ * returning lists the field's options, never options filtered by an abandoned search. That is Tom Select's doing, not the
+ * kit's: this guards what the user sees. Left at once, the abandoned search sends no request (the refresh that would ask
+ * for it is cancelled with the blur); left once the refresh ran, Tom Select's own request for it may still go out after
+ * the field is left, and its results must neither open the list nor take the focus.
+ */
+// the remote field's options, as many as CustomerAutocompleteField::CUSTOMERS
+const customers = 10;
+for (const { leave, request } of [
+    { leave: 'at once', request: false },
+    { leave: 'once the search was applied', request: true },
+]) {
+    test(`a remote field left ${leave} mid-search clears the search, and returning lists its options`, async ({ page }) => {
+        const queries: string[] = [];
+        page.on('request', (sent) => {
+            if (sent.url().includes('/autocomplete/customer_autocomplete_field')) {
+                queries.push(new URL(sent.url()).searchParams.get('query') ?? '');
+            }
+        });
+        await page.goto('/lab/autocomplete');
+        const field = control(page, 'Customer');
+        const list = await listbox(page, field);
+        await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+        // the field loads its options on focus (an empty search)
+        await expect(list.getByRole('option')).toHaveCount(customers);
+        await page.keyboard.type('bon');
+        if (request) {
+            // Tom Select applied the search (its lastQuery, an instance property), so its request for it is on its way
+            await expect.poll(() => page.locator('#autocomplete_demo_customer').evaluate((element) => (element as any).tomselect.lastQuery)).toBe('bon');
+        }
+        await page.keyboard.press('Tab');
+        await expect(field).toHaveValue('');
+        await expect(field).toHaveAttribute('aria-expanded', 'false');
+
+        if (request) {
+            // its results arrive in the field the user left: the list stays closed and the focus stays where Tab put it
+            await expect.poll(() => queries.includes('bon')).toBe(true);
+            await page.waitForLoadState('networkidle');
+        } else {
+            // past the throttle: nothing asked for the abandoned search
+            await page.waitForTimeout(400);
+            expect(queries).not.toContain('bon');
+        }
+        await expect(field).toHaveAttribute('aria-expanded', 'false');
+        await expect(field).not.toBeFocused();
+
+        await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+        await expect(field).toHaveValue('');
+        await expect(list.getByRole('option')).toHaveCount(customers);
+        if (!request) {
+            expect(queries).not.toContain('bon');
+        }
+    });
+}
+
 test('an invalid submit shows the error on the field, still enhanced once', async ({ page, allowHttpError }) => {
     allowHttpError(/\/lab\/autocomplete$/, 422);
     await page.goto('/lab/autocomplete');
