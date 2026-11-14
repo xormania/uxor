@@ -111,17 +111,22 @@ gitignored_in_context() {
 # (ignored by a pattern of demo/.gitignore's marked sync block); whatever else a checkout holds (a scratch file, a file
 # a global gitignore hides) is refused, so a clone passes and a developer's checkout is held to what the repository has
 not_held_in_context() {
-    local held files first last
-    if [ ! -e "$root/.git" ]; then return 0; fi
-    held="$(mktemp)"
-    files="$(mktemp)"
-    git -C "$root" ls-files | sort > "$held"
-    find . \( -type f -o -type l \) | sed 's|^\./||' | sort | comm -23 - "$held" > "$files"
+    local path first last source line pattern
+    local -A held=()
+    # NUL-delimited throughout: a file name may hold a newline or a tab
+    while IFS= read -r -d '' path; do held["$path"]=1; done < <(git -C "$root" ls-files -z)
     first="$(grep -n '^###> UXor: files copied' "$root/demo/.gitignore" | cut -d: -f1)"
     last="$(grep -n '^###< UXor' "$root/demo/.gitignore" | cut -d: -f1)"
-    git -C "$root" check-ignore -v -n --no-index --stdin < "$files" |
-        awk -F'\t' -v first="${first:-0}" -v last="${last:-0}" '{ split($1, where, ":"); if (where[1] == "demo/.gitignore" && where[2] > first && where[2] < last) next; print "./" $2 }'
-    rm -f "$held" "$files"
+    while IFS= read -r -d '' path; do
+        path="${path#./}"
+        [ -n "${held[$path]+held}" ] || printf '%s\0' "$path"
+    done < <(find . \( -type f -o -type l \) -print0) |
+        git -C "$root" check-ignore -z -v -n --no-index --stdin |
+        while IFS= read -r -d '' source && IFS= read -r -d '' line && IFS= read -r -d '' pattern && IFS= read -r -d '' path; do
+            if [ "$source" = demo/.gitignore ] && [ "$line" -gt "${first:-0}" ] && [ "$line" -lt "${last:-0}" ]; then continue; fi
+            # printed quoted, so a name with a newline shows as one entry
+            printf './%q\n' "$path"
+        done
 }
 context_dir="$(mktemp -d)"
 context_out="$context_dir/out"
@@ -146,7 +151,12 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed 'file demo/.gitignore ignores (outside the copies sync-demo writes)' gitignored_in_context
     # every file is one the repository holds, or a copy sync-demo writes: a developer's scratch file in an admitted
     # directory, or one a global gitignore hides, is refused; a clone has none
-    listed 'file the repository does not hold (not committed, not a copy sync-demo writes)' not_held_in_context
+    if [ -e "$root/.git" ]; then
+        listed 'file the repository does not hold (not committed, not a copy sync-demo writes)' not_held_in_context
+    else
+        # without the repository's metadata nothing says which files it holds: the check is not run, and says so
+        result context SKIP "no file the repository does not hold: $root has no .git, so its tracked files are unknown"
+    fi
     listed "secret or machine-local file (a decryption key, .env.local, phpunit.xml, .agents, .idea, .vscode)" \
         "find . \\( -name '*.decrypt.private.php' -o -name .env.local -o -name '.env.*.local' -o -name .env.local.php -o -name phpunit.xml -o -name .phpunit.cache -o -name .agents -o -name .idea -o -name .vscode \\) -print"
 else
