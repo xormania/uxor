@@ -59,7 +59,8 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
 
 - Give it a stable `id`, and its label a matching `for` (`FormField` does both): a click on the label opens the file
   chooser.
-- `placeholder` is the main line and `hint` a smaller one, which also describes the input.
+- `placeholder` is the main line (false, null or an empty string shows none) and `hint` a smaller one, which also
+  describes the input.
 - `accept` limits the files the chooser offers and the files a drop adds (see *Limits*); the server still checks them.
 - `multiple`: picks add up in a list under the box, each file with its own Remove button; a file picked twice is
   kept once. Name the input with `[]` (`attachments[]`) so the server receives every file.
