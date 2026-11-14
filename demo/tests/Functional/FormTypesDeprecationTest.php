@@ -4,7 +4,7 @@ namespace App\Tests\Functional;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
-use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormTypeInterface;
 
 /**
  * Every form type of the demo builds, and gives its view, without a deprecation: a package update that deprecates an
@@ -14,21 +14,22 @@ use Symfony\Component\Form\FormFactoryInterface;
  */
 final class FormTypesDeprecationTest extends KernelTestCase
 {
-    /** @return iterable<string, array{class-string}> */
+    /** @return iterable<string, array{class-string<FormTypeInterface<mixed>>}> */
     public static function formTypes(): iterable
     {
         foreach (glob(\dirname(__DIR__, 2).'/src/Form/*.php') ?: [] as $file) {
             $class = 'App\\Form\\'.basename($file, '.php');
+            // every file of src/Form is a form type: one that is not fails here rather than being left out
+            self::assertTrue(class_exists($class) && is_subclass_of($class, FormTypeInterface::class), $class.' is not a form type');
             yield basename($file, '.php') => [$class];
         }
     }
 
-    /** @param class-string $class */
+    /** @param class-string<FormTypeInterface<mixed>> $class */
     #[DataProvider('formTypes')]
     public function testTheFormTypeBuildsWithoutADeprecation(string $class): void
     {
         $factory = static::getContainer()->get('form.factory');
-        self::assertInstanceOf(FormFactoryInterface::class, $factory);
 
         $deprecations = [];
         set_error_handler(static function (int $level, string $message) use (&$deprecations): bool {
