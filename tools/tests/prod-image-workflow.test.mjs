@@ -1,6 +1,6 @@
 // The demo's production image (demo/Dockerfile, target frankenphp_prod) is built and started by CI, not only read as text
-// (demo/tests/Security/ProductionConfigurationTest.php): a lane that runs for a change to demo/Dockerfile or the
-// Compose files (ci.yml's Changes job and tools/ci-changes.sh, or a workflow's pull_request paths), and a lane of the
+// (demo/tests/Security/ProductionConfigurationTest.php): a lane that runs for a change to any of the image's build inputs
+// (ci.yml's Changes job and tools/ci-changes.sh, or a workflow's pull_request paths), and a lane of the
 // release checks. Each lane names the target it builds, builds it from the repository root with demo/Dockerfile (the
 // kit's files the image needs sit beside the demo; demo/Dockerfile.dockerignore, an allow-list, chooses them) and states
 // its one platform, linux/amd64. The development image keeps the repository bind-mounted, as on disk.
@@ -14,7 +14,25 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const workflowsDir = '.github/workflows';
-const TRIGGERS = ['demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'demo/compose.yaml', 'demo/compose.override.yaml', 'demo/frankenphp/Caddyfile', 'demo/frankenphp/docker-entrypoint.sh'];
+/**
+ * The image's build inputs: the Dockerfile and its allow-list, the Compose files and FrankenPHP's; what the demo's vendor/
+ * holds (demo/composer.json, demo/composer.lock: a development-only package the gallery needs at run time is how the
+ * image first failed); tools/sync-demo, which the builder runs; and demo/config/, where the production-only
+ * configuration lives, which no other lane boots.
+ */
+const TRIGGERS = [
+    'demo/Dockerfile',
+    'demo/Dockerfile.dockerignore',
+    'demo/compose.yaml',
+    'demo/compose.override.yaml',
+    'demo/frankenphp/Caddyfile',
+    'demo/frankenphp/docker-entrypoint.sh',
+    'demo/composer.json',
+    'demo/composer.lock',
+    'tools/sync-demo',
+    'demo/config/packages/twig.yaml',
+    'demo/config/services.yaml',
+];
 /** Changes that leave the image's build inputs alone: a guide, a recipe's template, a browser spec. */
 const UNRELATED = ['docs/GUIDE.md', 'alert/templates/components/Alert.html.twig', 'tests/e2e/smoke.spec.ts'];
 
@@ -68,9 +86,16 @@ function filteredToImageChanges(job) {
     return TRIGGERS.every((path) => selected([path]).has(gate)) && UNRELATED.every((path) => !selected([path]).has(gate));
 }
 
-test('a CI lane builds and starts the production image when demo/Dockerfile or the Compose files change, and only then', () => {
+test('a CI lane builds and starts the production image when one of its build inputs changes, and only then', () => {
     const lanes = prodLanes();
     assert.ok(lanes.length > 0, 'a workflow job builds the frankenphp_prod target and starts it');
+    const ci = lanes.find((job) => job.workflow.path === `${workflowsDir}/ci.yml`);
+    // ci.yml's lane, through tools/ci-changes.sh: the build inputs that do not select it, by name
+    const gate = ci && /^ {8}if:.*\bneeds\.changes\.outputs\.([a-z0-9_-]+)\b/m.exec(ci.text)?.[1];
+    if (gate) {
+        assert.deepEqual(TRIGGERS.filter((path) => !selected([path]).has(gate)), [], `build inputs that do not select ${label(ci)}`);
+        assert.deepEqual(UNRELATED.filter((path) => selected([path]).has(gate)), [], `unrelated changes that select ${label(ci)}`);
+    }
     assert.ok(
         lanes.some(filteredToImageChanges),
         `a production-image lane runs for changes to ${TRIGGERS.join(', ')} and not for ${UNRELATED.join(', ')}; lanes: ${lanes.map(label).join(', ')}`,
