@@ -17,6 +17,12 @@
 #            /llms.txt answer 200 with their content (the files the image needs are in it); no node_modules, tests,
 #            .git, packages/, .github, docs but GUIDE.md, or tools/ are (the files it must not hold are not)
 #
+#   context  what the build context sends (demo/Dockerfile's ignore file applied): a throwaway stage copies the
+#            whole context and the copy is listed; nothing under .git, .github, node_modules, packages/ or any tests
+#            directory, and nothing in tools/ but tools/sync-demo. It runs with a given image too: it needs the
+#            checkout and buildx, not the image. A git worktree's .git is a file, a clone's a directory: a check of what
+#            .git leaks only means something in a clone, as CI has (the harness prints which one it runs in)
+#
 # Usage: tools/tests/prod-image.sh [<image>]
 #   <image>: an image already built from the stage, to run without building (the build part then reports SKIP)
 # PROD_IMAGE_KEEP=1 keeps the image built. Needs docker (with buildx), curl and openssl. Exits non-zero on any FAIL.
@@ -63,6 +69,42 @@ if [ -d "$root/demo/vendor" ]; then
 else
     result static SKIP 'ProductionConfigurationTest: demo/vendor/ is not installed here'
 fi
+
+# ---------------------------------------------------------------------------------------------------- context
+echo "== context: what $root sends for demo/Dockerfile"
+if [ -d "$root/.git" ]; then echo "The checkout's .git is a directory (a clone, as in CI)"
+elif [ -f "$root/.git" ]; then echo "The checkout's .git is a file (a git worktree: a leak of .git does not show here; check in a clone)"
+else echo "The checkout has no .git"; fi
+listed() { # listed <what> <command printing the offending paths, run in the copied context>
+    local found
+    # a long listing ends head's input early: find's broken pipe is not a failure here
+    found="$(cd "$context_out/ctx" && eval "$2" 2>/dev/null | head -n 20)" || true
+    if [ -z "$found" ]; then result context PASS "no $1 in the build context"
+    else
+        result context FAIL "no $1 in the build context, found:"
+        while IFS= read -r line; do printf '    %s\n' "$line"; done <<< "$found"
+    fi
+}
+context_dir="$(mktemp -d)"
+context_out="$context_dir/out"
+ignore="$root/demo/Dockerfile.dockerignore"
+[ -f "$ignore" ] || ignore="$root/.dockerignore"
+printf 'FROM scratch\nCOPY . /ctx\n' > "$context_dir/context.Dockerfile"
+# BuildKit reads <Dockerfile>.dockerignore beside the Dockerfile: the same rules as demo/Dockerfile's
+if [ -f "$ignore" ]; then cp "$ignore" "$context_dir/context.Dockerfile.dockerignore"; fi
+if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local,dest=$context_out" "$root" >"$context_dir/build.log" 2>&1 && [ -d "$context_out/ctx" ]; then
+    echo "Context: $(find "$context_out/ctx" -type f | wc -l) files, read through ${ignore#"$root"/}"
+    listed '.git' "find . \\( -name .git -o -path '*/.git/*' \\) -print"
+    listed '.github' "find . -name .github -prune -print"
+    listed 'node_modules' "find . -name node_modules -prune -print"
+    listed 'packages/' "find . -maxdepth 1 -name packages -print"
+    listed 'tests directory' "find . -name tests -type d -prune -print"
+    listed 'tools/ but tools/sync-demo' "find ./tools -mindepth 1 ! -path ./tools/sync-demo -print"
+else
+    tail -n 20 "$context_dir/build.log"
+    result context FAIL "the build context could not be copied (last lines above)"
+fi
+rm -rf "$context_dir"
 
 # ---------------------------------------------------------------------------------------------------- build
 echo "== build: target frankenphp_prod, platform $platform"
@@ -165,17 +207,22 @@ else
         page /llms.txt '/r/button'               # llms.txt, from the kit's files
 
         # the files it must not hold are not in it
-        absent() { # <what> <shell test run in the image>
-            if docker exec "$container" sh -c "$2" >/dev/null 2>&1; then result runtime PASS "no $1 in the image"
-            else result runtime FAIL "no $1 in the image"; fi
+        absent() { # <what> <command run in the image printing the offending paths>
+            local found
+            found="$(docker exec "$container" sh -c "$2 2>/dev/null | head -n 20" 2>/dev/null)"
+            if [ -z "$found" ]; then result runtime PASS "no $1 in the image"
+            else
+                result runtime FAIL "no $1 in the image, found:"
+                while IFS= read -r line; do printf '    %s\n' "$line"; done <<< "$found"
+            fi
         }
-        absent 'node_modules' '[ -z "$(find /app -name node_modules -print -quit)" ]'
-        absent 'tests directory (the root, a recipe or the demo)' '[ -z "$(find /app -maxdepth 2 -name tests -type d -print -quit)" ]'
-        absent '.git' '[ ! -e /app/.git ]'
-        absent 'packages/' '[ ! -e /app/packages ]'
-        absent '.github' '[ ! -e /app/.github ]'
-        absent 'tools/ (removed after the build)' '[ ! -e /app/tools ]'
-        absent 'docs but docs/GUIDE.md' '[ "$(ls -A /app/docs 2>/dev/null)" = GUIDE.md ]'
+        absent 'node_modules' 'find /app -name node_modules -prune -print'
+        absent 'tests directory (the root, a recipe or the demo)' 'find /app -maxdepth 2 -name tests -type d -print'
+        absent '.git' 'find /app -maxdepth 2 \( -name .git -prune -print \) ; find /app/.git -mindepth 1 -maxdepth 2 -print'
+        absent 'packages/' 'find /app -maxdepth 1 -name packages -print'
+        absent '.github' 'find /app -maxdepth 1 -name .github -print'
+        absent 'tools/ (removed after the build)' 'find /app -maxdepth 1 -name tools -print'
+        absent 'docs but docs/GUIDE.md' 'find /app/docs -mindepth 1 ! -path /app/docs/GUIDE.md -print'
     else
         result runtime FAIL 'the container is not running: no further runtime checks'
     fi
