@@ -64,13 +64,26 @@ final class ProductionConfigurationTest extends TestCase
         $dumpEnv = strpos($builder, 'composer dump-env prod');
         self::assertNotFalse($dumpEnv);
         self::assertGreaterThan($dumpEnv, $export, 'after dump-env, so neither value is written into the image');
-        // the kit's files synced beside the app, then its importmap, stylesheet and assets built, all in prod: after the opt-in
-        foreach (['sync-demo', 'post-install-cmd', 'importmap:install', 'tailwind:build', 'asset-map:compile'] as $command) {
+        // the kit's files synced beside the app, then its importmap (post-install-cmd), stylesheet and assets built, all in
+        // prod: after the opt-in
+        foreach (['sync-demo', 'post-install-cmd', 'tailwind:build', 'asset-map:compile'] as $command) {
             $at = strpos($builder, $command);
             self::assertNotFalse($at, $command);
             self::assertLessThan($at, $export, "before {$command}, which boots the kernel in prod");
         }
         self::assertStringNotContainsString('ENV UXOR_DEMO_ALLOW_PRODUCTION', $dockerfile, 'never a persistent opt-in');
+    }
+
+    public function testTheProdImageBuildsInstallsTheBrowserPackagesThroughPostInstallCmd(): void
+    {
+        // the builder runs post-install-cmd, not importmap:install itself: the image holds its browser packages only
+        // while the auto-scripts post-install-cmd runs include importmap:install
+        $composer = json_decode((string) file_get_contents(\dirname(__DIR__, 2).'/composer.json'), true, flags: \JSON_THROW_ON_ERROR);
+        self::assertIsArray($composer);
+        $scripts = $composer['scripts'] ?? [];
+        self::assertIsArray($scripts);
+        self::assertContains('@auto-scripts', (array) ($scripts['post-install-cmd'] ?? []), 'post-install-cmd runs the auto-scripts');
+        self::assertArrayHasKey('importmap:install', (array) ($scripts['auto-scripts'] ?? []), 'the auto-scripts install the importmap packages');
     }
 
     private static function hasService(ContainerInterface $container, string $id): bool
