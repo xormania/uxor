@@ -202,12 +202,25 @@ jobs:
                   set -o pipefail
                   bin/console importmap:audit 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
 
-            # newer versions are reported, never a failure
+            # newer versions are reported, never a failure, and leave a notice, not an error annotation: the command exits
+            # 1 both when something is outdated and when it cannot check, so its JSON on stdout tells the two apart (an
+            # error goes to stderr and leaves no JSON list); a check that could not be made leaves a warning
             - name: importmap outdated
               if: github.event_name != 'pull_request' || steps.changed.outputs.files
               continue-on-error: true
               working-directory: ${{ matrix.directory }}
-              run: bin/console importmap:outdated
+              run: |
+                  status=0
+                  bin/console importmap:outdated --format=json > "$RUNNER_TEMP/outdated.json" || status=$?
+                  if [ "$status" -eq 0 ]; then
+                      echo "No newer versions."
+                  elif count="$(jq -er 'if type == "array" and length > 0 then length else error("no list") end' "$RUNNER_TEMP/outdated.json" 2>/dev/null)"; then
+                      jq -r '.[] | "\(.name) \(.current) -> \(.latest) (\(.["latest-status"]))"' "$RUNNER_TEMP/outdated.json"
+                      echo "::notice::importmap:outdated: $count packages have newer versions, listed above (a newer version is not an advisory)"
+                  else
+                      cat "$RUNNER_TEMP/outdated.json"
+                      echo "::warning::importmap:outdated could not check for newer versions (exit $status, error above): nothing is known about them"
+                  fi
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)

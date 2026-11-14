@@ -1116,8 +1116,10 @@ writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane
 command: the job has read-only permissions and no long-lived secrets, only its own short-lived read-only token, which
 `setup-php` passes to Composer. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
 made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
-own and never fails the lane, since a newer version is not an advisory (the command exits 1 whenever anything is
-outdated). Two limits come from the command, not from the workflow: it queries GitHub's advisory API without a token,
+own and never fails the lane, since a newer version is not an advisory. The command exits 1 both when anything is
+outdated and when it cannot check (a registry it cannot reach); the step reads the JSON it prints to tell them apart,
+and ends with a notice naming how many packages have newer versions, or a warning that nothing could be checked,
+never an error annotation on a passing job. Two limits come from the command, not from the workflow: it queries GitHub's advisory API without a token,
 so a rate limit turns the lane red (loudly, never silently), and it asks for the API's default page size of 30, so a
 package set matching more than 30 advisories could be cut short.
 `tools/tests/importmap-audit.test.mjs` checks the lanes' shape: one per tracked `importmap.php`, no way for an audit
