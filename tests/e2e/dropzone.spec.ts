@@ -21,6 +21,14 @@ const drag = (target: Locator, type: string) =>
         return event.defaultPrevented;
     }, type);
 
+/** Dispatches a drag event carrying a file on `target`, as a drag from the desktop: its types hold `Files`. */
+const fileDrag = (target: Locator, type: string) =>
+    target.evaluate((element, type) => {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(new File(['dragged'], 'dragged.png', { type: 'image/png' }));
+        element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }));
+    }, type);
+
 test('the keyboard reaches the input, opens the chooser, moves to Remove after a pick and back after Remove', async ({ page }) => {
     await page.goto(previewUrl('dropzone', 'default'));
     // connecting moves no focus
@@ -153,6 +161,41 @@ test('a drag over the zone marks it until it leaves or drops; a drop outside the
     expect(await drag(list, 'dragover')).toBe(true);
     expect(await drag(list, 'drop')).toBe(true);
     await expect(zone(page)).not.toHaveAttribute('data-dragging');
+});
+
+test('after a file drag enters and leaves the empty zone, a pick shows its preview, focus and Remove as a first pick does', async ({ page }) => {
+    await page.goto(previewUrl('dropzone', 'default'));
+    const fileInput = page.getByLabel('Profile picture');
+
+    await fileDrag(fileInput, 'dragenter');
+    // UX Dropzone took it for a file drag, not only the kit's controller
+    await expect(zone(page)).toHaveAttribute('data-state', 'dragging');
+    await expect(zone(page)).toHaveAttribute('data-dragging', '');
+    await fileDrag(fileInput, 'dragleave');
+    await expect(zone(page)).toHaveAttribute('data-state', 'empty');
+    await expect(zone(page)).not.toHaveAttribute('data-dragging');
+    // the timers the drag's listeners set have run: a timeout set now runs after them
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)));
+    await expect(page.getByText('Drag and drop or browse')).toBeVisible();
+
+    // then a pick from the keyboard, on the same zone, never reconnected
+    await fileInput.focus();
+    const chooser = page.waitForEvent('filechooser');
+    await page.keyboard.press('Enter');
+    await (await chooser).setFiles(png('tiny.png'));
+
+    const remove = page.getByRole('button', { name: 'Remove tiny.png' });
+    await expect(remove).toBeFocused();
+    await expect(remove).toBeVisible();
+    await expect(page.getByText('tiny.png')).toBeVisible();
+    await expect(page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]')).toBeVisible();
+    await expect(page.getByText('Drag and drop or browse')).toBeHidden();
+    await expect(zone(page)).toHaveAttribute('data-state', 'filled');
+
+    await page.keyboard.press('Enter');
+    await expect(fileInput).toBeFocused();
+    await expect(page.getByText('Drag and drop or browse')).toBeVisible();
+    expect(await fileCount(page)).toBe(0);
 });
 
 test('an invalid zone is red and described by its error', async ({ page }) => {

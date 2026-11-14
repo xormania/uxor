@@ -378,7 +378,8 @@ States: empty, one or several files picked, dragging, invalid, disabled; focus a
 
 | Transition | Scope | Covered by |
 |---|---|---|
-| Keyboard, picks, previews, several files, drag, invalid, disabled | E2E demo, screenshot | dropzone (6 tests); shot:dropzone (3 × 2 themes) |
+| Keyboard, picks, previews, several files, drag, invalid, disabled | E2E demo, screenshot | dropzone (7 tests); shot:dropzone (3 × 2 themes) |
+| A file drag (its types hold `Files`, so UX Dropzone marks the zone `data-state="dragging"`) entering and leaving the empty zone, then a pick from the keyboard on the same zone: preview, focus on Remove and Remove as after a first pick, no reconnect needed (with UX Dropzone 3.7 the preview stayed hidden: the kit's inline `display: none` from the drag's leave) | E2E demo | dropzone "after a file drag enters and leaves the empty zone…" |
 | Back (empty), N visits, Back keeps every file of a POST form's single-file zones (11 zones, more than the copies Turbo keeps), frame multipart post 303 and 422, Stream, controllers passed in, Turbo form beside a Live re-render, Live files action | E2E lab | lab.dropzone (8 tests) |
 | A zone in a `data-turbo-permanent` element keeps its file; its Remove button empties it and focuses the input | E2E lab | lab.value-matrix "a dropzone in a POST form › permanent" |
 | Rendered through the form theme, server refusal, files sent back, a valid submit, size limit | E2E demo | forms (5 dropzone tests) |
