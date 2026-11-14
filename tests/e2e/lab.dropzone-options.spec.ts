@@ -200,3 +200,80 @@ test('a templated zone in a POST form keeps its file and its template preview af
     await expect(page.getByRole('button', { name: 'Remove new.png' })).toBeVisible();
     expect(await events()).toEqual({ 'dropzone:change': 1 });
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The preview template: a click on the remove slot's icon, restoration, the form theme's block
+
+test('a click on the icon inside a template\'s Remove: one file, the focus goes to the input; several, to the next Remove', async ({ page }) => {
+    await page.goto('/lab/dropzone-options');
+    const single = page.getByLabel('Templated file', { exact: true });
+    await single.setInputFiles(png('photo.png'));
+    await page.getByRole('button', { name: 'Remove photo.png' }).locator('svg').click();
+    await expect(single).toBeFocused();
+    await expect(page.getByTestId('templated-item')).toHaveCount(0);
+    expect(await names(single)).toEqual([]);
+
+    const list = page.locator('#templated-list');
+    await list.setInputFiles([text('a.txt'), text('b.txt'), text('c.txt')]);
+    await page.getByRole('button', { name: 'Remove b.txt' }).locator('svg').click();
+    await expect(page.getByRole('button', { name: 'Remove c.txt' })).toBeFocused();
+    await expect(page.getByTestId('templated-list-item')).toHaveCount(2);
+    expect(await names(list)).toEqual(['a.txt', 'c.txt']);
+});
+
+// as for the default markup (lab.dropzone, restoring Back and Forward): a zone for one file outside a POST form starts
+// empty in Turbo's copy; the kit clears it through UX Dropzone (one dropzone:clear) when the browser's copy of the input
+// kept its file (Chromium, Firefox), and has nothing to clear when it did not (WebKit)
+test('a templated zone for one file outside a form, after Back: no template item, no file, one dropzone:clear where the copy kept the file', async ({ page }) => {
+    await page.goto('/lab/dropzone-options');
+    await page.locator('#templated').setInputFiles(png('photo.png'));
+    await expect(page.getByTestId('templated-item')).toHaveCount(1);
+    const copyKeeps = await page.locator('#templated').evaluate((element: HTMLInputElement) => ((element.cloneNode(true) as HTMLInputElement).files?.length ?? 0) > 0);
+    test.info().annotations.push({ type: 'copy of a file input', description: copyKeeps ? 'keeps its file' : 'loses its file' });
+    const clears = await countEvents(page, ['dropzone:clear'], '[data-controller~="dropzone-assist"]:has(#templated)');
+
+    await visit(page, 'Go to page two', 'Page two');
+    await back(page, 'Page one');
+    expect((await clears())['dropzone:clear']).toBe(copyKeeps ? 1 : 0);
+    await expect(page.getByTestId('templated-item')).toHaveCount(0);
+    await expect(zoneOf(page, 'templated').locator('[data-symfony--ux-dropzone--dropzone-target="placeholder"]')).toBeVisible();
+    expect(await names(page.locator('#templated'))).toEqual([]);
+
+    await page.locator('#templated').setInputFiles(png('again.png'));
+    await expect(page.getByTestId('templated-item').locator('[data-dropzone-slot="filename"]')).toHaveText('again.png');
+});
+
+test('a templated zone for several files, after Back: one template item per file the input holds', async ({ page }) => {
+    await page.goto('/lab/dropzone-options');
+    await page.locator('#templated-list').setInputFiles([text('a.txt'), text('b.txt')]);
+    await expect(page.getByTestId('templated-list-item')).toHaveCount(2);
+
+    await visit(page, 'Go to page two', 'Page two');
+    await back(page, 'Page one');
+    // Turbo's copy of the input keeps its files in some engines (Chromium), not in others: the list shows what it holds
+    const held = await names(page.locator('#templated-list'));
+    await expect(page.getByTestId('templated-list-item')).toHaveCount(held.length);
+    await expect(page.getByTestId('templated-list-item').locator('[data-dropzone-slot="filename"]')).toHaveText(held);
+    await expect(page.locator('[data-controller~="dropzone-assist"]:has(#templated-list)')).toHaveCount(1);
+});
+
+test('a DropzoneType through the form theme\'s dropzone_preview_item: the item shows the file, Remove by name empties it, and the form posts the file (303)', async ({ page }) => {
+    await page.goto('/lab/dropzone-options?form=1');
+    const input = page.locator('#form_document');
+    await input.setInputFiles(text('first.txt'));
+    const item = page.getByTestId('themed-item');
+    await expect(item).toHaveCount(1);
+    await expect(item.locator('[data-dropzone-slot="filename"]')).toHaveText('first.txt');
+    await page.getByRole('button', { name: 'Remove first.txt' }).click();
+    await expect(input).toBeFocused();
+    await expect(item).toHaveCount(0);
+    expect(await names(input)).toEqual([]);
+
+    await input.setInputFiles(text('report.txt'));
+    await expect(item.locator('[data-dropzone-slot="filename"]')).toHaveText('report.txt');
+    const posted = page.waitForResponse((response) => 'POST' === response.request().method() && response.url().includes('/lab/dropzone-options'));
+    await page.getByRole('button', { name: 'Send the document' }).click();
+    expect((await posted).status()).toBe(303);
+    await expect(page.getByTestId('posted')).toHaveText('posted=report.txt');
+    expect(new URL(page.url()).searchParams.get('posted')).toBe('report.txt');
+});

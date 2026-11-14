@@ -168,7 +168,7 @@ test('after Back and Forward, the zone of one file outside a form starts empty a
 // dropzone README, Events), and only when the browser's copy of the input brought the file back: Chromium's and
 // Firefox's copy of a file input keeps its files, WebKit's does not, so there is nothing to clear there. The engine's
 // answer is read from the input itself (a clone, as Turbo copies the page), not from its name.
-test('restoring Back and Forward, the zone outside a form that came back with its file dispatches one dropzone:clear; a POST form\'s zone and the permanent one none', async ({ page }) => {
+test('restoring Back and Forward, the zone outside a form that came back with its file dispatches one dropzone:clear and moves no focus; a POST form\'s zone and the permanent one none', async ({ page }) => {
     await page.goto('/lab/dropzone-turbo?zones=1');
     await page.locator('#photo').setInputFiles(png('photo.png'));
     await page.locator('#many-1').setInputFiles(png('f1.png'));
@@ -184,12 +184,16 @@ test('restoring Back and Forward, the zone outside a form that came back with it
         post: await countEvents(page, ['dropzone:clear'], '[data-controller~="dropzone-assist"]:has(#many-1)'),
         kept: await countEvents(page, ['dropzone:clear'], '[data-controller~="dropzone-assist"]:has(#kept)'),
     };
+    // the clear is the kit's, not the user's Remove: it moves no focus (the focus moves to the input only after Remove)
+    const focused = await countEvents(page, ['focusin'], 'input[type="file"]');
 
     await visit(page, 'Go to page two', 'Page two');
     await back(page, 'Page one');
     expect((await clears.photo())['dropzone:clear'], 'Back: #photo').toBe(copyKeeps ? 1 : 0);
     expect((await clears.post())['dropzone:clear'], 'Back: #many-1').toBe(0);
     expect((await clears.kept())['dropzone:clear'], 'Back: #kept').toBe(0);
+    expect((await focused())['focusin'], 'Back: focus moved to a file input').toBe(0);
+    expect(await page.evaluate(() => document.activeElement?.matches('input[type="file"]') ?? false), 'Back: a file input has the focus').toBe(false);
     await expectEmptySingle(page, 'photo');
     expect(await fileCount(page.locator('#many-1'))).toBe(1);
     expect(await fileCount(page.locator('#kept'))).toBe(1);
@@ -204,6 +208,8 @@ test('restoring Back and Forward, the zone outside a form that came back with it
     await forward(page, 'Page one');
     expect((await forwardClears())['dropzone:clear'], 'Forward: #photo').toBe(copyKeeps ? 1 : 0);
     expect((await clears.kept())['dropzone:clear'], 'Forward: #kept').toBe(0);
+    expect((await focused())['focusin'], 'Forward: focus moved to a file input').toBe(0);
+    expect(await page.evaluate(() => document.activeElement?.matches('input[type="file"]') ?? false), 'Forward: a file input has the focus').toBe(false);
     await expectEmptySingle(page, 'photo');
     expect(await fileCount(page.locator('#kept'))).toBe(1);
 });
