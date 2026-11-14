@@ -638,7 +638,7 @@ jobs:
     # with nothing it reads changed since, pass without the suite.
     verdict:
         name: Release checks
-        needs: [changed, checks, complete]
+        needs: [changed, checks, complete, prod-image]
         if: ${{ always() && github.event_name != 'schedule' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -649,9 +649,15 @@ jobs:
                   RUN: ${{ needs.changed.outputs.run }}
                   SUITE: ${{ needs.checks.result }}
                   COMPLETE: ${{ needs.complete.result }}
+                  PROD_IMAGE: ${{ needs.prod-image.result }}
               run: |
                   if [ "$CHANGED" != success ]; then
                       echo "::error::What to check ended with $CHANGED: no verdict on the release checks"
+                      exit 1
+                  fi
+                  # a trusted skip skips the production image too; one that failed or was cancelled still fails
+                  if [ "$RUN" = false ] && { [ "$PROD_IMAGE" = failure ] || [ "$PROD_IMAGE" = cancelled ]; }; then
+                      echo "::error::The production image ended with $PROD_IMAGE"
                       exit 1
                   fi
                   if [ "$EVENT" = daily ] && [ "$RUN" = false ]; then
@@ -661,6 +667,10 @@ jobs:
                   if [ "$EVENT" = pull_request ] && [ "$RUN" = false ]; then
                       echo "The release suite passed on an earlier head against the same base, and nothing it reads changed since"
                       exit 0
+                  fi
+                  if [ "$PROD_IMAGE" != success ]; then
+                      echo "::error::The production image ended with ${PROD_IMAGE:-no result}"
+                      exit 1
                   fi
                   if [ "$SUITE" != success ] || [ "$COMPLETE" != success ]; then
                       echo "::error::The release lanes ended with ${SUITE:-no result}; completion: ${COMPLETE:-no result}"
@@ -673,8 +683,8 @@ jobs:
     # it. Pull requests and runs by hand show their result where they ran.
     issue:
         name: Release checks issue
-        needs: [changed, checks, complete]
-        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' && needs.complete.result != 'cancelled' }}
+        needs: [changed, checks, complete, prod-image]
+        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.changed.result != 'cancelled' && needs.checks.result != 'cancelled' && needs.complete.result != 'cancelled' && needs.prod-image.result != 'cancelled' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
@@ -687,11 +697,16 @@ jobs:
                   RUN: ${{ needs.changed.outputs.run }}
                   RESULT: ${{ needs.checks.result }}
                   COMPLETE: ${{ needs.complete.result }}
+                  PROD_IMAGE: ${{ needs.prod-image.result }}
                   COMMIT: ${{ needs.changed.outputs.ref }}
                   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
               run: |
                   if [ "$RUN" = true ] && [ "$RESULT" = success ] && [ "$COMPLETE" != success ]; then
                       RESULT=$COMPLETE
+                  fi
+                  # the suite passed but the production image did not: no close, a comment naming it
+                  if [ "$RUN" = true ] && [ "$RESULT" = success ] && [ "$COMPLETE" = success ] && [ "$PROD_IMAGE" != success ]; then
+                      RESULT="production image ${PROD_IMAGE:-no result}"
                   fi
                   open=$(gh issue list --repo "$REPO" --label release-checks --state open --limit 1 --json number --jq '.[0].number // empty')
                   if [ "$CHANGED" = success ] && { { [ "$RESULT" = success ] && [ "$COMPLETE" = success ]; } || [ "$RUN" = false ]; }; then
