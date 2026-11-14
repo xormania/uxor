@@ -21,7 +21,13 @@
 #            whole context and the copy is listed; nothing under .git, .github, node_modules, packages/ or any tests
 #            directory, nothing in tools/ but tools/sync-demo, and no secret or machine-local file a developer's
 #            checkout may hold (Symfony's secrets decryption key, .env.local files, phpunit.xml, .agents, .idea, .vscode),
-#            which only a run in such a checkout can catch. It runs with a given image too: it needs the
+#            which only a run in such a checkout can catch; demo/ holding only the entries the build needs (an
+#            explicit list here: a new one fails until it is added to the allow-list and to this list); and nothing
+#            demo/.gitignore ignores outside the copies tools/sync-demo writes (read from the file at run time).
+#            A clone holds none of a developer's local files, so CI cannot show those leaks: run
+#            `tools/tests/prod-image.sh no-such-image` in your own checkout (it skips the build and the run, and
+#            checks the context alone), or plant a file such as demo/config/secrets/prod/prod.decrypt.private.php in
+#            a scratch clone and see the context part name it. It runs with a given image too: it needs the
 #            checkout and buildx, not the image. A git worktree's .git is a file, a clone's a directory: a check of what
 #            .git leaks only means something in a clone, as CI has (the harness prints which one it runs in)
 #
@@ -87,6 +93,18 @@ listed() { # listed <what> <command printing the offending paths, run in the cop
         while IFS= read -r line; do printf '    %s\n' "$line"; done <<< "$found"
     fi
 }
+# demo/.gitignore's patterns outside its sync-demo block, matched in the copied context (they are anchored at demo/)
+gitignored_in_context() {
+    local pattern match
+    awk '/^###> UXor: files copied/ { skip = 1; next } /^###< UXor/ { skip = 0; next } skip || /^#/ || /^!/ || NF == 0 { next } { print }' "$root/demo/.gitignore" |
+        while IFS= read -r pattern; do
+            pattern="${pattern#/}"
+            pattern="${pattern%/}"
+            for match in demo/$pattern; do
+                if [ -e "$match" ] || [ -L "$match" ]; then echo "./$match"; fi
+            done
+        done
+}
 context_dir="$(mktemp -d)"
 context_out="$context_dir/out"
 ignore="$root/demo/Dockerfile.dockerignore"
@@ -104,6 +122,10 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed 'tools/ but tools/sync-demo' "find ./tools -mindepth 1 ! -path ./tools/sync-demo -print"
     # what a developer's checkout holds and a clone never does (CI cannot see these): Symfony's secrets decryption key,
     # local env files, a local PHPUnit configuration and cache, agent and editor folders
+    # demo/ holds only what the build needs: a file that appears in a developer's demo/ fails here and names itself
+    listed 'unexpected entry at the top of demo/' "ls -A demo | grep -vxF -e .env -e assets -e bin -e composer.json -e composer.lock -e config -e frankenphp -e importmap.php -e public -e src -e symfony.lock -e templates | sed 's|^|./demo/|'"
+    # nothing demo/.gitignore ignores, but the copies tools/sync-demo writes (its marked block), which the build rewrites
+    listed 'file demo/.gitignore ignores (outside the copies sync-demo writes)' gitignored_in_context
     listed "secret or machine-local file (a decryption key, .env.local, phpunit.xml, .agents, .idea, .vscode)" \
         "find . \\( -name '*.decrypt.private.php' -o -name .env.local -o -name '.env.*.local' -o -name .env.local.php -o -name phpunit.xml -o -name .phpunit.cache -o -name .agents -o -name .idea -o -name .vscode \\) -print"
 else
