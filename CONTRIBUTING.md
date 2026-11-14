@@ -155,11 +155,12 @@ change to both paths.
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them |
 | `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) and *Production image* |
-| a recipe (any of its files but `tests/` and `manifest.json`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`) | the jobs of `kit.js` (above) and *Contrast* |
+| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) |
+| a recipe's `templates/`, `assets/`, `src/`, `config/` (Contrast pairs its code with its `README.md`; the production image holds them and renders them without the development packages) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
+| any other file of a recipe but `tests/` (one the production image does not hold) | the jobs of `kit.js` (above) and *Contrast* |
 | `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
-| a recipe's `README.md` (the toolkit's lint checks its headings, the static site and the browser tests render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package* |
+| a recipe's `README.md` (the toolkit's lint checks its headings, the static site, the browser tests and the production image render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package*, *Production image* |
 | `README.md` (no install, lint, PHP test or page reads it) | *Contrast*, *Package* |
 | `INSTALL.md` (the gallery's install guide, `/install`) | *Contrast*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
