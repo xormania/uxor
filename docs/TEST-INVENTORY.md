@@ -413,6 +413,7 @@ States: chosen values (one, several, remote, created), the Tom Select instance, 
 |---|---|---|
 | Form submit, invalid submit enhanced once, created value | E2E lab | lab.autocomplete (3 tests) |
 | Visits away and Back leave one Tom Select per field | E2E lab | lab.autocomplete "Turbo visits away and Back leave one working Tom Select per field" |
+| A choice made with Enter while Tom Select's search refresh (300 ms throttle) is pending, then Tab: 400 ms later the list is still closed and the focus where Tab left it, and no refresh is pending; with the recipe's settings (Country) and a field's own Tom Select options (Fruit, `{create: true}`) (failed before the fix: the refresh opened the list again over the next field and took the focus) | E2E lab | lab.autocomplete "a choice made with Enter right after typing stays closed after Tab…" (Country, Fruit) |
 | Chosen values after Back: a GET form shows the URL's choice in the `<select>` and Tom Select's item, a POST form (the lab's Symfony form) the choice left | E2E lab | lab.form-back (its autocomplete tests) |
 | Frame reload, Stream: enhanced once, a pick works | E2E lab | lab.value-matrix "an autocomplete in a GET form", "… in a POST form" (`frame-inside`, `stream-replace`, `stream-update`) |
 | Live re-render keeps the chosen values (one and several), one Tom Select per field | E2E lab | lab.autocomplete "in a Live form, a re-render keeps the chosen values…" |

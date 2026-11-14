@@ -46,6 +46,51 @@ test('form fields: one choice, several choices and a remote search are submitted
     await expect(wrappers(page)).toHaveCount(fields);
 });
 
+/*
+ * Tom Select refreshes its list `refreshThrottle` ms (300 by default) after the last keystroke that changed the search,
+ * and that refresh opens the list, with the focus. A choice made within that time, then Tab, must not be reopened: the
+ * list stays closed and the focus stays where Tab left it. Country uses the recipe's settings; Fruit gives Tom Select
+ * its own (`{create: true}`, as a consumer's `tom_select_options` would), which must not bring the reopening back.
+ */
+for (const { label, select, typed, more, value } of [
+    { label: 'Country', select: '#autocomplete_demo_country', typed: 'ita', more: 'l', value: 'IT' },
+    { label: 'Fruit', select: '#fruit', typed: 'ban', more: 'a', value: 'banana' },
+]) {
+    test(`a choice made with Enter right after typing stays closed after Tab, its focus not taken back (${label})`, async ({ page }) => {
+        await page.goto('/lab/autocomplete');
+        const field = control(page, label);
+        await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+        await page.keyboard.type(typed);
+        // the list filtered (a refresh ran): every option listed matches what was typed, the one to choose highlighted
+        const list = await listbox(page, field);
+        await expect
+            .poll(async () => {
+                const shown = (await list.locator('[data-selectable]').allTextContents()).map((text) => text.toLowerCase());
+                return shown.length > 0 && shown.every((text) => text.includes(typed));
+            })
+            .toBe(true);
+        // one more letter that keeps the same choice, then Enter and Tab at once: chosen while the refresh this letter
+        // asked for is still pending, as a quick typist does
+        await page.keyboard.type(more);
+        await page.keyboard.press('Enter');
+        await expect(page.locator(select)).toHaveValue(value);
+        await page.keyboard.press('Tab');
+        await expect(field).toHaveAttribute('aria-expanded', 'false');
+        await expect(field).not.toBeFocused();
+        const left = await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120) ?? '');
+
+        // what the user sees once the refresh would have run: 400 ms, past Tom Select's 300 ms throttle
+        await page.waitForTimeout(400);
+        await expect(field, 'the list opened again after the choice').toHaveAttribute('aria-expanded', 'false');
+        await expect(field, 'the field took the focus back').not.toBeFocused();
+        expect(await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120) ?? '')).toBe(left);
+        // and nothing still pending: Tom Select's own timer (`refreshTimeout`, an instance property) has run or was cancelled
+        await expect.poll(() => page.locator(select).evaluate((element) => (element as any).tomselect.refreshTimeout ?? null)).toBeNull();
+        await expect(field).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator(select)).toHaveValue(value);
+    });
+}
+
 test('an invalid submit shows the error on the field, still enhanced once', async ({ page, allowHttpError }) => {
     allowHttpError(/\/lab\/autocomplete$/, 422);
     await page.goto('/lab/autocomplete');
