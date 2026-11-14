@@ -187,6 +187,7 @@ test('new collecting jobs retain their original work budget before the collector
         ['ci.yml', 'changes', 5],
         ['audit.yml', 'npm-audit', 5],
         ['audit.yml', 'composer-audit', 5],
+        ['audit.yml', 'importmap-audit', 5],
         ['metadata.yml', 'mentions', 5],
         ['monthly.yml', 'php', 45],
     ]) {
