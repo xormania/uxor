@@ -19,7 +19,9 @@
 #
 #   context  what the build context sends (demo/Dockerfile's ignore file applied): a throwaway stage copies the
 #            whole context and the copy is listed; nothing under .git, .github, node_modules, packages/ or any tests
-#            directory, and nothing in tools/ but tools/sync-demo. It runs with a given image too: it needs the
+#            directory, nothing in tools/ but tools/sync-demo, and no secret or machine-local file a developer's
+#            checkout may hold (Symfony's secrets decryption key, .env.local files, phpunit.xml, .agents, .idea, .vscode),
+#            which only a run in such a checkout can catch. It runs with a given image too: it needs the
 #            checkout and buildx, not the image. A git worktree's .git is a file, a clone's a directory: a check of what
 #            .git leaks only means something in a clone, as CI has (the harness prints which one it runs in)
 #
@@ -100,6 +102,10 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed 'packages/' "find . -maxdepth 1 -name packages -print"
     listed 'tests directory' "find . -name tests -type d -prune -print"
     listed 'tools/ but tools/sync-demo' "find ./tools -mindepth 1 ! -path ./tools/sync-demo -print"
+    # what a developer's checkout holds and a clone never does (CI cannot see these): Symfony's secrets decryption key,
+    # local env files, a local PHPUnit configuration and cache, agent and editor folders
+    listed "secret or machine-local file (a decryption key, .env.local, phpunit.xml, .agents, .idea, .vscode)" \
+        "find . \\( -name '*.decrypt.private.php' -o -name .env.local -o -name '.env.*.local' -o -name .env.local.php -o -name phpunit.xml -o -name .phpunit.cache -o -name .agents -o -name .idea -o -name .vscode \\) -print"
 else
     tail -n 20 "$context_dir/build.log"
     result context FAIL "the build context could not be copied (last lines above)"
