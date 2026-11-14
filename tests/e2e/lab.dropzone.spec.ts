@@ -115,7 +115,9 @@ test('beside a frame visit promoted to history, Back and Forward keep the files 
     expect((await events())['dropzone:clear']).toBe(1);
 });
 
-// the dropzone README: a zone for one file in a GET form, which cannot send files, starts empty after Back and Forward
+// the dropzone README: a zone for one file in a GET form, which cannot send files, starts empty after Back and Forward.
+// Chromium, Firefox and WebKit hand no kept file to an input inside a form when Turbo shows its copy of the page
+// (Chromium and Firefox do outside one: the test below), so this guards the contract rather than reproducing a defect.
 test('after Back and after Forward, the zone of one file in a GET form starts empty and takes a new pick', async ({ page }) => {
     // `?get=1` adds the GET form, on both pages: the links keep it
     await page.goto('/lab/dropzone-turbo/two?get=1');
