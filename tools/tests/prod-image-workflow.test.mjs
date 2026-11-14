@@ -255,3 +255,13 @@ test('the lane runs for every kind of recipe file the image admits', () => {
     const missing = kinds.map(probe).filter((path) => !selected([path]).has('prod-image'));
     assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these kinds of recipe file the image admits');
 });
+
+// The root files the image holds are named in the allow-list (`!<file>`, `!docs/GUIDE.md`): each runs the lane, so a
+// root file added to the image fails here until the classifier runs the lane for it.
+test('the lane runs for every root file the image admits', () => {
+    const files = readFileSync(join(root, 'demo/Dockerfile.dockerignore'), 'utf8').split('\n')
+        .map((line) => /^!((?:docs\/)?[A-Za-z0-9][^/*\s]*)$/.exec(line.trim())?.[1]).filter(Boolean);
+    assert.ok(files.includes('manifest.json'), 'demo/Dockerfile.dockerignore admits the root files by name (!manifest.json, …)');
+    const missing = files.filter((path) => !selected([path]).has('prod-image'));
+    assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these root files the image admits');
+});
