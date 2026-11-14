@@ -13,3 +13,10 @@ twig:
 when@test:
     twig:
         strict_variables: true
+
+# UX Toolkit's templates (a recipe's installation steps and API, the tabs and previews of its docs), which the gallery
+# renders through the Toolkit's library; its bundle, which registers them in dev and test, is not loaded in prod
+when@prod:
+    twig:
+        paths:
+            '%kernel.project_dir%/vendor/symfony/ux-toolkit/templates': UXToolkit

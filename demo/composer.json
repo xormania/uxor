@@ -32,6 +32,7 @@
         "symfony/ux-dropzone": "^3.5",
         "symfony/ux-icons": "^3.5",
         "symfony/ux-live-component": "^3.5",
+        "symfony/ux-toolkit": "^3.5",
         "symfony/ux-turbo": "^3.5",
         "symfony/ux-twig-component": "^3.5",
         "symfony/validator": "8.1.*",
@@ -118,7 +119,6 @@
         "symfony/ai-mate": "^0.14",
         "symfony/ai-symfony-mate-extension": "^0.14",
         "symfony/browser-kit": "8.1.*",
-        "symfony/css-selector": "8.1.*",
-        "symfony/ux-toolkit": "^3.5"
+        "symfony/css-selector": "8.1.*"
     }
 }
