@@ -1,7 +1,12 @@
 # The build context of demo/Dockerfile is the repository (compose.override.yaml, the CI lanes), read through this list
 # alone (BuildKit takes <Dockerfile>.dockerignore over the context's .dockerignore). Nothing is sent but what is named
-# here: the demo, the kit's recipes as the demo reads them (each recipe's manifest, README, templates, assets and PHP),
-# the root files the gallery reads at run time, and tools/sync-demo, which the production build runs.
+# here: the demo, the kit's recipes as the demo reads them (each recipe's manifest, README, templates, assets, PHP and
+# config), the root files the gallery reads at run time, and tools/sync-demo, which the production build runs.
+#
+# Two rules of this format shape it. A pattern names a path, not a type, and loses a trailing slash: `!*/config/`
+# would also take the file .git/config. And excluding a directory does not exclude the files inside it once an
+# exception (`!…`) could match them. So a recipe's re-includes start with a letter or a digit (never a dot directory),
+# and every exclusion names its directory and everything below it (`x` and `x/**`).
 *
 
 # the kit as the demo reads it (app.kit_dir: the demo's parent); a recipe's directories are those its copy-files names
@@ -12,22 +17,31 @@
 !LICENSE
 !NOTICE
 !docs/GUIDE.md
-!*/manifest.json
-!*/README.md
-!*/templates/
-!*/assets/
-!*/src/
-!*/config/
+![a-z0-9]*/manifest.json
+![a-z0-9]*/README.md
+![a-z0-9]*/templates
+![a-z0-9]*/assets
+![a-z0-9]*/src
+![a-z0-9]*/config
 
 # the demo app, without what is installed, built or local to a machine
-!demo/
-demo/var/
-demo/vendor/
-demo/public/assets/
-demo/public/bundles/
-demo/assets/vendor/
-demo/tests/
+!demo
+demo/var
+demo/var/**
+demo/vendor
+demo/vendor/**
+demo/public/assets
+demo/public/assets/**
+demo/public/bundles
+demo/public/bundles/**
+demo/assets/vendor
+demo/assets/vendor/**
+demo/tests
+demo/tests/**
 demo/.env.local
+demo/.env.test
+demo/.editorconfig
+demo/.gitignore
 demo/.env.local.php
 demo/.env.*.local
 demo/compose*.yaml
@@ -35,14 +49,21 @@ demo/Dockerfile*
 **/*.log
 **/.DS_Store
 
-# never: tests, the Composer package, node packages, the repository's own files
-*/tests/
-**/node_modules/
-packages/
-tests/
-.git/
-.github/
+# never, below any re-include above: dot directories (.git, .github…), tests, node packages, the Composer package
+.*
+.*/**
+**/.git
+**/.git/**
+*/tests
+*/tests/**
+tests
+tests/**
+**/node_modules
+**/node_modules/**
+packages
+packages/**
 
 # copies the recipes into the demo at build time (removed from the production image after)
-tools/
+tools
+tools/**
 !tools/sync-demo
