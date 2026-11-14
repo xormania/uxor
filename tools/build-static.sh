@@ -49,8 +49,13 @@ cd "$root"
     cd demo
     "$composer" install --no-interaction --no-progress
     # the compiler is downloaded by tailwind:build itself, so the version it will fetch is the configured one
-    tailwind_version=$(sed -n "s/^ *binary_version: *'\(v[0-9.]*\)'.*/\1/p" config/packages/symfonycasts_tailwind.yaml)
-    echo "Tailwind compiler: ${tailwind_version:-unknown} (symfonycasts_tailwind binary_version)"
+    # the first binary_version line, its value quoted with ' or " or not, then optionally a comment; a commented-out key is no key
+    tailwind_version=$(sed -nE "/^ *binary_version:/{s/^ *binary_version: *['\"]?(v?[0-9][0-9.]*)['\"]? *(#.*)?\$/\1/p;q}" config/packages/symfonycasts_tailwind.yaml)
+    if [ -z "$tailwind_version" ]; then
+        echo "::error::config/packages/symfonycasts_tailwind.yaml has no readable binary_version: the build cannot name the Tailwind compiler it uses" >&2
+        exit 1
+    fi
+    echo "Tailwind compiler: ${tailwind_version} (symfonycasts_tailwind binary_version)"
     "$php" bin/console tailwind:build --minify
     "$php" bin/console asset-map:compile
     # app:export-static fails on any page that does not answer 200
