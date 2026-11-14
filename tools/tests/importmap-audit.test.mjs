@@ -5,7 +5,7 @@
 // Run: node --test tools/tests/importmap-audit.test.mjs
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, posix } from 'node:path';
 import { test } from 'node:test';
@@ -33,11 +33,14 @@ function script(step) {
     const match = /^ {12,14}run: ?(.*)\n((?: {16,}.*\n?|\s*\n)*)/m.exec(`${step}\n`);
     if (!match) return '';
     const body = match[1] === '|' || match[1] === '>' ? match[2] : `${match[1]}\n`;
-    return body.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).join('\n');
+    // dedented as YAML's block scalar is, so a heredoc keeps its own indentation
+    const lines = body.split('\n').filter((line) => line.trim() && !line.trim().startsWith('#'));
+    const indent = Math.min(...lines.map((line) => line.length - line.trimStart().length));
+    return lines.map((line) => line.slice(indent)).join('\n');
 }
 
 /** Whether a step's script runs `bin/console [options] <command>` as a command (a line's start, or after ;, && or ||), not as an argument. */
-const runsCommand = (step, command) => new RegExp(`(?:^|[;&|]\\s*)(?:php\\s+)?(?:\\./)?bin/console(?:\\s+-[^\\s]+)*\\s+${command}\\b`, 'm').test(script(step));
+const runsCommand = (step, command) => new RegExp(`(?:^\\s*|[;&|]\\s*)(?:php\\s+)?(?:\\./)?bin/console(?:\\s+-[^\\s]+)*\\s+${command}\\b`, 'm').test(script(step));
 const nonFailing = (step) => /^ {14}continue-on-error: true\b/m.test(step) || /\|\|\s*(?:true|:)\s*$/m.test(step);
 
 /** The directories a job works in: its matrix's `directory:` values, or its literal working directories. */
@@ -272,5 +275,126 @@ test('importmap:outdated that cannot check ends the step with a warning, the err
             assert.doesNotMatch(run.stdout + run.stderr, /::(?:notice|error)/, `${job.id}, ${label}: ${run.stdout}`);
             assert.match(run.stderr, /the registry cannot be reached/, `${job.id}, ${label}: the command's error reaches the log`);
         }
+    }
+});
+
+// The advisory request authenticated with the job's own token: only the importmap:audit step gets it (from
+// `${{ github.token }}`, at step level), and only behind a non-empty check does that step write a lane config scoping an
+// Authorization header to api.github.com and aliasing AssetMapper's HTTP client to it. The step removes the config when
+// it ends, pass or fail, so a later step (importmap:outdated boots the same app without the variable) never loads it.
+const TOKEN_VARIABLE = 'AUDIT_GITHUB_TOKEN';
+const LANE_CONFIG = 'config/packages/zz_audit_github.yaml';
+
+/** A step's own `env:` mapping (at 14 spaces, its entries at 16 or more), as name => value. */
+function stepEnv(step) {
+    const block = /^ {14}env:\n((?: {16,}.*\n?)*)/m.exec(`${step}\n`)?.[1] ?? '';
+    return Object.fromEntries([...block.matchAll(/^ {16,}([A-Za-z_][A-Za-z0-9_]*):\s*(.*?)\s*$/gm)].map(([, name, value]) => [name, value]));
+}
+
+test('only the importmap:audit step gets the job token, at step level from github.token', () => {
+    const workflowEnv = /^env:\n((?: {4,}.*\n?)*)/m.exec(workflow)?.[1] ?? '';
+    assert.doesNotMatch(workflowEnv, new RegExp(TOKEN_VARIABLE), 'no workflow-level env carries it');
+    for (const job of requiredAuditJobs()) {
+        const jobEnv = /^ {8}env:\n((?: {12,}.*\n?)*)/m.exec(job.text)?.[1] ?? '';
+        assert.doesNotMatch(jobEnv, new RegExp(TOKEN_VARIABLE), `${job.id}: no job-level env carries it`);
+        const all = steps(job);
+        const audit = all.filter((step) => runsCommand(step, 'importmap:audit'));
+        assert.equal(audit.length, 1, `${job.id}: one importmap:audit step`);
+        assert.equal(stepEnv(audit[0])[TOKEN_VARIABLE], '${{ github.token }}', `${job.id}: the audit step sets ${TOKEN_VARIABLE}: \${{ github.token }}`);
+        for (const step of all.filter((candidate) => candidate !== audit[0])) {
+            assert.doesNotMatch(step, new RegExp(`${TOKEN_VARIABLE}|github\\.token`), `${job.id}: "${step.split('\n')[0]}" does not get the token`);
+        }
+    }
+});
+
+/**
+ * Runs each lane's importmap:audit step script as Actions does, in a scratch app directory with a stand-in bin/console
+ * that answers importmap:audit with `status` and `output`, and keeps a copy of the lane config if it exists when called.
+ */
+function runAudit(job, { token, status = 0, output = 'No vulnerabilities found.' }) {
+    const step = steps(job).find((candidate) => runsCommand(candidate, 'importmap:audit'));
+    const scratch = mkdtempSync(join(tmpdir(), 'importmap-audit-token-'));
+    try {
+        mkdirSync(join(scratch, 'bin'));
+        mkdirSync(join(scratch, 'config/packages'), { recursive: true });
+        mkdirSync(join(scratch, 'runner-temp'));
+        const seen = join(scratch, 'runner-temp/seen-config.yaml');
+        const stub = join(scratch, 'bin/console');
+        writeFileSync(stub, `#!/usr/bin/env bash\ncase " $* " in *' importmap:audit '*) [ -f '${LANE_CONFIG}' ] && cp '${LANE_CONFIG}' '${seen}'; printf '%s\\n' '${output.replaceAll("'", '')}'; exit ${status} ;; esac\nexit 64\n`);
+        spawnSync('chmod', ['+x', stub]);
+        const env = { ...process.env, RUNNER_TEMP: join(scratch, 'runner-temp') };
+        delete env[TOKEN_VARIABLE];
+        if (token !== undefined) env[TOKEN_VARIABLE] = token;
+        const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script(step)], { cwd: scratch, env, encoding: 'utf8' });
+        return {
+            status: result.status,
+            log: result.stdout + result.stderr,
+            seen: existsSync(seen) ? readFileSync(seen, 'utf8') : null,
+            left: existsSync(join(scratch, LANE_CONFIG)),
+        };
+    } finally {
+        rmSync(scratch, { recursive: true, force: true });
+    }
+}
+
+const FAKE_TOKEN = 'ghs_FAKE0token0for0the0test';
+
+/** The lane config's shape: a scoped client on api.github.com with the header from the variable, and the alias. */
+function assertLaneConfig(label, yaml) {
+    assert.ok(yaml, `${label}: the config exists when importmap:audit runs`);
+    assert.match(yaml, /^framework:\s*$/m, `${label}: a framework section`);
+    assert.match(yaml, /^ +http_client:\s*$/m, `${label}: http_client`);
+    assert.match(yaml, /^ +scoped_clients:\s*$/m, `${label}: scoped_clients`);
+    assert.match(yaml, /^ +audit_github\.client:\s*$/m, `${label}: the audit_github.client scoped client`);
+    assert.match(yaml, /^ +scope:\s*(?:'\^https:\/\/api\\\.github\\\.com\/'|"\^https:\/\/api\\\\\.github\\\\\.com\/")\s*$/m, `${label}: scope anchored on https://api.github.com/, its dots escaped`);
+    assert.match(yaml, /^ +Authorization:\s*['"]Bearer %env\(AUDIT_GITHUB_TOKEN\)%['"]\s*$/m, `${label}: the header reads the variable at run time`);
+    assert.doesNotMatch(yaml, /default_options/, `${label}: no default headers, so no other host gets the token`);
+    assert.match(yaml, /^services:\s*$/m, `${label}: a services section`);
+    assert.match(yaml, /^ +asset_mapper\.http_client:\s*(?:'@audit_github\.client'|"@audit_github\.client"|\n +alias:\s*['"]?audit_github\.client['"]?)\s*$/m, `${label}: asset_mapper.http_client is the scoped client`);
+    assert.ok(!yaml.includes(FAKE_TOKEN), `${label}: the token's value is not written into the file`);
+}
+
+test('with the token, the audit step writes the lane config before importmap:audit, never prints the token, and removes the config', () => {
+    for (const job of requiredAuditJobs()) {
+        const run = runAudit(job, { token: FAKE_TOKEN });
+        assert.equal(run.status, 0, `${job.id}: ${run.log}`);
+        assertLaneConfig(job.id, run.seen);
+        assert.ok(!run.log.includes(FAKE_TOKEN), `${job.id}: the token never reaches the log`);
+        assert.ok(!run.left, `${job.id}: the config is gone when the step ends, so a later step does not load it`);
+    }
+});
+
+test('without the token (unset or empty), the audit step writes no config and the request stays anonymous', () => {
+    for (const job of requiredAuditJobs()) {
+        for (const [label, token] of [['unset', undefined], ['empty', '']]) {
+            const run = runAudit(job, { token });
+            assert.equal(run.status, 0, `${job.id}, ${label}: ${run.log}`);
+            assert.equal(run.seen, null, `${job.id}, ${label}: no lane config when importmap:audit runs`);
+            assert.ok(!run.left, `${job.id}, ${label}: none left`);
+        }
+    }
+});
+
+test('a refused advisory request (403, rate limit) still fails the audit step, with or without the token, and leaves no config', () => {
+    const refused = 'Error 403 auditing packages. Response: API rate limit exceeded';
+    for (const job of requiredAuditJobs()) {
+        for (const [label, token] of [['with the token', FAKE_TOKEN], ['without', undefined]]) {
+            const run = runAudit(job, { token, status: 1, output: refused });
+            assert.notEqual(run.status, 0, `${job.id}, ${label}: the step fails`);
+            assert.doesNotMatch(run.log, /::(?:warning|notice)::/, `${job.id}, ${label}: not turned into a warning or a notice`);
+            assert.match(run.log, /Error 403 auditing packages/, `${job.id}, ${label}: the error reaches the log`);
+            assert.ok(!run.left, `${job.id}, ${label}: the config is gone even when the step fails`);
+        }
+    }
+});
+
+test('no tracked file of the demo or the consumer application configures the token or api.github.com', () => {
+    const result = spawnSync('git', ['ls-files', '-z', 'demo/config', 'packages/uxor/dev/app/config'], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    const files = result.stdout.split('\0').filter(Boolean);
+    assert.ok(files.length > 0, 'the applications have tracked config');
+    for (const file of files) {
+        const text = readFileSync(join(root, file), 'utf8');
+        assert.ok(!text.includes(TOKEN_VARIABLE) && !text.includes('api.github.com'), `${file} holds no token configuration`);
     }
 });
