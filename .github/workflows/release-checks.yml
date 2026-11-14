@@ -267,10 +267,10 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./release-checks-target/demo
+                  source: ./release-checks-target  # the target's repository: the demo image's build context
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   load: true
                   pull: true
                   set: |

@@ -1,0 +1,47 @@
+# The build context of demo/Dockerfile is the repository (compose.override.yaml, the CI lanes), read through this list
+# alone (BuildKit takes <Dockerfile>.dockerignore over the context's .dockerignore). Nothing is sent but what is named
+# here: the demo, the kit's recipes as the demo reads them (each recipe's manifest, README, templates, assets and PHP),
+# the root files the gallery reads at run time, and tools/sync-demo, which the production build runs.
+*
+
+# the kit as the demo reads it (app.kit_dir: the demo's parent)
+!manifest.json
+!kit.css
+!INSTALL.md
+!llms.txt
+!LICENSE
+!NOTICE
+!docs/GUIDE.md
+!*/manifest.json
+!*/README.md
+!*/templates/
+!*/assets/
+!*/src/
+
+# the demo app, without what is installed, built or local to a machine
+!demo/
+demo/var/
+demo/vendor/
+demo/public/assets/
+demo/public/bundles/
+demo/assets/vendor/
+demo/tests/
+demo/.env.local
+demo/.env.local.php
+demo/.env.*.local
+demo/compose*.yaml
+demo/Dockerfile*
+**/*.log
+**/.DS_Store
+
+# never: tests, the Composer package, node packages, the repository's own files
+*/tests/
+**/node_modules/
+packages/
+tests/
+.git/
+.github/
+
+# copies the recipes into the demo at build time (removed from the production image after)
+tools/
+!tools/sync-demo

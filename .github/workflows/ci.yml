@@ -927,10 +927,10 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo
+                  source: .                     # the repository: the demo image's build context (compose.override.yaml)
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   pull: true
                   set: |
                       *.output=type=cacheonly
@@ -1014,10 +1014,10 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo                # bake's working directory: compose files and build context in demo/
+                  source: .                     # the repository: the demo image's build context (compose.override.yaml)
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   load: true
                   pull: true
                   set: |
