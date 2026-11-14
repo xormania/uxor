@@ -80,6 +80,23 @@ FrankenPHP restarts its workers when a file changes. After changing a recipe, ru
 `tailwind:build` again. `tools/sync-demo` never deletes: remove a renamed or deleted recipe file from `demo/`
 yourself. `docker compose down` stops the demo.
 
+The demo image builds from the repository, not from `demo/`: `compose.override.yaml` sets `context: ..` and
+`dockerfile: demo/Dockerfile`, and `demo/Dockerfile.dockerignore` is the list of what a build may read (BuildKit
+uses it for this Dockerfile alone). To build it by hand, run `docker compose build` from `demo/`, or from the root
+`docker buildx build -f demo/Dockerfile --target frankenphp_dev .`. `docker buildx bake` resolves a compose file's
+relative `context` against its own working directory, not the file's, so CI's bake steps run from the root with
+`--set '*.context=.'`.
+
+The production image is the demo built to run on its own (target `frankenphp_prod`): the kit beside the app in the
+image as on disk (`/app`, the app in `/app/demo`), its recipes copied and its CSS and assets compiled at build time.
+It is the demo, not something the kit asks an application to deploy; the public gallery is the static export
+(*Releases*), and the dynamic demo refuses production without an opt-in ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)).
+Build and check it with
+`docker buildx build --platform linux/amd64 --target frankenphp_prod --load -t uxor-demo-prod -f demo/Dockerfile .`
+then `tools/tests/prod-image.sh uxor-demo-prod`; to run it yourself, pass `UXOR_DEMO_ALLOW_PRODUCTION=1`, a random
+`APP_SECRET` of at least 32 characters and the Mercure keys `compose.yaml` sets (`docker run -e …`). CI builds and runs
+it when its build inputs change (*Production image*), and the release checks on every release.
+
 Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
 `(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
 the demo with `php -S 127.0.0.1:8000 -t demo/public`. PHP's built-in server only serves the compiled CSS and
@@ -162,7 +179,8 @@ change to both paths.
 | `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |
 | `tools/tests/fresh-install.sh`, `docker-install.sh`, their shared steps `install-scenario.sh`, `check-fresh-app.sh`, `live-action.php`, `tools/tests/fixtures/fresh-app/` | both *Fresh install* jobs |
 | any other file in `tools/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
-| `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
+| `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright*, *Production image* |
+| `demo/Dockerfile`, `demo/Dockerfile.dockerignore`, `demo/compose.override.yaml`, any other file in `demo/frankenphp/` (the demo image's build inputs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |

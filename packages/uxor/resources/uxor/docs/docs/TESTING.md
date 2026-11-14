@@ -984,6 +984,33 @@ the limit of the production opt-in are in [`DEMO-SECURITY.md`](https://github.co
 Here: [`ProductionConfigurationTest.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/tests/Security/ProductionConfigurationTest.php),
 [`RouteSecurityTest.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/tests/Security/RouteSecurityTest.php).
 
+## The production image
+
+**Catches:** a production image (`demo/Dockerfile`, target `frankenphp_prod`) that no longer builds, boots without
+the opt-in, bakes a secret, ships a development package or Xdebug, cannot serve the gallery, or holds files its
+allow-list leaves out.
+
+CI's *Production image* job, and the release checks' job of the same name, build the image from the repository for
+linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_prod --load -f demo/Dockerfile .`) and run
+[`tools/tests/prod-image.sh`](https://github.com/xormania/uxor/blob/0.3.1/tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
+images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
+image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
+its extensions, without Xdebug or any `require-dev` package, without UX Toolkit's bundle or commands; its working
+directory and server root are the app's; it serves a page of each kind that reads the kit (the dashboard, a recipe page
+and a preview, the install guide, `llms.txt`); and it holds no `node_modules`, tests, `.git`, `packages/`, `.github` or
+`tools/`, and no docs but `docs/GUIDE.md`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
+and their docs), so the package is a `require` of the demo and its templates are registered for prod in
+`config/packages/twig.yaml`; its bundle is registered in dev and test only. Its standalone scripts
+(`vendor/bin/ux-toolkit-kit-*`) stay in the image: nothing serves `vendor/`, running them needs a shell in the
+container, and the app's files are owned by root.
+
+The job runs for the image's build inputs (`tools/ci-changes.sh`, the *prod-image* output): `demo/Dockerfile`,
+`demo/Dockerfile.dockerignore`, `demo/compose.yaml`, `demo/compose.override.yaml` and `demo/frankenphp/`. It is a plain
+build, sharing no cache with the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
+[`tools/tests/prod-image-workflow.test.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
+build from the root with `demo/Dockerfile` for linux/amd64 only, run on those inputs and not on a recipe or a guide,
+and that the dev image's bake steps read the compose files from the root.
+
 ## Accessibility
 
 **Catches:** serious and critical axe violations on every page, in both themes; and, in a component's own specs, the
