@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
-import { test as base, expect, type Locator, type Page, type Request } from '@playwright/test';
+import { test as base, expect, type Frame, type Locator, type Page, type Request } from '@playwright/test';
 import { startJsCoverage } from './coverage';
 
 const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
@@ -22,12 +22,12 @@ export const HARSH_NETWORK = { offline: false, latency: 150 * 3.75, downloadThro
 const CANCELLED = ['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'];
 
 /**
- * The subresources the guard excuses when the browser cancels one and requests it again: Firefox, under Playwright's
- * request interception (the route below, for requests leaving the demo), cancels a frame's images at a same-document
- * navigation and requests them again (the gallery's preview frames do it as they load). Documents, fetches and XHRs keep
- * their own handling. Calibrated in smoke.spec.ts ("the page guard", "a cancelled local subresource").
+ * The one request type the guard excuses when the browser cancels a request and requests it again: an image. Firefox,
+ * under Playwright's request interception (the route below, for requests leaving the demo), cancels a frame's images
+ * at a same-document navigation and requests them again (the gallery's preview frames do it as they load). Every other
+ * type keeps the usual handling. Calibrated in smoke.spec.ts ("the page guard", "a cancelled local subresource").
  */
-const REQUESTED_AGAIN = new Set(['image', 'stylesheet', 'script', 'font', 'media']);
+const REQUESTED_AGAIN = 'image';
 
 /**
  * WebKit's rejection of a fetch the document still runs when a full load replaces it (a reload, a `goto`): Turbo's
@@ -126,26 +126,31 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
         (route) => ('image' === route.request().resourceType() ? route.fulfill({ path: PLACEHOLDER_IMAGE }) : route.abort()),
     );
 
-    // a local subresource the browser cancelled, held until check(): excused only if the same URL is requested again
-    // from the same frame after the cancellation, and that request is received (an answer below 400)
+    // a local image the browser cancelled, held until check(): excused only if the same URL is requested again from the
+    // same frame, by the same document (no navigation request of that frame between the two requests), after the
+    // cancellation, and that request is received (an answer below 400). Decided in check(), from what was recorded
     let order = 0;
-    const sentAt = new WeakMap<Request, number>();
+    const documentsOf = new WeakMap<Frame, number>(); // the navigation requests of each frame so far
+    const sent = new WeakMap<Request, { order: number; documents: number }>();
     const answered = new WeakMap<Request, number>();
-    const cancelledSubresources: { request: Request; failedAt: number; requestedAgain: boolean }[] = [];
-    page.on('request', (request) => sentAt.set(request, ++order));
+    const received: { url: string; frame: Frame; order: number; documents: number }[] = [];
+    const cancelledImages: { request: Request; failedAt: number }[] = [];
+    page.on('request', (request) => {
+        if (request.isNavigationRequest()) {
+            documentsOf.set(request.frame(), (documentsOf.get(request.frame()) ?? 0) + 1);
+        }
+        sent.set(request, { order: ++order, documents: documentsOf.get(request.frame()) ?? 0 });
+    });
     page.on('response', (response) => answered.set(response.request(), response.status()));
     page.on('requestfinished', (request) => {
         const status = answered.get(request);
-        if (undefined === status || status >= 400) {
-            return;
-        }
-        const sent = sentAt.get(request) ?? 0;
-        for (const cancelled of cancelledSubresources) {
-            if (cancelled.request.url() === request.url() && cancelled.request.frame() === request.frame() && cancelled.failedAt < sent) {
-                cancelled.requestedAgain = true;
-            }
+        const at = sent.get(request);
+        if (undefined !== status && status < 400 && undefined !== at) {
+            received.push({ url: request.url(), frame: request.frame(), ...at });
         }
     });
+    const requestedAgain = ({ request, failedAt }: { request: Request; failedAt: number }) =>
+        received.some((again) => again.url === request.url() && again.frame === request.frame() && again.order > failedAt && again.documents === sent.get(request)?.documents);
 
     page.on('request', (request) => {
         if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
@@ -220,8 +225,8 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
             );
         if (expected) {
             expected.count--;
-        } else if (isLocal(request.url()) && aborted && REQUESTED_AGAIN.has(request.resourceType())) {
-            cancelledSubresources.push({ request, failedAt: ++order, requestedAgain: false });
+        } else if (isLocal(request.url()) && aborted && REQUESTED_AGAIN === request.resourceType()) {
+            cancelledImages.push({ request, failedAt: ++order });
         } else if (isLocal(request.url()) && !cancelledPrefetch) {
             errors.push({ message: `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}` });
         }
@@ -251,8 +256,8 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
                 ...errors.filter((error) => !isAllowed(error)).map(({ message }) => message),
                 ...unmatchedRejections.map(() => `pageerror: ${PREFETCH_CANCELLED_BY_UNLOAD}`),
                 ...cspViolations.map((violation) => `csp: ${violation}`),
-                ...cancelledSubresources
-                    .filter(({ requestedAgain }) => !requestedAgain)
+                ...cancelledImages
+                    .filter((cancelled) => !requestedAgain(cancelled))
                     .map(({ request }) => `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}`),
             ];
             expect(unexpected, 'console errors, page errors, CSP violations or failed requests').toEqual([]);
