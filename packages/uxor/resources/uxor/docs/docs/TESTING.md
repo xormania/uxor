@@ -1017,26 +1017,37 @@ matching its own path; and `demo/` is admitted entry by entry (`!demo/<entry>`),
 env file or editor folder stays out. The harness's context part checks the result on the checkout it runs in: no
 `.git`, `.github`, `node_modules`, `packages` or `tests`, no tools but `tools/sync-demo`, only the expected entries at
 the top of `demo/`, nothing `demo/.gitignore` ignores, no secret or machine-local file; it says whether the checkout's
-`.git` is a directory (a clone, as in CI) or a file (a worktree, which cannot show a `.git` leak).
+`.git` is a directory (a clone, as in CI) or a file (a worktree, which cannot show a `.git` leak). Every file in the
+context must be tracked by git or be a copy `tools/sync-demo` writes. CI builds from a clone, which holds only tracked
+files; a developer's checkout can hold local files inside the admitted directories (a `config/packages/local.yaml`, a
+file a global gitignore hides), and the image copies those directories whole. Build it by hand from a clean clone, or
+run the context check first: `tools/tests/prod-image.sh no-such-image` checks the context without building.
 
 What the build downloads is pinned but not all verified: the importmap packages by version, not by a content hash;
 the Tailwind standalone binary by version, its checksum verified only when its release publishes one. The dev image's
 build downloads the same, with the same exposure.
 
-The job runs for the image's build inputs (`tools/ci-changes.sh`, the *prod-image* output): `demo/Dockerfile`,
-`demo/Dockerfile.dockerignore`, `demo/compose.yaml`, `demo/compose.override.yaml` and `demo/frankenphp/`; and for what
-the image installs and how it boots in prod: `demo/composer.json`, `demo/composer.lock`, `demo/config/` and
-`tools/sync-demo`, which the builder runs; and for what its allow-list may have to name: a recipe's `manifest.json` (a
-new copy-files directory), the root files it admits (`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`,
-`docs/GUIDE.md`), a new root file, and a top-level directory that is not a recipe (new, or deleted). An existing recipe's
-templates, assets, code and README do not run it. The release checks reuse an earlier pass only when nothing the suite
+The job runs (`tools/ci-changes.sh`, the *prod-image* output) for every file of the demo the image holds: the twelve
+entries its allow-list admits (`bin`, `config`, `src`, `templates`, `assets`, `public`, `frankenphp`, `composer.json`,
+`composer.lock`, `symfony.lock`, `importmap.php`, `.env`), since the app runs differently in prod (no development
+package, no Toolkit bundle); for its other build inputs: `demo/Dockerfile`, `demo/Dockerfile.dockerignore`,
+`demo/compose.yaml`, `demo/compose.override.yaml` and `tools/sync-demo`, which the builder runs; for its harness,
+`tools/tests/prod-image.sh`; and for what its allow-list may have to name: a recipe's `manifest.json` (a new copy-files
+directory), the root files it admits (`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `docs/GUIDE.md`), a new
+root file, and any file in a top-level directory that is not a recipe (new, or deleted), its README included. It does
+not run for an existing recipe's templates, assets, code or README, a browser spec, or the demo's tests, README and
+development files: a recipe change reaches the image through *Demo + Playwright*'s pages, and the lane's own pages
+check every recipe page on the next change to the demo and on every release. A demo-only pull request therefore runs
+the lane beside *Kit PHP*, *Static site* and *Demo + Playwright*: about 2 minutes 15 seconds on its own runner, in
+parallel, so it adds runner time but not the time to a verdict, which *Demo + Playwright* sets. The release checks reuse an earlier pass only when nothing the suite
 reads changed; `docs/GUIDE.md` and `llms.txt`, pages of the image, count as read, the rest of `docs/` does not. In the
 release checks, the required
 *Release checks* verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip
 skips both), and the daily issue stays open, with a comment naming it, while the image fails. It is a plain
 build, sharing no cache with the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
 [`tools/tests/prod-image-workflow.test.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
-build from the root with `demo/Dockerfile` for linux/amd64 only, run on those inputs and not on a recipe or a guide,
+build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on an existing recipe's
+templates, assets or README or a browser spec,
 and that the dev image's bake steps read the compose files from the root.
 
 ## Accessibility

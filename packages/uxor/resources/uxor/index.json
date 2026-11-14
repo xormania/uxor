@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.1",
-        "inputs_sha256": "381620792fd3bce0e7ef71697d1d5894d551edf42ca6c2e335a6eb4ef73c5441",
+        "inputs_sha256": "3b6d39c3bcd293fc7150750c590c11f97fbb7d4b22a57e08530fb3bdd5047f5e",
         "manifest_sha256": "e624eb4fc71ef5a830e675f43e1dfc822dafee22ccac88290d3586304d6bc54a",
         "license": "MIT"
     },
@@ -1831,8 +1831,8 @@
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "d67fd50ec200020e17ba17d3bceba87be83aad805eca2b696fe17cac9723341d",
-            "source_sha256": "f4931c422597742f090bdc2bc10e0485ffc7049101ad91dfd119c394a42c6493",
+            "sha256": "921466cbd733e8c6c371ac88e7461dbe4270af1812b0c0b1ac219220d8b4821c",
+            "source_sha256": "519ea126517c52213fb541942ade4eb817e832ee362d27b0132935afc40f7fac",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/docs/TESTING.md"
         },
         "drawer/README.md": {

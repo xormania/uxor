@@ -93,9 +93,13 @@ It is the demo, not something the kit asks an application to deploy; the public 
 (*Releases*), and the dynamic demo refuses production without an opt-in ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)).
 Build and check it with
 `docker buildx build --platform linux/amd64 --target frankenphp_prod --load -t uxor-demo-prod -f demo/Dockerfile .`
-then `tools/tests/prod-image.sh uxor-demo-prod`; to run it yourself, pass `UXOR_DEMO_ALLOW_PRODUCTION=1`, a random
+then `tools/tests/prod-image.sh uxor-demo-prod`. The image copies whole directories of the checkout, so a local-only
+file inside them (a `demo/config/packages/local.yaml`, a file a global gitignore hides) would be included: build it from
+a clean clone, or run the harness's context check first (`tools/tests/prod-image.sh no-such-image`, which checks the
+context without building). To run it yourself, pass `UXOR_DEMO_ALLOW_PRODUCTION=1`, a random
 `APP_SECRET` of at least 32 characters and the Mercure keys `compose.yaml` sets (`docker run -e …`). CI builds and runs
-it when its build inputs change (*Production image*), and the release checks on every release.
+it when the demo's files it holds or its build inputs change (*Production image*), and the release checks on every
+release.
 
 Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
 `(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
@@ -151,7 +155,7 @@ change to both paths.
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them |
 | `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory |
+| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) and *Production image* |
 | a recipe (any of its files but `tests/` and `manifest.json`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`) | the jobs of `kit.js` (above) and *Contrast* |
 | `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
@@ -183,12 +187,15 @@ change to both paths.
 | `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |
 | `tools/tests/fresh-install.sh`, `docker-install.sh`, their shared steps `install-scenario.sh`, `check-fresh-app.sh`, `live-action.php`, `tools/tests/fixtures/fresh-app/` | both *Fresh install* jobs |
 | `tools/sync-demo` (the production image's builder runs it too) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| `tools/tests/prod-image.sh` (the production image's harness) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | any other file in `tools/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright*, *Production image* |
 | `demo/Dockerfile`, `demo/Dockerfile.dockerignore`, `demo/compose.override.yaml`, any other file in `demo/frankenphp/` (the demo image's build inputs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | `demo/composer.json`, `demo/composer.lock`, any file in `demo/config/` (what the production image installs, and how it boots in prod) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
-| `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
-| any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
+| `demo/tests/` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
+| `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright*, *Production image* |
+| any other file in `demo/bin/`, `demo/src/`, `demo/templates/`, `demo/assets/`, `demo/public/`, `demo/.env`, `demo/importmap.php`, `demo/symfony.lock` (the app the production image runs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| any other file in `demo/` (its README, development and test configuration) | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
