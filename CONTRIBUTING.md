@@ -74,10 +74,9 @@ cd .. && npm ci
 cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it: refuse a commit message that names a GitHub account
 ```
 
-To run the browser tests against this demo, start it with Xdebug off: `XDEBUG_MODE=off docker compose up --wait`, with
-`--force-recreate` added when a demo is already running with it on. `compose.override.yaml` starts the demo with
-Xdebug's develop mode, which aborts a deep call stack when requests arrive together and answers 500, so the tests fail
-in a different place on each run. CI sets `XDEBUG_MODE: 'off'` for the same reason.
+The demo starts with Xdebug off. To debug with it, set a mode on the `up` command, from `demo/`:
+`XDEBUG_MODE=debug docker compose up --wait` (or `develop`); Compose recreates the container with the new setting.
+Do not run the browser tests with `develop` on ([`docs/TESTING.md`](docs/TESTING.md), *Browsers*).
 
 Open https://localhost (the demo listens on this machine only) and accept the certificate of Caddy's local
 authority. The container sees the whole repository in `/app` and runs the demo from `/app/demo`, as on disk;
@@ -317,9 +316,11 @@ The demo enforces a strict policy (`demo/src/EventListener/SecurityHeadersListen
 only with the request's nonces, which the layouts print (`layouts/README.md`), and no inline event handler or style
 attribute runs, README previews included.
 
-Against the Docker demo, started with Xdebug off (*Setup*), run `DEMO_URL=https://localhost npx playwright test --workers=2`:
-the specs then run PHP in the container (`tools/demo-php`). Two workers is what each CI shard runs, against its own
-demo. Without `DEMO_URL`, Playwright serves the demo itself with `php -S 127.0.0.1:8000`.
+Against the Docker demo, run `DEMO_URL=https://localhost npx playwright test --workers=2`: the specs then run PHP in
+the container (`tools/demo-php`). Two workers is what each CI shard runs, against its own demo. A demo started with
+other ports or a project name (`docker compose -p <name>`) needs `COMPOSE_PROJECT_NAME`, `HTTP_PORT`, `HTTPS_PORT` and
+`HTTP3_PORT` exported in the shell for every command, because `tools/demo-php` finds the project only from the
+environment, and the HTTPS port in `DEMO_URL` (`https://localhost:8443`). Without `DEMO_URL`, Playwright serves the demo itself with `php -S 127.0.0.1:8000`.
 Either way it starts the browser container, unless something already listens on port 3000. Before the tests, it
 builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
 kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it

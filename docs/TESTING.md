@@ -1203,15 +1203,18 @@ tagged tests only, compared with the Chromium baselines, to report how far the o
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
 
-Locally against the Docker demo, start the demo with Xdebug off (`XDEBUG_MODE=off docker compose up --wait`, with
-`--force-recreate` if it already runs with it on) and run `DEMO_URL=https://localhost npx playwright test --workers=2`,
-the worker count of a CI shard (*Worker budget*). `compose.override.yaml` starts the demo with Xdebug's develop mode,
-which aborts a call stack deeper than 512 frames when requests arrive together ("Xdebug has detected a possible
-infinite loop, and aborted your script", in `docker compose logs php`) and answers 500. The tests then fail in a
-different place on each run, with no change to the code: one checkout gave 30 to 35 failures, a different set each
-time, in three full Chromium runs with it on, and 1 failure in 1225 tests with it off. CI sets `XDEBUG_MODE: 'off'`
-in the browser jobs, the monthly job and the release checks. `docker compose exec php php -r
-'echo json_encode(xdebug_info("mode"));'` prints `[]` when it is off and `["develop"]` when it is on.
+Locally against the Docker demo, run `DEMO_URL=https://localhost npx playwright test --workers=2`, the worker count of
+a CI shard (*Worker budget*), with Xdebug off, which is how the demo starts (`compose.override.yaml`; CONTRIBUTING.md,
+*Setup*, for the ports and project name). With Xdebug's `develop` mode on, the demo aborted some requests ("Xdebug has
+detected a possible infinite loop, and aborted your script with a stack depth of '512' frames", in
+`docker compose logs php`, run from `demo/`) and answered 500, and tests failed that pass without it. On one checkout,
+three full Chromium runs with it on gave 32, 35 and 30 failures, a different set each time, and a run with it off
+gave 1 failure in 1225 tests. CI sets `XDEBUG_MODE: 'off'` in the browser jobs, the monthly job and the release checks.
+To read the mode of a running demo, from `demo/`:
+
+```bash
+docker compose exec php php -r 'echo json_encode(xdebug_info("mode"));'   # [] when off, ["develop"] when develop is on
+```
 
 What differs between the engines, met so far, and how the kit and the suite stay portable:
 
