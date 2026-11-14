@@ -61,8 +61,8 @@ check 'contrast'                  tools/icon-lint.mjs
 check ''                          tools/tests/icon-lint.test.mjs
 # What the lints read wherever it lies: a recipe's templates (icon-lint) and any markdown outside demo/ (docs-lint,
 # icon-lint); the demo's copies of the recipes are not read
-check "$kit_contrast"             input/templates/components/Input.html.twig
-check "$kit_contrast"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
+check "$kit_contrast prod-image"             input/templates/components/Input.html.twig
+check "$kit_contrast prod-image"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
 check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
 check 'php static-site demo prod-image' demo/templates/components/Input.html.twig
@@ -115,12 +115,18 @@ check "$kit_contrast package prod-image"     new-recipe/manifest.json
 check "$kit_contrast package prod-image"     tabs/manifest.json
 check_git "$kit_contrast package prod-image" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git -c user.name=t -c user.email=t@t commit -qm tabs && git rm -q tabs/manifest.json'
 check "$kit prod-image"                      some-new-file.txt
-# The production image's lane, for what its allow-list (demo/Dockerfile.dockerignore) may have to name: a recipe's
-# manifest (a new copy-files directory), a new or deleted top-level directory, a new root file. An existing recipe's
-# templates, assets, code and README do not select it, nor do root files the image never holds, nor packages/.
-check "$kit_contrast"                        alert/templates/components/Alert.html.twig
-check "$kit_contrast"                        alert/assets/controllers/alert_controller.js
-check "$kit_contrast"                        oauth/src/UXor/OAuth/OAuthClient.php
+# The production image's lane, for everything the image holds (demo/Dockerfile.dockerignore): a recipe's manifest,
+# README, templates/, assets/, src/ and config/, and a new or deleted top-level directory or a new root file, which the
+# list may have to name. Not a recipe's tests/ or another file the list leaves out, root files the image never holds,
+# nor packages/.
+check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
+check "$kit_contrast prod-image"             alert/assets/controllers/alert_controller.js
+check "$kit_contrast prod-image"             oauth/src/UXor/OAuth/OAuthClient.php
+check "$kit_contrast prod-image"             editor/src/UXor/Editor/EditorExtension.php
+check "$kit_contrast prod-image"             oauth/config/uxor_oauth.example.yaml
+check 'contrast demo'                        alert/tests/alert.spec.ts
+check 'demo'                                 alert/tests/screenshots/with-list-dark.png
+check "$kit_contrast"                        alert/docs/notes.txt
 check "$kit_contrast prod-image"             brand-new-dir/notes.txt
 check "$kit_contrast prod-image"             NEW-ROOT-FILE.md
 check "$kit prod-image"                      NEW-ROOT-FILE.txt
@@ -211,26 +217,26 @@ check 'php static-site demo prod-image' demo/config/packages/twig.yaml
 check 'php static-site demo prod-image' demo/config/services.yaml
 # the demo's code, templates and assets are not the image's build inputs on their own
 check 'php static-site demo prod-image' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
-check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
+check "$kit_contrast prod-image"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
-check 'lint-kit static-site contrast demo package' side-nav/README.md
+check 'lint-kit static-site contrast demo package prod-image' side-nav/README.md
 check "$kit_contrast prod-image"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
-check "$kit_contrast"             theme/assets/styles/uxor.css
-check "$kit_contrast"             button/templates/components/Button.html.twig
-check "$kit_contrast"             layouts/templates/layouts/app.html.twig
+check "$kit_contrast prod-image"             theme/assets/styles/uxor.css
+check "$kit_contrast prod-image"             button/templates/components/Button.html.twig
+check "$kit_contrast prod-image"             layouts/templates/layouts/app.html.twig
 # what both archives hold, the kit's and the Composer package's: the kit's jobs and Package
 check "$kit package"              .gitattributes
 # tools/readme-pairing.mjs (Contrast) pairs a recipe's code with its README, tools/readme-versions.mjs its README with
 # its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too. Only the README and the
 # manifest are copied into the package's references (Package); a deeper README is not
-check "$kit_contrast"             alert/templates/components/Alert.html.twig
-check "$kit_contrast"             data-table/src/Table/DataTable.php
-check 'lint-kit static-site contrast demo package' alert/README.md
+check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
+check "$kit_contrast prod-image"             data-table/src/Table/DataTable.php
+check 'lint-kit static-site contrast demo package prod-image' alert/README.md
 check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
-check "$kit_contrast"             alert/assets/manifest.json
-check_git "$kit_contrast"         'mkdir -p alert/templates && echo a > alert/templates/x.html.twig && git add alert'
+check "$kit_contrast prod-image"             alert/assets/manifest.json
+check_git "$kit_contrast prod-image"         'mkdir -p alert/templates && echo a > alert/templates/x.html.twig && git add alert'
 check 'contrast'                  tools/readme-pairing.mjs tools/readme-versions.mjs
 check ''                          tools/tests/readme-pairing.test.mjs
 check ''                          tools/tests/jev-diagnosis.test.mjs

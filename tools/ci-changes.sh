@@ -165,23 +165,26 @@ while IFS= read -r path; do
             # (Package); Kit PHP and the installs never read it
             if [[ $path =~ ^[^/]+/README\.md$ ]]; then
                 on lint-kit static-site demo contrast package
-                # a README in a directory that is not a recipe (a new one): the image's lane, as below
-                [[ $path == packages/* || -f ${path%%/*}/manifest.json ]] || on prod-image
+                # the image holds a recipe's README (the gallery renders it), and a README elsewhere is in a new
+                # directory: the image's lane either way, as below
+                [[ $path == packages/* ]] || on prod-image
                 continue
             fi
             on lint-kit php static-site fresh-install demo
-            # The production image holds only what its allow-list names (demo/Dockerfile.dockerignore): the root files
-            # the gallery reads (kit.css, manifest.json; INSTALL.md, llms.txt and docs/GUIDE.md above), and from each
-            # recipe the directories its copy-files names. A recipe's manifest can name a new one, and a path in no
-            # known place (a new top-level directory, a new root file, a top-level directory deleted) can need the list
-            # changed: each runs the image's lane. An existing recipe's templates, assets and code do not (the top
-            # directory holds a manifest.json); a recipe added in the change selects it through its manifest.
-            if [[ $path =~ ^[^/]+/manifest\.json$ ]]; then
-                on prod-image
-            elif [[ $path == packages/* ]]; then
+            # The production image holds what its allow-list names (demo/Dockerfile.dockerignore) and renders it without
+            # the development packages: the root files the gallery reads (kit.css, manifest.json; INSTALL.md, llms.txt
+            # and docs/GUIDE.md above), and from each recipe its manifest.json, README.md, templates/, assets/, src/ and
+            # config/. A change to any of them runs the image's lane, and so does a path in no known place (a new
+            # top-level directory, a new root file, a top-level directory deleted), which can need the list changed. A
+            # recipe's tests/ and anything else the list leaves out do not.
+            if [[ $path == packages/* ]]; then
                 :  # the Composer package: never in the image
             elif [[ $path == */* ]]; then
-                [ -f "${path%%/*}/manifest.json" ] || on prod-image
+                if [ -f "${path%%/*}/manifest.json" ]; then
+                    [[ $path =~ ^[^/]+/(manifest\.json$|(templates|assets|src|config)/) ]] && on prod-image
+                else
+                    on prod-image
+                fi
             else
                 case "$path" in
                     # root files the image never holds: the kit's script and icon, and the repository's own settings
