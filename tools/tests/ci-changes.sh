@@ -164,7 +164,7 @@ check 'workflows'                 .github/actions/jev-diagnosis/action.yml
 check ''                          tools/tests/playwright-summary.test.mjs tools/tests/fixtures/playwright-results/timed.json
 check ''                          tools/tests/fixtures/junit/phpunit.xml tools/tests/fixtures/junit/node-test.xml
 check ''                          tools/tests/ci-metrics.test.mjs tools/tests/fixtures/ci-metrics/jobs.jsonl
-check 'php static-site demo'      tools/sync-demo
+check 'php static-site demo prod-image' tools/sync-demo
 # tools Tool tests runs against the real kit or its own config, on every run
 check ''                          tools/security-policy.mjs tools/security-sinks.json tools/check-github-mentions.mjs tools/hooks/commit-msg
 check ''                          tools/js-duplication.mjs tools/recipe-imports.mjs tools/kit-former-names.json
@@ -178,9 +178,13 @@ check 'php static-site demo prod-image' demo/Dockerfile.dockerignore
 check 'php static-site demo prod-image' demo/compose.override.yaml
 check 'php static-site demo prod-image' demo/frankenphp/docker-entrypoint.sh
 check 'php static-site demo prod-image' demo/frankenphp/conf.d/20-app.prod.ini
-# the demo's other files are not the image's build inputs on their own (the lane's triggers are its Dockerfile, ignore
-# list and Compose and FrankenPHP files)
-check 'php static-site demo' demo/composer.lock demo/src/Kernel.php
+# what the production image installs and how it boots in prod: the lane too
+check 'php static-site demo prod-image' demo/composer.lock demo/src/Kernel.php
+check 'php static-site demo prod-image' demo/composer.json
+check 'php static-site demo prod-image' demo/config/packages/twig.yaml
+check 'php static-site demo prod-image' demo/config/services.yaml
+# the demo's code, templates and assets are not the image's build inputs on their own
+check 'php static-site demo' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
 check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
 check 'lint-kit static-site contrast demo package' side-nav/README.md

@@ -118,6 +118,8 @@ while IFS= read -r path; do
         tools/recipe-imports.mjs | tools/security-policy.mjs | tools/security-sinks.json | tools/tests/fixtures/release-checks/*) ;;
         # the PHP binary of the browser tests against a Docker demo (playwright.config.ts, PHP_BINARY)
         tools/demo-php) on demo ;;
+        # tools/sync-demo also builds the production image: its builder copies the recipes into the demo with it
+        tools/sync-demo) on php static-site demo prod-image ;;
         tools/*) on php static-site demo ;;
 
         # The demo app: its PHP tests, its static export and the browser tests run against it. docker-install.sh copies
@@ -126,6 +128,8 @@ while IFS= read -r path; do
         # tools/tests/prod-image.sh), which no other job builds.
         demo/compose.yaml | demo/frankenphp/Caddyfile) on php static-site demo fresh-install prod-image ;;
         demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php static-site demo prod-image ;;
+        # what the production image installs and how it boots in prod: its packages and its configuration
+        demo/composer.json | demo/composer.lock | demo/config/*) on php static-site demo prod-image ;;
         demo/tests/* | demo/src/Controller/LabController.php) on php static-site demo contrast ;;
         demo/*) on php static-site demo ;;
 
