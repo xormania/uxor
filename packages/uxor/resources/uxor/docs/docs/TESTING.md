@@ -1086,25 +1086,50 @@ Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/
 ### Locked and moving lanes
 
 The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm lockfiles with
-`npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`:
+`npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`. The browser packages an
+`importmap.php` selects are in no lockfile, so a third job audits those with `bin/console importmap:audit`:
 
-| Project | Lockfile |
+| Project | Lockfile or importmap |
 |---|---|
 | Repository browser tests | `package-lock.json` |
 | Consumer browser checks | `packages/uxor/dev/package-lock.json` |
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |
+| Demo's browser packages | `demo/importmap.php` |
+| Consumer harness's browser packages | `packages/uxor/dev/app/importmap.php` |
 
 It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand on the selected branch, and on pull
 requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
-audit runs; a workflow change runs them all. Audits read the lockfiles without installing dependencies or
-executing project scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
+audit runs; a workflow change runs them all. The lockfile audits read the lockfiles without installing
+dependencies or executing project scripts; the importmap audits install dependencies but run no scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
 artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all five locks
 against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
 the consumer browser checks install Chromium for their own Playwright version.
 `tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection
 and audit shell steps with local fixtures.
+
+The importmap lanes (`importmap-audit`, one per tracked `importmap.php`) install the application's Composer
+dependencies without scripts, because `bin/console` needs `vendor/`, and print the package names and versions the
+`importmap.php` selects. Installing without scripts still runs the Composer plugins the locks allow (`symfony/runtime`
+writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane then boots the application to run the
+command: the job has read-only permissions and no long-lived secrets, only its own short-lived read-only token, which
+`setup-php` passes to Composer and the audit step uses for the advisory request. That step alone gets the token, as
+`AUDIT_GITHUB_TOKEN`, and writes for itself a config, never committed and removed when the step ends, that points
+AssetMapper's client at one adding the header for `https://api.github.com/` only; with no token the request goes
+anonymously. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
+made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
+own and never fails the lane, since a newer version is not an advisory. The command exits 1 both when anything is
+outdated and when it cannot check (a registry it cannot reach); the step reads the JSON it prints to tell them apart,
+and ends with a notice naming how many packages have newer versions, or a warning that nothing could be checked,
+never an error annotation on a passing job. Two limits come from the command, not from the workflow: it queries GitHub's
+advisory API, with the job's token (a higher rate limit than an anonymous request from a shared runner), and a rate
+limit still turns the lane red (loudly, never silently); and it asks for the API's default page size of 30, so a
+package set matching more than 30 advisories could be cut short.
+`tools/tests/importmap-audit.test.mjs` checks the lanes' shape: one per tracked `importmap.php`, no way for an audit
+failure to be swallowed, the pull request paths, the listing of versions, and the separate `importmap:outdated` step;
+it also reads the steps' conditions for a manual run and a selected pull request, and runs each lane's changed-files
+guard in scratch repositories.
 
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of
 ours in it may reflect a dependency release: read the versions it resolved before looking for a regression.
@@ -1477,7 +1502,7 @@ The attempts come from one of three places:
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-<lane>-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit*, *composer audit* and *importmap audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
