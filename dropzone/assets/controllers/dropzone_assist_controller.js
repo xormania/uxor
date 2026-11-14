@@ -25,7 +25,6 @@ let lastCopy = 0;
  * - Focus: a pick hides the focused input, so focus moves to the Remove button, whose name ("Remove photo.png") says
  *   what was picked; Remove puts focus back on the input; removing one of several files focuses the next Remove
  *   button, else the last one, else the input. Connecting never moves focus.
- * - A drag that leaves without a drop shows the empty box again: UX Dropzone shows its empty preview instead.
  * - In a form that is not a GET form (a POST form holds the user's work), one file picked stays picked after Back and
  *   Forward: before Turbo copies the page, the file is kept under a key the zone carries into the copy, and put back
  *   when the copy connects, with a `change` event on the input (not bubbling) that shows it, unless the browser's copy
@@ -37,7 +36,6 @@ let lastCopy = 0;
  *   `data-turbo-permanent` element across visits) is no copy, and keeps its file.
  *
  * @target input       The file input.
- * @target placeholder The inside of the box shown before a pick.
  * @target preview     The picked file (one file only).
  * @target clearButton The Remove button of the preview (one file only).
  * @target list        The list of picked files (several files only).
@@ -53,12 +51,11 @@ let lastCopy = 0;
  * @action cache       On `turbo:before-cache`: keeps the file of a zone in a form that is not a GET form for the copy.
  */
 export default class extends Controller {
-    static targets = ['input', 'placeholder', 'preview', 'clearButton', 'list'];
+    static targets = ['input', 'preview', 'clearButton', 'list'];
 
     #inputFocused = false;
     #clearing = false;
     #removedIndex = null;
-    #leaveTimeout = null;
 
     connect() {
         // a copy of the page Turbo cached: the zone carries the key it was given when the copy was taken
@@ -97,8 +94,6 @@ export default class extends Controller {
     disconnect() {
         // the key stays: Turbo may copy the page after its controllers disconnected
         this.element.removeAttribute('data-dragging');
-        clearTimeout(this.#leaveTimeout);
-        this.#leaveTimeout = null;
         this.#inputFocused = false;
         this.#clearing = false;
         this.#removedIndex = null;
@@ -157,19 +152,6 @@ export default class extends Controller {
             return;
         }
         this.element.removeAttribute('data-dragging');
-        if (this.hasListTarget || !this.hasPreviewTarget) {
-            return;
-        }
-        // UX Dropzone then shows its preview, empty when nothing was picked: show the box again after its listener ran
-        clearTimeout(this.#leaveTimeout);
-        this.#leaveTimeout = setTimeout(() => {
-            this.#leaveTimeout = null;
-            if (!this.inputTarget.files?.length) {
-                this.inputTarget.style.display = 'block';
-                this.placeholderTarget.style.display = 'block';
-                this.previewTarget.style.display = 'none';
-            }
-        });
     }
 
     drop(event) {
