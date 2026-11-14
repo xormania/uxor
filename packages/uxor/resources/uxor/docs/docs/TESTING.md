@@ -1114,13 +1114,17 @@ dependencies without scripts, because `bin/console` needs `vendor/`, and print t
 `importmap.php` selects. Installing without scripts still runs the Composer plugins the locks allow (`symfony/runtime`
 writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane then boots the application to run the
 command: the job has read-only permissions and no long-lived secrets, only its own short-lived read-only token, which
-`setup-php` passes to Composer. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
+`setup-php` passes to Composer and the audit step uses for the advisory request. That step alone gets the token, as
+`AUDIT_GITHUB_TOKEN`, and writes for itself a config, never committed and removed when the step ends, that points
+AssetMapper's client at one adding the header for `https://api.github.com/` only; with no token the request goes
+anonymously. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
 made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
 own and never fails the lane, since a newer version is not an advisory. The command exits 1 both when anything is
 outdated and when it cannot check (a registry it cannot reach); the step reads the JSON it prints to tell them apart,
 and ends with a notice naming how many packages have newer versions, or a warning that nothing could be checked,
-never an error annotation on a passing job. Two limits come from the command, not from the workflow: it queries GitHub's advisory API without a token,
-so a rate limit turns the lane red (loudly, never silently), and it asks for the API's default page size of 30, so a
+never an error annotation on a passing job. Two limits come from the command, not from the workflow: it queries GitHub's
+advisory API, with the job's token (a higher rate limit than an anonymous request from a shared runner), and a rate
+limit still turns the lane red (loudly, never silently); and it asks for the API's default page size of 30, so a
 package set matching more than 30 advisories could be cut short.
 `tools/tests/importmap-audit.test.mjs` checks the lanes' shape: one per tracked `importmap.php`, no way for an audit
 failure to be swallowed, the pull request paths, the listing of versions, and the separate `importmap:outdated` step;

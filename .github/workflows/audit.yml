@@ -194,12 +194,33 @@ jobs:
                   # shellcheck disable=SC2016 # the dollar signs are PHP's
                   php -r '$importmap = require "importmap.php"; foreach ($importmap as $name => $entry) { if (isset($entry["version"])) { echo $name, " ", $entry["version"], "\n"; } }'
 
+            # the advisory request goes with the job's token, which lifts GitHub's anonymous rate limit: a config written
+            # for this step only (never committed, removed when the step ends, before outdated runs without the variable)
+            # points AssetMapper's client at one that adds the header for api.github.com alone; the file holds the env
+            # reference, never the token; without a token the request stays anonymous
             - name: importmap audit
               id: audit
               if: github.event_name != 'pull_request' || steps.changed.outputs.files
               working-directory: ${{ matrix.directory }}
+              env:
+                  AUDIT_GITHUB_TOKEN: ${{ github.token }}
               run: |
                   set -o pipefail
+                  if [ -n "${AUDIT_GITHUB_TOKEN:-}" ]; then
+                      trap 'rm -f config/packages/zz_audit_github.yaml' EXIT
+                      cat > config/packages/zz_audit_github.yaml <<'YAML'
+                  framework:
+                      http_client:
+                          scoped_clients:
+                              audit_github.client:
+                                  scope: '^https://api\.github\.com/'
+                                  headers:
+                                      Authorization: 'Bearer %env(AUDIT_GITHUB_TOKEN)%'
+                  services:
+                      asset_mapper.http_client:
+                          alias: audit_github.client
+                  YAML
+                  fi
                   bin/console importmap:audit 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
 
             # newer versions are reported, never a failure, and leave a notice, not an error annotation: the command exits
