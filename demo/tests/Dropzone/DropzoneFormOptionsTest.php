@@ -107,6 +107,8 @@ final class DropzoneFormOptionsTest extends KernelTestCase
         yield 'leading space' => [' 3', []];
         yield 'leading zero' => ['03', []];
         yield 'trailing letters' => ['3abc', []];
+        // a regular expression's `$` also matches before a final line break: the limit must be the digits alone
+        yield 'trailing line break' => ["3\n", []];
         yield 'word' => ['three', []];
         yield 'null' => [null, []];
         yield 'false' => [false, []];
