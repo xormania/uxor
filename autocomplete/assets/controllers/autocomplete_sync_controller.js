@@ -23,13 +23,14 @@ import { Controller } from '@hotwired/stimulus';
  * - Tom Select refreshes its list a moment after a keystroke (`refreshThrottle`, 300 ms), and nothing cancels that
  *   refresh when an option is chosen or the field is left: when it runs, it opens the list again and takes the focus
  *   back. When the list closes (`dropdown_close`: a choice in a field that closes, Escape) or the field loses the focus
- *   (`blur`), the pending refresh is cancelled, on every Tom Select the select gets (UX Autocomplete builds a new one when it resets it or its options change; `autocomplete:connect` names it),
- *   with the recipe's settings or options of its own (tested with `create`); a plugin replacing Tom Select's input
- *   handling is not covered. The refresh is Tom Select's `refreshTimeout`, an instance property, not its public
- *   API: were it renamed, the cancelling would silently stop and the list would reopen again (the lab's test of a
- *   choice made right after a keystroke then fails). Leaving the field also clears its search text (Tom Select's
- *   `close()`), so a cancelled refresh leaves nothing to search when the field takes the focus again. A choice alone
- *   (`item_add`) cancels nothing: the list may be meant to stay open (`closeAfterSelect: false` with `multiple`), and UX
+ *   (`blur`), the pending refresh is cancelled, on every Tom Select the select gets (UX Autocomplete builds a new one
+ *   when it resets it or its options change; `autocomplete:connect` names it), with the recipe's settings or options of
+ *   its own (tested in a field with `create`, choosing an existing option); a plugin replacing Tom Select's input
+ *   handling is not covered. The refresh is Tom Select's `refreshTimeout`, an instance property, not its public API:
+ *   were it renamed, the cancelling would silently stop and the list would reopen again (the lab's test of a choice
+ *   made right after a keystroke then fails). Leaving the field also clears its search text (Tom Select's `close()`),
+ *   so a cancelled refresh leaves nothing to search when the field takes the focus again. A choice alone (`item_add`)
+ *   cancels nothing: the list may be meant to stay open (`closeAfterSelect: false` with `multiple`), and UX
  *   Autocomplete empties the search on every choice, which needs that refresh to list the options for the empty search
  *   (in a remote field, its load) rather than the earlier results.
  */
