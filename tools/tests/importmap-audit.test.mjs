@@ -204,3 +204,72 @@ test('the guard of each lane selects it for a change to its importmap.php or the
         }
     }
 });
+
+/**
+ * Runs each lane's importmap:outdated step script as Actions does (bash -eo pipefail), in a scratch directory whose
+ * bin/console is a stand-in: it prints `stdout` and `stderr` and exits with `status` for importmap:outdated.
+ */
+function runOutdated(job, { status, stdout = '', stderr = '' }) {
+    const step = steps(job).find((candidate) => runsCommand(candidate, 'importmap:outdated'));
+    assert.ok(step, `${job.id} has an importmap:outdated step`);
+    const scratch = mkdtempSync(join(tmpdir(), 'importmap-audit-outdated-'));
+    try {
+        mkdirSync(join(scratch, 'bin'));
+        mkdirSync(join(scratch, 'runner-temp'));
+        writeFileSync(join(scratch, 'stdout'), stdout);
+        writeFileSync(join(scratch, 'stderr'), stderr);
+        const stub = join(scratch, 'bin/console');
+        writeFileSync(stub, `#!/usr/bin/env bash\ncase "$*" in *importmap:outdated*) cat '${join(scratch, 'stdout')}'; cat '${join(scratch, 'stderr')}' >&2; exit ${status} ;; esac\nexit 64\n`);
+        spawnSync('chmod', ['+x', stub]);
+        const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script(step)], {
+            cwd: scratch,
+            env: { ...process.env, RUNNER_TEMP: join(scratch, 'runner-temp') },
+            encoding: 'utf8',
+        });
+        return { status: result.status, stdout: result.stdout, stderr: result.stderr };
+    } finally {
+        rmSync(scratch, { recursive: true, force: true });
+    }
+}
+
+const OUTDATED = JSON.stringify([
+    { name: '@hotwired/stimulus', current: '3.2.1', latest: '3.2.2', 'latest-status': 'semver-safe-update' },
+    { name: 'lodash', current: '3.10.1', latest: '4.17.21', 'latest-status': 'update-possible' },
+], null, 4);
+
+test('importmap:outdated with nothing newer ends the step quietly: no notice, no warning, no error', () => {
+    for (const job of requiredAuditJobs()) {
+        const run = runOutdated(job, { status: 0, stdout: '[]\n' });
+        assert.equal(run.status, 0, run.stderr);
+        assert.doesNotMatch(run.stdout + run.stderr, /::(?:notice|warning|error)/, `${job.id}: ${run.stdout}`);
+    }
+});
+
+test('importmap:outdated listing newer versions ends the step with them listed and a notice naming the count', () => {
+    for (const job of requiredAuditJobs()) {
+        const run = runOutdated(job, { status: 1, stdout: `${OUTDATED}\n` });
+        assert.equal(run.status, 0, `${job.id}: the step passes (${run.stderr})`);
+        assert.match(run.stdout, /^.*@hotwired\/stimulus.*3\.2\.1.*3\.2\.2.*$/m, `${job.id} lists each package: ${run.stdout}`);
+        assert.match(run.stdout, /^.*lodash.*3\.10\.1.*4\.17\.21.*$/m, `${job.id} lists each package: ${run.stdout}`);
+        assert.match(run.stdout, /^::notice::.*\b2\b.*$/m, `${job.id}: a notice names the count`);
+        assert.doesNotMatch(run.stdout + run.stderr, /::(?:warning|error)/, `${job.id}: ${run.stdout}`);
+    }
+});
+
+test('importmap:outdated that cannot check ends the step with a warning, the error left in the log, and no notice', () => {
+    const cases = {
+        'no output, an error': { status: 1, stderr: 'In ImportMapUpdateChecker: the registry cannot be reached\n' },
+        'an object, not a list': { status: 1, stdout: '{"error": "unexpected"}\n', stderr: 'In ImportMapUpdateChecker: the registry cannot be reached\n' },
+        'an empty list with a failure': { status: 1, stdout: '[]\n', stderr: 'In ImportMapUpdateChecker: the registry cannot be reached\n' },
+        'not JSON': { status: 1, stdout: 'Fatal error\n', stderr: 'In ImportMapUpdateChecker: the registry cannot be reached\n' },
+    };
+    for (const job of requiredAuditJobs()) {
+        for (const [label, outcome] of Object.entries(cases)) {
+            const run = runOutdated(job, outcome);
+            assert.equal(run.status, 0, `${job.id}, ${label}: the step passes (${run.stderr})`);
+            assert.match(run.stdout, /^::warning::/m, `${job.id}, ${label}: a warning says nothing could be checked`);
+            assert.doesNotMatch(run.stdout + run.stderr, /::(?:notice|error)/, `${job.id}, ${label}: ${run.stdout}`);
+            assert.match(run.stderr, /the registry cannot be reached/, `${job.id}, ${label}: the command's error reaches the log`);
+        }
+    }
+});
