@@ -418,7 +418,11 @@ leaves the widget in place and kept (a Live re-render, a frame or a Stream besid
 `keeps` (the focus). The cell ends with `stillWorks()`: a widget shown as rendered takes the change again; one shown
 changed is taken back by its `undo` (an overlay by its trigger, then, opened by the user, by Escape with the focus back
 on the trigger; a tab, a branch, a file, a row, an editor's typing, a Markdown editor's preview), changed again and
-undone again. A widget showing the server's values is left as it is. A single-transition journey of an older lab spec
+undone again. A widget showing the server's values is left as it is. A step that opens a Live Component's tab waits for the server's
+render of it (the Markdown editor's `openTab`: the tab the answer marks `aria-selected`), not for text the page already
+held: a textarea last rendered with the same Markdown matches before the request is even sent, and typing during the
+round trip is lost when Live's answer arrives. Two tests slow the editor's round trips and fail when its `undo` or its
+re-render returns before every round trip it started has been answered. A single-transition journey of an older lab spec
 belongs here, with what it asserted beyond the end state: a lab spec keeps what the matrix cannot hold (the first
 frame of a copy, the order of a copy, repeated visits, another change than the row's, a route of its own).
 

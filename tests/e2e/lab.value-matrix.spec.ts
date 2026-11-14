@@ -250,6 +250,17 @@ const editor: Pick<Component, 'change' | 'shows' | 'undo'> = {
     },
 };
 
+/**
+ * Opens a markdown editor's tab and waits for the server's render of it: only that render marks the tab selected, so
+ * the round trip has been answered (text the page already held, such as a textarea last rendered with the same Markdown,
+ * can match before the request is sent, and typing during the round trip is lost when Live's answer arrives).
+ */
+async function openTab(editor: Locator, name: 'Write' | 'Preview') {
+    const tab = editor.getByRole('tab', { name });
+    await tab.click();
+    await expect(tab).toHaveAttribute('aria-selected', 'true');
+}
+
 const markdownEditor: Pick<Component, 'change' | 'shows' | 'undo'> = {
     change: async (scope) => {
         await group(scope, 'post').getByRole('textbox', { name: 'Notes' }).fill('Changed.');
@@ -260,9 +271,9 @@ const markdownEditor: Pick<Component, 'change' | 'shows' | 'undo'> = {
     // its preview still renders what the field holds, then the field takes typing
     undo: async (scope) => {
         const notes = group(scope, 'post').locator('[data-controller~="markdown-editor"]');
-        await notes.getByRole('tab', { name: 'Preview' }).click();
-        await expect(notes.getByRole('tabpanel')).toContainText('Changed.');
-        await notes.getByRole('tab', { name: 'Write' }).click();
+        await openTab(notes, 'Preview');
+        await expect(notes.locator('[role="tabpanel"][id$="_preview"]')).toContainText('Changed.');
+        await openTab(notes, 'Write');
         await group(scope, 'post').getByRole('textbox', { name: 'Notes' }).fill('Draft.');
         await group(scope, 'post').getByRole('textbox', { name: 'Notes' }).blur();
     },
@@ -774,9 +785,9 @@ const COMPONENTS: Component[] = [
         // it is a Live Component itself: its Preview tab re-renders it
         rerender: async (_page, scope) => {
             const notes = group(scope, 'post').locator('[data-controller~="markdown-editor"]');
-            await notes.getByRole('tab', { name: 'Preview' }).click();
-            await expect(notes.getByRole('tabpanel')).toContainText('Changed.');
-            await notes.getByRole('tab', { name: 'Write' }).click();
+            await openTab(notes, 'Preview');
+            await expect(notes.locator('[role="tabpanel"][id$="_preview"]')).toContainText('Changed.');
+            await openTab(notes, 'Write');
         },
     },
     { row: 'a dropzone in a POST form', widget: 'post-file', kind: 'post-field', site: matrixSite, ...dropzone, controllers: ['symfony--ux-dropzone--dropzone', 'dropzone-assist'], liveProp: false },
@@ -921,6 +932,56 @@ for (const component of COMPONENTS) {
         }
     });
 }
+
+// The markdown editor's tabs re-render it through Live, so a step after a tab click must wait for that render (the tab
+// the server marks selected), not for text the page already held: once a round trip has rendered the textarea with the
+// changed text, a wait for that text passes before the next Preview is even sent, and a step that typed during the round
+// trip lost its text when Live's answer arrived. With each tab's round trip slowed, the steps must return only once
+// every round trip they started has been answered.
+test.describe('a markdown editor in a POST form, with slow tabs', () => {
+    const row = COMPONENTS.find((component) => 'post-notes' === component.widget)!;
+    /** Slows each tab's round trip, and counts the answered ones. */
+    async function slowTabs(page: Page) {
+        const answered = { count: 0 };
+        await page.route('**/_components/MarkdownEditor/*', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            await route.fallback();
+        });
+        page.on('requestfinished', (request) => {
+            if (request.url().includes('/_components/MarkdownEditor/')) {
+                answered.count++;
+            }
+        });
+        return answered;
+    }
+
+    test('its undo types into the Write tab only once both tabs have rendered', async ({ page }) => {
+        const answered = await slowTabs(page);
+        await page.goto(matrixPage(row));
+        const scope = region(page, 'kept');
+        // twice: the second time, the textarea was last rendered with the changed text
+        for (const round of [1, 2]) {
+            await row.change(scope);
+            await row.shows(scope, 'changed');
+            await row.undo(scope);
+            // no waiting here: the undo's own waits must have covered its Preview and its Write round trips
+            expect(answered.count, `round ${round}: the round trips answered when the undo returned`).toBe(2 * round);
+            await row.shows(scope, 'rendered');
+        }
+    });
+
+    test('its re-render returns once both tabs have rendered', async ({ page }) => {
+        const answered = await slowTabs(page);
+        await page.goto(matrixPage(row));
+        const scope = region(page, 'kept');
+        for (const round of [1, 2]) {
+            await row.change(scope);
+            await row.rerender!(page, scope);
+            expect(answered.count, `round ${round}: the round trips answered when the re-render returned`).toBe(2 * round);
+            await row.shows(scope, 'changed');
+        }
+    });
+});
 
 test('every cell of the matrix is an expectation the site runs, or n/a with a reason', () => {
     // a check of the definitions above, the same in every engine: it runs once, in the Chromium project
