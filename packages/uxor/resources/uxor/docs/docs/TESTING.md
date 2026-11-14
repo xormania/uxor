@@ -1005,7 +1005,11 @@ and their docs), so the package is a `require` of the demo and its templates are
 container, and the app's files are owned by root.
 
 The job runs for the image's build inputs (`tools/ci-changes.sh`, the *prod-image* output): `demo/Dockerfile`,
-`demo/Dockerfile.dockerignore`, `demo/compose.yaml`, `demo/compose.override.yaml` and `demo/frankenphp/`. It is a plain
+`demo/Dockerfile.dockerignore`, `demo/compose.yaml`, `demo/compose.override.yaml` and `demo/frankenphp/`; and for what
+the image installs and how it boots in prod: `demo/composer.json`, `demo/composer.lock`, `demo/config/` and
+`tools/sync-demo`, which the builder runs. A recipe change does not run it. In the release checks, the required
+*Release checks* verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip
+skips both), and the daily issue stays open, with a comment naming it, while the image fails. It is a plain
 build, sharing no cache with the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
 [`tools/tests/prod-image-workflow.test.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
 build from the root with `demo/Dockerfile` for linux/amd64 only, run on those inputs and not on a recipe or a guide,

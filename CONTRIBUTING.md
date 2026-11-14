@@ -178,9 +178,11 @@ change to both paths.
 | `tools/security-policy.mjs`, `tools/security-sinks.json`, `tools/check-github-mentions.mjs`, `tools/hooks/`, `tools/js-duplication.mjs`, `tools/recipe-imports.mjs`, `tools/kit-former-names.json`, `tools/tests/fixtures/release-checks/` | nothing else: *Tool tests* runs them against the real kit or their own config |
 | `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |
 | `tools/tests/fresh-install.sh`, `docker-install.sh`, their shared steps `install-scenario.sh`, `check-fresh-app.sh`, `live-action.php`, `tools/tests/fixtures/fresh-app/` | both *Fresh install* jobs |
+| `tools/sync-demo` (the production image's builder runs it too) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | any other file in `tools/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright*, *Production image* |
 | `demo/Dockerfile`, `demo/Dockerfile.dockerignore`, `demo/compose.override.yaml`, any other file in `demo/frankenphp/` (the demo image's build inputs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| `demo/composer.json`, `demo/composer.lock`, any file in `demo/config/` (what the production image installs, and how it boots in prod) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
