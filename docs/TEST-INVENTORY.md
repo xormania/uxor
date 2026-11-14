@@ -704,6 +704,7 @@ Symfony's installed controller, authenticator, session and user provider run nor
 | Same-origin saved protected-page targets survive login, account connection success and failure preserve the settings path and query, unsafe targets fall back, and unavailable providers give safe feedback | functional | `OAuthFlowTest` |
 | Provider start inside a Frame replaces the document; actual session expiry during a Frame request reaches full login; normal Turbo keeps the document after sign-in | E2E demo | oauth |
 | Actual installed classes boot before configuration and authenticate after binding the consuming app store; protected destinations and user reload work | install smoke | `tools/tests/check-fresh-app.sh` OAuth checks, both install lanes |
+| In a freshly installed app the dropzone recipe's form type extension is registered: a `DropzoneType` with `placeholder: false` shows no main line, and one with custom `attr` and no placeholder keeps the default phrase | install smoke | `tools/tests/check-fresh-app.sh` upload checks (`tools/tests/fixtures/fresh-app`), both install lanes |
 
 Live provider application registrations are not exercised by offline CI. The demo grants and adapter HTTP fixtures
 cover separate boundaries; provider branding has local assets and screenshot coverage in the presentation rows.
