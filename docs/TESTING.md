@@ -1113,7 +1113,8 @@ The importmap lanes (`importmap-audit`, one per tracked `importmap.php`) install
 dependencies without scripts, because `bin/console` needs `vendor/`, and print the package names and versions the
 `importmap.php` selects. Installing without scripts still runs the Composer plugins the locks allow (`symfony/runtime`
 writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane then boots the application to run the
-command: the job has read-only permissions and no secrets. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
+command: the job has read-only permissions and no long-lived secrets, only its own short-lived read-only token, which
+`setup-php` passes to Composer. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
 made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
 own and never fails the lane, since a newer version is not an advisory (the command exits 1 whenever anything is
 outdated). Two limits come from the command, not from the workflow: it queries GitHub's advisory API without a token,
