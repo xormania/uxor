@@ -81,6 +81,9 @@ async function chooseQuicklyAndLeave(page: Page, label: string, select: string, 
     // one more letter that keeps the same choice, then Enter and Tab at once: chosen while the refresh this letter
     // asked for is still pending, as a quick typist does
     await page.keyboard.type(more);
+    // the window the fix is about: a refresh still pending as Enter is pressed. A run where it already ran by itself (a
+    // slow machine) would pass without the fix doing anything: it fails here instead
+    expect(await page.locator(select).evaluate((element) => (element as any).tomselect.refreshTimeout != null), 'a refresh is pending before Enter').toBe(true);
     await page.keyboard.press('Enter');
     await expect(page.locator(select)).toHaveValue(value);
     await page.keyboard.press('Tab');
