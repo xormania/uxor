@@ -3,6 +3,7 @@
 // as such, whose comment does not claim it is the lock's.
 // Run: node --test tools/tests/toolkit-pin.test.mjs
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -129,5 +130,60 @@ test('no toolkit pin claims to be the version of demo/composer.lock unless it is
     for (const { version, line, comment } of installedLanes()) {
         if (version === lockVersion) continue;
         assert.doesNotMatch(comment, /composer\.lock/, `${workflowPath}:${line} pins ${version} but its comment names demo/composer.lock (${lockVersion})`);
+    }
+});
+
+/** The jobs of ci.yml (jobs at 4 spaces), with the steps of each (steps at 12 spaces), comment lines left out. */
+function jobs() {
+    const text = lines.join('\n');
+    const body = text.slice(text.indexOf('\njobs:\n'));
+    return [...body.matchAll(/^ {4}([a-z][a-z0-9_-]*):\n([\s\S]*?)(?=^ {4}[a-z][a-z0-9_-]*:\n|(?![\s\S]))/gm)].map(([, id, job]) => ({ id, text: job, steps: stepsOf(job) }));
+}
+
+const installs = (step) => /composer require\b.*symfony\/ux-toolkit:/.test(step);
+const matrixCondition = (step) => /^ {14}if:\s*matrix\.([A-Za-z_][\w-]*)\s*==\s*'([^']*)'\s*$/m.exec(step);
+
+test('each toolkit install step runs in some lane of its job: its matrix condition names a value the matrix has', () => {
+    const owners = jobs().filter((job) => job.steps.some(installs));
+    assert.ok(owners.length > 0, `${workflowPath} installs symfony/ux-toolkit`);
+    for (const job of owners) {
+        for (const step of job.steps.filter(installs)) {
+            const condition = matrixCondition(step);
+            if (!condition) continue;
+            const [, key, value] = condition;
+            const list = new RegExp(`^ {16}${key}:\\s*\\[([^\\]]*)\\]`, 'm').exec(job.text)?.[1];
+            assert.ok(list !== undefined, `${job.id}: matrix.${key} is a list`);
+            const values = list.split(',').map((item) => item.trim().replace(/^['"]|['"]$/g, ''));
+            assert.ok(values.includes(value), `${job.id}: an install step runs only for matrix.${key} == '${value}', which the matrix (${values.join(', ')}) never takes`);
+        }
+    }
+});
+
+test('the locked and the minimum installs each run in a lane, and the locked one where its version is read', () => {
+    for (const job of jobs().filter((candidate) => candidate.steps.some(installs))) {
+        for (const step of job.steps.filter(installs)) {
+            const output = /symfony\/ux-toolkit:\$\{\{\s*steps\.([A-Za-z_][\w-]*)\.outputs\./.exec(step)?.[1];
+            if (!output) continue;
+            const reader = job.steps.find((candidate) => new RegExp(`^(?:id: ${output}| {14}id: ${output})\\s*$`, 'm').test(candidate));
+            assert.ok(reader, `${job.id}: the step ${output}, whose output the install takes, is in the same job`);
+            const needed = matrixCondition(step)?.slice(1).join('==');
+            const given = matrixCondition(reader)?.slice(1).join('==');
+            assert.ok(given === undefined || given === needed, `${job.id}: the step ${output} runs in the install's lane (${given} vs ${needed})`);
+        }
+    }
+    const versions = new Set(installedLanes().map(({ version }) => version));
+    assert.ok(versions.has(MINIMUM), `a toolkit install takes ${MINIMUM}`);
+});
+
+test('a change to demo/composer.lock alone runs the job that reads the toolkit version from it', () => {
+    const readers = jobs().filter((job) => job.steps.some((step) => installs(step) || readsLock(step)) && job.steps.some(readsLock));
+    if (readers.length === 0) return; // a literal lock lane: the lock's version is checked by the first test
+    const selected = spawnSync('bash', ['tools/ci-changes.sh'], { cwd: root, input: 'demo/composer.lock\n', encoding: 'utf8' });
+    assert.equal(selected.status, 0, selected.stderr);
+    const outputs = new Set(selected.stdout.split('\n').filter((line) => line.endsWith('=true')).map((line) => line.slice(0, -'=true'.length)));
+    for (const job of readers) {
+        const gate = /^ {8}if:.*\bneeds\.changes\.outputs\.([a-z0-9_-]+)\b/m.exec(job.text)?.[1];
+        if (!gate) continue;
+        assert.ok(outputs.has(gate), `${job.id} reads demo/composer.lock but tools/ci-changes.sh does not select it (${gate}) for a change to that lock alone`);
     }
 });
