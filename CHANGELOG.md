@@ -7,15 +7,15 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Changed
 
-- `dropzone` requires `symfony/ux-dropzone` 3.7 or later (it allowed 3.5): UX Dropzone 3.7 shows and hides the
-  zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5 or 3.6 runs
-  `composer require symfony/ux-dropzone:^3.7` before installing or updating the recipe; read UX Dropzone's upgrade
-  notes for 3.7 (dropped files checked against `accept`, the `placeholder` option replacing `attr.placeholder`,
-  `dropzone:clear` no longer dispatched on connect; the kit still dispatches it when it empties a zone restored outside
-  a POST form, see the README). If you changed your copy of `templates/components/Dropzone.html.twig`, replace the
-  `hidden` class on the preview (`data-symfony--ux-dropzone--dropzone-target="preview"`) with the `hidden` attribute,
-  remove the `hidden` class from the preview image, and add no `display` class to the parts UX Dropzone hides:
-  otherwise the picked file stays hidden.
+- `dropzone` requires `symfony/ux-dropzone` ^3.7, 3.7 and later 3.x releases (it allowed ^3.5): UX Dropzone 3.7
+  shows and hides the zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5
+  or 3.6 runs `composer require symfony/ux-dropzone:^3.7` before installing or updating the recipe; read UX Dropzone's
+  upgrade notes for 3.7 (dropped files checked against `accept`, the `placeholder` option replacing
+  `attr.placeholder`, `dropzone:clear` no longer dispatched on connect; the kit still dispatches it when it empties a
+  zone restored outside a POST form, see the README). If you changed your copy of
+  `templates/components/Dropzone.html.twig`, replace the `hidden` class on the preview
+  (`data-symfony--ux-dropzone--dropzone-target="preview"`) with the `hidden` attribute, remove the `hidden` class from
+  the preview image, and add no `display` class to the parts UX Dropzone hides: otherwise the picked file stays hidden.
 
 ### Fixed
 
