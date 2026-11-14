@@ -401,9 +401,11 @@ test('no tracked file of the demo or the consumer application configures the tok
     assert.equal(result.status, 0, result.stderr);
     const files = result.stdout.split('\0').filter(Boolean);
     assert.ok(files.length > 0, 'the applications have tracked config');
+    // the file's words and host names, a regular expression's escaped dots read as dots: none is the variable or the API host
+    const names = (text) => (text.match(/[\w.\\-]+/g) ?? []).map((token) => token.replaceAll('\\', '').toLowerCase());
     for (const file of files) {
-        const text = readFileSync(join(root, file), 'utf8');
-        assert.ok(!text.includes(TOKEN_VARIABLE) && !text.includes('api.github.com'), `${file} holds no token configuration`);
+        const found = names(readFileSync(join(root, file), 'utf8')).filter((name) => name === TOKEN_VARIABLE.toLowerCase() || name === 'api.github.com');
+        assert.deepEqual(found, [], `${file} holds no token configuration`);
     }
 });
 
