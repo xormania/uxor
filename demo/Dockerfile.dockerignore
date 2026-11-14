@@ -42,6 +42,16 @@ demo/.env.local
 demo/.env.test
 demo/.editorconfig
 demo/.gitignore
+# development only: the agents' instructions, PHPUnit, AI Mate (require-dev, its code autoload-dev), the dev env (dump-env
+# prod reads .env and .env.prod), the source images of the ones in assets/images/xor/
+demo/.env.dev
+demo/AGENTS.md
+demo/CLAUDE.md
+demo/phpunit.dist.xml
+demo/mate
+demo/mate/**
+demo/xor
+demo/xor/**
 demo/.env.local.php
 demo/.env.*.local
 demo/compose*.yaml
