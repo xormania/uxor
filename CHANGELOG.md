@@ -5,6 +5,12 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- The Composer package has an explicit theme catalog and pure PHP presentation resolver. Installed definitions,
+  requested modes, and application template overrides resolve with deterministic precedence and source details;
+  Symfony rendering and browser integration remain separate work.
+
 ### Fixed
 
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
