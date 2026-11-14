@@ -55,11 +55,26 @@ const TRIGGERS = [
     'brand-new-dir/README.md',
     // the lane's definition in CI (release-checks.yml runs on the release pull request, daily on dev and by hand)
     '.github/workflows/ci.yml',
+    // an existing recipe's files of every kind the image holds: it copies, syncs and renders them without development
+    // packages (a recipe's binary files reaching the installation page was a production-only failure)
+    'alert/templates/components/Alert.html.twig',
+    'alert/assets/controllers/alert_controller.js',
+    'alert/README.md',
+    'editor/src/UXor/Editor/EditorExtension.php',
+    'oauth/config/uxor_oauth.example.yaml',
 ];
 /** Content the other jobs render from the same files: a recipe's template, assets and README, a browser spec. */
-const UNRELATED = ['alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'alert/README.md', 'tests/e2e/smoke.spec.ts'];
+/** What the image does not hold: a browser spec, a recipe's own tests, docs but the guide, the package, the other tools. */
+const UNRELATED = [
+    'tests/e2e/smoke.spec.ts',
+    'alert/tests/alert.spec.ts',
+    'alert/tests/screenshots/with-list-dark.png',
+    'docs/TESTING.md',
+    'packages/uxor/tools/ReferenceGenerator.php',
+    'tools/docs-lint.mjs',
+];
 /** The image's inputs a release check must not count as never read. */
-const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'alert/manifest.json', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
+const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
 
 const workflows = readdirSync(join(root, workflowsDir))
     .filter((name) => /\.ya?ml$/.test(name))
@@ -228,3 +243,15 @@ function isDirectory(entry) {
         return false;
     }
 }
+
+// A recipe's files are admitted by kind (demo/Dockerfile.dockerignore: `![a-z0-9]*/<kind>`), and the lane runs for each
+// kind the image holds: a kind added to the allow-list fails here until the classifier runs the lane for it.
+test('the lane runs for every kind of recipe file the image admits', () => {
+    const kinds = readFileSync(join(root, 'demo/Dockerfile.dockerignore'), 'utf8').split('\n')
+        .map((line) => /^!\[a-z0-9\]\*\/([^/\s]+)\/?$/.exec(line.trim())?.[1]).filter(Boolean);
+    assert.ok(kinds.length > 0, 'demo/Dockerfile.dockerignore admits recipe files by kind (![a-z0-9]*/<kind>)');
+    // in an existing recipe: a file of that name, or a file under that directory
+    const probe = (kind) => (/\.[a-z]+$/.test(kind) ? `alert/${kind}` : `alert/${kind}/a-new-file`);
+    const missing = kinds.map(probe).filter((path) => !selected([path]).has('prod-image'));
+    assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these kinds of recipe file the image admits');
+});
