@@ -30,8 +30,9 @@ concurrency:
 
 env:
     PHP_VERSION: '8.4'
-    # Pinned: the toolkit is experimental, bump deliberately (same version as demo/composer.lock).
-    UX_TOOLKIT_VERSION: '3.5.1'
+    # The minimum supported Symfony UX Toolkit: the kit must keep linting and installing with it. Lint kit's other lane
+    # takes the newest version the demo runs, read at run time; the fresh installs use this one.
+    UX_TOOLKIT_MINIMUM_VERSION: '3.5.1'
 
 jobs:
     # The schedule's run, on main: it only starts the daily run on dev (gh workflow run, a workflow_dispatch event, which
@@ -276,10 +277,15 @@ jobs:
                   job: Workflows
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # Two lanes: the Toolkit version the demo locks (what the kit is developed with) and the minimum supported one
     lint-kit:
-        name: Lint kit
+        name: Lint kit (${{ matrix.toolkit }} toolkit)
         needs: changes
         if: needs.changes.outputs.lint-kit == 'true'
+        strategy:
+            fail-fast: false
+            matrix:
+                toolkit: [locked, minimum]
         runs-on: ubuntu-latest
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -294,11 +300,29 @@ jobs:
                   tools: composer:v2
                   coverage: none
 
-            - name: Install symfony/ux-toolkit in a scratch directory
+            # read at run time, so the lane follows each update of the demo's lock without an edit here
+            - name: Read the Toolkit version demo/composer.lock holds
+              id: locked
+              if: matrix.toolkit == 'locked'
+              run: |
+                  version="$(jq -r '[.packages[], (.["packages-dev"] // [])[]] | map(select(.name == "symfony/ux-toolkit"))[0].version // empty' demo/composer.lock)"
+                  if [ -z "$version" ]; then echo "::error::demo/composer.lock holds no symfony/ux-toolkit"; exit 1; fi
+                  echo "Toolkit locked by the demo: $version"
+                  echo "version=${version#v}" >> "$GITHUB_OUTPUT"
+
+            - name: Install the locked symfony/ux-toolkit in a scratch directory
+              if: matrix.toolkit == 'locked'
               working-directory: ${{ runner.temp }}
               run: |
                   mkdir toolkit && cd toolkit
-                  composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:${UX_TOOLKIT_VERSION}"
+                  composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:${{ steps.locked.outputs.version }}"
+
+            - name: Install the minimum symfony/ux-toolkit in a scratch directory
+              if: matrix.toolkit == 'minimum'
+              working-directory: ${{ runner.temp }}
+              run: |
+                  mkdir toolkit && cd toolkit
+                  composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:${UX_TOOLKIT_MINIMUM_VERSION}"
 
             # ux-toolkit-kit-lint reports every top-level directory without a manifest.json as an error
             # (demo/, tools/, .github/…), so lint the tree `ux:install` actually downloads: GitHub's
@@ -344,8 +368,8 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Lint kit
-                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  job: Lint kit (${{ matrix.toolkit }} toolkit)
+                  artifact: jev-input-ci-${{ github.job }}-${{ matrix.toolkit }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
     # an artifact with every job that installs the demo: the browser shards, Kit PHP and the static site. AssetMapper
@@ -634,6 +658,8 @@ jobs:
             # (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
             - name: ux:install dashboard-home on a fresh Symfony skeleton
               id: install
+              env:
+                  UX_TOOLKIT_VERSION: ${{ env.UX_TOOLKIT_MINIMUM_VERSION }}
               run: |
                   set -o pipefail
                   tools/tests/fresh-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
@@ -667,6 +693,7 @@ jobs:
               env:
                   KIT_REPOSITORY: ${{ github.repository }}
                   KIT_REF: ${{ github.sha }}
+                  UX_TOOLKIT_VERSION: ${{ env.UX_TOOLKIT_MINIMUM_VERSION }}
               run: |
                   set -o pipefail
                   tools/tests/docker-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"

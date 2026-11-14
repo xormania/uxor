@@ -124,6 +124,8 @@ while IFS= read -r path; do
         # the demo's Compose file and Caddyfile into a fresh Symfony Docker project.
         demo/compose.yaml | demo/frankenphp/Caddyfile) on php static-site demo fresh-install ;;
         demo/tests/* | demo/src/Controller/LabController.php) on php static-site demo contrast ;;
+        # Lint kit installs the symfony/ux-toolkit version this lock holds (its locked lane reads it on each run)
+        demo/composer.lock) on lint-kit php static-site demo ;;
         demo/*) on php static-site demo ;;
 
         # A recipe's own specs and screenshot baselines: only the browser tests read them, and the
