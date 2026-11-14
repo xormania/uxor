@@ -107,13 +107,21 @@ gitignored_in_context() {
             done
         done
 }
-# the checkout's untracked files (git ls-files --others --exclude-standard) that the copied context holds
-untracked_in_context() {
-    local path
+# the files of the copied context the repository does not hold: not committed, and not a copy tools/sync-demo writes
+# (ignored by a pattern of demo/.gitignore's marked sync block); whatever else a checkout holds (a scratch file, a file
+# a global gitignore hides) is refused, so a clone passes and a developer's checkout is held to what the repository has
+not_held_in_context() {
+    local held files first last
     if [ ! -e "$root/.git" ]; then return 0; fi
-    git -C "$root" ls-files --others --exclude-standard | while IFS= read -r path; do
-        if [ -e "$path" ] || [ -L "$path" ]; then echo "./$path"; fi
-    done
+    held="$(mktemp)"
+    files="$(mktemp)"
+    git -C "$root" ls-files | sort > "$held"
+    find . \( -type f -o -type l \) | sed 's|^\./||' | sort | comm -23 - "$held" > "$files"
+    first="$(grep -n '^###> UXor: files copied' "$root/demo/.gitignore" | cut -d: -f1)"
+    last="$(grep -n '^###< UXor' "$root/demo/.gitignore" | cut -d: -f1)"
+    git -C "$root" check-ignore -v -n --no-index --stdin < "$files" |
+        awk -F'\t' -v first="${first:-0}" -v last="${last:-0}" '{ split($1, where, ":"); if (where[1] == "demo/.gitignore" && where[2] > first && where[2] < last) next; print "./" $2 }'
+    rm -f "$held" "$files"
 }
 context_dir="$(mktemp -d)"
 context_out="$context_dir/out"
@@ -136,9 +144,9 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed 'unexpected entry at the top of demo/' "ls -A demo | grep -vxF -e .env -e assets -e bin -e composer.json -e composer.lock -e config -e frankenphp -e importmap.php -e public -e src -e symfony.lock -e templates | sed 's|^|./demo/|'"
     # nothing demo/.gitignore ignores, but the copies tools/sync-demo writes (its marked block), which the build rewrites
     listed 'file demo/.gitignore ignores (outside the copies sync-demo writes)' gitignored_in_context
-    # a file git sees as neither committed nor ignored (a developer's scratch file in an admitted directory, which
-    # demo/.gitignore cannot name): a clone has none, a developer's checkout may
-    listed 'untracked file (neither committed nor ignored by git)' untracked_in_context
+    # every file is one the repository holds, or a copy sync-demo writes: a developer's scratch file in an admitted
+    # directory, or one a global gitignore hides, is refused; a clone has none
+    listed 'file the repository does not hold (not committed, not a copy sync-demo writes)' not_held_in_context
     listed "secret or machine-local file (a decryption key, .env.local, phpunit.xml, .agents, .idea, .vscode)" \
         "find . \\( -name '*.decrypt.private.php' -o -name .env.local -o -name '.env.*.local' -o -name .env.local.php -o -name phpunit.xml -o -name .phpunit.cache -o -name .agents -o -name .idea -o -name .vscode \\) -print"
 else
@@ -245,6 +253,7 @@ else
         page /r/button 'src="/preview/button/'  # a recipe page: its README's examples, as previews
         page '/preview/button/default?theme=light' '<title>button / default'   # one preview: the recipe's templates render
         page /install 'ux:install'               # the install guide (INSTALL.md)
+        page /guide 'How to install, update and use the kit'   # the guide (docs/GUIDE.md)
         page /llms.txt '/r/button'               # llms.txt, from the kit's files
 
         # every recipe page answers 200: the recipes are read from the image (each /app/<recipe>/manifest.json), so the
