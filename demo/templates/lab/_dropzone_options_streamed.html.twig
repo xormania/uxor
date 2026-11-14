@@ -1,0 +1,12 @@
+<p data-testid="stream-action" class="mb-2 text-sm text-body">{{ action|default('initial') }}</p>
+{#- `preview_item`: the item markup only, one root element -#}
+<twig:FormField for="streamed-templated" label="Streamed templated file">
+    <twig:Dropzone id="streamed-templated" name="streamed_templated">
+        <twig:block name="preview_item">
+            <div class="flex w-full items-center gap-3" data-testid="streamed-templated-item">
+                <strong class="flex-1 text-sm text-heading" data-dropzone-slot="filename"></strong>
+                <button type="button" class="rounded-base px-2 text-sm text-body" data-dropzone-slot="remove">×</button>
+            </div>
+        </twig:block>
+    </twig:Dropzone>
+</twig:FormField>
