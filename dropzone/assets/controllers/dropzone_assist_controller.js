@@ -17,7 +17,7 @@ let lastCopy = 0;
 
 /**
  * Works next to Symfony UX Dropzone's controller (`symfony--ux-dropzone--dropzone`) on a `Dropzone`, which it never
- * changes: it reads its targets and listens to its `dropzone:*` events.
+ * patches: it reads its targets, listens to its `dropzone:*` events, and clears a restored zone through its `clear()`.
  *
  * - Drag-over state: `data-dragging` on the element while a file is dragged over it.
  * - Drops outside the file input (on the list of files, on the preview) are refused, so the browser never opens the
@@ -58,7 +58,7 @@ export default class extends Controller {
     #removedIndex = null;
 
     connect() {
-        // a copy of the page Turbo cached: the zone carries the key it was given when the copy was taken
+        // a zone in Turbo's copy of the page carries the key attribute every connect sets (and `cache` renews)
         const copy = isCachedCopy(this, 'data-dropzone-assist-copy');
         const key = this.element.getAttribute('data-dropzone-assist-copy');
         const copied = copies.get(key)?.transfer ?? null;

@@ -232,7 +232,10 @@ wrapper) or on an element around it:
 The markup has no `style` attribute and no inline handler. UX Dropzone shows and hides its parts with the `hidden`
 attribute, and shows an image preview as a background image set through the CSSOM, which a policy allows, from a
 `data:` URL: the policy's `img-src` needs `data:`. A `display` class on one of those parts would keep it shown
-without the theme's base styles, which hide every `[hidden]` element: the template leaves them off.
+without the theme's base styles, which hide every `[hidden]` element: the template leaves them off. A changed copy
+of the template keeps it so: the preview starts with the `hidden` attribute, never a `hidden` class, which UX
+Dropzone does not remove; its image takes no hiding class (UX Dropzone hides it until an image file is read); and no
+part it shows and hides takes a `display` class.
 
 Whether a zone is inside a `data-turbo-permanent` element, and whether a `turbo:before-cache` comes from a frame visit
 promoted to history, are answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which
