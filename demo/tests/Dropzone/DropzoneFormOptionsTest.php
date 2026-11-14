@@ -140,6 +140,38 @@ final class DropzoneFormOptionsTest extends KernelTestCase
         }
     }
 
+    /** @return iterable<string, array{int}> */
+    public static function readsBeforeTheTextChanges(): iterable
+    {
+        foreach ([1, 2, 3, 4] as $reads) {
+            yield "digits for {$reads} reads" => [$reads];
+        }
+    }
+
+    /**
+     * What the rule checked is what the attribute holds: an object whose text turns to markup after some reads (the
+     * component's mount reads it too, so several counts are tried) gives the limit 3 or none, never the later text.
+     */
+    #[DataProvider('readsBeforeTheTextChanges')]
+    public function testAMaxFilesIsCheckedAndWrittenAsTheSameText(int $reads): void
+    {
+        $changing = new class($reads) implements \Stringable {
+            public function __construct(private int $left)
+            {
+            }
+
+            public function __toString(): string
+            {
+                return $this->left-- > 0 ? '3' : '3"><b>x</b>';
+            }
+        };
+        $html = $this->renderTwigComponent('Dropzone', ['multiple' => true, 'maxFiles' => $changing])->toString();
+
+        $value = $this->zone($html)->attr(self::MAX_FILES);
+        self::assertTrue(null === $value || '3' === $value, 'the limit is the text the rule checked, or none: '.var_export($value, true));
+        self::assertCount(0, (new Crawler($html))->filter('b'));
+    }
+
     /** Twig writes true as "1", which the digits would accept: a boolean is never a limit. */
     public function testTrueIsNotALimit(): void
     {
