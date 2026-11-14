@@ -169,6 +169,24 @@ final class DropzoneFormOptionsTest extends KernelTestCase
         $this->assertTemplateHolds($html, 'my-item');
     }
 
+    /** The component cannot count HTML roots: it renders the block as given, and UX Dropzone refuses it at connect. */
+    public function testAPreviewItemBlockWithTwoRootsRendersBothUnwrapped(): void
+    {
+        $items = '<li class="first-item"></li><li class="second-item"></li>';
+        $html = $this->renderTwigComponent('Dropzone', ['multiple' => true], null, ['preview_item' => $items])->toString();
+
+        $this->assertTemplateHoldsBothRoots($html);
+    }
+
+    /** Guards the implementation: a block of white space is no block, so the default preview is used. */
+    public function testAWhiteSpacePreviewItemBlockIsNoBlock(): void
+    {
+        $html = $this->renderTwigComponent('Dropzone', ['multiple' => true], null, ['preview_item' => " \n\t "])->toString();
+
+        self::assertCount(0, (new Crawler($html))->filter(self::TEMPLATE));
+        $this->zone($html);
+    }
+
     public function testWithoutAPreviewItemThereIsNoTemplate(): void
     {
         $html = $this->renderTwigComponent('Dropzone', ['multiple' => true])->toString();
@@ -183,6 +201,22 @@ final class DropzoneFormOptionsTest extends KernelTestCase
         $this->assertTemplateHolds($this->renderForm(['multiple' => true], $theme), 'themed-item');
     }
 
+    public function testAFormThemeBlockWithTwoRootsRendersBothUnwrapped(): void
+    {
+        $theme = '{% block dropzone_preview_item %}<li class="first-item"></li><li class="second-item"></li>{% endblock %}';
+
+        $this->assertTemplateHoldsBothRoots($this->renderForm(['multiple' => true], $theme));
+    }
+
+    /** Guards the implementation: a form-theme block of white space is no block. */
+    public function testAWhiteSpaceFormThemeBlockIsNoBlock(): void
+    {
+        $html = $this->renderForm(['multiple' => true], "{% block dropzone_preview_item %} \n\t {% endblock %}");
+
+        self::assertCount(0, (new Crawler($html))->filter(self::TEMPLATE));
+        $this->zone($html);
+    }
+
     public function testUxDropzonesOwnTemplateBlockIsNotRead(): void
     {
         $theme = '{% block dropzone_preview_item_template %}<template data-symfony--ux-dropzone--dropzone-target="previewItemTemplate"><li class="upstream-item"></li></template>{% endblock %}';
@@ -194,15 +228,30 @@ final class DropzoneFormOptionsTest extends KernelTestCase
 
     private function assertTemplateHolds(string $html, string $class): void
     {
+        $root = $this->templateContent($html);
+        self::assertCount(1, $root->filter('body > *'), 'the template holds one root element: '.$root->html());
+        self::assertCount(1, $root->filter('body > .'.$class), $root->html());
+    }
+
+    /** The one template target, inside the controller's element and nowhere else: its content, under a body. */
+    private function templateContent(string $html): Crawler
+    {
         $crawler = new Crawler($html);
         $templates = $crawler->filter(self::CONTROLLER.' '.self::TEMPLATE);
         self::assertCount(1, $templates, 'one template target, inside the controller\'s element');
         self::assertCount(1, $crawler->filter(self::TEMPLATE), 'and none elsewhere');
-        // the template's content is a fragment: read it as markup, one root element
+        // the template's content is a fragment: read it as markup
         $content = trim((string) preg_replace('/^<template[^>]*>|<\/template>$/', '', trim($templates->outerHtml())));
-        $root = new Crawler('<body>'.$content.'</body>');
-        self::assertCount(1, $root->filter('body > *'), 'the template holds one root element: '.$content);
-        self::assertCount(1, $root->filter('body > .'.$class), $content);
+
+        return new Crawler('<body>'.$content.'</body>');
+    }
+
+    /** Two roots, rendered as given: both, in order, neither wrapped nor dropped (UX Dropzone refuses them at connect). */
+    private function assertTemplateHoldsBothRoots(string $html): void
+    {
+        $root = $this->templateContent($html);
+        self::assertCount(2, $root->filter('body > *'), 'both roots, unwrapped: '.$root->html());
+        self::assertSame(['first-item', 'second-item'], $root->filter('body > li')->each(static fn (Crawler $item): string => (string) $item->attr('class')));
     }
 
     private function zone(string $html): Crawler
