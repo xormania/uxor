@@ -320,7 +320,8 @@ Against the Docker demo, run `DEMO_URL=https://localhost npx playwright test --w
 the container (`tools/demo-php`). Two workers is what each CI shard runs, against its own demo. A demo started with
 other ports or a project name (`docker compose -p <name>`) needs `COMPOSE_PROJECT_NAME`, `HTTP_PORT`, `HTTPS_PORT` and
 `HTTP3_PORT` exported in the shell for every command, because `tools/demo-php` finds the project only from the
-environment, and the HTTPS port in `DEMO_URL` (`https://localhost:8443`). Without `DEMO_URL`, Playwright serves the demo itself with `php -S 127.0.0.1:8000`.
+environment, and a later `docker compose up` (such as turning Xdebug on) without the ports recreates the demo on the
+default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). Without `DEMO_URL`, Playwright serves the demo itself with `php -S 127.0.0.1:8000`.
 Either way it starts the browser container, unless something already listens on port 3000. Before the tests, it
 builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
 kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it
