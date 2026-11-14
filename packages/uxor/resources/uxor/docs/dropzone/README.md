@@ -68,7 +68,9 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
   each file, filling the parts marked `data-dropzone-slot="image"` (an `<img>` gets the image as its `src`, another
   element as its background), `"filename"` (the name, as text) and `"remove"` (removes the file, named "Remove
   photo.png"). With none or several root elements, UX Dropzone does not connect and reports the error in the browser
-  console. With `multiple`, each copy goes into the list, so make it an `<li>`.
+  console. The item must hold one `remove` slot, a `<button type="button">`: without one, focus has nowhere to go
+  after a keyboard pick and the file cannot be removed from the keyboard; on another element, the slot can neither
+  take focus nor be pressed. With `multiple`, each copy goes into the list, so make it an `<li>`.
 - In an invalid field, set `aria-invalid="true"` and point `aria-describedby` at the error: the box turns red.
 
 ```twig
@@ -347,7 +349,9 @@ promoted to history, are answered by the `turbo` recipe's module (`assets/lib/ux
 - After a pick made from the keyboard, focus moves to the Remove button, named "Remove photo.png", which tells a
   screen reader what was picked; Remove puts it back on the input. With `multiple`, the list is announced as it
   changes, and removing a file focuses the next Remove button, else the input. With a `preview_item` block, its
-  `remove` slot is that button: keep one, a `<button type="button">`, in each item.
+  `remove` slot is that button, and each item must hold one, a `<button type="button">`. Without it, focus is left on
+  the hidden input after a keyboard pick and the file cannot be removed from the keyboard; a slot on another element
+  can neither take focus nor be pressed with Enter or Space.
 - A file dropped outside the input (on the list or the preview) is refused, so the browser never opens it in the tab.
 
 ## Security
