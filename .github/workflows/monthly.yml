@@ -200,7 +200,7 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 45
         env:
-            XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
+            XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
         strategy:
             fail-fast: false
             matrix:

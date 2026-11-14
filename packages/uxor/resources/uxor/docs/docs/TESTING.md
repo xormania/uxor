@@ -1203,6 +1203,19 @@ tagged tests only, compared with the Chromium baselines, to report how far the o
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
 
+Locally against the Docker demo, run `DEMO_URL=https://localhost npx playwright test --workers=2`, the worker count of
+a CI shard (*Worker budget*), with Xdebug off, which is how the demo starts (`compose.override.yaml`; CONTRIBUTING.md,
+*Setup*, for the ports and project name). With Xdebug's `develop` mode on, the demo aborted some requests ("Xdebug has
+detected a possible infinite loop, and aborted your script with a stack depth of '512' frames", in
+`docker compose logs php`, run from `demo/`) and answered 500, and tests failed that pass without it. On one checkout,
+three full Chromium runs with it on gave 32, 35 and 30 failures, a different set each time, and a run with it off
+gave 1 failure in 1225 tests. CI sets `XDEBUG_MODE: 'off'` in the browser jobs, the monthly job and the release checks.
+To read the mode of a running demo, from `demo/`:
+
+```bash
+docker compose exec php php -r 'echo json_encode(xdebug_info("mode"));'   # [] when off, ["develop"] when develop is on
+```
+
 What differs between the engines, met so far, and how the kit and the suite stay portable:
 
 - **A click whose target changes under the pointer:** WebKit fires no `click` when the text node under the pointer is
