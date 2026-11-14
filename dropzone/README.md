@@ -70,7 +70,8 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
   photo.png"). With none or several root elements, UX Dropzone does not connect and reports the error in the browser
   console. The item must hold one `remove` slot, a `<button type="button">`: without one, focus has nowhere to go
   after a keyboard pick and the file cannot be removed from the keyboard; on another element, the slot can neither
-  take focus nor be pressed. With `multiple`, each copy goes into the list, so make it an `<li>`.
+  take focus nor be pressed. With `multiple`, each copy goes into the list, so make it an `<li>`. A preview item is not
+  meant to hold another `Dropzone`: nesting zones that way is not supported.
 - In an invalid field, set `aria-invalid="true"` and point `aria-describedby` at the error: the box turns red.
 
 ```twig
