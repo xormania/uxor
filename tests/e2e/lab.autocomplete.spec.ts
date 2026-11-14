@@ -186,6 +186,28 @@ test('a quick choice in a remote field that stays open lists the options for the
     await expect(list.locator('[data-selectable]').first()).toHaveText('Bonnie Green');
 });
 
+// Escape while a refresh is pending: Tom Select closes the list and empties the search, the field keeping the focus. No
+// choice is made, so the list closing (dropdown_close) is the only cancel: the refresh must not open the list again.
+test('Escape right after typing closes the list for good, the field keeping the focus', async ({ page }) => {
+    await page.goto('/lab/autocomplete');
+    const field = control(page, 'Country');
+    const list = await listbox(page, field);
+    await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+    await page.keyboard.type('ita');
+    await expect(list.locator('[data-selectable]')).toHaveText(['Italy']);
+    await page.keyboard.type('l');
+    expect(await page.locator('#autocomplete_demo_country').evaluate((element) => (element as any).tomselect.refreshTimeout != null), 'a refresh is pending before Escape').toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(field).toHaveAttribute('aria-expanded', 'false');
+    await expect(field).toBeFocused();
+    await expect(field).toHaveValue('');
+    // past Tom Select's 300 ms throttle: the refresh did not run, the list is still closed, the field still focused
+    await page.waitForTimeout(400);
+    await expect(field, 'the list opened again after Escape').toHaveAttribute('aria-expanded', 'false');
+    await expect(field).toBeFocused();
+    await expect(page.locator('#autocomplete_demo_country')).toHaveValue('');
+});
+
 // a rebuild while a refresh is pending: the Tom Select it replaces is destroyed with its timer still set
 test('options changing while a refresh is pending: no page error, and no list opens afterwards', async ({ page }) => {
     await page.goto('/lab/live-autocomplete');
