@@ -391,7 +391,7 @@ printf '%s' "$payload" | jq -r "$4"`);
     const base = commit('kit.css', 'base');
     const passed = commit('calendar/Calendar.html.twig', 'passed');
     commit('CHANGELOG.md', 'release');
-    commit('llms.txt', 'links');
+    commit('docs/RECIPES.md', 'recipes');
     commit('docs/TESTING.md', 'docs');
     commit('AGENTS.md', 'rules');
     const docs = commit('packages/uxor/README.md', 'package');
