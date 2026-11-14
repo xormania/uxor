@@ -5,8 +5,23 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- `dropzone` requires `symfony/ux-dropzone` ^3.7, 3.7 and later 3.x releases (it allowed ^3.5): UX Dropzone 3.7
+  shows and hides the zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5
+  or 3.6 runs `composer require symfony/ux-dropzone:^3.7` before installing or updating the recipe; read UX Dropzone's
+  upgrade notes for 3.7 (dropped files checked against `accept`, the `placeholder` option replacing
+  `attr.placeholder`, `dropzone:clear` no longer dispatched on connect; the kit still dispatches it when it empties a
+  zone restored outside a POST form, see the README). If you changed your copy of
+  `templates/components/Dropzone.html.twig`, replace the `hidden` class on the preview
+  (`data-symfony--ux-dropzone--dropzone-target="preview"`) with the `hidden` attribute, remove the `hidden` class from
+  the preview image, and add no `display` class to the parts UX Dropzone hides: otherwise the picked file stays hidden.
+
 ### Fixed
 
+- `dropzone` with UX Dropzone 3.7: a picked file's name, image and Remove button show (they stayed hidden), a pick
+  after a file drag left the empty zone shows its preview (it stayed hidden), and a zone for one file outside a POST
+  form starts empty after Back and Forward (Chromium and Firefox brought the file back).
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
   cover the consumer harness's PHP and browser dependencies. Remaining source comments and a breadcrumb test sample now
   describe UXor without promising Flowbite parity.

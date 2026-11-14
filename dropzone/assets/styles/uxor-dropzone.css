@@ -14,7 +14,7 @@
     background-color: var(--color-neutral-secondary-medium);
 }
 
-/* empty until the controller shows an image file's preview (display: block and a background image) */
+/* hidden until the controller shows an image file's preview (it removes `hidden` and sets a background image) */
 .dropzone-preview-list-item .dropzone-preview-image {
     flex-shrink: 0;
     width: 2.5rem;

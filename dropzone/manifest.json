@@ -9,7 +9,7 @@
     "dependencies": {
         "recipe": ["form-theme", "turbo"],
         "composer": [
-            "symfony/ux-dropzone:^3.5",
+            "symfony/ux-dropzone:^3.7",
             "symfony/ux-icons",
             "symfony/ux-twig-component:^3.5",
             "twig/html-extra:^3.24.0",

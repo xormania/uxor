@@ -39,7 +39,7 @@
             data-symfony--ux-dropzone--dropzone-target="input"
             data-dropzone-assist-target="input"
         >
-        <div data-symfony--ux-dropzone--dropzone-target="placeholder" data-dropzone-assist-target="placeholder">
+        <div data-symfony--ux-dropzone--dropzone-target="placeholder">
             <div class="flex flex-col items-center gap-2">
                 {##- The inside of the box before a pick, above the hint: the icon and the placeholder, for a custom look. -#}
                 {%- block content -%}
@@ -57,9 +57,9 @@
             </div>
         </div>
         {%- if not multiple %}
-            <div class="hidden w-full" data-symfony--ux-dropzone--dropzone-target="preview" data-dropzone-assist-target="preview">
+            <div class="w-full" hidden data-symfony--ux-dropzone--dropzone-target="preview" data-dropzone-assist-target="preview">
                 <div class="flex w-full items-center gap-3 text-start">
-                    <div class="hidden size-12 shrink-0 rounded-sm bg-contain bg-center bg-no-repeat" aria-hidden="true" data-symfony--ux-dropzone--dropzone-target="previewImage"></div>
+                    <div class="size-12 shrink-0 rounded-sm bg-contain bg-center bg-no-repeat" aria-hidden="true" data-symfony--ux-dropzone--dropzone-target="previewImage"></div>
                     <span id="{{ _id }}_filename" class="min-w-0 flex-1 text-sm font-medium wrap-anywhere text-heading" data-symfony--ux-dropzone--dropzone-target="previewFilename"></span>
                     <button
                         type="button"
