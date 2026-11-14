@@ -88,6 +88,22 @@ test('pull requests changing an importmap.php start the audit, and the lane runs
 });
 
 test('each importmap:audit lane prints the package versions it checked', () => {
+    // run against an importmap of known entries: every versioned package and its version on one line
+    const scratch = mkdtempSync(join(tmpdir(), 'importmap-audit-listing-'));
+    try {
+        writeFileSync(join(scratch, 'importmap.php'), "<?php\nreturn [\n    'app' => ['path' => './assets/app.js', 'entrypoint' => true],\n    '@hotwired/stimulus' => ['version' => '3.2.2'],\n    'lodash' => ['version' => '4.17.21'],\n];\n");
+        for (const job of requiredAuditJobs()) {
+            const candidates = steps(job).filter((step) => /importmap\.php/.test(script(step)) && !/\b(?:composer|bin\/console|git)\b/.test(script(step)));
+            const printed = candidates.map((step) => spawnSync('bash', ['-e', '-c', script(step)], { cwd: scratch, encoding: 'utf8' })).filter((result) => result.status === 0).map((result) => result.stdout);
+            assert.ok(
+                printed.some((out) => /^.*@hotwired\/stimulus.*\b3\.2\.2\b.*$/m.test(out) && /^.*lodash.*\b4\.17\.21\b.*$/m.test(out)),
+                `${job.id}: a step reading importmap.php prints each package with its version (printed: ${JSON.stringify(printed)})`,
+            );
+        }
+    } finally {
+        rmSync(scratch, { recursive: true, force: true });
+    }
+
     for (const job of requiredAuditJobs()) {
         const listing = steps(job).find((step) => !runsCommand(step, 'importmap:audit') && !runsCommand(step, 'importmap:outdated')
             && /importmap/.test(step) && /version/i.test(step) && /\b(?:run|echo|printf|php|cat|jq)\b/.test(step));
@@ -133,6 +149,7 @@ function evaluate(expression, { event, outputs = {} }) {
 function guardSelects(job, directory, changed) {
     const guard = steps(job).find((step) => /^id: changed$|^ {14}id: changed$/m.test(step));
     assert.ok(guard, `${job.id} has a changed-files guard`);
+    assert.ok(evaluate(condition(guard, 14), { event: 'pull_request' }), `${job.id}: its guard runs on a pull request`);
     const scratch = mkdtempSync(join(tmpdir(), 'importmap-audit-guard-'));
     try {
         const git = (...args) => {
