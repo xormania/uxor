@@ -1,8 +1,9 @@
 name: Audit
 
-# Known advisories in both npm projects (repository tests and consumer browser checks) and all three Composer
-# projects (the package, demo and consumer harness): weekly, as advisories appear without any change
-# here, and on every pull request that changes a lockfile. On a pull request each audit runs only when its own files
+# Known advisories in both npm projects (repository tests and consumer browser checks), all three Composer
+# projects (the package, demo and consumer harness) and the browser packages of the demo's and the consumer's
+# importmap.php, which no lock file lists: weekly, as advisories appear without any change
+# here, and on every pull request that changes a lockfile or an importmap. On a pull request each audit runs only when its own files
 # changed, so an advisory in one ecosystem does not fail a pull request that only touches the other. GitHub runs the
 # schedule on the default branch, main: that run only starts the audit on dev (the Start on dev job), so an advisory
 # shows on dev, where its fix lands (Dependabot's update pull requests target dev), and main changes only by a release.
@@ -19,8 +20,10 @@ on:
             - composer.lock
             - demo/composer.json
             - demo/composer.lock
+            - demo/importmap.php
             - packages/uxor/dev/app/composer.json
             - packages/uxor/dev/app/composer.lock
+            - packages/uxor/dev/app/importmap.php
             - .github/workflows/audit.yml
     workflow_dispatch:
 
@@ -140,4 +143,79 @@ jobs:
               with:
                   steps: ${{ toJSON(steps) }}
                   job: composer audit (${{ matrix.project }})
+                  artifact: jev-input-audit-${{ github.job }}-${{ matrix.project }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    # The browser packages an importmap.php selects (AssetMapper downloads them from npm): no lock file lists them, so
+    # composer audit cannot see them. The audit fails the lane on an advisory; a newer version is not one, so
+    # importmap:outdated only reports. Dependencies are installed without scripts: they would download every package.
+    importmap-audit:
+        name: importmap audit (${{ matrix.project }})
+        if: github.event_name != 'schedule'
+        runs-on: ubuntu-latest
+        timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - project: demo
+                      directory: demo
+                    - project: consumer
+                      directory: packages/uxor/dev/app
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 2
+
+            - id: changed
+              if: github.event_name == 'pull_request'
+              env:
+                  AUDIT_DIRECTORY: ${{ matrix.directory }}
+              run: git diff --quiet HEAD^1 HEAD -- "$AUDIT_DIRECTORY/importmap.php" "$AUDIT_DIRECTORY/composer.json" "$AUDIT_DIRECTORY/composer.lock" .github/workflows/audit.yml || echo 'files=true' >> "$GITHUB_OUTPUT"
+
+            - if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: '8.4'
+                  tools: composer:v2
+                  coverage: none
+                  extensions: intl, mbstring, pdo_sqlite, zip # the demo's and the consumer application's
+
+            # bin/console needs vendor/: the consumer installs the package from the repository root (a path repository)
+            - name: Install the dependencies
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              working-directory: ${{ matrix.directory }}
+              run: composer install --no-interaction --no-progress --no-scripts
+
+            - name: List the packages and versions checked
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              working-directory: ${{ matrix.directory }}
+              run: |
+                  # shellcheck disable=SC2016 # the dollar signs are PHP's
+                  php -r '$importmap = require "importmap.php"; foreach ($importmap as $name => $entry) { if (isset($entry["version"])) { echo $name, " ", $entry["version"], "\n"; } }'
+
+            - name: importmap audit
+              id: audit
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              working-directory: ${{ matrix.directory }}
+              run: |
+                  set -o pipefail
+                  bin/console importmap:audit 2>&1 | tee "$RUNNER_TEMP/jev-audit.log"
+
+            # newer versions are reported, never a failure
+            - name: importmap outdated
+              if: github.event_name != 'pull_request' || steps.changed.outputs.files
+              continue-on-error: true
+              working-directory: ${{ matrix.directory }}
+              run: bin/console importmap:outdated
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: importmap audit (${{ matrix.project }})
                   artifact: jev-input-audit-${{ github.job }}-${{ matrix.project }}-${{ github.run_id }}-${{ github.run_attempt }}
