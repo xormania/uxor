@@ -55,6 +55,7 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
 - Give it a stable `id`, and its label a matching `for` (`FormField` does both): a click on the label opens the file
   chooser.
 - `placeholder` is the main line and `hint` a smaller one, which also describes the input.
+- `accept` limits the files the chooser offers and the files a drop adds (see *Limits*); the server still checks them.
 - `multiple`: picks add up in a list under the box, each file with its own Remove button; a file picked twice is
   kept once. Name the input with `[]` (`attachments[]`) so the server receives every file.
 - `removeLabel` names the Remove buttons, followed by the file name: "Remove photo.png".
@@ -65,8 +66,9 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
 ### In a Symfony form
 
 With the `form-theme` recipe's theme, every `DropzoneType` renders as this `Dropzone`: the field's label points at
-the file input, its help and errors describe it, `attr.placeholder` is the main line and `remove_label` names the
-Remove buttons. `attr.class` and `attr['data-controller']` go to the box, every other `attr` to the input.
+the file input, its help and errors describe it, the `placeholder` option is the main line and `remove_label` names
+the Remove buttons. `attr.class` and `attr['data-controller']` go to the box, every other `attr` to the input. UX
+Dropzone deprecates a placeholder passed in `attr`: use the option.
 
 ```php
 use Symfony\Component\Validator\Constraints as Assert;
@@ -76,7 +78,8 @@ $builder
     ->add('photo', DropzoneType::class, [
         'required' => false,
         'help' => 'PNG or JPG, up to 1 MB.',
-        'attr' => ['accept' => 'image/png,image/jpeg', 'placeholder' => 'Drop a photo or browse'],
+        'placeholder' => 'Drop a photo or browse',
+        'attr' => ['accept' => 'image/png,image/jpeg'],
         'constraints' => [new Assert\Image(maxSize: '1M', mimeTypes: ['image/png', 'image/jpeg'])],
     ])
     ->add('attachments', DropzoneType::class, [
@@ -136,8 +139,16 @@ function store(UploadedFile $file, SluggerInterface $slugger, string $uploadDir)
 
 ### Limits
 
-The Validator's constraints decide what is accepted: the browser checks nothing, `accept` only filters the file
-chooser. PHP's own limits come first: a file over `upload_max_filesize` reaches the controller as an upload error
+The Validator's constraints decide what is accepted. The browser's checks only help the user:
+
+- The file chooser offers the files `accept` matches, by the operating system's file types.
+- A drop adds the files that match one of `accept`'s types or extensions and leaves out the others, which UX Dropzone
+  dispatches with `dropzone:reject` (see *Events*). A dropped file's type comes from the operating system and can
+  differ from the one in `accept`: on Windows, a CSV file is often `application/vnd.ms-excel`. List the extensions
+  next to the types (`accept=".csv,text/csv"`). A file the browser reports no type for (a HEIC photo) passes any type in `accept`.
+- Neither is validation: a request can carry any file, under any name and type. Check every file on the server.
+
+PHP's own limits come first: a file over `upload_max_filesize` reaches the controller as an upload error
 (the `File` constraint reports it), and a request over `post_max_size` reaches it empty, every field and file
 dropped. Raise both in `php.ini` above your largest constraint, `post_max_size` above the sum of the files.
 
@@ -191,10 +202,23 @@ public function upload(Request $request, ValidatorInterface $validator): void
 
 ### Events
 
-UX Dropzone dispatches these events on the wrapper, all bubbling: `dropzone:connect`, `dropzone:change` (the `File`,
-or the `FileList` with `multiple`), `dropzone:clear` (one file, Remove) and `dropzone:remove` (several files, the
-removed `File`). Listen to them from your own controller, on the `Dropzone` (its `data-controller` joins UX
-Dropzone's on the wrapper) or on an element around it:
+UX Dropzone dispatches these events on the wrapper, all bubbling:
+
+- `dropzone:connect`, when its controller connects. It keeps the files the input already holds then, and clears
+  nothing.
+- `dropzone:pre-add`, cancelable, before picked or dropped files are added (UX Dropzone's documentation describes
+  its `waitUntil()`).
+- `dropzone:change`, when files are added, or one of several is removed: the `File`, or the input's `FileList` with
+  `multiple`. With `multiple`, a pick that adds nothing (every file is in the list already) dispatches none.
+- `dropzone:remove`, after its `dropzone:change`, when one of several files is removed: the removed `File`.
+- `dropzone:clear`, when the zone becomes empty: Remove with one file, removing the last of several files, a reset
+  of the form. The kit dispatches it too when it empties a zone for one file that Turbo restored outside a POST form
+  (see *With Turbo*).
+- `dropzone:reject`, when files are left out: `{files, reason}`, the reason `accept` for dropped files that `accept`
+  does not match.
+
+Listen to them from your own controller, on the `Dropzone` (its `data-controller` joins UX Dropzone's on the
+wrapper) or on an element around it:
 
 ```twig
 <div data-controller="photo-upload" data-action="dropzone:change->photo-upload#show">
@@ -204,8 +228,10 @@ Dropzone's on the wrapper) or on an element around it:
 
 ### Content Security Policy
 
-The markup has no `style` attribute and no inline handler. UX Dropzone shows and hides its parts through the CSSOM,
-which a policy allows, and shows an image preview as a `data:` URL: the policy's `img-src` needs `data:`.
+The markup has no `style` attribute and no inline handler. UX Dropzone shows and hides its parts with the `hidden`
+attribute, and shows an image preview as a background image set through the CSSOM, which a policy allows, from a
+`data:` URL: the policy's `img-src` needs `data:`. A `display` class on one of those parts would keep it shown
+without the theme's base styles, which hide every `[hidden]` element: the template leaves them off.
 
 Whether a zone is inside a `data-turbo-permanent` element, and whether a `turbo:before-cache` comes from a frame visit
 promoted to history, are answered by the `turbo` recipe's module (`assets/lib/uxor-turbo.js`), which
