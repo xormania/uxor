@@ -29,6 +29,18 @@ const fileDrag = (target: Locator, type: string) =>
         element.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer }));
     }, type);
 
+/** Drops files on the input as the browser does: the drop event, then the files set on the input and its change event. */
+const dropFiles = (target: Locator, files: { name: string; type: string }[]) =>
+    target.evaluate((element: HTMLInputElement, files) => {
+        const dataTransfer = new DataTransfer();
+        for (const { name, type } of files) {
+            dataTransfer.items.add(new File([name], name, { type }));
+        }
+        element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+        element.files = dataTransfer.files;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+    }, files);
+
 test('the keyboard reaches the input, opens the chooser, moves to Remove after a pick and back after Remove', async ({ page }) => {
     await page.goto(previewUrl('dropzone', 'default'));
     // connecting moves no focus
@@ -196,6 +208,33 @@ test('after a file drag enters and leaves the empty zone, a pick shows its previ
     await expect(fileInput).toBeFocused();
     await expect(page.getByText('Drag and drop or browse')).toBeVisible();
     expect(await fileCount(page)).toBe(0);
+});
+
+test('a dropped file that accept refuses is left out with dropzone:reject; a dropped image is taken', async ({ page }) => {
+    await page.goto(previewUrl('dropzone', 'hint-and-accepted-types'));
+    const fileInput = input(page);
+    await expect(fileInput).toHaveAttribute('accept', 'image/png,image/jpeg');
+    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
+    await page.evaluate(() => {
+        const rejected: { reason: string; files: string[] }[] = ((window as any).rejected = []);
+        document.addEventListener('dropzone:reject', (event) => {
+            const { reason, files } = (event as CustomEvent).detail;
+            rejected.push({ reason, files: [...files].map((file: File) => file.name) });
+        });
+    });
+
+    await dropFiles(fileInput, [{ name: 'notes.txt', type: 'text/plain' }]);
+    await expect.poll(() => page.evaluate(() => (window as any).rejected)).toEqual([{ reason: 'accept', files: ['notes.txt'] }]);
+    // the zone stays empty: no file in the input, the box shown, no Remove button
+    expect(await fileCount(page)).toBe(0);
+    await expect(page.getByText('Drop an image or browse')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
+    expect(await events()).toEqual({ 'dropzone:change': 0, 'dropzone:reject': 1 });
+
+    await dropFiles(fileInput, [{ name: 'cover.png', type: 'image/png' }]);
+    await expect(page.getByRole('button', { name: 'Remove cover.png' })).toBeVisible();
+    expect(await fileCount(page)).toBe(1);
+    expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
 });
 
 test('an invalid zone is red and described by its error', async ({ page }) => {
