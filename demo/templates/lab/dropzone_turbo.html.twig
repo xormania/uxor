@@ -5,7 +5,7 @@
 {% block body %}
     {{ include('lab/_header.html.twig', {name: 'dropzone-turbo'}) }}
     <h2 class="mb-2 text-lg font-semibold" data-testid="page">Page {{ page }}</h2>
-    <p class="mb-4"><a href="{{ path('app_lab_dropzone_turbo', {page: page == 'one' ? 'two' : 'one'}) }}" class="text-fg-brand hover:underline">Go to page {{ page == 'one' ? 'two' : 'one' }}</a></p>
+    <p class="mb-4"><a href="{{ path('app_lab_dropzone_turbo', {page: page == 'one' ? 'two' : 'one'}|merge(get ? {get: 1} : {})) }}" class="text-fg-brand hover:underline">Go to page {{ page == 'one' ? 'two' : 'one' }}</a></p>
     <div class="mb-6 grid max-w-3xl gap-6 md:grid-cols-2">
         <twig:FormField for="photo" label="Photo">
             <twig:Dropzone id="photo" name="photo" accept="image/png,image/jpeg" />
@@ -22,6 +22,14 @@
                     <twig:Dropzone id="many-{{ i }}" name="many[{{ i }}]" />
                 </twig:FormField>
             {% endfor %}
+        </form>
+    {% endif %}
+    {% if get %}
+        {#- `?get=1`, kept by the link to the other page: a single-file zone in a GET form, which starts empty after Back and Forward -#}
+        <form method="get" action="{{ path('app_lab_dropzone_turbo', {page: page}) }}" class="mb-6 max-w-sm" data-testid="get-form">
+            <twig:FormField for="searched" label="Searched file">
+                <twig:Dropzone id="searched" name="searched" />
+            </twig:FormField>
         </form>
     {% endif %}
     <div id="lab-permanent-dropzone" data-turbo-permanent class="mb-6 max-w-sm">

@@ -540,6 +540,7 @@ final class LabController extends AbstractController
             'page' => $page,
             'load' => $request->query->getInt('load'),
             'zones' => max(0, min(20, $request->query->getInt('zones'))),
+            'get' => $request->query->getBoolean('get'),
             'framed' => $request->query->getString('framed'),
             'error' => $error,
             'description' => self::SCENARIOS['dropzone-turbo'],

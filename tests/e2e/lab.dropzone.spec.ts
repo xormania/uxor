@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect, turboVisitDone, countEvents } from './fixtures';
 import { png, text } from './files';
-import { advanceFrame, back, reloadFrames, sendStream, turboOperation, visit } from './transitions';
+import { advanceFrame, back, forward, reloadFrames, sendStream, turboOperation, visit } from './transitions';
 
 /*
  * Dropzones under Turbo: a zone that Turbo shows again (Back, a Stream) works, with one controller, and shows what its
@@ -113,6 +113,53 @@ test('beside a frame visit promoted to history, Back and Forward keep the files 
     await expectEmptySingle(page, 'many-1');
     expect((await events())['dropzone:change']).toBe(1);
     expect((await events())['dropzone:clear']).toBe(1);
+});
+
+// the dropzone README: a zone for one file in a GET form, which cannot send files, starts empty after Back and Forward
+test('after Back and after Forward, the zone of one file in a GET form starts empty and takes a new pick', async ({ page }) => {
+    // `?get=1` adds the GET form, on both pages: the links keep it
+    await page.goto('/lab/dropzone-turbo/two?get=1');
+    await visit(page, 'Go to page one', 'Page one');
+    await page.locator('#searched').setInputFiles(png('searched.png'));
+    await expect(page.getByRole('button', { name: 'Remove searched.png' })).toBeVisible();
+
+    await visit(page, 'Go to page two', 'Page two');
+    await back(page, 'Page one');
+    await expectEmptySingle(page, 'searched');
+    await expect(page.locator('[data-controller~="dropzone-assist"]')).toHaveCount(5);
+
+    // picked again, then Back to page two and Forward to this page: Turbo's copy of it, taken as Back left it
+    await page.locator('#searched').setInputFiles(png('again.png'));
+    await expect(page.getByRole('button', { name: 'Remove again.png' })).toBeVisible();
+    await back(page, 'Page two');
+    await forward(page, 'Page one');
+    await expectEmptySingle(page, 'searched');
+    await expect(page.locator('[data-controller~="dropzone-assist"]')).toHaveCount(5);
+
+    const events = await countDropzoneEvents(page);
+    await page.locator('#searched').setInputFiles(png('third.png'));
+    await expect(page.getByRole('button', { name: 'Remove third.png' })).toBeVisible();
+    expect(await fileCount(page.locator('#searched'))).toBe(1);
+    expect((await events())['dropzone:change']).toBe(1);
+});
+
+test('after Back and Forward, the zone of one file outside a form starts empty and takes a new pick', async ({ page }) => {
+    await page.goto('/lab/dropzone-turbo/two');
+    await visit(page, 'Go to page one', 'Page one');
+    await page.locator('#photo').setInputFiles(png('tiny.png'));
+    await expect(page.getByRole('button', { name: 'Remove tiny.png' })).toBeVisible();
+
+    // Back leaves the page with the file picked: Forward shows Turbo's copy of it
+    await back(page, 'Page two');
+    await forward(page, 'Page one');
+    await expectEmptySingle(page, 'photo');
+    await expect(page.locator('[data-controller~="dropzone-assist"]')).toHaveCount(4);
+
+    const events = await countDropzoneEvents(page);
+    await page.locator('#photo').setInputFiles(png('again.png'));
+    await expect(page.getByRole('button', { name: 'Remove again.png' })).toBeVisible();
+    expect(await fileCount(page.locator('#photo'))).toBe(1);
+    expect((await events())['dropzone:change']).toBe(1);
 });
 
 test('repeated Turbo visits leave one controller per zone and one change per pick', async ({ page }) => {
