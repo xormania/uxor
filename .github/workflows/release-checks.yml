@@ -463,6 +463,79 @@ jobs:
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
     # Only a complete matrix may publish a reusable pass or a recorded baseline. A lane can never clear another lane.
+    # The demo's production image (demo/Dockerfile, target frankenphp_prod) on the release target: built from the
+    # target's repository for linux/amd64 and run by its tools/tests/prod-image.sh (boot refused without the opt-in, no
+    # baked secret or development package, healthy as www-data, the gallery's pages served, nothing beyond the
+    # allow-list). The workflow's own tools and the target live in separate checkouts, as for the suite.
+    prod-image:
+        name: Production image
+        needs: changed
+        if: needs.changed.outputs.run == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        defaults:
+            run:
+                working-directory: release-checks-target
+        steps:
+            - id: control
+              name: Check out the workflow tools
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  ref: ${{ github.workflow_sha }}
+                  sparse-checkout: |
+                      .github/actions/jev-diagnosis
+                      .github/workflows/release-checks.yml
+                  sparse-checkout-cone-mode: false
+
+            - id: checkout
+              name: Check out the target
+              uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  ref: ${{ github.sha }}
+                  path: release-checks-target
+
+            - name: Verify the tested revision
+              id: provenance
+              env:
+                  RESOLVED_SHA: ${{ needs.changed.outputs.ref }}
+              run: |
+                  tested=$(git rev-parse HEAD)
+                  if [ "$tested" != "$RESOLVED_SHA" ]; then
+                      echo "::error::Checkout $tested differs from resolved target $RESOLVED_SHA"
+                      exit 1
+                  fi
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # (the output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
+            - name: Build the production image
+              id: build
+              run: |
+                  set -o pipefail
+                  {
+                      docker buildx build --platform linux/amd64 --target frankenphp_prod --load --progress plain -t uxor-demo-prod:release -f demo/Dockerfile .
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+
+            # (the output also goes to $RUNNER_TEMP/jev-prod-image.log, for the Jev step)
+            - name: Run the production image
+              id: prod-image
+              run: |
+                  set -o pipefail
+                  tools/tests/prod-image.sh uxor-demo-prod:release 2>&1 | tee "$RUNNER_TEMP/jev-prod-image.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Production image
+                  artifact: jev-input-release-checks-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
     complete:
         name: Complete release suite
         needs: [changed, checks]

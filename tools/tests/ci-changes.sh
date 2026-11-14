@@ -39,7 +39,7 @@ check_git() {
     fi
 }
 
-all='lint-kit php static-site fresh-install contrast demo workflows package'
+all='lint-kit php static-site fresh-install contrast demo workflows package prod-image'
 kit='lint-kit php static-site fresh-install demo'
 kit_contrast='lint-kit php static-site fresh-install contrast demo'
 
@@ -170,8 +170,17 @@ check ''                          tools/security-policy.mjs tools/security-sinks
 check ''                          tools/js-duplication.mjs tools/recipe-imports.mjs tools/kit-former-names.json
 check ''                          tools/tests/fixtures/release-checks/run.json
 check 'demo'                      tools/demo-php
-check 'php static-site fresh-install demo' demo/compose.yaml
-check 'php static-site fresh-install demo' demo/frankenphp/Caddyfile
+check 'php static-site fresh-install demo prod-image' demo/compose.yaml
+check 'php static-site fresh-install demo prod-image' demo/frankenphp/Caddyfile
+# the demo image's other build inputs: the production image's lane too (it builds and runs frankenphp_prod)
+check 'php static-site demo prod-image' demo/Dockerfile
+check 'php static-site demo prod-image' demo/Dockerfile.dockerignore
+check 'php static-site demo prod-image' demo/compose.override.yaml
+check 'php static-site demo prod-image' demo/frankenphp/docker-entrypoint.sh
+check 'php static-site demo prod-image' demo/frankenphp/conf.d/20-app.prod.ini
+# the demo's other files are not the image's build inputs on their own (the lane's triggers are its Dockerfile, ignore
+# list and Compose and FrankenPHP files)
+check 'php static-site demo' demo/composer.lock demo/src/Kernel.php
 check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
 check 'lint-kit static-site contrast demo package' side-nav/README.md

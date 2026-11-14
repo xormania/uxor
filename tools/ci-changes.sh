@@ -14,7 +14,7 @@
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site fresh-install contrast demo workflows package)
+jobs=(lint-kit php static-site fresh-install contrast demo workflows package prod-image)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
@@ -121,8 +121,11 @@ while IFS= read -r path; do
         tools/*) on php static-site demo ;;
 
         # The demo app: its PHP tests, its static export and the browser tests run against it. docker-install.sh copies
-        # the demo's Compose file and Caddyfile into a fresh Symfony Docker project.
-        demo/compose.yaml | demo/frankenphp/Caddyfile) on php static-site demo fresh-install ;;
+        # the demo's Compose file and Caddyfile into a fresh Symfony Docker project. The demo image's build inputs also
+        # run the production image's lane (demo/Dockerfile, target frankenphp_prod, built and run by
+        # tools/tests/prod-image.sh), which no other job builds.
+        demo/compose.yaml | demo/frankenphp/Caddyfile) on php static-site demo fresh-install prod-image ;;
+        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php static-site demo prod-image ;;
         demo/tests/* | demo/src/Controller/LabController.php) on php static-site demo contrast ;;
         demo/*) on php static-site demo ;;
 
