@@ -14,6 +14,8 @@ let lastKey = 0;
 // one `turbo:before-cache` event is one copy of the page: every zone's cache action receives the same event
 let lastCacheEvent = null;
 let lastCopy = 0;
+// a Remove button: UX Dropzone's own in a list of files, or the remove slot of a `preview_item` template
+const REMOVE = '.dropzone-preview-list-remove, [data-dropzone-slot="remove"]';
 
 /**
  * Works next to Symfony UX Dropzone's controller (`symfony--ux-dropzone--dropzone`) on a `Dropzone`, which it never
@@ -24,7 +26,8 @@ let lastCopy = 0;
  *   file in the tab and loses the form.
  * - Focus: a pick hides the focused input, so focus moves to the Remove button, whose name ("Remove photo.png") says
  *   what was picked; Remove puts focus back on the input; removing one of several files focuses the next Remove
- *   button, else the last one, else the input. Connecting never moves focus.
+ *   button, else the last one, else the input. Connecting never moves focus. A `preview_item` template's
+ *   `data-dropzone-slot="remove"` element is the Remove button of its file.
  * - In a form that is not a GET form (a POST form holds the user's work), one file picked stays picked after Back and
  *   Forward: before Turbo copies the page, the file is kept under a key the zone carries into the copy, and put back
  *   when the copy connects, with a `change` event on the input (not bubbling) that shows it, unless the browser's copy
@@ -37,14 +40,14 @@ let lastCopy = 0;
  *
  * @target input       The file input.
  * @target preview     The picked file (one file only).
- * @target clearButton The Remove button of the preview (one file only).
+ * @target clearButton The Remove button of the preview (one file only, without a `preview_item` template).
  * @target list        The list of picked files (several files only).
  * @action dragOver    Marks the element `data-dragging`, and refuses a drop outside the input.
  * @action dragLeave   Removes `data-dragging` once the drag leaves the element.
  * @action drop        Removes `data-dragging`, and refuses a drop outside the input.
  * @action remember    Records whether the input has focus, before a pick hides it (on `change`, in the capture phase).
  * @action changed     Focuses the Remove button after a pick made from the focused input (`dropzone:change`).
- * @action clearing    Records that the Remove button was clicked (in the capture phase).
+ * @action clearing    Records that the preview's Remove button was clicked (on the element, in the capture phase).
  * @action cleared     Focuses the input after the Remove button cleared the pick (`dropzone:clear`).
  * @action removing    Records which file's Remove button was clicked (in the capture phase).
  * @action removed     Focuses the Remove button now at that place, else the last one, else the input (`dropzone:remove`).
@@ -170,13 +173,17 @@ export default class extends Controller {
     changed() {
         const focused = this.#inputFocused;
         this.#inputFocused = false;
-        if (focused && !this.hasListTarget && this.hasClearButtonTarget) {
-            this.clearButtonTarget.focus();
+        const remove = this.#previewRemove();
+        if (focused && !this.hasListTarget && remove) {
+            remove.focus();
         }
     }
 
-    clearing() {
-        this.#clearing = true;
+    clearing(event) {
+        const remove = this.#previewRemove();
+        if (remove && event.target instanceof Node && remove.contains(event.target)) {
+            this.#clearing = true;
+        }
     }
 
     cleared() {
@@ -187,9 +194,10 @@ export default class extends Controller {
     }
 
     removing(event) {
-        const button = event.target.closest('.dropzone-preview-list-remove');
-        const item = button?.closest('li');
-        this.#removedIndex = item && item.parentElement === this.listTarget ? [...this.listTarget.children].indexOf(item) : null;
+        const button = event.target instanceof Element ? event.target.closest(REMOVE) : null;
+        const items = [...this.listTarget.children];
+        const index = button ? items.findIndex((item) => item.contains(button)) : -1;
+        this.#removedIndex = index < 0 ? null : index;
     }
 
     removed() {
@@ -198,7 +206,17 @@ export default class extends Controller {
         if (null === index || !this.hasListTarget) {
             return;
         }
-        const buttons = this.listTarget.querySelectorAll('.dropzone-preview-list-remove');
-        (buttons[index] ?? buttons[buttons.length - 1] ?? this.inputTarget).focus();
+        const items = [...this.listTarget.children];
+        const item = items[index] ?? items[items.length - 1];
+        (item?.matches(REMOVE) ? item : item?.querySelector(REMOVE) ?? this.inputTarget).focus();
+    }
+
+    // the preview's Remove button (one file only): the template's remove slot, else the default one
+    #previewRemove() {
+        if (this.hasListTarget || !this.hasPreviewTarget) {
+            return null;
+        }
+
+        return this.previewTarget.querySelector('[data-dropzone-slot="remove"]') ?? (this.hasClearButtonTarget ? this.clearButtonTarget : null);
     }
 }

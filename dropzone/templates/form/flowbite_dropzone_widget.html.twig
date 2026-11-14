@@ -3,7 +3,9 @@
     block with the field's variables. The file input takes the field's id (its label points at it), name and `attr`;
     `attr.class` and `attr['data-controller']` go to the box. After a submit that other fields' errors sent back
     (422), the files picked are gone: the box says so, unless the field has errors of its own. Override that sentence
-    with the `reselect_message` variable (`%name%` is the file's name, `%count%` the number of files).
+    with the `reselect_message` variable (`%name%` is the file's name, `%count%` the number of files). `max_files` caps a
+    zone for several files in the browser; `preview_item`, the form theme's `dropzone_preview_item` block, is the markup
+    of each picked file.
 -#}
 {%- set _attrs = {id: id, name: full_name, disabled: disabled, required: required|default(false)} -%}
 {%- for _name, _value in attr|filter((v, k) => k not in ['placeholder', 'type', 'name', 'multiple', 'value']) -%}
@@ -29,4 +31,6 @@
     {%- set _parameters = {'%name%': _single ? (_kept|first).clientOriginalName|default('The file') : '', '%count%': _kept|length} -%}
     {%- set _reselect = translation_domain is same as(false) ? _message|replace(_parameters) : _message|trans(_parameters, translation_domain) -%}
 {%- endif -%}
-<twig:Dropzone :multiple="multiple" :removeLabel="_removeLabel" :reselect="_reselect" {{ ..._props }} {{ ..._attrs }} />
+<twig:Dropzone :multiple="multiple" :removeLabel="_removeLabel" :reselect="_reselect" :maxFiles="max_files|default(null)" {{ ..._props }} {{ ..._attrs }}>
+    <twig:block name="preview_item">{{ preview_item|default('') }}</twig:block>
+</twig:Dropzone>
