@@ -194,3 +194,37 @@ test("the release checks never reuse an earlier pass across a change to one of t
         assert.deepEqual(skipped, [], `the release checks count ${skipped.join(', ')} as never read (${filter}), though the production image holds or builds from them`);
     }
 });
+
+// The demo's entries are named in three places: demo/Dockerfile.dockerignore re-includes them (`!demo/<entry>`), the
+// harness refuses any other entry at the top of demo/ (tools/tests/prod-image.sh), and the classifier runs the lane for
+// them (tools/ci-changes.sh). An entry added to one and not the others fails here until it is in all three.
+test('the image admits, the harness expects and the lane runs for the same demo entries', () => {
+    const allowed = new Set(readFileSync(join(root, 'demo/Dockerfile.dockerignore'), 'utf8').split('\n')
+        .map((line) => /^!demo\/([^/\s]+)\/?$/.exec(line.trim())?.[1]).filter(Boolean));
+    const harnessLine = readFileSync(join(root, 'tools/tests/prod-image.sh'), 'utf8').split('\n').find((line) => line.includes('ls -A demo | grep -vxF'));
+    assert.ok(harnessLine, 'tools/tests/prod-image.sh lists the entries it expects at the top of demo/ (ls -A demo | grep -vxF -e …)');
+    const expected = new Set([...harnessLine.matchAll(/ -e ([^\s"]+)/g)].map((match) => match[1]));
+    assert.ok(allowed.size > 0, 'demo/Dockerfile.dockerignore re-includes demo entries (!demo/<entry>)');
+    assert.deepEqual([...expected].sort(), [...allowed].sort(), 'the harness expects exactly the entries demo/Dockerfile.dockerignore admits');
+
+    // every admitted entry runs the lane: a file under each directory, and each file itself
+    const probe = (entry) => (isDirectory(entry) ? `demo/${entry}/a-new-file` : `demo/${entry}`);
+    const missing = [...allowed].map(probe).filter((path) => !selected([path]).has('prod-image'));
+    assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these admitted demo paths');
+
+    // and the classifier names no demo entry for the lane that the image does not admit, but the build's own definition
+    const definition = new Set(['Dockerfile', 'Dockerfile.dockerignore', 'compose.yaml', 'compose.override.yaml']);
+    const named = new Set(readFileSync(join(root, 'tools/ci-changes.sh'), 'utf8').split('\n')
+        .filter((line) => /\bprod-image\b/.test(line) && /^\s*demo\//.test(line))
+        .flatMap((line) => [...line.split(')')[0].matchAll(/demo\/([^/|\s*]+)/g)].map((match) => match[1])));
+    const unadmitted = [...named].filter((entry) => !allowed.has(entry) && !definition.has(entry));
+    assert.deepEqual(unadmitted, [], 'tools/ci-changes.sh runs the production image for demo entries demo/Dockerfile.dockerignore does not admit');
+});
+
+function isDirectory(entry) {
+    try {
+        return readdirSync(join(root, 'demo', entry)).length >= 0;
+    } catch {
+        return false;
+    }
+}
