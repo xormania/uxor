@@ -13,6 +13,10 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `dropzone`: a `preview_item` block gives the markup of each picked file (UX Dropzone's preview template, with its
   `image`, `filename` and `remove` slots); through the form theme, a `dropzone_preview_item` block in your own theme
   does the same (`form-theme`). UX Dropzone's own `dropzone_preview_item_template` block is not read.
+- `dropzone`: a `DropzoneType` with `'placeholder' => false` shows no main line; a field that sets no placeholder keeps
+  the default phrase, with custom `attr` or without. The recipe now copies a PHP class, `DropzonePlaceholderExtension`,
+  into `src/UXor/Dropzone/`: an app updating the recipe gets it registered by Symfony's default `services.yaml`
+  (`autoconfigure`), with nothing to do; an app that registers its services otherwise tags it `form.type_extension`.
 
 ### Changed
 

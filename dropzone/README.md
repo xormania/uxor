@@ -39,6 +39,11 @@ Then:
    }
    ```
 
+The recipe also copies one PHP class into `src/UXor/Dropzone/`, `DropzonePlaceholderExtension` (namespace
+`App\UXor\Dropzone`): a form type extension of `DropzoneType` that lets a field turn the main line off (*In a Symfony
+form*). Symfony's default `config/services.yaml` registers it, as it does every class in `src/` (`autoconfigure`); an
+app that registers its services otherwise adds it with the `form.type_extension` tag.
+
 ## Usage
 
 `Dropzone` renders UX Dropzone's markup with its controller, and the kit's `dropzone-assist` controller next to it.
@@ -93,7 +98,10 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
 With the `form-theme` recipe's theme, every `DropzoneType` renders as this `Dropzone`: the field's label points at
 the file input, its help and errors describe it, the `placeholder` option is the main line and `remove_label` names
 the Remove buttons. `attr.class` and `attr['data-controller']` go to the box, every other `attr` to the input. UX
-Dropzone deprecates a placeholder passed in `attr`: use the option.
+Dropzone deprecates a placeholder passed in `attr`: use the option. `'placeholder' => false` shows no main line (the
+box keeps its icon and hint, the input its label); a field that sets no placeholder keeps the default phrase, "Drag
+and drop or browse", with custom `attr` or without (the recipe's `DropzonePlaceholderExtension` tells the two apart,
+which UX Dropzone itself resolves alike).
 
 ```php
 use Symfony\Component\Validator\Constraints as Assert;
