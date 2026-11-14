@@ -134,6 +134,32 @@ test('a quick choice stays closed after Tab after a Turbo visit and Back', async
     await chooseQuicklyAndLeave(page, 'Country', '#autocomplete_demo_country', 'ita', 'l', 'IT');
 });
 
+// A multiple field whose list stays open after a choice and whose search then empties (closeAfterSelect off,
+// clearAfterSelect on, `?clear=1`): a choice made while a refresh is pending must leave the list showing every option
+// left for the empty search, not the options of the search that was typed. Tom Select 2.6.2 refreshes the list for the
+// empty search inside addItem(), before item_add; a cancel of the pending refresh must not leave it filtered.
+test('a quick choice in a multiple field that stays open and clears its search lists every option left', async ({ page }) => {
+    await page.goto('/lab/autocomplete?clear=1');
+    const field = control(page, 'Herbs');
+    const list = await listbox(page, field);
+    await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+    await page.keyboard.type('th');
+    await expect.poll(async () => (await list.locator('[data-selectable]').allTextContents())).toEqual(['Thyme']);
+    await page.keyboard.type('y');
+    // the refresh "thy" asked for is still pending as the choice is made
+    expect(await page.locator('#herbs').evaluate((element) => (element as any).tomselect.refreshTimeout != null), 'a refresh is pending before Enter').toBe(true);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#herbs')).toHaveValues(['thyme']);
+    await expect(field).toHaveValue('');
+    const left = ['Basil', 'Chives', 'Dill', 'Mint', 'Parsley', 'Sage'];
+    await expect(field).toHaveAttribute('aria-expanded', 'true');
+    await expect(list.locator('[data-selectable]')).toHaveText(left);
+    // and still, once the cancelled or run refresh would have done its work
+    await page.waitForTimeout(400);
+    await expect(field).toHaveAttribute('aria-expanded', 'true');
+    await expect(list.locator('[data-selectable]')).toHaveText(left);
+});
+
 // a rebuild while a refresh is pending: the Tom Select it replaces is destroyed with its timer still set
 test('options changing while a refresh is pending: no page error, and no list opens afterwards', async ({ page }) => {
     await page.goto('/lab/live-autocomplete');
