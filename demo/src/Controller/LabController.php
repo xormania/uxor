@@ -560,7 +560,7 @@ final class LabController extends AbstractController
         }
         // `?form=1`: a DropzoneType shown through the form theme's `dropzone_preview_item` block; a valid post answers 303
         $upload = null;
-        if ($request->query->getBoolean('form')) {
+        if ('1' === $request->query->getString('form')) {
             $upload = $this->createFormBuilder(null, ['action' => $this->generateUrl('app_lab_dropzone_options', ['page' => $page, 'form' => 1])])
                 ->add('document', DropzoneType::class, ['constraints' => [new Assert\NotNull(message: 'Choose a document.')]])
                 ->getForm();
@@ -570,9 +570,20 @@ final class LabController extends AbstractController
             }
         }
 
+        // `?form=quiet`: DropzoneTypes without the lab's preview-item theme (the default markup): `placeholder: false`, and
+        // one given `attr` (accept) but no placeholder, which keeps the default main line
+        $quiet = null;
+        if ('quiet' === $request->query->getString('form')) {
+            $quiet = $this->createFormBuilder(null, ['action' => $this->generateUrl('app_lab_dropzone_options', ['page' => $page, 'form' => 'quiet'])])
+                ->add('quiet', DropzoneType::class, ['placeholder' => false, 'required' => false, 'help' => 'PNG or JPG, up to 1 MB.'])
+                ->add('plain', DropzoneType::class, ['required' => false, 'attr' => ['accept' => 'image/png,image/jpeg'], 'help' => 'PNG or JPG.'])
+                ->getForm();
+        }
+
         return $this->render('lab/dropzone_options.html.twig', [
             'page' => $page,
             'upload' => $upload?->createView(),
+            'quiet' => $quiet?->createView(),
             'posted' => $request->query->getString('posted'),
             'description' => self::SCENARIOS['dropzone-options'],
         ], new Response(null, $upload?->isSubmitted() ? 422 : 200));
