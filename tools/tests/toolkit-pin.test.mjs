@@ -159,6 +159,22 @@ test('each toolkit install step runs in some lane of its job: its matrix conditi
     }
 });
 
+test('in a job with a toolkit matrix, each install step names its own lane, and every lane installs once', () => {
+    for (const job of jobs().filter((candidate) => candidate.steps.some(installs))) {
+        const matrix = /^ {16}([A-Za-z_][\w-]*):\s*\[([^\]]*)\]/m.exec(job.text);
+        const steps = job.steps.filter(installs);
+        if (!matrix || steps.length < 2) continue;
+        const [, key, list] = matrix;
+        const values = list.split(',').map((item) => item.trim().replace(/^['"]|['"]$/g, ''));
+        const lanes = steps.map((step) => {
+            const condition = matrixCondition(step);
+            assert.ok(condition && condition[1] === key, `${job.id}: an install step runs only in a lane of matrix.${key}: ${step.split('\n')[0]}`);
+            return condition[2];
+        });
+        assert.deepEqual([...lanes].sort(), [...values].sort(), `${job.id}: one install step per lane of matrix.${key}`);
+    }
+});
+
 test('the locked and the minimum installs each run in a lane, and the locked one where its version is read', () => {
     for (const job of jobs().filter((candidate) => candidate.steps.some(installs))) {
         for (const step of job.steps.filter(installs)) {
