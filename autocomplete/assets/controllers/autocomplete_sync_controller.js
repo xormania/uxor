@@ -32,7 +32,8 @@ import { Controller } from '@hotwired/stimulus';
  *   so a cancelled refresh leaves nothing to search when the field takes the focus again. A choice alone (`item_add`)
  *   cancels nothing: the list may be meant to stay open (`closeAfterSelect: false` with `multiple`), and UX
  *   Autocomplete empties the search on every choice, which needs that refresh to list the options for the empty search
- *   (in a remote field, its load) rather than the earlier results.
+ *   (in a remote field, it restores the empty search's options at once and loads them again from the server) rather
+ *   than the earlier results.
  */
 export default class extends Controller {
     #observer = null;
