@@ -4,7 +4,7 @@
 # the root files the gallery reads at run time, and tools/sync-demo, which the production build runs.
 *
 
-# the kit as the demo reads it (app.kit_dir: the demo's parent)
+# the kit as the demo reads it (app.kit_dir: the demo's parent); a recipe's directories are those its copy-files names
 !manifest.json
 !kit.css
 !INSTALL.md
@@ -17,6 +17,7 @@
 !*/templates/
 !*/assets/
 !*/src/
+!*/config/
 
 # the demo app, without what is installed, built or local to a machine
 !demo/

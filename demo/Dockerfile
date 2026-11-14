@@ -75,14 +75,18 @@ ENV APP_ENV=prod
 
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
-COPY --link frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
+COPY --link demo/frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
+
+# UXor: the image holds the repository as the demo reads it, as on disk: the kit in /app (its recipes, the files the
+# gallery reads), the app in /app/demo (demo/Dockerfile.dockerignore names what the context holds)
+WORKDIR /app/demo
 
 # prevent the reinstallation of vendors at every changes in the source code
-COPY --link composer.* symfony.* ./
+COPY --link demo/composer.* demo/symfony.* ./
 RUN composer install --no-cache --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress
 
-# copy sources
-COPY --link --exclude=frankenphp/ . ./
+# copy sources: the kit beside the app
+COPY --link --exclude=demo/frankenphp/ . /app/
 
 RUN <<-EOF
 	mkdir -p var/cache var/log var/share
@@ -92,10 +96,14 @@ RUN <<-EOF
 	# step's own console commands get both, after dump-env so neither is written into the image, which still
 	# refuses to serve until the deployment sets them
 	export UXOR_DEMO_ALLOW_PRODUCTION=1 APP_SECRET="$(php -r 'echo bin2hex(random_bytes(32));')"
+	# the recipes' files the demo uses as an app installs them (templates, controllers, styles), as ux:install would
+	php ../tools/sync-demo
+	# the auto-scripts: cache:clear, assets:install, importmap:install (the browser packages)
 	composer run-script --no-dev post-install-cmd
-	if [ -f importmap.php ]; then
-		php bin/console asset-map:compile
-	fi
+	# the stylesheet (the Tailwind standalone CLI, downloaded at the pinned version), then the compiled assets
+	php bin/console tailwind:build --minify
+	php bin/console asset-map:compile
+	rm -rf /app/tools
 	chmod +x bin/console
 	chmod -R g=u var
 	sync
@@ -152,16 +160,18 @@ RUN <<-EOF
 	find / -perm /6000 -type f -exec chmod a-s {} + 2>/dev/null || true
 EOF
 
-COPY --link --exclude=var --from=frankenphp_prod_builder /app /app
+COPY --link --exclude=demo/var --from=frankenphp_prod_builder /app /app
 # Group 0 + g=u for arbitrary-UID runtimes (e.g. OpenShift).
-COPY --chown=www-data:0 --from=frankenphp_prod_builder /app/var /app/var
-RUN chmod g=u /app/var
+COPY --chown=www-data:0 --from=frankenphp_prod_builder /app/demo/var /app/demo/var
+RUN chmod g=u /app/demo/var
 
-COPY --link --chmod=755 frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
+COPY --link --chmod=755 demo/frankenphp/docker-entrypoint.sh /usr/local/bin/docker-entrypoint
 
 USER www-data
 
-WORKDIR /app
+# UXor: the app in /app/demo, the kit it reads beside it (frankenphp/Caddyfile serves SERVER_ROOT)
+WORKDIR /app/demo
+ENV SERVER_ROOT=/app/demo/public
 
 ENTRYPOINT ["docker-entrypoint"]
 
