@@ -18,7 +18,9 @@ const workflowsDir = '.github/workflows';
  * The image's build inputs: the Dockerfile and its allow-list, the Compose files and FrankenPHP's; what the demo's vendor/
  * holds (demo/composer.json, demo/composer.lock: a development-only package the gallery needs at run time is how the
  * image first failed); tools/sync-demo, which the builder runs; and demo/config/, where the production-only
- * configuration lives, which no other lane boots.
+ * configuration lives, which no other lane boots. Also what can change the paths the image needs: a recipe's manifest
+ * (copy-files declares what the allow-list must admit), the root files the allow-list admits, and a new top-level
+ * directory or file, which the allow-list does not know.
  */
 const TRIGGERS = [
     'demo/Dockerfile',
@@ -32,9 +34,19 @@ const TRIGGERS = [
     'tools/sync-demo',
     'demo/config/packages/twig.yaml',
     'demo/config/services.yaml',
+    'alert/manifest.json',
+    'manifest.json',
+    'kit.css',
+    'INSTALL.md',
+    'llms.txt',
+    'docs/GUIDE.md',
+    'brand-new-dir/notes.txt',
+    'NEW-ROOT-FILE.md',
 ];
-/** Changes that leave the image's build inputs alone: a guide, a recipe's template, a browser spec. */
-const UNRELATED = ['docs/GUIDE.md', 'alert/templates/components/Alert.html.twig', 'tests/e2e/smoke.spec.ts'];
+/** Content the other jobs render from the same files: a recipe's template, assets and README, a browser spec. */
+const UNRELATED = ['alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'alert/README.md', 'tests/e2e/smoke.spec.ts'];
+/** The image's inputs a release check must not count as never read. */
+const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'alert/manifest.json', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
 
 const workflows = readdirSync(join(root, workflowsDir))
     .filter((name) => /\.ya?ml$/.test(name))
@@ -155,4 +167,17 @@ test('the development image still runs the repository bind-mounted, the app in /
     assert.match(override, /^\s+-\s*['"]?\.\.\/:\/app['"]?\s*$/m, 'the repository is mounted at /app');
     assert.match(override, /^\s+working_dir:\s*\/app\/demo\s*$/m, 'the working directory is /app/demo');
     assert.match(override, /^\s+SERVER_ROOT:\s*['"]?\/app\/demo\/public['"]?\s*$/m, 'SERVER_ROOT is /app/demo/public');
+});
+
+test("the release checks never reuse an earlier pass across a change to one of the production image's inputs", () => {
+    const text = readFileSync(join(root, workflowsDir, 'release-checks.yml'), 'utf8');
+    const filters = [...text.matchAll(/grep -vE '([^']+)'/g)].map((m) => m[1]);
+    assert.ok(filters.length > 0, 'release-checks.yml filters the paths the suite never reads with grep -vE');
+    for (const filter of filters) {
+        // through grep -E itself, as the workflow runs it: a pattern grep reads otherwise, or refuses, counts
+        const kept = spawnSync('grep', ['-vE', filter], { input: `${IMAGE_INPUTS.join('\n')}\n`, encoding: 'utf8' });
+        assert.ok(kept.status === 0 || kept.status === 1, `grep -E reads the filter ${filter}: ${kept.stderr}`);
+        const skipped = IMAGE_INPUTS.filter((path) => !kept.stdout.split('\n').includes(path));
+        assert.deepEqual(skipped, [], `the release checks count ${skipped.join(', ')} as never read (${filter}), though the production image holds or builds from them`);
+    }
 });
