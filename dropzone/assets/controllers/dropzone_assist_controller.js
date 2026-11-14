@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isPermanent, isPromotedFrameCache } from '../lib/uxor-turbo.js';
+import { isCachedCopy, isPermanent, isPromotedFrameCache } from '../lib/uxor-turbo.js';
 
 // through the prototype: a field named `method` shadows the form's own
 const methodOf = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'method').get;
@@ -26,14 +26,15 @@ let lastCopy = 0;
  *   what was picked; Remove puts focus back on the input; removing one of several files focuses the next Remove
  *   button, else the last one, else the input. Connecting never moves focus.
  * - A drag that leaves without a drop shows the empty box again: UX Dropzone shows its empty preview instead.
- * - One file stays picked when the element is moved and its controllers reconnect (a `data-turbo-permanent` element
- *   across Turbo visits): UX Dropzone clears the input on every connect, so the file is put back and the input gets a
- *   `change` event (not bubbling), which shows it again.
  * - In a form that is not a GET form (a POST form holds the user's work), one file picked stays picked after Back and
  *   Forward: before Turbo copies the page, the file is kept under a key the zone carries into the copy, and put back
- *   the same way when the copy connects. A frame visit promoted to history copies the page as it starts, before its
- *   `turbo:before-cache`: the zone carries a key from its connect on, and takes a new one after each copy. A GET form,
- *   which cannot send files, and a zone outside a form start empty.
+ *   when the copy connects, with a `change` event on the input (not bubbling) that shows it, unless the browser's copy
+ *   of the input kept it. A frame visit promoted to history copies the page as it starts, before its
+ *   `turbo:before-cache`: the zone carries a key from its connect on, and takes a new one after each copy.
+ * - A zone for one file in a GET form, which cannot send files, or outside a form starts empty in Turbo's copy of the
+ *   page: some browsers' copy of an input keeps its file, which UX Dropzone keeps on connect, so the zone is cleared
+ *   through UX Dropzone (its `dropzone:clear` included). The same element connecting again (moved, a
+ *   `data-turbo-permanent` element across visits) is no copy, and keeps its file.
  *
  * @target input       The file input.
  * @target placeholder The inside of the box shown before a pick.
@@ -58,38 +59,43 @@ export default class extends Controller {
     #clearing = false;
     #removedIndex = null;
     #leaveTimeout = null;
-    #kept = null;
 
     connect() {
-        // a copy of the page Turbo cached: the file the zone held then
+        // a copy of the page Turbo cached: the zone carries the key it was given when the copy was taken
+        const copy = isCachedCopy(this, 'data-dropzone-assist-copy');
         const key = this.element.getAttribute('data-dropzone-assist-copy');
         const copied = copies.get(key)?.transfer ?? null;
         copies.delete(key);
         // the key the next copy taken before its `turbo:before-cache` (a frame visit promoted to history) carries
         this.element.setAttribute('data-dropzone-assist-copy', String(++lastKey));
-        const kept = this.#kept ?? copied;
-        this.#kept = null;
-        if (!kept?.files.length || this.hasListTarget || !this.hasPreviewTarget) {
+        if (!copy || this.hasListTarget || !this.hasPreviewTarget) {
             return;
         }
-        // after UX Dropzone's connect, wherever its controller comes in the order, has cleared the input
+        // after UX Dropzone's connect, wherever its controller comes in the order, has taken the input's files
         queueMicrotask(() => {
-            if (this.element.isConnected && !this.inputTarget.files?.length) {
-                this.inputTarget.files = kept.files;
-                this.inputTarget.dispatchEvent(new Event('change'));
+            if (!this.element.isConnected) {
+                return;
+            }
+            const form = this.inputTarget.form;
+            if ((form && 'get' !== methodOf.call(form)) || isPermanent(this.element)) {
+                if (copied?.files.length && !this.inputTarget.files?.length) {
+                    this.inputTarget.files = copied.files;
+                    this.inputTarget.dispatchEvent(new Event('change'));
+                }
+            } else if (this.inputTarget.files?.length) {
+                const dropzone = this.application.getControllerForElementAndIdentifier(this.element, 'symfony--ux-dropzone--dropzone');
+                if (dropzone) {
+                    dropzone.clear();
+                } else {
+                    // not connected yet: it takes the empty input when it does
+                    this.inputTarget.value = '';
+                }
             }
         });
     }
 
     disconnect() {
         // the key stays: Turbo may copy the page after its controllers disconnected
-        // the same element may connect again (moved); a new element (Back, a Turbo Stream) gets a new controller
-        if (!this.hasListTarget && this.inputTarget.files?.length) {
-            this.#kept = new DataTransfer();
-            for (const file of this.inputTarget.files) {
-                this.#kept.items.add(file);
-            }
-        }
         this.element.removeAttribute('data-dragging');
         clearTimeout(this.#leaveTimeout);
         this.#leaveTimeout = null;
