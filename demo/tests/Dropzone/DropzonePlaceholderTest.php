@@ -5,7 +5,9 @@ namespace App\Tests\Dropzone;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\AbstractTypeExtension;
+use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\FormFactory;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormInterface;
@@ -13,6 +15,7 @@ use Symfony\Component\Form\FormRegistry;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\Form\PreloadedExtension;
 use Symfony\Component\Form\ResolvedFormTypeFactory;
+use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Contracts\Translation\TranslatableInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Dropzone\Form\DropzoneType;
@@ -113,6 +116,89 @@ final class DropzonePlaceholderTest extends KernelTestCase
         self::assertSame(self::DEFAULT_PHRASE, self::sawFor($seen, 'plain')['placeholder'], "the app sees UX Dropzone's default phrase");
     }
 
+    /** Several Dropzone fields in one form, and the same form built twice: each field's own choice, every time. */
+    public function testEachFieldOfAFormKeepsItsOwnChoiceEveryTimeTheFormIsBuilt(): void
+    {
+        for ($build = 1; $build <= 2; ++$build) {
+            $form = self::getContainer()->get('form.factory')->createNamedBuilder('upload', FormType::class, null, ['csrf_protection' => false])
+                ->add('none', DropzoneType::class, ['placeholder' => false])
+                ->add('attr_only', DropzoneType::class, ['attr' => ['accept' => 'image/png']])
+                ->add('plain', DropzoneType::class)
+                ->add('text', DropzoneType::class, ['placeholder' => 'Drop a photo'])
+                ->add('none_again', DropzoneType::class, ['placeholder' => false, 'attr' => ['accept' => 'image/png']])
+                ->getForm();
+            $view = $form->createView();
+            $twig = self::getContainer()->get('twig')->createTemplate('{{ form_widget(field) }}');
+            foreach (['none' => [], 'attr_only' => [self::DEFAULT_PHRASE], 'plain' => [self::DEFAULT_PHRASE], 'text' => ['Drop a photo'], 'none_again' => []] as $name => $lines) {
+                self::assertSame($lines, $this->mainLines(new Crawler($twig->render(['field' => $view[$name]]))), "build {$build}, {$name}");
+            }
+        }
+    }
+
+    /** A Dropzone inside a nested form: the same choice as at the top level. */
+    public function testADropzoneInANestedFormKeepsItsChoice(): void
+    {
+        $form = self::getContainer()->get('form.factory')->createNamedBuilder('outer', FormType::class, null, ['csrf_protection' => false])
+            ->add(self::getContainer()->get('form.factory')->createNamedBuilder('inner', FormType::class)
+                ->add('none', DropzoneType::class, ['placeholder' => false])
+                ->add('attr_only', DropzoneType::class, ['attr' => ['accept' => 'image/png']]))
+            ->getForm();
+        $view = $form->createView();
+        $twig = self::getContainer()->get('twig')->createTemplate('{{ form_widget(field) }}');
+
+        self::assertSame([], $this->mainLines(new Crawler($twig->render(['field' => $view['inner']['none']]))));
+        self::assertSame([self::DEFAULT_PHRASE], $this->mainLines(new Crawler($twig->render(['field' => $view['inner']['attr_only']]))));
+    }
+
+    /** A type of the app's whose parent is DropzoneType: the kit's extension applies to it too. */
+    public function testATypeWhoseParentIsDropzoneTypeKeepsTheChoice(): void
+    {
+        $type = new class extends AbstractType {
+            public function getParent(): string
+            {
+                return DropzoneType::class;
+            }
+        };
+        $factory = $this->factoryWith([], [$type]);
+
+        self::assertSame([], $this->mainLines($this->renderField(['placeholder' => false], $factory, 'none', $type::class)));
+        self::assertSame([self::DEFAULT_PHRASE], $this->mainLines($this->renderField(['attr' => ['accept' => 'image/png']], $factory, 'attr_only', $type::class)));
+    }
+
+    /**
+     * An app's extension placed after the kit's that sets the placeholder default without chaining the previous one: a
+     * field's own false still shows no main line, and a field that says nothing gets the app's default.
+     */
+    public function testAnAppDefaultThatDoesNotChainLeavesAnExplicitFalseExplicit(): void
+    {
+        $app = new class extends AbstractTypeExtension {
+            public static function getExtendedTypes(): iterable
+            {
+                return [DropzoneType::class];
+            }
+
+            public function configureOptions(OptionsResolver $resolver): void
+            {
+                $resolver->setDefault('placeholder', 'Drop your files here');
+            }
+        };
+        $factory = $this->factoryWith([$app], []);
+
+        self::assertSame([], $this->mainLines($this->renderField(['placeholder' => false], $factory, 'none')));
+        self::assertSame(['Drop your files here'], $this->mainLines($this->renderField([], $factory, 'plain')));
+        self::assertSame(['Drop your files here'], $this->mainLines($this->renderField(['attr' => ['accept' => 'image/png']], $factory, 'attr_only')));
+    }
+
+    /**
+     * The kit's bookkeeping option is not a switch: a field setting `uxor_placeholder_defaulted` by hand, either way,
+     * shows what its placeholder says.
+     */
+    public function testTheBookkeepingOptionSetByHandChangesNothing(): void
+    {
+        self::assertSame([], $this->mainLines($this->renderField(['placeholder' => false, 'uxor_placeholder_defaulted' => true])), 'an explicit false stays explicit');
+        self::assertSame([self::DEFAULT_PHRASE], $this->mainLines($this->renderField(['attr' => ['accept' => 'image/png'], 'uxor_placeholder_defaulted' => false])), 'custom attr, nothing said: the default phrase');
+    }
+
     /** An empty placeholder is no text: no main line, as today. */
     public function testAnEmptyPlaceholderShowsNoMainLine(): void
     {
@@ -165,6 +251,20 @@ final class DropzonePlaceholderTest extends KernelTestCase
     }
 
     /**
+     * The demo's form factory with the app's own DropzoneType extensions after the container's (the kit's among them)
+     * and the app's own types.
+     *
+     * @param list<AbstractTypeExtension> $extensions
+     * @param list<AbstractType<mixed>>   $types
+     */
+    private function factoryWith(array $extensions, array $types): FormFactoryInterface
+    {
+        $preloaded = new PreloadedExtension($types, [] === $extensions ? [] : [DropzoneType::class => $extensions]);
+
+        return new FormFactory(new FormRegistry([self::getContainer()->get('form.extension'), $preloaded], new ResolvedFormTypeFactory()));
+    }
+
+    /**
      * What the app's extension saw for one field, which it must have seen.
      *
      * @param \ArrayObject<string, array{placeholder: mixed, attr: mixed}> $seen
@@ -185,10 +285,13 @@ final class DropzonePlaceholderTest extends KernelTestCase
         return new \ArrayObject();
     }
 
-    /** @param array<string, mixed> $options */
-    private function renderField(array $options, ?FormFactoryInterface $factory = null, string $name = 'upload'): Crawler
+    /**
+     * @param array<string, mixed>                                                 $options
+     * @param class-string<\Symfony\Component\Form\FormTypeInterface<mixed>> $type
+     */
+    private function renderField(array $options, ?FormFactoryInterface $factory = null, string $name = 'upload', string $type = DropzoneType::class): Crawler
     {
-        $form = ($factory ?? self::getContainer()->get('form.factory'))->createNamed($name, DropzoneType::class, null, $options);
+        $form = ($factory ?? self::getContainer()->get('form.factory'))->createNamed($name, $type, null, $options);
 
         return new Crawler(self::getContainer()->get('twig')->createTemplate('{{ form_widget(form) }}')->render(['form' => $form->createView()]));
     }
