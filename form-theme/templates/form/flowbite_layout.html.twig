@@ -119,10 +119,10 @@
     {%- endif -%}
 {%- endblock flowbite_date_picker_widget -%}
 
-{##- A `DropzoneType` (symfony/ux-dropzone): the dropzone recipe's widget (a box to drop files on or browse, previews, Remove buttons), rendered from its own template so a project without that recipe never needs it; without the recipe, the kit's file Input. Symfony UX Dropzone's own theme never renders. -#}
 {##- The markup of each file a `DropzoneType` holds, empty by default: an app's form theme defines it, one root element with `data-dropzone-slot="image"`, `"filename"` and `"remove"` (the dropzone recipe's `preview_item`). UX Dropzone's own `dropzone_preview_item_template` is not read. -#}
 {%- block dropzone_preview_item -%}{%- endblock dropzone_preview_item -%}
 
+{##- A `DropzoneType` (symfony/ux-dropzone): the dropzone recipe's widget (a box to drop files on or browse, previews, Remove buttons), rendered from its own template so a project without that recipe never needs it; without the recipe, the kit's file Input. Symfony UX Dropzone's own theme never renders. -#}
 {%- block dropzone_widget -%}
     {#- captured, so it reaches the widget as markup -#}
     {%- set _previewItem -%}{{ block('dropzone_preview_item') }}{%- endset -%}
