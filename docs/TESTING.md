@@ -1111,14 +1111,18 @@ and audit shell steps with local fixtures.
 
 The importmap lanes (`importmap-audit`, one per tracked `importmap.php`) install the application's Composer
 dependencies without scripts, because `bin/console` needs `vendor/`, and print the package names and versions the
-`importmap.php` selects. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
+`importmap.php` selects. Installing without scripts still runs the Composer plugins the locks allow (`symfony/runtime`
+writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane then boots the application to run the
+command: the job has read-only permissions and no secrets. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
 made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
 own and never fails the lane, since a newer version is not an advisory (the command exits 1 whenever anything is
 outdated). Two limits come from the command, not from the workflow: it queries GitHub's advisory API without a token,
 so a rate limit turns the lane red (loudly, never silently), and it asks for the API's default page size of 30, so a
 package set matching more than 30 advisories could be cut short.
 `tools/tests/importmap-audit.test.mjs` checks the lanes' shape: one per tracked `importmap.php`, no way for an audit
-failure to be swallowed, the pull request paths, the listing of versions, and the separate `importmap:outdated` step.
+failure to be swallowed, the pull request paths, the listing of versions, and the separate `importmap:outdated` step;
+it also reads the steps' conditions for a manual run and a selected pull request, and runs each lane's changed-files
+guard in scratch repositories.
 
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of
 ours in it may reflect a dependency release: read the versions it resolved before looking for a regression.
