@@ -10,6 +10,8 @@
 # - a re-include below the root starts with a letter or a digit, `![a-z0-9]*/…`, never `!*/…`, so it cannot match a dot
 #   directory;
 # - every exclusion names the directory and everything below it (`x` and `x/**`), and comes after the re-includes.
+# And a third, for a developer's checkout, which holds files a clone never has: every directory is an allow-list,
+# demo/ included (`!demo/<entry>`, never `!demo`), so a file nobody named stays out.
 *
 
 # the kit as the demo reads it (app.kit_dir: the demo's parent); a recipe's directories are those its copy-files names
@@ -27,38 +29,48 @@
 ![a-z0-9]*/src
 ![a-z0-9]*/config
 
-# the demo app, without what is installed, built or local to a machine
-!demo
-demo/var
-demo/var/**
-demo/vendor
-demo/vendor/**
+# the demo app, as an allow-list too: only what its build and its pages use, so a new file in a developer's demo/
+# (a secrets key, a local env or PHPUnit file, an editor's or an agent's folder) stays out by default
+!demo/bin
+!demo/config
+!demo/src
+!demo/templates
+!demo/assets
+!demo/public
+!demo/frankenphp
+!demo/composer.json
+!demo/composer.lock
+!demo/symfony.lock
+!demo/importmap.php
+!demo/.env
+# below those, what is installed, generated or local, as demo/.gitignore lists it: the secrets (the demo ships no
+# encrypted secret, so the whole directory), Symfony's generated reference, the installed browser packages and bundle
+# assets, and every copy tools/sync-demo makes, which the production build makes again from the recipes
+demo/config/secrets
+demo/config/secrets/**
+demo/config/reference.php
+demo/config/uxor_oauth.example.yaml
 demo/public/assets
 demo/public/assets/**
 demo/public/bundles
 demo/public/bundles/**
 demo/assets/vendor
 demo/assets/vendor/**
-demo/tests
-demo/tests/**
-demo/.env.local
-demo/.env.test
-demo/.editorconfig
-demo/.gitignore
-# development only: the agents' instructions, PHPUnit, AI Mate (require-dev, its code autoload-dev), the dev env (dump-env
-# prod reads .env and .env.prod), the source images of the ones in assets/images/xor/
-demo/.env.dev
-demo/AGENTS.md
-demo/CLAUDE.md
-demo/phpunit.dist.xml
-demo/mate
-demo/mate/**
-demo/xor
-demo/xor/**
-demo/.env.local.php
-demo/.env.*.local
-demo/compose*.yaml
-demo/Dockerfile*
+demo/templates/components
+demo/templates/components/**
+demo/templates/form
+demo/templates/form/**
+demo/templates/layouts
+demo/templates/layouts/**
+demo/src/UXor
+demo/src/UXor/**
+demo/assets/controllers/**
+!demo/assets/controllers/csrf_protection_controller.js
+!demo/assets/controllers/preview_frame_controller.js
+!demo/assets/controllers/dropzone_echo_controller.js
+demo/assets/styles/uxor*.css
+demo/assets/lib/uxor-*.js
+demo/assets/images/uxor-oauth-*
 **/*.log
 **/.DS_Store
 
