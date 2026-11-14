@@ -163,6 +163,29 @@ test('a quick choice in a multiple field that stays open and clears its search l
     await expect(list.locator('[data-selectable]')).toHaveText(left);
 });
 
+// A remote multiple field whose list stays open after a choice (Clients, `?clear=1`). UX Autocomplete empties the search
+// on every choice (its onItemAdd), without refreshing the list; the refresh still pending from the last keystroke is what
+// loads the now empty search, so the open list shows the field's options again. Cancelled on the choice, the list would
+// stay on the earlier search's results under an empty input.
+test('a quick choice in a remote field that stays open lists the options for the search left, not the earlier results', async ({ page }) => {
+    await page.goto('/lab/autocomplete?clear=1');
+    const field = control(page, 'Clients');
+    const list = await listbox(page, field);
+    await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+    await page.keyboard.type('bert');
+    // "bert": Roberta Casas and Robert Brown, loaded and listed
+    await expect(list.locator('[data-selectable]')).toHaveText(['Roberta Casas', 'Robert Brown']);
+    await page.keyboard.type('a');
+    expect(await page.locator('#clients').evaluate((element) => (element as any).tomselect.refreshTimeout != null), 'a refresh (and its load) is pending before Enter').toBe(true);
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#clients')).toHaveValues(['Roberta Casas']);
+    await expect(field).toHaveValue('');
+    await expect(field).toHaveAttribute('aria-expanded', 'true');
+    // the empty search's options: every customer but the one chosen, not "bert"'s Robert Brown alone
+    await expect(list.locator('[data-selectable]')).toHaveCount(customers - 1);
+    await expect(list.locator('[data-selectable]').first()).toHaveText('Bonnie Green');
+});
+
 // a rebuild while a refresh is pending: the Tom Select it replaces is destroyed with its timer still set
 test('options changing while a refresh is pending: no page error, and no list opens afterwards', async ({ page }) => {
     await page.goto('/lab/live-autocomplete');
