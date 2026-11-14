@@ -15,8 +15,11 @@ when@test:
         strict_variables: true
 
 # UX Toolkit's templates (a recipe's installation steps and API, the tabs and previews of its docs), which the gallery
-# renders through the Toolkit's library; its bundle, which registers them in dev and test, is not loaded in prod
+# renders through the Toolkit's library; its bundle, which registers them in dev and test, is not loaded in prod. The
+# demo's overrides in templates/bundles/UXToolkitBundle/ apply only to a registered bundle, so prod names them first:
+# without them a recipe's binary file (a PNG) goes into the Markdown as bytes, and the previews lose their two themes
 when@prod:
     twig:
         paths:
+            '%kernel.project_dir%/templates/bundles/UXToolkitBundle': UXToolkit
             '%kernel.project_dir%/vendor/symfony/ux-toolkit/templates': UXToolkit
