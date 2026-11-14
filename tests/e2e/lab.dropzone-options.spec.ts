@@ -277,3 +277,45 @@ test('a DropzoneType through the form theme\'s dropzone_preview_item: the item s
     await expect(page.getByTestId('posted')).toHaveText('posted=report.txt');
     expect(new URL(page.url()).searchParams.get('posted')).toBe('report.txt');
 });
+
+// ---------------------------------------------------------------------------------------------------------------------
+// The main line of a DropzoneType's box
+
+// `placeholder: false` (the recipe's DropzonePlaceholderExtension tells the widget) shows the icon and no main line; a
+// field given `attr` but no placeholder keeps the default one, which the extension exists to protect. A field's help is
+// below its box, and describes its input.
+test('a DropzoneType with placeholder false: an icon and no main line, the input named and described, a pick and Remove as on any zone', async ({ page }) => {
+    await page.goto('/lab/dropzone-options?form=quiet');
+    const input = page.getByLabel('Quiet file', { exact: true });
+    await expect(input).toHaveAttribute('type', 'file');
+    await expect(input).toHaveAccessibleDescription('PNG or JPG, up to 1 MB.');
+
+    const box = zoneOf(page, 'form_quiet').locator('[data-symfony--ux-dropzone--dropzone-target="placeholder"]');
+    await expect(box).toBeVisible();
+    await expect(box.locator('svg')).toBeVisible();
+    // no main line: the box holds the icon alone, not the default "Drag and drop or browse"
+    await expect(box.locator('p')).toHaveCount(0);
+    await expect(box).not.toContainText('Drag and drop or browse');
+
+    // a pick from the keyboard and Remove, as on any zone
+    await input.focus();
+    const chooser = page.waitForEvent('filechooser');
+    await page.keyboard.press('Enter');
+    await (await chooser).setFiles(png('quiet.png'));
+    const remove = page.getByRole('button', { name: 'Remove quiet.png' });
+    await expect(remove).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(input).toBeFocused();
+    await expect(box).toBeVisible();
+    expect(await names(input)).toEqual([]);
+});
+
+test('a DropzoneType given attr and no placeholder keeps the default main line', async ({ page }) => {
+    await page.goto('/lab/dropzone-options?form=quiet');
+    const input = page.getByLabel('Plain file', { exact: true });
+    await expect(input).toHaveAttribute('accept', 'image/png,image/jpeg');
+    await expect(input).toHaveAccessibleDescription('PNG or JPG.');
+    const box = zoneOf(page, 'form_plain').locator('[data-symfony--ux-dropzone--dropzone-target="placeholder"]');
+    await expect(box.locator('p')).toHaveText(['Drag and drop or browse']);
+    await expect(box.locator('svg')).toBeVisible();
+});

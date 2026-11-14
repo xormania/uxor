@@ -27,6 +27,8 @@ services:
         exclude: '../src/UXor/'
 
     # PHP that ux:install copies into an app's src/ (composer.json's autoload maps it to the recipes)
+    App\UXor\Dropzone\:
+        resource: '../../dropzone/src/UXor/Dropzone/'
     App\UXor\Editor\:
         resource: '../../editor/src/UXor/Editor/'
     App\UXor\MarkdownEditor\:

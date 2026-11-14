@@ -1,7 +1,7 @@
 {%- props
     ## boolean Whether several files can be chosen: they add up across picks, and each one gets its own Remove button.
     multiple = false,
-    ## string|null The main line of the box.
+    ## string|false|null The main line of the box; false, null or an empty string shows none.
     placeholder = 'Drag and drop or browse',
     ## string|null A second, smaller line, such as "PNG or JPG, up to 2 MB"; the file input is described by it.
     hint = null,

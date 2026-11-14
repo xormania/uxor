@@ -17,6 +17,9 @@ final class UploadController extends AbstractController
         $form = $this->createFormBuilder()
             ->add('photo', DropzoneType::class, ['required' => false, 'help' => 'PNG or JPG, up to 1 MB.'])
             ->add('files', DropzoneType::class, ['required' => false, 'multiple' => true])
+            // no main line in its box (placeholder: false), and the kit's default phrase for custom attr and no placeholder
+            ->add('quiet', DropzoneType::class, ['required' => false, 'placeholder' => false])
+            ->add('typed', DropzoneType::class, ['required' => false, 'attr' => ['accept' => 'image/png']])
             ->getForm();
         $form->handleRequest($request);
 

@@ -60,6 +60,7 @@
             "App\\": "src/",
             "App\\UXor\\DataTable\\": "../data-table/src/UXor/DataTable/",
             "App\\UXor\\DataTableLive\\": "../data-table-live/src/UXor/DataTableLive/",
+            "App\\UXor\\Dropzone\\": "../dropzone/src/UXor/Dropzone/",
             "App\\UXor\\Editor\\": "../editor/src/UXor/Editor/",
             "App\\UXor\\OAuth\\": "../oauth/src/UXor/OAuth/",
             "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/"

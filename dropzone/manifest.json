@@ -4,6 +4,7 @@
     "name": "Dropzone",
     "copy-files": {
         "assets/": "assets/",
+        "src/": "src/",
         "templates/": "templates/"
     },
     "dependencies": {
