@@ -237,6 +237,32 @@ test('a dropped file that accept refuses is left out with dropzone:reject; a dro
     expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
 });
 
+test('several files dropped on a zone for one file: the first is taken, the others left out with dropzone:reject', async ({ page }) => {
+    await page.goto(previewUrl('dropzone', 'default'));
+    const fileInput = input(page);
+    await expect(fileInput).not.toHaveAttribute('multiple');
+    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
+    await page.evaluate(() => {
+        const rejected: { reason: string; files: string[] }[] = ((window as any).rejected = []);
+        document.addEventListener('dropzone:reject', (event) => {
+            const { reason, files } = (event as CustomEvent).detail;
+            rejected.push({ reason, files: [...files].map((file: File) => file.name) });
+        });
+    });
+
+    // UX Dropzone keeps one file in such a zone whether the files come by a drop or are set on the input (a pick): the
+    // others are left out the same way, `max_files` the reason, `accept` not involved (this zone has none)
+    await dropFiles(fileInput, [
+        { name: 'first.png', type: 'image/png' },
+        { name: 'second.png', type: 'image/png' },
+        { name: 'third.txt', type: 'text/plain' },
+    ]);
+    await expect(page.getByRole('button', { name: 'Remove first.png' })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => (window as any).rejected)).toEqual([{ reason: 'max_files', files: ['second.png', 'third.txt'] }]);
+    expect(await input(page).evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name))).toEqual(['first.png']);
+    expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
+});
+
 test('an invalid zone is red and described by its error', async ({ page }) => {
     await page.goto(previewUrl('dropzone', 'invalid'));
     const fileInput = page.getByLabel('Profile picture');
