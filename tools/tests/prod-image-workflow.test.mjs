@@ -42,6 +42,19 @@ const TRIGGERS = [
     'docs/GUIDE.md',
     'brand-new-dir/notes.txt',
     'NEW-ROOT-FILE.md',
+    // the demo is the app the image runs, and its files behave differently in prod (no dev packages, no Toolkit bundle):
+    // every entry the image admits; the lane's own harness; a new directory whatever the file's name
+    'tools/tests/prod-image.sh',
+    'demo/src/Controller/ShowcaseController.php',
+    'demo/templates/base.html.twig',
+    'demo/.env',
+    'demo/importmap.php',
+    'demo/symfony.lock',
+    'demo/public/index.php',
+    'demo/bin/console',
+    'brand-new-dir/README.md',
+    // the lane's definition in CI (release-checks.yml runs on the release pull request, daily on dev and by hand)
+    '.github/workflows/ci.yml',
 ];
 /** Content the other jobs render from the same files: a recipe's template, assets and README, a browser spec. */
 const UNRELATED = ['alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'alert/README.md', 'tests/e2e/smoke.spec.ts'];
