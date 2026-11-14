@@ -12,15 +12,27 @@ const listbox = async (page: Page, control: Locator) => page.locator(`#${await c
 const pick = async (page: Page, control: Locator, typed: string, option: string) => {
     const list = await listbox(page, control);
     // UX Autocomplete rebuilds Tom Select when the <select> changes (remote results arriving, a Live re-render), which
-    // drops what was typed: type again until the list shows the search applied (Tom Select applies it after a delay,
-    // and a pick before that would be reopened)
+    // drops what was typed: type again until the list shows the search applied
     await expect(async () => {
         // click the field's box, as people do: with a chosen value, a single field moves its search input off-screen
         await control.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
         await control.fill('');
         await page.keyboard.type(typed);
         await expect(control).toHaveValue(typed, { timeout: 1000 });
-        await expect(list.locator('.highlight').first()).toBeVisible({ timeout: 1000 });
+        // Tom Select applies the search `refreshThrottle` ms (300) after the last keystroke, and clicking the box opens
+        // the list with an option already highlighted: a highlight alone does not show the search applied, and an option
+        // clicked before it is chosen from the list as it was. Wait until Tom Select has applied this search (its
+        // `lastQuery`, an instance property) and the highlighted option matches it; a remote field lists every option it
+        // has loaded, filtered by the server, so the options themselves are not all a match
+        const select = control.locator('xpath=ancestor::div[contains(@class, "ts-wrapper")]/preceding-sibling::select[1]');
+        await expect
+            .poll(
+                async () =>
+                    (await select.evaluate((element) => (element as any).tomselect?.lastQuery ?? null)) === typed &&
+                    ((await list.locator('.option.active, .highlight').first().textContent()) ?? '').toLowerCase().includes(typed.toLowerCase()),
+                { timeout: 1000 },
+            )
+            .toBe(true);
     }).toPass();
     await list.getByRole('option', { name: option, exact: true }).click();
     // leave the field, so its list does not cover the next one: a multiple field keeps it open, and search results
