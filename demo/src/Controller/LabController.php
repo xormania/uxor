@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\UX\Dropzone\Form\DropzoneType;
 use Symfony\UX\Turbo\TurboBundle;
 
 /**
@@ -557,11 +558,24 @@ final class LabController extends AbstractController
 
             return $this->render('lab/dropzone_options.stream.html.twig', ['action' => $request->request->get('action')]);
         }
+        // `?form=1`: a DropzoneType shown through the form theme's `dropzone_preview_item` block; a valid post answers 303
+        $upload = null;
+        if ($request->query->getBoolean('form')) {
+            $upload = $this->createFormBuilder(null, ['action' => $this->generateUrl('app_lab_dropzone_options', ['page' => $page, 'form' => 1])])
+                ->add('document', DropzoneType::class, ['constraints' => [new Assert\NotNull(message: 'Choose a document.')]])
+                ->getForm();
+            $upload->handleRequest($request);
+            if ($upload->isSubmitted() && $upload->isValid() && ($document = $upload->get('document')->getData()) instanceof UploadedFile) {
+                return $this->redirectToRoute('app_lab_dropzone_options', ['page' => $page, 'form' => 1, 'posted' => $document->getClientOriginalName()], Response::HTTP_SEE_OTHER);
+            }
+        }
 
         return $this->render('lab/dropzone_options.html.twig', [
             'page' => $page,
+            'upload' => $upload?->createView(),
+            'posted' => $request->query->getString('posted'),
             'description' => self::SCENARIOS['dropzone-options'],
-        ]);
+        ], new Response(null, $upload?->isSubmitted() ? 422 : 200));
     }
 
     #[Route('/dropzone-stream', name: 'app_lab_dropzone_stream', methods: ['GET', 'POST'])]
