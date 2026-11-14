@@ -23,8 +23,10 @@
 {%- set _controllers = ([controller, 'dropzone-assist']|merge(_own))|join(' ') -%}
 {%- set _wrapperKeys = ['class']|merge(attributes.all|keys|filter((key) => _own|filter((name) => key starts with ('data-' ~ name ~ '-') and key != ('data-' ~ name ~ '-target'))|length > 0)) -%}
 {%- set _actions = 'dragenter->dropzone-assist#dragOver dragover->dropzone-assist#dragOver dragleave->dropzone-assist#dragLeave drop->dropzone-assist#drop change->dropzone-assist#remember:capture dropzone:change->dropzone-assist#changed dropzone:clear->dropzone-assist#cleared dropzone:remove->dropzone-assist#removed click->dropzone-assist#clearing:capture turbo:before-cache@document->dropzone-assist#cache' -%}
-{#- the limit as written, only a positive integer's digits (not a boolean, whose text "1" would pass), only with `multiple` -#}
-{%- set _maxFiles = multiple and maxFiles is not null and maxFiles is not same as(true) and maxFiles is not same as(false) and maxFiles is not iterable and (maxFiles ~ '') matches '/^[1-9][0-9]*$/D' ? maxFiles ~ '' : null -%}
+{#- the limit as written, only a positive integer's digits (not a boolean, whose text "1" would pass), only with `multiple`;
+    its text is read once, so what is written is what was checked -#}
+{%- set _maxText = multiple and maxFiles is not null and maxFiles is not same as(true) and maxFiles is not same as(false) and maxFiles is not iterable ? maxFiles ~ '' : null -%}
+{%- set _maxFiles = _maxText is not null and _maxText matches '/^[1-9][0-9]*$/D' ? _maxText : null -%}
 {#- the `preview_item` block, when given, is the markup UX Dropzone clones for each file -#}
 {%- set _previewItem = block('preview_item')|trim is not empty -%}
 {%- set _describedby = [attributes.all['aria-describedby'] ?? null, hint ? _id ~ '_hint' : null, reselect ? _id ~ '_reselect' : null]|filter((id) => id)|join(' ') -%}
