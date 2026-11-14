@@ -15,7 +15,8 @@
 #            demo/composer.json at run time) is in it, the opt-in and the secret are not baked into it; the app is
 #            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the install guide and
 #            /llms.txt answer 200 with their content, and every recipe the image holds (/app/*/manifest.json) has a
-#            recipe page answering 200, as does each page's first preview (the files the image needs are in it); no node_modules, tests,
+#            recipe page answering 200, as does each page's first preview, each page rendered through the demo's own
+#            templates (its Toolkit overrides show every example in a light and a dark preview frame), not a fallback (the files the image needs are in it); no node_modules, tests,
 #            .git, packages/, .github, docs but GUIDE.md, or tools/ are (the files it must not hold are not)
 #
 #   context  what the build context sends (demo/Dockerfile's ignore file applied): a throwaway stage copies the
@@ -106,6 +107,14 @@ gitignored_in_context() {
             done
         done
 }
+# the checkout's untracked files (git ls-files --others --exclude-standard) that the copied context holds
+untracked_in_context() {
+    local path
+    if [ ! -e "$root/.git" ]; then return 0; fi
+    git -C "$root" ls-files --others --exclude-standard | while IFS= read -r path; do
+        if [ -e "$path" ] || [ -L "$path" ]; then echo "./$path"; fi
+    done
+}
 context_dir="$(mktemp -d)"
 context_out="$context_dir/out"
 ignore="$root/demo/Dockerfile.dockerignore"
@@ -127,6 +136,9 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed 'unexpected entry at the top of demo/' "ls -A demo | grep -vxF -e .env -e assets -e bin -e composer.json -e composer.lock -e config -e frankenphp -e importmap.php -e public -e src -e symfony.lock -e templates | sed 's|^|./demo/|'"
     # nothing demo/.gitignore ignores, but the copies tools/sync-demo writes (its marked block), which the build rewrites
     listed 'file demo/.gitignore ignores (outside the copies sync-demo writes)' gitignored_in_context
+    # a file git sees as neither committed nor ignored (a developer's scratch file in an admitted directory, which
+    # demo/.gitignore cannot name): a clone has none, a developer's checkout may
+    listed 'untracked file (neither committed nor ignored by git)' untracked_in_context
     listed "secret or machine-local file (a decryption key, .env.local, phpunit.xml, .agents, .idea, .vscode)" \
         "find . \\( -name '*.decrypt.private.php' -o -name .env.local -o -name '.env.*.local' -o -name .env.local.php -o -name phpunit.xml -o -name .phpunit.cache -o -name .agents -o -name .idea -o -name .vscode \\) -print"
 else
@@ -249,6 +261,12 @@ else
             # its first preview: the recipe's templates render in prod
             preview="$(grep -oE 'src="/preview/[^"]*"' "$body" | head -n 1 | sed 's/^src="//; s/"$//; s/&amp;/\&/g' || true)"
             [ -n "$preview" ] || continue
+            # the page is the demo's, not a fallback to the Toolkit's own templates: the demo's code_preview override
+            # (demo/templates/bundles/UXToolkitBundle) shows each example in both themes, in a preview-frame iframe
+            example="${preview%%\?*}"
+            if ! grep -qF "src=\"$example?theme=light\"" "$body" || ! grep -qF "src=\"$example?theme=dark\"" "$body" || ! grep -qF 'data-controller="preview-frame"' "$body"; then
+                failed="$failed/r/$recipe renders the Toolkit's own templates, not the demo's (no light and dark preview-frame of $example)"$'\n'
+            fi
             previews=$((previews + 1))
             code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port$preview" || echo 000)"
             [ "$code" = 200 ] || failed="$failed$preview $code"$'\n'
@@ -259,7 +277,7 @@ else
         if [ "$count" -lt 1 ]; then
             result runtime FAIL 'the image holds no recipe (no /app/*/manifest.json)'
         elif [ -z "$failed" ]; then
-            result runtime PASS "every recipe page and its first preview answer 200 ($count recipes, $previews previews, ${elapsed}s)"
+            result runtime PASS "every recipe page and its first preview answer 200, each page the demo's own ($count recipes, $previews previews, ${elapsed}s)"
         else
             result runtime FAIL "every recipe page and its first preview answer 200 ($count recipes, $previews previews, ${elapsed}s), failed:"
             while IFS= read -r line; do [ -n "$line" ] && printf '    %s\n' "$line"; done <<< "$failed"
