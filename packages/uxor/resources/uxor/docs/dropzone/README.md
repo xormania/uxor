@@ -215,7 +215,8 @@ UX Dropzone dispatches these events on the wrapper, all bubbling:
   of the form. The kit dispatches it too when it empties a zone for one file that Turbo restored outside a POST form
   (see *With Turbo*).
 - `dropzone:reject`, when files are left out: `{files, reason}`, the reason `accept` for dropped files that `accept`
-  does not match.
+  does not match, and `max_files` when a zone for one file is given several files at once, dropped or picked: it
+  keeps the first and leaves out the others.
 
 Listen to them from your own controller, on the `Dropzone` (its `data-controller` joins UX Dropzone's on the
 wrapper) or on an element around it:
