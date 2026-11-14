@@ -58,10 +58,32 @@ go there with it, and its target (`data-<controller>-target`) stays on the input
 - `accept` limits the files the chooser offers and the files a drop adds (see *Limits*); the server still checks them.
 - `multiple`: picks add up in a list under the box, each file with its own Remove button; a file picked twice is
   kept once. Name the input with `[]` (`attachments[]`) so the server receives every file.
+- `maxFiles` caps a zone for several files: files over it are left out with `dropzone:reject` (see *Events*), and a
+  full zone takes no more until a file is removed. It takes a positive whole number (`maxFiles="3"`); any other value,
+  or a zone for one file, sets no cap. The server still counts the files.
 - `removeLabel` names the Remove buttons, followed by the file name: "Remove photo.png".
 - `reselect` shows a note in the box, which describes the input, such as a file the server did not keep.
 - The `content` block replaces the icon and the placeholder, for a custom look; `hint` and `reselect` stay under it.
+- The `preview_item` block replaces the preview of each picked file: one root element, which UX Dropzone clones for
+  each file, filling the parts marked `data-dropzone-slot="image"` (an `<img>` gets the image as its `src`, another
+  element as its background), `"filename"` (the name, as text) and `"remove"` (removes the file, named "Remove
+  photo.png"). With none or several root elements, UX Dropzone does not connect and reports the error in the browser
+  console. With `multiple`, each copy goes into the list, so make it an `<li>`.
 - In an invalid field, set `aria-invalid="true"` and point `aria-describedby` at the error: the box turns red.
+
+```twig
+<twig:Dropzone id="attachments" name="attachments[]" multiple maxFiles="3">
+    <twig:block name="preview_item">
+        <li class="flex items-center gap-3 rounded-base border border-default p-2">
+            <img class="size-10 rounded-sm object-cover" alt="" data-dropzone-slot="image">
+            <span class="min-w-0 flex-1 text-sm text-heading" data-dropzone-slot="filename"></span>
+            <button type="button" class="rounded-base p-1 text-body hover:text-heading" data-dropzone-slot="remove">
+                <twig:ux:icon name="flowbite:close-outline" class="size-5" aria-hidden="true" />
+            </button>
+        </li>
+    </twig:block>
+</twig:Dropzone>
+```
 
 ### In a Symfony form
 
@@ -85,8 +107,29 @@ $builder
     ->add('attachments', DropzoneType::class, [
         'required' => false,
         'multiple' => true,
-        'constraints' => [new Assert\Count(max: 3), new Assert\All([new Assert\File(maxSize: '1M')])],
+        'max_files' => 3,
+        'constraints' => [new Assert\All([new Assert\File(maxSize: '1M')])],
     ]);
+```
+
+`max_files` (with `multiple`) caps the zone in the browser, as `maxFiles` does, and UX Dropzone's type adds a
+`Count(max: …)` constraint for the server: add no `Count` of your own next to it, or the error shows twice.
+
+The preview of each file comes from the `dropzone_preview_item` block of your form theme, when it defines one: the
+markup of one file, as the component's `preview_item` block takes it, without a `<template>` around it. UX Dropzone's
+own `dropzone_preview_item_template` block (a whole `<template>`, as its documentation shows) is not read with this
+theme: rename yours to `dropzone_preview_item` and keep only what is inside its `<template>`.
+
+```twig
+{# templates/form/theme.html.twig, after form/flowbite_layout.html.twig in twig.form_themes #}
+{% block dropzone_preview_item %}
+    <li class="flex items-center gap-3">
+        <span class="min-w-0 flex-1 text-sm text-heading" data-dropzone-slot="filename"></span>
+        <button type="button" class="rounded-base p-1 text-body" data-dropzone-slot="remove">
+            <twig:ux:icon name="flowbite:close-outline" class="size-5" aria-hidden="true" />
+        </button>
+    </li>
+{% endblock %}
 ```
 
 The controller is the usual one: `handleRequest()`, `getData()` gives an `UploadedFile` (a list of them with
@@ -209,14 +252,15 @@ UX Dropzone dispatches these events on the wrapper, all bubbling:
 - `dropzone:pre-add`, cancelable, before picked or dropped files are added (UX Dropzone's documentation describes
   its `waitUntil()`).
 - `dropzone:change`, when files are added, or one of several is removed: the `File`, or the input's `FileList` with
-  `multiple`. With `multiple`, a pick that adds nothing (every file is in the list already) dispatches none.
+  `multiple`. With `multiple`, a pick that adds nothing (every file is in the list already, or over `maxFiles`)
+  dispatches none.
 - `dropzone:remove`, after its `dropzone:change`, when one of several files is removed: the removed `File`.
 - `dropzone:clear`, when the zone becomes empty: Remove with one file, removing the last of several files, a reset
   of the form. The kit dispatches it too when it empties a zone for one file that Turbo restored outside a POST form
   (see *With Turbo*).
 - `dropzone:reject`, when files are left out: `{files, reason}`, the reason `accept` for dropped files that `accept`
-  does not match, and `max_files` when a zone for one file is given several files at once, dropped or picked: it
-  keeps the first and leaves out the others.
+  does not match, and `max_files` for the files over `maxFiles` (`max_files` in a form) in a zone for several files,
+  or after the first when a zone for one file is given several files at once, dropped or picked.
 
 Listen to them from your own controller, on the `Dropzone` (its `data-controller` joins UX Dropzone's on the
 wrapper) or on an element around it:
@@ -302,10 +346,13 @@ promoted to history, are answered by the `turbo` recipe's module (`assets/lib/ux
   chooser with Enter or Space, and is named by its label.
 - After a pick made from the keyboard, focus moves to the Remove button, named "Remove photo.png", which tells a
   screen reader what was picked; Remove puts it back on the input. With `multiple`, the list is announced as it
-  changes, and removing a file focuses the next Remove button, else the input.
+  changes, and removing a file focuses the next Remove button, else the input. With a `preview_item` block, its
+  `remove` slot is that button: keep one, a `<button type="button">`, in each item.
 - A file dropped outside the input (on the list or the preview) is refused, so the browser never opens it in the tab.
 
 ## Security
 
 `Dropzone` has no tag, URL or attribute-name prop. Its attributes render escaped, as the kit's guide says
-(`docs/GUIDE.md`, *Security*).
+(`docs/GUIDE.md`, *Security*), and `maxFiles` renders only as digits. The `preview_item` block (and the form theme's
+`dropzone_preview_item`) is your own markup, rendered as you write it; UX Dropzone puts each file's name in it as
+text, never as HTML.
