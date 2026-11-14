@@ -318,9 +318,15 @@ function runAudit(job, { token, status = 0, output = 'No vulnerabilities found.'
         mkdirSync(join(scratch, 'bin'));
         mkdirSync(join(scratch, 'config/packages'), { recursive: true });
         mkdirSync(join(scratch, 'runner-temp'));
+        // a container an earlier boot built, and a log the cache clearing must leave alone
+        mkdirSync(join(scratch, 'var/cache/dev'), { recursive: true });
+        mkdirSync(join(scratch, 'var/log'), { recursive: true });
+        writeFileSync(join(scratch, 'var/cache/dev/built-before.marker'), 'container\n');
+        writeFileSync(join(scratch, 'var/log/kept.log'), 'log\n');
         const seen = join(scratch, 'runner-temp/seen-config.yaml');
+        const cacheAtAudit = join(scratch, 'runner-temp/cache-at-audit');
         const stub = join(scratch, 'bin/console');
-        writeFileSync(stub, `#!/usr/bin/env bash\ncase " $* " in *' importmap:audit '*) [ -f '${LANE_CONFIG}' ] && cp '${LANE_CONFIG}' '${seen}'; printf '%s\\n' '${output.replaceAll("'", '')}'; exit ${status} ;; esac\nexit 64\n`);
+        writeFileSync(stub, `#!/usr/bin/env bash\ncase " $* " in *' importmap:audit '*) [ -f '${LANE_CONFIG}' ] && cp '${LANE_CONFIG}' '${seen}'; [ -e var/cache/dev/built-before.marker ] && echo present > '${cacheAtAudit}'; printf '%s\\n' '${output.replaceAll("'", '')}'; exit ${status} ;; esac\nexit 64\n`);
         spawnSync('chmod', ['+x', stub]);
         const env = { ...process.env, RUNNER_TEMP: join(scratch, 'runner-temp') };
         delete env[TOKEN_VARIABLE];
@@ -331,6 +337,8 @@ function runAudit(job, { token, status = 0, output = 'No vulnerabilities found.'
             log: result.stdout + result.stderr,
             seen: existsSync(seen) ? readFileSync(seen, 'utf8') : null,
             left: existsSync(join(scratch, LANE_CONFIG)),
+            staleCacheAtAudit: existsSync(cacheAtAudit),
+            logKept: existsSync(join(scratch, 'var/log/kept.log')),
         };
     } finally {
         rmSync(scratch, { recursive: true, force: true });
@@ -396,5 +404,19 @@ test('no tracked file of the demo or the consumer application configures the tok
     for (const file of files) {
         const text = readFileSync(join(root, file), 'utf8');
         assert.ok(!text.includes(TOKEN_VARIABLE) && !text.includes('api.github.com'), `${file} holds no token configuration`);
+    }
+});
+
+test('with the token, the audit step clears the app cache before the audit, so a container built earlier cannot hide the lane config; without it, the cache stays', () => {
+    for (const job of requiredAuditJobs()) {
+        const withToken = runAudit(job, { token: FAKE_TOKEN });
+        assert.equal(withToken.status, 0, `${job.id}: ${withToken.log}`);
+        assert.ok(!withToken.staleCacheAtAudit, `${job.id}: with the token, var/cache from an earlier boot is gone when importmap:audit runs`);
+        assert.ok(withToken.logKept, `${job.id}: only the cache is cleared, var/log stays`);
+        for (const [label, token] of [['unset', undefined], ['empty', '']]) {
+            const run = runAudit(job, { token });
+            assert.ok(run.staleCacheAtAudit, `${job.id}, ${label}: without the token the cache is left alone`);
+            assert.ok(run.logKept, `${job.id}, ${label}: var/log stays`);
+        }
     }
 });
