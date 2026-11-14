@@ -2,8 +2,19 @@
 
 namespace App\Tests\Dropzone;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\Form\AbstractTypeExtension;
+use Symfony\Component\Form\FormFactory;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormRegistry;
+use Symfony\Component\Form\FormView;
+use Symfony\Component\Form\PreloadedExtension;
+use Symfony\Component\Form\ResolvedFormTypeFactory;
+use Symfony\Contracts\Translation\TranslatableInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 use Symfony\UX\Dropzone\Form\DropzoneType;
 use Symfony\UX\TwigComponent\Test\InteractsWithTwigComponents;
 
@@ -58,6 +69,50 @@ final class DropzonePlaceholderTest extends KernelTestCase
         self::assertSame(['Drop a photo'], $this->mainLines($this->renderField(['attr' => ['placeholder' => 'Drop a photo']])));
     }
 
+    /** Guards the change, green before it: a translatable placeholder is the main line, translated. */
+    public function testATranslatablePlaceholderIsTheMainLineTranslated(): void
+    {
+        $placeholder = new class implements TranslatableInterface {
+            public function trans(TranslatorInterface $translator, ?string $locale = null): string
+            {
+                return 'Déposez une photo';
+            }
+        };
+
+        self::assertSame(['Déposez une photo'], $this->mainLines($this->renderField(['placeholder' => $placeholder])));
+    }
+
+    /** @return iterable<string, array{bool}> */
+    public static function consumerExtensionOrders(): iterable
+    {
+        yield "the app's extension before the kit's" => [true];
+        yield "the app's extension after the kit's" => [false];
+    }
+
+    /**
+     * An app's own extension of DropzoneType, registered before or after the kit's: the kit's still works, and the app's
+     * sees the options UX Dropzone resolves (the placeholder, the attr) and keeps what it adds to the view.
+     */
+    #[DataProvider('consumerExtensionOrders')]
+    public function testAnAppsOwnExtensionOfDropzoneTypeAndTheKitsWorkSideBySide(bool $appFirst): void
+    {
+        $seen = self::seen();
+        $factory = $this->factoryWithAppExtension($seen, $appFirst);
+
+        $none = $this->mainLines($this->renderField(['placeholder' => false], $factory, 'off'));
+        self::assertSame([], $none, 'placeholder false: no main line');
+        self::assertFalse(self::sawFor($seen, 'off')['placeholder'], 'the app sees placeholder false as passed');
+
+        $attrOnly = $this->renderField(['attr' => ['accept' => 'image/png']], $factory, 'attr_only');
+        self::assertSame([self::DEFAULT_PHRASE], $this->mainLines($attrOnly), 'custom attr, nothing said: the default phrase');
+        self::assertFalse(self::sawFor($seen, 'attr_only')['placeholder'], 'the app sees the placeholder UX Dropzone resolves for custom attr');
+        self::assertSame(['accept' => 'image/png'], self::sawFor($seen, 'attr_only')['attr'], 'the app sees the attr as given');
+        self::assertSame('kept', $attrOnly->filter('input[type="file"]')->attr('data-app'), "what the app adds to the view reaches the input");
+
+        self::assertSame([self::DEFAULT_PHRASE], $this->mainLines($this->renderField([], $factory, 'plain')));
+        self::assertSame(self::DEFAULT_PHRASE, self::sawFor($seen, 'plain')['placeholder'], "the app sees UX Dropzone's default phrase");
+    }
+
     /** An empty placeholder is no text: no main line, as today. */
     public function testAnEmptyPlaceholderShowsNoMainLine(): void
     {
@@ -109,11 +164,63 @@ final class DropzonePlaceholderTest extends KernelTestCase
         ));
     }
 
-    /** @param array<string, mixed> $options */
-    private function renderField(array $options): Crawler
+    /**
+     * What the app's extension saw for one field, which it must have seen.
+     *
+     * @param \ArrayObject<string, array{placeholder: mixed, attr: mixed}> $seen
+     *
+     * @return array{placeholder: mixed, attr: mixed}
+     */
+    private static function sawFor(\ArrayObject $seen, string $name): array
     {
-        $form = self::getContainer()->get('form.factory')->createNamed('upload', DropzoneType::class, null, $options);
+        $entry = $seen[$name] ?? null;
+        self::assertNotNull($entry, "the app's extension built the view of {$name}");
+
+        return $entry;
+    }
+
+    /** @return \ArrayObject<string, array{placeholder: mixed, attr: mixed}> what the app's extension saw, per field */
+    private static function seen(): \ArrayObject
+    {
+        return new \ArrayObject();
+    }
+
+    /** @param array<string, mixed> $options */
+    private function renderField(array $options, ?FormFactoryInterface $factory = null, string $name = 'upload'): Crawler
+    {
+        $form = ($factory ?? self::getContainer()->get('form.factory'))->createNamed($name, DropzoneType::class, null, $options);
 
         return new Crawler(self::getContainer()->get('twig')->createTemplate('{{ form_widget(form) }}')->render(['form' => $form->createView()]));
+    }
+
+    /**
+     * The demo's form factory with an app's own DropzoneType extension added before or after the extensions the
+     * container registers (the kit's among them); it records the options it sees per field and adds `data-app`.
+     *
+     * @param \ArrayObject<string, array{placeholder: mixed, attr: mixed}> $seen
+     */
+    private function factoryWithAppExtension(\ArrayObject $seen, bool $appFirst): FormFactoryInterface
+    {
+        $app = new class($seen) extends AbstractTypeExtension {
+            /** @param \ArrayObject<string, array{placeholder: mixed, attr: mixed}> $seen */
+            public function __construct(private readonly \ArrayObject $seen)
+            {
+            }
+
+            public static function getExtendedTypes(): iterable
+            {
+                return [DropzoneType::class];
+            }
+
+            public function buildView(FormView $view, FormInterface $form, array $options): void
+            {
+                $this->seen[$form->getName()] = ['placeholder' => $options['placeholder'], 'attr' => $options['attr']];
+                $view->vars['attr']['data-app'] = 'kept';
+            }
+        };
+        $container = self::getContainer()->get('form.extension');
+        $preloaded = new PreloadedExtension([], [DropzoneType::class => [$app]]);
+
+        return new FormFactory(new FormRegistry($appFirst ? [$preloaded, $container] : [$container, $preloaded], new ResolvedFormTypeFactory()));
     }
 }
