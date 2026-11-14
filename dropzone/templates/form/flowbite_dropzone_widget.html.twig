@@ -19,7 +19,9 @@
 {%- if _placeholder is not null and translation_domain is not same as(false) -%}
     {%- set _placeholder = _placeholder|trans(attr_translation_parameters, translation_domain) -%}
 {%- endif -%}
-{%- set _props = _placeholder is not null ? {placeholder: _placeholder} : {} -%}
+{#- `placeholder: false` (the recipe's DropzonePlaceholderExtension says so) shows no main line; a field with no placeholder
+    keeps the component's default -#}
+{%- set _props = placeholder_disabled|default(false) ? {placeholder: false} : (_placeholder is not null ? {placeholder: _placeholder} : {}) -%}
 {%- set _removeLabel = remove_label|default('Remove') -%}
 {%- set _removeLabel = translation_domain is same as(false) ? _removeLabel : _removeLabel|trans({}, translation_domain) -%}
 {#- the files of a submit that came back for other fields' errors -#}
