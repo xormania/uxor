@@ -3,10 +3,13 @@
 # here: the demo, the kit's recipes as the demo reads them (each recipe's manifest, README, templates, assets, PHP and
 # config), the root files the gallery reads at run time, and tools/sync-demo, which the production build runs.
 #
-# Two rules of this format shape it. A pattern names a path, not a type, and loses a trailing slash: `!*/config/`
-# would also take the file .git/config. And excluding a directory does not exclude the files inside it once an
-# exception (`!…`) could match them. So a recipe's re-includes start with a letter or a digit (never a dot directory),
-# and every exclusion names its directory and everything below it (`x` and `x/**`).
+# How a file is judged: by the last pattern that matches that file's own path, so excluding a directory's name (`.git`,
+# `**/.git`) leaves out none of its files that an earlier re-include matches. A pattern names a path, not a type, and
+# drops a trailing slash: `!*/config/` re-includes the file .git/config, which is how .git once reached the image.
+# Two rules keep that from happening, each enough alone (both checked with tools/tests/prod-image.sh's context part):
+# - a re-include below the root starts with a letter or a digit, `![a-z0-9]*/…`, never `!*/…`, so it cannot match a dot
+#   directory;
+# - every exclusion names the directory and everything below it (`x` and `x/**`), and comes after the re-includes.
 *
 
 # the kit as the demo reads it (app.kit_dir: the demo's parent); a recipe's directories are those its copy-files names
