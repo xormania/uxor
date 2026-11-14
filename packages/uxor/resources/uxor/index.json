@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.1",
-        "inputs_sha256": "4dc2b6ed337fd603f698ef6beb9f32e8b5206522987c6ebf0d92df2e48f827a4",
+        "inputs_sha256": "9ee9fda839cca116257385b007abb89909d56a8794bd695493dcfb9b5daf12ed",
         "manifest_sha256": "e624eb4fc71ef5a830e675f43e1dfc822dafee22ccac88290d3586304d6bc54a",
         "license": "MIT"
     },
@@ -522,7 +522,7 @@
                         "turbo"
                     ],
                     "composer": [
-                        "symfony/ux-dropzone:^3.5",
+                        "symfony/ux-dropzone:^3.7",
                         "symfony/ux-icons",
                         "symfony/ux-twig-component:^3.5",
                         "twig/html-extra:^3.24.0",
@@ -530,7 +530,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "ca9564e363281aad155d78b78ed8959be57093bb351824c22647ad7f42d3fa11",
+            "manifest_sha256": "02a3cb76947fb4ec807032cc5c6c01b38b5d64220160a0643b37c11c8aff848d",
             "documentation": "dropzone/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/dropzone"
         },

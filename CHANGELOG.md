@@ -5,6 +5,14 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- `dropzone` requires `symfony/ux-dropzone` 3.7 or later (it allowed 3.5): UX Dropzone 3.7 shows and hides the
+  zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5 or 3.6 runs
+  `composer require symfony/ux-dropzone:^3.7` before installing or updating the recipe; read UX Dropzone's upgrade
+  notes for 3.7 (dropped files checked against `accept`, the `placeholder` option replacing `attr.placeholder`,
+  `dropzone:clear` no longer dispatched on connect).
+
 ### Fixed
 
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
