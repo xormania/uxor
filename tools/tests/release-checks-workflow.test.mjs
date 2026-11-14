@@ -173,25 +173,73 @@ test('missing structural evidence remains fatal, and required evidence and brows
     assert.equal(evidence.status, 1, evidence.stdout + evidence.stderr);
 });
 
-test('the required verdict rejects a failed or skipped suite and target resolution, retaining only the trusted skips', (t) => {
+test('the required verdict rejects a failed or skipped suite, production image and target resolution, retaining only the trusted skips', (t) => {
     const fx = scratch(t);
     const verdict = steps('verdict').find((step) => step.run);
-    for (const [event, changed, run, suite, expected] of [
-        ['daily', 'success', 'true', 'success', 0],
-        ['daily', 'success', 'true', 'failure', 1],
-        ['daily', 'success', 'true', 'skipped', 1],
-        ['daily', 'failure', '', 'skipped', 1],
-        ['daily', 'success', 'false', 'skipped', 0],
-        ['workflow_dispatch', 'success', 'false', 'skipped', 1],
-        ['schedule', 'success', 'false', 'skipped', 1],
-        ['pull_request', 'success', 'true', 'failure', 1],
-        ['pull_request', 'success', 'true', 'skipped', 1],
-        ['pull_request', 'success', 'false', 'skipped', 0],
-        ['pull_request', 'failure', 'false', 'skipped', 1],
+    // the production image runs when the suite does (needs.changed.outputs.run == 'true'): it must have succeeded then;
+    // where the suite is trusted to be skipped it is skipped too, which passes, and a failed or cancelled one never does
+    for (const [event, changed, run, suite, image, expected] of [
+        ['daily', 'success', 'true', 'success', 'success', 0],
+        ['daily', 'success', 'true', 'failure', 'success', 1],
+        ['daily', 'success', 'true', 'skipped', 'success', 1],
+        ['daily', 'success', 'true', 'success', 'failure', 1],
+        ['daily', 'success', 'true', 'success', 'cancelled', 1],
+        ['daily', 'success', 'true', 'success', 'skipped', 1],
+        ['daily', 'success', 'true', 'success', '', 1],
+        ['daily', 'failure', '', 'skipped', 'skipped', 1],
+        ['daily', 'success', 'false', 'skipped', 'skipped', 0],
+        ['daily', 'success', 'false', 'skipped', 'failure', 1],
+        ['daily', 'success', 'false', 'skipped', 'cancelled', 1],
+        ['workflow_dispatch', 'success', 'false', 'skipped', 'skipped', 1],
+        ['workflow_dispatch', 'success', 'true', 'success', 'success', 0],
+        ['workflow_dispatch', 'success', 'true', 'success', 'failure', 1],
+        ['schedule', 'success', 'false', 'skipped', 'skipped', 1],
+        ['pull_request', 'success', 'true', 'success', 'success', 0],
+        ['pull_request', 'success', 'true', 'failure', 'success', 1],
+        ['pull_request', 'success', 'true', 'skipped', 'success', 1],
+        ['pull_request', 'success', 'true', 'success', 'failure', 1],
+        ['pull_request', 'success', 'true', 'success', 'skipped', 1],
+        ['pull_request', 'success', 'false', 'skipped', 'skipped', 0],
+        ['pull_request', 'success', 'false', 'skipped', 'failure', 1],
+        ['pull_request', 'failure', 'false', 'skipped', 'skipped', 1],
     ]) {
-        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success' });
-        assert.equal(out.status, expected, `${event}/${changed}/${run}/${suite}: ${out.stdout}${out.stderr}`);
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image });
+        assert.equal(out.status, expected, `${event}/${changed}/${run}/suite ${suite}/production image ${image || 'no result'}: ${out.stdout}${out.stderr}`);
     }
+});
+
+test('the verdict and the daily issue wait for the production image and read its result', () => {
+    for (const job of ['verdict', 'issue']) {
+        const text = jobText(job);
+        const needs = /^ {8}needs:\s*\[([^\]]*)\]/m.exec(text)?.[1].split(',').map((name) => name.trim()) ?? [];
+        assert.ok(needs.includes('prod-image'), `${job} needs prod-image: ${needs.join(', ')}`);
+        assert.match(text, /^\s+PROD_IMAGE:\s*\$\{\{\s*needs\.prod-image\.result\s*\}\}\s*$/m, `${job} reads needs.prod-image.result as PROD_IMAGE`);
+    }
+});
+
+test('the daily issue reports a failed production image, and closes only when it succeeded too', (t) => {
+    const issue = steps('issue').find((step) => step.run);
+    for (const [image, closed, reported] of [
+        ['success', true, false],
+        ['failure', false, true],
+        ['cancelled', false, true],
+        ['skipped', false, true],
+    ]) {
+        const fx = scratch(t);
+        // gh: an open issue, number 7; every call recorded
+        executable(fx, 'gh', `echo "$*" >> "${join(fx.dir, 'gh.log')}"\nif [ "$1 $2" = "issue list" ]; then echo 7; fi`);
+        const out = shell(issue.run, fx, { REPO: 'owner/repo', CHANGED: 'success', RUN: 'true', RESULT: 'success', COMPLETE: 'success', PROD_IMAGE: image, COMMIT: 'abc1234', RUN_URL: 'https://example.test/run' });
+        assert.equal(out.status, 0, `${image}: ${out.stdout}${out.stderr}`);
+        const calls = existsSync(join(fx.dir, 'gh.log')) ? readFileSync(join(fx.dir, 'gh.log'), 'utf8') : '';
+        assert.equal(/^issue close 7\b/m.test(calls), closed, `production image ${image}: the issue ${closed ? 'is' : 'is not'} closed; gh calls:\n${calls}`);
+        assert.equal(/^issue comment 7\b/m.test(calls), reported, `production image ${image}: the open issue ${reported ? 'gets' : 'gets no'} comment; gh calls:\n${calls}`);
+    }
+    // the issue's suite already passed on dev's head: no image ran, and the issue closes as before
+    const fx = scratch(t);
+    executable(fx, 'gh', `echo "$*" >> "${join(fx.dir, 'gh.log')}"\nif [ "$1 $2" = "issue list" ]; then echo 7; fi`);
+    const out = shell(issue.run, fx, { REPO: 'owner/repo', CHANGED: 'success', RUN: 'false', RESULT: 'skipped', COMPLETE: 'skipped', PROD_IMAGE: 'skipped', COMMIT: 'abc1234', RUN_URL: 'https://example.test/run' });
+    assert.equal(out.status, 0, `${out.stdout}${out.stderr}`);
+    assert.match(readFileSync(join(fx.dir, 'gh.log'), 'utf8'), /^issue close 7\b/m, 'nothing ran today: the issue closes');
 });
 
 test('only a passing daily run on dev records a reusable pass marker', () => {
@@ -343,7 +391,7 @@ printf '%s' "$payload" | jq -r "$4"`);
     const base = commit('kit.css', 'base');
     const passed = commit('calendar/Calendar.html.twig', 'passed');
     commit('CHANGELOG.md', 'release');
-    commit('llms.txt', 'links');
+    commit('docs/RECIPES.md', 'recipes');
     commit('docs/TESTING.md', 'docs');
     commit('AGENTS.md', 'rules');
     const docs = commit('packages/uxor/README.md', 'package');

@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Fixed
 
+- The demo's production image builds and serves the gallery: it holds the kit beside the demo, as on disk, and the
+  demo needs UX Toolkit's library at run time. CI and the release checks build it and run it when its inputs change.
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
   cover the consumer harness's PHP and browser dependencies. Remaining source comments and a breadcrumb test sample now
   describe UXor without promising Flowbite parity.

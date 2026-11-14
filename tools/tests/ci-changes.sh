@@ -39,7 +39,7 @@ check_git() {
     fi
 }
 
-all='lint-kit php static-site fresh-install contrast demo workflows package'
+all='lint-kit php static-site fresh-install contrast demo workflows package prod-image'
 kit='lint-kit php static-site fresh-install demo'
 kit_contrast='lint-kit php static-site fresh-install contrast demo'
 
@@ -52,25 +52,25 @@ check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs
 # the inputs of the Composer package's generated references: Package checks their copies are up to date
 check 'contrast package'          docs/TESTING.md
 check 'contrast package'          FOR-AGENTS.md
-check 'contrast package'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
-check 'package'                   LICENSE
-check 'package'                   NOTICE
-check 'contrast'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
+check 'contrast package prod-image'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
+check 'package prod-image'        LICENSE
+check 'package prod-image'        NOTICE
+check 'contrast prod-image'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
 check 'contrast'                  tools/test-inventory.mjs
 check 'contrast'                  tools/icon-lint.mjs
 check ''                          tools/tests/icon-lint.test.mjs
 # What the lints read wherever it lies: a recipe's templates (icon-lint) and any markdown outside demo/ (docs-lint,
 # icon-lint); the demo's copies of the recipes are not read
-check "$kit_contrast"             input/templates/components/Input.html.twig
-check "$kit_contrast"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
+check "$kit_contrast prod-image"             input/templates/components/Input.html.twig
+check "$kit_contrast prod-image"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
 check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
-check 'php static-site demo'      demo/templates/components/Input.html.twig
+check 'php static-site demo prod-image' demo/templates/components/Input.html.twig
 check 'php static-site demo'      demo/README.md
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
 # the kit's README.md and INSTALL.md: no install, lint, PHP test or page reads them; Contrast and the references do
-check 'contrast package'          INSTALL.md
+check 'contrast package prod-image'          INSTALL.md
 check 'contrast package'          README.md
 
 # A workflow: actionlint reads it, and the jobs that run what it runs check that part (a workflow's own triggers run
@@ -111,12 +111,44 @@ check_git "$all"                  'git mv .github/workflows/ci.yml .github/workf
 # A path no rule names is part of the kit
 # A manifest makes a directory a recipe, which the inventory check (Contrast) reads, and the package's references
 # copy it (Package)
-check "$kit_contrast package"     new-recipe/manifest.json
-check "$kit_contrast package"     tabs/manifest.json
-check_git "$kit_contrast package" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git -c user.name=t -c user.email=t@t commit -qm tabs && git rm -q tabs/manifest.json'
-check "$kit"                      some-new-file.txt
+check "$kit_contrast package prod-image"     new-recipe/manifest.json
+check "$kit_contrast package prod-image"     tabs/manifest.json
+check_git "$kit_contrast package prod-image" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git -c user.name=t -c user.email=t@t commit -qm tabs && git rm -q tabs/manifest.json'
+check "$kit prod-image"                      some-new-file.txt
+# The production image's lane, for everything the image holds (demo/Dockerfile.dockerignore): a recipe's manifest,
+# README, templates/, assets/, src/ and config/, and a new or deleted top-level directory or a new root file, which the
+# list may have to name. Not a recipe's tests/ or another file the list leaves out, root files the image never holds,
+# nor packages/.
+check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
+check "$kit_contrast prod-image"             alert/assets/controllers/alert_controller.js
+check "$kit_contrast prod-image"             oauth/src/UXor/OAuth/OAuthClient.php
+check "$kit_contrast prod-image"             editor/src/UXor/Editor/EditorExtension.php
+check "$kit_contrast prod-image"             oauth/config/uxor_oauth.example.yaml
+check 'contrast demo'                        alert/tests/alert.spec.ts
+check 'demo'                                 alert/tests/screenshots/with-list-dark.png
+check "$kit_contrast"                        alert/docs/notes.txt
+check "$kit_contrast prod-image"             brand-new-dir/notes.txt
+check "$kit_contrast prod-image"             NEW-ROOT-FILE.md
+check "$kit prod-image"                      NEW-ROOT-FILE.txt
+check "$kit"                                 kit.js
+check "$kit"                                 icon.svg
+check_git "$kit_contrast prod-image"         'mkdir -p old-top-dir && echo x > old-top-dir/file.txt && git add old-top-dir && git -c user.name=t -c user.email=t@t commit -qm old && git rm -q -r old-top-dir'
+check_git "$kit_contrast package prod-image" 'mkdir -p added-recipe/templates && echo "{}" > added-recipe/manifest.json && echo x > added-recipe/templates/X.html.twig && git add added-recipe'
+# a README in a directory that is not a recipe is a new directory too; an existing recipe's README is not
+check 'lint-kit static-site contrast demo package prod-image' brand-new-dir/README.md
+# the demo app, every entry the image admits; not its tests, README or development files
+check 'php static-site demo prod-image' demo/src/Controller/ShowcaseController.php
+check 'php static-site demo prod-image' demo/.env
+check 'php static-site demo prod-image' demo/importmap.php
+check 'php static-site demo prod-image' demo/symfony.lock
+check 'php static-site demo prod-image' demo/public/index.php
+check 'php static-site demo prod-image' demo/bin/console
+check 'php static-site demo'            demo/phpunit.dist.xml
+check 'php static-site contrast demo'   demo/tests/Functional/RecipeDocsTest.php
+# the image's own harness
+check 'php static-site demo prod-image' tools/tests/prod-image.sh
 # the kit's manifest: llms.txt (Contrast) holds its name, homepage and description; the references copy it (Package)
-check "$kit_contrast package"     manifest.json
+check "$kit_contrast package prod-image"     manifest.json
 check 'contrast'                  tools/kit-identity.mjs
 # the name check and its cases: Tool tests, on every run
 check ''                          tools/name-check.mjs tools/tests/name-check.test.mjs
@@ -134,10 +166,10 @@ check 'demo'                      tools/playwright-image.mjs tools/playwright-im
 check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php static-site contrast demo' demo/tests/Editor/EditorTypeTest.php
-check 'php static-site contrast demo' demo/src/Controller/LabController.php
+check 'php static-site contrast demo prod-image' demo/src/Controller/LabController.php
 check 'contrast demo'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
-check 'php static-site demo'      demo/src/Demo/DataTableCollector.php
+check 'php static-site demo prod-image' demo/src/Demo/DataTableCollector.php
 check 'php'                       tools/phpstan.neon
 check 'fresh-install'             tools/tests/fresh-install.sh
 check 'fresh-install'             tools/tests/install-scenario.sh
@@ -164,39 +196,52 @@ check 'workflows'                 .github/actions/jev-diagnosis/action.yml
 check ''                          tools/tests/playwright-summary.test.mjs tools/tests/fixtures/playwright-results/timed.json
 check ''                          tools/tests/fixtures/junit/phpunit.xml tools/tests/fixtures/junit/node-test.xml
 check ''                          tools/tests/ci-metrics.test.mjs tools/tests/fixtures/ci-metrics/jobs.jsonl
-check 'php static-site demo'      tools/sync-demo
+check 'php static-site demo prod-image' tools/sync-demo
 # tools Tool tests runs against the real kit or its own config, on every run
 check ''                          tools/security-policy.mjs tools/security-sinks.json tools/check-github-mentions.mjs tools/hooks/commit-msg
 check ''                          tools/js-duplication.mjs tools/recipe-imports.mjs tools/kit-former-names.json
 check ''                          tools/tests/fixtures/release-checks/run.json
 check 'demo'                      tools/demo-php
-check 'php static-site fresh-install demo' demo/compose.yaml
-check 'php static-site fresh-install demo' demo/frankenphp/Caddyfile
-check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
+check 'php static-site fresh-install demo prod-image' demo/compose.yaml
+check 'php static-site fresh-install demo prod-image' demo/frankenphp/Caddyfile
+# the demo image's other build inputs: the production image's lane too (it builds and runs frankenphp_prod)
+check 'php static-site demo prod-image' demo/Dockerfile
+check 'php static-site demo prod-image' demo/Dockerfile.dockerignore
+check 'php static-site demo prod-image' demo/compose.override.yaml
+check 'php static-site demo prod-image' demo/frankenphp/docker-entrypoint.sh
+check 'php static-site demo prod-image' demo/frankenphp/conf.d/20-app.prod.ini
+# what the production image installs and how it boots in prod: the lane too
+check 'php static-site demo prod-image' demo/composer.lock demo/src/Kernel.php
+check 'php static-site demo prod-image' demo/composer.json
+check 'php static-site demo prod-image' demo/config/packages/twig.yaml
+check 'php static-site demo prod-image' demo/config/services.yaml
+# the demo's code, templates and assets are not the image's build inputs on their own
+check 'php static-site demo prod-image' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
+check "$kit_contrast prod-image"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
-check 'lint-kit static-site contrast demo package' side-nav/README.md
-check "$kit_contrast"             kit.css
+check 'lint-kit static-site contrast demo package prod-image' side-nav/README.md
+check "$kit_contrast prod-image"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
-check "$kit_contrast"             theme/assets/styles/uxor.css
-check "$kit_contrast"             button/templates/components/Button.html.twig
-check "$kit_contrast"             layouts/templates/layouts/app.html.twig
+check "$kit_contrast prod-image"             theme/assets/styles/uxor.css
+check "$kit_contrast prod-image"             button/templates/components/Button.html.twig
+check "$kit_contrast prod-image"             layouts/templates/layouts/app.html.twig
 # what both archives hold, the kit's and the Composer package's: the kit's jobs and Package
 check "$kit package"              .gitattributes
 # tools/readme-pairing.mjs (Contrast) pairs a recipe's code with its README, tools/readme-versions.mjs its README with
 # its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too. Only the README and the
 # manifest are copied into the package's references (Package); a deeper README is not
-check "$kit_contrast"             alert/templates/components/Alert.html.twig
-check "$kit_contrast"             data-table/src/Table/DataTable.php
-check 'lint-kit static-site contrast demo package' alert/README.md
-check "$kit_contrast package"     alert/manifest.json
+check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
+check "$kit_contrast prod-image"             data-table/src/Table/DataTable.php
+check 'lint-kit static-site contrast demo package prod-image' alert/README.md
+check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
-check "$kit_contrast"             alert/assets/manifest.json
-check_git "$kit_contrast"         'mkdir -p alert/templates && echo a > alert/templates/x.html.twig && git add alert'
+check "$kit_contrast prod-image"             alert/assets/manifest.json
+check_git "$kit_contrast prod-image"         'mkdir -p alert/templates && echo a > alert/templates/x.html.twig && git add alert'
 check 'contrast'                  tools/readme-pairing.mjs tools/readme-versions.mjs
 check ''                          tools/tests/readme-pairing.test.mjs
 check ''                          tools/tests/jev-diagnosis.test.mjs
 check ''                          tools/tests/step-attempts.test.mjs
-check "$kit_contrast"             docs/NOTES.md kit.css
+check "$kit_contrast prod-image"             docs/NOTES.md kit.css
 
 # The Composer package xormania/uxor. Its root metadata is in the kit's archive too, but no install or lint reads it;
 # the lock file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'

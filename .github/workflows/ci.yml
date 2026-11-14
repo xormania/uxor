@@ -81,6 +81,7 @@ jobs:
             demo: ${{ steps.jobs.outputs.demo }}
             workflows: ${{ steps.jobs.outputs.workflows }}
             package: ${{ steps.jobs.outputs.package }}
+            prod-image: ${{ steps.jobs.outputs.prod-image }}
             base: ${{ steps.jobs.outputs.base }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,7 +111,7 @@ jobs:
                       echo "Work order $branch: its pull request into dev is $state"
                       if [ "$state" != ready ]; then
                           echo "wo-draft=true" >> "$GITHUB_OUTPUT"
-                          for job in lint-kit php static-site fresh-install contrast demo workflows package; do
+                          for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                               echo "$job=false" | tee -a "$GITHUB_OUTPUT"
                           done
                           exit 0
@@ -142,7 +143,7 @@ jobs:
                   # branch cannot pass CI result with its checks skipped
                   if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: install checks with fresh consumer dependency resolution"
-                      for job in lint-kit php static-site fresh-install contrast demo workflows package; do
+                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
                   elif [ -n "$from" ] && git show "$from:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
@@ -153,7 +154,7 @@ jobs:
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site fresh-install contrast demo workflows package; do
+                  for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   tee -a "$GITHUB_OUTPUT" < "$RUNNER_TEMP/jobs"
@@ -682,6 +683,52 @@ jobs:
                   job: Fresh install (Symfony Docker, from GitHub)
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # The demo's production image (demo/Dockerfile, target frankenphp_prod), which no other job builds: built from the
+    # repository as the dev image is (the kit beside the demo, demo/Dockerfile.dockerignore naming what it holds), for
+    # linux/amd64 only, then run by tools/tests/prod-image.sh: it refuses to boot without the explicit opt-in, holds no
+    # baked secret, development package or Xdebug, runs as www-data, turns healthy, serves the gallery's pages (each
+    # kind of file it reads from the kit) and holds nothing the allow-list leaves out. It runs when the image's build
+    # inputs change (tools/ci-changes.sh); a plain build, with no cache shared with the dev image's bake.
+    prod-image:
+        name: Production image
+        needs: changes
+        if: needs.changes.outputs.prod-image == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # (the output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
+            - name: Build the production image
+              id: build
+              run: |
+                  set -o pipefail
+                  {
+                      docker buildx build --platform linux/amd64 --target frankenphp_prod --load --progress plain -t uxor-demo-prod:ci -f demo/Dockerfile .
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+
+            # (the output also goes to $RUNNER_TEMP/jev-prod-image.log, for the Jev step)
+            - name: Run the production image
+              id: prod-image
+              run: |
+                  set -o pipefail
+                  tools/tests/prod-image.sh uxor-demo-prod:ci 2>&1 | tee "$RUNNER_TEMP/jev-prod-image.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Production image
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
     # The Composer package xormania/uxor: the root composer.json and its implementation in packages/uxor/. Its metadata
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
     # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
@@ -927,12 +974,15 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   pull: true
                   set: |
+                      *.context=.
                       *.output=type=cacheonly
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }}
                       *.cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
@@ -1014,13 +1064,16 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo                # bake's working directory: compose files and build context in demo/
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   load: true
                   pull: true
                   set: |
+                      *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
@@ -1258,7 +1311,7 @@ jobs:
     result:
         name: CI result
         if: ${{ always() && github.event_name != 'schedule' }}
-        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo]
+        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo, prod-image]
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:

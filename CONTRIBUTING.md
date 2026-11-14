@@ -80,6 +80,27 @@ FrankenPHP restarts its workers when a file changes. After changing a recipe, ru
 `tailwind:build` again. `tools/sync-demo` never deletes: remove a renamed or deleted recipe file from `demo/`
 yourself. `docker compose down` stops the demo.
 
+The demo image builds from the repository, not from `demo/`: `compose.override.yaml` sets `context: ..` and
+`dockerfile: demo/Dockerfile`, and `demo/Dockerfile.dockerignore` is the list of what a build may read (BuildKit
+uses it for this Dockerfile alone). To build it by hand, run `docker compose build` from `demo/`, or from the root
+`docker buildx build -f demo/Dockerfile --target frankenphp_dev .`. `docker buildx bake` resolves a compose file's
+relative `context` against its own working directory, not the file's, so CI's bake steps run from the root with
+`--set '*.context=.'`.
+
+The production image is the demo built to run on its own (target `frankenphp_prod`): the kit beside the app in the
+image as on disk (`/app`, the app in `/app/demo`), its recipes copied and its CSS and assets compiled at build time.
+It is the demo, not something the kit asks an application to deploy; the public gallery is the static export
+(*Releases*), and the dynamic demo refuses production without an opt-in ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)).
+Build and check it with
+`docker buildx build --platform linux/amd64 --target frankenphp_prod --load -t uxor-demo-prod -f demo/Dockerfile .`
+then `tools/tests/prod-image.sh uxor-demo-prod`. The image copies whole directories of the checkout, so a local-only
+file inside them (a `demo/config/packages/local.yaml`, a file a global gitignore hides) would be included: build it from
+a clean clone, or run the harness's context check first (`tools/tests/prod-image.sh no-such-image`, which checks the
+context without building). To run it yourself, pass `UXOR_DEMO_ALLOW_PRODUCTION=1`, a random
+`APP_SECRET` of at least 32 characters and the Mercure keys `compose.yaml` sets (`docker run -e …`). CI builds and runs
+it when the demo's files it holds or its build inputs change (*Production image*), and the release checks on every
+release.
+
 Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
 `(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
 the demo with `php -S 127.0.0.1:8000 -t demo/public`. PHP's built-in server only serves the compiled CSS and
@@ -131,13 +152,17 @@ change to both paths.
 | A change to | runs |
 |---|---|
 | `.github/dependabot.yml` | nothing |
-| `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them |
-| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them |
-| `kit.js`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, any file in a directory no other row names | the jobs of `kit.js` (above) and *Contrast* |
-| `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them) | the jobs of `kit.js` (above), *Contrast* and *Package* |
-| a recipe's `README.md` (the toolkit's lint checks its headings, the static site and the browser tests render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package* |
-| `README.md`, `INSTALL.md` (no install, lint, PHP test or page reads them) | *Contrast*, *Package* |
+| `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them; *Production image*, which holds them |
+| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
+| `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
+| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) |
+| a recipe's `templates/`, `assets/`, `src/`, `config/` (Contrast pairs its code with its `README.md`; the production image holds them and renders them without the development packages) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
+| any other file of a recipe but `tests/` (one the production image does not hold) | the jobs of `kit.js` (above) and *Contrast* |
+| `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
+| `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
+| a recipe's `README.md` (the toolkit's lint checks its headings, the static site, the browser tests and the production image render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package*, *Production image* |
+| `README.md` (no install, lint, PHP test or page reads it) | *Contrast*, *Package* |
+| `INSTALL.md` (the gallery's install guide, `/install`) | *Contrast*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
 | `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
@@ -151,7 +176,8 @@ change to both paths.
 | `tools/tests/*.test.mjs`, `tools/tests/fixtures/playwright-results/`, `tools/tests/fixtures/junit/`, `tools/tests/fixtures/ci-metrics/`, `tools/monthly/` (every tool's cases, and the monthly report tools) | nothing else: *Tool tests* runs all the tools' cases on every run, in seconds, with no install |
 | `package.json`, `package-lock.json` | *Contrast*, *Demo + Playwright* |
 | any other markdown file outside `demo/` | *Contrast* (`tools/docs-lint.mjs`, `tools/icon-lint.mjs`), and the jobs its path runs |
-| `tools/contrast/`, `tools/llms-txt.mjs`, `tools/docs-lint.mjs`, `tools/test-inventory.mjs`, `llms.txt` | *Contrast* |
+| `tools/contrast/`, `tools/llms-txt.mjs`, `tools/docs-lint.mjs`, `tools/test-inventory.mjs` | *Contrast* |
+| `llms.txt` (the gallery serves it) | *Contrast*, *Production image* |
 | `tools/icon-lint.mjs` | *Contrast* |
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | *Contrast* |
 | `tools/fence-coverage.mjs` | *Contrast*, *Static site* |
@@ -161,10 +187,16 @@ change to both paths.
 | `tools/security-policy.mjs`, `tools/security-sinks.json`, `tools/check-github-mentions.mjs`, `tools/hooks/`, `tools/js-duplication.mjs`, `tools/recipe-imports.mjs`, `tools/kit-former-names.json`, `tools/tests/fixtures/release-checks/` | nothing else: *Tool tests* runs them against the real kit or their own config |
 | `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |
 | `tools/tests/fresh-install.sh`, `docker-install.sh`, their shared steps `install-scenario.sh`, `check-fresh-app.sh`, `live-action.php`, `tools/tests/fixtures/fresh-app/` | both *Fresh install* jobs |
+| `tools/sync-demo` (the production image's builder runs it too) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| `tools/tests/prod-image.sh` (the production image's harness) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | any other file in `tools/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
-| `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| `demo/tests/`, `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
-| any other file in `demo/` | *Kit PHP*, *Static site*, *Demo + Playwright* |
+| `demo/compose.yaml`, `demo/frankenphp/Caddyfile` | *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright*, *Production image* |
+| `demo/Dockerfile`, `demo/Dockerfile.dockerignore`, `demo/compose.override.yaml`, any other file in `demo/frankenphp/` (the demo image's build inputs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| `demo/composer.json`, `demo/composer.lock`, any file in `demo/config/` (what the production image installs, and how it boots in prod) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| `demo/tests/` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
+| `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright*, *Production image* |
+| any other file in `demo/bin/`, `demo/src/`, `demo/templates/`, `demo/assets/`, `demo/public/`, `demo/.env`, `demo/importmap.php`, `demo/symfony.lock` (the app the production image runs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
+| any other file in `demo/` (its README, development and test configuration) | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
