@@ -57,6 +57,10 @@ final class DropzoneFormOptionsTest extends KernelTestCase
         yield 'digits' => ['3', '3'];
         yield 'several digits' => [12, '12'];
         yield 'float with no fraction (its text is 3)' => [3.0, '3'];
+        yield 'Stringable whose text is 3' => [self::text('3'), '3'];
+        yield 'float in exponent form whose text is 1000' => [1e3, '1000'];
+        // digits only, as written, even beyond PHP_INT_MAX: the attribute never holds anything else
+        yield 'digits beyond PHP_INT_MAX' => ['99999999999999999999', '99999999999999999999'];
     }
 
     #[DataProvider('limits')]
@@ -109,6 +113,10 @@ final class DropzoneFormOptionsTest extends KernelTestCase
         yield 'trailing letters' => ['3abc', []];
         // a regular expression's `$` also matches before a final line break: the limit must be the digits alone
         yield 'trailing line break' => ["3\n", []];
+        yield 'leading line break' => ["\n3", []];
+        yield 'trailing carriage return' => ["3\r", []];
+        yield 'Stringable ending in a line break' => [self::text("3\n"), []];
+        yield 'float whose text has an exponent' => [1e20, []];
         yield 'word' => ['three', []];
         yield 'null' => [null, []];
         yield 'false' => [false, []];
@@ -226,6 +234,21 @@ final class DropzoneFormOptionsTest extends KernelTestCase
 
         self::assertStringNotContainsString('upstream-item', $html);
         self::assertCount(0, (new Crawler($html))->filter(self::TEMPLATE));
+    }
+
+    /** An object whose text is `$text`, as a Twig value may be. */
+    private static function text(string $text): \Stringable
+    {
+        return new class($text) implements \Stringable {
+            public function __construct(private readonly string $text)
+            {
+            }
+
+            public function __toString(): string
+            {
+                return $this->text;
+            }
+        };
     }
 
     private function assertTemplateHolds(string $html, string $class): void
