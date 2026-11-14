@@ -197,7 +197,8 @@ jobs:
             # the advisory request goes with the job's token, which lifts GitHub's anonymous rate limit: a config written
             # for this step only (never committed, removed when the step ends, before outdated runs without the variable)
             # points AssetMapper's client at one that adds the header for api.github.com alone; the file holds the env
-            # reference, never the token; without a token the request stays anonymous
+            # reference, never the token; without a token the request stays anonymous. The app's cache is cleared first:
+            # a container built earlier in the job does not notice a new config file and would keep the old client
             - name: importmap audit
               id: audit
               if: github.event_name != 'pull_request' || steps.changed.outputs.files
@@ -208,6 +209,7 @@ jobs:
                   set -o pipefail
                   if [ -n "${AUDIT_GITHUB_TOKEN:-}" ]; then
                       trap 'rm -f config/packages/zz_audit_github.yaml' EXIT
+                      rm -rf var/cache
                       cat > config/packages/zz_audit_github.yaml <<'YAML'
                   framework:
                       http_client:
