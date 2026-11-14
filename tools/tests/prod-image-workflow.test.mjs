@@ -1,18 +1,20 @@
 // The demo's production image (demo/Dockerfile, target frankenphp_prod) is built and started by CI, not only read as text
 // (demo/tests/Security/ProductionConfigurationTest.php): a lane that runs for a change to demo/Dockerfile or the
 // Compose files (ci.yml's Changes job and tools/ci-changes.sh, or a workflow's pull_request paths), and a lane of the
-// release checks. Each lane names the target it builds and states its one platform, linux/amd64.
+// release checks. Each lane names the target it builds, builds it from the repository root with demo/Dockerfile (the
+// kit's files the image needs sit beside the demo; demo/Dockerfile.dockerignore, an allow-list, chooses them) and states
+// its one platform, linux/amd64. The development image keeps the repository bind-mounted, as on disk.
 // Run: node --test tools/tests/prod-image-workflow.test.mjs
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const workflowsDir = '.github/workflows';
-const TRIGGERS = ['demo/Dockerfile', 'demo/compose.yaml', 'demo/compose.override.yaml'];
+const TRIGGERS = ['demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'demo/compose.yaml', 'demo/compose.override.yaml', 'demo/frankenphp/Caddyfile', 'demo/frankenphp/docker-entrypoint.sh'];
 /** Changes that leave the image's build inputs alone: a guide, a recipe's template, a browser spec. */
 const UNRELATED = ['docs/GUIDE.md', 'alert/templates/components/Alert.html.twig', 'tests/e2e/smoke.spec.ts'];
 
@@ -50,12 +52,16 @@ function selected(paths) {
     return new Set(result.stdout.split('\n').filter((line) => line.endsWith('=true')).map((line) => line.slice(0, -'=true'.length)));
 }
 
+/** Whether a pull_request path pattern (`*` within a directory, `**` across them) matches a path. */
+const globMatches = (pattern, path) => new RegExp(`^${pattern.split('**').map((part) => part.split('*').map((piece) => piece.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[^/]*')).join('.*')}$`).test(path);
+
 /** Whether a lane runs for a change to each of TRIGGERS and for none of UNRELATED. */
 function filteredToImageChanges(job) {
     const paths = /^ {4}pull_request:\n(?: {8}.*\n)*? {8}paths:\n((?: {12}- .*\n)+)/m.exec(job.workflow.text)?.[1];
     if (paths) {
         const listed = paths.split('\n').map((line) => line.trim().replace(/^- /, '').replace(/^['"]|['"]$/g, ''));
-        return TRIGGERS.every((path) => listed.includes(path)) && !UNRELATED.some((path) => listed.includes(path));
+        const runs = (path) => listed.some((pattern) => pattern && globMatches(pattern, path));
+        return TRIGGERS.every(runs) && !UNRELATED.some(runs);
     }
     const gate = /^ {8}if:.*\bneeds\.changes\.outputs\.([a-z0-9_-]+)\b/m.exec(job.text)?.[1];
     if (job.workflow.path !== `${workflowsDir}/ci.yml` || !gate) return false;
@@ -84,4 +90,44 @@ test('every production-image lane states linux/amd64 as its one platform', () =>
         const platforms = [...job.text.matchAll(/\blinux\/[a-z0-9]+(?:\/v\d)?\b/g)].map((m) => m[0]);
         assert.deepEqual([...new Set(platforms)], ['linux/amd64'], `${label(job)} builds for linux/amd64 only`);
     }
+});
+
+test('every production-image lane builds from the repository root with demo/Dockerfile', () => {
+    const lanes = prodLanes();
+    assert.ok(lanes.length > 0, 'a workflow job builds the frankenphp_prod target and starts it');
+    for (const job of lanes) {
+        const cli = /(?:^|\s)(?:-f|--file)[\s=]+['"]?demo\/Dockerfile['"]?(?:\s.*)?\s['"]?\.\/?['"]?\s*$/m.test(job.text);
+        const action = /^\s+file:\s*['"]?demo\/Dockerfile['"]?\s*$/m.test(job.text) && /^\s+context:\s*['"]?\.\/?['"]?\s*$/m.test(job.text);
+        assert.ok(cli || action, `${label(job)} builds with -f demo/Dockerfile from the repository root`);
+        assert.doesNotMatch(job.text, /(?:^|\s)['"]?\.?\/?demo['"]?\s*$|context:\s*['"]?\.?\/?demo['"]?\s*$/m, `${label(job)} does not build from demo/`);
+    }
+});
+
+test('demo/Dockerfile.dockerignore is an allow-list, and demo/.dockerignore is gone', () => {
+    const path = join(root, 'demo/Dockerfile.dockerignore');
+    assert.ok(existsSync(path), 'demo/Dockerfile.dockerignore exists (BuildKit reads it for demo/Dockerfile in place of the context\'s .dockerignore)');
+    const rules = readFileSync(path, 'utf8').split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#'));
+    assert.ok(['*', '**'].includes(rules[0]), `it starts by excluding everything, so every file in the image is named: first rule ${JSON.stringify(rules[0])}`);
+    assert.ok(rules.slice(1).every((rule) => rule.startsWith('!') || !/^\*\*?$/.test(rule)), 'no later rule excludes everything again');
+    assert.ok(!existsSync(join(root, 'demo/.dockerignore')), 'demo/.dockerignore is gone: the context is the repository root');
+});
+
+test('the demo image builds in the workflows take the repository root as their source, not demo/', () => {
+    for (const name of ['ci.yml', 'monthly.yml', 'release-checks.yml']) {
+        const text = code(readFileSync(join(root, workflowsDir, name), 'utf8'));
+        const sources = [...text.matchAll(/^\s+source:\s*(\S+)\s*$/gm)].map((m) => m[1].replace(/^['"]|['"]$/g, ''));
+        assert.ok(sources.length > 0, `${name} builds the demo image with a bake source`);
+        for (const source of sources) {
+            assert.doesNotMatch(source, /(?:^|\/)demo\/?$/, `${name}: bake source ${source} is demo/, not the repository root`);
+        }
+        assert.match(text, /^\s+demo\/compose\.yaml\s*$/m, `${name}: the bake files name demo/compose.yaml from the root`);
+    }
+});
+
+test('the development image still runs the repository bind-mounted, the app in /app/demo', () => {
+    const override = code(readFileSync(join(root, 'demo/compose.override.yaml'), 'utf8'));
+    assert.match(override, /^\s+target:\s*frankenphp_dev\s*$/m, 'it builds the frankenphp_dev target');
+    assert.match(override, /^\s+-\s*['"]?\.\.\/:\/app['"]?\s*$/m, 'the repository is mounted at /app');
+    assert.match(override, /^\s+working_dir:\s*\/app\/demo\s*$/m, 'the working directory is /app/demo');
+    assert.match(override, /^\s+SERVER_ROOT:\s*['"]?\/app\/demo\/public['"]?\s*$/m, 'SERVER_ROOT is /app/demo/public');
 });

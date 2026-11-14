@@ -5,12 +5,15 @@
 #
 #   static   the Dockerfile's base images are pinned by digest and the stage exists; ProductionConfigurationTest when
 #            demo/vendor/ is installed (otherwise SKIP, never counted as a pass)
-#   build    docker build --target frankenphp_prod --platform linux/amd64 of demo/ (the context compose.override.yaml
-#            gives the development image); the base image digests and the image built are printed
+#   build    docker build --target frankenphp_prod --platform linux/amd64 -f demo/Dockerfile from the repository root (the
+#            context the image needs: the kit's files beside the demo, chosen by demo/Dockerfile.dockerignore); the base
+#            image digests and the image built are printed
 #   runtime  the image refuses to boot without the production opt-in; with it and a random APP_SECRET, it turns healthy
 #            (its HEALTHCHECK), PID 1 runs as www-data, PHP has the extensions the image installs and the demo requires,
-#            no Xdebug and no require-dev package is in it, the opt-in and the secret are not baked into it, and / answers
-#            200 over HTTP
+#            no Xdebug and no require-dev package is in it, the opt-in and the secret are not baked into it; the app is
+#            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the install guide and
+#            /llms.txt answer 200 with their content (the files the image needs are in it); no node_modules, tests,
+#            .git, packages/, .github, docs but GUIDE.md, or tools/ are (the files it must not hold are not)
 #
 # Usage: tools/tests/prod-image.sh [<image>]
 #   <image>: an image already built from the stage, to run without building (the build part then reports SKIP)
@@ -65,7 +68,7 @@ if [ -n "$given_image" ]; then
     result build SKIP "image given: $given_image"
 else
     build_log="$(mktemp)"
-    if docker buildx build --platform "$platform" --target frankenphp_prod --load --progress plain -t "$image" "$root/demo" >"$build_log" 2>&1; then
+    if docker buildx build --platform "$platform" --target frankenphp_prod --load --progress plain -f "$root/demo/Dockerfile" -t "$image" "$root" >"$build_log" 2>&1; then
         result build PASS "built $image"
     else
         tail -n 40 "$build_log"
@@ -125,9 +128,38 @@ else
         for package in $dev_packages; do
             check runtime "no require-dev package $package in vendor/" docker exec "$container" test ! -e "vendor/$package"
         done
+        # the layout of the development image: the app in /app/demo, the kit's files beside it
+        check runtime "the working directory is /app/demo (got $(docker exec "$container" pwd 2>/dev/null))" test "$(docker exec "$container" pwd 2>/dev/null)" = /app/demo
+        check runtime 'SERVER_ROOT is /app/demo/public' test "$(docker exec "$container" printenv SERVER_ROOT 2>/dev/null)" = /app/demo/public
+
+        # the files the image needs are in it: each page answers 200 with its own content
         port="$(docker port "$container" 80/tcp | head -n 1 | sed 's/.*://')"
-        code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port/" || echo 000)"
-        check runtime "GET / answers 200 (got $code)" test "$code" = 200
+        page() { # <path> <text the page must hold>
+            local body code
+            body="$(mktemp)"
+            code="$(curl -s -o "$body" -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port$1" || echo 000)"
+            if [ "$code" = 200 ] && grep -qF -- "$2" "$body"; then result runtime PASS "GET $1 answers 200 with \"$2\""
+            else result runtime FAIL "GET $1 answers 200 with \"$2\" (got $code)"; fi
+            rm -f "$body"
+        }
+        page / 'href="/r/button"'               # the dashboard lists the recipes
+        page /r/button 'src="/preview/button/'  # a recipe page: its README's examples, as previews
+        page '/preview/button/default?theme=light' '<title>button / default'   # one preview: the recipe's templates render
+        page /install 'ux:install'               # the install guide (INSTALL.md)
+        page /llms.txt '/r/button'               # llms.txt, from the kit's files
+
+        # the files it must not hold are not in it
+        absent() { # <what> <shell test run in the image>
+            if docker exec "$container" sh -c "$2" >/dev/null 2>&1; then result runtime PASS "no $1 in the image"
+            else result runtime FAIL "no $1 in the image"; fi
+        }
+        absent 'node_modules' '[ -z "$(find /app -name node_modules -print -quit)" ]'
+        absent 'tests directory (the root, a recipe or the demo)' '[ -z "$(find /app -maxdepth 2 -name tests -type d -print -quit)" ]'
+        absent '.git' '[ ! -e /app/.git ]'
+        absent 'packages/' '[ ! -e /app/packages ]'
+        absent '.github' '[ ! -e /app/.github ]'
+        absent 'tools/ (removed after the build)' '[ ! -e /app/tools ]'
+        absent 'docs but docs/GUIDE.md' '[ "$(ls -A /app/docs 2>/dev/null)" = GUIDE.md ]'
     else
         result runtime FAIL 'the container is not running: no further runtime checks'
     fi

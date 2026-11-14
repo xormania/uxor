@@ -64,7 +64,8 @@ final class ProductionConfigurationTest extends TestCase
         $dumpEnv = strpos($builder, 'composer dump-env prod');
         self::assertNotFalse($dumpEnv);
         self::assertGreaterThan($dumpEnv, $export, 'after dump-env, so neither value is written into the image');
-        foreach (['post-install-cmd', 'asset-map:compile'] as $command) {
+        // the kit's files synced beside the app, then its importmap, stylesheet and assets built, all in prod: after the opt-in
+        foreach (['sync-demo', 'post-install-cmd', 'importmap:install', 'tailwind:build', 'asset-map:compile'] as $command) {
             $at = strpos($builder, $command);
             self::assertNotFalse($at, $command);
             self::assertLessThan($at, $export, "before {$command}, which boots the kernel in prod");
