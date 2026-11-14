@@ -152,7 +152,7 @@ change to both paths.
 | A change to | runs |
 |---|---|
 | `.github/dependabot.yml` | nothing |
-| `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them |
+| `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them; *Production image*, which holds them |
 | `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) |

@@ -1032,24 +1032,23 @@ entries its allow-list admits (`bin`, `config`, `src`, `templates`, `assets`, `p
 `composer.lock`, `symfony.lock`, `importmap.php`, `.env`), since the app runs differently in prod (no development
 package, no Toolkit bundle); for its other build inputs: `demo/Dockerfile`, `demo/Dockerfile.dockerignore`,
 `demo/compose.yaml`, `demo/compose.override.yaml` and `tools/sync-demo`, which the builder runs; for its harness,
-`tools/tests/prod-image.sh`; for every recipe file the image holds, which it renders without the development packages:
-a recipe's `manifest.json`, `README.md`, `templates/`, `assets/`, `src/` and `config/`; for the root files it admits
-(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `docs/GUIDE.md`); and for what its allow-list may have to name:
-a new root file, and any file in a top-level directory that is not a recipe (new, or deleted), its README included. It
-does not run for a recipe's `tests/` (its browser specs and screenshot baselines) or another file the allow-list leaves
-out, the browser specs in `tests/`, the docs but `docs/GUIDE.md`, the tools but the two above, `packages/`, or the demo's
-tests, README and development files. A change to anything the image contains runs it: most pull requests run the lane
-beside *Kit PHP*, *Static site* and *Demo + Playwright*, about 2 minutes 15 seconds on its own runner, in parallel, so
-it adds runner time but not the time to a verdict, which *Demo + Playwright* sets. The release checks reuse an earlier pass only when nothing the suite
-reads changed; `docs/GUIDE.md` and `llms.txt`, pages of the image, count as read, the rest of `docs/` does not. In the
-release checks, the required
-*Release checks* verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip
-skips both), and the daily issue stays open, with a comment naming it, while the image fails. It is a plain
-build, sharing no cache with the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
+`tools/tests/prod-image.sh`; for every recipe file the image holds, which it renders without the development packages: a
+recipe's `manifest.json`, `README.md`, `templates/`, `assets/`, `src/` and `config/`; for the root files it admits
+(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`); and for what its
+allow-list may have to name: a new root file, and any file in a top-level directory that is not a recipe (new, or
+deleted), its README included. It does not run for a recipe's `tests/` (its browser specs and screenshot baselines) or
+another file the allow-list leaves out, the browser specs in `tests/`, the docs but `docs/GUIDE.md`, the tools but the
+two above, `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
+it: most pull requests run the lane beside *Kit PHP*, *Static site* and *Demo + Playwright*, about 2 minutes 15 seconds
+on its own runner, in parallel, so it adds runner time but not the time to a verdict, which *Demo + Playwright* sets.
+The release checks reuse an earlier pass only when nothing the suite reads changed; `docs/GUIDE.md` and `llms.txt`,
+pages of the image, count as read, the rest of `docs/` does not. In the release checks, the required *Release checks*
+verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip skips both), and
+the daily issue stays open, with a comment naming it, while the image fails. It is a plain build, sharing no cache with
+the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
 [`tools/tests/prod-image-workflow.test.mjs`](../tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
-build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a recipe's
-tests, the docs or the tools,
-and that the dev image's bake steps read the compose files from the root.
+build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a
+recipe's tests, the docs or the tools, and that the dev image's bake steps read the compose files from the root.
 
 ## Accessibility
 

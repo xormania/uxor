@@ -33,7 +33,8 @@ while IFS= read -r path; do
         # docs/GUIDE.md is also a page of the gallery, which the production image serves from its own copy (/guide)
         docs/GUIDE.md) on contrast package prod-image ;;
         docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
-        LICENSE | NOTICE) on package ;;
+        # the production image holds them too (demo/Dockerfile.dockerignore)
+        LICENSE | NOTICE) on package prod-image ;;
 
         # Read by people and agents: Contrast checks the generated lists, the plans' status (tools/llms-txt.mjs
         # reads CHANGELOG.md for the links' ref) and what the markdown teaches (tools/docs-lint.mjs)

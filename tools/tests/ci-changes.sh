@@ -53,8 +53,8 @@ check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs
 check 'contrast package'          docs/TESTING.md
 check 'contrast package'          FOR-AGENTS.md
 check 'contrast package prod-image'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
-check 'package'                   LICENSE
-check 'package'                   NOTICE
+check 'package prod-image'        LICENSE
+check 'package prod-image'        NOTICE
 check 'contrast prod-image'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
 check 'contrast'                  tools/test-inventory.mjs
 check 'contrast'                  tools/icon-lint.mjs
