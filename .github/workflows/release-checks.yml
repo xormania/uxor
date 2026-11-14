@@ -134,10 +134,12 @@ jobs:
                           [ "$marker" = "release-checks-pr-passed-v1-$proved_base-$sha" ] || continue
                           git cat-file -e "$sha^{commit}" 2>/dev/null || continue
                           changed=$(git diff --name-only --no-renames "$sha" "$head") || break
-                          # The paths the suite never reads: docs (the specs and tools only name them in comments), the
-                          # changelog and llms.txt (a release commit's), the agent rules and the Composer package (the
-                          # demo does not install it). Anything else, the workflow and its tools included, runs it.
-                          other=$(printf '%s\n' "$changed" | grep -vE '^(docs/|packages/uxor/|CHANGELOG\.md$|llms\.txt$|AGENTS\.md$)' || true)
+                          # The paths the suite never reads: docs (the specs and tools only name them in comments) but
+                          # docs/GUIDE.md, the changelog, the agent rules and the Composer package (the demo does not
+                          # install it). docs/GUIDE.md and llms.txt are pages of the production image the suite builds
+                          # (/guide, /llms.txt), so they run it. grep -E has no lookahead: the docs/ alternative spells
+                          # out every name but GUIDE.md. Anything else, the workflow and its tools included, runs it.
+                          other=$(printf '%s\n' "$changed" | grep -vE '^(docs/([^G].*|G([^U].*)?|GU([^I].*)?|GUI([^D].*)?|GUID([^E].*)?|GUIDE([^.].*)?|GUIDE\.([^m].*)?|GUIDE\.m([^d].*)?|GUIDE\.md.+)$|packages/uxor/|CHANGELOG\.md$|AGENTS\.md$)' || true)
                           if [ -z "$other" ]; then
                               run=false
                               echo "Run $id passed the release suite on $sha against $base; changed since, none of which the suite reads:"
