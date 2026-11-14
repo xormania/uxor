@@ -65,7 +65,7 @@ check "$kit_contrast"             input/templates/components/Input.html.twig
 check "$kit_contrast"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
 check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
-check 'php static-site demo'      demo/templates/components/Input.html.twig
+check 'php static-site demo prod-image' demo/templates/components/Input.html.twig
 check 'php static-site demo'      demo/README.md
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
@@ -128,6 +128,19 @@ check "$kit"                                 kit.js
 check "$kit"                                 icon.svg
 check_git "$kit_contrast prod-image"         'mkdir -p old-top-dir && echo x > old-top-dir/file.txt && git add old-top-dir && git -c user.name=t -c user.email=t@t commit -qm old && git rm -q -r old-top-dir'
 check_git "$kit_contrast package prod-image" 'mkdir -p added-recipe/templates && echo "{}" > added-recipe/manifest.json && echo x > added-recipe/templates/X.html.twig && git add added-recipe'
+# a README in a directory that is not a recipe is a new directory too; an existing recipe's README is not
+check 'lint-kit static-site contrast demo package prod-image' brand-new-dir/README.md
+# the demo app, every entry the image admits; not its tests, README or development files
+check 'php static-site demo prod-image' demo/src/Controller/ShowcaseController.php
+check 'php static-site demo prod-image' demo/.env
+check 'php static-site demo prod-image' demo/importmap.php
+check 'php static-site demo prod-image' demo/symfony.lock
+check 'php static-site demo prod-image' demo/public/index.php
+check 'php static-site demo prod-image' demo/bin/console
+check 'php static-site demo'            demo/phpunit.dist.xml
+check 'php static-site contrast demo'   demo/tests/Functional/RecipeDocsTest.php
+# the image's own harness
+check 'php static-site demo prod-image' tools/tests/prod-image.sh
 # the kit's manifest: llms.txt (Contrast) holds its name, homepage and description; the references copy it (Package)
 check "$kit_contrast package prod-image"     manifest.json
 check 'contrast'                  tools/kit-identity.mjs
@@ -147,10 +160,10 @@ check 'demo'                      tools/playwright-image.mjs tools/playwright-im
 check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php static-site contrast demo' demo/tests/Editor/EditorTypeTest.php
-check 'php static-site contrast demo' demo/src/Controller/LabController.php
+check 'php static-site contrast demo prod-image' demo/src/Controller/LabController.php
 check 'contrast demo'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
-check 'php static-site demo'      demo/src/Demo/DataTableCollector.php
+check 'php static-site demo prod-image' demo/src/Demo/DataTableCollector.php
 check 'php'                       tools/phpstan.neon
 check 'fresh-install'             tools/tests/fresh-install.sh
 check 'fresh-install'             tools/tests/install-scenario.sh
@@ -197,7 +210,7 @@ check 'php static-site demo prod-image' demo/composer.json
 check 'php static-site demo prod-image' demo/config/packages/twig.yaml
 check 'php static-site demo prod-image' demo/config/services.yaml
 # the demo's code, templates and assets are not the image's build inputs on their own
-check 'php static-site demo' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
+check 'php static-site demo prod-image' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
 check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
 check 'lint-kit static-site contrast demo package' side-nav/README.md

@@ -124,6 +124,8 @@ while IFS= read -r path; do
         tools/demo-php) on demo ;;
         # tools/sync-demo also builds the production image: its builder copies the recipes into the demo with it
         tools/sync-demo) on php static-site demo prod-image ;;
+        # the production image's harness: a change to it runs it
+        tools/tests/prod-image.sh) on php static-site demo prod-image ;;
         tools/*) on php static-site demo ;;
 
         # The demo app: its PHP tests, its static export and the browser tests run against it. docker-install.sh copies
@@ -134,7 +136,11 @@ while IFS= read -r path; do
         demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php static-site demo prod-image ;;
         # what the production image installs and how it boots in prod: its packages and its configuration
         demo/composer.json | demo/composer.lock | demo/config/*) on php static-site demo prod-image ;;
-        demo/tests/* | demo/src/Controller/LabController.php) on php static-site demo contrast ;;
+        demo/tests/*) on php static-site demo contrast ;;
+        demo/src/Controller/LabController.php) on php static-site demo contrast prod-image ;;
+        # the rest of what the image admits (demo/Dockerfile.dockerignore): the app runs differently in prod (no
+        # development package, no Toolkit bundle), so a change to any of its files runs the image
+        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php static-site demo prod-image ;;
         demo/*) on php static-site demo ;;
 
         # A recipe's own specs and screenshot baselines: only the browser tests read them, and the
@@ -159,6 +165,8 @@ while IFS= read -r path; do
             # (Package); Kit PHP and the installs never read it
             if [[ $path =~ ^[^/]+/README\.md$ ]]; then
                 on lint-kit static-site demo contrast package
+                # a README in a directory that is not a recipe (a new one): the image's lane, as below
+                [[ $path == packages/* || -f ${path%%/*}/manifest.json ]] || on prod-image
                 continue
             fi
             on lint-kit php static-site fresh-install demo
