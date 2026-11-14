@@ -164,6 +164,7 @@ test('a quick choice stays closed after Tab after a Turbo visit and Back', async
 test('a quick choice in a multiple field that stays open and clears its search lists every option left', async ({ page }) => {
     await page.clock.install();
     await page.goto('/lab/autocomplete?clear=1');
+    await expect(wrappers(page)).toHaveCount(fields + 2);
     const field = control(page, 'Herbs');
     const list = await listbox(page, field);
     await freeze(page);
@@ -188,19 +189,24 @@ test('a quick choice in a multiple field that stays open and clears its search l
 
 // A remote multiple field whose list stays open after a choice (Clients, `?clear=1`). UX Autocomplete empties the search
 // on every choice (its onItemAdd), without refreshing the list; the refresh still pending from the last keystroke is what
-// loads the now empty search, so the open list shows the field's options again. Cancelled on the choice, the list would
-// stay on the earlier search's results under an empty input. Each step waits for the answer it needs: the field's
-// options on focus (an empty search) before typing, then the answer for "bert", so a late answer cannot be read as
-// another's (Tom Select lists every option it has loaded).
+// brings the empty search's options back: it restores them at once (Tom Select's virtual_scroll keeps the first empty
+// search's options), and its load asks the server for them again once the load throttle has run. Cancelled on the
+// choice, the list would stay on the earlier search's results under an empty input. Each step waits for the answer it
+// needs, the field's options on focus (an empty search) before typing, then the answer for "bert" (below).
 test('a quick choice in a remote field that stays open lists the options for the search left, not the earlier results', async ({ page }) => {
     const answer = (query: string) =>
         page.waitForResponse((response) => response.url().includes('/autocomplete/customer_autocomplete_field') && new URL(response.url()).searchParams.get('query') === query);
     await page.clock.install();
     await page.goto('/lab/autocomplete?clear=1');
+    await expect(wrappers(page)).toHaveCount(fields + 2);
     const field = control(page, 'Clients');
     const list = await listbox(page, field);
     await freeze(page);
-    // focused, the field loads its options (an empty search) once its load throttle has run
+    // focused, the field loads its options (an empty search) once its load throttle has run. Wait for that answer before
+    // typing: neither UX Autocomplete nor Tom Select's virtual_scroll checks which search an answer belongs to, and each
+    // answer replaces the options, so an answer to the empty search arriving after the typed search's leaves the list
+    // on all ten customers (CI once saw "0 options, then all 10" under "bert" this way, on a slow run). That is upstream
+    // behavior on a slow server, not the kit's; this wait keeps the test from reading it as the fix failing.
     const options = answer('');
     await openField(page, field);
     await page.clock.runFor(300);
@@ -219,10 +225,14 @@ test('a quick choice in a remote field that stays open lists the options for the
     await expect(page.locator('#clients')).toHaveValues(['Roberta Casas']);
     await expect(field).toHaveValue('');
     await expect(field).toHaveAttribute('aria-expanded', 'true');
-    // the pending refresh, then its load of the emptied search: every customer but the one chosen, not "bert"'s Robert
-    // Brown alone
+    // the pending refresh restores the empty search's options at once: every customer but the one chosen, not "bert"'s
+    // Robert Brown alone (no request yet)
     await page.clock.runFor(300);
+    await expect(list.locator('[data-selectable]')).toHaveCount(customers - 1);
+    // and its load of the empty search goes out once the load throttle has run; its answer changes nothing listed
+    const reloaded = answer('');
     await page.clock.runFor(300);
+    await reloaded;
     await expect(list.locator('[data-selectable]')).toHaveCount(customers - 1);
     await expect(list.locator('[data-selectable]').first()).toHaveText('Bonnie Green');
 });
