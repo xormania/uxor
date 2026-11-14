@@ -36,8 +36,8 @@ function script(step) {
     return body.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#')).join('\n');
 }
 
-/** Whether a step's script runs `bin/console <command>` as a command (a line's start, or after ;, && or ||), not as an argument. */
-const runsCommand = (step, command) => new RegExp(`(?:^|[;&|]\\s*)(?:php\\s+)?(?:\\./)?bin/console\\s+${command}\\b`, 'm').test(script(step));
+/** Whether a step's script runs `bin/console [options] <command>` as a command (a line's start, or after ;, && or ||), not as an argument. */
+const runsCommand = (step, command) => new RegExp(`(?:^|[;&|]\\s*)(?:php\\s+)?(?:\\./)?bin/console(?:\\s+-[^\\s]+)*\\s+${command}\\b`, 'm').test(script(step));
 const nonFailing = (step) => /^ {14}continue-on-error: true\b/m.test(step) || /\|\|\s*(?:true|:)\s*$/m.test(step);
 
 /** The directories a job works in: its matrix's `directory:` values, or its literal working directories. */
@@ -207,7 +207,8 @@ test('the guard of each lane selects it for a change to its importmap.php or the
 
 /**
  * Runs each lane's importmap:outdated step script as Actions does (bash -eo pipefail), in a scratch directory whose
- * bin/console is a stand-in: it prints `stdout` and `stderr` and exits with `status` for importmap:outdated.
+ * bin/console is a stand-in: it prints `stdout` and `stderr` and exits with `status` for importmap:outdated asked for
+ * JSON, and answers anything else with exit 64 and no output (the text format would be misread).
  */
 function runOutdated(job, { status, stdout = '', stderr = '' }) {
     const step = steps(job).find((candidate) => runsCommand(candidate, 'importmap:outdated'));
@@ -219,7 +220,7 @@ function runOutdated(job, { status, stdout = '', stderr = '' }) {
         writeFileSync(join(scratch, 'stdout'), stdout);
         writeFileSync(join(scratch, 'stderr'), stderr);
         const stub = join(scratch, 'bin/console');
-        writeFileSync(stub, `#!/usr/bin/env bash\ncase "$*" in *importmap:outdated*) cat '${join(scratch, 'stdout')}'; cat '${join(scratch, 'stderr')}' >&2; exit ${status} ;; esac\nexit 64\n`);
+        writeFileSync(stub, `#!/usr/bin/env bash\ncase " $* " in *' importmap:outdated '*'--format=json '*|*' --format=json '*'importmap:outdated '*) cat '${join(scratch, 'stdout')}'; cat '${join(scratch, 'stderr')}' >&2; exit ${status} ;; esac\nexit 64\n`);
         spawnSync('chmod', ['+x', stub]);
         const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script(step)], {
             cwd: scratch,
