@@ -43,6 +43,18 @@ as its own request ends cancelled, and a full load after it commits). Anywhere e
 the same messages fail the test: `smoke.spec.ts` ("the page guard") calibrates both, with the real case and with the
 message where one condition is missing.
 
+It also excuses one request failure: a local subresource (an image, a stylesheet, a script, a font, media) that the
+browser cancelled and then requested again, the same URL from the same frame, sent after the cancellation and answered
+below 400. Firefox does that under Playwright's request interception, which the guard's route for requests leaving the
+app turns on for every request: at a same-document navigation of a frame (Turbo's `history.replaceState` as a page
+starts, in each of the gallery's preview frames), it cancels the frame's images still loading (`NS_BINDING_ABORTED`) and
+requests them again, and they load (*Browsers*). The page is not at fault and a user never sees it: without the
+interception nothing is cancelled. Anything else is still reported: a cancellation never followed by such a request, a
+request made again that is cancelled or fails too, one from another frame, one already running when the first was
+cancelled, and any document, fetch or XHR (which keep `allowCancelledRequest`). `smoke.spec.ts` ("the page guard", "a
+cancelled local subresource") calibrates it on an image the page cancels itself, in Chromium and Firefox; WebKit reports
+no failure for an image load the page cancels.
+
 ## Turbo
 
 ### The page stayed one document
@@ -1336,6 +1348,13 @@ What differs between the engines, met so far, and how the kit and the suite stay
   document replaces the old one (`FETCH_CANCELLED_BY_UNLOAD`); a navigation that fails or leaves the document in place
   (a 204) ends that window. Anywhere else they fail the test: `smoke.spec.ts` ("the page guard") plants them during a
   full load, outside one and after a 204, in every engine.
+- **A same-document navigation of a frame, under request interception:** Firefox cancels the frame's subresources still
+  loading (`NS_BINDING_ABORTED`) and requests them again, which load. The gallery's preview frames do it as they start
+  (Turbo's `history.replaceState`), and `demo-app.spec.ts`'s 320px tests of `/r/social-login` and
+  `/r/oauth-provider-button` failed on the cancelled first attempts of the Google logos (17 of 40 runs locally). It
+  happens only because the guard's route turns on interception for every request, in Firefox: without it, nothing is
+  cancelled. `guardPage()` excuses such a cancellation only once the same URL, from the same frame, was requested again
+  after it and received (*Every test: fail on what the user would not see*).
 - **A full load while Turbo's prefetch runs:** Firefox cancels the request (`NS_BINDING_ABORTED`) and rejects the
   fetch with a TypeError, *NetworkError when attempting to fetch resource.*, not an AbortError. Turbo 8.0.23 starts
   its prefetch from a timer with no catch (`PrefetchCache.putLater`) and rethrows all but an AbortError, so the page

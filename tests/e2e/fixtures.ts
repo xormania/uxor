@@ -22,6 +22,14 @@ export const HARSH_NETWORK = { offline: false, latency: 150 * 3.75, downloadThro
 const CANCELLED = ['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'];
 
 /**
+ * The subresources the guard excuses when the browser cancels one and requests it again: Firefox, under Playwright's
+ * request interception (the route below, for requests leaving the demo), cancels a frame's images at a same-document
+ * navigation and requests them again (the gallery's preview frames do it as they load). Documents, fetches and XHRs keep
+ * their own handling. Calibrated in smoke.spec.ts ("the page guard", "a cancelled local subresource").
+ */
+const REQUESTED_AGAIN = new Set(['image', 'stylesheet', 'script', 'font', 'media']);
+
+/**
  * WebKit's rejection of a fetch the document still runs when a full load replaces it (a reload, a `goto`): Turbo's
  * prefetch of a link under the pointer rethrows it, unhandled. Dropped in WebKit only, from the full load's request
  * until its document replaces the one on screen; a navigation that fails or leaves the document in place (a 204) ends
@@ -118,6 +126,27 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
         (route) => ('image' === route.request().resourceType() ? route.fulfill({ path: PLACEHOLDER_IMAGE }) : route.abort()),
     );
 
+    // a local subresource the browser cancelled, held until check(): excused only if the same URL is requested again
+    // from the same frame after the cancellation, and that request is received (an answer below 400)
+    let order = 0;
+    const sentAt = new WeakMap<Request, number>();
+    const answered = new WeakMap<Request, number>();
+    const cancelledSubresources: { request: Request; failedAt: number; requestedAgain: boolean }[] = [];
+    page.on('request', (request) => sentAt.set(request, ++order));
+    page.on('response', (response) => answered.set(response.request(), response.status()));
+    page.on('requestfinished', (request) => {
+        const status = answered.get(request);
+        if (undefined === status || status >= 400) {
+            return;
+        }
+        const sent = sentAt.get(request) ?? 0;
+        for (const cancelled of cancelledSubresources) {
+            if (cancelled.request.url() === request.url() && cancelled.request.frame() === request.frame() && cancelled.failedAt < sent) {
+                cancelled.requestedAgain = true;
+            }
+        }
+    });
+
     page.on('request', (request) => {
         if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
             documents.add(request.url());
@@ -191,6 +220,8 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
             );
         if (expected) {
             expected.count--;
+        } else if (isLocal(request.url()) && aborted && REQUESTED_AGAIN.has(request.resourceType())) {
+            cancelledSubresources.push({ request, failedAt: ++order, requestedAgain: false });
         } else if (isLocal(request.url()) && !cancelledPrefetch) {
             errors.push({ message: `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}` });
         }
@@ -220,6 +251,9 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
                 ...errors.filter((error) => !isAllowed(error)).map(({ message }) => message),
                 ...unmatchedRejections.map(() => `pageerror: ${PREFETCH_CANCELLED_BY_UNLOAD}`),
                 ...cspViolations.map((violation) => `csp: ${violation}`),
+                ...cancelledSubresources
+                    .filter(({ requestedAgain }) => !requestedAgain)
+                    .map(({ request }) => `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}`),
             ];
             expect(unexpected, 'console errors, page errors, CSP violations or failed requests').toEqual([]);
         },
