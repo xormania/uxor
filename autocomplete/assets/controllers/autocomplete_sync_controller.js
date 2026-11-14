@@ -24,7 +24,8 @@ import { Controller } from '@hotwired/stimulus';
  *   refresh when an option is chosen or the field is left: when it runs, it opens the list again and takes the focus
  *   back. On `item_add`, `dropdown_close` and `blur`, the pending refresh is cancelled, on every Tom Select the select
  *   gets (UX Autocomplete builds a new one when it resets it or its options change; `autocomplete:connect` names it),
- *   whatever options it was given. The refresh is Tom Select's `refreshTimeout`, an instance property, not its public
+ *   with the recipe's settings or options of its own (tested with `create`); a plugin replacing Tom Select's input
+ *   handling is not covered. The refresh is Tom Select's `refreshTimeout`, an instance property, not its public
  *   API: were it renamed, the cancelling would silently stop and the list would reopen again (the lab's test of a
  *   choice made right after a keystroke then fails). Leaving the field also clears its search text (Tom Select's
  *   `close()`), so a cancelled refresh leaves nothing to search when the field takes the focus again.
