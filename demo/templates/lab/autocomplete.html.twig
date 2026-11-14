@@ -41,6 +41,11 @@
                     <option value="thyme">Thyme</option>
                 </twig:Autocomplete>
             </div>
+            {#- a remote multiple field whose list stays open after a choice (closeAfterSelect off); UX Autocomplete empties the search on every choice -#}
+            <div>
+                <label for="clients" class="mb-2 block text-sm font-medium text-heading">Clients</label>
+                <twig:Autocomplete id="clients" name="clients[]" url="/autocomplete/customer_autocomplete_field" multiple :options="{closeAfterSelect: false}" />
+            </div>
         {% endif %}
         {#- Autocomplete components with values rendered, in a form and outside it (the form attribute): a reset puts them back -#}
         <form id="pets-form" class="grid gap-6" aria-label="Pets">
