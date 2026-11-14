@@ -21,9 +21,11 @@ const npmVersion = (() => {
 })();
 
 function binaryVersion(path) {
-    const match = /^\s*binary_version:\s*['"]?v?(\d+\.\d+\.\d+)['"]?\s*(?:#.*)?$/m.exec(read(path));
+    // TailwindBundle puts the value in the release's download URL as written: Tailwind's tags start with v
+    const match = /^\s*binary_version:\s*['"]?(v?)(\d+\.\d+\.\d+)['"]?\s*(?:#.*)?$/m.exec(read(path));
     assert.ok(match, `${path} pins binary_version`);
-    return match[1];
+    assert.equal(match[1], 'v', `${path}: binary_version names Tailwind's release tag, v${match[2]}`);
+    return match[2];
 }
 
 for (const path of COMPILERS) {
@@ -80,19 +82,22 @@ function buildStaticWith(yaml) {
     }
 }
 
+// each case its own version, so only a script that reads the file prints the right one
 const readable = {
-    'single-quoted': "symfonycasts_tailwind:\n    binary_version: 'v4.3.5'\n",
-    'double-quoted': 'symfonycasts_tailwind:\n    binary_version: "v4.3.5"\n',
-    unquoted: 'symfonycasts_tailwind:\n    binary_version: v4.3.5\n',
-    'single-quoted, commented,': "symfonycasts_tailwind:\n    # the CLI tailwind:build downloads\n    binary_version: 'v4.3.5' # pinned\n",
+    'single-quoted': ["symfonycasts_tailwind:\n    binary_version: 'v4.3.5'\n", 'v4.3.5'],
+    'double-quoted': ['symfonycasts_tailwind:\n    binary_version: "v4.1.12"\n', 'v4.1.12'],
+    unquoted: ['symfonycasts_tailwind:\n    binary_version: v4.2.0\n', 'v4.2.0'],
+    'single-quoted, commented,': ["symfonycasts_tailwind:\n    # the CLI tailwind:build downloads\n    binary_version: 'v4.0.17' # pinned\n", 'v4.0.17'],
 };
 
-for (const [label, yaml] of Object.entries(readable)) {
+for (const [label, [yaml, version]] of Object.entries(readable)) {
     test(`tools/build-static.sh prints the ${label} binary_version before tailwind:build`, () => {
         const { status, output, phpCalls } = buildStaticWith(yaml);
         assert.match(phpCalls, /bin\/console tailwind:build/, `the script reached tailwind:build (exit ${status}):\n${output}`);
         assert.equal(status, 42, 'it stopped at the stand-in tailwind:build, not before');
-        assert.match(output, /^.*Tailwind.*\bv?4\.3\.5\b.*$/im, `a line names the compiler version 4.3.5:\n${output}`);
+        const line = output.split('\n').find((text) => /tailwind/i.test(text) && /\d+\.\d+\.\d+/.test(text));
+        assert.ok(line, `a line names the Tailwind compiler's version:\n${output}`);
+        assert.equal(line.match(/v?\d+\.\d+\.\d+/g)?.join(' '), version, `it names ${version}, the version configured: ${line}`);
         assert.doesNotMatch(output, /unknown/i, 'no version reported as unknown');
     });
 }
