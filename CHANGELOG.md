@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Fixed
 
+- `autocomplete`: a choice made, or the field left, right after a keystroke no longer opens the list again and takes the
+  focus back: the recipe's `autocomplete-sync` cancels the list refresh Tom Select had scheduled for that keystroke.
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
   cover the consumer harness's PHP and browser dependencies. Remaining source comments and a breadcrumb test sample now
   describe UXor without promising Flowbite parity.

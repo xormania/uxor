@@ -20,15 +20,27 @@ import { Controller } from '@hotwired/stimulus';
  * - A copy of the page Turbo took while Tom Select was on screen (a frame visit promoted to history copies the page as
  *   it starts, before UX Autocomplete removes Tom Select) holds Tom Select's markup, which no Tom Select owns: as the
  *   copy connects, that markup is removed, so the field shows the one Tom Select UX Autocomplete sets up.
+ * - Tom Select refreshes its list a moment after a keystroke (`refreshThrottle`, 300 ms), and nothing cancels that
+ *   refresh when an option is chosen or the field is left: when it runs, it opens the list again and takes the focus
+ *   back. On `item_add`, `dropdown_close` and `blur`, the pending refresh is cancelled, on every Tom Select the select
+ *   gets (UX Autocomplete builds a new one when it resets it or its options change; `autocomplete:connect` names it),
+ *   whatever options it was given. The refresh is Tom Select's `refreshTimeout`, an instance property, not its public
+ *   API: were it renamed, the cancelling would silently stop and the list would reopen again (the lab's test of a
+ *   choice made right after a keystroke then fails). A refresh cancelled by leaving the field also held the search's
+ *   load for a remote field: the next focus loads the text still in the field (`load()`).
  */
 export default class extends Controller {
     #observer = null;
     #form = null;
     // the syncs waiting for their reset event to be over
     #resetTimeouts = new Set();
+    // each Tom Select hooked, with its listeners
+    #hooked = new Map();
 
     connect() {
         this.#removeCopiedTomSelect();
+        this.#hook(this.element.tomselect);
+        this.element.addEventListener('autocomplete:connect', this.#tomSelectConnected);
         this.#observer = new MutationObserver(() => this.#sync());
         this.#observer.observe(this.element, { childList: true });
         this.#form = this.element.form ?? null;
@@ -36,6 +48,10 @@ export default class extends Controller {
     }
 
     disconnect() {
+        this.element.removeEventListener('autocomplete:connect', this.#tomSelectConnected);
+        for (const tomSelect of [...this.#hooked.keys()]) {
+            this.#unhook(tomSelect);
+        }
         this.#observer?.disconnect();
         this.#observer = null;
         this.#form?.removeEventListener('reset', this.#formReset);
@@ -104,6 +120,63 @@ export default class extends Controller {
             // silent: Tom Select sets its items from the selected options and dispatches nothing
             tomSelect.sync();
         }
+    }
+
+    #tomSelectConnected = (event) => {
+        if (event.target === this.element) {
+            // the Tom Select it replaces is destroyed: its listeners go with it
+            for (const tomSelect of [...this.#hooked.keys()]) {
+                if (tomSelect !== event.detail?.tomSelect) {
+                    this.#unhook(tomSelect);
+                }
+            }
+            this.#hook(event.detail?.tomSelect);
+        }
+    };
+
+    #hook(tomSelect) {
+        if (!tomSelect || this.#hooked.has(tomSelect)) {
+            return;
+        }
+        let reload = false;
+        const cancel = () => {
+            if (null == tomSelect.refreshTimeout) {
+                return false;
+            }
+            clearTimeout(tomSelect.refreshTimeout);
+            tomSelect.refreshTimeout = null;
+
+            return true;
+        };
+        const listeners = {
+            item_add: () => {
+                cancel();
+            },
+            dropdown_close: () => {
+                cancel();
+            },
+            blur: () => {
+                reload = cancel() || reload;
+            },
+            focus: () => {
+                const query = tomSelect.inputValue();
+                if (reload && '' !== query && 'function' === typeof tomSelect.settings.load && tomSelect.settings.shouldLoad.call(tomSelect, query)) {
+                    tomSelect.load(query);
+                }
+                reload = false;
+            },
+        };
+        for (const [name, listener] of Object.entries(listeners)) {
+            tomSelect.on(name, listener);
+        }
+        this.#hooked.set(tomSelect, listeners);
+    }
+
+    #unhook(tomSelect) {
+        for (const [name, listener] of Object.entries(this.#hooked.get(tomSelect) ?? {})) {
+            tomSelect.off(name, listener);
+        }
+        this.#hooked.delete(tomSelect);
     }
 
     #formReset = (event) => {

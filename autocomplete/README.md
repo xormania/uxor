@@ -106,6 +106,17 @@ recipe (the layouts' [`form-reset`](../layouts/README.md#back-and-forms) is not 
 attribute names, and dispatches no `input` or `change` event, so a Live Component sends no request. A reset another
 listener cancels (`preventDefault()` on the `reset` event) changes nothing.
 
+### A choice made while typing
+
+Tom Select refreshes its list a moment after each keystroke (its `refreshThrottle`, 300 ms by default). A choice made
+or the field left within that moment would see the list open again and take the focus back; `autocomplete-sync`
+cancels that pending refresh when an option is added, the list closes or the field loses the focus, on every Tom Select
+the field gets, whatever its `options`. For a field searching the server, leaving the field that way also cancels the
+search the refresh was about to send: the next focus sends it for the text still in the field. The pending refresh is
+Tom Select's `refreshTimeout`, an internal property rather than its public API: if a Tom Select version renamed it, the
+cancelling would stop without an error and the list would reopen again (the kit's browser test of this case would then
+fail).
+
 ### With Turbo and Live Components
 
 Fields keep working through Turbo visits and Back, inside a Turbo Frame and after a Turbo Stream replaces them: the
