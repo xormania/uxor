@@ -927,12 +927,15 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: .                     # the repository: the demo image's build context (compose.override.yaml)
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
                       demo/compose.yaml
                       demo/compose.override.yaml
                   pull: true
                   set: |
+                      *.context=.
                       *.output=type=cacheonly
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }}
                       *.cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
@@ -1014,13 +1017,16 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: .                     # the repository: the demo image's build context (compose.override.yaml)
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
                       demo/compose.yaml
                       demo/compose.override.yaml
                   load: true
                   pull: true
                   set: |
+                      *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
