@@ -149,12 +149,15 @@ change to both paths.
 |---|---|
 | `.github/dependabot.yml` | nothing |
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them |
-| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them |
-| `kit.js`, any other root file no row names | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| a recipe (any of its files but `tests/`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`), `kit.css`, any file in a directory no other row names | the jobs of `kit.js` (above) and *Contrast* |
-| `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them) | the jobs of `kit.js` (above), *Contrast* and *Package* |
+| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
+| `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
+| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory |
+| a recipe (any of its files but `tests/` and `manifest.json`: Contrast pairs its code with its `README.md`, and its `README.md` with its `manifest.json`) | the jobs of `kit.js` (above) and *Contrast* |
+| `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
+| `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
 | a recipe's `README.md` (the toolkit's lint checks its headings, the static site and the browser tests render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package* |
-| `README.md`, `INSTALL.md` (no install, lint, PHP test or page reads them) | *Contrast*, *Package* |
+| `README.md` (no install, lint, PHP test or page reads it) | *Contrast*, *Package* |
+| `INSTALL.md` (the gallery's install guide, `/install`) | *Contrast*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
 | `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
@@ -168,7 +171,8 @@ change to both paths.
 | `tools/tests/*.test.mjs`, `tools/tests/fixtures/playwright-results/`, `tools/tests/fixtures/junit/`, `tools/tests/fixtures/ci-metrics/`, `tools/monthly/` (every tool's cases, and the monthly report tools) | nothing else: *Tool tests* runs all the tools' cases on every run, in seconds, with no install |
 | `package.json`, `package-lock.json` | *Contrast*, *Demo + Playwright* |
 | any other markdown file outside `demo/` | *Contrast* (`tools/docs-lint.mjs`, `tools/icon-lint.mjs`), and the jobs its path runs |
-| `tools/contrast/`, `tools/llms-txt.mjs`, `tools/docs-lint.mjs`, `tools/test-inventory.mjs`, `llms.txt` | *Contrast* |
+| `tools/contrast/`, `tools/llms-txt.mjs`, `tools/docs-lint.mjs`, `tools/test-inventory.mjs` | *Contrast* |
+| `llms.txt` (the gallery serves it) | *Contrast*, *Production image* |
 | `tools/icon-lint.mjs` | *Contrast* |
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | *Contrast* |
 | `tools/fence-coverage.mjs` | *Contrast*, *Static site* |
