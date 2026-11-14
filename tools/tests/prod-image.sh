@@ -14,7 +14,8 @@
 #            (the gallery uses the Toolkit's library in prod), no Xdebug and no require-dev package (read from
 #            demo/composer.json at run time) is in it, the opt-in and the secret are not baked into it; the app is
 #            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the install guide and
-#            /llms.txt answer 200 with their content (the files the image needs are in it); no node_modules, tests,
+#            /llms.txt answer 200 with their content, and every recipe the image holds (/app/*/manifest.json) has a
+#            recipe page answering 200, as does each page's first preview (the files the image needs are in it); no node_modules, tests,
 #            .git, packages/, .github, docs but GUIDE.md, or tools/ are (the files it must not hold are not)
 #
 #   context  what the build context sends (demo/Dockerfile's ignore file applied): a throwaway stage copies the
@@ -233,6 +234,37 @@ else
         page '/preview/button/default?theme=light' '<title>button / default'   # one preview: the recipe's templates render
         page /install 'ux:install'               # the install guide (INSTALL.md)
         page /llms.txt '/r/button'               # llms.txt, from the kit's files
+
+        # every recipe page answers 200: the recipes are read from the image (each /app/<recipe>/manifest.json), so the
+        # list cannot drift; a failing page is named, with the container's log lines about it
+        recipes="$(docker exec "$container" sh -c 'for m in /app/*/manifest.json; do d="${m%/manifest.json}"; echo "${d##*/}"; done' 2>/dev/null)"
+        failed=''
+        previews=0
+        started="$(date +%s)"
+        body="$(mktemp)"
+        while IFS= read -r recipe; do
+            [ -n "$recipe" ] || continue
+            code="$(curl -s -o "$body" -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port/r/$recipe" || echo 000)"
+            if [ "$code" != 200 ]; then failed="$failed/r/$recipe $code"$'\n'; continue; fi
+            # its first preview: the recipe's templates render in prod
+            preview="$(grep -oE 'src="/preview/[^"]*"' "$body" | head -n 1 | sed 's/^src="//; s/"$//; s/&amp;/\&/g' || true)"
+            [ -n "$preview" ] || continue
+            previews=$((previews + 1))
+            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port$preview" || echo 000)"
+            [ "$code" = 200 ] || failed="$failed$preview $code"$'\n'
+        done <<< "$recipes"
+        rm -f "$body"
+        elapsed="$(($(date +%s) - started))"
+        count="$(grep -c . <<< "$recipes" || true)"
+        if [ "$count" -lt 1 ]; then
+            result runtime FAIL 'the image holds no recipe (no /app/*/manifest.json)'
+        elif [ -z "$failed" ]; then
+            result runtime PASS "every recipe page and its first preview answer 200 ($count recipes, $previews previews, ${elapsed}s)"
+        else
+            result runtime FAIL "every recipe page and its first preview answer 200 ($count recipes, $previews previews, ${elapsed}s), failed:"
+            while IFS= read -r line; do [ -n "$line" ] && printf '    %s\n' "$line"; done <<< "$failed"
+            docker logs "$container" 2>&1 | grep -E 'CRITICAL|critical|Uncaught|Exception' | tail -n 10 | while IFS= read -r line; do printf '    log: %s\n' "${line:0:300}"; done
+        fi
 
         # the files it must not hold are not in it
         absent() { # <what> <command run in the image printing the offending paths>
