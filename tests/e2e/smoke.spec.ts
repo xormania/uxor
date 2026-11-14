@@ -290,7 +290,24 @@ test.describe('the page guard', () => {
             await page.close();
         });
 
-        test('a fetch cancelled, then fetched again and received: reported (only subresources are excused)', async ({ context, baseURL }) => {
+        test('requested again by the next document of the frame and received: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold', 'ok']);
+            // a page of the demo's origin whose document shows the same image
+            await page.route('**/guard-calibration-page', (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Calibration</title><img id="next" src="${CALIBRATION}">` }));
+            await addImage(page, 'first');
+            await cancelImage(page, 'first');
+            // a full load of the frame: the next document requests the image again, and receives it
+            await page.goto('/guard-calibration-page');
+            await loaded(page.mainFrame(), 'next');
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('a fetch cancelled, then fetched again and received: reported (only images are excused)', async ({ context, baseURL }) => {
             const page = await context.newPage();
             const guard = await guardPage(page, baseURL);
             await page.goto('/lab');
@@ -307,6 +324,51 @@ test.describe('the page guard', () => {
             expect(calibrationFailure(errorsOf(guard))).toBe(true);
             await page.close();
         });
+    });
+
+    /*
+     * Only an image is excused: a stylesheet or a script the browser cancels and requests again is still reported (a
+     * script requested twice can run twice). Cancelled here by `window.stop()` while its request is held, which every
+     * engine reports as a cancellation; the request made again is received.
+     */
+    test.describe('a cancelled local stylesheet or script', () => {
+        for (const kind of ['stylesheet', 'script'] as const) {
+            test(`a ${kind} requested again from the same frame and received: reported`, async ({ context, baseURL }) => {
+                const page = await context.newPage();
+                const guard = await guardPage(page, baseURL);
+                await page.goto('/lab');
+                const url = 'stylesheet' === kind ? '/guard-calibration.css' : '/guard-calibration.js';
+                let release!: () => void;
+                const held = new Promise<void>((resolve) => (release = resolve));
+                let index = 0;
+                await page.route(`**${url}`, async (route) => {
+                    if (0 === index++) {
+                        await held;
+                    }
+                    const body = 'stylesheet' === kind ? 'body {}' : '';
+                    await route.fulfill({ contentType: 'stylesheet' === kind ? 'text/css' : 'text/javascript', body }).catch(() => undefined);
+                });
+                const add = () => page.evaluate(([kind, url]) => {
+                    const element = 'stylesheet' === kind ? Object.assign(document.createElement('link'), { rel: 'stylesheet', href: url }) : Object.assign(document.createElement('script'), { src: url });
+                    document.head.append(element);
+                }, [kind, url] as const);
+                const sent = page.waitForRequest((request) => request.url().endsWith(url));
+                await add();
+                await sent;
+                const failed = page.waitForEvent('requestfailed', (request) => request.url().endsWith(url));
+                await page.evaluate(() => window.stop());
+                const cancelled = await failed;
+                expect(cancelled.resourceType()).toBe(kind);
+                expect(['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'], 'the browser reports a cancellation').toContain(cancelled.failure()?.errorText);
+                const received = page.waitForEvent('requestfinished', (request) => request.url().endsWith(url));
+                await add();
+                await received;
+                release();
+                const errors = errorsOf(guard);
+                expect(errors.includes('requestfailed: GET') && errors.includes(url)).toBe(true);
+                await page.close();
+            });
+        }
     });
 
     /*
