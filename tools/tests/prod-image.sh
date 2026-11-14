@@ -10,7 +10,9 @@
 #            image digests and the image built are printed
 #   runtime  the image refuses to boot without the production opt-in; with it and a random APP_SECRET, it turns healthy
 #            (its HEALTHCHECK), PID 1 runs as www-data, PHP has the extensions the image installs and the demo requires,
-#            no Xdebug and no require-dev package is in it, the opt-in and the secret are not baked into it; the app is
+#            the production kernel registers no UXToolkitBundle and its console has no ux:install or ux:toolkit:* command
+#            (the gallery uses the Toolkit's library in prod), no Xdebug and no require-dev package (read from
+#            demo/composer.json at run time) is in it, the opt-in and the secret are not baked into it; the app is
 #            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the install guide and
 #            /llms.txt answer 200 with their content (the files the image needs are in it); no node_modules, tests,
 #            .git, packages/, .github, docs but GUIDE.md, or tools/ are (the files it must not hold are not)
@@ -117,6 +119,20 @@ else
         pid1_user="$(docker exec "$container" stat -c %U /proc/1 2>/dev/null || echo '?')"
         check runtime "PID 1 runs as www-data (got $pid1_user)" test "$pid1_user" = www-data
         check runtime 'APP_ENV is prod' test "$(docker exec "$container" printenv APP_ENV 2>/dev/null)" = prod
+        # the Toolkit's library serves the gallery in prod; its bundle and console commands are for dev and test only
+        bundles="$(docker exec "$container" php bin/console debug:container --parameter=kernel.bundles --format=json 2>/dev/null || echo FAILED)"
+        if [ "$bundles" = FAILED ] || ! grep -q 'FrameworkBundle' <<< "$bundles"; then
+            result runtime FAIL "the production kernel's bundles could not be read"
+        else
+            check runtime 'the production kernel registers no UXToolkitBundle' bash -c '! grep -q UXToolkitBundle <<<"$1"' _ "$bundles"
+        fi
+        commands="$(docker exec "$container" php bin/console list --format=json 2>/dev/null | jq -r '.commands[].name' 2>/dev/null || true)"
+        if ! grep -qx 'cache:clear' <<< "$commands"; then
+            result runtime FAIL "the production console's commands could not be listed"
+        else
+            toolkit_commands="$(grep -E '^ux:(install|toolkit:)' <<< "$commands" | tr '\n' ' ' || true)"
+            check runtime "the production console has no Toolkit command (ux:install, ux:toolkit:*)${toolkit_commands:+, got: $toolkit_commands}" test -z "$toolkit_commands"
+        fi
         modules="$(docker exec "$container" php -m 2>/dev/null | tr '[:upper:]' '[:lower:]')"
         for ext in apcu intl opcache zip ctype iconv; do
             check runtime "PHP extension $ext" grep -qx "$ext\|zend $ext" <<<"$modules"
