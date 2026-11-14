@@ -1,0 +1,7 @@
+{#- The form theme of /lab/dropzone-options?form=1: only the markup of each picked file, the rest is the app's theme -#}
+{%- block dropzone_preview_item -%}
+    <div class="flex w-full items-center gap-3" data-testid="themed-item">
+        <strong class="flex-1 text-sm text-heading" data-dropzone-slot="filename"></strong>
+        <button type="button" class="rounded-base p-1 text-body" data-dropzone-slot="remove"><twig:ux:icon name="flowbite:close-outline" class="size-4" aria-hidden="true" /></button>
+    </div>
+{%- endblock dropzone_preview_item -%}

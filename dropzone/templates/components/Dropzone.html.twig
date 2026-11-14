@@ -8,7 +8,9 @@
     ## string The name of the Remove buttons, followed by the file name ("Remove photo.png").
     removeLabel = 'Remove',
     ## string|null A note in the box, such as a file that was not kept after a form error; the file input is described by it.
-    reselect = null
+    reselect = null,
+    ## int|null The most files a zone for several files keeps: files over it are left out with `dropzone:reject` (reason `max_files`). Without `multiple` it does nothing.
+    maxFiles = null
 -%}
 {#- the attributes given, in any case: no `on…` handler, `srcset` or `ping`; `href` and `formaction` through the link policy, `src` through the image policy -#}
 {%- set attributes = attributes.without(...attributes.all|keys).defaults(attributes.all|filter((value, name) => not ((name ~ '')|trim("\x00..\x20", 'left')|lower matches '/^(?:on|(?:srcset|ping)$)/'))|map((value, name) => (name ~ '')|trim("\x00..\x20", 'left')|lower not in ['href', 'formaction', 'src'] or value is null or value is same as(false) or value is same as(true) ? value : ((value ~ '')|replace({"\t": '', "\n": '', "\r": ''})|trim("\x00..\x20", 'left') matches ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? '/^(?:https?:|(?![a-z][a-z0-9+.-]*:))/i' : '/^(?:(?:https?|mailto|tel):|(?![a-z][a-z0-9+.-]*:))/i') ? value ~ '' : ((name ~ '')|trim("\x00..\x20", 'left')|lower == 'src' ? null : '#')))) -%}
@@ -20,12 +22,19 @@
 {%- set _own = (attributes.all['data-controller'] ?? '')|split(' ')|filter((name) => name) -%}
 {%- set _controllers = ([controller, 'dropzone-assist']|merge(_own))|join(' ') -%}
 {%- set _wrapperKeys = ['class']|merge(attributes.all|keys|filter((key) => _own|filter((name) => key starts with ('data-' ~ name ~ '-') and key != ('data-' ~ name ~ '-target'))|length > 0)) -%}
-{%- set _actions = 'dragenter->dropzone-assist#dragOver dragover->dropzone-assist#dragOver dragleave->dropzone-assist#dragLeave drop->dropzone-assist#drop change->dropzone-assist#remember:capture dropzone:change->dropzone-assist#changed dropzone:clear->dropzone-assist#cleared dropzone:remove->dropzone-assist#removed turbo:before-cache@document->dropzone-assist#cache' -%}
+{%- set _actions = 'dragenter->dropzone-assist#dragOver dragover->dropzone-assist#dragOver dragleave->dropzone-assist#dragLeave drop->dropzone-assist#drop change->dropzone-assist#remember:capture dropzone:change->dropzone-assist#changed dropzone:clear->dropzone-assist#cleared dropzone:remove->dropzone-assist#removed click->dropzone-assist#clearing:capture turbo:before-cache@document->dropzone-assist#cache' -%}
+{#- the limit as written, only a positive integer's digits (not a boolean, whose text "1" would pass), only with `multiple`;
+    its text is read once, so what is written is what was checked -#}
+{%- set _maxText = multiple and maxFiles is not null and maxFiles is not same as(true) and maxFiles is not same as(false) and maxFiles is not iterable ? maxFiles ~ '' : null -%}
+{%- set _maxFiles = _maxText is not null and _maxText matches '/^[1-9][0-9]*$/D' ? _maxText : null -%}
+{#- the `preview_item` block, when given, is the markup UX Dropzone clones for each file -#}
+{%- set _previewItem = block('preview_item')|trim is not empty -%}
 {%- set _describedby = [attributes.all['aria-describedby'] ?? null, hint ? _id ~ '_hint' : null, reselect ? _id ~ '_reselect' : null]|filter((id) => id)|join(' ') -%}
 <div
     {{ attributes.only(..._wrapperKeys).defaults({class: 'group w-full'|tailwind_classes, 'data-controller': _controllers}) }}
     data-symfony--ux-dropzone--dropzone-multiple-value="{{ multiple ? 'true' : 'false' }}"
     data-symfony--ux-dropzone--dropzone-remove-label-value="{{ removeLabel }}"
+    {%- if _maxFiles %} data-symfony--ux-dropzone--dropzone-max-files-value="{{ _maxFiles }}"{% endif %}
     data-action="{{ (_actions ~ ' ' ~ (attributes.all['data-action'] ?? ''))|trim }}"
 >
     <div class="relative flex min-h-36 w-full items-center justify-center rounded-base border-2 border-dashed border-default-strong bg-neutral-secondary-medium p-4 text-center has-[input:hover:enabled:not([aria-invalid=true])]:bg-neutral-tertiary has-[input:focus-visible]:border-brand has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand-medium has-[input[aria-invalid=true]]:border-danger-subtle has-[input[aria-invalid=true]]:bg-danger-soft group-data-dragging:border-brand group-data-dragging:bg-brand-softer has-[input:disabled]:cursor-not-allowed has-[input:disabled]:border-default has-[input:disabled]:bg-disabled">
@@ -58,6 +67,8 @@
         </div>
         {%- if not multiple %}
             <div class="w-full" hidden data-symfony--ux-dropzone--dropzone-target="preview" data-dropzone-assist-target="preview">
+                {#- with a `preview_item` block, UX Dropzone fills the preview from it -#}
+                {%- if not _previewItem %}
                 <div class="flex w-full items-center gap-3 text-start">
                     <div class="size-12 shrink-0 rounded-sm bg-contain bg-center bg-no-repeat" aria-hidden="true" data-symfony--ux-dropzone--dropzone-target="previewImage"></div>
                     <span id="{{ _id }}_filename" class="min-w-0 flex-1 text-sm font-medium wrap-anywhere text-heading" data-symfony--ux-dropzone--dropzone-target="previewFilename"></span>
@@ -67,16 +78,22 @@
                         aria-labelledby="{{ _id }}_remove {{ _id }}_filename"
                         data-symfony--ux-dropzone--dropzone-target="previewClearButton"
                         data-dropzone-assist-target="clearButton"
-                        data-action="click->dropzone-assist#clearing:capture"
                     >
                         <span id="{{ _id }}_remove" class="sr-only">{{ removeLabel }}</span>
                         <twig:ux:icon name="flowbite:close-outline" class="size-5" aria-hidden="true" />
                     </button>
                 </div>
+                {%- endif %}
             </div>
         {%- endif %}
     </div>
     {%- if multiple %}
         <ul class="mt-3 space-y-2 empty:hidden" aria-live="polite" data-symfony--ux-dropzone--dropzone-target="previewList" data-dropzone-assist-target="list" data-action="click->dropzone-assist#removing:capture"></ul>
+    {%- endif %}
+    {%- if _previewItem %}
+        <template data-symfony--ux-dropzone--dropzone-target="previewItemTemplate">
+            {##- One file's preview, for a custom look: one root element, cloned for each picked file; mark its parts with `data-dropzone-slot="image"`, `"filename"` and `"remove"` (UX Dropzone fills them, and names Remove "Remove photo.png"). -#}
+            {%- block preview_item -%}{%- endblock -%}
+        </template>
     {%- endif %}
 </div>

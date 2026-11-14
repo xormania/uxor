@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\UX\Dropzone\Form\DropzoneType;
 use Symfony\UX\Turbo\TurboBundle;
 
 /**
@@ -71,6 +72,7 @@ final class LabController extends AbstractController
         'dropzone-events' => 'A Dropzone given a controller of the page: its actions, values and target reach it.',
         'dropzone-form' => 'A Symfony form with DropzoneType fields posted through Turbo (303, or 422 with the errors), next to a Live Component whose re-renders leave the picked files alone.',
         'live-dropzone' => 'Files uploaded from a Live Component through a files action: re-renders leave the picked files alone, and each upload gives a fresh zone.',
+        'dropzone-options' => 'Dropzones with the options of UX Dropzone 3.7: zones capped at two files (one also limited to images), zones whose preview comes from a template (one file, several files, one in a POST form across Turbo visits and Back), and a templated zone replaced and updated by Turbo Streams.',
         'editor-turbo' => 'Editors across Turbo visits and Back: a Symfony form posted through Turbo (303, or 422 with the errors), one inside a data-turbo-permanent element, one inside a Turbo Frame that reloads.',
         'editor-stream' => 'An Editor replaced and updated by Turbo Streams.',
         'live-editor' => 'An Editor bound to a Live Component property: unrelated re-renders leave the typing alone, a save reads the content, a reset from the server replaces it.',
@@ -545,6 +547,35 @@ final class LabController extends AbstractController
             'error' => $error,
             'description' => self::SCENARIOS['dropzone-turbo'],
         ], new Response(null, null === $error ? 200 : 422));
+    }
+
+    #[Route('/dropzone-options/{page}', name: 'app_lab_dropzone_options', requirements: ['page' => 'one|two'], defaults: ['page' => 'one'], methods: ['GET', 'POST'])]
+    public function dropzoneOptions(Request $request, string $page): Response
+    {
+        // the stream buttons send `action`; the POST form holding a templated zone is there for Back, never submitted
+        if ($request->isMethod('POST') && \in_array($request->request->get('action'), ['replace', 'update'], true)) {
+            $request->setRequestFormat(TurboBundle::STREAM_FORMAT);
+
+            return $this->render('lab/dropzone_options.stream.html.twig', ['action' => $request->request->get('action')]);
+        }
+        // `?form=1`: a DropzoneType shown through the form theme's `dropzone_preview_item` block; a valid post answers 303
+        $upload = null;
+        if ($request->query->getBoolean('form')) {
+            $upload = $this->createFormBuilder(null, ['action' => $this->generateUrl('app_lab_dropzone_options', ['page' => $page, 'form' => 1])])
+                ->add('document', DropzoneType::class, ['constraints' => [new Assert\NotNull(message: 'Choose a document.')]])
+                ->getForm();
+            $upload->handleRequest($request);
+            if ($upload->isSubmitted() && $upload->isValid() && ($document = $upload->get('document')->getData()) instanceof UploadedFile) {
+                return $this->redirectToRoute('app_lab_dropzone_options', ['page' => $page, 'form' => 1, 'posted' => $document->getClientOriginalName()], Response::HTTP_SEE_OTHER);
+            }
+        }
+
+        return $this->render('lab/dropzone_options.html.twig', [
+            'page' => $page,
+            'upload' => $upload?->createView(),
+            'posted' => $request->query->getString('posted'),
+            'description' => self::SCENARIOS['dropzone-options'],
+        ], new Response(null, $upload?->isSubmitted() ? 422 : 200));
     }
 
     #[Route('/dropzone-stream', name: 'app_lab_dropzone_stream', methods: ['GET', 'POST'])]

@@ -5,6 +5,15 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- `dropzone`: a `maxFiles` prop caps a zone for several files in the browser, files over it left out with
+  `dropzone:reject`; through the form theme, `DropzoneType`'s `max_files` option sets it (UX Dropzone's type adds the
+  server's `Count`).
+- `dropzone`: a `preview_item` block gives the markup of each picked file (UX Dropzone's preview template, with its
+  `image`, `filename` and `remove` slots); through the form theme, a `dropzone_preview_item` block in your own theme
+  does the same (`form-theme`). UX Dropzone's own `dropzone_preview_item_template` block is not read.
+
 ### Changed
 
 - `dropzone` requires `symfony/ux-dropzone` ^3.7, 3.7 and later 3.x releases (it allowed ^3.5): UX Dropzone 3.7
