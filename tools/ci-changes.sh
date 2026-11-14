@@ -30,7 +30,9 @@ while IFS= read -r path; do
         # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
         # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
         # Package checks the copies are up to date (generate-reference.php --check)
-        docs/GUIDE.md | docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
+        # docs/GUIDE.md is also a page of the gallery, which the production image serves from its own copy (/guide)
+        docs/GUIDE.md) on contrast package prod-image ;;
+        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
         LICENSE | NOTICE) on package ;;
 
         # Read by people and agents: Contrast checks the generated lists, the plans' status (tools/llms-txt.mjs
@@ -83,7 +85,9 @@ while IFS= read -r path; do
         package.json | package-lock.json) on contrast demo ;;
 
         # Repository tools, each with the jobs that run it
-        tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs | llms.txt) on contrast ;;
+        tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
+        # llms.txt is also served by the gallery (/llms.txt), from the production image's copy
+        llms.txt) on contrast prod-image ;;
         # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the
         # demo reads manifest.json itself
         tools/kit-identity.mjs) on contrast ;;
@@ -140,7 +144,9 @@ while IFS= read -r path; do
 
         # The kit's README.md and INSTALL.md are read by people and agents, by Contrast (what the markdown teaches) and
         # by the package's references (Package); no install, lint, PHP test or page reads them
-        README.md | INSTALL.md) on contrast package ;;
+        README.md) on contrast package ;;
+        # INSTALL.md is also the gallery's install guide (/install), from the production image's copy
+        INSTALL.md) on contrast package prod-image ;;
 
         # Anything else is part of the kit (recipes, kit.css, kit.js, manifest.json, .gitattributes...).
         # Contrast checks the theme's roles, what the markdown teaches and the palette colors of the recipes' templates
@@ -156,6 +162,25 @@ while IFS= read -r path; do
                 continue
             fi
             on lint-kit php static-site fresh-install demo
+            # The production image holds only what its allow-list names (demo/Dockerfile.dockerignore): the root files
+            # the gallery reads (kit.css, manifest.json; INSTALL.md, llms.txt and docs/GUIDE.md above), and from each
+            # recipe the directories its copy-files names. A recipe's manifest can name a new one, and a path in no
+            # known place (a new top-level directory, a new root file, a top-level directory deleted) can need the list
+            # changed: each runs the image's lane. An existing recipe's templates, assets and code do not (the top
+            # directory holds a manifest.json); a recipe added in the change selects it through its manifest.
+            if [[ $path =~ ^[^/]+/manifest\.json$ ]]; then
+                on prod-image
+            elif [[ $path == packages/* ]]; then
+                :  # the Composer package: never in the image
+            elif [[ $path == */* ]]; then
+                [ -f "${path%%/*}/manifest.json" ] || on prod-image
+            else
+                case "$path" in
+                    # root files the image never holds: the kit's script and icon, and the repository's own settings
+                    kit.js | icon.svg | .gitattributes | .gitignore | .editorconfig) ;;
+                    *) on prod-image ;;
+                esac
+            fi
             case "$path" in
                 # manifest.json: llms.txt holds its description, name and homepage (tools/llms-txt.mjs)
                 */* | kit.css | manifest.json) on contrast ;;

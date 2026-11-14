@@ -52,10 +52,10 @@ check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs
 # the inputs of the Composer package's generated references: Package checks their copies are up to date
 check 'contrast package'          docs/TESTING.md
 check 'contrast package'          FOR-AGENTS.md
-check 'contrast package'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
+check 'contrast package prod-image'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
 check 'package'                   LICENSE
 check 'package'                   NOTICE
-check 'contrast'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
+check 'contrast prod-image'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
 check 'contrast'                  tools/test-inventory.mjs
 check 'contrast'                  tools/icon-lint.mjs
 check ''                          tools/tests/icon-lint.test.mjs
@@ -70,7 +70,7 @@ check 'php static-site demo'      demo/README.md
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
 # the kit's README.md and INSTALL.md: no install, lint, PHP test or page reads them; Contrast and the references do
-check 'contrast package'          INSTALL.md
+check 'contrast package prod-image'          INSTALL.md
 check 'contrast package'          README.md
 
 # A workflow: actionlint reads it, and the jobs that run what it runs check that part (a workflow's own triggers run
@@ -111,12 +111,25 @@ check_git "$all"                  'git mv .github/workflows/ci.yml .github/workf
 # A path no rule names is part of the kit
 # A manifest makes a directory a recipe, which the inventory check (Contrast) reads, and the package's references
 # copy it (Package)
-check "$kit_contrast package"     new-recipe/manifest.json
-check "$kit_contrast package"     tabs/manifest.json
-check_git "$kit_contrast package" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git -c user.name=t -c user.email=t@t commit -qm tabs && git rm -q tabs/manifest.json'
-check "$kit"                      some-new-file.txt
+check "$kit_contrast package prod-image"     new-recipe/manifest.json
+check "$kit_contrast package prod-image"     tabs/manifest.json
+check_git "$kit_contrast package prod-image" 'mkdir -p tabs && echo "{}" > tabs/manifest.json && git add tabs && git -c user.name=t -c user.email=t@t commit -qm tabs && git rm -q tabs/manifest.json'
+check "$kit prod-image"                      some-new-file.txt
+# The production image's lane, for what its allow-list (demo/Dockerfile.dockerignore) may have to name: a recipe's
+# manifest (a new copy-files directory), a new or deleted top-level directory, a new root file. An existing recipe's
+# templates, assets, code and README do not select it, nor do root files the image never holds, nor packages/.
+check "$kit_contrast"                        alert/templates/components/Alert.html.twig
+check "$kit_contrast"                        alert/assets/controllers/alert_controller.js
+check "$kit_contrast"                        oauth/src/UXor/OAuth/OAuthClient.php
+check "$kit_contrast prod-image"             brand-new-dir/notes.txt
+check "$kit_contrast prod-image"             NEW-ROOT-FILE.md
+check "$kit prod-image"                      NEW-ROOT-FILE.txt
+check "$kit"                                 kit.js
+check "$kit"                                 icon.svg
+check_git "$kit_contrast prod-image"         'mkdir -p old-top-dir && echo x > old-top-dir/file.txt && git add old-top-dir && git -c user.name=t -c user.email=t@t commit -qm old && git rm -q -r old-top-dir'
+check_git "$kit_contrast package prod-image" 'mkdir -p added-recipe/templates && echo "{}" > added-recipe/manifest.json && echo x > added-recipe/templates/X.html.twig && git add added-recipe'
 # the kit's manifest: llms.txt (Contrast) holds its name, homepage and description; the references copy it (Package)
-check "$kit_contrast package"     manifest.json
+check "$kit_contrast package prod-image"     manifest.json
 check 'contrast'                  tools/kit-identity.mjs
 # the name check and its cases: Tool tests, on every run
 check ''                          tools/name-check.mjs tools/tests/name-check.test.mjs
@@ -188,7 +201,7 @@ check 'php static-site demo' demo/src/Kernel.php demo/templates/base.html.twig d
 check "$kit_contrast"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
 check 'lint-kit static-site contrast demo package' side-nav/README.md
-check "$kit_contrast"             kit.css
+check "$kit_contrast prod-image"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
 check "$kit_contrast"             theme/assets/styles/uxor.css
 check "$kit_contrast"             button/templates/components/Button.html.twig
@@ -201,7 +214,7 @@ check "$kit package"              .gitattributes
 check "$kit_contrast"             alert/templates/components/Alert.html.twig
 check "$kit_contrast"             data-table/src/Table/DataTable.php
 check 'lint-kit static-site contrast demo package' alert/README.md
-check "$kit_contrast package"     alert/manifest.json
+check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
 check "$kit_contrast"             alert/assets/manifest.json
 check_git "$kit_contrast"         'mkdir -p alert/templates && echo a > alert/templates/x.html.twig && git add alert'
@@ -209,7 +222,7 @@ check 'contrast'                  tools/readme-pairing.mjs tools/readme-versions
 check ''                          tools/tests/readme-pairing.test.mjs
 check ''                          tools/tests/jev-diagnosis.test.mjs
 check ''                          tools/tests/step-attempts.test.mjs
-check "$kit_contrast"             docs/NOTES.md kit.css
+check "$kit_contrast prod-image"             docs/NOTES.md kit.css
 
 # The Composer package xormania/uxor. Its root metadata is in the kit's archive too, but no install or lint reads it;
 # the lock file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'
