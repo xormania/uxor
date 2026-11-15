@@ -263,12 +263,16 @@ test('Escape right after typing closes the list for good, the field keeping the 
     await expect(page.locator('#autocomplete_demo_country')).toHaveValue('');
 });
 
-// a rebuild while a refresh is pending: the Tom Select it replaces is destroyed with its timer still set
+// a rebuild while a refresh is pending: the Tom Select it replaces is destroyed with its timer still set. The clock is
+// frozen before typing, as in the tests above: on real time, a slow run lets the 300 ms throttle pass between the last
+// keystroke and the check (CI once took 536 ms to type "ger" and 280 ms to run the check), and the refresh has run
 test('options changing while a refresh is pending: no page error, and no list opens afterwards', async ({ page }) => {
+    await page.clock.install();
     await page.goto('/lab/live-autocomplete');
     await expect(wrappers(page)).toHaveCount(2);
     const field = control(page, 'Country');
-    await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+    await freeze(page);
+    await openField(page, field);
     await page.keyboard.type('ger');
     // within the throttle: the options change, UX Autocomplete destroys this Tom Select and builds a new one
     await page.evaluate(() => {
@@ -280,11 +284,12 @@ test('options changing while a refresh is pending: no page error, and no list op
     expect(await page.evaluate(() => (window as any).__pending), 'a refresh was pending when the options changed').toBe(true);
     await expect.poll(() => page.evaluate(() => (document.getElementById('autocomplete_demo_country') as any).tomselect !== (window as any).__oldTomSelect)).toBe(true);
     // past the throttle: the old Tom Select's refresh would have run (the fixtures fail the test on any page error)
-    await page.waitForTimeout(400);
+    await page.clock.runFor(400);
     await expect(page.locator('.ts-dropdown:visible')).toHaveCount(0);
     await expect(control(page, 'Country')).toHaveAttribute('aria-expanded', 'false');
     await expect(wrappers(page)).toHaveCount(2);
-    // and the field still works
+    // and the field still works, with time running again (pick waits for Tom Select's throttle)
+    await page.clock.resume();
     await pick(page, control(page, 'Country'), 'ita', 'Italy');
     await expect(page.locator('#autocomplete_demo_country')).toHaveValue('IT');
 });
