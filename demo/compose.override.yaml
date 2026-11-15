@@ -4,7 +4,9 @@ services:
   php:
     image: ${IMAGES_PREFIX:-}app-php-dev
     build:
-      context: .
+      # UXor: the repository is the context (the production image takes the kit beside the demo, as on disk)
+      context: ..
+      dockerfile: demo/Dockerfile
       target: frankenphp_dev
     # UXor: the whole repository, so the demo sits in /app/demo as it does on disk; it reads the kit
     # from its parent directory, and its stylesheet imports the kit's files by relative path

@@ -37,6 +37,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `dropzone` with UX Dropzone 3.7: a picked file's name, image and Remove button show (they stayed hidden), a pick
   after a file drag left the empty zone shows its preview (it stayed hidden), and a zone for one file outside a POST
   form starts empty after Back and Forward (Chromium and Firefox brought the file back).
+- The demo's production image builds and serves the gallery: it holds the kit beside the demo, as on disk, and the
+  demo needs UX Toolkit's library at run time. CI and the release checks build it and run it when its inputs change.
 - Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
   cover the consumer harness's PHP and browser dependencies. Remaining source comments and a breadcrumb test sample now
   describe UXor without promising Flowbite parity.
