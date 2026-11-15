@@ -199,10 +199,15 @@ test('every layout keeps the same toast region: a toast closed on another layout
 test('signing out requires POST: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
     allowHttpError(/\/demo\/logout$/, 405);
     await page.goto('/demo/login');
+    // the signed-in pages' avatar, a 190 KB GIF in the stylesheet: leaving the page before it has arrived cancels it,
+    // which the page guard reports (WebKit cancels it before the next document is requested, and only that next
+    // document asks for it again), so the test leaves once it has arrived
+    const avatar = page.waitForResponse((response) => /\/assets\/images\/xor\/mascot-[^/]+\.gif$/.test(response.url()));
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await (await avatar).finished();
 
     // A typed URL is always GET. The route rejects it before the firewall can consider a logout request.
     const response = await page.goto('/demo/logout');
