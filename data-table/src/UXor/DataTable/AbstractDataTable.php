@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * A controller renders it with `$table->handleRequest($request)` and `<twig:DataTable :table="table" id="orders" />`.
  */
-abstract class AbstractDataTable
+abstract class AbstractDataTable implements TableDefinition
 {
     /** Request parameter names, below paramPrefix() when it is not empty. */
     public const PARAMETERS = ['search' => 'q', 'sort' => 'sort', 'direction' => 'dir', 'page' => 'page', 'pageSize' => 'size', 'filters' => 'f'];

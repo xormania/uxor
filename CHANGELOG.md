@@ -11,6 +11,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   its snapshot reader retains missing, escaping and unreadable-file failures for the command/build guard.
 - Runtime recovery tooling assembles existing table and theme recipes into an unpublished Symfony bundle,
   with source/requirement checks and isolated native Flex fixtures. The published package remains unchanged.
+- Data table query normalization accepts a `TableDefinition` without an HTTP table or row loader. Existing
+  `AbstractDataTable` subclasses implement the contract and retain their request, query and loading behavior.
 - The Composer package has an explicit theme catalog and pure PHP presentation resolver. Installed definitions,
   requested modes, and application template overrides resolve with deterministic precedence and source details;
   Symfony rendering and browser integration remain separate work.
