@@ -13,6 +13,7 @@ final class FrontendAssets
         private readonly ImportMapConfigReader $importMap,
         private readonly AssetMapperRepository $assets,
         private readonly FrontendContractValidator $validator,
+        private readonly FrontendSnapshotReader $snapshots,
     ) {
     }
 
@@ -47,6 +48,6 @@ final class FrontendAssets
             $selections[$entry->importName] = $selection;
         }
 
-        return $this->validator->validate($this->packages->read(), $selections);
+        return $this->validator->validate($this->snapshots->read($this->packages->read(), $selections));
     }
 }

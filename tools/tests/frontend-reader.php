@@ -11,6 +11,7 @@ use Symfony\Component\AssetMapper\ImportMap\RemotePackageStorage;
 use Symfony\Component\Console\Tester\CommandTester;
 use UXor\Pilot\Asset\FrontendAssets;
 use UXor\Pilot\Asset\FrontendContractValidator;
+use UXor\Pilot\Asset\FrontendSnapshotReader;
 use UXor\Pilot\Asset\InstalledFrontendPackages;
 use UXor\Pilot\Asset\StableNpmRange;
 use UXor\Pilot\Asset\ValidateFrontendAssetsCommand;
@@ -24,7 +25,7 @@ function verifyFrontendReader(bool $condition, string $message): void
 
 verifyFrontendReader(2 === $argc && is_file($argv[1]), 'Usage: php tools/tests/frontend-reader.php AUTOLOAD');
 require $argv[1];
-foreach (['InstalledFrontendPackages', 'StableNpmRange', 'FrontendContractValidator', 'FrontendAssets', 'ValidateFrontendAssetsCommand'] as $class) {
+foreach (['InstalledFrontendPackages', 'StableNpmRange', 'FrontendSnapshot', 'FrontendSnapshotReader', 'FrontendContractValidator', 'FrontendAssets', 'ValidateFrontendAssetsCommand'] as $class) {
     require dirname(__DIR__, 2).'/packages/uxor-pilot/src/Asset/'.$class.'.php';
 }
 
@@ -142,7 +143,7 @@ try {
     file_put_contents($registryPath, json_encode(['packages' => $records], JSON_THROW_ON_ERROR));
     foreach (["['peer' => 'invalid']", "['peer' => ['version' => []]]", "['peer' => ['unknown' => 'value']]"] as $invalid) {
         file_put_contents($work.'/importmap.php', '<?php return '.$invalid.';');
-        $assets = new FrontendAssets($reader, new ImportMapConfigReader($work.'/importmap.php', new RemotePackageStorage($work.'/downloaded')), new AssetMapperRepository([], $work), new FrontendContractValidator(new StableNpmRange()));
+        $assets = new FrontendAssets($reader, new ImportMapConfigReader($work.'/importmap.php', new RemotePackageStorage($work.'/downloaded')), new AssetMapperRepository([], $work), new FrontendContractValidator(new StableNpmRange()), new FrontendSnapshotReader());
         $command = new CommandTester(new ValidateFrontendAssetsCommand($assets));
         verifyFrontendReader(1 === $command->execute(['--json' => true]), 'Malformed import map was accepted by the command');
         $diagnostic = json_decode($command->getDisplay(), true, flags: JSON_THROW_ON_ERROR);

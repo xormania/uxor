@@ -72,6 +72,7 @@ Runtime recovery tooling has a delivery boundary separate from the recipe matrix
 | Package provenance, dependency closure, namespaces and invalid-path rejection | Node unit | Recovered `tools/tests/build-package-pilot.test.mjs`, existing Tool tests glob |
 | Toolkit mappings and Composer requirements | PHP/integration | Recovered `tools/tests/package-toolkit-plan.php`, `tools/tests/package-composer-contract.php`, `tools/tests/package-composer-build.mjs` |
 | Frontend selections, ownership and metadata reads | PHP unit/integration | Recovered `tools/tests/frontend-npm-ranges.php`, `tools/tests/frontend-contract.php`, `tools/tests/frontend-reader.php`; npm oracle checks range semantics |
+| Captured package and selection facts detach caller-owned references and drive validation without filesystem fixtures; fresh captures reject missing/escaping metadata and changed local files, and failed observations remain failures | PHP unit/integration | `tools/tests/frontend-contract.php` (pure `--policy-only` cases and filesystem capture cases); `tools/tests/frontend-reader.php` (native adapter diagnostics) |
 | Archive lifecycle through native Flex | Functional | Recovered `tools/tests/package-flex.sh`; application-owned import removal remains an open Flex 2.12 gap |
 
 See [the recovery record](MACHINERY-RECOVERY.md) for version and delivery distinctions and

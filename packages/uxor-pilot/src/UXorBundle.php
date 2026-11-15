@@ -7,6 +7,7 @@ use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigura
 use Symfony\Component\HttpKernel\Bundle\AbstractBundle;
 use UXor\Pilot\Asset\FrontendAssets;
 use UXor\Pilot\Asset\FrontendContractValidator;
+use UXor\Pilot\Asset\FrontendSnapshotReader;
 use UXor\Pilot\Asset\InstalledFrontendPackages;
 use UXor\Pilot\Asset\StableNpmRange;
 use UXor\Pilot\Asset\ValidateFrontendAssetsCommand;
@@ -22,6 +23,7 @@ final class UXorBundle extends AbstractBundle
     {
         $services = $configurator->services();
         $services->set(InstalledFrontendPackages::class);
+        $services->set(FrontendSnapshotReader::class);
         $services->set(StableNpmRange::class);
         $services->set(FrontendContractValidator::class)->args([service(StableNpmRange::class)]);
         $services->set(FrontendAssets::class)->args([
@@ -29,6 +31,7 @@ final class UXorBundle extends AbstractBundle
             service('asset_mapper.importmap.config_reader'),
             service('asset_mapper.repository'),
             service(FrontendContractValidator::class),
+            service(FrontendSnapshotReader::class),
         ]);
         $services->set(ValidateFrontendAssetsCommand::class)->args([service(FrontendAssets::class)])
             ->tag('console.command', ['command' => 'uxor:assets:validate']);

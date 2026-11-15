@@ -6,7 +6,7 @@ namespace UXor\Pilot\Asset;
  * Read-only validation of selected frontend dependencies; this is not a resolver.
  *
  * @phpstan-type Selection array{version?: string, package_specifier?: string, type: string, path?: ?string, raw_path?: string, entrypoint: bool}
- * @phpstan-type PackageDescriptor array{owner: string, version: ?string, reference: ?string, packagePath: string, metadataPath: string, metadata: array<string, mixed>}
+ * @phpstan-import-type PackageSnapshot from FrontendSnapshot
  * @phpstan-type FrontendReport array{format: int, packages: list<array<string, mixed>>, imports: list<array<string, mixed>>}
  * @phpstan-type Requirement array{owner: string, field: string, raw: mixed, kind: string, specifier: ?string, package: ?string, range: ?string, path: ?string, entrypoint: bool}
  * @phpstan-type Peer array{owner: string, field: string, raw: string, package: string, range: string, optional: bool}
@@ -18,14 +18,14 @@ final class FrontendContractValidator
     }
 
     /**
-     * @param list<PackageDescriptor> $packages
-     * @param array<string, Selection> $selections
      * @return FrontendReport
      */
-    public function validate(array $packages, array $selections): array
+    public function validate(FrontendSnapshot $snapshot): array
     {
+        $packages = $snapshot->packages;
+        $selections = $snapshot->selections;
         /** @var list<string> $errors */
-        $errors = [];
+        $errors = $snapshot->errors;
         /** @var array<string, list<Requirement>> $requirements */
         $requirements = [];
         /** @var list<Peer> $peers */
@@ -38,24 +38,12 @@ final class FrontendContractValidator
                 $errors[] = 'duplicate-owner: '.$this->quote($owner);
             }
             $owners[$owner] = true;
-            $packagePath = realpath($package['packagePath']);
-            $metadataPath = realpath($package['metadataPath']);
-            if (false === $packagePath || !is_dir($packagePath) || false === $metadataPath || !is_file($metadataPath)
-                || !str_starts_with($metadataPath, $packagePath.DIRECTORY_SEPARATOR)) {
-                $errors[] = 'invalid-package-metadata: '.$this->quote($owner).' must identify a file inside its installed package';
-                continue;
-            }
-            $hash = hash_file('sha256', $metadataPath);
-            if (false === $hash) {
-                $errors[] = 'invalid-package-metadata: cannot hash '.$this->quote($owner);
-                continue;
-            }
-            $provenance[] = ['owner' => $owner, 'version' => $package['version'], 'reference' => $package['reference'], 'metadataSha256' => $hash];
+            $provenance[] = ['owner' => $owner, 'version' => $package['version'], 'reference' => $package['reference'], 'metadataSha256' => $package['metadataSha256']];
             $metadata = $package['metadata'];
             $symfony = $this->map(array_key_exists('symfony', $metadata) ? $metadata['symfony'] : [], $owner.' symfony', $errors);
             $imports = null === $symfony ? null : $this->map(array_key_exists('importmap', $symfony) ? $symfony['importmap'] : [], $owner.' symfony.importmap', $errors);
             foreach ($imports ?? [] as $name => $raw) {
-                $requirement = $this->importRequirement($owner, $name, $raw, $packagePath, $metadataPath, $errors);
+                $requirement = $this->importRequirement($owner, $name, $raw, $package['localPaths'], $errors);
                 if (null !== $requirement) {
                     $requirements[$name][] = $requirement;
                 }
@@ -155,7 +143,7 @@ final class FrontendContractValidator
             }
             if ('local' === $kinds[0]) {
                 $actual = $selection['path'] ?? null;
-                if (isset($selection['version']) || null === $actual || !is_file($actual) || realpath($actual) !== $paths[0]) {
+                if (isset($selection['version']) || null === $actual || $actual !== $paths[0]) {
                     $errors[] = 'requires-resolution: '.$this->quote($name).' must select its declared package-owned file; '.$origins;
                 }
                 foreach ($entries as $entry) {
@@ -264,7 +252,7 @@ final class FrontendContractValidator
      * @param list<string> $errors
      * @return Requirement|null
      */
-    private function importRequirement(string $owner, string $name, mixed $raw, string $packagePath, string $metadataPath, array &$errors): ?array
+    private function importRequirement(string $owner, string $name, mixed $raw, array $localPaths, array &$errors): ?array
     {
         $field = 'symfony.importmap.'.$name;
         $specifier = $name;
@@ -295,8 +283,8 @@ final class FrontendContractValidator
 
                 return null;
             }
-            $path = realpath(dirname($metadataPath).substr($range, strlen('path:%PACKAGE%')));
-            if (false === $path || !is_file($path) || !str_starts_with($path, $packagePath.DIRECTORY_SEPARATOR)) {
+            $path = $localPaths[$range] ?? null;
+            if (null === $path) {
                 $errors[] = 'invalid-package-path: file is missing or escapes its installed package; '.$this->origin($owner, $field, $raw);
 
                 return null;
