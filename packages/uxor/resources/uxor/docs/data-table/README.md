@@ -136,6 +136,18 @@ called something else. A row's element id is `<table id>-row-<row id>`.
 | `paramPrefix()` | `''` | Groups the URL parameters (`?orders[page]=2`) when a page shows several tables. |
 | `rowId(row)` | `id` | The stable id of a row. |
 
+### Normalizing values outside an HTTP table
+
+`TableQuery::fromValues($values, $definition)` accepts any `TableDefinition`. That interface declares
+`columns()`, `filters()`, `pageSizes()`, `maxRows()`, `defaultSort()` and `defaultDirection()`; it requires no
+request, renderer, row count or row loader. Supply it directly when another adapter needs the same search,
+filter, sort and paging rules. The `pageSizes()` list must contain positive integers, with the default first,
+and `maxRows()` must be at least 1.
+
+`AbstractDataTable` implements the interface, so existing table subclasses and their HTTP and Live callers
+continue to work unchanged. Normalization limits the requested page by `maxRows()`; `fetch()` still counts
+matching rows and, if necessary, moves to their last page before loading it.
+
 ### Large tables
 
 No page starts past `maxRows()` rows, so a request never makes the database skip more rows than that, whatever page

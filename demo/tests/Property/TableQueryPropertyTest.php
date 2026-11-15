@@ -2,8 +2,8 @@
 
 namespace App\Tests\Property;
 
-use App\UXor\DataTable\AbstractDataTable;
 use App\UXor\DataTable\Column;
+use App\UXor\DataTable\TableDefinition;
 use App\UXor\DataTable\TableQuery;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -80,9 +80,9 @@ final class TableQueryPropertyTest extends TestCase
     /**
      * @param non-empty-list<positive-int> $pageSizes
      */
-    private static function table(int $maxRows, array $pageSizes): AbstractDataTable
+    private static function table(int $maxRows, array $pageSizes): TableDefinition
     {
-        return new class($maxRows, $pageSizes) extends AbstractDataTable {
+        return new class($maxRows, $pageSizes) implements TableDefinition {
             /**
              * @param non-empty-list<positive-int> $sizes
              */
@@ -105,14 +105,19 @@ final class TableQueryPropertyTest extends TestCase
                 return $this->max;
             }
 
-            protected function countRows(TableQuery $query): int
-            {
-                return 0;
-            }
-
-            protected function loadRows(TableQuery $query): array
+            public function filters(): array
             {
                 return [];
+            }
+
+            public function defaultSort(): ?string
+            {
+                return null;
+            }
+
+            public function defaultDirection(): string
+            {
+                return 'asc';
             }
         };
     }
