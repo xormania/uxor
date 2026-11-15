@@ -200,7 +200,7 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 45
         env:
-            XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
+            XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
         strategy:
             fail-fast: false
             matrix:
@@ -245,13 +245,16 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   load: true
                   pull: true
                   set: |
+                      *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-refs/heads/dev

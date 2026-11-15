@@ -418,7 +418,11 @@ leaves the widget in place and kept (a Live re-render, a frame or a Stream besid
 `keeps` (the focus). The cell ends with `stillWorks()`: a widget shown as rendered takes the change again; one shown
 changed is taken back by its `undo` (an overlay by its trigger, then, opened by the user, by Escape with the focus back
 on the trigger; a tab, a branch, a file, a row, an editor's typing, a Markdown editor's preview), changed again and
-undone again. A widget showing the server's values is left as it is. A single-transition journey of an older lab spec
+undone again. A widget showing the server's values is left as it is. A step that opens a Live Component's tab waits for the server's
+render of it (the Markdown editor's `openTab`: the tab the answer marks `aria-selected`), not for text the page already
+held: a textarea last rendered with the same Markdown matches before the request is even sent, and typing during the
+round trip is lost when Live's answer arrives. Two tests slow the editor's round trips and fail when its `undo` or its
+re-render returns before every round trip it started has been answered. A single-transition journey of an older lab spec
 belongs here, with what it asserted beyond the end state: a lab spec keeps what the matrix cannot hold (the first
 frame of a copy, the order of a copy, repeated visits, another change than the row's, a route of its own).
 
@@ -984,6 +988,72 @@ the limit of the production opt-in are in [`DEMO-SECURITY.md`](https://github.co
 Here: [`ProductionConfigurationTest.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/tests/Security/ProductionConfigurationTest.php),
 [`RouteSecurityTest.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/tests/Security/RouteSecurityTest.php).
 
+## The production image
+
+**Catches:** a production image (`demo/Dockerfile`, target `frankenphp_prod`) that no longer builds, boots without
+the opt-in, bakes a secret, ships a development package or Xdebug, cannot serve the gallery, or holds files its
+allow-list leaves out, or a recipe page that errors.
+
+CI's *Production image* job, and the release checks' job of the same name, build the image from the repository for
+linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_prod --load -f demo/Dockerfile .`) and run
+[`tools/tests/prod-image.sh`](https://github.com/xormania/uxor/blob/0.3.1/tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
+images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
+image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
+its extensions, without Xdebug or any `require-dev` package, without UX Toolkit's bundle or commands; its working
+directory and server root are the app's; it serves a page of each kind that reads the kit (the dashboard, a recipe page
+and a preview, the install guide, `llms.txt`), and every recipe page in the image (`/app/*/manifest.json`) with the
+first preview it shows, all answering 200 (an image with no recipe fails); and it holds no `node_modules`, tests, `.git`, `packages/`, `.github` or
+`tools/`, and no docs but `docs/GUIDE.md`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
+and their docs), so the package is a `require` of the demo and its templates are registered for prod in
+`config/packages/twig.yaml`; its bundle is registered in dev and test only. Symfony applies the demo's overrides of
+those templates (`templates/bundles/UXToolkitBundle/`: the installation steps, which name a binary file instead of
+inlining it, the API reference, the alerts, tabs and the light and dark previews) only to a registered bundle, so the
+prod path names that directory first, ahead of the vendor's. Its standalone scripts
+(`vendor/bin/ux-toolkit-kit-*`) stay in the image: nothing serves `vendor/`, running them needs a shell in the
+container, and the app's files are owned by root.
+
+The build context is the repository, read through `demo/Dockerfile.dockerignore` alone, an allow-list at every level:
+the recipes' directories their copy-files names, the root files the gallery reads, `tools/sync-demo`, and from `demo/`
+only the twelve entries the build and the pages use. Three rules keep it tight, each stated in the file: a re-include
+below the root starts with a letter or a digit (`![a-z0-9]*/…`, never `!*/…`, which once took `.git/config`); every
+exclusion names the directory and everything below it (`x` and `x/**`), since a file is judged by the last pattern
+matching its own path; and `demo/` is admitted entry by entry (`!demo/<entry>`), so a developer's secrets key, local
+env file or editor folder stays out. The harness's context part checks the result on the checkout it runs in: no
+`.git`, `.github`, `node_modules`, `packages` or `tests`, no tools but `tools/sync-demo`, only the expected entries at
+the top of `demo/`, nothing `demo/.gitignore` ignores, no secret or machine-local file; it says whether the checkout's
+`.git` is a directory (a clone, as in CI) or a file (a worktree, which cannot show a `.git` leak). Every file in the
+context must be tracked by git or be a copy `tools/sync-demo` writes. CI builds from a clone, which holds only tracked
+files; a developer's checkout can hold local files inside the admitted directories (a `config/packages/local.yaml`, a
+file a global gitignore hides), and the image copies those directories whole. Build it by hand from a clean clone, or
+run the context check first: `tools/tests/prod-image.sh no-such-image` checks the context without building.
+
+What the build downloads is pinned but not all verified: the importmap packages by version, not by a content hash;
+the Tailwind standalone binary by version, its checksum verified only when its release publishes one. The dev image's
+build downloads the same, with the same exposure.
+
+The job runs (`tools/ci-changes.sh`, the *prod-image* output) for every file of the demo the image holds: the twelve
+entries its allow-list admits (`bin`, `config`, `src`, `templates`, `assets`, `public`, `frankenphp`, `composer.json`,
+`composer.lock`, `symfony.lock`, `importmap.php`, `.env`), since the app runs differently in prod (no development
+package, no Toolkit bundle); for its other build inputs: `demo/Dockerfile`, `demo/Dockerfile.dockerignore`,
+`demo/compose.yaml`, `demo/compose.override.yaml` and `tools/sync-demo`, which the builder runs; for its harness,
+`tools/tests/prod-image.sh`; for every recipe file the image holds, which it renders without the development packages: a
+recipe's `manifest.json`, `README.md`, `templates/`, `assets/`, `src/` and `config/`; for the root files it admits
+(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`); and for what its
+allow-list may have to name: a new root file, and any file in a top-level directory that is not a recipe (new, or
+deleted), its README included. It does not run for a recipe's `tests/` (its browser specs and screenshot baselines) or
+another file the allow-list leaves out, the browser specs in `tests/`, the docs but `docs/GUIDE.md`, the tools but the
+two above, `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
+it: most pull requests run the lane beside *Kit PHP*, *Static site* and *Demo + Playwright*, about 2 minutes 15 seconds
+on its own runner, in parallel, so it adds runner time but not the time to a verdict, which *Demo + Playwright* sets.
+The release checks reuse an earlier pass only when nothing the suite reads changed; `docs/GUIDE.md` and `llms.txt`,
+pages of the image, count as read, the rest of `docs/` does not. In the release checks, the required *Release checks*
+verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip skips both), and
+the daily issue stays open, with a comment naming it, while the image fails. It is a plain build, sharing no cache with
+the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
+[`tools/tests/prod-image-workflow.test.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
+build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a
+recipe's tests, the docs or the tools, and that the dev image's bake steps read the compose files from the root.
+
 ## Accessibility
 
 **Catches:** serious and critical axe violations on every page, in both themes; and, in a component's own specs, the
@@ -1086,25 +1156,50 @@ Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/
 ### Locked and moving lanes
 
 The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm lockfiles with
-`npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`:
+`npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`. The browser packages an
+`importmap.php` selects are in no lockfile, so a third job audits those with `bin/console importmap:audit`:
 
-| Project | Lockfile |
+| Project | Lockfile or importmap |
 |---|---|
 | Repository browser tests | `package-lock.json` |
 | Consumer browser checks | `packages/uxor/dev/package-lock.json` |
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |
+| Demo's browser packages | `demo/importmap.php` |
+| Consumer harness's browser packages | `packages/uxor/dev/app/importmap.php` |
 
 It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand on the selected branch, and on pull
 requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
-audit runs; a workflow change runs them all. Audits read the lockfiles without installing dependencies or
-executing project scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
+audit runs; a workflow change runs them all. The lockfile audits read the lockfiles without installing
+dependencies or executing project scripts; the importmap audits install dependencies but run no scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
 artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all five locks
 against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
 the consumer browser checks install Chromium for their own Playwright version.
 `tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection
 and audit shell steps with local fixtures.
+
+The importmap lanes (`importmap-audit`, one per tracked `importmap.php`) install the application's Composer
+dependencies without scripts, because `bin/console` needs `vendor/`, and print the package names and versions the
+`importmap.php` selects. Installing without scripts still runs the Composer plugins the locks allow (`symfony/runtime`
+writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane then boots the application to run the
+command: the job has read-only permissions and no long-lived secrets, only its own short-lived read-only token, which
+`setup-php` passes to Composer and the audit step uses for the advisory request. That step alone gets the token, as
+`AUDIT_GITHUB_TOKEN`, and writes for itself a config, never committed and removed when the step ends, that points
+AssetMapper's client at one adding the header for `https://api.github.com/` only; with no token the request goes
+anonymously. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
+made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
+own and never fails the lane, since a newer version is not an advisory. The command exits 1 both when anything is
+outdated and when it cannot check (a registry it cannot reach); the step reads the JSON it prints to tell them apart,
+and ends with a notice naming how many packages have newer versions, or a warning that nothing could be checked,
+never an error annotation on a passing job. Two limits come from the command, not from the workflow: it queries GitHub's
+advisory API, with the job's token (a higher rate limit than an anonymous request from a shared runner), and a rate
+limit still turns the lane red (loudly, never silently); and it asks for the API's default page size of 30, so a
+package set matching more than 30 advisories could be cut short.
+`tools/tests/importmap-audit.test.mjs` checks the lanes' shape: one per tracked `importmap.php`, no way for an audit
+failure to be swallowed, the pull request paths, the listing of versions, and the separate `importmap:outdated` step;
+it also reads the steps' conditions for a manual run and a selected pull request, and runs each lane's changed-files
+guard in scratch repositories.
 
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of
 ours in it may reflect a dependency release: read the versions it resolved before looking for a regression.
@@ -1203,6 +1298,19 @@ screenshots, and three each for Firefox and WebKit, side by side, so the other e
 tagged tests only, compared with the Chromium baselines, to report how far the other engines render from them. Any
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
+
+Locally against the Docker demo, run `DEMO_URL=https://localhost npx playwright test --workers=2`, the worker count of
+a CI shard (*Worker budget*), with Xdebug off, which is how the demo starts (`compose.override.yaml`; CONTRIBUTING.md,
+*Setup*, for the ports and project name). With Xdebug's `develop` mode on, the demo aborted some requests ("Xdebug has
+detected a possible infinite loop, and aborted your script with a stack depth of '512' frames", in
+`docker compose logs php`, run from `demo/`) and answered 500, and tests failed that pass without it. On one checkout,
+three full Chromium runs with it on gave 32, 35 and 30 failures, a different set each time, and a run with it off
+gave 1 failure in 1225 tests. CI sets `XDEBUG_MODE: 'off'` in the browser jobs, the monthly job and the release checks.
+To read the mode of a running demo, from `demo/`:
+
+```bash
+docker compose exec php php -r 'echo json_encode(xdebug_info("mode"));'   # [] when off, ["develop"] when develop is on
+```
 
 What differs between the engines, met so far, and how the kit and the suite stay portable:
 
@@ -1478,7 +1586,7 @@ The attempts come from one of three places:
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-<lane>-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit*, *composer audit* and *importmap audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
