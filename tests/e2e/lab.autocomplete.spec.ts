@@ -298,8 +298,9 @@ test('options changing while a refresh is pending: no page error, and no list op
  * A remote field left in the middle of a search: Tom Select clears the search text when the field loses the focus, so
  * returning lists the field's options, never options filtered by an abandoned search. That is Tom Select's doing, not the
  * kit's: this guards what the user sees. Left at once, the abandoned search sends no request (the refresh that would ask
- * for it is cancelled with the blur); left once the refresh ran, Tom Select's own request for it may still go out after
- * the field is left, and its results must neither open the list nor take the focus.
+ * for it is cancelled with the blur); left once the refresh ran, Tom Select's own request for it has gone out, and its
+ * results, arriving after the field is left (the test holds them until then), must neither open the list nor take the
+ * focus.
  */
 // the remote field's options, as many as CustomerAutocompleteField::CUSTOMERS
 const customers = 10;
@@ -314,51 +315,65 @@ for (const { leave, request } of [
                 queries.push(new URL(sent.url()).searchParams.get('query') ?? '');
             }
         });
-        // left at once: on Playwright's clock, frozen before typing, so the refresh is still pending at Tab however slow
-        // the run (on real time, 300 ms passing before Tab lets the refresh run, and its load asks for "bon" after the blur)
-        if (!request) {
-            await page.clock.install();
-        }
+        // on Playwright's clock, frozen before typing: Tab comes with the refresh still pending (left at once), or after
+        // the refresh and its load have run (once applied), however slow the run. On real time, 300 ms passing before Tab
+        // let the refresh run at once, and its load asked for "bon" after the blur; and Tab coming within the load
+        // throttle once the search was applied kept "bon" from being asked for
+        const answer = (query: string) =>
+            page.waitForResponse((response) => response.url().includes('/autocomplete/customer_autocomplete_field') && new URL(response.url()).searchParams.get('query') === query);
+        await page.clock.install();
         await page.goto('/lab/autocomplete');
         const field = control(page, 'Customer');
         const list = await listbox(page, field);
-        if (request) {
-            await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
-        } else {
-            await expect(wrappers(page)).toHaveCount(fields);
-            await freeze(page);
-            // focused, the field loads its options (an empty search) once its load throttle has run
-            const options = page.waitForResponse((response) => response.url().includes('/autocomplete/customer_autocomplete_field') && new URL(response.url()).searchParams.get('query') === '');
-            await openField(page, field);
-            await page.clock.runFor(300);
-            await options;
-        }
-        // the field loads its options on focus (an empty search)
+        await expect(wrappers(page)).toHaveCount(fields);
+        await freeze(page);
+        // focused, the field loads its options (an empty search) once its load throttle has run
+        const options = answer('');
+        await openField(page, field);
+        await page.clock.runFor(300);
+        await options;
         await expect(list.getByRole('option')).toHaveCount(customers);
         await page.keyboard.type('bon');
-        if (!request) {
-            expect(await refreshPending(page, '#autocomplete_demo_customer'), 'a refresh is pending before Tab').toBe(true);
-        }
+        expect(await refreshPending(page, '#autocomplete_demo_customer'), 'a refresh is pending').toBe(true);
+        // the answer to "bon", once its load has asked for it (left once applied): held until the field is left, so it
+        // always arrives in a field the user left
+        let release: () => void = () => {};
+        const held = new Promise<void>((resolve) => (release = resolve));
         if (request) {
-            // Tom Select applied the search (its lastQuery, an instance property), so its request for it is on its way
-            await expect.poll(() => page.locator('#autocomplete_demo_customer').evaluate((element) => (element as any).tomselect.lastQuery)).toBe('bon');
+            await page.route(
+                (url) => url.pathname.includes('/autocomplete/customer_autocomplete_field') && url.searchParams.get('query') === 'bon',
+                async (route) => {
+                    await held;
+                    await route.fallback().catch(() => undefined); // the page may be gone if the test failed first
+                },
+            );
+        }
+        const bon = request ? answer('bon') : null;
+        if (request) {
+            // the refresh applies the search (Tom Select's lastQuery, an instance property), then its load asks for it
+            await page.clock.runFor(300);
+            expect(await page.locator('#autocomplete_demo_customer').evaluate((element) => (element as any).tomselect.lastQuery)).toBe('bon');
+            await page.clock.runFor(300);
+            await expect.poll(() => queries.includes('bon')).toBe(true);
         }
         await page.keyboard.press('Tab');
         await expect(field).toHaveValue('');
         await expect(field).toHaveAttribute('aria-expanded', 'false');
 
         if (request) {
-            // its results arrive in the field the user left: the list stays closed and the focus stays where Tab put it
-            await expect.poll(() => queries.includes('bon')).toBe(true);
-            await page.waitForLoadState('networkidle');
+            // its results arrive in the field the user left, and whatever they set off runs: the list stays closed and the
+            // focus stays where Tab put it
+            release();
+            await bon;
+            await page.clock.runFor(400);
         } else {
             // past both throttles, the refresh's and its load's: nothing asked for the abandoned search (Tom Select marks a
             // search in loadedSearches when its load timer runs)
             await page.clock.runFor(700);
             expect(await page.locator('#autocomplete_demo_customer').evaluate((element) => (element as any).tomselect.loadedSearches['bon'] ?? false), 'a load ran for the abandoned search').toBe(false);
             expect(queries).not.toContain('bon');
-            await page.clock.resume();
         }
+        await page.clock.resume();
         await expect(field).toHaveAttribute('aria-expanded', 'false');
         await expect(field).not.toBeFocused();
 
