@@ -198,7 +198,7 @@ jobs:
             RELEASE_LANE: ${{ matrix.lane }}
             RELEASE_RUNNER: ../tools/ci/release-checks.mjs
             RELEASE_TOOLS: ../tools/ci
-            XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
+            XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
         steps:
             # Orchestration is pinned to the workflow; implementation/configuration live in their own checkout.
             # Local actions remain at their normal path, including when the target is the older main revision.

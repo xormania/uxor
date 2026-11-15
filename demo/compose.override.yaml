@@ -23,7 +23,11 @@ services:
       FRANKENPHP_SITE_CONFIG: hot_reload
       MERCURE_EXTRA_DIRECTIVES: playground
       # See https://xdebug.org/docs/all_settings#mode
-      XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
+      # UXor: off by default, where the Symfony Docker template's default is develop. In develop mode Xdebug aborts a
+      # call stack deeper than 512 frames, which the browser tests' concurrent requests reached: the demo answered 500
+      # and tests failed in different places on each run. Set XDEBUG_MODE=debug (or develop) on `docker compose up` to
+      # use it.
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
       APP_ENV: "${APP_ENV:-dev}"
       # UXor: the demo's public directory (frankenphp/Caddyfile)
       SERVER_ROOT: /app/demo/public
