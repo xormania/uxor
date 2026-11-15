@@ -1,0 +1,4 @@
+<twig:UXor:DataTable :table="table" id="orders" label="Orders" data-consumer="flex-fixture">
+    {% block cell_number %}<a href="/invoice/{{ row.id }}" data-invoice>{{ row.number }}</a>{% endblock %}
+    {% block cell_customer %}<strong data-customer>{{ row.customer }}</strong>{% endblock %}
+</twig:UXor:DataTable>

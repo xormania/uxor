@@ -47,6 +47,17 @@ updates:
           consumer-npm:
               patterns: ['*']
 
+    - package-ecosystem: npm
+      directory: /tools/tests/fixtures/npm-semver
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+      groups:
+          semver-oracle:
+              patterns: ['*']
+
     - package-ecosystem: composer
       directory: /
       target-branch: dev

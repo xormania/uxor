@@ -1,0 +1,21 @@
+{
+    "name": "@xormania/uxor-pilot",
+    "private": true,
+    "type": "module",
+    "license": "MIT",
+    "symfony": {
+        "controllers": {
+            "data-table": {
+                "main": "controllers/data_table_controller.js",
+                "enabled": true,
+                "fetch": "eager",
+                "webpackMode": "eager"
+            }
+        },
+        "importmap": {
+            "@hotwired/stimulus": "^3.2.2",
+            "flowbite/dist/flowbite.min.css": "^4.0.2"
+        }
+    },
+    "peerDependencies": { "@hotwired/stimulus": "^3.2.2" }
+}

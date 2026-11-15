@@ -1,0 +1,10 @@
+{
+    "name": "uxor-npm-semver-oracle",
+    "private": true,
+    "type": "module",
+    "license": "MIT",
+    "description": "Development-only oracle for the bounded PHP stable npm range contract.",
+    "devDependencies": {
+        "semver": "7.8.5"
+    }
+}
