@@ -4,7 +4,8 @@
 # `twig.form_themes` setting: the block applies the theme itself), `/orders` renders a DataTable whose PHP classes
 # ux:install copied into src/, `/live-orders` a DataTableLive that answers a Live action, `/pick` autocomplete fields and
 # the Autocomplete component, `/dates` a DateType opted into the date picker, `/charts` two charts, `/upload`
-# DropzoneType fields that take a posted file, `/post` an EditorType that sanitizes what it stores, and all answer 200.
+# DropzoneType fields that take a posted file (one with `placeholder: false` and no main line, which needs the recipe's
+# form type extension), `/post` an EditorType that sanitizes what it stores, and all answer 200.
 #
 #   tools/tests/check-fresh-app.sh <base URL> [curl option…]
 set -euo pipefail
@@ -152,6 +153,18 @@ case "$location" in
     *) echo "FAIL: posting a PNG to /upload answered $location" >&2; exit 1 ;;
 esac
 echo "ok: a DropzoneType renders through the dropzone recipe and takes a posted file (HTTP 200, 303)"
+# the main line of a box: none for `placeholder: false`, which needs the recipe's form type extension registered in this
+# app; the kit's default phrase for custom attr and no placeholder, where UX Dropzone alone would show none
+zone() { # zone <input id>: the markup of the Dropzone holding that input, up to the next Dropzone
+    awk -v RS='data-controller="symfony--ux-dropzone--dropzone dropzone-assist"' -v id="id=\"$1\"" 'NR > 1 && index($0, id) { print; found = 1 } END { exit !found }' <<< "$page"
+}
+main_line='<p class="text-sm font-semibold text-heading">'
+quiet="$(zone form_quiet)" || { echo "FAIL: the upload page lacks the placeholder: false field" >&2; exit 1; }
+if grep -qF -- "$main_line" <<< "$quiet"; then echo "FAIL: the placeholder: false field shows a main line" >&2; exit 1; fi
+typed="$(zone form_typed)" || { echo "FAIL: the upload page lacks the custom attr field" >&2; exit 1; }
+grep -qF -- "${main_line}Drag and drop or browse</p>" <<< "$typed" \
+    || { echo "FAIL: the custom attr field without a placeholder lacks the default phrase" >&2; exit 1; }
+echo "ok: placeholder: false shows no main line, custom attr without a placeholder keeps the default phrase"
 
 # the editor recipe through the form theme: an EditorType renders the Editor (a textbox named by the label, the hidden
 # textarea under the field's name), and a posted body is stored sanitized

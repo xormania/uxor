@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.1",
-        "inputs_sha256": "65fa25bb042304bf8cb346a9ebe89bf70dc2ee2ef1e64be244ff9d7ecc44a0b6",
+        "inputs_sha256": "37fa9feacfe0b3fbc8a0505b83b3dadde4c2ec69551eed9e2a3681e805c17c10",
         "manifest_sha256": "e624eb4fc71ef5a830e675f43e1dfc822dafee22ccac88290d3586304d6bc54a",
         "license": "MIT"
     },
@@ -514,6 +514,7 @@
                 "name": "Dropzone",
                 "copy-files": {
                     "assets/": "assets/",
+                    "src/": "src/",
                     "templates/": "templates/"
                 },
                 "dependencies": {
@@ -522,7 +523,7 @@
                         "turbo"
                     ],
                     "composer": [
-                        "symfony/ux-dropzone:^3.5",
+                        "symfony/ux-dropzone:^3.7",
                         "symfony/ux-icons",
                         "symfony/ux-twig-component:^3.5",
                         "twig/html-extra:^3.24.0",
@@ -530,7 +531,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "ca9564e363281aad155d78b78ed8959be57093bb351824c22647ad7f42d3fa11",
+            "manifest_sha256": "53448a8d197b01a99a41af12a0cfaf6a1aa397de72c8fcc843225a406fee93ab",
             "documentation": "dropzone/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.1/dropzone"
         },
@@ -1849,8 +1850,8 @@
         },
         "dropzone/README.md": {
             "path": "docs/dropzone/README.md",
-            "sha256": "d3e17197c72fd89f8ff8bcb60e4d0f5c3ce78f3f0a9f37da59afcb456f117a99",
-            "source_sha256": "d3e17197c72fd89f8ff8bcb60e4d0f5c3ce78f3f0a9f37da59afcb456f117a99",
+            "sha256": "d975c6221df0bc617564dc9bc0e81871f2bb2c8948c23a2b471bf6252a97209b",
+            "source_sha256": "d975c6221df0bc617564dc9bc0e81871f2bb2c8948c23a2b471bf6252a97209b",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/dropzone/README.md"
         },
         "editor/README.md": {
@@ -1885,8 +1886,8 @@
         },
         "form-theme/README.md": {
             "path": "docs/form-theme/README.md",
-            "sha256": "7ca0f42b7a42730e374734260eb2b64aa389973b367b456862e7fdb49c7406d8",
-            "source_sha256": "7ca0f42b7a42730e374734260eb2b64aa389973b367b456862e7fdb49c7406d8",
+            "sha256": "ab1e63449d8f706ef537530c1ca73f0986c87c83d32cc496d835212334167e0f",
+            "source_sha256": "ab1e63449d8f706ef537530c1ca73f0986c87c83d32cc496d835212334167e0f",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.1/form-theme/README.md"
         },
         "indicator/README.md": {
