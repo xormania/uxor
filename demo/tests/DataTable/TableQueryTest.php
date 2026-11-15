@@ -2,6 +2,9 @@
 
 namespace App\Tests\DataTable;
 
+use App\UXor\DataTable\Column;
+use App\UXor\DataTable\Filter;
+use App\UXor\DataTable\TableDefinition;
 use App\UXor\DataTable\TableQuery;
 use App\Tests\DataTable\Fixtures\ProductsTable;
 use App\Tests\DataTable\Fixtures\RecordingDataTable;
@@ -16,6 +19,32 @@ use PHPUnit\Framework\TestCase;
  */
 final class TableQueryTest extends TestCase
 {
+    public function testAQueryOnlyNeedsDeclarationsWithoutARequestOrRowLoader(): void
+    {
+        $definition = $this->createConfiguredStub(TableDefinition::class, [
+            'columns' => [Column::make('number', 'Order')->sortable('o.number')],
+            'filters' => [Filter::choice('status', 'Status', ['paid' => 'Paid'])],
+            'pageSizes' => [20, 40],
+            'maxRows' => 101,
+            'defaultSort' => 'number',
+            'defaultDirection' => 'desc',
+        ]);
+
+        $query = TableQuery::fromValues([
+            'search' => '  invoice  ',
+            'filters' => ['status' => 'paid', 'undeclared' => 'value'],
+            'sort' => 'o.number',
+            'direction' => 'asc',
+            'page' => \PHP_INT_MAX,
+            'pageSize' => 7,
+        ], $definition);
+
+        self::assertSame('invoice', $query->search);
+        self::assertSame(['status' => 'paid'], $query->filters);
+        self::assertSame(['number', 'o.number', 'desc'], [$query->sort, $query->sortField, $query->direction]);
+        self::assertSame([6, 20, 100], [$query->page, $query->pageSize, $query->offset()]);
+    }
+
     public function testADeepPageAtFiftyRowsIsCutToPage200(): void
     {
         $query = TableQuery::fromValues(['page' => 1_000_000, 'pageSize' => 50], new RecordingDataTable(1_000_000));
