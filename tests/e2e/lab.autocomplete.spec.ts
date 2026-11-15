@@ -314,13 +314,31 @@ for (const { leave, request } of [
                 queries.push(new URL(sent.url()).searchParams.get('query') ?? '');
             }
         });
+        // left at once: on Playwright's clock, frozen before typing, so the refresh is still pending at Tab however slow
+        // the run (on real time, 300 ms passing before Tab lets the refresh run, and its load asks for "bon" after the blur)
+        if (!request) {
+            await page.clock.install();
+        }
         await page.goto('/lab/autocomplete');
         const field = control(page, 'Customer');
         const list = await listbox(page, field);
-        await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+        if (request) {
+            await field.locator('xpath=ancestor::div[contains(@class, "ts-control")]').click();
+        } else {
+            await expect(wrappers(page)).toHaveCount(fields);
+            await freeze(page);
+            // focused, the field loads its options (an empty search) once its load throttle has run
+            const options = page.waitForResponse((response) => response.url().includes('/autocomplete/customer_autocomplete_field') && new URL(response.url()).searchParams.get('query') === '');
+            await openField(page, field);
+            await page.clock.runFor(300);
+            await options;
+        }
         // the field loads its options on focus (an empty search)
         await expect(list.getByRole('option')).toHaveCount(customers);
         await page.keyboard.type('bon');
+        if (!request) {
+            expect(await refreshPending(page, '#autocomplete_demo_customer'), 'a refresh is pending before Tab').toBe(true);
+        }
         if (request) {
             // Tom Select applied the search (its lastQuery, an instance property), so its request for it is on its way
             await expect.poll(() => page.locator('#autocomplete_demo_customer').evaluate((element) => (element as any).tomselect.lastQuery)).toBe('bon');
@@ -334,9 +352,12 @@ for (const { leave, request } of [
             await expect.poll(() => queries.includes('bon')).toBe(true);
             await page.waitForLoadState('networkidle');
         } else {
-            // past the throttle: nothing asked for the abandoned search
-            await page.waitForTimeout(400);
+            // past both throttles, the refresh's and its load's: nothing asked for the abandoned search (Tom Select marks a
+            // search in loadedSearches when its load timer runs)
+            await page.clock.runFor(700);
+            expect(await page.locator('#autocomplete_demo_customer').evaluate((element) => (element as any).tomselect.loadedSearches['bon'] ?? false), 'a load ran for the abandoned search').toBe(false);
             expect(queries).not.toContain('bon');
+            await page.clock.resume();
         }
         await expect(field).toHaveAttribute('aria-expanded', 'false');
         await expect(field).not.toBeFocused();
