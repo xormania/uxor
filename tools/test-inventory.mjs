@@ -175,8 +175,10 @@ for (const path of Object.keys(notPages)) {
         errors.push(`tools/test-inventory.mjs: notPages lists /lab/${path}, which LabController no longer has`);
     }
 }
+// an entry may add a query string (`dropzone-turbo?get=1`): the page is its path
 for (const page of scanned) {
-    if (!routes.some(({ path, get }) => get && (page === path || page.startsWith(`${path}/`)))) {
+    const pagePath = page.split('?')[0];
+    if (!routes.some(({ path, get }) => get && (pagePath === path || pagePath.startsWith(`${path}/`)))) {
         errors.push(`tests/e2e/a11y.spec.ts: labPages names /lab/${page}, which LabController has no page for`);
     }
 }

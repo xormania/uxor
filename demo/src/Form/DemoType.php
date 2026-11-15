@@ -72,7 +72,8 @@ final class DemoType extends AbstractType
             ->add('photo', DropzoneType::class, [
                 'required' => false,
                 'help' => 'PNG or JPG, up to 1 MB.',
-                'attr' => ['accept' => 'image/png,image/jpeg', 'placeholder' => 'Drop a photo or browse'],
+                'placeholder' => 'Drop a photo or browse',
+                'attr' => ['accept' => 'image/png,image/jpeg'],
                 'constraints' => [new Assert\Image(maxSize: '1M', mimeTypes: ['image/png', 'image/jpeg'])],
             ])
             ->add('attachments', DropzoneType::class, [
