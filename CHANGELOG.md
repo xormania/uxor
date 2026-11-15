@@ -18,6 +18,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - The gallery, kit description and icon identify UXor, and recipe documentation no longer claims that Flowbite
   JavaScript is required or that reference-kit markup and behavior must be preserved. Legacy recipe schema paths,
   reference-project version metadata and test identifiers are corrected.
+- The kit is linted with two Symfony UX Toolkit versions: the one the demo locks, read from its lock file on each run,
+  and 3.5.1, the minimum supported version, which the fresh installs also use. CI no longer claims that 3.5.1 is the
+  demo's version.
 
 ## [0.3.1] - 2026-11-05
 

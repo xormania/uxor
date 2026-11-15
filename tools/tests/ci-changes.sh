@@ -67,6 +67,8 @@ check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
 check 'php static-site demo'      demo/templates/components/Input.html.twig
 check 'php static-site demo'      demo/README.md
+# the lock Lint kit's locked lane reads the Toolkit version from
+check 'lint-kit php static-site demo' demo/composer.lock
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
 # the kit's README.md and INSTALL.md: no install, lint, PHP test or page reads them; Contrast and the references do
