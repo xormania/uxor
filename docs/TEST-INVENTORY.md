@@ -108,6 +108,16 @@ on `turbo:before-cache` (popover, date-picker, editor, markdown-editor; popover 
 browser opened as it connects), on every change (side-nav, calendar's
 inputs), or read it back on connect.
 
+## The page guard (every test)
+
+`guardPage()` in `tests/e2e/fixtures.ts` fails a test on what the user would not see; each of its exceptions is
+calibrated with the real case and with one of its conditions missing ([`TESTING.md`](TESTING.md), *Every test*).
+
+| Exception | Scope | Covered by |
+|---|---|---|
+| Turbo's prefetch cancelled by a full load (WebKit's and Firefox's rejections) | E2E | smoke "the page guard" (its prefetch and full-load cases) |
+| A local image the browser cancelled, then requested again from the same frame and document after the cancellation and received: excused (Firefox under request interception, the gallery's preview frames); never requested again, cancelled again, requested from another frame or by the frame's next document, received by a request already running, received before the cancellation, or a fetch: reported (Chromium and Firefox: WebKit reports no failure for an image load the page cancels). A stylesheet or a script stopped and requested again: reported, in every engine | E2E | smoke "the page guard › a cancelled local subresource" (8 tests), "the page guard › a cancelled local stylesheet or script" (2 tests); demo-app's 320px tests of /r/social-login and /r/oauth-provider-button in Firefox, 17 of 40 runs failing before, 0 of 40 after |
+
 ## Per recipe
 
 Each table lists the recipe's own states and interactions, then the transitions above that need more than a cell.

@@ -117,8 +117,9 @@ replaces Tom Select's input handling is not covered, and with `refreshThrottle: 
 cancel. Leaving the field clears the text typed, as Tom Select does, so nothing is left to search when the field takes
 the focus again: its list opens as for a first focus. A choice in a list that stays open (`multiple` with
 `closeAfterSelect: false`) cancels nothing: UX Autocomplete empties the search on every choice, and the refresh then
-lists the options for the empty search (for a remote field, it loads them) instead of leaving the earlier results under
-an empty field. Creating a new value in a field with `create` still moves the focus out of the field: an older behavior,
+lists the options for the empty search (for a remote field, it restores the empty search's options at once and loads
+them again from the server) instead of leaving the earlier results under an empty field. Creating a new value in a
+field with `create` still moves the focus out of the field: an older behavior,
 UX Autocomplete building Tom Select again when its options change, which this does not address. The pending refresh is
 Tom Select's `refreshTimeout`, an internal property rather than its public API: if a Tom Select version renamed it, the
 cancelling would stop without an error and the list would reopen again (the kit's browser test of this case would then
