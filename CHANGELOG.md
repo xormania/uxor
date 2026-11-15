@@ -9,6 +9,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 - Runtime recovery tooling assembles existing table and theme recipes into an unpublished Symfony bundle,
   with source/requirement checks and isolated native Flex fixtures. The published package remains unchanged.
+- The Composer package has an explicit theme catalog and pure PHP presentation resolver. Installed definitions,
+  requested modes, and application template overrides resolve with deterministic precedence and source details;
+  Symfony rendering and browser integration remain separate work.
 
 ### Fixed
 
