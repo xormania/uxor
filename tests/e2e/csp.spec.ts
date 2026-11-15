@@ -160,6 +160,46 @@ test('a picked image shows its preview under the policy (img-src data:)', async 
     expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
 });
 
+// the same in the dark theme, walked as the user does: a keyboard pick shows the name, the image and Remove, focused;
+// Remove empties the zone and puts the focus back on the input
+test('in the dark theme, a picked image shows its name, its preview under the policy and Remove, focused; Remove empties the zone', async ({ page }) => {
+    const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=dark');
+    expect(policy.get('img-src')).toContain('data:');
+    await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
+    const input = page.getByLabel('Profile picture');
+    await input.focus();
+    const chooser = page.waitForEvent('filechooser');
+    await page.keyboard.press('Enter');
+    await (await chooser).setFiles(png('dark.png'));
+
+    const remove = page.getByRole('button', { name: 'Remove dark.png' });
+    await expect(remove).toBeFocused();
+    await expect(remove).toBeVisible();
+    await expect(page.getByText('dark.png', { exact: true })).toBeVisible();
+    await expect(page.getByText('Drag and drop or browse')).toBeHidden();
+    const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
+    await expect(image).toBeVisible();
+    const box = await image.boundingBox();
+    expect(box && box.width > 0 && box.height > 0).toBe(true);
+    // the image loads (the fixtures fail on a violation), read the way the browser loads a CSS background
+    const loaded = await image.evaluate(async (element) => {
+        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
+        const probe = new Image();
+        probe.src = url;
+        await probe.decode();
+
+        return { scheme: url.slice(0, 15), width: probe.naturalWidth };
+    });
+    expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
+
+    await page.keyboard.press('Enter');
+    await expect(input).toBeFocused();
+    await expect(image).toBeHidden();
+    await expect(remove).toBeHidden();
+    await expect(page.getByText('Drag and drop or browse')).toBeVisible();
+    expect(await input.evaluate((element: HTMLInputElement) => element.files?.length ?? 0)).toBe(0);
+});
+
 test("Symfony's error pages keep the hardening headers without a policy on scripts and styles", async ({ page, allowHttpError }) => {
     // an exception's page; in debug, Symfony also removes the whole header from it
     allowHttpError(/\/r\/does-not-exist$/, 404);

@@ -1,6 +1,19 @@
+import type { Page } from '@playwright/test';
 import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
 import { turboOperation } from './transitions';
 import { demoPages, previewUrl, recipes } from './inventory';
+
+/**
+ * Call before the step that opens a signed-in page; returns a wait for that page's avatar, a 190 KB GIF in the
+ * stylesheet, to have arrived. Leaving the page before then cancels it, which the page guard reports: WebKit cancels it
+ * before the next document is requested, and only that next document asks for it again.
+ */
+function avatarArrival(page: Page): () => Promise<void> {
+    const avatar = page.waitForResponse((response) => /\/assets\/images\/xor\/mascot-[^/]+\.gif$/.test(response.url()));
+    return async () => {
+        await (await avatar).finished();
+    };
+}
 
 test('the login block signs in through form_login and shows the authentication error', async ({ page }) => {
     await page.goto('/demo/login');
@@ -154,8 +167,10 @@ test('flash messages show on every layout: the logout notice on the auth layout,
     await page.goto('/demo/login');
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
+    const avatarArrived = avatarArrival(page);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await avatarArrived();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/demo\/login$/);
@@ -199,10 +214,12 @@ test('every layout keeps the same toast region: a toast closed on another layout
 test('signing out requires POST: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
     allowHttpError(/\/demo\/logout$/, 405);
     await page.goto('/demo/login');
+    const avatarArrived = avatarArrival(page);
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await avatarArrived();
 
     // A typed URL is always GET. The route rejects it before the firewall can consider a logout request.
     const response = await page.goto('/demo/logout');
