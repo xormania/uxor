@@ -37,5 +37,12 @@ services:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
     tty: true
+    # UXor: the image's HEALTHCHECK (demo/Dockerfile, frankenphp_base), probed every second while the demo starts
+    # instead of Docker's default 5 s, so `docker compose up --wait` returns about when the server answers. The check
+    # itself stays the image's; start_period restates the image's 60 s, which Compose requires beside start_interval
+    # (Docker Engine 25, Compose 2.20). Development only: the production image is run without this file.
+    healthcheck:
+      start_period: 60s
+      start_interval: 1s
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###
