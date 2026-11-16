@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument, pauseClock } from './fixtures';
 import { back, forward, shown, visit } from './transitions';
 
 /*
@@ -53,7 +53,7 @@ test('the tree has the ARIA tree structure, and the branch of the current page r
 });
 
 test('the keyboard moves through the shown treeitems, opens and closes branches and follows links', async ({ page }) => {
-    // the type-ahead's timer on Playwright's clock: runFor() moves it on at once
+    // the type-ahead's timer on Playwright's clock (paused for the type-ahead, below)
     await page.clock.install();
     await page.goto('/lab/side-nav');
     await expectTree(page, { open: [], current: ['Overview'], tabStop: 'Overview' });
@@ -85,7 +85,10 @@ test('the keyboard moves through the shown treeitems, opens and closes branches 
     await expect(treeitem(page, 'Reference')).toHaveAttribute('aria-expanded', 'true');
     await press('End', 'Glossary');
     await press('Home', 'Overview');
-    // type-ahead: the same letter again moves on to the next match, several letters refine it
+    // type-ahead: the same letter again moves on to the next match, several letters refine it. The clock paused, the
+    // typed letters are kept until runFor() moves time on, however long the steps between two letters take (installed
+    // and not paused, it keeps real time, and a slow run forgot them); resumed after, for the visits below
+    await pauseClock(page);
     await press('g', 'Guides');
     await press('g', 'Getting started');
     await press('g', 'Glossary');
@@ -97,6 +100,7 @@ test('the keyboard moves through the shown treeitems, opens and closes branches 
     await expect(treeitem(page, 'Reference')).toBeFocused();
     await press(' ', 'Reference');
     await expect(treeitem(page, 'Reference')).toHaveAttribute('aria-expanded', 'false');
+    await page.clock.resume();
 
     // closing the branch that holds the focus brings the focus up to it
     await press('Home', 'Overview');

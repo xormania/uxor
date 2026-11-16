@@ -311,6 +311,16 @@ export const test = base.extend<{
 export { expect };
 
 /**
+ * Pauses Playwright's clock, installed before the page loaded (`page.clock.install()`): from then on only `runFor()`
+ * moves time, so no timer of the page fires between two steps of the test, however slow the run. Installed and not
+ * paused, the clock keeps real time. `pauseAt()` takes a time ahead of the page's: the clock moves 1 s on first,
+ * firing the timers due by then, so call it once the page is ready and before the steps that start the timers.
+ */
+export async function pauseClock(page: Page): Promise<void> {
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+}
+
+/**
  * Waits until the current Turbo visit has rendered the server's response. A visit to a page Turbo has cached first
  * shows that snapshot as a preview (`data-turbo-preview` on <html>), so the new page's content is visible while its
  * request is still running, and going Back or away then cancels the request. Turbo marks <html> `aria-busy` from
