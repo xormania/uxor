@@ -2,19 +2,21 @@
 /**
  * Reuse of an earlier pass of a CI lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*).
  *
- * A lane's inputs are the whole tree but a few administrative files no reusable lane reads (EXCLUDED): its fingerprint
- * hashes `git ls-tree -r` of the commit without them, so a change to anything else, ci.yml, this tool and the pinned
- * versions included, gives every lane a new fingerprint. CI result records a marker artifact for each lane that ran
- * fresh: `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed, `ci-fail-v1-...` when one failed. A later
- * run with the same fingerprint reuses the pass only when the newest marker is a pass, at most MAX_AGE_DAYS old, from a
- * push or manual run of ci.yml in this repository whose lane jobs all passed (latest attempt), and when the fingerprint
- * recomputed at the producer's commit is the same. Anything missing, ambiguous or failing to load runs the lane.
+ * A lane's inputs are the whole tree but the content of a few administrative files no reusable lane reads (EXCLUDED):
+ * its fingerprint hashes `git ls-tree -r` of the commit, those files kept by path and mode only, so a change to anything
+ * else, ci.yml, this tool and the pinned versions included, gives every lane a new fingerprint. CI result records a
+ * marker artifact for each lane that ran: `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
+ * `ci-fail-v1-...` when one failed. A later run with the same fingerprint takes the markers newest first: a failure from
+ * a verified producer stops the search, and the first pass that verifies is reused (at most MAX_AGE_DAYS old, from a push
+ * or manual run of ci.yml in this repository whose lane jobs all passed in their latest attempt, the fingerprint
+ * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
  *   fingerprint --sha <rev>
  *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] --out <plan.json> [--github-output <f>]
- *   record --plan <plan.json> --jobs <jobs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
+ *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
  *   verdict --plan <plan.json> --needs <needs.json> --repo <o/r> [--wo-draft true|false] [--summary <f>]
- * Common: --gh <command> (gh), --git-dir <dir> (.), --now <ISO time> (the clock).
+ * Common: --gh <command> (gh), --git-dir <dir> (.), --now <ISO time> (the clock), --budget-ms <n> (60000),
+ * --retry-delay-ms <n> (1000: the verdict retries a failed API call twice, after it and twice it).
  *
  * Self-contained (Node's own modules only): CI result runs the copy the Changes job ran.
  */
@@ -27,11 +29,13 @@ import { inflateRawSync } from 'node:zlib';
 
 /** every lane of ci.yml's Changes job, in its order */
 export const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
-/** the lanes whose pass can be reused, with their jobs' names in ci.yml and how many a full pass has */
+/**
+ * The lanes whose pass can be reused, with their jobs' names in ci.yml and how many a full pass has. Not the static
+ * site, whose pages print the branch and commit, nor Lint kit, which resolves the Toolkit from the network: both are
+ * short, and always run when selected.
+ */
 export const REUSABLE = {
-    'lint-kit': { prefix: 'Lint kit (', count: 2 },
     php: { name: 'Kit PHP', count: 1 },
-    'static-site': { name: 'Static site', count: 1 },
     demo: { prefix: 'Demo + Playwright (', count: 10 },
     'prod-image': { name: 'Production image', count: 1 },
 };
@@ -45,6 +49,7 @@ const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'] };
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
 const IMPORTMAP_USERS = ['php', 'static-site', 'demo'];
 const MARKER_LIMIT = 65536;
+const RERUN_NOTE = 'only "Re-run all jobs" plans the lanes again; re-running failed jobs reuses this plan';
 
 class Refused extends Error {
     constructor(reason, detail) {
@@ -52,6 +57,9 @@ class Refused extends Error {
         this.reason = reason;
     }
 }
+
+/** any error in a lookup, as a refusal: a crash never decides a lane */
+const refusal = (error) => (error instanceof Refused ? error : new Refused('lookup_error', `unexpected: ${error?.message ?? error}`));
 
 function options(argv) {
     const [command, ...rest] = argv;
@@ -72,6 +80,8 @@ function need(opts, ...names) {
     for (const name of names) if (opts[name] === undefined) usage(`${opts.command} needs --${name}`);
 }
 
+const isObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+
 // git -------------------------------------------------------------------------------------------------------------------
 
 function git(dir, args) {
@@ -81,16 +91,22 @@ function git(dir, args) {
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
-    const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean)
-        .filter((entry) => !EXCLUDED.includes(entry.slice(entry.indexOf('\t') + 1)));
+    // an excluded file counts by its path and mode, not its content: deleting it or making it a link still counts
+    const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean).map((entry) => {
+        const tab = entry.indexOf('\t');
+        if (!EXCLUDED.includes(entry.slice(tab + 1))) return entry;
+        const [mode, type] = entry.slice(0, tab).split(' ');
+        return `${mode} ${type} -${entry.slice(tab)}`;
+    });
     const body = entries.map((entry) => `${entry}\0`).join('');
     return Object.fromEntries(Object.keys(REUSABLE).map((lane) =>
-        [lane, createHash('sha256').update(`uxor-lane-evidence/1\0${lane}\0`).update(body).digest('hex')]));
+        [lane, createHash('sha256').update(`uxor-lane-evidence/2\0${lane}\0`).update(body).digest('hex')]));
 }
 
+/** the producer's commit, fetched by its id when this clone lacks it, without making the clone shallow */
 function ensureCommit(dir, sha) {
     if (git(dir, ['cat-file', '-e', `${sha}^{commit}`]).status === 0) return;
-    const fetched = git(dir, ['fetch', '-q', '--no-tags', '--depth=1', 'origin', sha]);
+    const fetched = git(dir, ['fetch', '-q', '--no-tags', '--no-write-fetch-head', 'origin', sha]);
     if (fetched.status !== 0 || git(dir, ['cat-file', '-e', `${sha}^{commit}`]).status !== 0) {
         throw new Refused('producer_commit_unavailable', `the producer's commit ${sha} cannot be fetched`);
     }
@@ -98,22 +114,36 @@ function ensureCommit(dir, sha) {
 
 // GitHub's API ------------------------------------------------------------------------------------------------------------
 
+function sleep(ms) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** `gh api`; with `retries`, a failure other than a 4xx answer (429 aside) is tried again after a growing delay */
 function api(ctx) {
     return {
         raw(path) {
-            if (Date.now() > ctx.deadline) throw new Refused('lookup_error', 'the lookup ran out of time');
-            ctx.calls++;
-            const result = spawnSync(ctx.gh, ['api', path], { encoding: 'buffer', maxBuffer: 1 << 26, timeout: 20000 });
-            if (result.status !== 0) throw new Refused('lookup_error', `gh api ${path}: ${(result.stderr ?? '').toString().trim() || 'failed'}`);
-            return result.stdout;
+            for (let attempt = 0; ; attempt++) {
+                if (Date.now() > ctx.deadline) throw new Refused('lookup_error', 'the lookup ran out of time');
+                ctx.calls++;
+                const result = spawnSync(ctx.gh, ['api', path], { encoding: 'buffer', maxBuffer: 1 << 26, timeout: 20000 });
+                if (result.status === 0) return result.stdout;
+                const error = (result.stderr ?? '').toString().trim() || 'failed';
+                const status = Number(error.match(/HTTP (\d{3})/)?.[1]);
+                const permanent = status >= 400 && status < 500 && status !== 429;
+                if (permanent || attempt >= ctx.retries) throw new Refused('lookup_error', `gh api ${path}: ${error}`);
+                sleep(ctx.retryDelay * 2 ** attempt);
+            }
         },
-        json(path) {
+        object(path) {
+            let value;
             try {
-                return JSON.parse(this.raw(path).toString('utf8'));
+                value = JSON.parse(this.raw(path).toString('utf8'));
             } catch (error) {
                 if (error instanceof Refused) throw error;
                 throw new Refused('lookup_error', `gh api ${path}: not JSON`);
             }
+            if (!isObject(value)) throw new Refused('lookup_error', `gh api ${path}: not an object`);
+            return value;
         },
     };
 }
@@ -122,6 +152,7 @@ function api(ctx) {
 export function zipEntry(buffer, wanted) {
     const fail = (detail) => { throw new Refused('marker_invalid', `the marker's ZIP: ${detail}`); };
     if (buffer.length > MARKER_LIMIT) fail('too large');
+    if (buffer.length < 22) fail('too short');
     let end = -1;
     for (let i = buffer.length - 22; i >= 0; i--) if (buffer.readUInt32LE(i) === 0x06054b50) { end = i; break; }
     if (end < 0) fail('no central directory');
@@ -153,41 +184,43 @@ export function zipEntry(buffer, wanted) {
 
 export function laneJobs(lane, jobs) {
     const rule = REUSABLE[lane];
-    return jobs.filter((job) => (rule.name !== undefined ? job.name === rule.name : job.name.startsWith(rule.prefix)));
+    return jobs.filter((job) => isObject(job) && typeof job.name === 'string'
+        && (rule.name !== undefined ? job.name === rule.name : job.name.startsWith(rule.prefix)));
 }
 
 const markerName = (kind, lane, fp) => `ci-${kind}-v1-${lane}-${fp}`;
 const time = (value) => Date.parse(value ?? '');
+const ids = (list) => list.map((job) => job?.id).sort((a, b) => a - b).join(',');
 
 function markers(client, repo, kind, lane, fp) {
     const name = markerName(kind, lane, fp);
-    const list = client.json(`repos/${repo}/actions/artifacts?name=${name}&per_page=100`);
+    const list = client.object(`repos/${repo}/actions/artifacts?name=${name}&per_page=100`);
     if (!Array.isArray(list.artifacts)) throw new Refused('lookup_error', `the ${kind} markers' listing has no artifacts`);
+    if (list.artifacts.some((a) => !isObject(a) || !Number.isInteger(a.id) || Number.isNaN(time(a.created_at)))) {
+        throw new Refused('lookup_error', `the ${kind} markers' listing holds an artifact without an id or a creation time`);
+    }
     return list.artifacts.filter((artifact) => artifact.name === name).map((artifact) => ({ ...artifact, kind }));
 }
 
-/** the newest marker for the lane's fingerprint, when it is a pass young enough; throws Refused otherwise */
-function newestPass(client, ctx, lane, fp) {
-    const all = [...markers(client, ctx.repo, 'pass', lane, fp), ...markers(client, ctx.repo, 'fail', lane, fp)];
-    if (all.some((artifact) => Number.isNaN(time(artifact.created_at)))) throw new Refused('lookup_error', 'a marker without a creation time');
-    all.sort((a, b) => time(b.created_at) - time(a.created_at));
-    if (all.length === 0) throw new Refused('no_evidence', `no marker ${markerName('pass', lane, fp)}`);
-    const [newest] = all;
-    if (newest.kind === 'fail') throw new Refused('later_failure', `run ${newest.workflow_run?.id} failed the lane with these inputs at ${newest.created_at}, after any pass`);
-    return newest;
+/** every marker for the lane's fingerprint, newest first (a failure first when two share a time) */
+function candidates(client, ctx, lane, fp) {
+    return [...markers(client, ctx.repo, 'pass', lane, fp), ...markers(client, ctx.repo, 'fail', lane, fp)]
+        .sort((a, b) => time(b.created_at) - time(a.created_at) || (a.kind === 'fail' ? -1 : 1));
 }
 
 function checkAge(ctx, artifact) {
     if (artifact.expired) throw new Refused('evidence_expired', `marker ${artifact.id} has expired`);
     const age = ctx.now - time(artifact.created_at);
-    if (age > MAX_AGE_DAYS * 86400000) throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 86400000)} days old (at most ${MAX_AGE_DAYS})`);
+    if (Number.isNaN(age) || age > MAX_AGE_DAYS * 86400000) {
+        throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 86400000)} days old (at most ${MAX_AGE_DAYS})`);
+    }
 }
 
 /** the producer run, checked against its marker's artifact: ci.yml, a push or manual run, this repository's */
 function producerRun(client, ctx, artifact) {
-    const origin = artifact.workflow_run ?? {};
+    const origin = isObject(artifact.workflow_run) ? artifact.workflow_run : {};
     if (!Number.isInteger(origin.id)) throw new Refused('wrong_producer', 'the marker names no run');
-    const run = ctx.runs.get(origin.id) ?? client.json(`repos/${ctx.repo}/actions/runs/${origin.id}`);
+    const run = ctx.runs.get(origin.id) ?? client.object(`repos/${ctx.repo}/actions/runs/${origin.id}`);
     ctx.runs.set(origin.id, run);
     const problems = [
         run.id !== origin.id && 'another run id',
@@ -202,10 +235,14 @@ function producerRun(client, ctx, artifact) {
     return run;
 }
 
+/** the lane's jobs in the run's latest attempt: the full count, all passed */
 function producerJobs(client, ctx, lane, run) {
-    const jobs = ctx.jobs.get(run.id) ?? client.json(`repos/${ctx.repo}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`).jobs;
-    if (!Array.isArray(jobs)) throw new Refused('lookup_error', `run ${run.id}: no job list`);
-    ctx.jobs.set(run.id, jobs);
+    let jobs = ctx.jobs.get(run.id);
+    if (!jobs) {
+        jobs = client.object(`repos/${ctx.repo}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`).jobs;
+        if (!Array.isArray(jobs) || jobs.some((job) => !isObject(job))) throw new Refused('lookup_error', `run ${run.id}: no job list`);
+        ctx.jobs.set(run.id, jobs);
+    }
     const mine = laneJobs(lane, jobs);
     const { count } = REUSABLE[lane];
     const bad = mine.filter((job) => job.conclusion !== 'success');
@@ -215,8 +252,8 @@ function producerJobs(client, ctx, lane, run) {
     return mine;
 }
 
-function qualify(client, ctx, lane, fp) {
-    const artifact = newestPass(client, ctx, lane, fp);
+/** one pass marker, verified in full; throws Refused */
+function verifyPass(client, ctx, lane, fp, artifact) {
     checkAge(ctx, artifact);
     const run = producerRun(client, ctx, artifact);
     const jobs = producerJobs(client, ctx, lane, run);
@@ -227,15 +264,15 @@ function qualify(client, ctx, lane, fp) {
         if (error instanceof Refused) throw error;
         throw new Refused('marker_invalid', 'evidence.json is not JSON');
     }
-    const ids = (list) => (Array.isArray(list) ? list.map((job) => job?.id).sort((a, b) => a - b).join(',') : null);
     const problems = [
+        !isObject(marker) && 'shape',
         marker?.schema !== 1 && 'schema',
         marker?.kind !== 'pass' && `kind ${marker?.kind}`,
         marker?.lane !== lane && `lane ${marker?.lane}`,
         marker?.fingerprint !== fp && 'fingerprint',
         marker?.run_id !== run.id && 'run',
         marker?.sha !== run.head_sha && 'commit',
-        ids(marker?.jobs) !== ids(jobs) && 'jobs',
+        (!Array.isArray(marker?.jobs) || ids(marker.jobs) !== ids(jobs)) && 'jobs (the run lists others now)',
     ].filter(Boolean);
     if (problems.length) throw new Refused('marker_invalid', `marker ${artifact.id} disagrees on its ${problems.join(', ')}`);
     ensureCommit(ctx.gitDir, run.head_sha);
@@ -251,17 +288,73 @@ function qualify(client, ctx, lane, fp) {
     };
 }
 
-function context(opts) {
+/** a failure marker counts only from a verified producer; one that does not verify is no evidence either way */
+function verifiedFailure(client, ctx, artifact) {
+    try {
+        producerRun(client, ctx, artifact);
+        return true;
+    } catch (error) {
+        if (error instanceof Refused && error.reason === 'wrong_producer') return false;
+        throw error;
+    }
+}
+
+/** newest first: a verified failure stops the search, the first pass that verifies is the evidence */
+function qualify(client, ctx, lane, fp) {
+    let last = null;
+    for (const artifact of candidates(client, ctx, lane, fp)) {
+        if (artifact.kind === 'fail') {
+            if (verifiedFailure(client, ctx, artifact)) {
+                throw new Refused('later_failure', `run ${artifact.workflow_run?.id} failed the lane with these inputs at ${artifact.created_at}${last ? '' : ', after any pass'}`);
+            }
+            continue;
+        }
+        try {
+            return verifyPass(client, ctx, lane, fp, artifact);
+        } catch (error) {
+            if (!(error instanceof Refused) || error.reason === 'lookup_error') throw error;
+            last = error;
+        }
+    }
+    throw last ?? new Refused('no_evidence', `no marker ${markerName('pass', lane, fp)}`);
+}
+
+/** the plan's evidence, checked again at the verdict */
+function requalify(client, ctx, lane, fp, evidence) {
+    if (!isObject(evidence)) throw new Refused('marker_invalid', 'the plan holds no evidence');
+    const artifact = client.object(`repos/${ctx.repo}/actions/artifacts/${evidence.artifact_id}`);
+    if (artifact.name !== evidence.artifact_name) throw new Refused('marker_invalid', `artifact ${evidence.artifact_id} is now ${artifact.name}`);
+    checkAge(ctx, artifact);
+    for (const failure of markers(client, ctx.repo, 'fail', lane, fp)) {
+        if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, failure)) {
+            throw new Refused('later_failure', `run ${failure.workflow_run?.id} failed the lane with these inputs at ${failure.created_at}, after the pass the plan reuses`);
+        }
+    }
+    const run = producerRun(client, ctx, artifact);
+    if (run.id !== evidence.run_id) throw new Refused('wrong_producer', 'another run');
+    const jobs = producerJobs(client, ctx, lane, run);
+    if (!Array.isArray(evidence.jobs) || ids(jobs) !== ids(evidence.jobs)) throw new Refused('jobs_incomplete', `run ${run.id} lists other ${lane} jobs than the plan reused`);
+}
+
+function context(opts, retries) {
     const now = opts.now ? Date.parse(opts.now) : Date.now();
     if (Number.isNaN(now)) usage('--now is not a time');
     return {
         repo: opts.repo, gh: opts.gh ?? 'gh', gitDir: opts['git-dir'] ?? '.', now, calls: 0, runs: new Map(), jobs: new Map(),
-        deadline: Date.now() + Number(opts['budget-ms'] ?? 60000),
+        deadline: Date.now() + Number(opts['budget-ms'] ?? 60000), retries, retryDelay: Number(opts['retry-delay-ms'] ?? 1000),
     };
 }
 
 function writeOutputs(file, values) {
     if (file) appendFileSync(file, Object.entries(values).map(([key, value]) => `${key}=${value}\n`).join(''));
+}
+
+function readJson(path) {
+    try {
+        return JSON.parse(readFileSync(path, 'utf8'));
+    } catch {
+        return undefined;
+    }
 }
 
 // commands ----------------------------------------------------------------------------------------------------------------
@@ -277,30 +370,36 @@ function fingerprintCommand(opts) {
 function planCommand(opts) {
     need(opts, 'repo', 'sha', 'selection', 'out');
     const started = Date.now();
-    const ctx = context(opts);
+    const ctx = context(opts, 0);
     const client = api(ctx);
     const selected = Object.fromEntries(readFileSync(opts.selection, 'utf8').split('\n').filter(Boolean).map((line) => {
         const [lane, value] = line.split('=');
         return [lane, value === 'true'];
     }));
     const reuseOff = opts.ref === 'refs/heads/main' ? 'main' : opts.reuse === 'off' ? 'switch' : null;
+    // every reusable lane's fingerprint, whatever the switch: the run records what it ran under it
     let own = null;
+    let ownError = null;
+    try {
+        own = fingerprints(ctx.gitDir, opts.sha);
+    } catch (error) {
+        ownError = refusal(error);
+    }
     const lanes = {};
     for (const lane of LANES) {
-        const entry = { selected: selected[lane] ?? true, decision: 'run', fingerprint: null, reason: '', detail: '', evidence: null };
+        const entry = { selected: selected[lane] ?? true, decision: 'run', fingerprint: own?.[lane] ?? null, reason: '', detail: '', evidence: null };
         lanes[lane] = entry;
         if (!entry.selected) Object.assign(entry, { decision: 'skip', reason: 'not_selected', detail: 'the change cannot affect it' });
         else if (!REUSABLE[lane]) Object.assign(entry, { reason: 'not_reusable', detail: 'it always runs when selected' });
         else if (reuseOff) Object.assign(entry, { reason: 'reuse_off', detail: reuseOff === 'main' ? 'main always runs fresh' : 'reuse is switched off' });
+        else if (ownError) Object.assign(entry, { reason: ownError.reason, detail: ownError.message });
         else {
             try {
-                own ??= fingerprints(ctx.gitDir, opts.sha);
-                entry.fingerprint = own[lane];
                 entry.evidence = qualify(client, ctx, lane, entry.fingerprint);
                 Object.assign(entry, { decision: 'reuse', reason: 'reused', detail: `run ${entry.evidence.run_id} passed it on ${entry.evidence.head_sha}` });
             } catch (error) {
-                if (!(error instanceof Refused)) throw error;
-                Object.assign(entry, { decision: 'run', reason: error.reason, detail: error.message, evidence: null });
+                const refused = refusal(error);
+                Object.assign(entry, { decision: 'run', reason: refused.reason, detail: refused.message, evidence: null });
             }
         }
     }
@@ -310,7 +409,8 @@ function planCommand(opts) {
         const producer = entry.evidence ? ` run ${entry.evidence.run_id} attempt ${entry.evidence.run_attempt} on ${entry.evidence.head_sha} ${entry.evidence.url}` : '';
         console.log(`${lane}: ${entry.decision} (${entry.reason})${producer}${entry.decision === 'run' && entry.detail ? `: ${entry.detail}` : ''}`);
     }
-    const summary = `${Object.values(lanes).filter((e) => e.decision === 'reuse').length} reused, ${Object.values(lanes).filter((e) => e.decision === 'run').length} run, ${Object.values(lanes).filter((e) => e.decision === 'skip').length} skipped; ${plan.elapsed_ms} ms, ${plan.api_calls} API calls`;
+    const count = (decision) => Object.values(lanes).filter((e) => e.decision === decision).length;
+    const summary = `${count('reuse')} reused, ${count('run')} run, ${count('skip')} skipped; ${plan.elapsed_ms} ms, ${plan.api_calls} API calls`;
     console.log(summary);
     writeOutputs(opts['github-output'], {
         ...Object.fromEntries(Object.entries(lanes).map(([lane, entry]) => [lane, entry.decision])),
@@ -347,42 +447,68 @@ function testCounts(dir) {
     return found ? counts : null;
 }
 
+/**
+ * The markers of the lanes that ran. A failure marker is never best effort: when one is due (a lane that ran ended
+ * with a failure, by `needs`) and cannot be written, the command fails, so the step shows it. A pass marker that cannot
+ * be written only warns.
+ */
 function recordCommand(opts) {
-    need(opts, 'plan', 'jobs', 'run-id', 'run-attempt', 'out');
-    const plan = JSON.parse(readFileSync(opts.plan, 'utf8'));
-    const jobs = JSON.parse(readFileSync(opts.jobs, 'utf8'));
+    need(opts, 'plan', 'jobs', 'needs', 'run-id', 'run-attempt', 'out');
+    const plan = readJson(opts.plan);
+    const needs = readJson(opts.needs) ?? {};
+    const raw = readJson(opts.jobs);
+    const jobs = Array.isArray(raw) && raw.length > 0 && raw.every(isObject) ? raw : null;
     const outputs = {};
+    const lost = [];
     for (const lane of Object.keys(REUSABLE)) {
         outputs[`${lane}-marker`] = '';
-        const entry = plan.lanes?.[lane];
-        if (entry?.decision !== 'run' || !/^[0-9a-f]{64}$/.test(entry.fingerprint ?? '')) continue;
+        outputs[`${lane}-kind`] = '';
+        const entry = plan?.lanes?.[lane];
+        if (entry?.decision !== 'run') continue;
+        const failedByNeeds = (NEEDS[lane] ?? [lane]).some((job) => ['failure', 'timed_out'].includes(needs[job]?.result));
+        const fp = /^[0-9a-f]{64}$/.test(entry.fingerprint ?? '') ? entry.fingerprint : null;
+        if (!jobs || !fp) {
+            const why = !jobs ? "the run's job list could not be read" : 'the plan holds no fingerprint';
+            if (failedByNeeds) lost.push(`${lane}: its failure marker cannot be recorded (${why}), so a later run could reuse an older pass of these inputs`);
+            else console.log(`::warning::${lane}: no marker recorded (${why}); a later run with these inputs runs it again`);
+            continue;
+        }
         const mine = laneJobs(lane, jobs);
         const passed = mine.length === REUSABLE[lane].count && mine.every((job) => job.conclusion === 'success');
-        const failed = mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
+        const failed = failedByNeeds || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
         if (!passed && !failed) continue;
-        const kind = passed ? 'pass' : 'fail';
+        const kind = failed ? 'fail' : 'pass';
         const tests = lane === 'demo' ? testCounts(opts.shards) : null;
-        const name = markerName(kind, lane, entry.fingerprint);
-        mkdirSync(join(opts.out, name), { recursive: true });
-        writeFileSync(join(opts.out, name, 'evidence.json'), `${JSON.stringify({
-            schema: 1, kind, lane, fingerprint: entry.fingerprint, repo: plan.repo, sha: plan.sha,
-            run_id: Number(opts['run-id']), run_attempt: Number(opts['run-attempt']),
-            jobs: mine.map(({ id, name: job, conclusion, run_attempt }) => ({ id, name: job, conclusion, run_attempt })),
-            flaky: tests ? tests.flaky : null, tests,
-            runner: { image_os: process.env.ImageOS ?? null, image_version: process.env.ImageVersion ?? null },
-            recorded_at: new Date(opts.now ? Date.parse(opts.now) : Date.now()).toISOString(),
-        }, null, 2)}\n`);
+        const name = markerName(kind, lane, fp);
+        try {
+            mkdirSync(join(opts.out, name), { recursive: true });
+            writeFileSync(join(opts.out, name, 'evidence.json'), `${JSON.stringify({
+                schema: 1, kind, lane, fingerprint: fp, repo: plan.repo, sha: plan.sha,
+                run_id: Number(opts['run-id']), run_attempt: Number(opts['run-attempt']),
+                jobs: mine.map(({ id, name: job, conclusion, run_attempt }) => ({ id, name: job, conclusion, run_attempt })),
+                flaky: tests ? tests.flaky : null, tests,
+                runner: { image_os: process.env.ImageOS ?? null, image_version: process.env.ImageVersion ?? null },
+                recorded_at: new Date(opts.now ? Date.parse(opts.now) : Date.now()).toISOString(),
+            }, null, 2)}\n`);
+        } catch (error) {
+            if (kind === 'fail') lost.push(`${lane}: its failure marker cannot be written (${error.message})`);
+            else console.log(`::warning::${lane}: its pass marker cannot be written (${error.message})`);
+            continue;
+        }
         outputs[`${lane}-marker`] = name;
+        outputs[`${lane}-kind`] = kind;
         console.log(`${lane}: recorded ${name}`);
     }
     writeOutputs(opts['github-output'], outputs);
+    for (const line of lost) console.error(`::error::${line}`);
+    process.exitCode = lost.length ? 1 : 0;
 }
 
 function verdictCommand(opts) {
     need(opts, 'plan', 'needs', 'repo');
     const plan = JSON.parse(readFileSync(opts.plan, 'utf8'));
     const needs = JSON.parse(readFileSync(opts.needs, 'utf8'));
-    const ctx = context(opts);
+    const ctx = context(opts, 2);
     const client = api(ctx);
     const result = (job) => needs[job]?.result ?? 'missing';
     const lanes = {};
@@ -398,24 +524,16 @@ function verdictCommand(opts) {
             if (results.every((value) => value === 'skipped')) status('not_applicable');
             else status('incomplete', `planned to skip, ended with ${results.join(', ')}`);
         } else if (entry.decision === 'reuse') {
-            const evidence = entry.evidence;
+            const evidence = isObject(entry.evidence) ? entry.evidence : null;
             const producer = evidence && { run_id: evidence.run_id, run_attempt: evidence.run_attempt, head_sha: evidence.head_sha, url: evidence.url };
             if (!results.every((value) => value === 'skipped')) status('incomplete', `planned for reuse, ended with ${results.join(', ')}`, producer);
             else {
                 try {
-                    if (!evidence) throw new Refused('marker_invalid', 'the plan holds no evidence');
-                    const artifact = client.json(`repos/${ctx.repo}/actions/artifacts/${evidence.artifact_id}`);
-                    if (artifact.name !== evidence.artifact_name) throw new Refused('marker_invalid', `artifact ${evidence.artifact_id} is now ${artifact.name}`);
-                    checkAge(ctx, artifact);
-                    // a failure recorded since the plan refuses it; a newer pass does not contradict it
-                    newestPass(client, ctx, lane, entry.fingerprint);
-                    const run = producerRun(client, ctx, artifact);
-                    if (run.id !== evidence.run_id) throw new Refused('wrong_producer', 'another run');
-                    producerJobs(client, ctx, lane, run);
+                    requalify(client, ctx, lane, entry.fingerprint, evidence);
                     status('reused', '', producer, evidence.flaky ?? null);
                 } catch (error) {
-                    if (!(error instanceof Refused)) throw error;
-                    status('incomplete', `${error.reason}: ${error.message}`, producer);
+                    const refused = refusal(error);
+                    status('incomplete', `the reused pass no longer qualifies, ${refused.reason}: ${refused.message}; ${RERUN_NOTE}`, producer);
                 }
             }
         } else status('incomplete', `unknown decision ${entry.decision}`);
@@ -423,7 +541,7 @@ function verdictCommand(opts) {
     const setup = SETUP_NEEDS.map((job) => [job, result(job)]).filter(([, value]) => value !== 'success' && value !== 'skipped');
     const draft = opts['wo-draft'] === 'true';
     const ok = !draft && setup.length === 0 && Object.values(lanes).every((lane) => lane.status !== 'incomplete');
-    const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${value.status} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${value.producer.head_sha.slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${value.reason} |`);
+    const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${value.status} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${value.reason} |`);
     const summary = [
         '### Lanes', '',
         draft ? 'Work order draft: CI ran no tests.\n' : '',

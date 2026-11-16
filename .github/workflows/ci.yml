@@ -89,6 +89,8 @@ jobs:
             package: ${{ steps.plan.outputs.package }}
             prod-image: ${{ steps.plan.outputs.prod-image }}
             importmap: ${{ steps.plan.outputs.importmap }}
+            # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
+            lane-plan: ${{ steps.plan.outputs.artifact }}
             base: ${{ steps.jobs.outputs.base }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -167,10 +169,12 @@ jobs:
                   cat "$RUNNER_TEMP/jobs"
 
             # Each selected lane runs, or reuses an earlier pass with the same inputs (tools/ci/lane-evidence.mjs,
-            # docs/TESTING.md, *Reused lanes*): the newest marker for the lane's fingerprint is a pass at most 14 days old,
-            # recorded by CI result of a push or manual ci.yml run of this repository whose lane jobs all passed, and the
-            # fingerprint recomputed at that run's commit is this one's. Never on main; off with the repository variable
-            # CI_REUSE=off or a manual run's `reuse` unchecked. A lookup that fails runs the lane.
+            # docs/TESTING.md, *Reused lanes*): the markers for the lane's fingerprint, newest first, until a failure from
+            # a verified producer (which runs the lane) or a pass that verifies: at most 14 days old, recorded by CI result
+            # of a push or manual ci.yml run of this repository whose lane jobs all passed in their latest attempt, the
+            # fingerprint recomputed at that run's commit this one's. Never on main; off with the repository variable
+            # CI_REUSE=off or a manual run's `reuse` unchecked (both only stop the lookups: the run still records its
+            # markers). A lookup that fails runs the lane.
             # This runs the branch's own copy of the tool, unlike the selector above, which runs as the base has it: the
             # selector decides from the diff what a change can affect, so a branch could skip its own checks by editing
             # it. The tool and ci.yml are inside every fingerprint, so a branch's own copy can only match a pass recorded
@@ -183,7 +187,9 @@ jobs:
                   SHA: ${{ github.sha }}
                   REF: ${{ github.ref }}
                   REUSE: ${{ (vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
+                  ARTIFACT: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
               run: |
+                  echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
                   cp tools/ci/lane-evidence.mjs "$RUNNER_TEMP/lane-plan/lane-evidence.mjs"
                   node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
@@ -193,7 +199,7 @@ jobs:
             # the plan and the copy of the tool that made it, for CI result's record and verdict
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               with:
-                  name: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
+                  name: ${{ steps.plan.outputs.artifact }}
                   path: ${{ runner.temp }}/lane-plan/
                   if-no-files-found: error
                   retention-days: 7
@@ -1004,7 +1010,8 @@ jobs:
     cache:
         name: Build cache
         needs: changes
-        if: needs.changes.outputs.demo == 'run' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        # a reused browser lane builds no image, so the cache is written all the same
+        if: (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
         runs-on: ubuntu-latest
         timeout-minutes: 15
         # a cache that cannot be written fails no run: the run's conclusion, which release.yml waits for on main, stays
@@ -1396,7 +1403,7 @@ jobs:
               if: ${{ always() }}
               continue-on-error: true
               with:
-                  name: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
+                  name: ${{ needs.changes.outputs.lane-plan }}
                   path: ${{ runner.temp }}/lane-plan
 
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1406,58 +1413,80 @@ jobs:
                   pattern: playwright-results-*
                   path: ${{ runner.temp }}/shards
 
-            # The lanes that ran fresh in this run: a pass marker when every job of the lane passed (in its latest
-            # attempt), a failure marker when one failed, nothing when one was cancelled. Losing a marker only loses reuse.
+            # The markers of the lanes that ran in this run, reuse on or off: a pass when every job of the lane passed in
+            # its latest attempt, a failure when one failed, nothing when one was cancelled. A failure marker is never best
+            # effort: one that cannot be recorded (the job list unreadable) or uploaded fails this job loudly, since a lost
+            # failure would let a later run reuse an older pass of the same inputs. A pass marker that is lost only warns:
+            # the next run with those inputs runs the lane again.
             - name: Record the lanes that ran
               id: record
               if: ${{ always() }}
-              continue-on-error: true
               timeout-minutes: 2
               env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
                   RUN_ATTEMPT: ${{ github.run_attempt }}
+                  NEEDS: ${{ toJSON(needs) }}
               run: |
-                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/run-jobs.json"
+                  set -o pipefail
+                  printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
+                  # a listing that fails leaves no file: the tool then fails if a failure marker was due
+                  if ! gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/run-jobs.json"; then
+                      echo "::warning::the run's jobs could not be listed"
+                      rm -f "$RUNNER_TEMP/run-jobs.json"
+                  fi
                   node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" record --plan "$RUNNER_TEMP/lane-plan/plan.json" --jobs "$RUNNER_TEMP/run-jobs.json" \
-                      --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" --out "$RUNNER_TEMP/lane-markers" --github-output "$GITHUB_OUTPUT"
+                      --needs "$RUNNER_TEMP/needs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
+                      --out "$RUNNER_TEMP/lane-markers" --github-output "$GITHUB_OUTPUT"
 
-            # one artifact per lane: its name is the marker a later run looks up (kept a day past the 14 days it counts)
+            # One artifact per lane and kind: its name is the marker a later run looks up (kept a day past the 14 days it
+            # counts). Names are unique within a run, so a later attempt's marker replaces the earlier one (overwrite): the
+            # newest attempt's result is the one that stands. A failure's upload may not fail quietly.
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.lint-kit-marker != '' }}
-              continue-on-error: true
-              with:
-                  name: ${{ steps.record.outputs.lint-kit-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.lint-kit-marker }}/evidence.json
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.php-marker != '' }}
+              if: ${{ always() && steps.record.outputs.php-kind == 'pass' }}
               continue-on-error: true
               with:
                   name: ${{ steps.record.outputs.php-marker }}
                   path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.php-marker }}/evidence.json
+                  overwrite: true
                   retention-days: 15
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.static-site-marker != '' }}
-              continue-on-error: true
+              if: ${{ always() && steps.record.outputs.php-kind == 'fail' }}
               with:
-                  name: ${{ steps.record.outputs.static-site-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.static-site-marker }}/evidence.json
+                  name: ${{ steps.record.outputs.php-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.php-marker }}/evidence.json
+                  overwrite: true
                   retention-days: 15
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.demo-marker != '' }}
+              if: ${{ always() && steps.record.outputs.demo-kind == 'pass' }}
               continue-on-error: true
               with:
                   name: ${{ steps.record.outputs.demo-marker }}
                   path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.demo-marker }}/evidence.json
+                  overwrite: true
                   retention-days: 15
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.prod-image-marker != '' }}
+              if: ${{ always() && steps.record.outputs.demo-kind == 'fail' }}
+              with:
+                  name: ${{ steps.record.outputs.demo-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.demo-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.record.outputs.prod-image-kind == 'pass' }}
               continue-on-error: true
               with:
                   name: ${{ steps.record.outputs.prod-image-marker }}
                   path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.prod-image-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.record.outputs.prod-image-kind == 'fail' }}
+              with:
+                  name: ${{ steps.record.outputs.prod-image-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.prod-image-marker }}/evidence.json
+                  overwrite: true
                   retention-days: 15
 
             # The verdict, per lane: fresh (it ran and passed), reused (an earlier pass with the same inputs, whose
