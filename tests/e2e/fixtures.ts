@@ -275,7 +275,23 @@ export const test = base.extend<{
     allowCancelledRequest: (allowance: CancelledRequest) => void;
     harshConditions: boolean;
     harsh: void;
+    fileChoosers: void;
 }>({
+    /**
+     * The page's file choosers are intercepted from its creation, before its first navigation. A test waits for one
+     * with `page.waitForEvent('filechooser')` just before the key press or click that opens it, but the first listener
+     * only asks Playwright's server to intercept, without waiting for it, and the server handles that request beside the
+     * press: when the press reached the browser first, the chooser opened unintercepted and the wait timed out (CI run
+     * 43973800407). With this listener the interception is in place long before any test's action, and a test's own
+     * listener sends nothing.
+     */
+    fileChoosers: [
+        async ({ page }, use) => {
+            page.on('filechooser', () => {});
+            await use();
+        },
+        { auto: true },
+    ],
     /**
      * The release checks' harsh conditions (docs/PLAN-test-tiers.md, tier 3; the `release-harsh` project of
      * playwright.config.ts): the page's CPU 4 times slower and a slow network (HARSH_NETWORK), set before the test
