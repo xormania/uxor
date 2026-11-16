@@ -29,7 +29,7 @@ The ruleset is therefore part of this control and must be checked in repository 
 
 ## Executable repository policy
 
-`node tools/security-policy.mjs` runs in the always-on Tool tests job. It fails when:
+`node tools/security-policy.mjs` runs in the always-on Tool tests checks (the *Quick checks* job). It fails when:
 
 - an external GitHub Action is not pinned to a full commit, a workflow uses `pull_request_target`, top-level workflow
   permissions are not read-only, or a remote response is piped into a shell;

@@ -300,29 +300,179 @@ jobs:
                   job: Changes
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-    # Every workflow's syntax, expressions, job graph, action inputs and reusable workflow calls, and the shell of its
-    # run steps (ShellCheck). It reads the workflows only: tools/ci-changes.sh also runs the jobs that run what a
-    # workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Both tools are release
-    # binaries pinned by version and SHA-256. Then release.yml's decision, as a dry run: tools/release-plan.sh's cases,
-    # and its plan for main as it is (the commit, the tag and the notes of each version; a wrong tag fails here).
-    workflows:
-        name: Workflows
+    # Quick checks: the short checks of three former jobs, as steps of one job (one runner, one admission, one setup):
+    #
+    # - Tool tests, on every run: every tool's own cases (tools/tests/*.test.mjs and tools/monthly/*.test.mjs; Node
+    #   built-ins only, no install, a few seconds; no browser job runs them again; Node's JUnit report, beside the
+    #   console's TAP, gives Jev each failed case), the repository security policy (the workflows, executable sinks,
+    #   tracked paths and ownership controls), and what any path can break whichever lanes the change runs: the bundled
+    #   references' links, the test inventory's names, the archive's payload, and the name check, which reads every file.
+    # - Contrast, when tools/ci-changes.sh selects it: the theme's contrast, kit.css, llms.txt, what the markdown
+    #   teaches, the icons, the README examples, the test inventory, the READMEs' versions and the README pairing (which
+    #   reads the branch's commits since the Changes job's base).
+    # - Workflows, when selected: every workflow's syntax, expressions, job graph, action inputs and the shell of its run
+    #   steps (actionlint with ShellCheck, release binaries pinned by version and SHA-256); tools/ci-changes.sh also runs
+    #   the jobs that run what a workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Then
+    #   release.yml's decision, as a dry run: tools/release-plan.sh's cases, and its plan for main as it is.
+    #
+    # Every check is a step whose id names its check (tools-, contrast-, workflows-) and runs whatever another did
+    # (`!cancelled()`), so a failure never hides the rest. The summary then writes each check's outcome (success, failure,
+    # skipped when not selected, incomplete when a selected step did not run) to the job's outputs, which CI result reads
+    # per lane, and to the summary page, and fails the job when a selected check did not pass. (Each check's output also
+    # goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs.)
+    quick:
+        name: Quick checks
         needs: changes
-        if: needs.changes.outputs.workflows == 'run'
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
-        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        timeout-minutes: 15 # the three checks' 5, 10 and 5 in a row, plus 3 for the advisory Jev steps
         env:
             ACTIONLINT_VERSION: '1.7.12'
             ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 # actionlint_1.7.12_linux_amd64.tar.gz
             SHELLCHECK_VERSION: '0.11.0'
             SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 # shellcheck-v0.11.0.linux.x86_64.tar.xz
+        outputs:
+            tools: ${{ steps.summary.outputs.tools }}
+            contrast: ${{ steps.summary.outputs.contrast }}
+            workflows: ${{ steps.summary.outputs.workflows }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  fetch-depth: 0 # the release dry run reads main's history and the tags
+                  fetch-depth: 0 # the README pairing reads the branch's commits since its base, the release dry run main's history and tags
 
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: none
+
+            # Tool tests ------------------------------------------------------------------------------------------------
+            - name: The tools' own cases
+              id: tools-cases
+              if: ${{ !cancelled() }}
+              run: >-
+                  node --test --test-reporter=tap --test-reporter-destination=stdout
+                  --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
+                  'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
+            # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis of the tools' cases (advisory)
+              if: ${{ failure() && steps.tools-cases.outcome == 'failure' }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  junit: ${{ runner.temp }}/node-tests.xml
+                  junit-project: node
+                  job: Quick checks
+                  artifact: jev-input-ci-${{ github.job }}-cases-${{ github.run_id }}-${{ github.run_attempt }}
+
+            - name: Repository security policy
+              id: tools-policy
+              if: ${{ !cancelled() }}
+              run: node tools/security-policy.mjs
+
+            - name: The bundled references are up to date
+              id: tools-references
+              if: ${{ !cancelled() }}
+              run: php packages/uxor/tools/generate-reference.php --check
+
+            - name: The test inventory names existing tests
+              id: tools-inventory
+              if: ${{ !cancelled() }}
+              run: node tools/test-inventory.mjs
+
+            - name: The archive holds what the kit and the package declare
+              id: tools-archive
+              if: ${{ !cancelled() }}
+              run: python3 packages/uxor/tools/check-package.py
+
+            - name: Every URL of the kit's repository is manifest.json's homepage
+              id: tools-names
+              if: ${{ !cancelled() }}
+              run: node tools/name-check.mjs
+
+            # Contrast --------------------------------------------------------------------------------------------------
+            - name: Install the Contrast tools' packages
+              id: contrast-npm
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: npm ci
+
+            - name: Token contrast (tools/contrast/pairs.json, both themes)
+              id: contrast-tokens
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-tokens.log"
+
+            - name: The theme recipe ships kit.css unchanged
+              id: contrast-theme-css
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-contrast-theme-css.log"
+
+            - name: llms.txt matches docs/RECIPES.md's recipe tables
+              id: contrast-llms
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-contrast-llms.log"
+
+            - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
+              id: contrast-docs-lint
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-docs-lint.log"
+
+            - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
+              id: contrast-icons
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-icons.log"
+
+            - name: Every README example is one the demo reads
+              id: contrast-fences
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-fences.log"
+
+            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
+              id: contrast-inventory
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-inventory.log"
+
+            - name: Each recipe README renders its manifest's dependencies and writes no version table
+              id: contrast-readme-versions
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-readme-versions.log"
+
+            # The Changes job's base: none for main, dev or a run by hand, which compares nothing
+            - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
+              id: contrast-readme-pairing
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              env:
+                  BASE: ${{ needs.changes.outputs.base }}
+              run: |
+                  set -o pipefail
+                  node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-contrast-readme-pairing.log"
+
+            # Workflows -------------------------------------------------------------------------------------------------
             - name: Install actionlint and ShellCheck
+              id: workflows-install
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               working-directory: ${{ runner.temp }}
               run: |
                   curl -fsSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
@@ -333,27 +483,29 @@ jobs:
                   tar -xJf shellcheck.tar.xz -C bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
             # the runner's own ShellCheck and Python are not used: only the pinned tools decide
-            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: actionlint
-              id: actionlint
+              id: workflows-actionlint
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               run: |
                   set -o pipefail
-                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-actionlint.log"
+                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-workflows-actionlint.log"
 
             - name: The release plan's own cases
-              id: release-plan
+              id: workflows-release-plan
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               run: |
                   set -o pipefail
-                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-release-plan.log"
+                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-workflows-release-plan.log"
 
             # what release.yml would tag and publish from main, with this commit's script; it creates nothing
             - name: Release dry run on main
-              id: dry-run
+              id: workflows-dry-run
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               run: |
                   set -o pipefail
-                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-dry-run.log"
+                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-workflows-dry-run.log"
 
-            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            # Advisory diagnosis of the steps that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
               if: failure()
               continue-on-error: true
@@ -361,8 +513,49 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Workflows
+                  job: Quick checks
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+            # Each check's outcome, from its steps: the job's outputs (CI result reads them per lane) and the summary page
+            - name: Summary
+              id: summary
+              if: ${{ always() }}
+              env:
+                  STEPS: ${{ toJSON(steps) }}
+                  CONTRAST: ${{ needs.changes.outputs.contrast }}
+                  WORKFLOWS: ${{ needs.changes.outputs.workflows }}
+              run: |
+                  status=0
+                  printf '### Quick checks\n\n| Check | Result | Steps |\n|---|---|---|\n' >> "$GITHUB_STEP_SUMMARY"
+                  for lane in tools contrast workflows; do
+                      case "$lane" in
+                          tools) label='Tool tests'; selected=run ;;
+                          contrast) label=Contrast; selected=$CONTRAST ;;
+                          workflows) label=Workflows; selected=$WORKFLOWS ;;
+                      esac
+                      steps=''
+                      if [ "$selected" != run ]; then
+                          outcome=skipped
+                      else
+                          pick() { jq -r --arg p "$lane-" "[to_entries[] | select(.key | startswith(\$p)) | $1 | .key] | join(\", \")" <<< "$STEPS"; }
+                          failed=$(pick 'select(.value.outcome == "failure")')
+                          missing=$(pick 'select(.value.outcome != "success" and .value.outcome != "failure")')
+                          ran=$(pick 'select(.value.outcome == "success" or .value.outcome == "failure")')
+                          if [ -n "$failed" ]; then
+                              outcome=failure; steps=$failed
+                              echo "::error::$label: $failed failed"
+                          elif [ -n "$missing" ] || [ -z "$ran" ]; then
+                              outcome=incomplete; steps=${missing:-none ran}
+                              echo "::error::$label: $steps did not run"
+                          else
+                              outcome=success
+                          fi
+                      fi
+                      echo "$lane=$outcome" >> "$GITHUB_OUTPUT"
+                      echo "| $label | $outcome | $steps |" >> "$GITHUB_STEP_SUMMARY"
+                      case "$outcome" in success | skipped) ;; *) status=1 ;; esac
+                  done
+                  exit "$status"
 
     # Two lanes: the Toolkit version the demo locks (what the kit is developed with) and the minimum supported one
     lint-kit:
@@ -463,68 +656,6 @@ jobs:
     # skips a package whose file and installed.php entry are already there, so their own install downloads nothing.
     # A CDN error is retried here, twice, before the run fails: one bad connection no longer fails a shard before any
     # test runs. The fresh-install jobs still download for themselves: that is what they check.
-    # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
-    # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
-    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Node's JUnit report, beside
-    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. The repository
-    # security policy then reads the workflows, executable sinks, tracked paths and ownership controls. Then the name
-    # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
-    tools:
-        name: Tool tests
-        if: github.event_name != 'schedule'
-        runs-on: ubuntu-latest
-        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version: 22
-
-            - name: The tools' own cases
-              id: cases
-              run: >-
-                  node --test --test-reporter=tap --test-reporter-destination=stdout
-                  --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
-                  'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
-
-            # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
-            - name: Jev diagnosis (advisory)
-              if: ${{ failure() && steps.cases.outcome == 'failure' }}
-              continue-on-error: true
-              timeout-minutes: 3
-              uses: ./.github/actions/jev-diagnosis
-              with:
-                  junit: ${{ runner.temp }}/node-tests.xml
-                  junit-project: node
-                  job: Tool tests
-                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-            - name: Repository security policy
-              run: node tools/security-policy.mjs
-
-            # What any path can break, whichever jobs the change runs: the bundled references' links name files across the
-            # repository, the test inventory names specs, tests and tools, and the archive holds every root file. Package
-            # and Contrast run them too, with the jobs they belong to
-            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-              with:
-                  php-version: ${{ env.PHP_VERSION }}
-                  coverage: none
-
-            - name: The bundled references are up to date
-              run: php packages/uxor/tools/generate-reference.php --check
-
-            - name: The test inventory names existing tests
-              run: node tools/test-inventory.mjs
-
-            - name: The archive holds what the kit and the package declare
-              run: python3 packages/uxor/tools/check-package.py
-
-            - name: Every URL of the kit's repository is manifest.json's homepage
-              run: node tools/name-check.mjs
-
     importmap:
         name: Importmap packages
         needs: changes
@@ -956,94 +1087,6 @@ jobs:
                   job: Package
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-    contrast:
-        name: Contrast
-        needs: changes
-        if: needs.changes.outputs.contrast == 'run'
-        runs-on: ubuntu-latest
-        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-                  fetch-depth: 0 # the README pairing reads the branch's commits since its base
-
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version: 22
-                  cache: npm
-
-            - run: npm ci
-
-            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
-            - name: Token contrast (tools/contrast/pairs.json, both themes)
-              id: tokens
-              run: |
-                  set -o pipefail
-                  node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-tokens.log"
-
-            - name: The theme recipe ships kit.css unchanged
-              id: theme-css
-              run: |
-                  set -o pipefail
-                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-theme-css.log"
-
-            - name: llms.txt matches docs/RECIPES.md's recipe tables
-              id: llms
-              run: |
-                  set -o pipefail
-                  node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-llms.log"
-
-            - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
-              id: docs-lint
-              run: |
-                  set -o pipefail
-                  node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-docs-lint.log"
-
-            - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
-              id: icons
-              run: |
-                  set -o pipefail
-                  node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-icons.log"
-
-            - name: Every README example is one the demo reads
-              id: fences
-              run: |
-                  set -o pipefail
-                  node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-fences.log"
-
-            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
-              id: inventory
-              run: |
-                  set -o pipefail
-                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-inventory.log"
-
-            - name: Each recipe README renders its manifest's dependencies and writes no version table
-              id: readme-versions
-              run: |
-                  set -o pipefail
-                  node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-readme-versions.log"
-
-            # The Changes job's base: none for main, dev or a run by hand, which compares nothing
-            - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
-              id: readme-pairing
-              env:
-                  BASE: ${{ needs.changes.outputs.base }}
-              run: |
-                  set -o pipefail
-                  node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-readme-pairing.log"
-
-            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
-            - name: Jev diagnosis (advisory)
-              if: failure()
-              continue-on-error: true
-              timeout-minutes: 3
-              uses: ./.github/actions/jev-diagnosis
-              with:
-                  steps: ${{ toJSON(steps) }}
-                  job: Contrast
-                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
-
     # The demo image's build cache (ghcr.io/<owner>/<repo>-cache:dev and :main), which every run's demo build reads. It
     # is the only job that can write a package, and it runs only on dev and main, whose code changes only through
     # reviewed pull requests (the rulesets): a branch's run, and any package or test code a run executes, never holds a
@@ -1412,7 +1455,7 @@ jobs:
         # head and publish under names of their own, so a later green one can never stand in for a red CI result
         name: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
         if: ${{ always() && github.event_name != 'schedule' }}
-        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo, prod-image]
+        needs: [changes, quick, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, demo, prod-image]
         runs-on: ubuntu-latest
         # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
         outputs:

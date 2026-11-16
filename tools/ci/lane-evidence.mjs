@@ -75,6 +75,8 @@ const PRODUCER_EVENTS = ['push', 'workflow_dispatch'];
 /** the jobs of ci.yml that make up each lane, as CI result's `needs` names them */
 const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'] };
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
+/** the checks that are steps of the Quick checks job (`quick` in `needs`): their outcomes are its outputs */
+const QUICK_CHECKS = ['tools', 'contrast', 'workflows'];
 const IMPORTMAP_USERS = ['php', 'static-site', 'demo', 'engines'];
 const MARKER_LIMIT = 65536;
 const RERUN_NOTE = 'only "Re-run all jobs" plans the lanes again; re-running failed jobs reuses this plan';
@@ -651,7 +653,15 @@ function verdictCommand(opts) {
         }
     }
     if (!(Array.isArray(jobs) && jobs.every(isObject))) jobs = null;
-    const result = (job) => needs[job]?.result ?? 'missing';
+    const result = (job) => {
+        if (QUICK_CHECKS.includes(job) && needs.quick) {
+            const outcome = needs.quick.outputs?.[job];
+            if (outcome) return outcome;
+            // no output: the job was skipped, or ended before its summary (cancelled, failed in setup)
+            return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+        }
+        return needs[job]?.result ?? 'missing';
+    };
     const lanes = {};
     for (const lane of LANES) {
         const entry = plan.lanes?.[lane];

@@ -1161,7 +1161,7 @@ Here: [`packages/uxor/tests/`](../packages/uxor/tests/),
 new executable rendering sink, tracked dependency or build output, stale supported-version table, or removal of the
 repository's ownership and agent-safety rules.
 
-`tools/security-policy.mjs` runs in the always-on *Tool tests* job. Its rendering-sink manifest names the exact line
+`tools/security-policy.mjs` runs in the always-on *Tool tests* checks (the *Quick checks* job). Its rendering-sink manifest names the exact line
 shape, expected count and reason for every accepted Twig raw output and DOM HTML write in installed recipe code, plus
 the dynamic demo's trusted preview boundary. A new or moved sink fails until its data flow and reason are reviewed;
 the manifest is an inventory, not a sanitizer. Unit cases plant each class of failure. CODEOWNERS protects the tool,
@@ -1520,6 +1520,19 @@ The Changes job runs the selector as the base branch has it (a branch could othe
 it), but this tool as the branch has it: the tool and `ci.yml` are inside every fingerprint, so a branch's own copy
 can only match a pass recorded by that same copy and workflow, and a push already runs the branch's own `ci.yml`. Its
 cases: `node --test tools/tests/lane-evidence.test.mjs`.
+
+### Quick checks
+
+**Catches:** a failing short check hiding the ones after it, and runner admissions spent on three jobs of seconds each.
+
+*Tool tests*, *Contrast* and *Workflows* run as the steps of one job, *Quick checks*: one runner, one checkout (with
+the history Contrast's README pairing and the release dry run read), one Node and one PHP setup. *Tool tests* runs on
+every run; *Contrast* and *Workflows* when `tools/ci-changes.sh` selects them. Every check runs whatever another did
+(`!cancelled()`), and the last step writes each check's outcome to the job's outputs and the summary page: success,
+failure (naming the failed steps), skipped (not selected) or incomplete (a selected step did not run). The job fails
+when a selected check did not pass, and *CI result* reads the outcomes per lane, so a failed Contrast is never reported
+as a failed Workflows. *Static site*, *Lint kit* and *Package* stay jobs of their own: the static site needs the
+importmap packages, and the other two can be reused, which keys on their jobs.
 
 ### CI metrics
 
