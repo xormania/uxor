@@ -153,6 +153,10 @@ script does not know yet runs. A path no row below names counts as part of the k
 test (`tools/tests/ci-changes.sh`) say otherwise. A deleted file counts as a change to its path, a renamed one as a
 change to both paths.
 
+*Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
+`main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
+(`docs/TESTING.md`, *Browsers*).
+
 | A change to | runs |
 |---|---|
 | `.github/dependabot.yml` | nothing |

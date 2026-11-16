@@ -66,12 +66,12 @@ const normalize = (path) => path.split(sep).join('/');
 // actions: write; it checks nothing out and runs nothing else.
 const jobWrites = {
     'audit.yml': { start: ['actions'] },
-    'ci.yml': { cache: ['packages'], start: ['actions'] },
+    'ci.yml': { cache: ['packages'], start: ['actions'], 'engines-issue': ['issues'] },
     'codeql.yml': { analyze: ['security-events'] },
     'monthly.yml': { start: ['actions'] },
     'pages.yml': { deploy: ['pages', 'id-token'] },
     'release.yml': { release: ['contents'], pages: ['pages', 'id-token'] },
-    'release-checks.yml': { issue: ['issues'], start: ['actions'] },
+    'release-checks.yml': { issue: ['issues'], start: ['actions'], 'start-engines': ['actions'] },
 };
 
 // The independent trusted diagnosis workflow alone reads secrets. Producers collect data without credentials.

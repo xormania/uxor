@@ -2,7 +2,7 @@
 // records and its verdict. GitHub's API is a stub `gh` serving fixtures by path; git is real, on a scratch repository.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -13,7 +13,8 @@ const tool = fileURLToPath(new URL('../ci/lane-evidence.mjs', import.meta.url));
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
 const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
-const REUSABLE = ['demo', 'php', 'prod-image'];
+const REUSABLE = ['demo', 'engines', 'php', 'prod-image'];
+const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 
 function gitIn(cwd, ...args) {
@@ -111,7 +112,11 @@ const selection = (fx, lanes) => {
     return file;
 };
 
-const demoJobs = (base = 500, attempt = 1) => [...[1, 2, 3, 4].map((s) => `chromium ${s}/4`), ...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
+// the browser job's matrix: CHROMIUM_SHARDS (6) Chromium shards are the demo lane, three each of Firefox and WebKit the
+// engines lane
+const demoJobs = (base = 500, attempt = 1, shards = 6) => Array.from({ length: shards }, (_, i) => `chromium ${i + 1}/${shards}`)
+    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt }));
+const engineJobs = (base = 700, attempt = 1) => [...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
     .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt }));
 const DEMO_JOBS = demoJobs();
 const SKIPPED_DEMO = { id: 499, name: 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
@@ -211,7 +216,7 @@ test('a selected lane with a verified pass on the same inputs is reused, naming 
     assert.equal(p.lanes.demo.evidence.run_id, 71);
     assert.equal(p.lanes.demo.evidence.head_sha, producerSha);
     assert.equal(p.lanes.demo.evidence.flaky, 2);
-    assert.equal(p.lanes.demo.evidence.jobs.length, 10);
+    assert.equal(p.lanes.demo.evidence.jobs.length, 6);
     assert.equal(outputs.demo, 'reuse');
     assert.equal(outputs.php, 'run', 'php has no evidence');
     assert.equal(p.lanes.php.reason, 'no_evidence');
@@ -375,6 +380,101 @@ test('reuse off, or main, looks nothing up but still fingerprints every lane, so
     assert.equal(main.calls.length, 0);
 });
 
+// the engines lane (Firefox, WebKit) ---------------------------------------------------------------------------------------
+
+function enginesPlan(fx, routes = {}, { event = 'push', ref = 'refs/heads/feature', enginesOn = 'daily', engines = 'false', lanes = ['demo'], extra = '', shards = '6' } = {}) {
+    const out = join(fx.dir, 'plan.json');
+    const github = join(fx.dir, 'github-output');
+    writeFileSync(github, '');
+    const file = selection(fx, lanes);
+    if (extra) appendFileSync(file, extra);
+    const result = run(fx, ['plan', '--repo', REPO, '--sha', fx.head(), '--ref', ref, '--event', event, '--engines-on', enginesOn, '--engines', engines,
+        '--chromium-shards', shards, '--selection', file, '--out', out, '--github-output', github], routes);
+    assert.equal(result.status, 0, result.stderr);
+    const outputs = Object.fromEntries(readFileSync(github, 'utf8').trim().split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+    return { plan: JSON.parse(readFileSync(out, 'utf8')), outputs, matrix: JSON.parse(outputs['browser-matrix']), log: result.stdout };
+}
+
+const engineRoutes = (fx, sha, fp, options = {}) => routesFor('engines', fp, [marker(fx, { lane: 'engines', sha, fp, jobs: engineJobs(), artifactId: 9501, runId: 75, ...options })]);
+
+test('on a branch push the engines lane is deferred, never reported as not applicable, unless a pass on its inputs exists', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const deferred = enginesPlan(fx);
+    assert.equal(deferred.plan.lanes.engines.decision, 'defer');
+    assert.equal(deferred.plan.lanes.engines.reason, 'deferred');
+    assert.notEqual(deferred.plan.lanes.engines.reason, 'not_selected');
+    assert.equal(deferred.outputs.engines, 'defer');
+    assert.match(deferred.log, /engines: defer \(deferred\).*NOT RUN AT THIS STAGE/);
+    assert.equal(deferred.outputs.browsers, 'run');
+    assert.deepEqual(deferred.matrix.include.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
+    assert.equal(deferred.matrix.include[0].projects, '--project=smoke --project=examples');
+    const reused = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines));
+    assert.equal(reused.outputs.engines, 'reuse', reused.plan.lanes.engines.detail);
+    assert.equal(enginesPlan(fx, {}, { lanes: ['php'] }).outputs.engines, 'skip', 'no browser lane selected: neither');
+});
+
+test('the engines lane runs when asked, on main, with every push, and on the daily run without a pass on its inputs', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const browsers = (p) => p.matrix.include.map((e) => e.browser);
+    const asked = enginesPlan(fx, {}, { event: 'dispatch', engines: 'true' });
+    assert.equal(asked.outputs.engines, 'run');
+    assert.equal(asked.plan.lanes.engines.reason, 'no_evidence');
+    assert.equal(browsers(asked).length, 12);
+    assert.deepEqual(asked.matrix.include.filter((e) => e.browser === 'webkit').map((e) => [e.shard, e.shards, e.projects]),
+        [[1, 3, '--project=smoke-webkit --project=examples-webkit'], [2, 3, '--project=smoke-webkit --project=examples-webkit'], [3, 3, '--project=smoke-webkit --project=examples-webkit']]);
+    const main = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { ref: 'refs/heads/main' });
+    assert.equal(main.outputs.engines, 'run', 'main runs fresh, evidence or not');
+    assert.equal(main.plan.lanes.engines.reason, 'reuse_off');
+    assert.equal(enginesPlan(fx, {}, { enginesOn: 'every-push' }).outputs.engines, 'run', 'the switch back: every push');
+    const daily = enginesPlan(fx, {}, { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
+    assert.equal(daily.outputs.engines, 'run');
+    assert.equal(daily.outputs.demo, 'skip');
+    assert.deepEqual([...new Set(browsers(daily))], ['firefox', 'webkit']);
+    assert.equal(daily.outputs.importmap, 'run', 'the engines need the importmap packages too');
+    const passed = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
+    assert.equal(passed.outputs.engines, 'reuse', 'no change since the last all-browser pass: nothing to run');
+    assert.equal(passed.outputs.browsers, 'skip');
+    assert.deepEqual(passed.matrix.include, []);
+    assert.equal(passed.outputs.importmap, 'skip');
+});
+
+test('the Chromium shard count is one setting: the matrix and the demo lane\'s expected jobs follow it', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const eight = enginesPlan(fx, producer(fx, fx.head(), fp.demo), { shards: '8' });
+    assert.equal(eight.matrix.include.length, 8);
+    assert.equal(eight.plan.lanes.demo.jobs_expected, 8);
+    assert.equal(eight.plan.lanes.engines.jobs_expected, 6);
+    assert.equal(eight.plan.lanes.demo.reason, 'jobs_incomplete', 'a pass with six shards is not a pass with eight');
+    for (const bad of ['0', 'x', '21']) {
+        const out = run(fx, ['plan', '--repo', REPO, '--sha', fx.head(), '--chromium-shards', bad, '--selection', selection(fx, ['demo']), '--out', join(fx.dir, 'p.json')]);
+        assert.equal(out.status, 2, `--chromium-shards ${bad}`);
+    }
+    for (const bad of [['--engines-on', 'weekly'], ['--event', 'nightly']]) {
+        const out = run(fx, ['plan', '--repo', REPO, '--sha', fx.head(), ...bad, '--selection', selection(fx, ['demo']), '--out', join(fx.dir, 'p.json')]);
+        assert.equal(out.status, 2, bad.join(' '));
+    }
+});
+
+test('Release checks can require an engines pass for a commit: the require command', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const ok = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], engineRoutes(fx, fx.head(), fp.engines));
+    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+    assert.match(ok.stdout, /actions\/runs\/75/);
+    const none = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], {});
+    assert.equal(none.status, 1);
+    assert.match(none.stdout, /no_evidence/);
+    const failed = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], routesFor('engines', fp.engines, [
+        marker(fx, { lane: 'engines', sha: fx.head(), fp: fp.engines, jobs: engineJobs(), artifactId: 9501, runId: 75 }),
+        marker(fx, { lane: 'engines', kind: 'fail', sha: fx.head(), fp: fp.engines, jobs: engineJobs(800), artifactId: 9502, runId: 76, created: '2026-11-16T01:00:00Z' })]));
+    assert.equal(failed.status, 1);
+    assert.match(failed.stdout, /later_failure/);
+    assert.equal(run(fx, ['require', '--lane', 'contrast', '--repo', REPO, '--sha', fx.head()]).status, 2, 'only a reusable lane');
+});
+
 // record -------------------------------------------------------------------------------------------------------------------
 
 function recorded(fx, planLanes, jobs, { needs, reuse = true } = {}) {
@@ -395,13 +495,13 @@ function recorded(fx, planLanes, jobs, { needs, reuse = true } = {}) {
     return { result, markers, read, output: readFileSync(github, 'utf8') };
 }
 
-const lane = (decision, fingerprint = 'c'.repeat(64), reason) => ({ selected: decision !== 'skip', decision, fingerprint, reason: reason ?? (decision === 'reuse' ? 'reused' : decision === 'skip' ? 'not_selected' : 'no_evidence'), detail: '', evidence: null });
+const lane = (decision, fingerprint = 'c'.repeat(64), reason) => ({ selected: decision !== 'skip', decision, fingerprint, reason: reason ?? (decision === 'reuse' ? 'reused' : decision === 'skip' ? 'not_selected' : decision === 'defer' ? 'deferred' : 'no_evidence'), detail: '', evidence: null });
 
 test('CI result records a pass only for a lane that ran fresh and passed in full, a failure for one that failed', (t) => {
     const fx = scratch(t);
     const php = { id: 600, name: 'Kit PHP', conclusion: 'failure', status: 'completed', run_attempt: 2 };
     const image = { id: 601, name: 'Production image', conclusion: 'cancelled', status: 'completed', run_attempt: 2 };
-    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run') }, [...DEMO_JOBS, php, image]);
+    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run'), engines: lane('defer') }, [...DEMO_JOBS, php, image]);
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(markers, [`ci-fail-v1-php-${'e'.repeat(64)}`, `ci-pass-v1-demo-${'d'.repeat(64)}`]);
     const pass = read(`ci-pass-v1-demo-${'d'.repeat(64)}`);
@@ -414,6 +514,16 @@ test('CI result records a pass only for a lane that ran fresh and passed in full
     assert.match(output, /^php-kind=fail$/m);
     assert.match(output, /^prod-image-marker=$/m, 'a cancelled lane records nothing');
     assert.match(output, /^prod-image-kind=$/m);
+    assert.match(output, /^engines-kind=$/m, 'a deferred lane records nothing');
+});
+
+test('one browser job, two lanes: the Chromium shards and the engines are recorded apart', (t) => {
+    const fx = scratch(t);
+    const engines = engineJobs().map((job, i) => (i === 4 ? { ...job, conclusion: 'failure' } : job));
+    const { result, markers } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), engines: lane('run', 'f'.repeat(64)), php: lane('skip'), 'prod-image': lane('skip') },
+        [...DEMO_JOBS, ...engines], { needs: { demo: { result: 'failure' } } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(markers, [`ci-fail-v1-engines-${'f'.repeat(64)}`, `ci-pass-v1-demo-${'d'.repeat(64)}`], 'the shared job failing is the engines\' failure, not Chromium\'s');
 });
 
 test('CI result records nothing for a reused or skipped lane, or a lane whose only job is the skipped matrix', (t) => {
@@ -447,7 +557,7 @@ test('a failure that cannot be recorded fails the step loudly; a pass that canno
 
 // verdict ------------------------------------------------------------------------------------------------------------------
 
-function verdictFixture(t) {
+function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'push' } = {}) {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes.demo;
     const routes = producer(fx, fx.head(), fp);
@@ -456,19 +566,24 @@ function verdictFixture(t) {
     lanes.demo = { ...lane('reuse', fp), evidence };
     lanes.php = lane('run');
     lanes.contrast = lane('run', null, 'not_reusable');
+    lanes.engines = engines;
     const planFile = join(fx.dir, 'plan.json');
-    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', reuse: true, reuse_off: null, elapsed_ms: 1234, api_calls: 7, lanes }));
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: event === 'daily' ? 'refs/heads/dev' : 'refs/heads/feature', event, reuse: true, reuse_off: null, chromium_shards: 6, elapsed_ms: 1234, api_calls: 7, lanes }));
     const needs = (overrides) => {
         const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
         const file = join(fx.dir, 'needs.json');
         writeFileSync(file, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
         return file;
     };
-    const verdict = (overrides = {}, r = routes, extra = []) => {
+    const verdict = (overrides = {}, r = routes, extra = [], jobs = []) => {
         const summary = join(fx.dir, 'summary.md');
+        const github = join(fx.dir, 'verdict-output');
+        const jobsFile = join(fx.dir, 'verdict-jobs.json');
         writeFileSync(summary, '');
-        const out = run(fx, ['verdict', '--plan', planFile, '--needs', needs(overrides), '--repo', REPO, '--summary', summary, ...extra], r);
-        return { ...out, json: JSON.parse(out.stdout), summary: readFileSync(summary, 'utf8') };
+        writeFileSync(github, '');
+        writeFileSync(jobsFile, JSON.stringify(jobs));
+        const out = run(fx, ['verdict', '--plan', planFile, '--needs', needs(overrides), '--jobs', jobsFile, '--repo', REPO, '--summary', summary, '--github-output', github, ...extra], r);
+        return { ...out, json: JSON.parse(out.stdout.split('\n').filter((line) => line.startsWith('{')).pop()), summary: readFileSync(summary, 'utf8'), outputs: readFileSync(github, 'utf8') };
     };
     return { fx, fp, routes, verdict };
 }
@@ -492,8 +607,63 @@ test('the verdict tells fresh, reused, not applicable and incomplete apart, and 
     assert.equal(verdict({ php: 'failure' }).json.lanes.php.status, 'incomplete');
     assert.equal(verdict({ php: 'cancelled' }).status, 1, 'a cancelled job is not a pass');
     assert.equal(verdict({ tools: 'failure' }).status, 1, 'Tool tests still decides');
-    assert.equal(verdict({ demo: 'success' }).json.lanes.demo.status, 'incomplete', 'a lane planned for reuse that ran is not what was planned');
+    assert.equal(verdict({ demo: 'success' }, undefined, [], DEMO_JOBS).json.lanes.demo.status, 'incomplete', 'a lane planned for reuse that ran is not what was planned');
     assert.equal(verdict({}, undefined, ['--wo-draft', 'true']).status, 1, 'a work order draft still fails');
+});
+
+test('a deferred engines lane is reported as not run at this stage, never as a pass or not applicable, and fails nothing', (t) => {
+    const { verdict } = verdictFixture(t);
+    const out = verdict();
+    assert.equal(out.status, 0, out.stderr);
+    assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
+    assert.match(out.summary, /\| engines \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
+    assert.doesNotMatch(out.summary, /\| engines \| (fresh|reused|not_applicable)/);
+    assert.match(out.stdout + out.stderr, /::notice::.*NOT RUN AT THIS STAGE/);
+    assert.equal(verdict({ demo: 'success' }, undefined, [], [...DEMO_JOBS.map((j) => ({ ...j, id: j.id + 1000 })), ...engineJobs()]).json.lanes.engines.status, 'incomplete', 'a deferred lane that ran is not what was planned');
+});
+
+test('the verdict judges the Chromium shards and the engines apart, though they share one job', (t) => {
+    const { verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)) });
+    const engines = engineJobs().map((job, i) => (i === 2 ? { ...job, conclusion: 'failure' } : job));
+    const red = verdict({ demo: 'failure' }, undefined, [], engines);
+    assert.equal(red.status, 1);
+    assert.equal(red.json.lanes.engines.status, 'incomplete');
+    assert.equal(red.json.lanes.demo.status, 'reused', 'the reused Chromium lane is not blamed for an engine\'s failure');
+    const green = verdict({ demo: 'success' }, undefined, [], engineJobs());
+    assert.equal(green.status, 0, green.stderr);
+    assert.equal(green.json.lanes.engines.status, 'fresh');
+    assert.equal(green.json.lanes.demo.status, 'reused');
+    assert.equal(verdict({ demo: 'success' }, undefined, [], engineJobs().slice(1)).json.lanes.engines.status, 'incomplete', 'a missing engine shard');
+});
+
+test('a red daily engines run names the commits since the last all-browser pass', (t) => {
+    const { fx, routes, verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
+    const last = 'a'.repeat(40);
+    const head = fx.head();
+    const daily = {
+        ...routes,
+        [`repos/${REPO}/actions/workflows/ci.yml/runs?branch=dev&status=success&per_page=30`]: { json: { workflow_runs: [
+            { id: 61, head_sha: 'b'.repeat(40), path: '.github/workflows/ci.yml', head_repository: { full_name: REPO }, html_url: 'https://github.com/example/project/actions/runs/61' },
+            { id: 60, head_sha: last, path: '.github/workflows/ci.yml', head_repository: { full_name: REPO }, html_url: 'https://github.com/example/project/actions/runs/60' }] } },
+        [`repos/${REPO}/actions/runs/61/artifacts?per_page=100`]: { json: { artifacts: [{ name: `ci-pass-v1-demo-${'d'.repeat(64)}`, expired: false }] } },
+        [`repos/${REPO}/actions/runs/60/artifacts?per_page=100`]: { json: { artifacts: [{ name: `ci-pass-v1-engines-${'e'.repeat(64)}`, expired: false }] } },
+        [`repos/${REPO}/compare/${last}...${head}`]: { json: { total_commits: 2, commits: [
+            { sha: '1234567890'.repeat(4), commit: { message: 'feat(tabs): keyboard wrap\n\nbody' } },
+            { sha: 'abcdef0123'.repeat(4), commit: { message: 'fix(modal): focus return' } }] } },
+    };
+    const engines = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job));
+    const red = verdict({ demo: 'failure' }, daily, [], engines);
+    assert.equal(red.status, 1);
+    assert.match(red.stderr, new RegExp(`::error::.*commits since the last all-browser pass ${last.slice(0, 12)}`));
+    assert.match(red.summary, /1234567 feat\(tabs\): keyboard wrap/);
+    assert.match(red.summary, /abcdef0 fix\(modal\): focus return/);
+    assert.match(red.summary, /actions\/runs\/60/);
+    assert.match(red.outputs, /^engines-status=failed$/m);
+    assert.match(red.outputs, /^engines-report=.*1234567 feat\(tabs\): keyboard wrap/m);
+    const green = verdict({ demo: 'success' }, daily, [], engineJobs());
+    assert.match(green.outputs, /^engines-status=passed$/m);
+    const unknown = verdict({ demo: 'failure' }, routes, [], engines);
+    assert.match(unknown.summary, /no earlier all-browser pass found/, 'without one, it says so rather than inventing a range');
 });
 
 test('the verdict checks reused evidence again, and says that only Re-run all jobs plans again', (t) => {
@@ -517,7 +687,6 @@ test('the verdict checks reused evidence again, and says that only Re-run all jo
     down[`repos/${REPO}/actions/runs/71`] = { ...down[`repos/${REPO}/actions/runs/71`], fail: 'HTTP 502' };
     const error = refused('an API that keeps failing', down);
     assert.ok(error.calls.filter((call) => call === `repos/${REPO}/actions/runs/71`).length >= 3, 'retried before giving up');
-    // a failure from a producer that does not verify is no contradiction
     const foreign = routesFor('demo', fp, [marker(fx, { sha: fx.head(), fp }), marker(fx, { sha: fx.head(), fp, kind: 'fail', runId: 73, artifactId: 9003, created: '2026-11-16T02:00:00Z', jobs: demoJobs(400), run: { event: 'pull_request' } })]);
     assert.equal(verdict({}, foreign).json.lanes.demo.status, 'reused');
 });
@@ -535,12 +704,10 @@ test('the verdict retries a transient API error before deciding', (t) => {
     assert.equal(missing.calls.filter((call) => call === `repos/${REPO}/actions/artifacts/9001`).length, 1, 'a 404 is not retried');
 });
 
-// ci.yml -------------------------------------------------------------------------------------------------------------------
+// the workflows ------------------------------------------------------------------------------------------------------------
 
-test("ci.yml runs each lane on the plan's decision, under the job names the tool counts, and records every reusable lane", async () => {
-    const { REUSABLE: rules, LANES: lanes } = await import('../ci/lane-evidence.mjs');
-    assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
-    const workflow = readFileSync(fileURLToPath(new URL('../../.github/workflows/ci.yml', import.meta.url)), 'utf8');
+function workflowJobs(file) {
+    const workflow = readFileSync(fileURLToPath(new URL(`../../.github/workflows/${file}`, import.meta.url)), 'utf8');
     const jobs = workflow.split(/\n(?= {4}[a-z0-9-]+:\n)/).slice(1).map((text) => ({
         id: text.match(/^ {4}([a-z0-9-]+):/)[1],
         text,
@@ -548,46 +715,95 @@ test("ci.yml runs each lane on the plan's decision, under the job names the tool
         if: text.match(/^ {8}if: (.+)$/m)?.[1] ?? '',
         needs: text.match(/^ {8}needs: (.+)$/m)?.[1] ?? '',
     }));
-    const job = (id) => jobs.find((j) => j.id === id);
-    for (const [id, rule] of Object.entries(rules)) {
-        const j = job(id);
-        assert.ok(rule.name !== undefined ? j.name === rule.name : j.name.startsWith(rule.prefix), `${id}: ${j.name}`);
-        assert.ok(j.if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${j.if}`);
+    return { workflow, jobs, job: (id) => jobs.find((j) => j.id === id) };
+}
+
+test("ci.yml runs each lane on the plan's decision, from one browser job whose matrix the plan computes", async () => {
+    const { REUSABLE: rules, LANES: lanes } = await import('../ci/lane-evidence.mjs');
+    assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
+    const { workflow, job } = workflowJobs('ci.yml');
+    // the two settings, each in one place
+    assert.equal(workflow.match(/^ {4}CHROMIUM_SHARDS: '6'$/gm)?.length, 1, 'CHROMIUM_SHARDS starts at 6, set once');
+    assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
+    assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
+    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'contrast', 'workflows', 'package']) {
+        assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${job(id).if}`);
     }
-    for (const id of ['lint-kit', 'static-site', 'fresh-install', 'contrast', 'workflows', 'package']) {
-        assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), id);
+    assert.equal(job('php').name, rules.php.name);
+    assert.equal(job('prod-image').name, rules['prod-image'].name);
+    for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'importmap']) {
+        assert.match(workflow, new RegExp(`^ {12}${id}: \\$\\{\\{ steps\\.plan\\.outputs\\.${id} \\}\\}$`, 'm'), `Changes outputs ${id} from the plan`);
     }
-    for (const id of lanes) assert.match(workflow, new RegExp(`^ {12}${id}: \\$\\{\\{ steps\\.plan\\.outputs\\.${id} \\}\\}$`, 'm'), `Changes outputs ${id} from the plan`);
     assert.doesNotMatch(workflow, /needs\.changes\.outputs\.[a-z-]+ == 'true'/, 'no job runs on the old true/false outputs');
+    const plan = job('changes').text;
+    assert.match(plan, /--engines-on "\$ENGINES_ON"/);
+    assert.match(plan, /--chromium-shards "\$CHROMIUM_SHARDS"/);
+    assert.match(plan, /--engines "\$ENGINES"/);
+    assert.match(plan, /--event "\$PLAN_EVENT"/);
+
+    // the browser job: one definition, both lanes, the same check names as before
+    const demo = job('demo');
+    assert.equal(demo.name, 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})');
+    assert.equal(demo.if, "needs.changes.outputs.browsers == 'run'");
+    assert.match(demo.text, /^ {12}matrix: \$\{\{ fromJSON\(needs\.changes\.outputs\.browser-matrix\) \}\}$/m);
+    assert.doesNotMatch(demo.text, /browser: \[chromium/, 'no fixed browser list');
+    assert.equal(rules.demo.prefix, 'Demo + Playwright (chromium ');
+    assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit ']);
+    assert.equal(rules.engines.count, 6);
+    assert.equal(job('demo-engines'), undefined, 'no second copy of the browser job');
     assert.ok(job('importmap').if.includes("needs.changes.outputs.importmap == 'run'"));
     assert.ok(job('docker-install').if.includes("needs.changes.outputs.fresh-install == 'run'"));
-    assert.match(job('cache').if, /needs\.changes\.outputs\.demo == 'run' \|\| needs\.changes\.outputs\.demo == 'reuse'/, 'the build cache stays fresh when the browser lane is reused');
+    assert.match(job('cache').if, /needs\.changes\.outputs\.demo == 'run' \|\| needs\.changes\.outputs\.demo == 'reuse'/);
 
-    // the browser matrix: browsers x shards, less the exclusions
-    const matrix = job('demo').text;
-    const browsers = matrix.match(/browser: \[([^\]]+)\]/)[1].split(',').length;
-    const shards = matrix.match(/shard: \[([^\]]+)\]/)[1].split(',').length;
-    const excluded = (matrix.match(/exclude:\n((?: +- browser: .+\n +shard: .+\n)+)/)?.[1].match(/- browser:/g) ?? []).length;
-    assert.ok(excluded > 0, 'the exclusions are read');
-    assert.equal(rules.demo.count, browsers * shards - excluded);
-
-    // CI result: every lane job among its needs, the plan read by name from Changes, record and verdict by the tool
+    // CI result: the required name, every lane's jobs, the plan by name, record and verdict by the tool
     const result = job('result');
-    for (const id of [...lanes, 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
-    assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/, 'the plan artifact by the name Changes gave it, whatever the attempt');
+    assert.equal(result.name, 'CI result', 'the rulesets require this exact name');
+    // the engines run in the browser job (`demo`), which CI result needs
+    for (const id of [...lanes.filter((id) => id !== 'engines'), 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
+    assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/);
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
-    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" record/, 'the record sees a failed job listing');
-    assert.match(result.text, /lane-evidence\.mjs" verdict/, 'CI result decides with the tool');
+    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" record/);
+    assert.match(result.text, /lane-evidence\.mjs" verdict[^\n]*\n?[^\n]*--jobs "\$RUNNER_TEMP\/run-jobs\.json"/, 'the verdict reads the browser lanes from the jobs');
     const steps = result.text.split(/\n(?= {12}- )/);
     for (const id of Object.keys(rules)) {
         for (const kind of ['pass', 'fail']) {
             const step = steps.find((s) => s.includes(`steps.record.outputs.${id}-kind == '${kind}'`));
             assert.ok(step, `${id}: an upload step for its ${kind} marker`);
-            assert.match(step, /upload-artifact@/);
-            assert.match(step, /overwrite: true/, `${id} ${kind}: the newest attempt's marker wins`);
+            assert.match(step, /overwrite: true/);
             assert.match(step, new RegExp(`name: \\$\\{\\{ steps\\.record\\.outputs\\.${id}-marker \\}\\}`));
-            if (kind === 'fail') assert.doesNotMatch(step, /continue-on-error/, `${id}: a failure marker is never best effort`);
+            if (kind === 'fail') assert.doesNotMatch(step, /continue-on-error/);
         }
     }
-    assert.doesNotMatch(steps.find((s) => s.includes('name: Record the lanes that ran')), /continue-on-error/, 'the record fails loudly');
+    assert.doesNotMatch(steps.find((s) => s.includes('name: Record the lanes that ran')), /continue-on-error/);
+
+    // the daily engines issue, after the release checks' pattern
+    const issue = job('engines-issue');
+    assert.ok(issue, 'an Engines issue job');
+    assert.match(issue.if, /inputs\.daily/);
+    assert.match(issue.if, /refs\/heads\/dev/);
+    assert.match(issue.text, /issues: write/);
+    assert.match(issue.text, /--label engines/);
+    assert.match(issue.text, /gh issue close/);
+    assert.match(issue.text, /gh issue comment/);
+    assert.match(issue.text, /gh issue create/);
+    assert.match(issue.text, /needs\.result\.outputs\.engines-report/);
+});
+
+test('Release checks requires an engines pass for the release head, and starts one when there is none', () => {
+    const { workflow, job } = workflowJobs('release-checks.yml');
+    assert.match(workflow, /pull_request:\n {8}branches: \[main\]\n {8}types: \[opened, synchronize, reopened, ready_for_review\]/);
+    const changed = job('changed');
+    assert.doesNotMatch(changed.text, /actions: write/, 'the job that runs the pull request\'s code holds no write token');
+    assert.match(changed.text, /lane-evidence\.mjs"? require --lane engines/);
+    const start = job('start-engines');
+    assert.match(start.text, /actions: write/);
+    assert.doesNotMatch(start.text, /actions\/checkout/, 'the token that may start a workflow never runs checked-out code');
+    assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref dev -f engines=true/);
+    assert.match(start.if, /needs\.changed\.outputs\.engines != 'pass'/);
+    assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
+    const verdict = job('verdict');
+    assert.match(verdict.text, /ENGINES: \$\{\{ needs\.changed\.outputs\.engines \}\}/);
+    assert.match(verdict.needs, /start-engines/);
+    assert.match(verdict.text, /no Firefox\/WebKit pass for/);
+    assert.match(verdict.text, /re-run Release checks when it passes/);
 });

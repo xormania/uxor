@@ -203,8 +203,23 @@ test('the required verdict rejects a failed or skipped suite, production image a
         ['pull_request', 'success', 'false', 'skipped', 'failure', 1],
         ['pull_request', 'failure', 'false', 'skipped', 'skipped', 1],
     ]) {
-        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image });
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image, ENGINES: 'pass' });
         assert.equal(out.status, expected, `${event}/${changed}/${run}/suite ${suite}/production image ${image || 'no result'}: ${out.stdout}${out.stderr}`);
+    }
+    // a release pull request also needs a Firefox and WebKit pass on its head (CI defers them on pushes): without one it
+    // fails, the suite passed or trusted to be skipped; the daily and manual runs do not look for one
+    for (const [run, suite, image] of [['true', 'success', 'success'], ['false', 'skipped', 'skipped']]) {
+        for (const [engines, started] of [['', ''], ['missing: engines: no_evidence: no marker', 'success'], ['missing: engines: no_evidence: no marker', 'failure']]) {
+            const out = shell(verdict.run, fx, { EVENT: 'pull_request', CHANGED: 'success', RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image, ENGINES: engines, STARTED: started });
+            assert.equal(out.status, 1, `pull request, run ${run}, engines '${engines}'`);
+            assert.match(out.stdout + out.stderr, /no Firefox\/WebKit pass for this release's head: .*re-run Release checks when it passes/);
+            if (started === 'success') assert.match(out.stdout + out.stderr, /started ci\.yml on dev with the engines/);
+            if (started === 'failure') assert.match(out.stdout + out.stderr, /could not start ci\.yml on dev/);
+        }
+    }
+    for (const event of ['daily', 'workflow_dispatch']) {
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: 'success', RUN: 'true', SUITE: 'success', COMPLETE: 'success', PROD_IMAGE: 'success', ENGINES: '' });
+        assert.equal(out.status, 0, `${event}: no engines requirement`);
     }
 });
 

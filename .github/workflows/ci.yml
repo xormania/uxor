@@ -19,6 +19,10 @@ on:
                 description: 'On dev only, the daily run: install checks with fresh consumer dependency resolution (what the schedule starts)'
                 type: boolean
                 default: false
+            engines:
+                description: 'Run the browser tests in Firefox and WebKit too (on a push they wait for dev''s daily run: docs/TESTING.md, *Browsers*)'
+                type: boolean
+                default: false
             reuse:
                 description: 'Reuse an earlier pass of a lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*); off runs every selected lane fresh'
                 type: boolean
@@ -37,6 +41,13 @@ env:
     # The minimum supported Symfony UX Toolkit: the kit must keep linting and installing with it. Lint kit's other lane
     # takes the newest version the demo runs, read at run time; the fresh installs use this one.
     UX_TOOLKIT_MINIMUM_VERSION: '3.5.1'
+    # The browser tests (docs/TESTING.md, *Browsers*): Chromium in CHROMIUM_SHARDS shards on every push that selects them;
+    # Firefox and WebKit, three shards each, as ENGINES_ON says. `daily` (the trial): on dev's daily run when dev changed
+    # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
+    # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
+    # result. `every-push`: on every push, as before the trial. This line is the one switch back.
+    CHROMIUM_SHARDS: '6'
+    ENGINES_ON: daily
 
 jobs:
     # The schedule's run, on main: it only starts the daily run on dev (gh workflow run, a workflow_dispatch event, which
@@ -89,6 +100,10 @@ jobs:
             package: ${{ steps.plan.outputs.package }}
             prod-image: ${{ steps.plan.outputs.prod-image }}
             importmap: ${{ steps.plan.outputs.importmap }}
+            # the browser job: Firefox and WebKit (run, reuse, defer or skip), whether it runs, and its computed matrix
+            engines: ${{ steps.plan.outputs.engines }}
+            browsers: ${{ steps.plan.outputs.browsers }}
+            browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
             # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
             lane-plan: ${{ steps.plan.outputs.artifact }}
             base: ${{ steps.jobs.outputs.base }}
@@ -155,6 +170,8 @@ jobs:
                       for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
+                      # and Firefox and WebKit, unless they already passed on dev's inputs (the plan)
+                      echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ -n "$from" ] && git show "$from:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
                       echo "Changed since $from:"
                       git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
@@ -168,6 +185,9 @@ jobs:
                   done
                   cat "$RUNNER_TEMP/jobs"
 
+            # The browser tests are two lanes of one job: the Chromium shards (demo) and Firefox and WebKit (engines), which
+            # with ENGINES_ON=daily wait on a push (defer: NOT RUN AT THIS STAGE in CI result) and run on the daily run
+            # (unless they passed on these inputs), on main and when a manual run asks; the plan writes the job's matrix.
             # Each selected lane runs, or reuses an earlier pass with the same inputs (tools/ci/lane-evidence.mjs,
             # docs/TESTING.md, *Reused lanes*): the markers for the lane's fingerprint, newest first, until a failure from
             # a verified producer (which runs the lane) or a pass that verifies: at most 14 days old, recorded by CI result
@@ -188,11 +208,14 @@ jobs:
                   REF: ${{ github.ref }}
                   REUSE: ${{ (vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
                   ARTIFACT: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
+                  ENGINES: ${{ inputs.engines && 'true' || 'false' }}
+                  PLAN_EVENT: ${{ github.event_name == 'workflow_dispatch' && (inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
               run: |
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
                   cp tools/ci/lane-evidence.mjs "$RUNNER_TEMP/lane-plan/lane-evidence.mjs"
                   node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
+                      --event "$PLAN_EVENT" --engines-on "$ENGINES_ON" --engines "$ENGINES" --chromium-shards "$CHROMIUM_SHARDS" \
                       --selection "$RUNNER_TEMP/jobs" --out "$RUNNER_TEMP/lane-plan/plan.json" --github-output "$GITHUB_OUTPUT"
                   jq -r '"Lanes planned in \(.elapsed_ms) ms, \(.api_calls) API calls"' "$RUNNER_TEMP/lane-plan/plan.json" >> "$GITHUB_STEP_SUMMARY"
 
@@ -1066,42 +1089,25 @@ jobs:
     demo:
         name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
         needs: [changes, importmap]
-        if: needs.changes.outputs.demo == 'run'
+        if: needs.changes.outputs.browsers == 'run'
         runs-on: ubuntu-latest
         permissions:
             contents: read # no packages: write: the build cache is written by the cache job alone, on dev and main
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
-        # the browser suite is most of CI's time: four shards for Chromium, three for Firefox and WebKit, each with its own
-        # demo and browser (each reads the image cache the cache job writes on dev and main). Chromium runs every test, the
-        # screenshots included, so it has the extra shard; Firefox and WebKit run every behavior test, without the
-        # @screenshot ones (playwright.config.ts, browserProjects()), in jobs of their own beside Chromium's:
-        # docs/TESTING.md, *Browsers*
+        # the browser suite is most of CI's time: one job per browser and shard, each with its own demo and browser (each
+        # reads the image cache the cache job writes on dev and main). Two lanes share this one job, so its steps exist once:
+        # the Chromium shards (the demo lane, CHROMIUM_SHARDS of them: every test, the screenshots included) and three
+        # shards each of Firefox and WebKit (the engines lane: every behavior test, without the @screenshot ones,
+        # playwright.config.ts, browserProjects()). The Changes job's plan lists the shards that run, as the matrix:
+        # Chromium's when the demo lane runs, the engines' when they run (ENGINES_ON, above). docs/TESTING.md, *Browsers*
         env:
             XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
         strategy:
             fail-fast: false
-            matrix:
-                browser: [chromium, firefox, webkit]
-                shard: [1, 2, 3, 4]
-                # shard 4 is Chromium's only
-                exclude:
-                    - browser: firefox
-                      shard: 4
-                    - browser: webkit
-                      shard: 4
-                # each browser's shard count and two projects (smoke and examples)
-                include:
-                    - browser: chromium
-                      shards: 4
-                      projects: --project=smoke --project=examples
-                    - browser: firefox
-                      shards: 3
-                      projects: --project=smoke-firefox --project=examples-firefox
-                    - browser: webkit
-                      shards: 3
-                      projects: --project=smoke-webkit --project=examples-webkit
+            # each entry: browser, shard, shards and the two projects (smoke and examples) of that browser
+            matrix: ${{ fromJSON(needs.changes.outputs.browser-matrix) }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -1387,6 +1393,10 @@ jobs:
         if: ${{ always() && github.event_name != 'schedule' }}
         needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo, prod-image]
         runs-on: ubuntu-latest
+        # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
+        outputs:
+            engines-status: ${{ steps.verdict.outputs.engines-status }}
+            engines-report: ${{ steps.verdict.outputs.engines-report }}
         timeout-minutes: 8 # 5, plus the lanes' record and the verdict's checks of reused evidence
         permissions:
             contents: read
@@ -1488,12 +1498,28 @@ jobs:
                   path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.prod-image-marker }}/evidence.json
                   overwrite: true
                   retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.record.outputs.engines-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.record.outputs.engines-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.engines-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.record.outputs.engines-kind == 'fail' }}
+              with:
+                  name: ${{ steps.record.outputs.engines-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.engines-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
 
             # The verdict, per lane: fresh (it ran and passed), reused (an earlier pass with the same inputs, whose
             # evidence is checked again here: still there, no failure recorded since, its jobs still passed), not
             # applicable (skipped as unaffected) or incomplete (anything else: a failure, a cancelled job, evidence gone).
             # Changes, Tool tests and Importmap packages must pass or be skipped, and a work order draft fails as before.
             - name: Every lane passed, was reused or was skipped
+              id: verdict
               if: ${{ always() }}
               timeout-minutes: 2
               env:
@@ -1502,6 +1528,7 @@ jobs:
                   CHANGES: ${{ needs.changes.result }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
+                  RUN_ID: ${{ github.run_id }}
               run: |
                   if [ "$WO_DRAFT" = true ]; then
                       echo "::error::work order draft: CI ran no tests. Mark its pull request into dev ready, then re-run this run (Re-run all jobs)"
@@ -1512,8 +1539,11 @@ jobs:
                       exit 1
                   fi
                   printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
+                  # the browser lanes share one job: the verdict tells them apart by its matrix jobs (the record's list, else
+                  # its own lookup)
                   node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" verdict --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
-                      --repo "$REPO" --wo-draft "${WO_DRAFT:-false}" --summary "$GITHUB_STEP_SUMMARY"
+                      --jobs "$RUNNER_TEMP/run-jobs.json" --run-id "$RUN_ID" --repo "$REPO" --wo-draft "${WO_DRAFT:-false}" \
+                      --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
 
             # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after the verdict and
             # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
@@ -1571,3 +1601,38 @@ jobs:
                   path: ${{ runner.temp }}/ci-metrics/
                   if-no-files-found: warn
                   retention-days: 90
+
+    # The daily run's Firefox and WebKit verdict on one issue labeled engines, after the release checks' issue: a failure
+    # opens it, or comments on the open one, naming the commits since their last all-browser pass; a pass closes it. Only
+    # the daily run on dev reports here: a push that defers them, or a manual run, shows its result where it ran.
+    engines-issue:
+        name: Engines issue
+        needs: result
+        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.result.outputs.engines-status != '' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            issues: write
+        steps:
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  STATUS: ${{ needs.result.outputs.engines-status }}
+                  REPORT: ${{ needs.result.outputs.engines-report }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  open=$(gh issue list --repo "$REPO" --label engines --state open --limit 1 --json number --jq '.[0].number // empty')
+                  if [ "$STATUS" = passed ]; then
+                      if [ -n "$open" ]; then
+                          gh issue close "$open" --repo "$REPO" --comment "$REPORT: $RUN_URL"
+                      fi
+                      exit 0
+                  fi
+                  body="$REPORT. Run: $RUN_URL"
+                  if [ -n "$open" ]; then
+                      gh issue comment "$open" --repo "$REPO" --body "$body"
+                  else
+                      gh label create engines --repo "$REPO" --color B60205 \
+                          --description 'The daily Firefox and WebKit run failed on dev (ci.yml)' 2>/dev/null || true
+                      gh issue create --repo "$REPO" --label engines --title 'Firefox or WebKit fails on dev' --body "$body"
+                  fi

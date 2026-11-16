@@ -25,6 +25,8 @@ name: Release checks
 on:
     pull_request:
         branches: [main]
+        types: [opened, synchronize, reopened, ready_for_review]
+        # ready_for_review too: marking the release pull request ready checks its Firefox and WebKit pass (What to check)
     schedule:
         - cron: '43 2 * * *' # daily, 02:43 UTC, on dev
     workflow_dispatch:
@@ -74,11 +76,12 @@ jobs:
         timeout-minutes: 5
         permissions:
             contents: read
-            actions: read # the release-checks-passed-v2-<sha> and release-checks-pr-passed-v1-<base>-<head> artifacts
+            actions: read # the release-checks-passed-v2-<sha> and release-checks-pr-passed-v1-<base>-<head> artifacts, CI's lane markers
         outputs:
             run: ${{ steps.compare.outputs.run }}
             ref: ${{ steps.compare.outputs.ref }}
             target_ref: ${{ steps.compare.outputs.target_ref }}
+            engines: ${{ steps.engines.outputs.engines }}
         steps:
             # the history to compare a pull request's head with the head of its last pass; nothing here runs it
             - if: github.event_name == 'pull_request'
@@ -181,6 +184,47 @@ jobs:
                   fi
                   echo "ref=$head" >> "$GITHUB_OUTPUT"
                   echo "target_ref=dev" >> "$GITHUB_OUTPUT"
+
+            # The release needs a Firefox and WebKit pass on its head: CI defers them on pushes (ENGINES_ON in ci.yml,
+            # docs/TESTING.md, *Browsers*), so this check requires their evidence, a pass marker of CI's engines lane for
+            # the head's inputs (tools/ci/lane-evidence.mjs require). With none, Start the engines starts ci.yml on dev with
+            # them, and the verdict fails until it is re-run after that run passes. The merge must test the head's tree:
+            # main changes only by a release, so it does; a merge with another tree is refused rather than judged by the head.
+            - name: A Firefox and WebKit pass for the head
+              id: engines
+              if: github.event_name == 'pull_request'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: |
+                  read -r _ head <<< "$(git cat-file -p "$GITHUB_SHA" | sed -n 's/^parent //p' | tr '\n' ' ')"
+                  if [ -z "$head" ] || [ "$(git rev-parse "$GITHUB_SHA^{tree}")" != "$(git rev-parse "$head^{tree}")" ]; then
+                      echo "engines=missing: the merge tests another tree than the head ${head:-unknown}, so no pass on the head stands for it" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  if found=$(node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --sha "$head"); then
+                      echo "$found"
+                      echo "engines=pass" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+                  echo "$found"
+                  echo "engines=missing: ${found//$'\n'/ }" >> "$GITHUB_OUTPUT"
+
+    # Starts ci.yml on dev with Firefox and WebKit when the release head has no pass of theirs (What to check). A job of
+    # its own, with no checkout: the token that may start a workflow never runs the pull request's code.
+    start-engines:
+        name: Start the engines
+        needs: changed
+        if: github.event_name == 'pull_request' && needs.changed.result == 'success' && needs.changed.outputs.engines != 'pass'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            actions: write # start ci.yml on dev
+        steps:
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: gh workflow run ci.yml --repo "$REPO" --ref dev -f engines=true
 
     checks:
         name: Release suite (${{ matrix.lane }})
@@ -640,7 +684,7 @@ jobs:
     # with nothing it reads changed since, pass without the suite.
     verdict:
         name: Release checks
-        needs: [changed, checks, complete, prod-image]
+        needs: [changed, checks, complete, prod-image, start-engines]
         if: ${{ always() && github.event_name != 'schedule' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
@@ -649,12 +693,20 @@ jobs:
                   EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.event_name }}
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
+                  ENGINES: ${{ needs.changed.outputs.engines }}
+                  STARTED: ${{ needs.start-engines.result }}
                   SUITE: ${{ needs.checks.result }}
                   COMPLETE: ${{ needs.complete.result }}
                   PROD_IMAGE: ${{ needs.prod-image.result }}
               run: |
                   if [ "$CHANGED" != success ]; then
                       echo "::error::What to check ended with $CHANGED: no verdict on the release checks"
+                      exit 1
+                  fi
+                  # a release head without a Firefox and WebKit pass fails, whatever else passed
+                  if [ "$EVENT" = pull_request ] && [ "$ENGINES" != pass ]; then
+                      if [ "$STARTED" = success ]; then started="started ci.yml on dev with the engines (Actions › CI)"; else started="could not start ci.yml on dev (Start the engines: ${STARTED:-no result}): run it by hand with engines"; fi
+                      echo "::error::no Firefox/WebKit pass for this release's head: ${ENGINES#missing: }; $started; re-run Release checks when it passes"
                       exit 1
                   fi
                   # a trusted skip skips the production image too; one that failed or was cancelled still fails
