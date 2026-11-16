@@ -312,7 +312,7 @@ export type FirstFrame = { render: number; url: string; visible: Record<string, 
  * presents.
  *
  * Returns a reader: `firstFrames(count)` waits until `count` renders have been observed, and returns each one's
- * number (from 1, in render order), its URL (path and query) and `visible`, `{ [name]: visible }`. A render whose
+ * number (from 1, in render order), its URL (path and query, as the render started) and `visible`, `{ [name]: visible }`. A render whose
  * body was replaced before its first frame comes with `visible: null`; the page visit that follows a frame visit
  * promoted to history renders no body and is not one. Fewer observations than `count` fail with every render recorded
  * so far and how far it got.
@@ -329,7 +329,10 @@ export async function recordFirstFrames(page: Page, selectors: Record<string, st
                 return;
             }
             const body = event.detail.newBody;
-            const record: Record = { render: records.length + 1, url: '', state: 'waiting', frames: 0, visible: null };
+            // the URL the render is for, read now: Turbo has changed history before it renders (a visit's push, or the
+            // traversal of Back and Forward), and by the first frame the next navigation may have changed it again (a
+            // runner painting no frame between a Back and the Forward after it)
+            const record: Record = { render: records.length + 1, url: location.pathname + location.search, state: 'waiting', frames: 0, visible: null };
             records.push(record);
             const observe = () => {
                 record.frames++;
@@ -344,7 +347,6 @@ export async function recordFirstFrames(page: Page, selectors: Record<string, st
                     }
                     return;
                 }
-                record.url = location.pathname + location.search;
                 record.visible = Object.fromEntries(
                     Object.entries(selectors).map(([name, selector]) => [name, [...document.querySelectorAll(selector)].some((element) => element.checkVisibility())]),
                 );
