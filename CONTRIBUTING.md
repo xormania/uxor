@@ -157,16 +157,16 @@ change to both paths.
 |---|---|
 | `.github/dependabot.yml` | nothing |
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them; *Production image*, which holds them |
-| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
+| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md`, the gallery's `/guide`, also *Kit PHP* (its page tests), *Static site* (it exports the page), *Demo + Playwright* (the browser tests load it) and *Production image* |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) |
+| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) but *Kit PHP*, which renders only a recipe's |
 | a recipe's `templates/`, `assets/`, `src/`, `config/` (Contrast pairs its code with its `README.md`; the production image holds them and renders them without the development packages) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | any other file of a recipe but `tests/` (one the production image does not hold) | the jobs of `kit.js` (above) and *Contrast* |
 | `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
-| a recipe's `README.md` (the toolkit's lint checks its headings, the static site, the browser tests and the production image render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package*, *Production image* |
+| a recipe's `README.md` (the toolkit's lint checks its headings, the gallery's page tests render it, the static site, the browser tests and the production image render its examples, the references copy it) | *Lint kit*, *Kit PHP*, *Static site*, *Demo + Playwright*, *Contrast*, *Package*, *Production image* |
 | `README.md` (no install, lint, PHP test or page reads it) | *Contrast*, *Package* |
-| `INSTALL.md` (the gallery's install guide, `/install`) | *Contrast*, *Package*, *Production image* |
+| `INSTALL.md` (the gallery's install guide, `/install`: its page tests, its static export, the browser tests that load it) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
 | `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
@@ -181,7 +181,7 @@ change to both paths.
 | `package.json`, `package-lock.json` | *Contrast*, *Demo + Playwright* |
 | any other markdown file outside `demo/` | *Contrast* (`tools/docs-lint.mjs`, `tools/icon-lint.mjs`), and the jobs its path runs |
 | `tools/contrast/`, `tools/llms-txt.mjs`, `tools/docs-lint.mjs`, `tools/test-inventory.mjs` | *Contrast* |
-| `llms.txt` (the gallery serves it) | *Contrast*, *Production image* |
+| `llms.txt` (the gallery serves it at `/llms.txt`: *Kit PHP*'s site tests read it, the static site saves it) | *Kit PHP*, *Static site*, *Contrast*, *Production image* |
 | `tools/icon-lint.mjs` | *Contrast* |
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | *Contrast* |
 | `tools/fence-coverage.mjs` | *Contrast*, *Static site* |
