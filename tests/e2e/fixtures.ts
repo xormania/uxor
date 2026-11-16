@@ -80,6 +80,18 @@ export async function recordCspViolations(page: Page): Promise<string[]> {
 }
 
 /**
+ * The URLs the guard's route takes: every one that is not the demo's (`isLocal` in guardPage). A RegExp, not a
+ * function: Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only
+ * the requests that match, while a function makes it hand over every request of the page and wait for the answer, the
+ * demo's own scripts, styles and fonts included (in CI, a round trip from the browser's container to the runner and
+ * back). The guard sees the demo's requests through the page's events, never through this route.
+ */
+export function leavingTheDemo(baseURL: string | undefined): RegExp {
+    const local = `${baseURL}/`.replace(/[\\^$.*+?()[\]{}|/]/g, (character) => `\\${character}`);
+    return new RegExp(`^(?!${local})`);
+}
+
+/**
  * The checks every test of every project runs. Requests leaving the demo are blocked (images get a local placeholder),
  * and the test fails on a console error, an uncaught page error, a Content Security Policy violation, or a local
  * request that fails or answers >= 400.
@@ -121,10 +133,7 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
     const isLocal = (url: string) => url.startsWith(`${baseURL}/`);
     const cspViolations = await recordCspViolations(page);
 
-    await page.route(
-        (url) => !isLocal(url.href),
-        (route) => ('image' === route.request().resourceType() ? route.fulfill({ path: PLACEHOLDER_IMAGE }) : route.abort()),
-    );
+    await page.route(leavingTheDemo(baseURL), (route) => ('image' === route.request().resourceType() ? route.fulfill({ path: PLACEHOLDER_IMAGE }) : route.abort()));
 
     // a local image the browser cancelled, held until check(): excused only if the same URL is requested again from the
     // same frame, by the same document (no navigation request of that frame between the two requests), after the
