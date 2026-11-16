@@ -355,7 +355,7 @@ other ports or a project name (`docker compose -p <name>`) needs `COMPOSE_PROJEC
 `HTTP3_PORT` exported in the shell for every command, because `tools/demo-php` finds the project only from the
 environment, and a later `docker compose up` (such as turning Xdebug on) without the ports recreates the demo on the
 default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). Without `DEMO_URL`, Playwright serves the demo itself with `php -S 127.0.0.1:8000`.
-Either way it starts the browser container, unless something already listens on port 3000. Before the tests, it
+Either way it starts the browser container, unless something already listens on port 3000; the browser reaches the demo through the test's process, which works under Docker Desktop too (CI, on a real host network, sets `PW_DIRECT_NETWORK=1` and starts the container there: `docs/TESTING.md`, *Browsers*). Before the tests, it
 builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
 kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it
 builds nothing. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
