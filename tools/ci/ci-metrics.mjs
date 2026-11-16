@@ -18,7 +18,8 @@
  * Usage: node tools/ci/ci-metrics.mjs job --out <job-metrics.json> [--buildx <history.jsonl>]
  *        node tools/ci/ci-metrics.mjs run --out <dir> [--shards <dir>] [--jobs <jobs.json>]
  * Environment (job, all optional): BROWSER, SHARD ("2/3"), NPM_CACHE_HIT (setup-node's cache-hit output),
- * NPM_CI_SECONDS, IMAGE_PULL_SECONDS. Both: GITHUB_SHA, GITHUB_REF_NAME, GITHUB_SERVER_URL, GITHUB_REPOSITORY,
+ * NPM_CI_SECONDS, IMAGE_PULL_SECONDS (the pull's own time), IMAGE_PULL_WAIT_SECONDS (how long Install Playwright waited for
+ * the pull, which runs in the background). Both: GITHUB_SHA, GITHUB_REF_NAME, GITHUB_SERVER_URL, GITHUB_REPOSITORY,
  * GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT, GITHUB_STEP_SUMMARY.
  * Exit status: 0 whatever it found or could not read (missing inputs are said, in the output's `unavailable`); 64 bad usage.
  * Test: node --test tools/tests/*.test.mjs
@@ -90,7 +91,7 @@ function job({ out, buildx }) {
         browser: env.BROWSER || null,
         shard: env.SHARD || null,
         npmCacheHit: { true: true, false: false }[env.NPM_CACHE_HIT] ?? null,
-        setupSeconds: { npmCi: number(env.NPM_CI_SECONDS), playwrightImagePull: number(env.IMAGE_PULL_SECONDS) },
+        setupSeconds: { npmCi: number(env.NPM_CI_SECONDS), playwrightImagePull: number(env.IMAGE_PULL_SECONDS), playwrightImageWait: number(env.IMAGE_PULL_WAIT_SECONDS) },
         dockerCache: dockerBuilds.length ? cacheOf(dockerBuilds) : null,
         dockerBuilds,
         unavailable,

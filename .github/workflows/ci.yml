@@ -1107,6 +1107,15 @@ jobs:
               with:
                   persist-credentials: false
 
+            # The pinned Playwright image (2.4 GB, tools/playwright-image.mjs) is pulled in the background while the demo
+            # builds and starts, and waited for in Install Playwright, which fails with the pull's error if it failed
+            # (tools/ci/background.mjs). Fails here when the image's tag is not the locked @playwright/test.
+            - name: Start pulling the Playwright image
+              id: pull
+              run: |
+                  image=$(node tools/playwright-image.mjs)
+                  node tools/ci/background.mjs start playwright-image -- docker pull "$image"
+
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               id: node # its cache-hit output, for the job's metrics
               with:
@@ -1212,11 +1221,16 @@ jobs:
                   start=$SECONDS
                   npm ci
                   echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
-                  start=$SECONDS
-                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
-                  image=$(node tools/playwright-image.mjs)
-                  docker pull "$image"
-                  echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  # the pull started at the top of the job; pulled here when it was not started (exit status 2)
+                  status=0
+                  node tools/ci/background.mjs wait playwright-image --timeout 300 || status=$?
+                  if [ "$status" -eq 2 ]; then
+                      start=$SECONDS
+                      docker pull "$(node tools/playwright-image.mjs)"
+                      echo "playwright-image-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  elif [ "$status" -ne 0 ]; then
+                      exit "$status"
+                  fi
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
             # (tools/prepare-tests.mjs): Playwright finds both up to date, and a failed build reads as a setup failure
@@ -1285,6 +1299,7 @@ jobs:
                   DEMO_STARTED: ${{ steps.start.outcome }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
+                      Start pulling the Playwright image=${{ steps.pull.outcome }}
                       Build the demo image=${{ steps.image.outcome }}
                       Start the demo=${{ steps.start.outcome }}
                       Sync recipes into the demo=${{ steps.sync.outcome }}
@@ -1317,7 +1332,8 @@ jobs:
                   SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
                   NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
                   NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
-                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.image-pull-seconds }}
+                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.playwright-image-seconds }}
+                  IMAGE_PULL_WAIT_SECONDS: ${{ steps.install.outputs.playwright-image-wait-seconds }}
               run: |
                   timeout 30 docker buildx history ls --format json > "$RUNNER_TEMP/buildx-history.jsonl" || true
                   node tools/ci/ci-metrics.mjs job --buildx "$RUNNER_TEMP/buildx-history.jsonl" --out playwright-results/job-metrics.json
