@@ -970,6 +970,19 @@ given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes,
 case. The URL corpus includes case and whitespace changes, C0 controls,
 character references, attribute breakouts, `Markup` values and stringable objects.
 
+The four corpora of hundreds of cases (the `as` tags, the link props, the image props, the attributes) are parsed in
+batches: each case is a document of its own, a frame's (`srcdoc`), fifty frames to a page, all read in one call once
+they have loaded (`parseAll()`), so a case's markup, `<base>`, scripts and handlers reach no other case. A case that
+fails is parsed again alone, as the whole page (`parse()`), and reported with what that finds (`check()`).
+
+Some handlers only one element of a page can trigger: `autofocus` focuses the first candidate of a top-level page, so
+in a page of frames only one case's `onfocus` would run, and `accesskey` belongs to the page too. A case whose markup
+holds either is never batched: it is parsed alone, in a document of its own (`about:blank` first, since `setContent()`
+writes into the page's document, which runs its autofocus only once), read after the rendering that follows the load,
+where the focus lands. So `ran` (a payload that ran) stays a signal for those cases beside the static check of every
+attribute named `on…`. A test plants two autofocus handlers among ordinary cases and expects both seen, which fails
+when every case is batched.
+
 Here: [`hostile-props.spec.ts`](https://github.com/xormania/uxor/blob/0.3.1/tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/src/Command/HostilePropsCommand.php).
 
 What a server-side sanitizer or renderer returns is a string: test it where it runs, with PHPUnit, on the same hostile
