@@ -576,17 +576,23 @@ inline script alone).
 **Catches:** a timer contract (a toast's countdown and its pause, a type-ahead that forgets what was typed) checked by
 waiting real time: seconds on every run, and a wait that means something else on a slower machine.
 
-Install Playwright's clock before the page loads. Time still passes as it does; `runFor(ms)` moves it on at once,
-firing every timer due on the way:
+Install Playwright's clock before the page loads, and pause it once the page is ready (`pauseClock()` in
+`tests/e2e/fixtures.ts`). Installed and not paused, the clock keeps real time: a timer the test needs to stay pending
+between two steps (a countdown until the hover that pauses it, a type-ahead buffer from one letter to the next) runs
+out on a slow run. Paused, only `runFor(ms)` moves time, at once, firing every timer due on the way:
 
 ```ts
 await page.clock.install();
 await page.goto('/lab/turbo-stream-toast');
-// show a toast (1500 ms), then:
+await pauseClock(page);
+// show a toast (1500 ms; Turbo renders the Stream on an animation frame, which runFor gives it), then:
 await toast.hover();
 await page.clock.runFor(2000);   // past its timeout: paused, so still shown
 await expect(toast).toBeVisible();
 ```
+
+A paused clock also holds Turbo's rendering, which waits for an animation frame: resume it (`page.clock.resume()`)
+before steps that visit, or move it on with `runFor()`. `lab.side-nav.spec.ts` pauses for its type-ahead only.
 
 The clock also fakes `requestAnimationFrame` and `performance.now()`: keep the real clock where a test observes frames
 or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time.
