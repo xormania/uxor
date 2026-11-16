@@ -7,7 +7,7 @@
  * else, ci.yml, this tool and the pinned versions included, gives every lane a new fingerprint. CI result records a
  * marker artifact for each lane that ran: `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
  * `ci-fail-v1-...` when one failed. A later run with the same fingerprint takes the markers newest first: a failure from
- * a verified producer stops the search, and the first pass that verifies is reused (at most MAX_AGE_DAYS old, from a push
+ * a verified producer stops the search, and the first pass that verifies is reused (at most its MAX_AGE_HOURS old, from a push
  * or manual run of ci.yml in this repository whose lane jobs all passed in their latest attempt, the fingerprint
  * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
@@ -16,6 +16,7 @@
  *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
  *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--wo-draft true|false] [--summary <f>] [--github-output <f>]
+ *   finish  record's and verdict's options: record, then verdict (CI result's one step)
  *   require --lane <reusable lane> --repo <o/r> --sha <sha> [--chromium-shards <n>]   (exit 0: a pass that verifies; 1: none)
  *
  * The browser tests are one job of ci.yml whose matrix the plan computes, and two lanes: `demo`, its Chromium shards
@@ -48,6 +49,10 @@ export const REUSABLE = {
     demo: { prefix: 'Demo + Playwright (chromium ', count: null }, // CHROMIUM_SHARDS
     engines: { prefixes: ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit '], count: 6 },
     'prod-image': { name: 'Production image', count: 1 },
+    // the lanes that resolve dependencies live (MAX_AGE_HOURS: a day)
+    'fresh-install': { names: ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'], count: 2 },
+    'lint-kit': { prefix: 'Lint kit (', count: 2 },
+    package: { name: 'Package', count: 1 },
 };
 export const DEFAULT_CHROMIUM_SHARDS = 6;
 /** the browser lanes share one job (`demo` in `needs`): the verdict reads them from the run's jobs */
@@ -57,7 +62,14 @@ const ENGINE_SHARDS = 3;
 const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines";
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
-export const MAX_AGE_DAYS = 14;
+/**
+ * How old a pass may be, per lane. The installs, Lint kit and Package resolve dependencies live (a fresh Symfony
+ * skeleton and Symfony Docker, the Toolkit and the consumer's packages from Packagist): their evidence goes stale with
+ * time, not with the tree. dev's daily run checks that drift, and never reuses them; a pass on the same tree within a
+ * day says what a run minutes later would say.
+ */
+export const MAX_AGE_HOURS = { default: 14 * 24, 'fresh-install': 24, 'lint-kit': 24, package: 24 };
+const maxAge = (lane) => MAX_AGE_HOURS[lane] ?? MAX_AGE_HOURS.default;
 const WORKFLOW = '.github/workflows/ci.yml';
 const PRODUCER_EVENTS = ['push', 'workflow_dispatch'];
 /** the jobs of ci.yml that make up each lane, as CI result's `needs` names them */
@@ -201,8 +213,9 @@ export function zipEntry(buffer, wanted) {
 export function laneJobs(lane, jobs) {
     const rule = REUSABLE[lane];
     const prefixes = rule.prefixes ?? (rule.prefix !== undefined ? [rule.prefix] : []);
+    const names = rule.names ?? (rule.name !== undefined ? [rule.name] : null);
     return jobs.filter((job) => isObject(job) && typeof job.name === 'string'
-        && (rule.name !== undefined ? job.name === rule.name : prefixes.some((prefix) => job.name.startsWith(prefix))));
+        && (names ? names.includes(job.name) : prefixes.some((prefix) => job.name.startsWith(prefix))));
 }
 
 /** how many jobs a full pass of the lane has */
@@ -234,11 +247,11 @@ function candidates(client, ctx, lane, fp) {
         .sort((a, b) => time(b.created_at) - time(a.created_at) || (a.kind === 'fail' ? -1 : 1));
 }
 
-function checkAge(ctx, artifact) {
+function checkAge(ctx, artifact, lane) {
     if (artifact.expired) throw new Refused('evidence_expired', `marker ${artifact.id} has expired`);
     const age = ctx.now - time(artifact.created_at);
-    if (Number.isNaN(age) || age > MAX_AGE_DAYS * 86400000) {
-        throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 86400000)} days old (at most ${MAX_AGE_DAYS})`);
+    if (Number.isNaN(age) || age > maxAge(lane) * 3600000) {
+        throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 3600000)} hours old (at most ${maxAge(lane)} for ${lane})`);
     }
 }
 
@@ -280,7 +293,7 @@ function producerJobs(client, ctx, lane, run) {
 
 /** one pass marker, verified in full; throws Refused */
 function verifyPass(client, ctx, lane, fp, artifact) {
-    checkAge(ctx, artifact);
+    checkAge(ctx, artifact, lane);
     const run = producerRun(client, ctx, artifact);
     const jobs = producerJobs(client, ctx, lane, run);
     let marker;
@@ -350,7 +363,7 @@ function requalify(client, ctx, lane, fp, evidence) {
     if (!isObject(evidence)) throw new Refused('marker_invalid', 'the plan holds no evidence');
     const artifact = client.object(`repos/${ctx.repo}/actions/artifacts/${evidence.artifact_id}`);
     if (artifact.name !== evidence.artifact_name) throw new Refused('marker_invalid', `artifact ${evidence.artifact_id} is now ${artifact.name}`);
-    checkAge(ctx, artifact);
+    checkAge(ctx, artifact, lane);
     for (const failure of markers(client, ctx.repo, 'fail', lane, fp)) {
         if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, failure)) {
             throw new Refused('later_failure', `run ${failure.workflow_run?.id} failed the lane with these inputs at ${failure.created_at}, after the pass the plan reuses`);
@@ -428,6 +441,9 @@ function planCommand(opts) {
         if (!entry.selected) Object.assign(entry, { decision: 'skip', reason: 'not_selected', detail: 'the change cannot affect it' });
         else if (!REUSABLE[lane]) Object.assign(entry, { reason: 'not_reusable', detail: 'it always runs when selected' });
         else if (reuseOff) Object.assign(entry, { reason: 'reuse_off', detail: reuseOff === 'main' ? 'main always runs fresh' : 'reuse is switched off' });
+        else if (event === 'daily' && maxAge(lane) < MAX_AGE_HOURS.default) {
+            Object.assign(entry, { reason: 'daily_fresh', detail: "dev's daily run checks today's dependency resolution: it never reuses this lane" });
+        }
         else if (ownError) Object.assign(entry, { reason: ownError.reason, detail: ownError.message });
         else {
             try {
@@ -737,9 +753,26 @@ function verdictCommand(opts) {
     process.exitCode = ok ? 0 : 1;
 }
 
+/** CI result's one step: the markers, then the verdict; fails when either does (a lost failure marker, or no pass) */
+function finishCommand(opts) {
+    recordCommand(opts);
+    const recorded = process.exitCode ?? 0;
+    process.exitCode = 0;
+    verdictCommand(opts);
+    process.exitCode = Math.max(recorded, process.exitCode ?? 0);
+}
+
+/** the tool runs on the runner image's own Node in CI result: null when this one will do, else why not */
+export function nodeProblem(version) {
+    const major = Number(String(version).split('.')[0]);
+    return major >= 20 ? null : `lane-evidence needs Node 20 or later, not ${version}`;
+}
+
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    const problem = nodeProblem(process.versions.node);
+    if (problem) usage(problem);
     const opts = options(process.argv.slice(2));
-    const commands = { fingerprint: fingerprintCommand, plan: planCommand, record: recordCommand, verdict: verdictCommand, require: requireCommand };
-    if (!commands[opts.command]) usage('the command is fingerprint, plan, record, verdict or require');
+    const commands = { fingerprint: fingerprintCommand, plan: planCommand, record: recordCommand, verdict: verdictCommand, require: requireCommand, finish: finishCommand };
+    if (!commands[opts.command]) usage('the command is fingerprint, plan, record, verdict, finish or require');
     commands[opts.command](opts);
 }

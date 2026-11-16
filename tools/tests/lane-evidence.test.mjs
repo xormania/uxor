@@ -14,7 +14,7 @@ const tool = fileURLToPath(new URL('../ci/lane-evidence.mjs', import.meta.url));
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
 const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
-const REUSABLE = ['demo', 'engines', 'php', 'prod-image'];
+const REUSABLE = ['demo', 'engines', 'php', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 
@@ -221,10 +221,11 @@ test('a selected lane with a verified pass on the same inputs is reused, naming 
     assert.equal(outputs.demo, 'reuse');
     assert.equal(outputs.php, 'run', 'php has no evidence');
     assert.equal(p.lanes.php.reason, 'no_evidence');
-    for (const lane of ['contrast', 'static-site', 'lint-kit']) {
+    for (const lane of ['contrast', 'static-site']) {
         assert.equal(outputs[lane], 'run', lane);
         assert.equal(p.lanes[lane].reason, 'not_reusable', `${lane} always runs when selected`);
     }
+    assert.equal(p.lanes['lint-kit'].reason, 'no_evidence', 'Lint kit is reusable for a day, and has no pass here');
     assert.equal(outputs['prod-image'], 'skip');
     assert.equal(p.lanes['prod-image'].reason, 'not_selected');
     assert.equal(outputs.importmap, 'run', 'php and the static site still run, so their packages are needed');
@@ -734,19 +735,19 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     for (const id of [...lanes.filter((id) => id !== 'engines'), 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
     assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/);
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
-    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" record/);
-    assert.match(result.text, /lane-evidence\.mjs" verdict[^\n]*\n?[^\n]*--jobs "\$RUNNER_TEMP\/run-jobs\.json"/, 'the verdict reads the browser lanes from the jobs');
+    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" finish/);
+    assert.match(result.text, /lane-evidence\.mjs" finish[\s\S]{0,400}--jobs "\$RUNNER_TEMP\/run-jobs\.json"/, 'the verdict reads the browser lanes from the jobs');
     const steps = result.text.split(/\n(?= {12}- )/);
     for (const id of Object.keys(rules)) {
         for (const kind of ['pass', 'fail']) {
-            const step = steps.find((s) => s.includes(`steps.record.outputs.${id}-kind == '${kind}'`));
+            const step = steps.find((s) => s.includes(`steps.finish.outputs.${id}-kind == '${kind}'`));
             assert.ok(step, `${id}: an upload step for its ${kind} marker`);
             assert.match(step, /overwrite: true/);
-            assert.match(step, new RegExp(`name: \\$\\{\\{ steps\\.record\\.outputs\\.${id}-marker \\}\\}`));
+            assert.match(step, new RegExp(`name: \\$\\{\\{ steps\\.finish\\.outputs\\.${id}-marker \\}\\}`));
             if (kind === 'fail') assert.doesNotMatch(step, /continue-on-error/);
         }
     }
-    assert.doesNotMatch(steps.find((s) => s.includes('name: Record the lanes that ran')), /continue-on-error/);
+    assert.doesNotMatch(steps.find((s) => s.includes('id: finish')), /continue-on-error/);
 
     // the daily engines issue, after the release checks' pattern
     const issue = job('engines-issue');
@@ -1038,4 +1039,131 @@ test('the browser shards plan from timings that include the engines\' latest run
     const timings = job('changes').text.slice(job('changes').text.indexOf('name: Shard timings'));
     assert.match(timings, /runs\?branch=dev&status=success&per_page=/);
     assert.doesNotMatch(timings.slice(0, timings.indexOf('upload-artifact')), /event=push/, 'not only push runs: the daily and engines-only runs refresh Firefox and WebKit');
+});
+
+// job 4: the installs, Lint kit and Package reusable for a day; CI result's own cost ----------------------------------------
+
+const installJobs = (base = 1100) => [
+    { id: base, name: 'Fresh install', conclusion: 'success', status: 'completed', run_attempt: 1 },
+    { id: base + 1, name: 'Fresh install (Symfony Docker, from GitHub)', conclusion: 'success', status: 'completed', run_attempt: 1 },
+];
+const lintJobs = (base = 1200) => ['locked', 'minimum'].map((t, i) => ({ id: base + i, name: `Lint kit (${t} toolkit)`, conclusion: 'success', status: 'completed', run_attempt: 1 }));
+const packageJobs = (base = 1300) => [{ id: base, name: 'Package', conclusion: 'success', status: 'completed', run_attempt: 1 }];
+
+test('the lanes that resolve live dependencies are reusable for 24 hours, the others for 14 days: one table', async (t) => {
+    const { MAX_AGE_HOURS } = await import('../ci/lane-evidence.mjs');
+    assert.deepEqual(MAX_AGE_HOURS, { default: 14 * 24, 'fresh-install': 24, 'lint-kit': 24, package: 24 });
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    for (const [lane, jobs] of [['fresh-install', installJobs()], ['lint-kit', lintJobs()], ['package', packageJobs()]]) {
+        const routes = (created) => routesFor(lane, fp[lane], [marker(fx, { lane, sha: fx.head(), fp: fp[lane], jobs, created, artifactId: 9700, runId: 77 })]);
+        const fresh = plan(fx, routes('2026-11-15T13:00:00Z'), [lane]);
+        assert.equal(fresh.outputs[lane], 'reuse', `${lane}, 23 hours old: ${fresh.plan.lanes[lane].detail}`);
+        const stale = plan(fx, routes('2026-11-15T11:00:00Z'), [lane]);
+        assert.equal(stale.outputs[lane], 'run', `${lane}, 25 hours old`);
+        assert.equal(stale.plan.lanes[lane].reason, 'evidence_too_old');
+    }
+    // the browser tests keep their 14 days
+    assert.equal(plan(fx, producer(fx, fx.head(), fp.demo, { created: '2026-11-10T12:00:00Z' })).outputs.demo, 'reuse');
+});
+
+test("dev's daily run never reuses a 24-hour lane: it is the check of today's dependency resolution", (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const routes = { ...routesFor('fresh-install', fp['fresh-install'], [marker(fx, { lane: 'fresh-install', sha: fx.head(), fp: fp['fresh-install'], jobs: installJobs(), artifactId: 9701, runId: 78 })]),
+        ...routesFor('package', fp.package, [marker(fx, { lane: 'package', sha: fx.head(), fp: fp.package, jobs: packageJobs(), artifactId: 9702, runId: 79 })]) };
+    const daily = enginesPlan(fx, routes, { event: 'daily', ref: 'refs/heads/dev', lanes: ['fresh-install', 'package'] });
+    for (const lane of ['fresh-install', 'package']) {
+        assert.equal(daily.outputs[lane], 'run', lane);
+        assert.equal(daily.plan.lanes[lane].reason, 'daily_fresh', lane);
+        assert.equal(daily.plan.lanes[lane].fingerprint, fp[lane], `${lane}: fingerprinted, so the daily's pass serves the day's pushes`);
+    }
+    assert.equal(enginesPlan(fx, routes, { lanes: ['fresh-install', 'package'] }).outputs['fresh-install'], 'reuse', 'a push the same day reuses it');
+});
+
+test('CI result records and judges the installs, Lint kit and Package as lanes of their jobs', (t) => {
+    const fx = scratch(t);
+    const lanes = { 'fresh-install': lane('run', '1'.repeat(64)), 'lint-kit': lane('run', '2'.repeat(64)), package: lane('run', '3'.repeat(64)), demo: lane('skip'), php: lane('skip'), 'prod-image': lane('skip'), engines: lane('skip') };
+    const failedLint = lintJobs().map((job, i) => (i === 1 ? { ...job, conclusion: 'failure' } : job));
+    const { markers } = recorded(fx, lanes, [...installJobs(), ...failedLint, ...packageJobs()], { needs: { 'lint-kit': { result: 'failure' } } });
+    assert.deepEqual(markers, [`ci-fail-v1-lint-kit-${'2'.repeat(64)}`, `ci-pass-v1-fresh-install-${'1'.repeat(64)}`, `ci-pass-v1-package-${'3'.repeat(64)}`]);
+    const half = recorded(fx, lanes, [installJobs()[0], ...lintJobs(), ...packageJobs()]);
+    assert.ok(!half.markers.some((m) => m.includes('fresh-install')), 'one of the two installs is no pass');
+});
+
+test('the tool refuses a Node older than 20, with a clear message', async () => {
+    const { nodeProblem } = await import('../ci/lane-evidence.mjs');
+    assert.match(nodeProblem('18.19.1'), /Node 20 or later/);
+    assert.equal(nodeProblem('20.0.0'), null);
+    assert.equal(nodeProblem('22.11.0'), null);
+    const old = spawnSync('/usr/bin/node', ['--version'], { encoding: 'utf8' });
+    if (old.status === 0 && Number(old.stdout.slice(1).split('.')[0]) < 20) {
+        const out = spawnSync('/usr/bin/node', [tool, 'fingerprint', '--sha', 'HEAD'], { encoding: 'utf8' });
+        assert.equal(out.status, 2, out.stderr);
+        assert.match(out.stderr, /Node 20 or later/);
+    }
+});
+
+test('finish records the markers and gives the verdict in one run, failing on either', (t) => {
+    const { fx, verdict: _unused } = verdictFixture(t);
+    void _unused;
+    const planFile = join(fx.dir, 'plan.json');
+    const plan = JSON.parse(readFileSync(planFile, 'utf8'));
+    plan.lanes.php = lane('run', 'e'.repeat(64));
+    writeFileSync(planFile, JSON.stringify(plan));
+    const needsFile = join(fx.dir, 'finish-needs.json');
+    const jobsFile = join(fx.dir, 'finish-jobs.json');
+    const finish = (phpResult, jobs) => {
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        writeFileSync(needsFile, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result }]))));
+        writeFileSync(jobsFile, JSON.stringify(jobs));
+        const github = join(fx.dir, 'finish-output');
+        writeFileSync(github, '');
+        const out = join(fx.dir, 'finish-markers');
+        rmSync(out, { recursive: true, force: true });
+        const result = run(fx, ['finish', '--plan', planFile, '--needs', needsFile, '--jobs', jobsFile, '--repo', REPO, '--run-id', '88', '--run-attempt', '1', '--out', out, '--github-output', github, '--summary', join(fx.dir, 'finish-summary.md')],
+            producer(fx, fx.head(), plan.lanes.demo.fingerprint));
+        return { result, output: readFileSync(github, 'utf8'), markers: existsSync(out) ? readdirSync(out) : [] };
+    };
+    const green = finish('success', [{ id: 600, name: 'Kit PHP', conclusion: 'success', status: 'completed', run_attempt: 1 }]);
+    assert.equal(green.result.status, 0, green.result.stderr);
+    assert.deepEqual(green.markers, [`ci-pass-v1-php-${'e'.repeat(64)}`]);
+    assert.match(green.output, /^php-kind=pass$/m);
+    assert.match(green.output, /^engines-status=$/m, 'the verdict\'s outputs too');
+    const red = finish('failure', [{ id: 600, name: 'Kit PHP', conclusion: 'failure', status: 'completed', run_attempt: 1 }]);
+    assert.equal(red.result.status, 1);
+    assert.deepEqual(red.markers, [`ci-fail-v1-php-${'e'.repeat(64)}`], 'the failure is recorded before the verdict fails');
+    const lost = finish('failure', 'not json');
+    assert.equal(lost.result.status, 1);
+    assert.match(lost.result.stderr, /failure marker cannot be recorded/);
+});
+
+test('CI result runs without setup-node and finishes in one step; the advisory metrics are a job of their own that no ruleset requires', () => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    const result = job('result');
+    assert.doesNotMatch(result.text, /actions\/setup-node@/, 'the tool runs on the runner image\'s Node');
+    assert.doesNotMatch(result.text.replace(/^\s*#.*$/gm, ''), /ci-metrics\.mjs|shard-plan\.mjs timings/, 'no advisory work before the required check finishes');
+    assert.match(result.text, /lane-evidence\.mjs" finish/);
+    assert.doesNotMatch(result.text, /lane-evidence\.mjs" (record|verdict)\b/);
+    for (const id of ['php', 'demo', 'engines', 'prod-image', 'fresh-install', 'lint-kit', 'package']) {
+        for (const kind of ['pass', 'fail']) {
+            const step = result.text.split(/\n(?= {12}- )/).find((s) => s.includes(`steps.finish.outputs.${id}-kind == '${kind}'`));
+            assert.ok(step, `${id}: an upload for its ${kind} marker`);
+            assert.match(step, /overwrite: true/);
+            if (kind === 'fail') assert.doesNotMatch(step, /continue-on-error/);
+        }
+    }
+    const metrics = job('metrics');
+    assert.ok(metrics, 'a metrics job');
+    assert.equal(metrics.name, 'CI metrics');
+    assert.match(metrics.needs, /result/);
+    assert.match(metrics.if, /always\(\)/);
+    assert.match(metrics.text, /^ {8}continue-on-error: true$/m, 'its failure never fails the run (release.yml and the dev lookups read the run\'s conclusion)');
+    assert.match(metrics.text, /ci-metrics\.mjs run/);
+    assert.match(metrics.text, /shard-plan\.mjs timings/);
+    assert.match(metrics.text, /select\(\.name != "CI metrics"\)/, 'it leaves itself out of the run\'s job list');
+    assert.match(metrics.text, /name: ci-metrics-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/, 'the artifact the next run plans its shards from keeps its name');
+    assert.doesNotMatch(job('result').needs, /metrics/);
+    assert.ok(!['CI result', 'Release checks', 'Mentions', 'CodeQL'].includes(metrics.name));
+    void workflow;
 });

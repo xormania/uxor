@@ -1472,19 +1472,27 @@ that already passed, and the reverse, a pass carried over to inputs it never tes
 A branch is compared with where it left `dev` (`CONTRIBUTING.md`, *Checks*), so a push that changes only
 `CHANGELOG.md` after green code still selects every lane the code selected. Before running one, the Changes job asks
 [`tools/ci/lane-evidence.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/lane-evidence.mjs) whether an earlier run already passed it on the same
-inputs. Four lanes can be reused: *Kit PHP*, *Demo + Playwright*'s Chromium shards (`demo`, `CHROMIUM_SHARDS` jobs),
-its Firefox and WebKit shards (`engines`, six jobs) and *Production image*. The browser lanes share one job, so CI
-result tells them apart by its matrix jobs. *Static site* (its pages
-print the branch and commit), *Lint kit* (it resolves the Toolkit from the network), *Contrast* (its README pairing
-reads the branch's history), *Workflows* (`main` and its tags move), *Package* and both *Fresh install* jobs (they
-resolve dependencies afresh) always run when selected, and *Tool tests* on every run.
+inputs. Seven lanes can be reused: *Kit PHP*, *Demo + Playwright*'s Chromium shards (`demo`, `CHROMIUM_SHARDS` jobs),
+its Firefox and WebKit shards (`engines`, six jobs) and *Production image* for 14 days; both *Fresh install* jobs
+(`fresh-install`), *Lint kit*'s two (`lint-kit`) and *Package* for 24 hours. The browser lanes share one job, so CI
+result tells them apart by its matrix jobs. *Static site* (its pages print the branch and commit), *Contrast* (its
+README pairing reads the branch's history) and *Workflows* (`main` and its tags move) always run when selected, and
+*Tool tests* on every run.
+
+**The 24-hour lanes.** The installs, Lint kit and Package resolve dependencies live: a fresh Symfony skeleton and
+Symfony Docker, the Toolkit and its packages, the consumer's packages from Packagist. Their evidence goes stale with
+time, not with the tree, so a pass counts for a day (`MAX_AGE_HOURS` in the tool, one table). `dev`'s daily run is the
+check of that drift: it never reuses them, and its pass serves the day's pushes. Within a day, a pass on the same tree
+says what a run minutes later would say. One thing a reused *Fresh install (Symfony Docker, from GitHub)* does not
+re-prove: it downloaded GitHub's archive of another commit with the same tree, which holds the same files, so the
+download of this commit's archive is not checked again within those 24 hours.
 
 - **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`), but only the path and mode of
   `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, whose content
   no reusable lane reads (they are export-ignored, the production image does not hold them, and the demo only links
   them on GitHub): editing one keeps the fingerprint, deleting it or making it a link does not. Any other change,
   `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
-  runner's image version is recorded, not compared; a pass counts for 14 days.
+  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above.
 - **Evidence:** CI result records one artifact per lane that ran in its run, reuse on or off:
   `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed in its latest attempt (a shard that passed on
   its retry counts, its flaky count recorded), `ci-fail-v1-<lane>-<fingerprint>` when one failed, nothing when one was
@@ -1534,7 +1542,8 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](https://github.com/xorman
   cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
   the Playwright image's pull. The Playwright browsers come from that image, pulled on every run: there is no browser
   cache to hit.
-- **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
+- **CI metrics**, a job after *CI result* on every run (so the required check never waits for it; it may fail without
+  failing the run, and no ruleset names it), reads every shard's `durations.json` and `job-metrics.json` and the
   run's jobs from GitHub's API (each job's queue time and each step's start and end, to the second), and writes one
   section on the run's *Summary* page and `ci-metrics.json` in the `ci-metrics-<run>-<attempt>` artifact (90 days):
   - per browser, the shard balance: the shards' wall times (max, min, mean), the imbalance ((max − min) / mean), the
@@ -1550,7 +1559,7 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](https://github.com/xorman
 
 What it cannot see: the runner's CPU and memory use (no sampler runs), the time inside a test spent in fixtures or a
 worker's start (Playwright's report does not split it; idle worker time is the bound), the bytes the image cache
-moves, and the *CI result* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
+moves, and the *CI metrics* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
 
 ### Shard balance
@@ -1604,7 +1613,7 @@ verdict, and a slower run only makes the split less even, never incomplete. The 
 416 s (497, 385, 364 and 326 s before), WebKit's at 364, 257 and 364 s (383, 356, 344 s) and Firefox's at 403, 300 and
 375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
 
-**Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
+**Refreshing the timings.** *CI metrics* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
 artifact: the timings the run planned from, merged with its durations (a browser whose every shard reported replaces
 its times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Each run
 plans from the newest of those: CI's *Changes* job reads `shard-timings.json` from the `ci-metrics` artifact of
