@@ -1065,11 +1065,13 @@ jobs:
 
     demo:
         name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
-        needs: [changes, importmap]
+        # not importmap: the shards start beside it and wait for it, by name, just before they need its packages
+        needs: changes
         if: needs.changes.outputs.demo == 'run'
         runs-on: ubuntu-latest
         permissions:
             contents: read # no packages: write: the build cache is written by the cache job alone, on dev and main
+            actions: read # the run's jobs, to wait for Importmap packages
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
@@ -1159,6 +1161,15 @@ jobs:
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
+
+            # The job does not need importmap, so it starts while that job downloads the packages (about 15 s) and
+            # waits for it here, by name, through the run's jobs (tools/ci/wait-for-job.mjs): it goes on only when the
+            # job succeeded, and fails naming it when it failed, was cancelled or skipped, or has not ended in 10 min
+            - name: Wait for the importmap packages
+              id: importmap
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: node tools/ci/wait-for-job.mjs --name 'Importmap packages' --timeout 600
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none
@@ -1301,6 +1312,7 @@ jobs:
                   SETUP_STEPS: |
                       Start pulling the Playwright image=${{ steps.pull.outcome }}
                       Build the demo image=${{ steps.image.outcome }}
+                      Wait for the importmap packages=${{ steps.importmap.outcome }}
                       Start the demo=${{ steps.start.outcome }}
                       Sync recipes into the demo=${{ steps.sync.outcome }}
                       The sync leaves tracked files unchanged=${{ steps.tracked.outcome }}
