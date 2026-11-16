@@ -1312,8 +1312,36 @@ baselines are Chromium's, rendered in UXor's pinned Playwright image. A new scre
 the other engines compare it with a baseline that is not theirs (`examples-*`) or that does not exist (`smoke-*`), and
 fail.
 
-In CI, *Demo + Playwright* is one job per browser and shard: four shards for Chromium, which also runs the
-screenshots, and three each for Firefox and WebKit, side by side, so the other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
+In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
+computes: `CHROMIUM_SHARDS` shards for Chromium (6), which also runs the screenshots, and three each for Firefox and
+WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`).
+
+**When Firefox and WebKit run (a trial, `ENGINES_ON: daily` in `ci.yml`).** Chromium runs on every push that selects
+the browser tests. Firefox and WebKit run:
+
+- on `dev`'s daily run, when `dev`'s inputs changed since their last pass (no valid engines pass for its fingerprint);
+  a failure opens the `engines` issue, or comments on it, with the short SHAs, count and compare link of the commits
+  since the last engines pass in `dev`'s history (never their subjects), a run that did not complete says so in its own
+  words, and a pass, or a pass on these inputs reused, closes it;
+- on every push to `main`;
+- in a manual run of CI with *engines* checked (with everything else), or *engines_only* (Firefox and WebKit alone), on
+  any branch;
+- for the release pull request: *Release checks*, a required check on `main`, fails unless the head has an engines
+  pass, and when it has none it starts an engines-only run on the pull request's branch (re-run *Release checks* once
+  that run passes).
+
+An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
+push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
+result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
+partial run can never stand in for a red full one on the same commit.
+
+On any other push, a branch's or `dev`'s, they wait: *CI result* reports the lane as *NOT RUN AT THIS STAGE*, which
+fails nothing and is never read as a pass, unless a pass on the same inputs already exists (then *reused*). This
+changes when an engine-specific defect (an event order, a focus rule, a load's failure wording) is first caught: on
+`dev`'s next daily run, on the release pull request or in a manual run, no longer before a branch merges. Setting
+`ENGINES_ON: every-push` (one line in `ci.yml`) runs them on every push again.
+
+`PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
 tagged tests only, compared with the Chromium baselines, to report how far the other engines render from them. Any
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
@@ -1403,7 +1431,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (6) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1444,7 +1472,9 @@ that already passed, and the reverse, a pass carried over to inputs it never tes
 A branch is compared with where it left `dev` (`CONTRIBUTING.md`, *Checks*), so a push that changes only
 `CHANGELOG.md` after green code still selects every lane the code selected. Before running one, the Changes job asks
 [`tools/ci/lane-evidence.mjs`](../tools/ci/lane-evidence.mjs) whether an earlier run already passed it on the same
-inputs. Three lanes can be reused: *Kit PHP*, *Demo + Playwright* and *Production image*. *Static site* (its pages
+inputs. Four lanes can be reused: *Kit PHP*, *Demo + Playwright*'s Chromium shards (`demo`, `CHROMIUM_SHARDS` jobs),
+its Firefox and WebKit shards (`engines`, six jobs) and *Production image*. The browser lanes share one job, so CI
+result tells them apart by its matrix jobs. *Static site* (its pages
 print the branch and commit), *Lint kit* (it resolves the Toolkit from the network), *Contrast* (its README pairing
 reads the branch's history), *Workflows* (`main` and its tags move), *Package* and both *Fresh install* jobs (they
 resolve dependencies afresh) always run when selected, and *Tool tests* on every run.
@@ -1816,6 +1846,18 @@ with `dev`'s copy of the workflow, and its failures show on `dev`, never on `mai
 `release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful daily run on `dev` of this workflow
 in this repository using the same workflow revision. Other manual runs, pull request runs and older markers cannot
 suppress it; a change to either the target or the workflow requires another real daily pass.
+
+On the release pull request, the verdict also requires a Firefox and WebKit pass on the head (*Browsers*): *What to
+check* asks `tools/ci/lane-evidence.mjs require --lane engines` for a pass marker of CI's engines lane on the head's
+inputs, once the merge is shown to test the head's own tree; the pull request's own copy of the tool and of this
+workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
+checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
+one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
+passes. When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
+for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
+the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
+checks (manual)*.
 
 On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
 request in this repository merged with the same base, and every path changed since is one the suite never reads:

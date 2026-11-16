@@ -2,18 +2,20 @@
 // records and its verdict. GitHub's API is a stub `gh` serving fixtures by path; git is real, on a scratch repository.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { crc32, deflateRawSync } from 'node:zlib';
+import { stepIn } from '../ci/step-attempts.mjs';
 
 const tool = fileURLToPath(new URL('../ci/lane-evidence.mjs', import.meta.url));
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
 const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
-const REUSABLE = ['demo', 'php', 'prod-image'];
+const REUSABLE = ['demo', 'engines', 'php', 'prod-image'];
+const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 
 function gitIn(cwd, ...args) {
@@ -111,7 +113,11 @@ const selection = (fx, lanes) => {
     return file;
 };
 
-const demoJobs = (base = 500, attempt = 1) => [...[1, 2, 3, 4].map((s) => `chromium ${s}/4`), ...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
+// the browser job's matrix: CHROMIUM_SHARDS (6) Chromium shards are the demo lane, three each of Firefox and WebKit the
+// engines lane
+const demoJobs = (base = 500, attempt = 1, shards = 6) => Array.from({ length: shards }, (_, i) => `chromium ${i + 1}/${shards}`)
+    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt }));
+const engineJobs = (base = 700, attempt = 1) => [...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
     .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt }));
 const DEMO_JOBS = demoJobs();
 const SKIPPED_DEMO = { id: 499, name: 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
@@ -211,7 +217,7 @@ test('a selected lane with a verified pass on the same inputs is reused, naming 
     assert.equal(p.lanes.demo.evidence.run_id, 71);
     assert.equal(p.lanes.demo.evidence.head_sha, producerSha);
     assert.equal(p.lanes.demo.evidence.flaky, 2);
-    assert.equal(p.lanes.demo.evidence.jobs.length, 10);
+    assert.equal(p.lanes.demo.evidence.jobs.length, 6);
     assert.equal(outputs.demo, 'reuse');
     assert.equal(outputs.php, 'run', 'php has no evidence');
     assert.equal(p.lanes.php.reason, 'no_evidence');
@@ -375,6 +381,101 @@ test('reuse off, or main, looks nothing up but still fingerprints every lane, so
     assert.equal(main.calls.length, 0);
 });
 
+// the engines lane (Firefox, WebKit) ---------------------------------------------------------------------------------------
+
+function enginesPlan(fx, routes = {}, { event = 'push', ref = 'refs/heads/feature', enginesOn = 'daily', engines = 'false', lanes = ['demo'], extra = '', shards = '6' } = {}) {
+    const out = join(fx.dir, 'plan.json');
+    const github = join(fx.dir, 'github-output');
+    writeFileSync(github, '');
+    const file = selection(fx, lanes);
+    if (extra) appendFileSync(file, extra);
+    const result = run(fx, ['plan', '--repo', REPO, '--sha', fx.head(), '--ref', ref, '--event', event, '--engines-on', enginesOn, '--engines', engines,
+        '--chromium-shards', shards, '--selection', file, '--out', out, '--github-output', github], routes);
+    assert.equal(result.status, 0, result.stderr);
+    const outputs = Object.fromEntries(readFileSync(github, 'utf8').trim().split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
+    return { plan: JSON.parse(readFileSync(out, 'utf8')), outputs, matrix: JSON.parse(outputs['browser-matrix']), log: result.stdout };
+}
+
+const engineRoutes = (fx, sha, fp, options = {}) => routesFor('engines', fp, [marker(fx, { lane: 'engines', sha, fp, jobs: engineJobs(), artifactId: 9501, runId: 75, ...options })]);
+
+test('on a branch push the engines lane is deferred, never reported as not applicable, unless a pass on its inputs exists', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const deferred = enginesPlan(fx);
+    assert.equal(deferred.plan.lanes.engines.decision, 'defer');
+    assert.equal(deferred.plan.lanes.engines.reason, 'deferred');
+    assert.notEqual(deferred.plan.lanes.engines.reason, 'not_selected');
+    assert.equal(deferred.outputs.engines, 'defer');
+    assert.match(deferred.log, /engines: defer \(deferred\).*NOT RUN AT THIS STAGE/);
+    assert.equal(deferred.outputs.browsers, 'run');
+    assert.deepEqual(deferred.matrix.include.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
+    assert.equal(deferred.matrix.include[0].projects, '--project=smoke --project=examples');
+    const reused = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines));
+    assert.equal(reused.outputs.engines, 'reuse', reused.plan.lanes.engines.detail);
+    assert.equal(enginesPlan(fx, {}, { lanes: ['php'] }).outputs.engines, 'skip', 'no browser lane selected: neither');
+});
+
+test('the engines lane runs when asked, on main, with every push, and on the daily run without a pass on its inputs', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const browsers = (p) => p.matrix.include.map((e) => e.browser);
+    const asked = enginesPlan(fx, {}, { event: 'dispatch', engines: 'true' });
+    assert.equal(asked.outputs.engines, 'run');
+    assert.equal(asked.plan.lanes.engines.reason, 'no_evidence');
+    assert.equal(browsers(asked).length, 12);
+    assert.deepEqual(asked.matrix.include.filter((e) => e.browser === 'webkit').map((e) => [e.shard, e.shards, e.projects]),
+        [[1, 3, '--project=smoke-webkit --project=examples-webkit'], [2, 3, '--project=smoke-webkit --project=examples-webkit'], [3, 3, '--project=smoke-webkit --project=examples-webkit']]);
+    const main = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { ref: 'refs/heads/main' });
+    assert.equal(main.outputs.engines, 'run', 'main runs fresh, evidence or not');
+    assert.equal(main.plan.lanes.engines.reason, 'reuse_off');
+    assert.equal(enginesPlan(fx, {}, { enginesOn: 'every-push' }).outputs.engines, 'run', 'the switch back: every push');
+    const daily = enginesPlan(fx, {}, { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
+    assert.equal(daily.outputs.engines, 'run');
+    assert.equal(daily.outputs.demo, 'skip');
+    assert.deepEqual([...new Set(browsers(daily))], ['firefox', 'webkit']);
+    assert.equal(daily.outputs.importmap, 'run', 'the engines need the importmap packages too');
+    const passed = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
+    assert.equal(passed.outputs.engines, 'reuse', 'no change since the last all-browser pass: nothing to run');
+    assert.equal(passed.outputs.browsers, 'skip');
+    assert.deepEqual(passed.matrix.include, []);
+    assert.equal(passed.outputs.importmap, 'skip');
+});
+
+test('the Chromium shard count is one setting: the matrix and the demo lane\'s expected jobs follow it', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const eight = enginesPlan(fx, producer(fx, fx.head(), fp.demo), { shards: '8' });
+    assert.equal(eight.matrix.include.length, 8);
+    assert.equal(eight.plan.lanes.demo.jobs_expected, 8);
+    assert.equal(eight.plan.lanes.engines.jobs_expected, 6);
+    assert.equal(eight.plan.lanes.demo.reason, 'jobs_incomplete', 'a pass with six shards is not a pass with eight');
+    for (const bad of ['0', 'x', '21']) {
+        const out = run(fx, ['plan', '--repo', REPO, '--sha', fx.head(), '--chromium-shards', bad, '--selection', selection(fx, ['demo']), '--out', join(fx.dir, 'p.json')]);
+        assert.equal(out.status, 2, `--chromium-shards ${bad}`);
+    }
+    for (const bad of [['--engines-on', 'weekly'], ['--event', 'nightly']]) {
+        const out = run(fx, ['plan', '--repo', REPO, '--sha', fx.head(), ...bad, '--selection', selection(fx, ['demo']), '--out', join(fx.dir, 'p.json')]);
+        assert.equal(out.status, 2, bad.join(' '));
+    }
+});
+
+test('Release checks can require an engines pass for a commit: the require command', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const ok = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], engineRoutes(fx, fx.head(), fp.engines));
+    assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+    assert.match(ok.stdout, /actions\/runs\/75/);
+    const none = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], {});
+    assert.equal(none.status, 1);
+    assert.match(none.stdout, /no_evidence/);
+    const failed = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], routesFor('engines', fp.engines, [
+        marker(fx, { lane: 'engines', sha: fx.head(), fp: fp.engines, jobs: engineJobs(), artifactId: 9501, runId: 75 }),
+        marker(fx, { lane: 'engines', kind: 'fail', sha: fx.head(), fp: fp.engines, jobs: engineJobs(800), artifactId: 9502, runId: 76, created: '2026-11-16T01:00:00Z' })]));
+    assert.equal(failed.status, 1);
+    assert.match(failed.stdout, /later_failure/);
+    assert.equal(run(fx, ['require', '--lane', 'contrast', '--repo', REPO, '--sha', fx.head()]).status, 2, 'only a reusable lane');
+});
+
 // record -------------------------------------------------------------------------------------------------------------------
 
 function recorded(fx, planLanes, jobs, { needs, reuse = true } = {}) {
@@ -395,13 +496,13 @@ function recorded(fx, planLanes, jobs, { needs, reuse = true } = {}) {
     return { result, markers, read, output: readFileSync(github, 'utf8') };
 }
 
-const lane = (decision, fingerprint = 'c'.repeat(64), reason) => ({ selected: decision !== 'skip', decision, fingerprint, reason: reason ?? (decision === 'reuse' ? 'reused' : decision === 'skip' ? 'not_selected' : 'no_evidence'), detail: '', evidence: null });
+const lane = (decision, fingerprint = 'c'.repeat(64), reason) => ({ selected: decision !== 'skip', decision, fingerprint, reason: reason ?? (decision === 'reuse' ? 'reused' : decision === 'skip' ? 'not_selected' : decision === 'defer' ? 'deferred' : 'no_evidence'), detail: '', evidence: null });
 
 test('CI result records a pass only for a lane that ran fresh and passed in full, a failure for one that failed', (t) => {
     const fx = scratch(t);
     const php = { id: 600, name: 'Kit PHP', conclusion: 'failure', status: 'completed', run_attempt: 2 };
     const image = { id: 601, name: 'Production image', conclusion: 'cancelled', status: 'completed', run_attempt: 2 };
-    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run') }, [...DEMO_JOBS, php, image]);
+    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run'), engines: lane('defer') }, [...DEMO_JOBS, php, image]);
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(markers, [`ci-fail-v1-php-${'e'.repeat(64)}`, `ci-pass-v1-demo-${'d'.repeat(64)}`]);
     const pass = read(`ci-pass-v1-demo-${'d'.repeat(64)}`);
@@ -414,6 +515,16 @@ test('CI result records a pass only for a lane that ran fresh and passed in full
     assert.match(output, /^php-kind=fail$/m);
     assert.match(output, /^prod-image-marker=$/m, 'a cancelled lane records nothing');
     assert.match(output, /^prod-image-kind=$/m);
+    assert.match(output, /^engines-kind=$/m, 'a deferred lane records nothing');
+});
+
+test('one browser job, two lanes: the Chromium shards and the engines are recorded apart', (t) => {
+    const fx = scratch(t);
+    const engines = engineJobs().map((job, i) => (i === 4 ? { ...job, conclusion: 'failure' } : job));
+    const { result, markers } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), engines: lane('run', 'f'.repeat(64)), php: lane('skip'), 'prod-image': lane('skip') },
+        [...DEMO_JOBS, ...engines], { needs: { demo: { result: 'failure' } } });
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(markers, [`ci-fail-v1-engines-${'f'.repeat(64)}`, `ci-pass-v1-demo-${'d'.repeat(64)}`], 'the shared job failing is the engines\' failure, not Chromium\'s');
 });
 
 test('CI result records nothing for a reused or skipped lane, or a lane whose only job is the skipped matrix', (t) => {
@@ -447,7 +558,7 @@ test('a failure that cannot be recorded fails the step loudly; a pass that canno
 
 // verdict ------------------------------------------------------------------------------------------------------------------
 
-function verdictFixture(t) {
+function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'push' } = {}) {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes.demo;
     const routes = producer(fx, fx.head(), fp);
@@ -456,19 +567,25 @@ function verdictFixture(t) {
     lanes.demo = { ...lane('reuse', fp), evidence };
     lanes.php = lane('run');
     lanes.contrast = lane('run', null, 'not_reusable');
+    lanes.engines = engines;
     const planFile = join(fx.dir, 'plan.json');
-    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', reuse: true, reuse_off: null, elapsed_ms: 1234, api_calls: 7, lanes }));
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: event === 'daily' ? 'refs/heads/dev' : 'refs/heads/feature', event, reuse: true, reuse_off: null, chromium_shards: 6, elapsed_ms: 1234, api_calls: 7, lanes }));
     const needs = (overrides) => {
         const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
         const file = join(fx.dir, 'needs.json');
         writeFileSync(file, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
         return file;
     };
-    const verdict = (overrides = {}, r = routes, extra = []) => {
+    const verdict = (overrides = {}, r = routes, extra = [], jobs = []) => {
         const summary = join(fx.dir, 'summary.md');
+        const github = join(fx.dir, 'verdict-output');
+        const jobsFile = join(fx.dir, 'verdict-jobs.json');
         writeFileSync(summary, '');
-        const out = run(fx, ['verdict', '--plan', planFile, '--needs', needs(overrides), '--repo', REPO, '--summary', summary, ...extra], r);
-        return { ...out, json: JSON.parse(out.stdout), summary: readFileSync(summary, 'utf8') };
+        writeFileSync(github, '');
+        const jobsArgs = jobs === null ? [] : ['--jobs', jobsFile];
+        if (jobs !== null) writeFileSync(jobsFile, JSON.stringify(jobs));
+        const out = run(fx, ['verdict', '--plan', planFile, '--needs', needs(overrides), ...jobsArgs, '--repo', REPO, '--summary', summary, '--github-output', github, ...extra], r);
+        return { ...out, json: JSON.parse(out.stdout.split('\n').filter((line) => line.startsWith('{')).pop()), summary: readFileSync(summary, 'utf8'), outputs: readFileSync(github, 'utf8') };
     };
     return { fx, fp, routes, verdict };
 }
@@ -492,8 +609,33 @@ test('the verdict tells fresh, reused, not applicable and incomplete apart, and 
     assert.equal(verdict({ php: 'failure' }).json.lanes.php.status, 'incomplete');
     assert.equal(verdict({ php: 'cancelled' }).status, 1, 'a cancelled job is not a pass');
     assert.equal(verdict({ tools: 'failure' }).status, 1, 'Tool tests still decides');
-    assert.equal(verdict({ demo: 'success' }).json.lanes.demo.status, 'incomplete', 'a lane planned for reuse that ran is not what was planned');
+    assert.equal(verdict({ demo: 'success' }, undefined, [], DEMO_JOBS).json.lanes.demo.status, 'incomplete', 'a lane planned for reuse that ran is not what was planned');
     assert.equal(verdict({}, undefined, ['--wo-draft', 'true']).status, 1, 'a work order draft still fails');
+});
+
+test('a deferred engines lane is reported as not run at this stage, never as a pass or not applicable, and fails nothing', (t) => {
+    const { verdict } = verdictFixture(t);
+    const out = verdict();
+    assert.equal(out.status, 0, out.stderr);
+    assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
+    assert.match(out.summary, /\| engines \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
+    assert.doesNotMatch(out.summary, /\| engines \| (fresh|reused|not_applicable)/);
+    assert.match(out.stdout + out.stderr, /::notice::.*NOT RUN AT THIS STAGE/);
+    assert.equal(verdict({ demo: 'success' }, undefined, [], [...DEMO_JOBS.map((j) => ({ ...j, id: j.id + 1000 })), ...engineJobs()]).json.lanes.engines.status, 'incomplete', 'a deferred lane that ran is not what was planned');
+});
+
+test('the verdict judges the Chromium shards and the engines apart, though they share one job', (t) => {
+    const { verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)) });
+    const engines = engineJobs().map((job, i) => (i === 2 ? { ...job, conclusion: 'failure' } : job));
+    const red = verdict({ demo: 'failure' }, undefined, [], engines);
+    assert.equal(red.status, 1);
+    assert.equal(red.json.lanes.engines.status, 'incomplete');
+    assert.equal(red.json.lanes.demo.status, 'reused', 'the reused Chromium lane is not blamed for an engine\'s failure');
+    const green = verdict({ demo: 'success' }, undefined, [], engineJobs());
+    assert.equal(green.status, 0, green.stderr);
+    assert.equal(green.json.lanes.engines.status, 'fresh');
+    assert.equal(green.json.lanes.demo.status, 'reused');
+    assert.equal(verdict({ demo: 'success' }, undefined, [], engineJobs().slice(1)).json.lanes.engines.status, 'incomplete', 'a missing engine shard');
 });
 
 test('the verdict checks reused evidence again, and says that only Re-run all jobs plans again', (t) => {
@@ -517,7 +659,6 @@ test('the verdict checks reused evidence again, and says that only Re-run all jo
     down[`repos/${REPO}/actions/runs/71`] = { ...down[`repos/${REPO}/actions/runs/71`], fail: 'HTTP 502' };
     const error = refused('an API that keeps failing', down);
     assert.ok(error.calls.filter((call) => call === `repos/${REPO}/actions/runs/71`).length >= 3, 'retried before giving up');
-    // a failure from a producer that does not verify is no contradiction
     const foreign = routesFor('demo', fp, [marker(fx, { sha: fx.head(), fp }), marker(fx, { sha: fx.head(), fp, kind: 'fail', runId: 73, artifactId: 9003, created: '2026-11-16T02:00:00Z', jobs: demoJobs(400), run: { event: 'pull_request' } })]);
     assert.equal(verdict({}, foreign).json.lanes.demo.status, 'reused');
 });
@@ -535,12 +676,10 @@ test('the verdict retries a transient API error before deciding', (t) => {
     assert.equal(missing.calls.filter((call) => call === `repos/${REPO}/actions/artifacts/9001`).length, 1, 'a 404 is not retried');
 });
 
-// ci.yml -------------------------------------------------------------------------------------------------------------------
+// the workflows ------------------------------------------------------------------------------------------------------------
 
-test("ci.yml runs each lane on the plan's decision, under the job names the tool counts, and records every reusable lane", async () => {
-    const { REUSABLE: rules, LANES: lanes } = await import('../ci/lane-evidence.mjs');
-    assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
-    const workflow = readFileSync(fileURLToPath(new URL('../../.github/workflows/ci.yml', import.meta.url)), 'utf8');
+function workflowJobs(file) {
+    const workflow = readFileSync(fileURLToPath(new URL(`../../.github/workflows/${file}`, import.meta.url)), 'utf8');
     const jobs = workflow.split(/\n(?= {4}[a-z0-9-]+:\n)/).slice(1).map((text) => ({
         id: text.match(/^ {4}([a-z0-9-]+):/)[1],
         text,
@@ -548,46 +687,355 @@ test("ci.yml runs each lane on the plan's decision, under the job names the tool
         if: text.match(/^ {8}if: (.+)$/m)?.[1] ?? '',
         needs: text.match(/^ {8}needs: (.+)$/m)?.[1] ?? '',
     }));
-    const job = (id) => jobs.find((j) => j.id === id);
-    for (const [id, rule] of Object.entries(rules)) {
-        const j = job(id);
-        assert.ok(rule.name !== undefined ? j.name === rule.name : j.name.startsWith(rule.prefix), `${id}: ${j.name}`);
-        assert.ok(j.if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${j.if}`);
+    return { workflow, jobs, job: (id) => jobs.find((j) => j.id === id) };
+}
+
+test("ci.yml runs each lane on the plan's decision, from one browser job whose matrix the plan computes", async () => {
+    const { REUSABLE: rules, LANES: lanes } = await import('../ci/lane-evidence.mjs');
+    assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
+    const { workflow, job } = workflowJobs('ci.yml');
+    // the two settings, each in one place
+    assert.equal(workflow.match(/^ {4}CHROMIUM_SHARDS: '6'$/gm)?.length, 1, 'CHROMIUM_SHARDS starts at 6, set once');
+    assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
+    assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
+    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'contrast', 'workflows', 'package']) {
+        assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${job(id).if}`);
     }
-    for (const id of ['lint-kit', 'static-site', 'fresh-install', 'contrast', 'workflows', 'package']) {
-        assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), id);
+    assert.equal(job('php').name, rules.php.name);
+    assert.equal(job('prod-image').name, rules['prod-image'].name);
+    for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'importmap']) {
+        assert.match(workflow, new RegExp(`^ {12}${id}: \\$\\{\\{ steps\\.plan\\.outputs\\.${id} \\}\\}$`, 'm'), `Changes outputs ${id} from the plan`);
     }
-    for (const id of lanes) assert.match(workflow, new RegExp(`^ {12}${id}: \\$\\{\\{ steps\\.plan\\.outputs\\.${id} \\}\\}$`, 'm'), `Changes outputs ${id} from the plan`);
     assert.doesNotMatch(workflow, /needs\.changes\.outputs\.[a-z-]+ == 'true'/, 'no job runs on the old true/false outputs');
+    const plan = job('changes').text;
+    assert.match(plan, /--engines-on "\$ENGINES_ON"/);
+    assert.match(plan, /--chromium-shards "\$CHROMIUM_SHARDS"/);
+    assert.match(plan, /--engines "\$ENGINES"/);
+    assert.match(plan, /--event "\$PLAN_EVENT"/);
+
+    // the browser job: one definition, both lanes, the same check names as before
+    const demo = job('demo');
+    assert.equal(demo.name, 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})');
+    assert.equal(demo.if, "needs.changes.outputs.browsers == 'run'");
+    assert.match(demo.text, /^ {12}matrix: \$\{\{ fromJSON\(needs\.changes\.outputs\.browser-matrix\) \}\}$/m);
+    assert.doesNotMatch(demo.text, /browser: \[chromium/, 'no fixed browser list');
+    assert.equal(rules.demo.prefix, 'Demo + Playwright (chromium ');
+    assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit ']);
+    assert.equal(rules.engines.count, 6);
+    assert.equal(job('demo-engines'), undefined, 'no second copy of the browser job');
     assert.ok(job('importmap').if.includes("needs.changes.outputs.importmap == 'run'"));
     assert.ok(job('docker-install').if.includes("needs.changes.outputs.fresh-install == 'run'"));
-    assert.match(job('cache').if, /needs\.changes\.outputs\.demo == 'run' \|\| needs\.changes\.outputs\.demo == 'reuse'/, 'the build cache stays fresh when the browser lane is reused');
+    assert.match(job('cache').if, /needs\.changes\.outputs\.demo == 'run' \|\| needs\.changes\.outputs\.demo == 'reuse'/);
 
-    // the browser matrix: browsers x shards, less the exclusions
-    const matrix = job('demo').text;
-    const browsers = matrix.match(/browser: \[([^\]]+)\]/)[1].split(',').length;
-    const shards = matrix.match(/shard: \[([^\]]+)\]/)[1].split(',').length;
-    const excluded = (matrix.match(/exclude:\n((?: +- browser: .+\n +shard: .+\n)+)/)?.[1].match(/- browser:/g) ?? []).length;
-    assert.ok(excluded > 0, 'the exclusions are read');
-    assert.equal(rules.demo.count, browsers * shards - excluded);
-
-    // CI result: every lane job among its needs, the plan read by name from Changes, record and verdict by the tool
+    // CI result: the required name, every lane's jobs, the plan by name, record and verdict by the tool
     const result = job('result');
-    for (const id of [...lanes, 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
-    assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/, 'the plan artifact by the name Changes gave it, whatever the attempt');
+    assert.equal(evaluate(result.name, push), 'CI result', 'the rulesets require this exact name, from the push');
+    // the engines run in the browser job (`demo`), which CI result needs
+    for (const id of [...lanes.filter((id) => id !== 'engines'), 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
+    assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/);
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
-    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" record/, 'the record sees a failed job listing');
-    assert.match(result.text, /lane-evidence\.mjs" verdict/, 'CI result decides with the tool');
+    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" record/);
+    assert.match(result.text, /lane-evidence\.mjs" verdict[^\n]*\n?[^\n]*--jobs "\$RUNNER_TEMP\/run-jobs\.json"/, 'the verdict reads the browser lanes from the jobs');
     const steps = result.text.split(/\n(?= {12}- )/);
     for (const id of Object.keys(rules)) {
         for (const kind of ['pass', 'fail']) {
             const step = steps.find((s) => s.includes(`steps.record.outputs.${id}-kind == '${kind}'`));
             assert.ok(step, `${id}: an upload step for its ${kind} marker`);
-            assert.match(step, /upload-artifact@/);
-            assert.match(step, /overwrite: true/, `${id} ${kind}: the newest attempt's marker wins`);
+            assert.match(step, /overwrite: true/);
             assert.match(step, new RegExp(`name: \\$\\{\\{ steps\\.record\\.outputs\\.${id}-marker \\}\\}`));
-            if (kind === 'fail') assert.doesNotMatch(step, /continue-on-error/, `${id}: a failure marker is never best effort`);
+            if (kind === 'fail') assert.doesNotMatch(step, /continue-on-error/);
         }
     }
-    assert.doesNotMatch(steps.find((s) => s.includes('name: Record the lanes that ran')), /continue-on-error/, 'the record fails loudly');
+    assert.doesNotMatch(steps.find((s) => s.includes('name: Record the lanes that ran')), /continue-on-error/);
+
+    // the daily engines issue, after the release checks' pattern
+    const issue = job('engines-issue');
+    assert.ok(issue, 'an Engines issue job');
+    assert.match(issue.if, /inputs\.daily/);
+    assert.match(issue.if, /refs\/heads\/dev/);
+    assert.match(issue.text, /issues: write/);
+    assert.match(issue.text, /--label engines/);
+    assert.match(issue.text, /gh issue close/);
+    assert.match(issue.text, /gh issue comment/);
+    assert.match(issue.text, /gh issue create/);
+    assert.match(issue.text, /needs\.result\.outputs\.engines-report/);
+});
+
+test('Release checks requires an engines pass for the release head, and starts one when there is none', () => {
+    const { workflow, job } = workflowJobs('release-checks.yml');
+    assert.match(workflow, /pull_request:\n {8}branches: \[main\]\n {8}types: \[opened, synchronize, reopened, ready_for_review\]/);
+    const changed = job('changed');
+    assert.doesNotMatch(changed.text, /actions: write/, 'the job that runs the pull request\'s code holds no write token');
+    assert.match(changed.text, /lane-evidence\.mjs"? require --lane engines/);
+    const start = job('start-engines');
+    assert.match(start.text, /actions: write/);
+    assert.doesNotMatch(start.text, /actions\/checkout/, 'the token that may start a workflow never runs checked-out code');
+    assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref "\$BRANCH" -f engines_only=true/);
+    assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
+    const verdict = job('verdict');
+    assert.match(verdict.text, /ENGINES: \$\{\{ needs\.changed\.outputs\.engines \}\}/);
+    assert.match(verdict.needs, /start-engines/);
+    assert.match(verdict.text, /no Firefox\/WebKit pass for/);
+    assert.match(verdict.text, /re-run Release checks when it passes/);
+});
+
+// job 3's review: the release gate, the engines dispatch, the daily report ------------------------------------------------
+
+// the scalar/boolean subset of GitHub expressions these workflows use; unknown syntax fails closed
+function evaluate(expression, context) {
+    const body = expression.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
+        .replace(/\b(github|inputs|needs|vars)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''))
+        .replace(/\bstartsWith\(([^,]+),\s*('[^']*')\)/g, '(String($1).startsWith($2))')
+        .replace(/\bformat\('([^']*)',\s*([^)]+)\)/g, (_, template, arg) => `(${JSON.stringify(template)}.replace('{0}', ${arg}))`);
+    const operators = body.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+|String|startsWith|replace)\b/g, '');
+    assert.match(operators, /^[\s!<>=&|().,-]*$/, `unsupported expression ${expression}`);
+    return Function(`return (${body});`)();
+}
+const key = (text, name) => text.match(new RegExp(`^ *${name}: (.+)$`, 'm'))?.[1].replace(/^"(.*)"$/, '$1');
+const push = { github: { event_name: 'push', ref: 'refs/heads/feature' }, inputs: {} };
+const daily = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev' }, inputs: { daily: true } };
+const enginesOnly = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: { engines_only: true } };
+const manual = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} };
+
+test("only a push or a full manual run publishes CI result; the daily and an engines-only run publish under their own names", () => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    const name = job('result').name;
+    assert.equal(evaluate(name, push), 'CI result');
+    assert.equal(evaluate(name, manual), 'CI result', 'a manual run runs everything: its result is a full one');
+    assert.equal(evaluate(name, daily), 'CI result (daily)', 'the daily run checks the installs and engines only');
+    assert.equal(evaluate(name, { ...daily, github: { ...daily.github, ref: 'refs/heads/feature' } }), 'CI result', 'daily off dev runs everything');
+    assert.equal(evaluate(name, enginesOnly), 'CI result (engines only)');
+    // an engines-only run: its own concurrency group, never cancelling (nor cancelled by) a push run, and a name to find it by
+    const group = workflow.match(/^concurrency:\n(?: {4}#.*\n)* {4}group: (.+)\n {4}cancel-in-progress: (.+)$/m);
+    assert.ok(group, 'the workflow concurrency');
+    assert.equal(evaluate(group[1], push), 'ci-refs/heads/feature');
+    assert.equal(evaluate(group[1], enginesOnly), 'ci-engines-refs/heads/feature');
+    assert.equal(evaluate(group[2], push), true);
+    assert.equal(evaluate(group[2], enginesOnly), false);
+    assert.equal(evaluate(key(workflow, 'run-name'), enginesOnly), 'CI: Firefox and WebKit only');
+    assert.match(workflow, /^ {12}engines_only:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m);
+});
+
+test('an engines-only run selects the engines lane alone', (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    const output = join(fx.dir, 'out');
+    writeFileSync(output, '');
+    const temp = join(fx.dir, 'temp');
+    mkdirSync(temp);
+    const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
+        env: { PATH: process.env.PATH, RUNNER_TEMP: temp, GITHUB_OUTPUT: output, EVENT: 'workflow_dispatch', REF: 'refs/heads/feature', ENGINES_ONLY: 'true', DAILY: 'false' } });
+    assert.equal(out.status, 0, out.stderr);
+    const lanes = Object.fromEntries(readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').map((line) => line.split('=')));
+    assert.equal(lanes.engines, 'true');
+    for (const lane of LANES) assert.equal(lanes[lane], 'false', lane);
+    const plan = enginesPlan(fx, {}, { event: 'engines', lanes: [], extra: 'engines=true\n' });
+    assert.equal(plan.outputs.engines, 'run');
+    assert.deepEqual([...new Set(plan.matrix.include.map((e) => e.browser))], ['firefox', 'webkit']);
+    assert.equal(plan.outputs.importmap, 'run');
+    const fp = fingerprints(fx, fx.head()).lanes;
+    assert.equal(enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'engines', lanes: [], extra: 'engines=true\n' }).outputs.browsers, 'skip', 'already passed: nothing to run');
+});
+
+test('with every push the engines reuse a pass on the same inputs', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    assert.equal(enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { enginesOn: 'every-push' }).outputs.engines, 'reuse');
+});
+
+test('the verdict needs no job list when the browser job did not run', (t) => {
+    const { verdict } = verdictFixture(t);
+    const out = verdict({ demo: 'skipped' }, undefined, [], null);
+    assert.equal(out.status, 0, out.stderr);
+    assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
+    assert.equal(out.json.lanes.demo.status, 'reused');
+    const skipped = verdictFixture(t, { engines: lane('skip', null) });
+    assert.equal(skipped.verdict({ demo: 'skipped' }, undefined, [], null).json.lanes.engines.status, 'not_applicable');
+    assert.equal(verdict({ demo: 'success' }, undefined, [], null).json.lanes.engines.status, 'incomplete', 'it ran: without the list the lanes cannot be told apart');
+});
+
+function dailyRoutes(fx, routes, { found = true, apiDown = false } = {}) {
+    const head = fx.head();
+    const last = 'a'.repeat(40);
+    const other = 'b'.repeat(40);
+    const r = { ...routes };
+    if (apiDown) return { ...r, [`repos/${REPO}/actions/artifacts?per_page=100&page=1`]: { fail: 'HTTP 502' } };
+    const art = (id, run, sha, name = `ci-pass-v1-engines-${'e'.repeat(64)}`) => ({ id, name, expired: false, created_at: '2026-11-15T00:00:00Z', workflow_run: { id: run, head_sha: sha, repository_id: 10, head_repository_id: 10 } });
+    r[`repos/${REPO}/actions/artifacts?per_page=100&page=1`] = { json: { total_count: found ? 3 : 1, artifacts: found
+        ? [art(9601, 61, other), art(9602, 62, 'c'.repeat(40), `ci-pass-v1-demo-${'d'.repeat(64)}`), art(9600, 60, last)]
+        : [art(9602, 62, 'c'.repeat(40), `ci-pass-v1-demo-${'d'.repeat(64)}`)] } };
+    const runRoute = (id, sha, event = 'push') => ({ json: { id, path: '.github/workflows/ci.yml', event, head_sha: sha, html_url: `https://github.com/example/project/actions/runs/${id}`, repository: { id: 10, full_name: REPO }, head_repository: { id: 10, full_name: REPO } } });
+    r[`repos/${REPO}/actions/runs/61`] = runRoute(61, other);
+    r[`repos/${REPO}/actions/runs/60`] = runRoute(60, last, 'workflow_dispatch');
+    // run 61 passed on a branch that never reached dev; run 60's commit is in dev's history
+    r[`repos/${REPO}/compare/${other}...${head}`] = { json: { status: 'diverged', ahead_by: 3, behind_by: 1, commits: [] } };
+    r[`repos/${REPO}/compare/${last}...${head}`] = { json: { status: 'ahead', ahead_by: 2, html_url: `https://github.com/example/project/compare/${last}...${head}`, commits: [
+        { sha: '1234567890'.repeat(4), commit: { message: 'feat(tabs): keyboard wrap, thanks @someone, see #12' } },
+        { sha: 'abcdef0123'.repeat(4), commit: { message: 'fix(modal): focus return' } }] } };
+    return r;
+}
+
+test('a red daily run names, without subjects, the commits since the last all-browser pass found by its marker', (t) => {
+    const { fx, routes, verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
+    const failedJobs = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job));
+    const red = verdict({ demo: 'failure' }, dailyRoutes(fx, routes), [], failedJobs);
+    assert.equal(red.status, 1);
+    assert.match(red.outputs, /^engines-status=failed$/m);
+    const report = red.outputs.match(/^engines-report=(.*)$/m)[1];
+    assert.match(report, /^Firefox\/WebKit failed on dev at /);
+    assert.match(report, new RegExp(`last all-browser pass ${'a'.repeat(12)}`), 'the newest pass in dev\'s history, not the newer one on another branch');
+    assert.match(report, /2 commits: 1234567, abcdef0/);
+    assert.match(report, /compare\/a{40}\.\.\./);
+    for (const text of [report, red.summary, red.stderr]) {
+        assert.doesNotMatch(text, /keyboard wrap|focus return|@someone|#12/, 'no commit subject reaches GitHub text');
+    }
+    const none = verdict({ demo: 'failure' }, dailyRoutes(fx, routes, { found: false }), [], failedJobs);
+    assert.match(none.outputs, /^engines-report=.*no engines pass marker exists.*expected right after/m);
+    const down = verdict({ demo: 'failure' }, dailyRoutes(fx, routes, { apiDown: true }), [], failedJobs);
+    assert.match(down.outputs, /^engines-report=.*could not be looked up/m);
+    assert.doesNotMatch(down.outputs, /no engines pass marker exists/, 'an API failure is not reported as no pass');
+});
+
+test('the daily run tells a failure from an incomplete run, and reports a reuse too', (t) => {
+    const { fx, routes, verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
+    const cancelled = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'cancelled' } : job));
+    for (const [name, jobs] of [['a cancelled shard', cancelled], ['a short matrix', engineJobs().slice(1)]]) {
+        const out = verdict({ demo: 'failure' }, dailyRoutes(fx, routes), [], jobs);
+        assert.equal(out.status, 1, name);
+        assert.match(out.outputs, /^engines-status=incomplete$/m, name);
+        assert.match(out.outputs, /^engines-report=The Firefox\/WebKit run on dev did not complete/m, name);
+        assert.doesNotMatch(out.outputs, /engines-report=.*failed on dev/, `${name}: never said to have failed`);
+    }
+    // a daily that reuses a pass on dev's inputs closes the issue; one whose reused pass no longer qualifies says so
+    const fpEngines = fingerprints(fx, fx.head()).lanes.engines;
+    const reusedRoutes = engineRoutes(fx, fx.head(), fpEngines);
+    const evidence = { artifact_id: 9501, artifact_name: `ci-pass-v1-engines-${fpEngines}`, run_id: 75, run_attempt: 1, head_sha: fx.head(), url: 'https://github.com/example/project/actions/runs/75', jobs: brief(engineJobs()), flaky: 0 };
+    const reused = verdictFixture(t, { engines: { ...lane('reuse', fpEngines), evidence }, event: 'daily' });
+    const passed = reused.verdict({ demo: 'skipped' }, { ...reused.routes, ...reusedRoutes }, [], null);
+    assert.equal(passed.status, 0, passed.stderr);
+    assert.match(passed.outputs, /^engines-status=passed$/m);
+    assert.match(passed.outputs, /^engines-report=Firefox and WebKit already passed on these inputs.*actions\/runs\/75/m);
+    const stale = reused.verdict({ demo: 'skipped' }, reused.routes, [], null);
+    assert.equal(stale.status, 1);
+    assert.match(stale.outputs, /^engines-status=incomplete$/m);
+    assert.match(stale.outputs, /^engines-report=.*no longer qualifies/m);
+});
+
+// the workflows' shell steps, run with a stub gh that logs its calls
+
+function stubGh(fx, script) {
+    const bin = join(fx.dir, 'shbin');
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, 'gh'), `#!/usr/bin/env bash\necho "$*" >> "${join(fx.dir, 'gh-calls')}"\n${script}\n`);
+    chmodSync(join(bin, 'gh'), 0o755);
+    writeFileSync(join(fx.dir, 'gh-calls'), '');
+    return bin;
+}
+const ghCalls = (fx) => readFileSync(join(fx.dir, 'gh-calls'), 'utf8');
+
+test('the Engines issue job closes on a pass, comments or opens on a failure or an incomplete run', (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'engines-issue', 'issue');
+    for (const [status, open, expected, unexpected] of [
+        ['passed', '7', /^issue close 7 /m, /issue (create|comment)/],
+        ['passed', '', /^issue list /m, /issue (close|create|comment)/],
+        ['failed', '', /^issue create .*--label engines/m, /issue close/],
+        ['incomplete', '7', /^issue comment 7 .*did not complete/m, /issue close/],
+    ]) {
+        const bin = stubGh(fx, `if [ "$1 $2" = "issue list" ]; then echo "${open}"; fi`);
+        const report = status === 'incomplete' ? 'The Firefox/WebKit run on dev did not complete: cancelled' : 'Firefox/WebKit failed on dev at abc';
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8',
+            env: { PATH: `${bin}:${process.env.PATH}`, REPO, STATUS: status, REPORT: report, RUN_URL: 'https://github.com/example/project/actions/runs/9' } });
+        assert.equal(out.status, 0, out.stderr);
+        assert.match(ghCalls(fx), expected, `${status}/${open || 'none open'}: ${ghCalls(fx)}`);
+        assert.doesNotMatch(ghCalls(fx), unexpected, `${status}/${open || 'none open'}`);
+    }
+});
+
+test('Start the engines dispatches an engines-only run on the head branch, unless one for that head is queued or running', (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('release-checks.yml');
+    const step = stepIn(workflow, 'start-engines', 'start');
+    const env = (bin) => ({ PATH: `${bin}:${process.env.PATH}`, REPO, BRANCH: 'release-0.4', HEAD: 'd'.repeat(40), GITHUB_OUTPUT: join(fx.dir, 'start-out') });
+    for (const [queued, dispatched] of [['0', true], ['1', false]]) {
+        writeFileSync(join(fx.dir, 'start-out'), '');
+        const bin = stubGh(fx, `case "$1 $2" in "api "*) echo ${queued} ;; esac`);
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: env(bin) });
+        assert.equal(out.status, 0, out.stderr);
+        const calls = ghCalls(fx);
+        assert.match(calls, new RegExp(`head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
+        assert.equal(/^workflow run ci\.yml --repo example\/project --ref release-0\.4 -f engines_only=true$/m.test(calls), dispatched, calls);
+        assert.match(readFileSync(join(fx.dir, 'start-out'), 'utf8'), dispatched ? /^started=dispatched$/m : /^started=running$/m);
+    }
+    const { job } = workflowJobs('release-checks.yml');
+    const condition = job('start-engines').if;
+    for (const [engines, runs] of [['pass', false], ['tree: the merge tests another tree', false], ['missing: engines: no_evidence', true]]) {
+        assert.equal(Boolean(evaluate(condition, { github: { event_name: 'pull_request' }, needs: { changed: { result: 'success', outputs: { engines } } } })), runs, engines);
+    }
+    assert.match(job('start-engines').text, /BRANCH: \$\{\{ github\.head_ref \}\}/);
+    assert.match(job('start-engines').text, /HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+});
+
+test("What to check's engines step: pass, missing or another tree, from the merge commit's parents", (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('release-checks.yml');
+    const step = stepIn(workflow, 'changed', 'engines');
+    mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
+    writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'the tool');
+    const base = fx.head();
+    fx.git('checkout', '-qb', 'release');
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '-');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const runStep = (sha, routes) => {
+        writeFileSync(join(fx.dir, 'routes.json'), JSON.stringify(routes));
+        writeFileSync(join(fx.dir, 'gh-api.log'), '');
+        const output = join(fx.dir, 'changed-out');
+        writeFileSync(output, '');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+        assert.equal(out.status, 0, out.stderr);
+        return readFileSync(output, 'utf8');
+    };
+    assert.match(runStep(merge, {}), /^engines=missing: engines: no_evidence/m);
+    assert.match(runStep(merge, engineRoutes(fx, head, fp)), /^engines=pass$/m);
+    assert.doesNotMatch(readFileSync(join(fx.dir, 'gh-api.log'), 'utf8'), /workflow/, 'this step never starts a workflow');
+    // main moved on: the merge tests another tree than the head, which no pass on the head can stand for
+    fx.git('checkout', '-q', base);
+    fx.git('checkout', '-qb', 'main2');
+    fx.commit('README.md', 'main moved\n');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    assert.match(runStep(fx.head(), engineRoutes(fx, head, fp)), /^engines=tree: /m);
+});
+
+test('only the release pull request publishes Release checks, and its verdict says what to do', (t) => {
+    const { job } = workflowJobs('release-checks.yml');
+    const name = job('verdict').name;
+    assert.equal(evaluate(name, { github: { event_name: 'pull_request' }, inputs: {} }), 'Release checks');
+    assert.equal(evaluate(name, { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev' }, inputs: { daily: true } }), 'Release checks (daily)');
+    assert.equal(evaluate(name, { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} }), 'Release checks (manual)');
+    const verdict = stepIn(workflowJobs('release-checks.yml').workflow, 'verdict', 'decide');
+    const fx = scratch(t);
+    const run = (env) => spawnSync('bash', ['-eo', 'pipefail', '-c', verdict.run], { encoding: 'utf8',
+        env: { PATH: process.env.PATH, EVENT: 'pull_request', CHANGED: 'success', RUN: 'false', SUITE: 'skipped', COMPLETE: 'skipped', PROD_IMAGE: 'skipped', START: '', BRANCH: 'release-0.4', ...env } });
+    const tree = run({ ENGINES: 'tree: the merge tests another tree than the head abc' });
+    assert.equal(tree.status, 1);
+    assert.match(tree.stdout + tree.stderr, /[Bb]ring main into release-0\.4/);
+    assert.doesNotMatch(tree.stdout + tree.stderr, /re-run Release checks when it passes/, 'no run can satisfy it: no promise of one');
+    const running = run({ ENGINES: 'missing: engines: no_evidence', START: 'running' });
+    assert.match(running.stdout + running.stderr, /a Firefox\/WebKit run for this head is already queued or running/);
+    void fx;
+});
+
+test('the browser shards plan from timings that include the engines\' latest run', () => {
+    const { job } = workflowJobs('ci.yml');
+    const timings = job('changes').text.slice(job('changes').text.indexOf('name: Shard timings'));
+    assert.match(timings, /runs\?branch=dev&status=success&per_page=/);
+    assert.doesNotMatch(timings.slice(0, timings.indexOf('upload-artifact')), /event=push/, 'not only push runs: the daily and engines-only runs refresh Firefox and WebKit');
 });

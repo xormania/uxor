@@ -146,12 +146,16 @@ freshly resolved dependency versions run alone (both *Fresh install* jobs and *P
 default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
 job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
 release. The rulesets require the one
-*CI result* check, which passes when each lane passed, reused an earlier pass on the same inputs or was skipped (`docs/TESTING.md`, *Reused lanes*), and `dev`'s requires a branch to be up to date
+*CI result* check, which passes when each lane passed, reused an earlier pass on the same inputs or was skipped (`docs/TESTING.md`, *Reused lanes*; the daily run and an engines-only run report as *CI result (daily)* and *CI result (engines only)*, never as the required check), and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
 queue; a work order's jobs need not be up to date with it, *Work orders* below). When *CI result* fails because a lane's reused pass no longer qualifies (its evidence expired or disappeared, its producer ran the lane again, or a failure on the same inputs was recorded since), use *Re-run all jobs*: it plans the lanes again and runs the lane; *Re-run failed jobs* keeps the first plan and fails the same way. CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
 script does not know yet runs. A path no row below names counts as part of the kit until `tools/ci-changes.sh` and its
 test (`tools/tests/ci-changes.sh`) say otherwise. A deleted file counts as a change to its path, a renamed one as a
 change to both paths.
+
+*Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
+`main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
+(`docs/TESTING.md`, *Browsers*).
 
 | A change to | runs |
 |---|---|

@@ -12,9 +12,18 @@
  * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
  *   fingerprint --sha <rev>
- *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] --out <plan.json> [--github-output <f>]
+ *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch|engines]
+ *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
- *   verdict --plan <plan.json> --needs <needs.json> --repo <o/r> [--wo-draft true|false] [--summary <f>]
+ *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--wo-draft true|false] [--summary <f>] [--github-output <f>]
+ *   require --lane <reusable lane> --repo <o/r> --sha <sha> [--chromium-shards <n>]   (exit 0: a pass that verifies; 1: none)
+ *
+ * The browser tests are one job of ci.yml whose matrix the plan computes, and two lanes: `demo`, its Chromium shards
+ * (CHROMIUM_SHARDS of them), and `engines`, three shards each of Firefox and WebKit. With ENGINES_ON=daily the engines run
+ * on dev's daily run (unless they already passed on its inputs), on main, when a manual run asks for them, and when the
+ * release pull request's Release checks finds no pass for its head and starts one; on any other push they are deferred
+ * (not run at this stage, said so in CI result), unless a pass on the same inputs exists. ENGINES_ON=every-push runs them
+ * on every push, as before the trial.
  * Common: --gh <command> (gh), --git-dir <dir> (.), --now <ISO time> (the clock), --budget-ms <n> (60000),
  * --retry-delay-ms <n> (1000: the verdict retries a failed API call twice, after it and twice it).
  *
@@ -27,8 +36,8 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
-/** every lane of ci.yml's Changes job, in its order */
-export const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
+/** every lane of ci.yml's Changes job, in its order: the selector's, then the engines, which follow the browser tests */
+export const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image', 'engines'];
 /**
  * The lanes whose pass can be reused, with their jobs' names in ci.yml and how many a full pass has. Not the static
  * site, whose pages print the branch and commit, nor Lint kit, which resolves the Toolkit from the network: both are
@@ -36,9 +45,16 @@ export const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contra
  */
 export const REUSABLE = {
     php: { name: 'Kit PHP', count: 1 },
-    demo: { prefix: 'Demo + Playwright (', count: 10 },
+    demo: { prefix: 'Demo + Playwright (chromium ', count: null }, // CHROMIUM_SHARDS
+    engines: { prefixes: ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit '], count: 6 },
     'prod-image': { name: 'Production image', count: 1 },
 };
+export const DEFAULT_CHROMIUM_SHARDS = 6;
+/** the browser lanes share one job (`demo` in `needs`): the verdict reads them from the run's jobs */
+const BROWSER_LANES = ['demo', 'engines'];
+const ENGINE_BROWSERS = ['firefox', 'webkit'];
+const ENGINE_SHARDS = 3;
+const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines";
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 export const MAX_AGE_DAYS = 14;
@@ -47,7 +63,7 @@ const PRODUCER_EVENTS = ['push', 'workflow_dispatch'];
 /** the jobs of ci.yml that make up each lane, as CI result's `needs` names them */
 const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'] };
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
-const IMPORTMAP_USERS = ['php', 'static-site', 'demo'];
+const IMPORTMAP_USERS = ['php', 'static-site', 'demo', 'engines'];
 const MARKER_LIMIT = 65536;
 const RERUN_NOTE = 'only "Re-run all jobs" plans the lanes again; re-running failed jobs reuses this plan';
 
@@ -184,8 +200,18 @@ export function zipEntry(buffer, wanted) {
 
 export function laneJobs(lane, jobs) {
     const rule = REUSABLE[lane];
+    const prefixes = rule.prefixes ?? (rule.prefix !== undefined ? [rule.prefix] : []);
     return jobs.filter((job) => isObject(job) && typeof job.name === 'string'
-        && (rule.name !== undefined ? job.name === rule.name : job.name.startsWith(rule.prefix)));
+        && (rule.name !== undefined ? job.name === rule.name : prefixes.some((prefix) => job.name.startsWith(prefix))));
+}
+
+/** how many jobs a full pass of the lane has */
+const expected = (lane, chromiumShards) => (lane === 'demo' ? chromiumShards : REUSABLE[lane].count);
+
+function chromiumShards(value) {
+    const shards = value === undefined ? DEFAULT_CHROMIUM_SHARDS : Number(value);
+    if (!Number.isInteger(shards) || shards < 1 || shards > 20) usage('--chromium-shards is a whole number from 1 to 20');
+    return shards;
 }
 
 const markerName = (kind, lane, fp) => `ci-${kind}-v1-${lane}-${fp}`;
@@ -244,7 +270,7 @@ function producerJobs(client, ctx, lane, run) {
         ctx.jobs.set(run.id, jobs);
     }
     const mine = laneJobs(lane, jobs);
-    const { count } = REUSABLE[lane];
+    const count = expected(lane, ctx.chromiumShards);
     const bad = mine.filter((job) => job.conclusion !== 'success');
     if (mine.length !== count || bad.length) {
         throw new Refused('jobs_incomplete', `run ${run.id}: ${mine.length} of ${count} ${lane} jobs${bad.length ? `, ${bad.map((job) => `${job.name} ${job.conclusion}`).join(', ')}` : ''}`);
@@ -342,6 +368,7 @@ function context(opts, retries) {
     return {
         repo: opts.repo, gh: opts.gh ?? 'gh', gitDir: opts['git-dir'] ?? '.', now, calls: 0, runs: new Map(), jobs: new Map(),
         deadline: Date.now() + Number(opts['budget-ms'] ?? 60000), retries, retryDelay: Number(opts['retry-delay-ms'] ?? 1000),
+        chromiumShards: chromiumShards(opts['chromium-shards']),
     };
 }
 
@@ -372,11 +399,19 @@ function planCommand(opts) {
     const started = Date.now();
     const ctx = context(opts, 0);
     const client = api(ctx);
+    const event = opts.event ?? 'push';
+    if (!['push', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, daily, dispatch or engines');
+    const enginesOn = opts['engines-on'] ?? 'daily';
+    if (!['daily', 'every-push'].includes(enginesOn)) usage('--engines-on is daily or every-push');
     const selected = Object.fromEntries(readFileSync(opts.selection, 'utf8').split('\n').filter(Boolean).map((line) => {
         const [lane, value] = line.split('=');
         return [lane, value === 'true'];
     }));
+    // the engines test what the browser tests test: selected with them, unless the selection names them (the daily run)
+    selected.engines ??= selected.demo ?? true;
     const reuseOff = opts.ref === 'refs/heads/main' ? 'main' : opts.reuse === 'off' ? 'switch' : null;
+    // when the engines run rather than wait: on main, with ENGINES_ON=every-push, when a manual run asks, on the daily run
+    const enginesNow = opts.ref === 'refs/heads/main' || enginesOn === 'every-push' || opts.engines === 'true' || event === 'daily' || event === 'engines';
     // every reusable lane's fingerprint, whatever the switch: the run records what it ran under it
     let own = null;
     let ownError = null;
@@ -388,6 +423,7 @@ function planCommand(opts) {
     const lanes = {};
     for (const lane of LANES) {
         const entry = { selected: selected[lane] ?? true, decision: 'run', fingerprint: own?.[lane] ?? null, reason: '', detail: '', evidence: null };
+        if (REUSABLE[lane]) entry.jobs_expected = expected(lane, ctx.chromiumShards);
         lanes[lane] = entry;
         if (!entry.selected) Object.assign(entry, { decision: 'skip', reason: 'not_selected', detail: 'the change cannot affect it' });
         else if (!REUSABLE[lane]) Object.assign(entry, { reason: 'not_reusable', detail: 'it always runs when selected' });
@@ -402,25 +438,59 @@ function planCommand(opts) {
                 Object.assign(entry, { decision: 'run', reason: refused.reason, detail: refused.message, evidence: null });
             }
         }
+        if (lane === 'engines' && entry.decision === 'run' && !enginesNow) {
+            Object.assign(entry, { decision: 'defer', reason: 'deferred', detail: DEFERRED });
+        }
     }
-    const plan = { schema: 1, repo: opts.repo, sha: opts.sha, ref: opts.ref ?? null, reuse: !reuseOff, reuse_off: reuseOff, elapsed_ms: Date.now() - started, api_calls: ctx.calls, lanes };
+    // the browser job's matrix: the Chromium shards when the demo lane runs, the engines' when they run
+    const include = [];
+    if (lanes.demo.decision === 'run') {
+        for (let shard = 1; shard <= ctx.chromiumShards; shard++) include.push({ browser: 'chromium', shard, shards: ctx.chromiumShards, projects: '--project=smoke --project=examples' });
+    }
+    if (lanes.engines.decision === 'run') {
+        for (const browser of ENGINE_BROWSERS) {
+            for (let shard = 1; shard <= ENGINE_SHARDS; shard++) include.push({ browser, shard, shards: ENGINE_SHARDS, projects: `--project=smoke-${browser} --project=examples-${browser}` });
+        }
+    }
+    const plan = {
+        schema: 1, repo: opts.repo, sha: opts.sha, ref: opts.ref ?? null, event, engines_on: enginesOn, chromium_shards: ctx.chromiumShards,
+        reuse: !reuseOff, reuse_off: reuseOff, elapsed_ms: Date.now() - started, api_calls: ctx.calls, lanes,
+    };
     writeFileSync(opts.out, `${JSON.stringify(plan, null, 2)}\n`);
     for (const [lane, entry] of Object.entries(lanes)) {
         const producer = entry.evidence ? ` run ${entry.evidence.run_id} attempt ${entry.evidence.run_attempt} on ${entry.evidence.head_sha} ${entry.evidence.url}` : '';
-        console.log(`${lane}: ${entry.decision} (${entry.reason})${producer}${entry.decision === 'run' && entry.detail ? `: ${entry.detail}` : ''}`);
+        console.log(`${lane}: ${entry.decision} (${entry.reason})${producer}${['run', 'defer'].includes(entry.decision) && entry.detail ? `: ${entry.detail}` : ''}`);
     }
     const count = (decision) => Object.values(lanes).filter((e) => e.decision === decision).length;
-    const summary = `${count('reuse')} reused, ${count('run')} run, ${count('skip')} skipped; ${plan.elapsed_ms} ms, ${plan.api_calls} API calls`;
+    const summary = `${count('reuse')} reused, ${count('run')} run, ${count('defer')} deferred, ${count('skip')} skipped; ${plan.elapsed_ms} ms, ${plan.api_calls} API calls`;
     console.log(summary);
     writeOutputs(opts['github-output'], {
         ...Object.fromEntries(Object.entries(lanes).map(([lane, entry]) => [lane, entry.decision])),
         importmap: IMPORTMAP_USERS.some((lane) => lanes[lane].decision === 'run') ? 'run' : 'skip',
+        browsers: include.length ? 'run' : 'skip',
+        'browser-matrix': JSON.stringify({ include }),
         'plan-summary': summary,
     });
 }
 
-/** the browser shards' counts, from every results.json under the directory (Playwright's JSON report) */
-function testCounts(dir) {
+/** exit 0 when the lane has a pass at this commit that verifies (Release checks' requirement), 1 otherwise */
+function requireCommand(opts) {
+    need(opts, 'lane', 'repo', 'sha');
+    if (!REUSABLE[opts.lane]) usage(`${opts.lane} is not a lane whose pass is recorded`);
+    const ctx = context(opts, 2);
+    const client = api(ctx);
+    try {
+        const evidence = qualify(client, ctx, opts.lane, fingerprints(ctx.gitDir, opts.sha)[opts.lane]);
+        console.log(`${opts.lane}: passed by run ${evidence.run_id} attempt ${evidence.run_attempt} on ${evidence.head_sha} ${evidence.url}`);
+    } catch (error) {
+        const refused = refusal(error);
+        console.log(`${opts.lane}: ${refused.reason}: ${refused.message}`);
+        process.exitCode = 1;
+    }
+}
+
+/** the browser shards' counts, from the results.json of each shard artifact of those browsers (playwright-results-<browser>-<n>) */
+function testCounts(dir, browsers) {
     if (!dir || !existsSync(dir)) return null;
     const counts = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
     let found = false;
@@ -443,7 +513,10 @@ function testCounts(dir) {
             }
         }
     };
-    walk(dir);
+    for (const name of readdirSync(dir)) {
+        const child = join(dir, name);
+        if (browsers.some((browser) => name.startsWith(`playwright-results-${browser}-`)) && statSync(child).isDirectory()) walk(child);
+    }
     return found ? counts : null;
 }
 
@@ -465,6 +538,7 @@ function recordCommand(opts) {
         outputs[`${lane}-kind`] = '';
         const entry = plan?.lanes?.[lane];
         if (entry?.decision !== 'run') continue;
+        // the browser lanes share one job: its result says one of them failed, not which
         const failedByNeeds = (NEEDS[lane] ?? [lane]).some((job) => ['failure', 'timed_out'].includes(needs[job]?.result));
         const fp = /^[0-9a-f]{64}$/.test(entry.fingerprint ?? '') ? entry.fingerprint : null;
         if (!jobs || !fp) {
@@ -474,11 +548,12 @@ function recordCommand(opts) {
             continue;
         }
         const mine = laneJobs(lane, jobs);
-        const passed = mine.length === REUSABLE[lane].count && mine.every((job) => job.conclusion === 'success');
-        const failed = failedByNeeds || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
+        const count = entry.jobs_expected ?? expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS);
+        const passed = mine.length === count && mine.every((job) => job.conclusion === 'success');
+        const failed = (BROWSER_LANES.includes(lane) ? false : failedByNeeds) || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
         if (!passed && !failed) continue;
         const kind = failed ? 'fail' : 'pass';
-        const tests = lane === 'demo' ? testCounts(opts.shards) : null;
+        const tests = BROWSER_LANES.includes(lane) ? testCounts(opts.shards, lane === 'demo' ? ['chromium'] : ENGINE_BROWSERS) : null;
         const name = markerName(kind, lane, fp);
         try {
             mkdirSync(join(opts.out, name), { recursive: true });
@@ -504,29 +579,105 @@ function recordCommand(opts) {
     process.exitCode = lost.length ? 1 : 0;
 }
 
+const NO_ENGINES_MARKER = "no engines pass marker exists for a commit in dev's history: expected right after the switch to Chromium first, since runs before it recorded no engines markers, and a marker expires after 15 days";
+
+/**
+ * The last all-browser pass before `head`: the newest engines pass marker (any run of ci.yml in this repository that
+ * passed the engines, whatever else it did, on any branch) whose commit is in head's history, and the commits since,
+ * by short SHA only: a commit subject never reaches an issue (an at-sign name would ping, a number cross-reference).
+ */
+function sinceLastAllBrowserPass(client, ctx, head) {
+    try {
+        const candidates = [];
+        for (let page = 1; page <= 5; page++) {
+            const list = client.object(`repos/${ctx.repo}/actions/artifacts?per_page=100&page=${page}`);
+            if (!Array.isArray(list.artifacts)) throw new Refused('lookup_error', 'the artifact listing has no artifacts');
+            candidates.push(...list.artifacts.filter((a) => isObject(a) && String(a.name).startsWith('ci-pass-v1-engines-')));
+            if (list.artifacts.length < 100) break;
+        }
+        candidates.sort((a, b) => time(b.created_at) - time(a.created_at));
+        for (const artifact of candidates.slice(0, 10)) {
+            let run;
+            try {
+                run = producerRun(client, ctx, artifact);
+            } catch (error) {
+                if (error instanceof Refused && error.reason === 'wrong_producer') continue;
+                throw error;
+            }
+            const compare = client.object(`repos/${ctx.repo}/compare/${run.head_sha}...${head}`);
+            if (!['ahead', 'identical'].includes(compare.status)) continue;
+            const shas = (Array.isArray(compare.commits) ? compare.commits : []).filter(isObject).map((c) => String(c.sha).slice(0, 7));
+            const count = Number.isInteger(compare.ahead_by) ? compare.ahead_by : shas.length;
+            const url = run.html_url ?? `https://github.com/${ctx.repo}/actions/runs/${run.id}`;
+            const compareUrl = compare.html_url ?? `https://github.com/${ctx.repo}/compare/${run.head_sha}...${head}`;
+            const listed = shas.slice(0, 20).join(', ') + (shas.length > 20 ? ', …' : '');
+            return `commits since the last all-browser pass ${run.head_sha.slice(0, 12)} (run ${url}): ${count} commit${count === 1 ? '' : 's'}${count ? `: ${listed}` : ''}; compare ${compareUrl}`;
+        }
+        return NO_ENGINES_MARKER;
+    } catch (error) {
+        return `the last all-browser pass could not be looked up (${refusal(error).message})`;
+    }
+}
+
 function verdictCommand(opts) {
     need(opts, 'plan', 'needs', 'repo');
     const plan = JSON.parse(readFileSync(opts.plan, 'utf8'));
     const needs = JSON.parse(readFileSync(opts.needs, 'utf8'));
-    const ctx = context(opts, 2);
+    const ctx = context({ ...opts, 'chromium-shards': opts['chromium-shards'] ?? String(plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS) }, 2);
     const client = api(ctx);
+    // the run's jobs: the browser lanes share one job, so their results are read from its matrix jobs
+    let jobs = readJson(opts.jobs ?? '');
+    if (!(Array.isArray(jobs) && jobs.every(isObject)) && opts['run-id']) {
+        try {
+            jobs = client.object(`repos/${ctx.repo}/actions/runs/${opts['run-id']}/jobs?filter=latest&per_page=100`).jobs;
+        } catch {
+            jobs = null;
+        }
+    }
+    if (!(Array.isArray(jobs) && jobs.every(isObject))) jobs = null;
     const result = (job) => needs[job]?.result ?? 'missing';
     const lanes = {};
     for (const lane of LANES) {
         const entry = plan.lanes?.[lane];
-        const results = (NEEDS[lane] ?? [lane]).map(result);
         const status = (value, reason = '', producer = null, flaky = null) => { lanes[lane] = { status: value, reason, producer, flaky }; };
+        // what ran of the lane: a browser lane's own matrix jobs, any other lane's jobs by `needs`
+        let ran;
+        let passed;
+        let results;
+        if (BROWSER_LANES.includes(lane) && !jobs && result('demo') === 'skipped') {
+            // the browser job was skipped: nothing of either lane ran, and no job list is needed to say so
+            ran = false;
+            passed = false;
+            results = ['skipped'];
+        } else if (BROWSER_LANES.includes(lane)) {
+            if (!jobs) {
+                status('incomplete', "the run's jobs could not be read, so the browser lanes cannot be told apart");
+                continue;
+            }
+            const mine = laneJobs(lane, jobs).filter((job) => job.conclusion !== 'skipped');
+            ran = mine.length > 0;
+            passed = ran && mine.length === (entry?.jobs_expected ?? expected(lane, ctx.chromiumShards)) && mine.every((job) => job.conclusion === 'success');
+            results = mine.length ? [...new Set(mine.map((job) => job.conclusion ?? job.status))] : ['skipped'];
+            if (ran && !passed && mine.every((job) => job.conclusion === 'success')) results = [`${mine.length} of ${entry?.jobs_expected} jobs`];
+        } else {
+            results = (NEEDS[lane] ?? [lane]).map(result);
+            ran = !results.every((value) => value === 'skipped');
+            passed = results.every((value) => value === 'success');
+        }
         if (!entry) status('incomplete', 'not in the plan');
         else if (entry.decision === 'run') {
-            if (results.every((value) => value === 'success')) status('fresh');
+            if (passed) status('fresh');
             else status('incomplete', `ended with ${results.join(', ')}`);
         } else if (entry.decision === 'skip') {
-            if (results.every((value) => value === 'skipped')) status('not_applicable');
+            if (!ran) status('not_applicable');
             else status('incomplete', `planned to skip, ended with ${results.join(', ')}`);
+        } else if (entry.decision === 'defer') {
+            if (!ran) status('not_run_at_this_stage', DEFERRED);
+            else status('incomplete', `planned to wait for a later stage, ended with ${results.join(', ')}`);
         } else if (entry.decision === 'reuse') {
             const evidence = isObject(entry.evidence) ? entry.evidence : null;
             const producer = evidence && { run_id: evidence.run_id, run_attempt: evidence.run_attempt, head_sha: evidence.head_sha, url: evidence.url };
-            if (!results.every((value) => value === 'skipped')) status('incomplete', `planned for reuse, ended with ${results.join(', ')}`, producer);
+            if (ran) status('incomplete', `planned for reuse, ended with ${results.join(', ')}`, producer);
             else {
                 try {
                     requalify(client, ctx, lane, entry.fingerprint, evidence);
@@ -541,16 +692,46 @@ function verdictCommand(opts) {
     const setup = SETUP_NEEDS.map((job) => [job, result(job)]).filter(([, value]) => value !== 'success' && value !== 'skipped');
     const draft = opts['wo-draft'] === 'true';
     const ok = !draft && setup.length === 0 && Object.values(lanes).every((lane) => lane.status !== 'incomplete');
-    const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${value.status} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${value.reason} |`);
+    // the daily run's engines, for the Engines issue: passed (ran and passed, or a pass on these inputs still qualifies),
+    // failed (a shard failed), or incomplete (cancelled, short, unreadable: nothing said about the engines)
+    const outputs = { 'engines-status': '', 'engines-report': '' };
+    let daily = null;
+    const engines = plan.lanes?.engines;
+    if (plan.event === 'daily' && ['run', 'reuse'].includes(engines?.decision)) {
+        const at = String(plan.sha).slice(0, 12);
+        const failedShard = (jobs ?? []).some((job) => laneJobs('engines', [job]).length && ['failure', 'timed_out'].includes(job.conclusion));
+        if (lanes.engines.status === 'fresh' || lanes.engines.status === 'reused') {
+            outputs['engines-status'] = 'passed';
+            outputs['engines-report'] = lanes.engines.status === 'reused'
+                ? `Firefox and WebKit already passed on these inputs (dev at ${at}): run ${lanes.engines.producer?.url}`
+                : `Firefox and WebKit passed on dev at ${at}`;
+        } else if (engines.decision === 'run' && failedShard) {
+            daily = sinceLastAllBrowserPass(client, ctx, plan.sha);
+            outputs['engines-status'] = 'failed';
+            outputs['engines-report'] = `Firefox/WebKit failed on dev at ${at}; ${daily}`;
+        } else {
+            outputs['engines-status'] = 'incomplete';
+            outputs['engines-report'] = `The Firefox/WebKit run on dev did not complete (${lanes.engines.reason.replace(/[\r\n]+/g, ' ')}); it says nothing about the engines`;
+        }
+    }
+    const label = (value) => (value.status === 'not_run_at_this_stage' ? 'NOT RUN AT THIS STAGE' : value.status);
+    const why = (value) => (value.status === 'not_run_at_this_stage' ? DEFERRED.replace('NOT RUN AT THIS STAGE: ', '') : value.reason);
+    const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${label(value)} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${why(value)} |`);
     const summary = [
         '### Lanes', '',
         draft ? 'Work order draft: CI ran no tests.\n' : '',
         '| Lane | Result | Producer | Flaky | Why |', '|---|---|---|---|---|', ...rows, '',
         ...setup.map(([job, value]) => `- ${job} ended with ${value}`),
+        ...(outputs['engines-report'] ? [`**Daily engines:** ${outputs['engines-report']}`, ''] : []),
         `Qualification: plan ${plan.elapsed_ms ?? '?'} ms, ${plan.api_calls ?? '?'} API calls; verdict ${ctx.calls} API calls.`, '',
     ].join('\n');
     if (opts.summary) appendFileSync(opts.summary, summary);
-    for (const [lane, value] of Object.entries(lanes)) if (value.status === 'incomplete') console.error(`::error::${lane}: ${value.reason}`);
+    writeOutputs(opts['github-output'], outputs);
+    for (const [lane, value] of Object.entries(lanes)) {
+        if (value.status === 'incomplete') console.error(`::error::${lane}: ${value.reason}`);
+        if (value.status === 'not_run_at_this_stage') console.log(`::notice::${lane}: ${DEFERRED}`);
+    }
+    if (['failed', 'incomplete'].includes(outputs['engines-status'])) console.error(`::error::engines: ${outputs['engines-report']}`);
     for (const [job, value] of setup) console.error(`::error::${job} ended with ${value}`);
     console.log(JSON.stringify({ schema: 1, ok, lanes }));
     process.exitCode = ok ? 0 : 1;
@@ -558,7 +739,7 @@ function verdictCommand(opts) {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
     const opts = options(process.argv.slice(2));
-    const commands = { fingerprint: fingerprintCommand, plan: planCommand, record: recordCommand, verdict: verdictCommand };
-    if (!commands[opts.command]) usage('the command is fingerprint, plan, record or verdict');
+    const commands = { fingerprint: fingerprintCommand, plan: planCommand, record: recordCommand, verdict: verdictCommand, require: requireCommand };
+    if (!commands[opts.command]) usage('the command is fingerprint, plan, record, verdict or require');
     commands[opts.command](opts);
 }
