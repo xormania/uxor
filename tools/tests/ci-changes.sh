@@ -52,10 +52,16 @@ check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs
 # the inputs of the Composer package's generated references: Package checks their copies are up to date
 check 'contrast package'          docs/TESTING.md
 check 'contrast package'          FOR-AGENTS.md
-check 'contrast package prod-image'          docs/GUIDE.md docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
+check 'contrast package'          docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
+# docs/GUIDE.md is also the gallery's /guide (demo/src/Kit/GuideDocs.php): its PHP tests, its static export, the browser
+# tests that load it (a11y, demo-app) and the production image's copy
+check 'php static-site contrast demo package prod-image' docs/GUIDE.md
 check 'package prod-image'        LICENSE
 check 'package prod-image'        NOTICE
-check 'contrast prod-image'                  tools/docs-lint.mjs tools/llms-txt.mjs llms.txt
+check 'contrast'                  tools/docs-lint.mjs tools/llms-txt.mjs
+# llms.txt is also served by the gallery (/llms.txt): SiteMetadataTest reads it, the static export saves it, the
+# production image holds it
+check 'php static-site contrast prod-image' llms.txt
 check 'contrast'                  tools/test-inventory.mjs
 check 'contrast'                  tools/icon-lint.mjs
 check ''                          tools/tests/icon-lint.test.mjs
@@ -71,8 +77,10 @@ check 'php static-site demo'      demo/README.md
 check 'lint-kit php static-site demo prod-image' demo/composer.lock
 check 'static-site contrast'      tools/fence-coverage.mjs
 check 'static-site'               tools/build-static.sh
-# the kit's README.md and INSTALL.md: no install, lint, PHP test or page reads them; Contrast and the references do
-check 'contrast package prod-image'          INSTALL.md
+# INSTALL.md is the gallery's /install (demo/src/Kit/GuideDocs.php): its PHP tests, its static export, the browser tests
+# that load it and the production image's copy; Contrast and the references read it too
+check 'php static-site contrast demo package prod-image' INSTALL.md
+# the kit's README.md: no install, lint, PHP test or page reads it; Contrast and the references do
 check 'contrast package'          README.md
 
 # A workflow: actionlint reads it, and the jobs that run what it runs check that part (a workflow's own triggers run
@@ -220,8 +228,9 @@ check 'php static-site demo prod-image' demo/config/services.yaml
 # the demo's code, templates and assets are not the image's build inputs on their own
 check 'php static-site demo prod-image' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
 check "$kit_contrast prod-image"             side-nav/assets/controllers/side_nav_controller.js
-# a recipe's README.md: the lint, the static site, the browser tests' examples, Contrast, the references
-check 'lint-kit static-site contrast demo package prod-image' side-nav/README.md
+# a recipe's README.md: the lint, the gallery's page of it (Kit PHP: RecipeDocsTest, RecipePageTest), the static site, the
+# browser tests' examples, Contrast, the references
+check 'lint-kit php static-site contrast demo package prod-image' side-nav/README.md
 check "$kit_contrast prod-image"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
 check "$kit_contrast prod-image"             theme/assets/styles/uxor.css
@@ -234,7 +243,7 @@ check "$kit package"              .gitattributes
 # manifest are copied into the package's references (Package); a deeper README is not
 check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
 check "$kit_contrast prod-image"             data-table/src/Table/DataTable.php
-check 'lint-kit static-site contrast demo package prod-image' alert/README.md
+check 'lint-kit php static-site contrast demo package prod-image' alert/README.md
 check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
 check "$kit_contrast prod-image"             alert/assets/manifest.json
