@@ -5,10 +5,11 @@ import { png } from './files';
 /*
  * The demo's browser hardening headers and its enforced Content Security Policy
  * (demo/src/EventListener/SecurityHeadersListener.php). The fixtures fail every test on a policy violation, so the
- * whole suite runs the kit under this policy; these tests check the policy itself, and what a blocked inline script
- * or style would silently break: the theme before the first paint, Turbo's progress bar, the Progress bars.
+ * whole suite runs the kit under this policy. Each page's headers, policy and nonced markup are a PHPUnit test
+ * (demo/tests/Security/SecurityHeadersTest.php); these tests check what only a browser shows: fresh nonces per response,
+ * and what a blocked inline script or style would silently break (the theme before the first paint, Turbo's progress
+ * bar, the Progress bars).
  */
-const pages = ['/', '/r/button', '/preview/button/default?theme=light', '/preview/dropdown/default?theme=light', '/demo', '/demo/login', '/lab/live-table', '/lab/popover-turbo', '/preview/popover/default?theme=light', '/lab/calendar-turbo', '/preview/calendar/default?theme=light', '/lab/date-picker-turbo', '/preview/date-picker/default?theme=light', '/lab/chart-turbo', '/preview/chart/default?theme=light', '/lab/dropzone-turbo', '/preview/dropzone/default?theme=light', '/forms', '/lab/dropzone-form', '/lab/live-dropzone', '/lab/editor-turbo', '/preview/editor/default?theme=light', '/lab/markdown-turbo', '/preview/markdown-editor/default?theme=light', '/lab/side-nav', '/preview/side-nav/default?theme=light', '/lab/mobile-nav', '/preview/mobile-nav/default?theme=light', '/lab/nav-menu', '/preview/nav-menu/default?theme=light', '/lab/dropdown-turbo', '/lab/modal-turbo', '/lab/drawer-turbo', '/lab/section-nav', '/preview/section-nav/default?theme=light', '/preview/tabs/vertical?theme=light', '/demo/settings/notifications'];
 
 type Policy = Map<string, string[]>;
 
@@ -48,23 +49,6 @@ async function gotoAndCheckPolicy(page: Page, path: string): Promise<{ script: s
     expect(styleSources).toContain("'self'");
 
     return { script: nonceOf(scriptSources), style: nonceOf(styleSources), policy };
-}
-
-for (const path of pages) {
-    test(`${path} answers with the hardening headers and a nonce-based policy its scripts carry`, async ({ page }) => {
-        const { script, style, policy } = await gotoAndCheckPolicy(page, path);
-        expect(script).not.toEqual(style);
-        // style attributes: none at all, README previews included (tools/docs-lint.mjs keeps them out of the examples)
-        expect(policy.has('style-src-attr')).toBe(false);
-
-        const inPage = await page.evaluate(() => ({
-            scripts: [...document.scripts].map((element) => element.nonce),
-            meta: (document.querySelector('meta[name="csp-nonce"]') as HTMLElement | null)?.nonce,
-        }));
-        expect(inPage.scripts.length).toBeGreaterThan(0);
-        expect(new Set(inPage.scripts)).toEqual(new Set([script]));
-        expect(inPage.meta).toBe(style);
-    });
 }
 
 test('every response gets its own nonces', async ({ page }) => {
