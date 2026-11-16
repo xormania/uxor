@@ -15,7 +15,7 @@
  *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch|engines]
  *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
- *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--wo-draft true|false] [--summary <f>] [--github-output <f>]
+ *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--summary <f>] [--github-output <f>]
  *   finish  record's and verdict's options: record, then verdict (CI result's one step)
  *   require --lane <reusable lane> --repo <o/r> --sha <sha> [--chromium-shards <n>]   (exit 0: a pass that verifies; 1: none)
  *
@@ -716,8 +716,7 @@ function verdictCommand(opts) {
         } else status('incomplete', `unknown decision ${entry.decision}`);
     }
     const setup = SETUP_NEEDS.map((job) => [job, result(job)]).filter(([, value]) => value !== 'success' && value !== 'skipped');
-    const draft = opts['wo-draft'] === 'true';
-    const ok = !draft && setup.length === 0 && Object.values(lanes).every((lane) => lane.status !== 'incomplete');
+    const ok = setup.length === 0 && Object.values(lanes).every((lane) => lane.status !== 'incomplete');
     // the daily run's engines, for the Engines issue: passed (ran and passed, or a pass on these inputs still qualifies),
     // failed (a shard failed), or incomplete (cancelled, short, unreadable: nothing said about the engines)
     const outputs = { 'engines-status': '', 'engines-report': '' };
@@ -745,7 +744,6 @@ function verdictCommand(opts) {
     const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${label(value)} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${why(value)} |`);
     const summary = [
         '### Lanes', '',
-        draft ? 'Work order draft: CI ran no tests.\n' : '',
         '| Lane | Result | Producer | Flaky | Why |', '|---|---|---|---|---|', ...rows, '',
         ...setup.map(([job, value]) => `- ${job} ended with ${value}`),
         ...(outputs['engines-report'] ? [`**Daily engines:** ${outputs['engines-report']}`, ''] : []),
