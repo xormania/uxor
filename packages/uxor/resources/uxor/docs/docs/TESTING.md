@@ -989,10 +989,16 @@ without failing CI, and passes on its own once the fault is fixed.
 **Catches:** a policy that allows more than it says, and what a strict policy silently breaks (an inline theme
 script, Turbo's progress bar, inline `style` attributes).
 
-The headers come from one listener; a spec checks the policy itself (nonces, no `'unsafe-inline'`), and the fixture
-above fails every other test on a violation, so the whole suite runs under the policy.
+The headers come from one listener. A PHPUnit test checks each page's headers and policy (nonces, `'strict-dynamic'`,
+no `'unsafe-inline'`, no `style-src-attr`) and the nonces its markup carries (every `<script>` the script nonce, the
+`csp-nonce` meta the style nonce), on a page of each kind and of each recipe with a controller of its own, parsed by
+PHP's HTML5 parser: a header or a template is the server's, the same in every browser. The fixture above fails every
+browser test on a violation, in every engine, so the whole suite runs under the policy: each of those pages is loaded
+in full in Chromium, Firefox and WebKit by another spec. `csp.spec.ts` keeps what only a browser shows: fresh nonces
+per response, and what a blocked inline script or style would silently break.
 
-Here: [`csp.spec.ts`](https://github.com/xormania/uxor/blob/0.3.1/tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/src/EventListener/SecurityHeadersListener.php).
+Here: [`SecurityHeadersTest.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/tests/Security/SecurityHeadersTest.php), [`csp.spec.ts`](https://github.com/xormania/uxor/blob/0.3.1/tests/e2e/csp.spec.ts),
+[`SecurityHeadersListener.php`](https://github.com/xormania/uxor/blob/0.3.1/demo/src/EventListener/SecurityHeadersListener.php).
 
 ## Production boot and route trust boundaries
 

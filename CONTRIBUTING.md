@@ -330,8 +330,8 @@ the default branch through a release. See *Jev diagnosis* in the same section fo
 needed to protect a repository secret from a malicious branch writer.
 
 - `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
-  Components, the components given hostile prop values (`hostile-props.spec.ts`), the demo's security headers and
-  Content Security Policy (`csp.spec.ts`), an axe accessibility scan of every demo page (no serious or critical
+  Components, the components given hostile prop values (`hostile-props.spec.ts`), what a strict Content Security
+  Policy would break (`csp.spec.ts`; each page's headers and nonces are PHPUnit's `SecurityHeadersTest`), an axe accessibility scan of every demo page (no serious or critical
   issue), and the counts of the key interactions (`counts.spec.ts`: requests, Stimulus controllers connected and
   disconnected, listeners left, response bytes under a budget; a change that moves one updates its number in the spec,
   [`docs/TESTING.md`](docs/TESTING.md), *Interaction counts*).
