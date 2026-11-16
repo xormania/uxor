@@ -1436,6 +1436,44 @@ The script's exit status says what it found: 0 a report it read (whatever its te
 report, 4 tests not reached. Run it on a local report with `node tools/ci/playwright-summary.mjs` after
 `CI=1 npx playwright test` (CI writes the JSON report); its cases: `node --test tools/tests/*.test.mjs`.
 
+### Reused lanes
+
+**Catches:** a push that changes only the changelog or the contributor docs running the browser tests again on code
+that already passed, and the reverse, a pass carried over to inputs it never tested.
+
+A branch is compared with where it left `dev` (`CONTRIBUTING.md`, *Checks*), so a push that changes only
+`CHANGELOG.md` after green code still selects every lane the code selected. Before running one, the Changes job asks
+[`tools/ci/lane-evidence.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/lane-evidence.mjs) whether an earlier run already passed it on the same
+inputs. Five lanes can be reused: *Lint kit*, *Kit PHP*, *Static site*, *Demo + Playwright* and *Production image*.
+*Contrast* (its README pairing reads the branch's history), *Workflows* (`main` and its tags move), *Package* and both
+*Fresh install* jobs (they resolve dependencies afresh) always run when selected, and *Tool tests* on every run.
+
+- **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`) without `CHANGELOG.md`,
+  `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, which no reusable lane reads
+  (they are export-ignored, the production image does not hold them, and the demo only links them on GitHub). Any
+  other change, `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new
+  fingerprint. The runner's image version is recorded, not compared; a pass counts for 14 days.
+- **Evidence:** CI result records one artifact per lane that ran in its run: `ci-pass-v1-<lane>-<fingerprint>` when
+  every job of the lane passed in its latest attempt (a shard that passed on its retry counts, its flaky count
+  recorded), `ci-fail-v1-<lane>-<fingerprint>` when one failed, nothing when one was cancelled. A reused lane records
+  nothing, so the evidence always names the run that executed the tests.
+- **Reuse:** the newest marker for the fingerprint must be a pass, at most 14 days old, from a push or manual run of
+  `ci.yml` in this repository (any branch: the tree is what was tested), whose jobs of the lane all passed; the
+  fingerprint recomputed at that run's commit must be this commit's. A failure recorded later, a missing shard, an
+  expired or unreadable marker, or an API call that fails runs the lane. The Changes job's log has one line per lane:
+  its decision, the reason and the run it reuses.
+- **Verdict:** *CI result* reports each lane as *fresh*, *reused* (with the producing run, attempt, commit and flaky
+  count), *not applicable* or *incomplete*, in its summary with the time and API calls the plan took. It checks each
+  reused lane's evidence again before passing: evidence that disappeared or a failure recorded since the plan fails
+  the run.
+- **Off:** `main` always runs every selected lane fresh. The repository variable `CI_REUSE=off`, or a manual run
+  with *reuse* unchecked, turns reuse off everywhere.
+
+The Changes job runs the selector as the base branch has it (a branch could otherwise skip its own checks by editing
+it), but this tool as the branch has it: the tool and `ci.yml` are inside every fingerprint, so a branch's own copy
+can only match a pass recorded by that same copy and workflow, and a push already runs the branch's own `ci.yml`. Its
+cases: `node --test tools/tests/lane-evidence.test.mjs`.
+
 ### CI metrics
 
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache`, with

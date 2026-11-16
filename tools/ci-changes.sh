@@ -24,8 +24,9 @@ on() { for job in "$@"; do run[$job]=true; done; }
 while IFS= read -r path; do
     [ -n "$path" ] || continue
     case "$path" in
-        # The workflow and this script decide what runs: a change to either runs everything
-        .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh) all ;;
+        # The workflow, this script and the lanes' plan and verdict (tools/ci/lane-evidence.mjs: what runs, what is
+        # reused, what passes) decide what runs: a change to any of them runs everything
+        .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh | tools/ci/lane-evidence.mjs) all ;;
 
         # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
         # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
