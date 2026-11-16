@@ -1503,8 +1503,8 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mj
   days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the build
   cache served the build), whether `setup-node` restored the npm cache, the seconds of `npm ci`, of the Playwright
   image's pull and of *Install Playwright*'s wait for it. The Playwright browsers come from that image, pulled on every
-  run: there is no browser cache to hit. The pull starts at the top of the job and runs while the demo builds and
-  starts ([`tools/ci/background.mjs`](../tools/ci/background.mjs)); *Install Playwright* waits for it, at most 5 min, and
+  run: there is no browser cache to hit. The pull starts once buildx is set up (earlier, unpacking its layers slowed
+  the builder's start from 2 to 16 s) and runs while the demo builds and starts ([`tools/ci/background.mjs`](../tools/ci/background.mjs)); *Install Playwright* waits for it, at most 5 min, and
   fails with the pull's own error, so only the wait is on the job's path.
 - **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
   run's jobs from GitHub's API (each job's queue time and each step's start and end, to the second), and writes one

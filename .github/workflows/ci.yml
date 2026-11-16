@@ -1109,15 +1109,6 @@ jobs:
               with:
                   persist-credentials: false
 
-            # The pinned Playwright image (2.4 GB, tools/playwright-image.mjs) is pulled in the background while the demo
-            # builds and starts, and waited for in Install Playwright, which fails with the pull's error if it failed
-            # (tools/ci/background.mjs). Fails here when the image's tag is not the locked @playwright/test.
-            - name: Start pulling the Playwright image
-              id: pull
-              run: |
-                  image=$(node tools/playwright-image.mjs)
-                  node tools/ci/background.mjs start playwright-image -- docker pull "$image"
-
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               id: node # its cache-hit output, for the job's metrics
               with:
@@ -1126,6 +1117,17 @@ jobs:
 
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # The pinned Playwright image (2.4 GB, tools/playwright-image.mjs) is pulled in the background while the demo
+            # builds and starts, and waited for in Install Playwright, which fails with the pull's error if it failed
+            # (tools/ci/background.mjs). Fails here when the image's tag is not the locked @playwright/test. Started
+            # only once buildx is set up: unpacking the image's layers kept dockerd busy, and the buildx builder's
+            # container then took 16 s to create instead of 2.
+            - name: Start pulling the Playwright image
+              id: pull
+              run: |
+                  image=$(node tools/playwright-image.mjs)
+                  node tools/ci/background.mjs start playwright-image -- docker pull "$image"
 
             # The demo image's build cache is an image in this repository's GitHub packages (ghcr.io/<owner>/<repo>-cache,
             # tags dev and main), not the GitHub Actions cache: a push run reads Actions caches only from its own branch
