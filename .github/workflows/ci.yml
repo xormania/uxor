@@ -78,13 +78,9 @@ jobs:
     # is compared with where it left dev, so each push checks the whole pull request, not only its last commit. A push to
     # dev is compared with the commit of dev's last successful run, so every merge since is checked, those of a run that
     # was cancelled or failed included; with none (a first run, a force push), everything runs. The daily run runs the
-    # installs only.
-    #
-    # A work order's own branch (claude/wo-<name>, not its jobs' claude/wo-<name>--<job>) runs nothing else while its pull
-    # request into dev is a draft or not open: each job ran CI on its own branch before it merged. CI result then fails,
-    # saying so, so a draft never shows a pass that tested nothing. Once the pull request is ready, re-run the work
-    # order's latest run (Re-run all jobs): a re-run keeps its push event, which the rulesets count, and reads the pull
-    # request's state again (CONTRIBUTING.md, *Work orders*).
+    # installs only. A work order's own branch (claude/wo-<name>) runs like any branch, its pull request a draft or not:
+    # when its jobs are stacked, its tree after a job's merge is that job's, whose passes it reuses (CONTRIBUTING.md,
+    # *Work orders*).
     changes:
         name: Changes
         if: github.event_name != 'schedule'
@@ -92,11 +88,9 @@ jobs:
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
             contents: read
-            pull-requests: read # whether a work order's pull request into dev is a draft
             actions: read # the shard timings of dev's last green run
         outputs:
             timings: ${{ steps.timings.outputs.artifact }}
-            wo-draft: ${{ steps.jobs.outputs.wo-draft }}
             # each lane: run, reuse (an earlier pass with the same inputs) or skip (the change cannot affect it)
             lint-kit: ${{ steps.plan.outputs.lint-kit }}
             php: ${{ steps.plan.outputs.php }}
@@ -136,20 +130,6 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
               run: |
-                  # A work order's own branch while its pull request into dev is a draft or not open: nothing else runs
-                  branch=${REF#refs/heads/}
-                  if [ "$EVENT" = push ] && [[ "$branch" == claude/wo-* ]] && [[ "$branch" != claude/wo-*--* ]]; then
-                      state=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$branch&base=dev&state=open" \
-                          --jq 'if length == 0 then "not open" elif .[0].draft then "draft" else "ready" end')
-                      echo "Work order $branch: its pull request into dev is $state"
-                      if [ "$state" != ready ]; then
-                          echo "wo-draft=true" >> "$GITHUB_OUTPUT"
-                          for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
-                              echo "$job=false"
-                          done > "$RUNNER_TEMP/jobs"
-                          exit 0
-                      fi
-                  fi
                   # Where the branch left dev; none for main, dev or a run by hand. Computed here, in the workflow, not by a
                   # script in the tree: a branch cannot choose the range it is checked against. Contrast reads the same
                   # range (tools/readme-pairing.mjs --base).
@@ -1486,8 +1466,8 @@ jobs:
             # One step, the tool's finish: the markers of the lanes that ran (reuse on or off: a pass when every job of the
             # lane passed in its latest attempt, a failure when one failed, nothing when one was cancelled), then the
             # verdict, per lane: fresh, reused (its evidence checked again), not applicable, NOT RUN AT THIS STAGE (the
-            # engines, deferred) or incomplete. Changes, Tool tests and Importmap packages must pass or be skipped, and a
-            # work order draft fails as before. A failure marker is never best effort: one that cannot be recorded (the job
+            # engines, deferred) or incomplete. Changes, Tool tests and Importmap packages must pass or be skipped. A
+            # failure marker is never best effort: one that cannot be recorded (the job
             # list unreadable) fails this step, and its upload below is never continue-on-error; a lost pass marker warns.
             - name: Every lane passed, was reused or was skipped
               id: finish
@@ -1495,7 +1475,6 @@ jobs:
               timeout-minutes: 3
               env:
                   NEEDS: ${{ toJSON(needs) }}
-                  WO_DRAFT: ${{ needs.changes.outputs.wo-draft }}
                   CHANGES: ${{ needs.changes.result }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
@@ -1503,10 +1482,6 @@ jobs:
                   RUN_ATTEMPT: ${{ github.run_attempt }}
               run: |
                   set -o pipefail
-                  if [ "$WO_DRAFT" = true ]; then
-                      echo "::error::work order draft: CI ran no tests. Mark its pull request into dev ready, then re-run this run (Re-run all jobs)"
-                      exit 1
-                  fi
                   if [ ! -f "$RUNNER_TEMP/lane-plan/plan.json" ] || [ ! -f "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" ]; then
                       echo "::error::no lane plan from the Changes job (it ended with $CHANGES): no verdict"
                       exit 1
@@ -1521,7 +1496,7 @@ jobs:
                   fi
                   node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
                       --jobs "$RUNNER_TEMP/run-jobs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
-                      --out "$RUNNER_TEMP/lane-markers" --repo "$REPO" --wo-draft "${WO_DRAFT:-false}" \
+                      --out "$RUNNER_TEMP/lane-markers" --repo "$REPO" \
                       --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
 
             # One artifact per lane and kind: its name is the marker a later run looks up (kept a day past the 14 days the

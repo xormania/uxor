@@ -645,12 +645,16 @@ since the last release, and a full 40-character commit SHA takes one commit (a b
 - **Bringing `dev` in:** the work order takes no direct push (a new commit has no checks yet), so `dev` comes in
   through a job, `claude/wo-<name>--sync`, that merges it; once just before the final pull request, and earlier
   when a job needs something `dev` gained.
-- **CI on the work order:** while its pull request into `dev` is a draft or not open, a push to `claude/wo-<name>` (a
-  job's merge) runs only *Changes* and *Tool tests*, and *CI result* fails with "work order draft: CI ran no tests":
-  each job already ran CI on its own branch. Once the pull request is ready, re-run the work order's latest CI run
-  (*Re-run all jobs*); that run checks everything, and its push event is what the rulesets count.
+- **CI on the work order:** a push to `claude/wo-<name>` (a job's merge) runs CI like any branch's, whether its pull
+  request into `dev` is a draft, ready or not open yet; nothing has to be re-run by hand. It is cheap when the jobs
+  are stacked (each made from the work order after the previous one merged, and merged in order): the work order's tree
+  after a merge is the job's own, so every reusable lane reuses the job's passes (`docs/TESTING.md`, *Reused lanes*),
+  and only the short checks that always run (*Quick checks*, *Static site*) and *CI result* run again. When jobs made
+  side by side merge one after another, each merge after the first makes a tree no job tested, and its CI runs every
+  lane that tree selects, about the cost of a job's own full run; that is the price of seeing at each merge, not at the
+  end, whether the parts work together. Firefox and WebKit wait for `dev`'s daily run, as on any branch.
 - **Finishing:** the work order's pull request into `dev` is marked ready when every job has merged, `dev` included;
-  its CI is then re-run and must pass on that commit, and its description checks each completion criterion against
+  the CI of its last push must pass on that commit, and its description checks each completion criterion against
   it. It merges like any pull request into `dev`. Each job ends merged, superseded (naming its successor) or abandoned
   (saying why); its branch is deleted once its work is in the work order or recorded as dropped.
 

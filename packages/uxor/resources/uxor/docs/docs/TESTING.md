@@ -1512,6 +1512,9 @@ download of this commit's archive is not checked again within those 24 hours.
   producer whose lane ran again or a failure recorded since the plan fails the run. Re-running failed jobs keeps the
   plan, so only *Re-run all jobs* plans the lanes again. The build cache on `dev` and `main` is written whether the
   browser lane ran or was reused.
+- **Work orders:** a push to a work order's own branch runs like any branch's, its pull request a draft or not. When
+  its jobs are stacked, its tree after a job's merge is that job's, so it reuses the job's passes; a merge of jobs made
+  side by side makes a new tree, which runs what it selects (`CONTRIBUTING.md`, *Work orders*).
 - **Off:** `main` always runs every selected lane fresh. The repository variable `CI_REUSE=off`, or a manual run
   with *reuse* unchecked, turns reuse off everywhere. Both stop only the lookups: the lanes' markers are still
   recorded, so a failure there still counts.

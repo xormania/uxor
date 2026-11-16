@@ -2,7 +2,7 @@
 // records and its verdict. GitHub's API is a stub `gh` serving fixtures by path; git is real, on a scratch repository.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, closeSync, existsSync, openSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -611,7 +611,6 @@ test('the verdict tells fresh, reused, not applicable and incomplete apart, and 
     assert.equal(verdict({ php: 'cancelled' }).status, 1, 'a cancelled job is not a pass');
     assert.equal(verdict({ tools: 'failure' }).status, 1, 'Tool tests still decides');
     assert.equal(verdict({ demo: 'success' }, undefined, [], DEMO_JOBS).json.lanes.demo.status, 'incomplete', 'a lane planned for reuse that ran is not what was planned');
-    assert.equal(verdict({}, undefined, ['--wo-draft', 'true']).status, 1, 'a work order draft still fails');
 });
 
 test('a deferred engines lane is reported as not run at this stage, never as a pass or not applicable, and fails nothing', (t) => {
@@ -1257,4 +1256,50 @@ test('the verdict reads Contrast, Workflows and Tool tests from Quick checks\' o
     const cancelled = verdict({ result: 'cancelled', outputs: {} });
     assert.equal(cancelled.status, 1, 'a cancelled Quick checks is no pass');
     assert.equal(cancelled.json.lanes.contrast.status, 'incomplete');
+});
+
+// job 5: no work-order draft gate (the owner's decision) ---------------------------------------------------------------------
+
+test("a push to a work order's root plans its lanes like any branch's, whatever its pull request's state", (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    // dev at the base, with the selector; the branch changes the changelog only
+    mkdirSync(join(fx.repo, 'tools'), { recursive: true });
+    writeFileSync(join(fx.repo, 'tools', 'ci-changes.sh'), readFileSync(fileURLToPath(new URL('../ci-changes.sh', import.meta.url))));
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'the selector');
+    fx.git('update-ref', 'refs/remotes/origin/dev', 'HEAD');
+    fx.commit('CHANGELOG.md', '# Changelog\n\n- a line\n');
+    const bin = stubGh(fx, `case "$*" in *pulls*) echo draft ;; *) echo '' ;; esac`);
+    const plan = (branch) => {
+        const temp = join(fx.dir, `temp-${branch.replace(/\W/g, '-')}`);
+        mkdirSync(temp, { recursive: true });
+        const output = join(temp, 'out');
+        writeFileSync(output, '');
+        // the step tees to /dev/stderr, which a socket (Node's default child stderr) cannot open: give it a file
+        const errFile = join(temp, 'stderr');
+        const err = openSync(errFile, 'w');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8', stdio: ['ignore', 'pipe', err],
+            env: { PATH: `${bin}:${process.env.PATH}`, RUNNER_TEMP: temp, GITHUB_OUTPUT: output, EVENT: 'push', REF: `refs/heads/${branch}`, REPO, GH_TOKEN: 'x', DAILY: '', ENGINES_ONLY: '' } });
+        closeSync(err);
+        assert.equal(out.status, 0, readFileSync(errFile, 'utf8'));
+        return { jobs: readFileSync(join(temp, 'jobs'), 'utf8'), output: readFileSync(output, 'utf8') };
+    };
+    const root = plan('claude/wo-example');
+    const branch = plan('feature/example');
+    assert.equal(root.jobs, branch.jobs, 'the same lanes as any branch with the same change');
+    assert.match(root.jobs, /^contrast=true$/m);
+    assert.doesNotMatch(root.output, /wo-draft/);
+    assert.doesNotMatch(ghCalls(fx), /pulls/, 'no question about the pull request');
+});
+
+test('CI result has no work-order draft path any more', (t) => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    assert.doesNotMatch(workflow, /wo-draft|WO_DRAFT|work order draft/i);
+    assert.doesNotMatch(job('changes').text, /pull-requests: read/, 'the Changes job no longer reads pull requests');
+    const { verdict } = verdictFixture(t);
+    const out = verdict({}, undefined, ['--wo-draft', 'true']);
+    assert.equal(out.status, 0, 'the option is gone: nothing fails a run for being a draft');
+    assert.doesNotMatch(out.summary, /draft/i);
 });
