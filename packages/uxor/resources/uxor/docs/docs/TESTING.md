@@ -1321,7 +1321,13 @@ fail.
 
 In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
 computes: `CHROMIUM_SHARDS` shards for Chromium (6), which also runs the screenshots, and three each for Firefox and
-WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`).
+WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`). Each job starts the browser server itself (*Start the browser server*: the pinned image on the runner's network, failing at
+once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the
+browser reaches `https://localhost` itself. Without it (a local run, the default), `playwright.config.ts` has the
+browser's requests to the demo's loopback address go through the test's process (`exposeNetwork`), which works where
+the container cannot reach the host's loopback, as under Docker Desktop. Measured in CI against the same suite
+through the tunnel: the Chromium shards' summed test time fell from 1,719 to 1,037 s (run 43971587193), Firefox's by 16%,
+WebKit's within the runners' spread.
 
 **When Firefox and WebKit run (a trial, `ENGINES_ON: daily` in `ci.yml`).** Chromium runs on every push that selects
 the browser tests. Firefox and WebKit run:

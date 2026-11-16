@@ -163,7 +163,11 @@ export default defineConfig({
         baseURL,
         // Caddy's local certificate authority signs https://localhost
         ignoreHTTPSErrors: !!demoURL,
-        connectOptions: { wsEndpoint: 'ws://127.0.0.1:3000/', exposeNetwork: '<loopback>' },
+        // The browser runs in a container: by default its requests to the demo's loopback address go through the test
+        // process (exposeNetwork), which works wherever the container cannot reach the host's loopback (Docker Desktop).
+        // PW_DIRECT_NETWORK=1 says the browser server shares the host's network (`docker run --network host`, as CI's
+        // browser job starts it), so the browser reaches the demo itself
+        connectOptions: { wsEndpoint: 'ws://127.0.0.1:3000/', ...(process.env.PW_DIRECT_NETWORK ? {} : { exposeNetwork: '<loopback>' }) },
         trace: 'retain-on-failure',
     },
 
