@@ -245,7 +245,7 @@ jobs:
                   retention-days: 7
 
             # The browser shards' timings, read once for the whole run so every shard plans from the same file: the
-            # shard-timings.json of dev's last green run (its ci-metrics artifact, written by CI result), else the
+            # shard-timings.json of dev's last green run (its ci-metrics artifact, written by the CI metrics job), else the
             # committed tests/shard-timings.json. A file that is not schema 1 with a time in ms for every test is not
             # used. dev changes only through reviewed pull requests; the times only balance the shards, and every
             # shard's plan still checks that it runs each listed test once (docs/TESTING.md, *Shard balance*)
@@ -1416,20 +1416,16 @@ jobs:
         runs-on: ubuntu-latest
         # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
         outputs:
-            engines-status: ${{ steps.verdict.outputs.engines-status }}
-            engines-report: ${{ steps.verdict.outputs.engines-report }}
-        timeout-minutes: 8 # 5, plus the lanes' record and the verdict's checks of reused evidence
+            engines-status: ${{ steps.finish.outputs.engines-status }}
+            engines-report: ${{ steps.finish.outputs.engines-report }}
+        timeout-minutes: 5
         permissions:
             contents: read
-            actions: read # the run's jobs and their step times, for the CI metrics below
+            actions: read # the run's jobs, the lanes' markers
+        # No setup-node, no checkout: the tool the Changes job ran (its artifact, Node's own modules only) runs on the
+        # runner image's Node, which it checks is 20 or later. The advisory CI metrics are the CI metrics job, after this one.
         steps:
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              if: ${{ always() }}
-              continue-on-error: true
-              with:
-                  node-version: 22
-
-            # The plan the Changes job made and the copy of the tool that made it: the record and the verdict below run it
+            # The plan the Changes job made and the copy of the tool that made it
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               if: ${{ always() }}
               continue-on-error: true
@@ -1444,105 +1440,16 @@ jobs:
                   pattern: playwright-results-*
                   path: ${{ runner.temp }}/shards
 
-            # The markers of the lanes that ran in this run, reuse on or off: a pass when every job of the lane passed in
-            # its latest attempt, a failure when one failed, nothing when one was cancelled. A failure marker is never best
-            # effort: one that cannot be recorded (the job list unreadable) or uploaded fails this job loudly, since a lost
-            # failure would let a later run reuse an older pass of the same inputs. A pass marker that is lost only warns:
-            # the next run with those inputs runs the lane again.
-            - name: Record the lanes that ran
-              id: record
-              if: ${{ always() }}
-              timeout-minutes: 2
-              env:
-                  GH_TOKEN: ${{ github.token }}
-                  REPO: ${{ github.repository }}
-                  RUN_ID: ${{ github.run_id }}
-                  RUN_ATTEMPT: ${{ github.run_attempt }}
-                  NEEDS: ${{ toJSON(needs) }}
-              run: |
-                  set -o pipefail
-                  printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
-                  # a listing that fails leaves no file: the tool then fails if a failure marker was due
-                  if ! gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/run-jobs.json"; then
-                      echo "::warning::the run's jobs could not be listed"
-                      rm -f "$RUNNER_TEMP/run-jobs.json"
-                  fi
-                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" record --plan "$RUNNER_TEMP/lane-plan/plan.json" --jobs "$RUNNER_TEMP/run-jobs.json" \
-                      --needs "$RUNNER_TEMP/needs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
-                      --out "$RUNNER_TEMP/lane-markers" --github-output "$GITHUB_OUTPUT"
-
-            # One artifact per lane and kind: its name is the marker a later run looks up (kept a day past the 14 days it
-            # counts). Names are unique within a run, so a later attempt's marker replaces the earlier one (overwrite): the
-            # newest attempt's result is the one that stands. A failure's upload may not fail quietly.
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.php-kind == 'pass' }}
-              continue-on-error: true
-              with:
-                  name: ${{ steps.record.outputs.php-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.php-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.php-kind == 'fail' }}
-              with:
-                  name: ${{ steps.record.outputs.php-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.php-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.demo-kind == 'pass' }}
-              continue-on-error: true
-              with:
-                  name: ${{ steps.record.outputs.demo-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.demo-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.demo-kind == 'fail' }}
-              with:
-                  name: ${{ steps.record.outputs.demo-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.demo-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.prod-image-kind == 'pass' }}
-              continue-on-error: true
-              with:
-                  name: ${{ steps.record.outputs.prod-image-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.prod-image-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.prod-image-kind == 'fail' }}
-              with:
-                  name: ${{ steps.record.outputs.prod-image-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.prod-image-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.engines-kind == 'pass' }}
-              continue-on-error: true
-              with:
-                  name: ${{ steps.record.outputs.engines-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.engines-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() && steps.record.outputs.engines-kind == 'fail' }}
-              with:
-                  name: ${{ steps.record.outputs.engines-marker }}
-                  path: ${{ runner.temp }}/lane-markers/${{ steps.record.outputs.engines-marker }}/evidence.json
-                  overwrite: true
-                  retention-days: 15
-
-            # The verdict, per lane: fresh (it ran and passed), reused (an earlier pass with the same inputs, whose
-            # evidence is checked again here: still there, no failure recorded since, its jobs still passed), not
-            # applicable (skipped as unaffected) or incomplete (anything else: a failure, a cancelled job, evidence gone).
-            # Changes, Tool tests and Importmap packages must pass or be skipped, and a work order draft fails as before.
+            # One step, the tool's finish: the markers of the lanes that ran (reuse on or off: a pass when every job of the
+            # lane passed in its latest attempt, a failure when one failed, nothing when one was cancelled), then the
+            # verdict, per lane: fresh, reused (its evidence checked again), not applicable, NOT RUN AT THIS STAGE (the
+            # engines, deferred) or incomplete. Changes, Tool tests and Importmap packages must pass or be skipped, and a
+            # work order draft fails as before. A failure marker is never best effort: one that cannot be recorded (the job
+            # list unreadable) fails this step, and its upload below is never continue-on-error; a lost pass marker warns.
             - name: Every lane passed, was reused or was skipped
-              id: verdict
+              id: finish
               if: ${{ always() }}
-              timeout-minutes: 2
+              timeout-minutes: 3
               env:
                   NEEDS: ${{ toJSON(needs) }}
                   WO_DRAFT: ${{ needs.changes.outputs.wo-draft }}
@@ -1550,7 +1457,9 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
+                  RUN_ATTEMPT: ${{ github.run_attempt }}
               run: |
+                  set -o pipefail
                   if [ "$WO_DRAFT" = true ]; then
                       echo "::error::work order draft: CI ran no tests. Mark its pull request into dev ready, then re-run this run (Re-run all jobs)"
                       exit 1
@@ -1559,39 +1468,174 @@ jobs:
                       echo "::error::no lane plan from the Changes job (it ended with $CHANGES): no verdict"
                       exit 1
                   fi
+                  echo "Node $(node --version)"
                   printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
-                  # the browser lanes share one job: the verdict tells them apart by its matrix jobs (the record's list, else
-                  # its own lookup)
-                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" verdict --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
-                      --jobs "$RUNNER_TEMP/run-jobs.json" --run-id "$RUN_ID" --repo "$REPO" --wo-draft "${WO_DRAFT:-false}" \
+                  # a listing that fails leaves no file: the tool then fails if a failure marker was due, and the verdict
+                  # looks the jobs up itself when the browser job ran
+                  if ! gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/run-jobs.json"; then
+                      echo "::warning::the run's jobs could not be listed"
+                      rm -f "$RUNNER_TEMP/run-jobs.json"
+                  fi
+                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
+                      --jobs "$RUNNER_TEMP/run-jobs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
+                      --out "$RUNNER_TEMP/lane-markers" --repo "$REPO" --wo-draft "${WO_DRAFT:-false}" \
                       --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
 
-            # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after the verdict and
-            # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
-            # every job's queue and step times from GitHub's API, in one summary (the shard balance per browser, each
-            # shard's setup, tests and worker use, the run's slowest tests and files, the retried tests, the browser jobs'
-            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*. With them,
-            # shard-timings.json: tests/shard-timings.json refreshed from this run's durations (tools/ci/shard-plan.mjs
-            # timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard balance*
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              if: ${{ always() }}
+            # One artifact per lane and kind: its name is the marker a later run looks up (kept a day past the 14 days the
+            # longest-lived counts). Names are unique within a run, so a later attempt's marker replaces the earlier one
+            # (overwrite): the newest attempt's result is the one that stands. A failure's upload may not fail quietly.
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.php-kind == 'pass' }}
               continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.php-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.php-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.php-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.php-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.php-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.demo-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.demo-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.demo-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.demo-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.demo-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.demo-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.engines-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.engines-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.engines-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.engines-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.engines-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.engines-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.prod-image-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.prod-image-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.prod-image-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.prod-image-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.prod-image-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.prod-image-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.fresh-install-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.fresh-install-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.fresh-install-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.fresh-install-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.fresh-install-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.fresh-install-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.lint-kit-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.lint-kit-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.lint-kit-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.lint-kit-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.lint-kit-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.lint-kit-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.package-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.package-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.package-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.package-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.package-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.package-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+
+    # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after CI result so the
+    # required check never waits for them, and allowed to fail without failing the run (release.yml and the lookups of
+    # dev's last green run read the run's conclusion). No ruleset names this job. Every shard's durations.json and
+    # job-metrics.json, and every job's queue and step times from GitHub's API but this job's own, in one summary (the
+    # shard balance per browser, each shard's setup, tests and worker use, the run's slowest tests and files, the retried
+    # tests, the browser jobs' time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI
+    # metrics*. With them, shard-timings.json: tests/shard-timings.json refreshed from this run's durations
+    # (tools/ci/shard-plan.mjs timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard
+    # balance*; the next run's Changes job plans its shards from it (the ci-metrics artifact)
+    metrics:
+        name: CI metrics
+        needs: [changes, demo, result]
+        if: ${{ always() && github.event_name != 'schedule' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        continue-on-error: true
+        permissions:
+            contents: read
+            actions: read # the run's jobs and their step times
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
                   sparse-checkout: |
                       tools/ci
                       tests
 
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ needs.demo.result != 'skipped' }}
+              continue-on-error: true
+              with:
+                  pattern: playwright-results-*
+                  path: ${{ runner.temp }}/shards
+
             # The timings this run planned from, preserved even when its browser jobs were skipped.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-              if: ${{ always() }}
               continue-on-error: true
               with:
                   name: ${{ needs.changes.outputs.timings }}
                   path: ${{ runner.temp }}/shard-timings
 
             - name: CI metrics (advisory)
-              if: ${{ always() }}
               continue-on-error: true
               timeout-minutes: 2
               env:
@@ -1600,12 +1644,11 @@ jobs:
                   RUN_ID: ${{ github.run_id }}
                   RUN_ATTEMPT: ${{ github.run_attempt }}
               run: |
-                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' \
+                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[] | select(.name != "CI metrics")' \
                       > "$RUNNER_TEMP/jobs.jsonl" || echo "::warning::CI metrics: the run's jobs could not be listed"
                   node tools/ci/ci-metrics.mjs run --shards "$RUNNER_TEMP/shards" --jobs "$RUNNER_TEMP/jobs.jsonl" --out "$RUNNER_TEMP/ci-metrics"
 
             - name: Shard timings (advisory)
-              if: ${{ always() }}
               continue-on-error: true
               timeout-minutes: 1
               run: |
@@ -1615,7 +1658,6 @@ jobs:
                       --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() }}
               continue-on-error: true
               with:
                   name: ci-metrics-${{ github.run_id }}-${{ github.run_attempt }}
