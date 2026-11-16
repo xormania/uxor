@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { crc32, deflateRawSync } from 'node:zlib';
+import { stepIn } from '../ci/step-attempts.mjs';
 
 const tool = fileURLToPath(new URL('../ci/lane-evidence.mjs', import.meta.url));
 const REPO = 'example/project';
@@ -581,8 +582,9 @@ function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'p
         const jobsFile = join(fx.dir, 'verdict-jobs.json');
         writeFileSync(summary, '');
         writeFileSync(github, '');
-        writeFileSync(jobsFile, JSON.stringify(jobs));
-        const out = run(fx, ['verdict', '--plan', planFile, '--needs', needs(overrides), '--jobs', jobsFile, '--repo', REPO, '--summary', summary, '--github-output', github, ...extra], r);
+        const jobsArgs = jobs === null ? [] : ['--jobs', jobsFile];
+        if (jobs !== null) writeFileSync(jobsFile, JSON.stringify(jobs));
+        const out = run(fx, ['verdict', '--plan', planFile, '--needs', needs(overrides), ...jobsArgs, '--repo', REPO, '--summary', summary, '--github-output', github, ...extra], r);
         return { ...out, json: JSON.parse(out.stdout.split('\n').filter((line) => line.startsWith('{')).pop()), summary: readFileSync(summary, 'utf8'), outputs: readFileSync(github, 'utf8') };
     };
     return { fx, fp, routes, verdict };
@@ -634,36 +636,6 @@ test('the verdict judges the Chromium shards and the engines apart, though they 
     assert.equal(green.json.lanes.engines.status, 'fresh');
     assert.equal(green.json.lanes.demo.status, 'reused');
     assert.equal(verdict({ demo: 'success' }, undefined, [], engineJobs().slice(1)).json.lanes.engines.status, 'incomplete', 'a missing engine shard');
-});
-
-test('a red daily engines run names the commits since the last all-browser pass', (t) => {
-    const { fx, routes, verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
-    const last = 'a'.repeat(40);
-    const head = fx.head();
-    const daily = {
-        ...routes,
-        [`repos/${REPO}/actions/workflows/ci.yml/runs?branch=dev&status=success&per_page=30`]: { json: { workflow_runs: [
-            { id: 61, head_sha: 'b'.repeat(40), path: '.github/workflows/ci.yml', head_repository: { full_name: REPO }, html_url: 'https://github.com/example/project/actions/runs/61' },
-            { id: 60, head_sha: last, path: '.github/workflows/ci.yml', head_repository: { full_name: REPO }, html_url: 'https://github.com/example/project/actions/runs/60' }] } },
-        [`repos/${REPO}/actions/runs/61/artifacts?per_page=100`]: { json: { artifacts: [{ name: `ci-pass-v1-demo-${'d'.repeat(64)}`, expired: false }] } },
-        [`repos/${REPO}/actions/runs/60/artifacts?per_page=100`]: { json: { artifacts: [{ name: `ci-pass-v1-engines-${'e'.repeat(64)}`, expired: false }] } },
-        [`repos/${REPO}/compare/${last}...${head}`]: { json: { total_commits: 2, commits: [
-            { sha: '1234567890'.repeat(4), commit: { message: 'feat(tabs): keyboard wrap\n\nbody' } },
-            { sha: 'abcdef0123'.repeat(4), commit: { message: 'fix(modal): focus return' } }] } },
-    };
-    const engines = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job));
-    const red = verdict({ demo: 'failure' }, daily, [], engines);
-    assert.equal(red.status, 1);
-    assert.match(red.stderr, new RegExp(`::error::.*commits since the last all-browser pass ${last.slice(0, 12)}`));
-    assert.match(red.summary, /1234567 feat\(tabs\): keyboard wrap/);
-    assert.match(red.summary, /abcdef0 fix\(modal\): focus return/);
-    assert.match(red.summary, /actions\/runs\/60/);
-    assert.match(red.outputs, /^engines-status=failed$/m);
-    assert.match(red.outputs, /^engines-report=.*1234567 feat\(tabs\): keyboard wrap/m);
-    const green = verdict({ demo: 'success' }, daily, [], engineJobs());
-    assert.match(green.outputs, /^engines-status=passed$/m);
-    const unknown = verdict({ demo: 'failure' }, routes, [], engines);
-    assert.match(unknown.summary, /no earlier all-browser pass found/, 'without one, it says so rather than inventing a range');
 });
 
 test('the verdict checks reused evidence again, and says that only Re-run all jobs plans again', (t) => {
@@ -757,7 +729,7 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
 
     // CI result: the required name, every lane's jobs, the plan by name, record and verdict by the tool
     const result = job('result');
-    assert.equal(result.name, 'CI result', 'the rulesets require this exact name');
+    assert.equal(evaluate(result.name, push), 'CI result', 'the rulesets require this exact name, from the push');
     // the engines run in the browser job (`demo`), which CI result needs
     for (const id of [...lanes.filter((id) => id !== 'engines'), 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
     assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/);
@@ -798,12 +770,272 @@ test('Release checks requires an engines pass for the release head, and starts o
     const start = job('start-engines');
     assert.match(start.text, /actions: write/);
     assert.doesNotMatch(start.text, /actions\/checkout/, 'the token that may start a workflow never runs checked-out code');
-    assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref dev -f engines=true/);
-    assert.match(start.if, /needs\.changed\.outputs\.engines != 'pass'/);
+    assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref "\$BRANCH" -f engines_only=true/);
     assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
     const verdict = job('verdict');
     assert.match(verdict.text, /ENGINES: \$\{\{ needs\.changed\.outputs\.engines \}\}/);
     assert.match(verdict.needs, /start-engines/);
     assert.match(verdict.text, /no Firefox\/WebKit pass for/);
     assert.match(verdict.text, /re-run Release checks when it passes/);
+});
+
+// job 3's review: the release gate, the engines dispatch, the daily report ------------------------------------------------
+
+// the scalar/boolean subset of GitHub expressions these workflows use; unknown syntax fails closed
+function evaluate(expression, context) {
+    const body = expression.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
+        .replace(/\b(github|inputs|needs|vars)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''))
+        .replace(/\bstartsWith\(([^,]+),\s*('[^']*')\)/g, '(String($1).startsWith($2))')
+        .replace(/\bformat\('([^']*)',\s*([^)]+)\)/g, (_, template, arg) => `(${JSON.stringify(template)}.replace('{0}', ${arg}))`);
+    const operators = body.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+|String|startsWith|replace)\b/g, '');
+    assert.match(operators, /^[\s!<>=&|().,-]*$/, `unsupported expression ${expression}`);
+    return Function(`return (${body});`)();
+}
+const key = (text, name) => text.match(new RegExp(`^ *${name}: (.+)$`, 'm'))?.[1].replace(/^"(.*)"$/, '$1');
+const push = { github: { event_name: 'push', ref: 'refs/heads/feature' }, inputs: {} };
+const daily = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev' }, inputs: { daily: true } };
+const enginesOnly = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: { engines_only: true } };
+const manual = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} };
+
+test("only a push or a full manual run publishes CI result; the daily and an engines-only run publish under their own names", () => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    const name = job('result').name;
+    assert.equal(evaluate(name, push), 'CI result');
+    assert.equal(evaluate(name, manual), 'CI result', 'a manual run runs everything: its result is a full one');
+    assert.equal(evaluate(name, daily), 'CI result (daily)', 'the daily run checks the installs and engines only');
+    assert.equal(evaluate(name, { ...daily, github: { ...daily.github, ref: 'refs/heads/feature' } }), 'CI result', 'daily off dev runs everything');
+    assert.equal(evaluate(name, enginesOnly), 'CI result (engines only)');
+    // an engines-only run: its own concurrency group, never cancelling (nor cancelled by) a push run, and a name to find it by
+    const group = workflow.match(/^concurrency:\n(?: {4}#.*\n)* {4}group: (.+)\n {4}cancel-in-progress: (.+)$/m);
+    assert.ok(group, 'the workflow concurrency');
+    assert.equal(evaluate(group[1], push), 'ci-refs/heads/feature');
+    assert.equal(evaluate(group[1], enginesOnly), 'ci-engines-refs/heads/feature');
+    assert.equal(evaluate(group[2], push), true);
+    assert.equal(evaluate(group[2], enginesOnly), false);
+    assert.equal(evaluate(key(workflow, 'run-name'), enginesOnly), 'CI: Firefox and WebKit only');
+    assert.match(workflow, /^ {12}engines_only:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m);
+});
+
+test('an engines-only run selects the engines lane alone', (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    const output = join(fx.dir, 'out');
+    writeFileSync(output, '');
+    const temp = join(fx.dir, 'temp');
+    mkdirSync(temp);
+    const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
+        env: { PATH: process.env.PATH, RUNNER_TEMP: temp, GITHUB_OUTPUT: output, EVENT: 'workflow_dispatch', REF: 'refs/heads/feature', ENGINES_ONLY: 'true', DAILY: 'false' } });
+    assert.equal(out.status, 0, out.stderr);
+    const lanes = Object.fromEntries(readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').map((line) => line.split('=')));
+    assert.equal(lanes.engines, 'true');
+    for (const lane of LANES) assert.equal(lanes[lane], 'false', lane);
+    const plan = enginesPlan(fx, {}, { event: 'engines', lanes: [], extra: 'engines=true\n' });
+    assert.equal(plan.outputs.engines, 'run');
+    assert.deepEqual([...new Set(plan.matrix.include.map((e) => e.browser))], ['firefox', 'webkit']);
+    assert.equal(plan.outputs.importmap, 'run');
+    const fp = fingerprints(fx, fx.head()).lanes;
+    assert.equal(enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'engines', lanes: [], extra: 'engines=true\n' }).outputs.browsers, 'skip', 'already passed: nothing to run');
+});
+
+test('with every push the engines reuse a pass on the same inputs', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    assert.equal(enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { enginesOn: 'every-push' }).outputs.engines, 'reuse');
+});
+
+test('the verdict needs no job list when the browser job did not run', (t) => {
+    const { verdict } = verdictFixture(t);
+    const out = verdict({ demo: 'skipped' }, undefined, [], null);
+    assert.equal(out.status, 0, out.stderr);
+    assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
+    assert.equal(out.json.lanes.demo.status, 'reused');
+    const skipped = verdictFixture(t, { engines: lane('skip', null) });
+    assert.equal(skipped.verdict({ demo: 'skipped' }, undefined, [], null).json.lanes.engines.status, 'not_applicable');
+    assert.equal(verdict({ demo: 'success' }, undefined, [], null).json.lanes.engines.status, 'incomplete', 'it ran: without the list the lanes cannot be told apart');
+});
+
+function dailyRoutes(fx, routes, { found = true, apiDown = false } = {}) {
+    const head = fx.head();
+    const last = 'a'.repeat(40);
+    const other = 'b'.repeat(40);
+    const r = { ...routes };
+    if (apiDown) return { ...r, [`repos/${REPO}/actions/artifacts?per_page=100&page=1`]: { fail: 'HTTP 502' } };
+    const art = (id, run, sha, name = `ci-pass-v1-engines-${'e'.repeat(64)}`) => ({ id, name, expired: false, created_at: '2026-11-15T00:00:00Z', workflow_run: { id: run, head_sha: sha, repository_id: 10, head_repository_id: 10 } });
+    r[`repos/${REPO}/actions/artifacts?per_page=100&page=1`] = { json: { total_count: found ? 3 : 1, artifacts: found
+        ? [art(9601, 61, other), art(9602, 62, 'c'.repeat(40), `ci-pass-v1-demo-${'d'.repeat(64)}`), art(9600, 60, last)]
+        : [art(9602, 62, 'c'.repeat(40), `ci-pass-v1-demo-${'d'.repeat(64)}`)] } };
+    const runRoute = (id, sha, event = 'push') => ({ json: { id, path: '.github/workflows/ci.yml', event, head_sha: sha, html_url: `https://github.com/example/project/actions/runs/${id}`, repository: { id: 10, full_name: REPO }, head_repository: { id: 10, full_name: REPO } } });
+    r[`repos/${REPO}/actions/runs/61`] = runRoute(61, other);
+    r[`repos/${REPO}/actions/runs/60`] = runRoute(60, last, 'workflow_dispatch');
+    // run 61 passed on a branch that never reached dev; run 60's commit is in dev's history
+    r[`repos/${REPO}/compare/${other}...${head}`] = { json: { status: 'diverged', ahead_by: 3, behind_by: 1, commits: [] } };
+    r[`repos/${REPO}/compare/${last}...${head}`] = { json: { status: 'ahead', ahead_by: 2, html_url: `https://github.com/example/project/compare/${last}...${head}`, commits: [
+        { sha: '1234567890'.repeat(4), commit: { message: 'feat(tabs): keyboard wrap, thanks @someone, see #12' } },
+        { sha: 'abcdef0123'.repeat(4), commit: { message: 'fix(modal): focus return' } }] } };
+    return r;
+}
+
+test('a red daily run names, without subjects, the commits since the last all-browser pass found by its marker', (t) => {
+    const { fx, routes, verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
+    const failedJobs = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job));
+    const red = verdict({ demo: 'failure' }, dailyRoutes(fx, routes), [], failedJobs);
+    assert.equal(red.status, 1);
+    assert.match(red.outputs, /^engines-status=failed$/m);
+    const report = red.outputs.match(/^engines-report=(.*)$/m)[1];
+    assert.match(report, /^Firefox\/WebKit failed on dev at /);
+    assert.match(report, new RegExp(`last all-browser pass ${'a'.repeat(12)}`), 'the newest pass in dev\'s history, not the newer one on another branch');
+    assert.match(report, /2 commits: 1234567, abcdef0/);
+    assert.match(report, /compare\/a{40}\.\.\./);
+    for (const text of [report, red.summary, red.stderr]) {
+        assert.doesNotMatch(text, /keyboard wrap|focus return|@someone|#12/, 'no commit subject reaches GitHub text');
+    }
+    const none = verdict({ demo: 'failure' }, dailyRoutes(fx, routes, { found: false }), [], failedJobs);
+    assert.match(none.outputs, /^engines-report=.*no engines pass marker exists.*expected right after/m);
+    const down = verdict({ demo: 'failure' }, dailyRoutes(fx, routes, { apiDown: true }), [], failedJobs);
+    assert.match(down.outputs, /^engines-report=.*could not be looked up/m);
+    assert.doesNotMatch(down.outputs, /no engines pass marker exists/, 'an API failure is not reported as no pass');
+});
+
+test('the daily run tells a failure from an incomplete run, and reports a reuse too', (t) => {
+    const { fx, routes, verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
+    const cancelled = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'cancelled' } : job));
+    for (const [name, jobs] of [['a cancelled shard', cancelled], ['a short matrix', engineJobs().slice(1)]]) {
+        const out = verdict({ demo: 'failure' }, dailyRoutes(fx, routes), [], jobs);
+        assert.equal(out.status, 1, name);
+        assert.match(out.outputs, /^engines-status=incomplete$/m, name);
+        assert.match(out.outputs, /^engines-report=The Firefox\/WebKit run on dev did not complete/m, name);
+        assert.doesNotMatch(out.outputs, /engines-report=.*failed on dev/, `${name}: never said to have failed`);
+    }
+    // a daily that reuses a pass on dev's inputs closes the issue; one whose reused pass no longer qualifies says so
+    const fpEngines = fingerprints(fx, fx.head()).lanes.engines;
+    const reusedRoutes = engineRoutes(fx, fx.head(), fpEngines);
+    const evidence = { artifact_id: 9501, artifact_name: `ci-pass-v1-engines-${fpEngines}`, run_id: 75, run_attempt: 1, head_sha: fx.head(), url: 'https://github.com/example/project/actions/runs/75', jobs: brief(engineJobs()), flaky: 0 };
+    const reused = verdictFixture(t, { engines: { ...lane('reuse', fpEngines), evidence }, event: 'daily' });
+    const passed = reused.verdict({ demo: 'skipped' }, { ...reused.routes, ...reusedRoutes }, [], null);
+    assert.equal(passed.status, 0, passed.stderr);
+    assert.match(passed.outputs, /^engines-status=passed$/m);
+    assert.match(passed.outputs, /^engines-report=Firefox and WebKit already passed on these inputs.*actions\/runs\/75/m);
+    const stale = reused.verdict({ demo: 'skipped' }, reused.routes, [], null);
+    assert.equal(stale.status, 1);
+    assert.match(stale.outputs, /^engines-status=incomplete$/m);
+    assert.match(stale.outputs, /^engines-report=.*no longer qualifies/m);
+});
+
+// the workflows' shell steps, run with a stub gh that logs its calls
+
+function stubGh(fx, script) {
+    const bin = join(fx.dir, 'shbin');
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, 'gh'), `#!/usr/bin/env bash\necho "$*" >> "${join(fx.dir, 'gh-calls')}"\n${script}\n`);
+    chmodSync(join(bin, 'gh'), 0o755);
+    writeFileSync(join(fx.dir, 'gh-calls'), '');
+    return bin;
+}
+const ghCalls = (fx) => readFileSync(join(fx.dir, 'gh-calls'), 'utf8');
+
+test('the Engines issue job closes on a pass, comments or opens on a failure or an incomplete run', (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'engines-issue', 'issue');
+    for (const [status, open, expected, unexpected] of [
+        ['passed', '7', /^issue close 7 /m, /issue (create|comment)/],
+        ['passed', '', /^issue list /m, /issue (close|create|comment)/],
+        ['failed', '', /^issue create .*--label engines/m, /issue close/],
+        ['incomplete', '7', /^issue comment 7 .*did not complete/m, /issue close/],
+    ]) {
+        const bin = stubGh(fx, `if [ "$1 $2" = "issue list" ]; then echo "${open}"; fi`);
+        const report = status === 'incomplete' ? 'The Firefox/WebKit run on dev did not complete: cancelled' : 'Firefox/WebKit failed on dev at abc';
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8',
+            env: { PATH: `${bin}:${process.env.PATH}`, REPO, STATUS: status, REPORT: report, RUN_URL: 'https://github.com/example/project/actions/runs/9' } });
+        assert.equal(out.status, 0, out.stderr);
+        assert.match(ghCalls(fx), expected, `${status}/${open || 'none open'}: ${ghCalls(fx)}`);
+        assert.doesNotMatch(ghCalls(fx), unexpected, `${status}/${open || 'none open'}`);
+    }
+});
+
+test('Start the engines dispatches an engines-only run on the head branch, unless one for that head is queued or running', (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('release-checks.yml');
+    const step = stepIn(workflow, 'start-engines', 'start');
+    const env = (bin) => ({ PATH: `${bin}:${process.env.PATH}`, REPO, BRANCH: 'release-0.4', HEAD: 'd'.repeat(40), GITHUB_OUTPUT: join(fx.dir, 'start-out') });
+    for (const [queued, dispatched] of [['0', true], ['1', false]]) {
+        writeFileSync(join(fx.dir, 'start-out'), '');
+        const bin = stubGh(fx, `case "$1 $2" in "api "*) echo ${queued} ;; esac`);
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: env(bin) });
+        assert.equal(out.status, 0, out.stderr);
+        const calls = ghCalls(fx);
+        assert.match(calls, new RegExp(`head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
+        assert.equal(/^workflow run ci\.yml --repo example\/project --ref release-0\.4 -f engines_only=true$/m.test(calls), dispatched, calls);
+        assert.match(readFileSync(join(fx.dir, 'start-out'), 'utf8'), dispatched ? /^started=dispatched$/m : /^started=running$/m);
+    }
+    const { job } = workflowJobs('release-checks.yml');
+    const condition = job('start-engines').if;
+    for (const [engines, runs] of [['pass', false], ['tree: the merge tests another tree', false], ['missing: engines: no_evidence', true]]) {
+        assert.equal(Boolean(evaluate(condition, { github: { event_name: 'pull_request' }, needs: { changed: { result: 'success', outputs: { engines } } } })), runs, engines);
+    }
+    assert.match(job('start-engines').text, /BRANCH: \$\{\{ github\.head_ref \}\}/);
+    assert.match(job('start-engines').text, /HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+});
+
+test("What to check's engines step: pass, missing or another tree, from the merge commit's parents", (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('release-checks.yml');
+    const step = stepIn(workflow, 'changed', 'engines');
+    mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
+    writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'the tool');
+    const base = fx.head();
+    fx.git('checkout', '-qb', 'release');
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '-');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const runStep = (sha, routes) => {
+        writeFileSync(join(fx.dir, 'routes.json'), JSON.stringify(routes));
+        writeFileSync(join(fx.dir, 'gh-api.log'), '');
+        const output = join(fx.dir, 'changed-out');
+        writeFileSync(output, '');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+        assert.equal(out.status, 0, out.stderr);
+        return readFileSync(output, 'utf8');
+    };
+    assert.match(runStep(merge, {}), /^engines=missing: engines: no_evidence/m);
+    assert.match(runStep(merge, engineRoutes(fx, head, fp)), /^engines=pass$/m);
+    assert.doesNotMatch(readFileSync(join(fx.dir, 'gh-api.log'), 'utf8'), /workflow/, 'this step never starts a workflow');
+    // main moved on: the merge tests another tree than the head, which no pass on the head can stand for
+    fx.git('checkout', '-q', base);
+    fx.git('checkout', '-qb', 'main2');
+    fx.commit('README.md', 'main moved\n');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    assert.match(runStep(fx.head(), engineRoutes(fx, head, fp)), /^engines=tree: /m);
+});
+
+test('only the release pull request publishes Release checks, and its verdict says what to do', (t) => {
+    const { job } = workflowJobs('release-checks.yml');
+    const name = job('verdict').name;
+    assert.equal(evaluate(name, { github: { event_name: 'pull_request' }, inputs: {} }), 'Release checks');
+    assert.equal(evaluate(name, { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev' }, inputs: { daily: true } }), 'Release checks (daily)');
+    assert.equal(evaluate(name, { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} }), 'Release checks (manual)');
+    const verdict = stepIn(workflowJobs('release-checks.yml').workflow, 'verdict', 'decide');
+    const fx = scratch(t);
+    const run = (env) => spawnSync('bash', ['-eo', 'pipefail', '-c', verdict.run], { encoding: 'utf8',
+        env: { PATH: process.env.PATH, EVENT: 'pull_request', CHANGED: 'success', RUN: 'false', SUITE: 'skipped', COMPLETE: 'skipped', PROD_IMAGE: 'skipped', START: '', BRANCH: 'release-0.4', ...env } });
+    const tree = run({ ENGINES: 'tree: the merge tests another tree than the head abc' });
+    assert.equal(tree.status, 1);
+    assert.match(tree.stdout + tree.stderr, /[Bb]ring main into release-0\.4/);
+    assert.doesNotMatch(tree.stdout + tree.stderr, /re-run Release checks when it passes/, 'no run can satisfy it: no promise of one');
+    const running = run({ ENGINES: 'missing: engines: no_evidence', START: 'running' });
+    assert.match(running.stdout + running.stderr, /a Firefox\/WebKit run for this head is already queued or running/);
+    void fx;
+});
+
+test('the browser shards plan from timings that include the engines\' latest run', () => {
+    const { job } = workflowJobs('ci.yml');
+    const timings = job('changes').text.slice(job('changes').text.indexOf('name: Shard timings'));
+    assert.match(timings, /runs\?branch=dev&status=success&per_page=/);
+    assert.doesNotMatch(timings.slice(0, timings.indexOf('upload-artifact')), /event=push/, 'not only push runs: the daily and engines-only runs refresh Firefox and WebKit');
 });

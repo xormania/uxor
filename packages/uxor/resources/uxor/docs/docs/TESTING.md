@@ -1320,11 +1320,20 @@ WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines
 the browser tests. Firefox and WebKit run:
 
 - on `dev`'s daily run, when `dev`'s inputs changed since their last pass (no valid engines pass for its fingerprint);
-  a failure opens the `engines` issue, or comments on it, naming the commits since that pass, and a pass closes it;
+  a failure opens the `engines` issue, or comments on it, with the short SHAs, count and compare link of the commits
+  since the last engines pass in `dev`'s history (never their subjects), a run that did not complete says so in its own
+  words, and a pass, or a pass on these inputs reused, closes it;
 - on every push to `main`;
-- in a manual run of CI with *engines* checked, on any branch;
+- in a manual run of CI with *engines* checked (with everything else), or *engines_only* (Firefox and WebKit alone), on
+  any branch;
 - for the release pull request: *Release checks*, a required check on `main`, fails unless the head has an engines
-  pass, and when it has none it starts CI on `dev` with the engines (re-run *Release checks* once that run passes).
+  pass, and when it has none it starts an engines-only run on the pull request's branch (re-run *Release checks* once
+  that run passes).
+
+An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
+push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
+result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
+partial run can never stand in for a red full one on the same commit.
 
 On any other push, a branch's or `dev`'s, they wait: *CI result* reports the lane as *NOT RUN AT THIS STAGE*, which
 fails nothing and is never read as a pass, unless a pass on the same inputs already exists (then *reused*). This
@@ -1840,9 +1849,15 @@ suppress it; a change to either the target or the workflow requires another real
 
 On the release pull request, the verdict also requires a Firefox and WebKit pass on the head (*Browsers*): *What to
 check* asks `tools/ci/lane-evidence.mjs require --lane engines` for a pass marker of CI's engines lane on the head's
-inputs, once the merge is shown to test the head's own tree. With none, *Start the engines* (a job of its own, with
-no checkout, the only one that may start a workflow) starts CI on `dev` with *engines*, and the verdict fails, saying
-so: re-run *Release checks* when that run passes. Marking the pull request ready for review runs this check too.
+inputs, once the merge is shown to test the head's own tree; the pull request's own copy of the tool and of this
+workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
+checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
+one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
+passes. When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
+for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
+the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
+checks (manual)*.
 
 On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
 request in this repository merged with the same base, and every path changed since is one the suite never reads:

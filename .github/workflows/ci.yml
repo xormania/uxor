@@ -1,4 +1,7 @@
 name: CI
+# an engines-only run (Release checks' Start the engines, or by hand) is named so that Start the engines can find one already
+# queued or running for a head; every other run keeps GitHub's own name (the commit's title, or the workflow's)
+run-name: "${{ github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI: Firefox and WebKit only' || '' }}"
 
 # Every push to a branch runs CI, so a branch is green before its PR opens; there is no pull_request trigger, whose
 # runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
@@ -23,6 +26,10 @@ on:
                 description: 'Run the browser tests in Firefox and WebKit too (on a push they wait for dev''s daily run: docs/TESTING.md, *Browsers*)'
                 type: boolean
                 default: false
+            engines_only:
+                description: 'Run only the Firefox and WebKit browser tests, for this head (what Release checks starts); its result is CI result (engines only)'
+                type: boolean
+                default: false
             reuse:
                 description: 'Reuse an earlier pass of a lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*); off runs every selected lane fresh'
                 type: boolean
@@ -32,9 +39,10 @@ permissions:
     contents: read
 
 concurrency:
-    # the schedule's start and the daily run in groups of their own: neither cancels, nor is cancelled by, a push
-    group: ci-${{ github.event_name == 'schedule' && 'schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.ref }}
-    cancel-in-progress: true
+    # the schedule's start, the daily run and an engines-only run in groups of their own: none cancels, or is cancelled by,
+    # a push; an engines-only run never cancels another (a second one waits)
+    group: ${{ github.event_name == 'schedule' && 'ci-schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'ci-daily' || inputs.engines_only && format('ci-engines-{0}', github.ref) || format('ci-{0}', github.ref) }}
+    cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.engines_only) }}
 
 env:
     PHP_VERSION: '8.4'
@@ -123,6 +131,7 @@ jobs:
               env:
                   EVENT: ${{ github.event_name }}
                   DAILY: ${{ inputs.daily }}
+                  ENGINES_ONLY: ${{ inputs.engines_only }}
                   REF: ${{ github.ref }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
@@ -165,7 +174,15 @@ jobs:
                   # without the script runs everything.
                   # the daily run on dev only: elsewhere `daily` is ignored and everything runs, so a dispatch on a
                   # branch cannot pass CI result with its checks skipped
-                  if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
+                  if [ "$EVENT" = workflow_dispatch ] && [ "$ENGINES_ONLY" = true ]; then
+                      # Firefox and WebKit only, for the release pull request's head (Release checks) or by hand: every
+                      # other lane already has its result on this head's push run
+                      echo "Firefox and WebKit only"
+                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                          echo "$job=false"
+                      done > "$RUNNER_TEMP/jobs"
+                      echo "engines=true" >> "$RUNNER_TEMP/jobs"
+                  elif [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: install checks with fresh consumer dependency resolution"
                       for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
@@ -209,7 +226,7 @@ jobs:
                   REUSE: ${{ (vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
                   ARTIFACT: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
                   ENGINES: ${{ inputs.engines && 'true' || 'false' }}
-                  PLAN_EVENT: ${{ github.event_name == 'workflow_dispatch' && (inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
+                  PLAN_EVENT: ${{ github.event_name == 'workflow_dispatch' && (inputs.engines_only && 'engines' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
               run: |
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
@@ -228,7 +245,7 @@ jobs:
                   retention-days: 7
 
             # The browser shards' timings, read once for the whole run so every shard plans from the same file: the
-            # shard-timings.json of dev's last green push run (its ci-metrics artifact, written by CI result), else the
+            # shard-timings.json of dev's last green run (its ci-metrics artifact, written by CI result), else the
             # committed tests/shard-timings.json. A file that is not schema 1 with a time in ms for every test is not
             # used. dev changes only through reviewed pull requests; the times only balance the shards, and every
             # shard's plan still checks that it runs each listed test once (docs/TESTING.md, *Shard balance*)
@@ -243,7 +260,9 @@ jobs:
                   mkdir -p "$out"
                   cp tests/shard-timings.json "$out/shard-timings.json"
                   source="the committed tests/shard-timings.json"
-                  run=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=dev&event=push&status=success&per_page=5" \
+                  # any event, not pushes only: dev's daily and engines-only runs are the ones that run Firefox and WebKit,
+                  # and each run's file carries every browser's newest times forward
+                  run=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=dev&status=success&per_page=5" \
                       --jq ".workflow_runs[] | select(.head_repository.full_name == \"$REPO\") | .id" 2>/dev/null | head -n1 || true)
                   if [ -n "$run" ]; then
                       artifact=$(gh api "repos/$REPO/actions/runs/$run/artifacts?per_page=100" \
@@ -1389,7 +1408,9 @@ jobs:
     # still holds (requalified here), or was skipped as unaffected; and records the lanes that ran fresh, for later runs
     # (tools/ci/lane-evidence.mjs, docs/TESTING.md, *Reused lanes*).
     result:
-        name: CI result
+        # The required check is the push's (and a full manual run's): the daily run and an engines-only run test part of a
+        # head and publish under names of their own, so a later green one can never stand in for a red CI result
+        name: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
         if: ${{ always() && github.event_name != 'schedule' }}
         needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo, prod-image]
         runs-on: ubuntu-latest
@@ -1614,7 +1635,9 @@ jobs:
         permissions:
             issues: write
         steps:
-            - env:
+            # failed (a shard failed) and incomplete (cancelled, short, unreadable) both comment, each in its own words
+            - id: issue
+              env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   STATUS: ${{ needs.result.outputs.engines-status }}

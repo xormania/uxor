@@ -12,7 +12,7 @@
  * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
  *   fingerprint --sha <rev>
- *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch]
+ *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch|engines]
  *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
  *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--wo-draft true|false] [--summary <f>] [--github-output <f>]
@@ -400,7 +400,7 @@ function planCommand(opts) {
     const ctx = context(opts, 0);
     const client = api(ctx);
     const event = opts.event ?? 'push';
-    if (!['push', 'daily', 'dispatch'].includes(event)) usage('--event is push, daily or dispatch');
+    if (!['push', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, daily, dispatch or engines');
     const enginesOn = opts['engines-on'] ?? 'daily';
     if (!['daily', 'every-push'].includes(enginesOn)) usage('--engines-on is daily or every-push');
     const selected = Object.fromEntries(readFileSync(opts.selection, 'utf8').split('\n').filter(Boolean).map((line) => {
@@ -411,7 +411,7 @@ function planCommand(opts) {
     selected.engines ??= selected.demo ?? true;
     const reuseOff = opts.ref === 'refs/heads/main' ? 'main' : opts.reuse === 'off' ? 'switch' : null;
     // when the engines run rather than wait: on main, with ENGINES_ON=every-push, when a manual run asks, on the daily run
-    const enginesNow = opts.ref === 'refs/heads/main' || enginesOn === 'every-push' || opts.engines === 'true' || event === 'daily';
+    const enginesNow = opts.ref === 'refs/heads/main' || enginesOn === 'every-push' || opts.engines === 'true' || event === 'daily' || event === 'engines';
     // every reusable lane's fingerprint, whatever the switch: the run records what it ran under it
     let own = null;
     let ownError = null;
@@ -579,24 +579,43 @@ function recordCommand(opts) {
     process.exitCode = lost.length ? 1 : 0;
 }
 
-/** the newest successful ci.yml run on dev that recorded an engines pass, and the commits since it, as text lines */
+const NO_ENGINES_MARKER = "no engines pass marker exists for a commit in dev's history: expected right after the switch to Chromium first, since runs before it recorded no engines markers, and a marker expires after 15 days";
+
+/**
+ * The last all-browser pass before `head`: the newest engines pass marker (any run of ci.yml in this repository that
+ * passed the engines, whatever else it did, on any branch) whose commit is in head's history, and the commits since,
+ * by short SHA only: a commit subject never reaches an issue (an at-sign name would ping, a number cross-reference).
+ */
 function sinceLastAllBrowserPass(client, ctx, head) {
-    let runs;
     try {
-        runs = client.object(`repos/${ctx.repo}/actions/workflows/ci.yml/runs?branch=dev&status=success&per_page=30`).workflow_runs;
-        if (!Array.isArray(runs)) throw new Refused('lookup_error', 'no run list');
-        for (const run of runs.filter((r) => isObject(r) && r.path === WORKFLOW && r.head_repository?.full_name === ctx.repo && /^[0-9a-f]{40}$/.test(r.head_sha ?? ''))) {
-            const artifacts = client.object(`repos/${ctx.repo}/actions/runs/${run.id}/artifacts?per_page=100`).artifacts;
-            if (!Array.isArray(artifacts) || !artifacts.some((a) => isObject(a) && !a.expired && String(a.name).startsWith('ci-pass-v1-engines-'))) continue;
-            const compare = client.object(`repos/${ctx.repo}/compare/${run.head_sha}...${head}`);
-            const commits = (Array.isArray(compare.commits) ? compare.commits : []).filter(isObject)
-                .map((c) => `${String(c.sha).slice(0, 7)} ${String(c.commit?.message ?? '').split('\n')[0]}`);
-            const url = run.html_url ?? `https://github.com/${ctx.repo}/actions/runs/${run.id}`;
-            return { line: `commits since the last all-browser pass ${run.head_sha.slice(0, 12)} (${url}): ${commits.join('; ') || 'none'}`, commits, url };
+        const candidates = [];
+        for (let page = 1; page <= 5; page++) {
+            const list = client.object(`repos/${ctx.repo}/actions/artifacts?per_page=100&page=${page}`);
+            if (!Array.isArray(list.artifacts)) throw new Refused('lookup_error', 'the artifact listing has no artifacts');
+            candidates.push(...list.artifacts.filter((a) => isObject(a) && String(a.name).startsWith('ci-pass-v1-engines-')));
+            if (list.artifacts.length < 100) break;
         }
-        return { line: "no earlier all-browser pass found in dev's last 30 successful runs", commits: [] };
+        candidates.sort((a, b) => time(b.created_at) - time(a.created_at));
+        for (const artifact of candidates.slice(0, 10)) {
+            let run;
+            try {
+                run = producerRun(client, ctx, artifact);
+            } catch (error) {
+                if (error instanceof Refused && error.reason === 'wrong_producer') continue;
+                throw error;
+            }
+            const compare = client.object(`repos/${ctx.repo}/compare/${run.head_sha}...${head}`);
+            if (!['ahead', 'identical'].includes(compare.status)) continue;
+            const shas = (Array.isArray(compare.commits) ? compare.commits : []).filter(isObject).map((c) => String(c.sha).slice(0, 7));
+            const count = Number.isInteger(compare.ahead_by) ? compare.ahead_by : shas.length;
+            const url = run.html_url ?? `https://github.com/${ctx.repo}/actions/runs/${run.id}`;
+            const compareUrl = compare.html_url ?? `https://github.com/${ctx.repo}/compare/${run.head_sha}...${head}`;
+            const listed = shas.slice(0, 20).join(', ') + (shas.length > 20 ? ', …' : '');
+            return `commits since the last all-browser pass ${run.head_sha.slice(0, 12)} (run ${url}): ${count} commit${count === 1 ? '' : 's'}${count ? `: ${listed}` : ''}; compare ${compareUrl}`;
+        }
+        return NO_ENGINES_MARKER;
     } catch (error) {
-        return { line: `no earlier all-browser pass found (the runs could not be listed: ${refusal(error).message})`, commits: [] };
+        return `the last all-browser pass could not be looked up (${refusal(error).message})`;
     }
 }
 
@@ -625,7 +644,12 @@ function verdictCommand(opts) {
         let ran;
         let passed;
         let results;
-        if (BROWSER_LANES.includes(lane)) {
+        if (BROWSER_LANES.includes(lane) && !jobs && result('demo') === 'skipped') {
+            // the browser job was skipped: nothing of either lane ran, and no job list is needed to say so
+            ran = false;
+            passed = false;
+            results = ['skipped'];
+        } else if (BROWSER_LANES.includes(lane)) {
             if (!jobs) {
                 status('incomplete', "the run's jobs could not be read, so the browser lanes cannot be told apart");
                 continue;
@@ -668,17 +692,26 @@ function verdictCommand(opts) {
     const setup = SETUP_NEEDS.map((job) => [job, result(job)]).filter(([, value]) => value !== 'success' && value !== 'skipped');
     const draft = opts['wo-draft'] === 'true';
     const ok = !draft && setup.length === 0 && Object.values(lanes).every((lane) => lane.status !== 'incomplete');
-    // the daily run's engines: passed or failed, and on a failure the commits since the last all-browser pass
+    // the daily run's engines, for the Engines issue: passed (ran and passed, or a pass on these inputs still qualifies),
+    // failed (a shard failed), or incomplete (cancelled, short, unreadable: nothing said about the engines)
     const outputs = { 'engines-status': '', 'engines-report': '' };
     let daily = null;
-    if (plan.event === 'daily' && plan.lanes?.engines?.decision === 'run') {
-        if (lanes.engines.status === 'fresh') {
+    const engines = plan.lanes?.engines;
+    if (plan.event === 'daily' && ['run', 'reuse'].includes(engines?.decision)) {
+        const at = String(plan.sha).slice(0, 12);
+        const failedShard = (jobs ?? []).some((job) => laneJobs('engines', [job]).length && ['failure', 'timed_out'].includes(job.conclusion));
+        if (lanes.engines.status === 'fresh' || lanes.engines.status === 'reused') {
             outputs['engines-status'] = 'passed';
-            outputs['engines-report'] = `Firefox and WebKit passed on dev at ${String(plan.sha).slice(0, 12)}`;
-        } else {
+            outputs['engines-report'] = lanes.engines.status === 'reused'
+                ? `Firefox and WebKit already passed on these inputs (dev at ${at}): run ${lanes.engines.producer?.url}`
+                : `Firefox and WebKit passed on dev at ${at}`;
+        } else if (engines.decision === 'run' && failedShard) {
             daily = sinceLastAllBrowserPass(client, ctx, plan.sha);
             outputs['engines-status'] = 'failed';
-            outputs['engines-report'] = `Firefox/WebKit failed on dev at ${String(plan.sha).slice(0, 12)}; ${daily.line}`;
+            outputs['engines-report'] = `Firefox/WebKit failed on dev at ${at}; ${daily}`;
+        } else {
+            outputs['engines-status'] = 'incomplete';
+            outputs['engines-report'] = `The Firefox/WebKit run on dev did not complete (${lanes.engines.reason.replace(/[\r\n]+/g, ' ')}); it says nothing about the engines`;
         }
     }
     const label = (value) => (value.status === 'not_run_at_this_stage' ? 'NOT RUN AT THIS STAGE' : value.status);
@@ -689,7 +722,7 @@ function verdictCommand(opts) {
         draft ? 'Work order draft: CI ran no tests.\n' : '',
         '| Lane | Result | Producer | Flaky | Why |', '|---|---|---|---|---|', ...rows, '',
         ...setup.map(([job, value]) => `- ${job} ended with ${value}`),
-        ...(daily ? [`**${outputs['engines-report'].split('; ')[0]}**`, '', daily.commits.length ? `Commits since the last all-browser pass (${daily.url}):` : daily.line, '', ...daily.commits.map((c) => `- ${c}`), ''] : []),
+        ...(outputs['engines-report'] ? [`**Daily engines:** ${outputs['engines-report']}`, ''] : []),
         `Qualification: plan ${plan.elapsed_ms ?? '?'} ms, ${plan.api_calls ?? '?'} API calls; verdict ${ctx.calls} API calls.`, '',
     ].join('\n');
     if (opts.summary) appendFileSync(opts.summary, summary);
@@ -698,7 +731,7 @@ function verdictCommand(opts) {
         if (value.status === 'incomplete') console.error(`::error::${lane}: ${value.reason}`);
         if (value.status === 'not_run_at_this_stage') console.log(`::notice::${lane}: ${DEFERRED}`);
     }
-    if (daily) console.error(`::error::engines: ${outputs['engines-report']}`);
+    if (['failed', 'incomplete'].includes(outputs['engines-status'])) console.error(`::error::engines: ${outputs['engines-report']}`);
     for (const [job, value] of setup) console.error(`::error::${job} ended with ${value}`);
     console.log(JSON.stringify({ schema: 1, ok, lanes }));
     process.exitCode = ok ? 0 : 1;
