@@ -1119,6 +1119,13 @@ read at its end, not half-way; endless and paused ones are not awaited. A whole-
 widgets to mount, every controller named in a `data-controller` connected (`controllersConnected`, lazy ones
 loaded), so it reads what the controllers render, not the server's markup before them.
 
+A recipe page (`/r/<recipe>`) embeds each README example as a preview frame in both themes, which its scan leaves out
+(`exclude: 'iframe'`) since each preview is scanned on its own. Its test answers those frames with an empty page
+(`stubPreviewFrames()`), as does the 320px test of the recipe pages in `demo-app.spec.ts`: a frame never widens the
+page (its width is the page's; the preview-frame controller sets only its height) and its text is its own. Only in
+Chromium, where `a11y.spec.ts` loads every preview on its own under the guard, in both themes; in Firefox and WebKit
+the 320px test keeps the real frames, since no other test there loads the dark previews.
+
 ```ts
 await controllersConnected(page);                                                  // the widgets mounted
 await expectA11y(page, { impact: 'serious', exclude: 'iframe' });                 // a whole page, its previews scanned on their own
