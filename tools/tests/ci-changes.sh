@@ -109,6 +109,8 @@ check ''                          .github/CODEOWNERS .github/mention-allowlist
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
 check 'demo'                      tests/e2e/coverage.ts
 check "$all"                      .github/workflows/ci.yml
+# the lanes' plan and CI result's verdict (tools/ci/lane-evidence.mjs) decide what runs and what passes, as the selector does
+check "$all"                      tools/ci/lane-evidence.mjs
 check "$all"                      .github/workflows/nightly.yml
 check "$all"                      .github/actions/setup/action.yml
 check_git 'static-site workflows' 'git rm -q .github/workflows/pages.yml'
