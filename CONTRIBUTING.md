@@ -153,7 +153,8 @@ script does not know yet runs. A path no row below names counts as part of the k
 test (`tools/tests/ci-changes.sh`) say otherwise. A deleted file counts as a change to its path, a renamed one as a
 change to both paths.
 
-*Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
+*Tool tests*, *Contrast* and *Workflows* below are checks, run as the steps of one job, *Quick checks*: Tool tests on
+every run, the other two when selected, each whatever another did. *Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
 `main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
 (`docs/TESTING.md`, *Browsers*).
 
@@ -500,7 +501,7 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 ## Docs
 
 The lists of recipes that agents read are written from `docs/RECIPES.md`'s recipe tables by `tools/llms-txt.mjs`: edit a
-row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* job runs
+row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* checks (in *Quick checks*) run
 it with `--check`, which fails when:
 
 - a directory with a `manifest.json` is missing from the tables, listed twice, or a row names no recipe;
@@ -594,7 +595,7 @@ that adds a plan's last recipe marks the plan `shipped`. `llms.txt` never links 
 `tools/tests/docker-install.sh`'s default repository, and `release.yml`'s tag message; the gallery's base path is the
 repository's name (`ci.yml`, `pages.yml`). The markdown keeps literal URLs, because GitHub renders it as written. To
 rename: change `manifest.json`, add the old `owner/repo` to `tools/kit-former-names.json`, rename the repository on
-GitHub, run `node tools/llms-txt.mjs`, then `node tools/name-check.mjs` (CI's *Tool tests* job runs it), which lists
+GitHub, run `node tools/llms-txt.mjs`, then `node tools/name-check.mjs` (CI's *Tool tests*, in *Quick checks*, runs it), which lists
 every URL of a former repository (`github.com/<owner>/<repo>`, its raw files, `<owner>.github.io/<repo>`) in any
 file, and the homepage's repository written in another case; the owner's other repositories pass;
 `CHANGELOG.md`'s released sections are history and are left as written. The display name in prose (`UXor is…`) and

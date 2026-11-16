@@ -699,9 +699,10 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.equal(workflow.match(/^ {4}CHROMIUM_SHARDS: '6'$/gm)?.length, 1, 'CHROMIUM_SHARDS starts at 6, set once');
     assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
     assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
-    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'contrast', 'workflows', 'package']) {
+    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'package']) {
         assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${job(id).if}`);
     }
+    // Contrast and Workflows are steps of Quick checks, on the same outputs (its own test)
     assert.equal(job('php').name, rules.php.name);
     assert.equal(job('prod-image').name, rules['prod-image'].name);
     for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'importmap']) {
@@ -731,8 +732,8 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     // CI result: the required name, every lane's jobs, the plan by name, record and verdict by the tool
     const result = job('result');
     assert.equal(evaluate(result.name, push), 'CI result', 'the rulesets require this exact name, from the push');
-    // the engines run in the browser job (`demo`), which CI result needs
-    for (const id of [...lanes.filter((id) => id !== 'engines'), 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
+    // the engines run in the browser job (`demo`); Contrast, Workflows and Tool tests in Quick checks (`quick`)
+    for (const id of [...lanes.filter((id) => !['engines', 'contrast', 'workflows'].includes(id)), 'docker-install', 'importmap', 'quick', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
     assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/);
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
     assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" finish/);
@@ -1166,4 +1167,94 @@ test('CI result runs without setup-node and finishes in one step; the advisory m
     assert.doesNotMatch(job('result').needs, /metrics/);
     assert.ok(!['CI result', 'Release checks', 'Mentions', 'CodeQL'].includes(metrics.name));
     void workflow;
+});
+
+// job 6: Tool tests, Contrast and Workflows as the steps of one job, Quick checks -------------------------------------------
+
+test('Quick checks is one job for Tool tests, Contrast and Workflows, each check running whatever another did', () => {
+    const { job } = workflowJobs('ci.yml');
+    for (const id of ['tools', 'contrast', 'workflows']) assert.equal(job(id), undefined, `no ${id} job of its own`);
+    const quick = job('quick');
+    assert.ok(quick, 'a quick job');
+    assert.equal(quick.name, 'Quick checks');
+    assert.equal(quick.needs, 'changes');
+    assert.match(quick.if, /github\.event_name != 'schedule'/);
+    assert.match(quick.text, /fetch-depth: 0/);
+    assert.equal(quick.text.match(/actions\/setup-node@/g)?.length, 1, 'one Node setup');
+    assert.equal(quick.text.match(/shivammathur\/setup-php@/g)?.length, 1, 'one PHP setup');
+    const steps = quick.text.split(/\n(?= {12}- )/).slice(1);
+    const checks = steps.filter((s) => /^\s+id: (tools|contrast|workflows)-/m.test(s));
+    assert.ok(checks.length >= 17, `every check is a step with a lane-prefixed id (${checks.length})`);
+    for (const step of checks) {
+        const id = step.match(/id: (\S+)/)[1];
+        assert.match(step, /if: \$\{\{ !cancelled\(\)/, `${id}: runs after another check failed`);
+        if (id.startsWith('contrast-')) assert.match(step, /needs\.changes\.outputs\.contrast == 'run'/, `${id}: only when Contrast is selected`);
+        if (id.startsWith('workflows-')) assert.match(step, /needs\.changes\.outputs\.workflows == 'run'/, `${id}: only when Workflows is selected`);
+        if (id.startsWith('tools-')) assert.doesNotMatch(step, /needs\.changes\.outputs/, `${id}: Tool tests runs on every run`);
+    }
+    for (const lane of ['tools', 'contrast', 'workflows']) assert.match(quick.text, new RegExp(`^ {12}${lane}: \\$\\{\\{ steps\\.summary\\.outputs\\.${lane} \\}\\}$`, 'm'), `the job's ${lane} outcome`);
+    const result = job('result');
+    assert.match(result.needs, /\bquick\b/);
+    assert.doesNotMatch(result.needs, /\b(tools|contrast|workflows)\b/);
+});
+
+test("Quick checks' summary names each check's outcome and fails when a selected one did not pass", (t) => {
+    const fx = scratch(t);
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'quick', 'summary');
+    const run = (steps, selected) => {
+        const output = join(fx.dir, 'quick-out');
+        const summary = join(fx.dir, 'quick-summary');
+        writeFileSync(output, '');
+        writeFileSync(summary, '');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8',
+            env: { PATH: process.env.PATH, STEPS: JSON.stringify(steps), CONTRAST: selected.contrast, WORKFLOWS: selected.workflows, GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: summary } });
+        return { ...out, outputs: Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').filter(Boolean).map((l) => l.split('='))), summary: readFileSync(summary, 'utf8') };
+    };
+    const s = (outcome) => ({ outcome, conclusion: outcome, outputs: {} });
+    const steps = { 'tools-cases': s('success'), 'tools-policy': s('success'), 'contrast-tokens': s('failure'), 'contrast-docs-lint': s('success'), 'workflows-actionlint': s('skipped') };
+    const red = run(steps, { contrast: 'run', workflows: 'skip' });
+    assert.equal(red.status, 1, 'a failed check fails the job');
+    assert.deepEqual(red.outputs, { tools: 'success', contrast: 'failure', workflows: 'skipped' });
+    assert.match(red.summary, /Contrast \| failure \| contrast-tokens/);
+    assert.match(red.summary, /Tool tests \| success/);
+    assert.match(red.stdout + red.stderr, /::error::Contrast: contrast-tokens failed/);
+    const green = run({ ...steps, 'contrast-tokens': s('success') }, { contrast: 'run', workflows: 'skip' });
+    assert.equal(green.status, 0, green.stderr);
+    assert.deepEqual(green.outputs, { tools: 'success', contrast: 'success', workflows: 'skipped' });
+    // a selected check that did not run (cancelled, or skipped by an error) is no pass
+    const skipped = run({ ...steps, 'contrast-tokens': s('skipped') }, { contrast: 'run', workflows: 'skip' });
+    assert.equal(skipped.status, 1);
+    assert.equal(skipped.outputs.contrast, 'incomplete');
+});
+
+test('the verdict reads Contrast, Workflows and Tool tests from Quick checks\' outputs', (t) => {
+    const fx = scratch(t);
+    const lanes = Object.fromEntries(LANES.map((name) => [name, lane('skip', null)]));
+    lanes.contrast = lane('run', null, 'not_reusable');
+    lanes.workflows = lane('skip', null);
+    lanes.engines = lane('skip', null);
+    const planFile = join(fx.dir, 'plan.json');
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, reuse_off: null, chromium_shards: 6, lanes }));
+    const verdict = (quick) => {
+        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick };
+        writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
+        const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
+        return { ...out, json: JSON.parse(out.stdout.split('\n').filter((l) => l.startsWith('{')).pop()) };
+    };
+    const green = verdict({ result: 'success', outputs: { tools: 'success', contrast: 'success', workflows: 'skipped' } });
+    assert.equal(green.status, 0, green.stderr);
+    assert.equal(green.json.lanes.contrast.status, 'fresh');
+    assert.equal(green.json.lanes.workflows.status, 'not_applicable');
+    const red = verdict({ result: 'failure', outputs: { tools: 'success', contrast: 'failure', workflows: 'skipped' } });
+    assert.equal(red.status, 1);
+    assert.equal(red.json.lanes.contrast.status, 'incomplete');
+    assert.equal(red.json.lanes.workflows.status, 'not_applicable', 'the other lane is not blamed');
+    const tools = verdict({ result: 'failure', outputs: { tools: 'failure', contrast: 'success', workflows: 'skipped' } });
+    assert.equal(tools.status, 1);
+    assert.match(tools.stderr, /::error::tools ended with failure/);
+    const cancelled = verdict({ result: 'cancelled', outputs: {} });
+    assert.equal(cancelled.status, 1, 'a cancelled Quick checks is no pass');
+    assert.equal(cancelled.json.lanes.contrast.status, 'incomplete');
 });
