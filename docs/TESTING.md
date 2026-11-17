@@ -879,7 +879,9 @@ CI's *Kit PHP* job runs, in order:
    `demo/tests`).
 
 From the demo's install on, each step runs whatever one before it found (`!cancelled()`), so one run reports a syntax
-error, a template error, a failing test and a PHPStan error together; the job fails when any of them failed. The same
+error, a template error, a failing test and a PHPStan error together; the job fails when any of them failed. None of
+them runs after a failed PHP setup, where the runner's own PHP would run them on another version, and PHPStan finds the
+recipes' `src/` directories in its own step, where no earlier step can change the paths it analyses. The same
 locally, from the repository root:
 
 ```sh

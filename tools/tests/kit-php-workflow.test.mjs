@@ -48,3 +48,19 @@ test('PHPUnit and PHPStan each run once the demo is installed, whatever the othe
     }
     assert.match(named('PHPStan').if, /steps\.phpstan-install\.outcome == 'success'/, 'PHPStan runs once installed');
 });
+
+test('the checks after the PHP setup run only on that PHP: a failed setup is not followed by checks on the runner\'s own', () => {
+    const setup = steps.findIndex((step) => /uses: shivammathur\/setup-php@/.test(step));
+    assert.ok(setup >= 0, 'Kit PHP sets PHP up');
+    assert.match(steps[setup], /^ {14}id: php-setup$/m);
+    const download = steps.findIndex((step) => /name: importmap-packages/.test(step));
+    for (const [what, step] of [['the importmap packages\' download', steps[download]], ['Install the demo', named('Install the demo').text]]) {
+        assert.match(step.match(/^ {14}if: (.+)$/m)?.[1] ?? '', /steps\.php-setup\.outcome == 'success'/, `${what} runs only after the PHP setup passed`);
+    }
+});
+
+test('PHPStan reads the paths it analyses in its own step, not from a file an earlier step could rewrite', () => {
+    const phpstan = named('PHPStan');
+    assert.match(phpstan.text, /\*\/manifest\.json/, 'it finds the recipes\' src directories itself');
+    assert.doesNotMatch(job, /php-dirs/, 'no file of paths passed between steps');
+});

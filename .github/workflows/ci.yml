@@ -519,6 +519,7 @@ jobs:
                   persist-credentials: false
 
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              id: php-setup
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
@@ -527,12 +528,9 @@ jobs:
 
             # The kit lint does not look at PHP: every PHP file the repository tracks (the recipes' src, the demo and its
             # tests, the package, the tools and their fixtures) and its PHP scripts without an extension are checked here,
-            # first, in about a second. The recipes' src directories are also what PHPStan analyses below.
+            # first, in about a second.
             - name: Syntax
               run: |
-                  for manifest in */manifest.json; do
-                      if [ -d "${manifest%/manifest.json}/src" ]; then echo "${manifest%/manifest.json}/src"; fi
-                  done > "$RUNNER_TEMP/php-dirs"
                   # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one
                   # shellcheck disable=SC2016 # $1 is the inner shell's
                   { git ls-files -z '*.php'
@@ -544,8 +542,9 @@ jobs:
 
             # the run's importmap packages (job importmap): the install below downloads none. From here on each check runs
             # even when one before it failed (`!cancelled()`), so one run reports every kind of error; the job stays red.
+            # Never after a failed PHP setup: the runner's own PHP would run the checks, and pass them, on another version.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-              if: ${{ !cancelled() }}
+              if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               with:
                   name: importmap-packages
                   path: demo/assets/vendor
@@ -553,7 +552,7 @@ jobs:
             # The tests render the recipes' templates as the demo has them, and its pages with their CSS
             - name: Install the demo
               id: demo-install
-              if: ${{ !cancelled() }}
+              if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               run: |
                   php tools/sync-demo
                   (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
@@ -617,9 +616,13 @@ jobs:
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' && steps.phpstan-install.outcome == 'success' }}
               run: |
                   (cd demo && bin/console cache:warmup --env=test)
-                  # shellcheck disable=SC2046 # one directory per line, none with a space
+                  # the recipes' src directories, read here: the install before could write any file a step passed on
+                  dirs=()
+                  for manifest in */manifest.json; do
+                      if [ -d "${manifest%/manifest.json}/src" ]; then dirs+=("${manifest%/manifest.json}/src"); fi
+                  done
                   "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --configuration=tools/phpstan.neon \
-                      --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo demo/tests
+                      --autoload-file=demo/vendor/autoload.php "${dirs[@]}" demo/src/Demo demo/tests
 
     static-site:
         name: Static site
