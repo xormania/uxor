@@ -173,8 +173,8 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
     const head = () => git('rev-parse', 'HEAD');
     const read = (path) => readFileSync(join(repo, path), 'utf8');
 
-    /** a job of the run, as GitHub's jobs API lists it */
-    const job = (name, conclusion, attempt, when) => ({
+    /** a job of the run, as GitHub's jobs API lists it; a conclusion may carry the job's steps: { conclusion, steps } */
+    const job = (name, conclusion, attempt, when) => (conclusion && 'object' === typeof conclusion ? { ...job(name, conclusion.conclusion, attempt, when), steps: conclusion.steps } : {
         id: state.nextJob++, name, status: conclusion === null ? 'in_progress' : 'completed', conclusion, run_attempt: attempt,
         started_at: when, completed_at: conclusion === null ? null : when,
     });
@@ -313,7 +313,11 @@ test('green code, then a CHANGELOG prose correction: no browser or expensive lan
     // a branch is compared with where it left dev: the selection is still every lane the code selected
     const docs = w.ciRun({ hoursAgo: 1 });
 
-    for (const lane of REUSABLE) {
+    // Package reads CHANGELOG.md (its references link the latest release), so its content is Package's input: Package
+    // runs again, as cheap as it is; every other reusable lane keeps its proof
+    const kept = REUSABLE.filter((lane) => lane !== 'package');
+    assert.equal(docs.plan.lanes.package.decision, 'run', `package: ${docs.plan.lanes.package.reason}`);
+    for (const lane of kept) {
         assert.equal(docs.plan.lanes[lane].decision, 'reuse', `${lane}: ${docs.plan.lanes[lane].reason} ${docs.plan.lanes[lane].detail}`);
         assert.equal(docs.plan.lanes[lane].evidence.run_id, green.id, `${lane} names the run that proved it`);
         assert.equal(docs.plan.lanes[lane].evidence.head_sha, green.sha, `${lane} names the commit that was tested`);
@@ -325,20 +329,20 @@ test('green code, then a CHANGELOG prose correction: no browser or expensive lan
 
     assert.equal(docs.result.status, 0, docs.result.stderr);
     assert.ok(docs.result.verdict.ok);
-    for (const lane of REUSABLE) {
+    for (const lane of kept) {
         assert.equal(docs.result.verdict.lanes[lane].status, 'reused');
         assert.equal(docs.result.verdict.lanes[lane].producer.run_id, green.id);
     }
-    assert.deepEqual(docs.result.recorded, [], 'a reused lane records nothing: the evidence keeps naming the run that executed it');
+    assert.equal(docs.result.verdict.lanes.package.status, 'fresh');
+    assert.ok(docs.result.recorded.every((name) => name.includes('-package-')), 'a reused lane records nothing: the evidence keeps naming the run that executed it');
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Row: CHANGELOG release-heading or generated-reference change
 // Output/reference effects detected; affected artifact/package checks run; unrelated proof can remain usable
 // ---------------------------------------------------------------------------------------------------------------------
-test('a CHANGELOG release heading: the Package check, whose generated references link the latest release, runs again', {
-    todo: 'FINDING: CHANGELOG.md is excluded from every lane\'s fingerprint, but Package reads it: generate-reference.php --check takes the links\' release from its latest ## [X.Y.Z] heading, and a new heading alone makes that check fail ("changed: index.json"). A Package pass on the old heading is reused.',
-}, (t) => {
+// Was FINDING 1 (CHANGELOG.md excluded from Package's fingerprint); the per-lane exclusions of stack-review answer it
+test('a CHANGELOG release heading: the Package check, whose generated references link the latest release, runs again', (t) => {
     const w = world(t);
     const green = allPassedRun(w, { hoursAgo: 3 });
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('## [Unreleased]\n', '## [Unreleased]\n\n## [0.3.2] - 2026-11-16\n'));
@@ -527,7 +531,11 @@ test('one failed browser shard, then Re-run failed jobs: the pass keeps the five
 const damages = {
     cold: () => { /* no earlier run at all */ },
     'expired marker': (w) => { for (const a of w.state.artifacts) a.expired = true; },
-    'marker older than 14 days': (w) => { for (const a of w.state.artifacts) a.created_at = at(15 * DAY); },
+    // a pass's age is its lane jobs' completion (stack-review): the producer's jobs completed 15 days ago
+    'marker older than 14 days': (w) => {
+        for (const a of w.state.artifacts) a.created_at = at(15 * DAY);
+        for (const run of w.state.runs.values()) for (const j of run.jobs) j.completed_at = at(15 * DAY);
+    },
     'corrupt marker': (w) => { for (const a of w.state.artifacts) writeFileSync(a.file, 'not a zip at all'); },
     'marker without its download': (w) => { for (const a of w.state.artifacts) w.state.broken[a.id] = 'no-zip'; },
     'marker listed but gone': (w) => { for (const a of w.state.artifacts) w.state.broken[a.id] = 'gone'; },
@@ -695,14 +703,15 @@ test('a later contradiction found by the plan itself: a failure on the same inpu
 test('identical source, consumer dependencies resolved live: a pass of the 24-hour lanes counts within a day, not after', (t) => {
     const w = world(t);
     allPassedRun(w, { hoursAgo: 25 });
-    w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, a day later.'));
+    // AGENTS.md: no lane reads its content (CHANGELOG.md is Package's input), so the source is identical for every lane
+    w.commit('AGENTS.md', '# Agents\n\nA day later.\n');
     const later = w.ciRun({ hoursAgo: 0.5 });
     for (const lane of DAY_LANES) assert.equal(later.plan.lanes[lane].decision, 'run', `${lane} after 25 hours: ${later.plan.lanes[lane].reason}`);
     for (const lane of ['php', 'demo', 'prod-image']) assert.equal(later.plan.lanes[lane].decision, 'reuse', `${lane}: ${later.plan.lanes[lane].reason}`);
 
     const v = world(t);
     allPassedRun(v, { hoursAgo: 23 });
-    v.commit('CHANGELOG.md', v.read('CHANGELOG.md').replace('- A fix.', '- A fix, the same day.'));
+    v.commit('AGENTS.md', '# Agents\n\nThe same day.\n');
     const sameDay = v.ciRun({ hoursAgo: 0.5 });
     for (const lane of DAY_LANES) assert.equal(sameDay.plan.lanes[lane].decision, 'reuse', `${lane} after 23 hours: ${sameDay.plan.lanes[lane].reason}`);
 });
@@ -753,4 +762,22 @@ test('the release gate: require finds an engines pass for the head only when one
     const none = w.cli(['require', '--lane', 'engines', '--repo', REPO, '--sha', w.head()]);
     assert.equal(none.status, 1, 'a head with other inputs has no pass');
     assert.match(none.stdout, /^engines: /m, 'and says why');
+});
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Row: Missing shard, all-skipped evidence, stale/forged producer, or later contradiction (the setup's side)
+// A shard that never reached its tests is no failure of the tests: it records nothing and blocks no valid pass
+// ---------------------------------------------------------------------------------------------------------------------
+test('an Importmap packages failure is no browser failure: shards that never reached their tests record nothing, and the earlier pass stays usable', (t) => {
+    const w = world(t);
+    const green = allPassedRun(w, { hoursAgo: 3 });
+    const setupFailed = { conclusion: 'failure', steps: [{ name: 'Wait for the importmap packages', conclusion: 'failure' }, { name: 'Playwright (smoke + every README example + UXor recipe specs)', conclusion: 'skipped' }] };
+    const conclusions = Object.fromEntries(LANE_JOBS.demo.map((name) => [name, setupFailed]));
+    // reuse off, so the browser lane runs on the same inputs; Importmap packages fails, and every shard with it
+    const broken = w.ciRun({ hoursAgo: 2, reuse: 'off', conclusions, needs: { importmap: { result: 'failure' } } });
+    assert.notEqual(broken.result.status, 0, 'the run is red');
+    assert.ok(!broken.result.recorded.some((name) => /^ci-fail-v1-(demo|engines)-/.test(name)), `no browser failure recorded: ${broken.result.recorded.join(', ')}`);
+    const later = w.ciRun({ hoursAgo: 1 });
+    assert.equal(later.plan.lanes.demo.decision, 'reuse', `demo: ${later.plan.lanes.demo.reason}`);
+    assert.equal(later.plan.lanes.demo.evidence.run_id, green.id);
 });
