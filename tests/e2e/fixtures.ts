@@ -582,7 +582,10 @@ export async function expectA11y(page: Page, policy: A11yPolicy, label?: string)
                 .map((animation) => animation.finished.catch(() => undefined)),
         ),
     );
-    let builder = new AxeBuilder({ page });
+    // axe.run in the page itself (legacy mode), not runPartial here and finishRun in a blank page of its own: the same
+    // results, without injecting axe a second time and opening a page per scan. Safe because every frame of the demo
+    // has its origin; legacy mode does not scan a cross-origin frame (docs/TESTING.md, *Accessibility*)
+    let builder = new AxeBuilder({ page }).setLegacyMode();
     if (policy.include) {
         builder = builder.include(policy.include);
     }
