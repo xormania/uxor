@@ -1,8 +1,10 @@
 // Kit PHP's order in ci.yml: the cheap, deterministic checks (every tracked PHP file's syntax, every template the demo
 // compiles) run before PHPUnit and report on their own, and neither PHPUnit nor PHPStan hides the other's failure.
 // Run: node --test tools/tests/*.test.mjs
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -63,4 +65,72 @@ test('PHPStan reads the paths it analyses in its own step, not from a file an ea
     const phpstan = named('PHPStan');
     assert.match(phpstan.text, /\*\/manifest\.json/, 'it finds the recipes\' src directories itself');
     assert.doesNotMatch(job, /php-dirs/, 'no file of paths passed between steps');
+});
+
+// A tracked path whose first part starts with a dash reaches PHP (or PHPStan) as an option when it is passed bare: today
+// `-n.php` is a usage error and `-d/x.php` defines an INI entry and lints standard input, so neither file is linted and
+// the second passes. Each check runs as written (the step's script, the documented command) in a scratch repository.
+const BROKEN = '<?php\nfunction (\n';
+const run = (script, cwd, env = {}) => spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', script], { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
+
+function repository(files) {
+    const dir = mkdtempSync(join(tmpdir(), 'kit-php-dash-'));
+    for (const [path, text] of Object.entries(files)) {
+        mkdirSync(join(dir, dirname(path)), { recursive: true });
+        writeFileSync(join(dir, path), text);
+    }
+    execFileSync('git', ['init', '-q'], { cwd: dir });
+    execFileSync('git', ['add', '--', ...Object.keys(files)], { cwd: dir });
+    const temp = join(dir, '.runner-temp');
+    mkdirSync(temp);
+    return { dir, temp };
+}
+
+const script = (step) => step.text.match(/^ {14}run: \|\n([\s\S]*)$/m)[1].replace(/^ {18}/gm, '');
+
+test('Syntax lints a tracked file whose path starts with a dash as a file, never as PHP\'s options', () => {
+    const { dir, temp } = repository({ '-n.php': BROKEN, '-d/x.php': BROKEN, 'ok.php': '<?php echo 1;\n' });
+    const result = run(script(named('Syntax')), dir, { RUNNER_TEMP: temp });
+    const output = result.stdout + result.stderr;
+    assert.notEqual(result.status, 0, `two syntax errors fail the step:\n${output}`);
+    for (const path of ['-n.php', '-d/x.php']) {
+        assert.match(output, new RegExp(`Errors parsing (?:\\./)?${path.replace(/[.]/g, '\\.')}\\n`), `${path} is linted:\n${output}`);
+    }
+    assert.doesNotMatch(output, /Standard input|Usage: php/, 'no path read as an option');
+    assert.match(output, /^1 files without a syntax error$/m);
+});
+
+test('the documented local commands lint a tracked file whose path starts with a dash as a file', () => {
+    const testing = readFileSync(join(root, 'docs/TESTING.md'), 'utf8');
+    const local = testing.slice(testing.indexOf('```sh', testing.indexOf('**Twig syntax:**'))).split('\n')[1];
+    assert.match(local, /git ls-files -z '\*\.php'/, 'docs/TESTING.md\'s Kit PHP syntax command');
+    const contributing = readFileSync(join(root, 'CONTRIBUTING.md'), 'utf8').split('\n').find((line) => /^find .*php -l/.test(line)).replace(/ +# .*$/, '');
+    for (const [where, command, files, path] of [
+        ['docs/TESTING.md', local, { '-d/x.php': BROKEN }, '-d/x.php'],
+        ['CONTRIBUTING.md', contributing, { '-d/src/X.php': BROKEN, 'ok/src/Y.php': '<?php\n' }, '-d/src/X.php'],
+    ]) {
+        const { dir } = repository(files);
+        const result = run(`${command} || true`, dir);
+        const output = result.stdout + result.stderr;
+        assert.match(output, new RegExp(`Errors parsing (?:\\./)?${path.replace(/[.]/g, '\\.')}\\n`), `${where}: ${path} is linted:\n${output}`);
+        assert.doesNotMatch(output, /Standard input|Usage: php|unknown predicate/, `${where}: no path read as an option`);
+    }
+});
+
+test('PHPStan is given a recipe directory whose name starts with a dash as a path, never as its options', () => {
+    const { dir, temp } = repository({ '-l/manifest.json': '{}', '-l/src/A.php': '<?php\n', 'ok/manifest.json': '{}', 'ok/src/B.php': '<?php\n', 'demo/bin/console': '#!/bin/sh\n' });
+    chmodSync(join(dir, 'demo/bin/console'), 0o755);
+    const stub = join(temp, 'phpstan/vendor/bin/phpstan');
+    mkdirSync(dirname(stub), { recursive: true });
+    writeFileSync(stub, `#!/bin/sh\nprintf '%s\\n' "$@" > "${temp}/args"\n`);
+    chmodSync(stub, 0o755);
+    const result = run(script(named('PHPStan')), dir, { RUNNER_TEMP: temp });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    const args = readFileSync(join(temp, 'args'), 'utf8').trimEnd().split('\n');
+    const end = args.indexOf('--');
+    // as a Symfony Console command reads them: before `--`, an argument starting with a dash is an option
+    const paths = args.filter((arg, index) => (end >= 0 && index > end) || (!arg.startsWith('-') && (end < 0 || index < end))).map((arg) => arg.replace(/^\.\//, ''));
+    for (const path of ['-l/src', 'ok/src', 'demo/src/Demo', 'demo/tests']) {
+        assert.ok(paths.includes(path), `${path} is a path PHPStan analyses: ${JSON.stringify(args)}`);
+    }
 });

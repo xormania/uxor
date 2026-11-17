@@ -531,11 +531,12 @@ jobs:
             # first, in about a second.
             - name: Syntax
               run: |
-                  # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one
+                  # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one.
+                  # -f: a path starting with a dash (-d/x.php) is the file to lint, never PHP's options
                   # shellcheck disable=SC2016 # $1 is the inner shell's
                   { git ls-files -z '*.php'
                     git ls-files -z demo/bin/console demo/bin/phpunit packages/uxor/bin/uxor packages/uxor/dev/app/bin/console tools/sync-demo
-                  } | xargs -0 -n1 -P4 sh -c 'php -l "$1" || exit 1' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
+                  } | xargs -0 -n1 -P4 sh -c 'php -l -f "$1" || exit 1' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
                   grep -v '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log" || true
                   echo "$(grep -c '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log") files without a syntax error"
                   exit "${status:-0}"
@@ -621,8 +622,9 @@ jobs:
                   for manifest in */manifest.json; do
                       if [ -d "${manifest%/manifest.json}/src" ]; then dirs+=("${manifest%/manifest.json}/src"); fi
                   done
+                  # --: a directory starting with a dash (-l/src) is a path to analyse, never PHPStan's options
                   "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --configuration=tools/phpstan.neon \
-                      --autoload-file=demo/vendor/autoload.php "${dirs[@]}" demo/src/Demo demo/tests
+                      --autoload-file=demo/vendor/autoload.php -- "${dirs[@]}" demo/src/Demo demo/tests
 
     static-site:
         name: Static site

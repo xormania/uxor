@@ -885,7 +885,7 @@ recipes' `src/` directories in its own step, where no earlier step can change th
 locally, from the repository root:
 
 ```sh
-git ls-files -z '*.php' | xargs -0 -n1 php -l | grep -v '^No syntax errors'
+git ls-files -z '*.php' | xargs -0 -n1 php -l -f | grep -v '^No syntax errors'
 (cd demo && bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done))
 ```
 
