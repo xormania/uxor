@@ -1126,6 +1126,13 @@ page (its width is the page's; the preview-frame controller sets only its height
 Chromium, where `a11y.spec.ts` loads every preview on its own under the guard, in both themes; in Firefox and WebKit
 the 320px test keeps the real frames, since no other test there loads the dark previews.
 
+The scan runs axe in the page itself (`setLegacyMode()` of the axe-core Playwright package), not its default of a partial
+run in each frame finished in a blank page of its own, which injects axe a second time and opens a page per scan. Both
+give the same result lists, rule for rule and node for node: compared on every page `a11y.spec.ts` scans (in
+Chromium, its only engine) and on every other `expectA11y` call in Chromium, Firefox and WebKit. It is safe because
+every frame of the demo has the demo's origin. Legacy mode does not scan a cross-origin frame: a page with one that
+must be scanned (an embed from another origin) needs the default mode back for that scan.
+
 ```ts
 await controllersConnected(page);                                                  // the widgets mounted
 await expectA11y(page, { impact: 'serious', exclude: 'iframe' });                 // a whole page, its previews scanned on their own
