@@ -48,6 +48,12 @@ function scratch(t) {
 const fs = require('node:fs');
 const path = process.argv[3];
 fs.appendFileSync(process.env.FAKE_GH_LOG, path + '\\n');
+// FAKE_GH_DELAY_MS: each answer takes that long, its start and end logged to FAKE_GH_TIMES (to see calls overlap)
+if (process.env.FAKE_GH_DELAY_MS) {
+    const start = Date.now();
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.FAKE_GH_DELAY_MS));
+    fs.appendFileSync(process.env.FAKE_GH_TIMES, start + ' ' + Date.now() + ' ' + path + '\\n');
+}
 const routes = JSON.parse(fs.readFileSync(process.env.FAKE_GH_ROUTES, 'utf8'));
 const route = routes[path] ?? (path.includes('/actions/artifacts?name=') ? { json: { total_count: 0, artifacts: [] } } : undefined);
 if (!route) { process.stderr.write('gh: Not Found (HTTP 404)\\n'); process.exit(1); }
@@ -70,13 +76,13 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : route.text !== u
     return { dir, repo, bin, git, commit, head: () => git('rev-parse', 'HEAD') };
 }
 
-function run(fx, args, routes = {}, { gitDir = fx.repo } = {}) {
+function run(fx, args, routes = {}, { gitDir = fx.repo, env = {} } = {}) {
     const routesFile = join(fx.dir, 'routes.json');
     const log = join(fx.dir, `gh-${Math.random().toString(36).slice(2)}.log`);
     writeFileSync(routesFile, JSON.stringify(routes));
     writeFileSync(log, '');
     const result = spawnSync(process.execPath, [tool, ...args, '--git-dir', gitDir, '--gh', join(fx.bin, 'gh'), '--now', NOW, '--retry-delay-ms', '1'], {
-        encoding: 'utf8', env: { PATH: process.env.PATH, FAKE_GH_ROUTES: routesFile, FAKE_GH_LOG: log },
+        encoding: 'utf8', env: { PATH: process.env.PATH, FAKE_GH_ROUTES: routesFile, FAKE_GH_LOG: log, ...env },
     });
     return { ...result, calls: readFileSync(log, 'utf8').split('\n').filter(Boolean) };
 }
@@ -1443,4 +1449,30 @@ test("Quick checks' summary counts its setup steps, and a cancelled step is no p
     assert.equal(cancelled.outputs.contrast, 'incomplete');
     const none = run2({ 'setup-node': s('success'), 'setup-php': s('success'), 'tools-cases': s('success') });
     assert.equal(none.outputs.contrast, 'incomplete', 'a selected check with no step run');
+});
+
+test("the plan's lookups for several lanes overlap, and decide as before (speed a)", (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const sha = fx.head();
+    const lanes = { demo: demoJobs(), php: [{ id: 600, name: 'Kit PHP', conclusion: 'success', status: 'completed', run_attempt: 1 }], 'prod-image': [{ id: 601, name: 'Production image', conclusion: 'success', status: 'completed', run_attempt: 1 }] };
+    // one producer run passed all three lanes
+    const all = Object.values(lanes).flat();
+    const routes = {};
+    Object.entries(lanes).forEach(([lane, jobs], i) => Object.assign(routes, routesFor(lane, fp[lane], [marker(fx, { lane, sha, fp: fp[lane], jobs, latestJobs: all, artifactId: 9900 + i, runId: 90 })])));
+    const times = join(fx.dir, 'times');
+    writeFileSync(times, '');
+    const out = join(fx.dir, 'plan.json');
+    const result = run(fx, ['plan', '--repo', REPO, '--sha', sha, '--ref', 'refs/heads/feature', '--selection', selection(fx, ['demo', 'php', 'prod-image']), '--out', out], routes, { env: { FAKE_GH_DELAY_MS: '200', FAKE_GH_TIMES: times } });
+    assert.equal(result.status, 0, result.stderr);
+    const plan = JSON.parse(readFileSync(out, 'utf8'));
+    for (const lane of Object.keys(lanes)) assert.equal(plan.lanes[lane].decision, 'reuse', `${lane}: ${plan.lanes[lane].detail}`);
+    const spans = readFileSync(times, 'utf8').trim().split('\n').map((line) => line.split(' ').slice(0, 2).map(Number));
+    const overlapping = spans.some(([start, end], i) => spans.some(([s2], j) => j !== i && s2 > start && s2 < end));
+    assert.ok(overlapping, 'some calls run at the same time');
+    const serial = spans.reduce((sum, [start, end]) => sum + (end - start), 0);
+    assert.ok(plan.elapsed_ms < serial * 0.6, `the plan (${plan.elapsed_ms} ms) is well under its calls one after another (${serial} ms)`);
+    const listings = result.calls.filter((c) => c.includes('/actions/artifacts?name='));
+    assert.equal(new Set(listings).size, listings.length, 'each listing fetched once');
+    assert.equal(result.calls.filter((c) => /\/runs\/90$/.test(c)).length, 1, 'the producer run once, shared by the lanes');
 });
