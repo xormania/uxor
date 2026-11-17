@@ -41,9 +41,9 @@ test('a command that succeeds: wait exits 0 and reports how long it ran and how 
 test('start returns before the command ends', () => {
     const dir = temp();
     const begin = Date.now();
-    const started = run(dir, 'start', 'slow', '--', 'sleep', '5');
+    const started = run(dir, 'start', 'slow', '--', 'sleep', '1.5');
     assert.equal(started.status, 0, started.stderr);
-    assert.ok(Date.now() - begin < 3000, 'start did not wait for the command');
+    assert.ok(Date.now() - begin < 1000, 'start did not wait for the command (it sleeps 1.5 s)');
     run(dir, 'wait', 'slow', '--timeout', '30');
 });
 

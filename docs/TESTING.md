@@ -1575,7 +1575,7 @@ download of this commit's archive is not checked again within those 24 hours.
 The Changes job runs the selector as the base branch has it (a branch could otherwise skip its own checks by editing
 it), but this tool as the branch has it: the tool and `ci.yml` are inside every fingerprint, so a branch's own copy
 can only match a pass recorded by that same copy and workflow, and a push already runs the branch's own `ci.yml`. Its
-cases: `node --test tools/tests/lane-evidence.test.mjs`.
+cases: `node --test tools/tests/lane-evidence.*.test.mjs`.
 
 ### Quick checks
 
