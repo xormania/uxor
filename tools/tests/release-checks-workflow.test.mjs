@@ -175,7 +175,7 @@ test('missing structural evidence remains fatal, and required evidence and brows
 
 test('the required verdict rejects a failed or skipped suite, production image and target resolution, retaining only the trusted skips', (t) => {
     const fx = scratch(t);
-    const verdict = steps('verdict').find((step) => step.run);
+    const verdict = steps('verdict').find((step) => step.id === 'decide');
     // the production image runs when the suite does (needs.changed.outputs.run == 'true'): it must have succeeded then;
     // where the suite is trusted to be skipped it is skipped too, which passes, and a failed or cancelled one never does
     for (const [event, changed, run, suite, image, expected] of [
@@ -203,9 +203,27 @@ test('the required verdict rejects a failed or skipped suite, production image a
         ['pull_request', 'success', 'false', 'skipped', 'failure', 1],
         ['pull_request', 'failure', 'false', 'skipped', 'skipped', 1],
     ]) {
-        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image });
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: changed, RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image, ENGINES: 'pass' });
         assert.equal(out.status, expected, `${event}/${changed}/${run}/suite ${suite}/production image ${image || 'no result'}: ${out.stdout}${out.stderr}`);
     }
+    // a release pull request also needs a Firefox and WebKit pass on its head (CI defers them on pushes): without one it
+    // fails, the suite passed or trusted to be skipped; the daily and manual runs do not look for one
+    for (const [run, suite, image] of [['true', 'success', 'success'], ['false', 'skipped', 'skipped']]) {
+        for (const [engines, started] of [['', ''], ['missing: engines: no_evidence: no marker', 'dispatched'], ['missing: engines: no_evidence: no marker', '']]) {
+            const out = shell(verdict.run, fx, { EVENT: 'pull_request', CHANGED: 'success', RUN: run, SUITE: suite, COMPLETE: 'success', PROD_IMAGE: image, ENGINES: engines, START: started, BRANCH: 'dev' });
+            assert.equal(out.status, 1, `pull request, run ${run}, engines '${engines}'`);
+            assert.match(out.stdout + out.stderr, /no Firefox\/WebKit pass for this release's head: .*re-run Release checks when it passes/);
+            if (started === 'dispatched') assert.match(out.stdout + out.stderr, /started a Firefox and WebKit run on dev/);
+            if (engines && !started) assert.match(out.stdout + out.stderr, /could not start one/);
+        }
+    }
+    // the daily and manual runs do not look for one: they publish under their own names (Release checks (daily), Release
+    // checks (manual)), never the one main's ruleset requires, so their pass cannot stand in for the pull request's
+    for (const event of ['daily', 'workflow_dispatch']) {
+        const out = shell(verdict.run, fx, { EVENT: event, CHANGED: 'success', RUN: 'true', SUITE: 'success', COMPLETE: 'success', PROD_IMAGE: 'success', ENGINES: '' });
+        assert.equal(out.status, 0, `${event}: no engines requirement`);
+    }
+    assert.match(jobText('verdict'), /^ {8}name: \$\{\{ github\.event_name == 'pull_request' && 'Release checks' \|\| /m, 'only the pull request publishes Release checks');
 });
 
 test('the verdict and the daily issue wait for the production image and read its result', () => {
@@ -296,7 +314,7 @@ test('the matrix cannot publish passes or baselines until all lanes and their fr
         const properties = steps('checks').find((step) => step.id === 'properties');
         assert.equal(holds(properties.if, { matrix: { lane }, steps: { start: result('success') } }), lane === 'release', 'PHP properties run once');
     }
-    const verdict = steps('verdict').find((step) => step.run);
+    const verdict = steps('verdict').find((step) => step.id === 'decide');
     const fx = scratch(t);
     for (const complete of ['failure', 'skipped', 'cancelled']) {
         const out = shell(verdict.run, fx, { EVENT: 'pull_request', CHANGED: 'success', RUN: 'true', SUITE: 'success', COMPLETE: complete });
