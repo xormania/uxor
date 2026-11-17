@@ -47,14 +47,21 @@ final class ExportStaticRewriteTest extends TestCase
     #[RunInSeparateProcess]
     public function testAPcreErrorFailsTheExportNamingTheStep(string $method, string $html, string $path, string $step): void
     {
-        ini_set('pcre.jit', '0');
-        ini_set('pcre.backtrack_limit', '1');
-        self::assertSame('0', ini_get('pcre.jit'));
+        // restored before PHPUnit's own patterns run in this process (TestDox names the test with preg_replace): at a
+        // limit of 1 they fail too, and PHPUnit asserts that they did not
+        $limit = ini_get('pcre.backtrack_limit');
+        $jit = ini_get('pcre.jit');
         try {
+            ini_set('pcre.jit', '0');
+            ini_set('pcre.backtrack_limit', '1');
+            self::assertSame('0', ini_get('pcre.jit'));
             ExportStaticCommand::$method($html, '/uxor', $path);
             self::fail(\sprintf('no exception: the step "%s" passed a PCRE error on', $step));
         } catch (\RuntimeException $exception) {
             self::assertSame(\sprintf('The static export could not %s on %s: Backtrack limit exhausted.', $step, $path), $exception->getMessage());
+        } finally {
+            ini_set('pcre.backtrack_limit', (string) $limit);
+            ini_set('pcre.jit', (string) $jit);
         }
     }
 
