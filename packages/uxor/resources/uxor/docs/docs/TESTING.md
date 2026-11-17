@@ -1313,7 +1313,7 @@ the other engines compare it with a baseline that is not theirs (`examples-*`) o
 fail.
 
 In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
-computes: `CHROMIUM_SHARDS` shards for Chromium (6), which also runs the screenshots, and three each for Firefox and
+computes: `CHROMIUM_SHARDS` shards for Chromium (8), which also runs the screenshots, and three each for Firefox and
 WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`).
 
 **When Firefox and WebKit run (a trial, `ENGINES_ON: daily` in `ci.yml`).** Chromium runs on every push that selects
@@ -1431,7 +1431,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (6) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (8) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1493,7 +1493,9 @@ resolve dependencies afresh) always run when selected, and *Tool tests* on every
   nothing. A later attempt of the run replaces its earlier marker of the same kind, so the newest attempt stands; a
   lane whose jobs all ran in an earlier attempt is not recorded again, so a re-run cannot make an old pass look young. A
   reused lane records nothing, so the evidence always names the run that executed the tests. A failure marker that
-  cannot be recorded or uploaded fails *CI result*'s step; a lost pass marker only warns.
+  cannot be recorded or uploaded fails *CI result*'s step; a lost pass marker only warns. Without the run's job list,
+  a failed browser job makes the engines' failure marker due as well as Chromium's: which shard failed, and whether its
+  tests had started, cannot be told, so the loss is reported rather than an older pass left to stand.
 - **Reuse:** the markers for the fingerprint are read newest first. A failure from a push or manual run of `ci.yml`
   in this repository stops the search and runs the lane (one from anywhere else counts for nothing). The first pass
   that verifies is reused: at most 14 days old, from such a run (any branch: the tree is what was tested), whose jobs
@@ -1863,7 +1865,8 @@ inputs, once the merge is shown to test the head's own tree; the pull request's 
 workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
 checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
 one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
-passes. When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+passes: the verdict looks the evidence up again itself whenever What to check said missing, so *Re-run failed jobs* is
+enough (What to check, not re-run, keeps its old output). When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
 stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
 for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
 the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release

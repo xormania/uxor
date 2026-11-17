@@ -62,7 +62,9 @@ export const MAX_AGE_DAYS = 14;
 const WORKFLOW = '.github/workflows/ci.yml';
 const PRODUCER_EVENTS = ['push', 'workflow_dispatch'];
 /** the jobs of ci.yml that make up each lane, as CI result's `needs` names them */
-const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'] };
+// the engines run in the browser job (`demo` in `needs`): without the run's job list, a failed browser job may be an
+// engines failure, and cannot be told from one before the tests started, so the safe direction is that its marker was due
+const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'], engines: ['demo'] };
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
 const IMPORTMAP_USERS = ['php', 'static-site', 'demo', 'engines'];
 const MARKER_LIMIT = 65536;
@@ -558,10 +560,18 @@ async function planCommand(opts) {
     });
 }
 
-/** exit 0 when the lane has a pass at this commit that verifies (Release checks' requirement), 1 otherwise */
+/**
+ * Release checks' requirement. With --sha: exit 0 when the lane has a pass at this commit that verifies, 1 otherwise.
+ * With --merge (a pull request's merge commit) and --github-output: the head is the merge's second parent; a merge that
+ * tests another tree than its head gets `<lane>=tree: …` (no pass on the head can stand for it), else `<lane>=pass` or
+ * `<lane>=missing: …`, and the exit status is 0. What to check and the verdict both run it, so one rule decides, and a
+ * re-run of the verdict alone ("Re-run failed jobs") sees evidence that arrived since What to check ran.
+ */
 function requireCommand(opts) {
-    need(opts, 'lane', 'repo', 'sha');
+    need(opts, 'lane', 'repo');
     if (!REUSABLE[opts.lane]) usage(`${opts.lane} is not a lane whose pass is recorded`);
+    if (opts.merge !== undefined) return requireMerge(opts);
+    need(opts, 'sha');
     const ctx = context(opts, 2);
     const client = api(ctx);
     try {
@@ -571,6 +581,33 @@ function requireCommand(opts) {
         const refused = refusal(error);
         console.log(`${opts.lane}: ${refused.reason}: ${refused.message}`);
         process.exitCode = 1;
+    }
+}
+
+function requireMerge(opts) {
+    need(opts, 'github-output');
+    const dir = opts['git-dir'] ?? '.';
+    const out = (value) => writeOutputs(opts['github-output'], { [opts.lane]: value.replace(/[\r\n]+/g, ' ') });
+    const parents = git(dir, ['rev-list', '--parents', '-n', '1', opts.merge]).stdout.toString().trim().split(' ').slice(1);
+    const head = parents.length === 2 ? parents[1] : null;
+    const tree = (rev) => git(dir, ['rev-parse', `${rev}^{tree}`]).stdout.toString().trim();
+    if (!head || tree(opts.merge) !== tree(head)) {
+        const line = `the merge tests another tree than the head ${head ?? 'unknown'} (main has commits the branch lacks)`;
+        console.log(`${opts.lane}: ${line}`);
+        out(`tree: ${line}`);
+        return;
+    }
+    const ctx = context(opts, 2);
+    const client = api(ctx);
+    try {
+        const evidence = qualify(client, ctx, opts.lane, fingerprints(dir, head)[opts.lane]);
+        console.log(`${opts.lane}: passed by run ${evidence.run_id} attempt ${evidence.run_attempt} on ${evidence.head_sha} ${evidence.url}`);
+        out('pass');
+    } catch (error) {
+        const refused = refusal(error);
+        const line = `${opts.lane}: ${refused.reason}: ${refused.message}`;
+        console.log(line);
+        out(`missing: ${line}`);
     }
 }
 
@@ -799,7 +836,7 @@ function verdictCommand(opts) {
     const engines = plan.lanes?.engines;
     if (plan.event === 'daily' && ['run', 'reuse'].includes(engines?.decision)) {
         const at = String(plan.sha).slice(0, 12);
-        const failedShard = (jobs ?? []).some((job) => laneJobs('engines', [job]).length && ['failure', 'timed_out'].includes(job.conclusion));
+        const failedShard = laneJobs('engines', jobs ?? []).some(testsFailed);
         if (lanes.engines.status === 'fresh' || lanes.engines.status === 'reused') {
             outputs['engines-status'] = 'passed';
             outputs['engines-report'] = lanes.engines.status === 'reused'

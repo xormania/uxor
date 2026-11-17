@@ -707,7 +707,10 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
     const { workflow, job } = workflowJobs('ci.yml');
     // the two settings, each in one place
-    assert.equal(workflow.match(/^ {4}CHROMIUM_SHARDS: '6'$/gm)?.length, 1, 'CHROMIUM_SHARDS starts at 6, set once');
+    // CHROMIUM_SHARDS is tuned from measurements: set once, a whole number the plan accepts (1 to 20)
+    const shards = [...workflow.matchAll(/^ {4}CHROMIUM_SHARDS: '(\d+)'$/gm)].map((m) => Number(m[1]));
+    assert.equal(shards.length, 1, 'CHROMIUM_SHARDS is set once');
+    assert.ok(shards[0] >= 1 && shards[0] <= 20, `CHROMIUM_SHARDS is a sane number (${shards[0]})`);
     assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
     assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
     for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'contrast', 'workflows', 'package']) {
@@ -785,7 +788,7 @@ test('Release checks requires an engines pass for the release head, and starts o
     assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref "\$BRANCH" -f engines_only=true/);
     assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
     const verdict = job('verdict');
-    assert.match(verdict.text, /ENGINES: \$\{\{ needs\.changed\.outputs\.engines \}\}/);
+    assert.match(verdict.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
     assert.match(verdict.needs, /start-engines/);
     assert.match(verdict.text, /no Firefox\/WebKit pass for/);
     assert.match(verdict.text, /re-run Release checks when it passes/);
@@ -1159,4 +1162,93 @@ test("CI result runs the tool of the run's own commit, and takes only plan.json 
     assert.equal(go({}).status, 0);
     writeFileSync(planFile, '{"schema":1,"lanes":{}}\n');
     assert.equal(go({}).status, 1, 'a replaced plan.json is refused');
+});
+
+// the owner's Codex reviews of this pull request and of the rollup; the stack's review -----------------------------------------
+
+test("Release checks' verdict looks the engines evidence up itself when What to check said missing, so Re-run failed jobs recovers (the owner's Codex review)", (t) => {
+    const fx = scratch(t);
+    const { workflow, job } = workflowJobs('release-checks.yml');
+    const verdictJob = job('verdict');
+    assert.match(verdictJob.text, /^ {12}actions: read\b/m, 'it may read the run artifacts and markers');
+    assert.doesNotMatch(verdictJob.text, /: write\b/, 'and holds no write token');
+    const checkout = verdictJob.text.split(/\n(?= {12}- )/).find((s) => s.includes('actions/checkout@'));
+    assert.ok(checkout, 'a checkout of the tool');
+    assert.match(checkout, /persist-credentials: false/);
+    assert.match(checkout, /sparse-checkout: \|?\s*\n?\s*tools\/ci/);
+    const recheck = stepIn(workflow, 'verdict', 'recheck');
+    assert.ok(recheck, 'a recheck step');
+    assert.match(verdictJob.text, /id: recheck\n {14}if: .*startsWith\(needs\.changed\.outputs\.engines, 'missing'\)/);
+    assert.match(verdictJob.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
+    // the same command, one rule, in What to check and in the verdict
+    for (const step of [stepIn(workflow, 'changed', 'engines'), recheck]) assert.match(step.run, /lane-evidence\.mjs"? require --lane engines --repo "\$REPO" --merge "\$GITHUB_SHA" --github-output "\$GITHUB_OUTPUT"/);
+
+    // a release pull request: its head, and GitHub's merge of it into main
+    mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
+    writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'the tool');
+    const base = fx.head();
+    fx.git('checkout', '-qb', 'release');
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '-');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const step = (s, sha, routes) => {
+        writeFileSync(join(fx.dir, 'routes.json'), JSON.stringify(routes));
+        writeFileSync(join(fx.dir, 'gh-api.log'), '');
+        const output = join(fx.dir, 'verdict-out');
+        writeFileSync(output, '');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', s.run], { cwd: fx.repo, encoding: 'utf8',
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+        assert.equal(out.status, 0, out.stderr);
+        return readFileSync(output, 'utf8').match(/^engines=(.*)$/m)?.[1];
+    };
+    const decide = (engines) => spawnSync('bash', ['-eo', 'pipefail', '-c', stepIn(workflow, 'verdict', 'decide').run], { encoding: 'utf8',
+        env: { PATH: process.env.PATH, EVENT: 'pull_request', CHANGED: 'success', RUN: 'false', SUITE: 'skipped', COMPLETE: 'skipped', PROD_IMAGE: 'skipped', START: 'dispatched', BRANCH: 'release', ENGINES: engines } });
+    // attempt 1 said missing; the engines run has passed since: the verdict's own lookup finds it, and the check passes
+    const found = step(recheck, merge, engineRoutes(fx, head, fp));
+    assert.equal(found, 'pass');
+    assert.equal(decide(found).status, 0, 'Re-run failed jobs recovers once the engines passed');
+    // still missing: the same message as before
+    const still = step(recheck, merge, {});
+    assert.match(still, /^missing: engines: no_evidence/);
+    const red = decide(still);
+    assert.equal(red.status, 1);
+    assert.match(red.stdout + red.stderr, /no Firefox\/WebKit pass for this release's head: .*re-run Release checks when it passes/);
+    // main moved on: the merge tests another tree, which no pass on the head can stand for
+    fx.git('checkout', '-q', base);
+    fx.git('checkout', '-qb', 'main2');
+    fx.commit('README.md', 'main moved\n');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    const tree = step(recheck, fx.head(), engineRoutes(fx, head, fp));
+    assert.match(tree, /^tree: /);
+    assert.match(decide(tree).stdout + decide(tree).stderr, /[Bb]ring main into release/);
+});
+
+test('without the job list, a failed shared browser job makes the engines failure marker due, and its loss an error (Codex, #220)', (t) => {
+    const fx = scratch(t);
+    const lanes = { demo: lane('skip'), engines: lane('run', 'f'.repeat(64)), php: lane('skip'), 'prod-image': lane('skip') };
+    for (const jobs of [undefined, 'not json']) {
+        const lost = recorded(fx, lanes, jobs, { needs: { demo: { result: 'failure' } } });
+        assert.equal(lost.result.status, 1, `jobs ${jobs}: the engines' failure cannot be told from a setup failure, so its marker was due`);
+        assert.match(lost.result.stderr, /::error::engines: its failure marker cannot be recorded/);
+    }
+    const passed = recorded(fx, lanes, undefined, { needs: { demo: { result: 'success' } } });
+    assert.equal(passed.result.status, 0, 'a lost pass marker only warns');
+});
+
+test('an engines shard that ended before its tests is incomplete: no failure marker, and the daily run says incomplete', (t) => {
+    const fx = scratch(t);
+    const steps = (tests) => [{ name: 'Install the browsers', conclusion: tests === 'skipped' ? 'failure' : 'success' }, { name: 'Playwright (smoke + every README example + UXor recipe specs)', conclusion: tests }];
+    const setupFailed = engineJobs().map((job) => ({ ...job, conclusion: 'failure', steps: steps('skipped') }));
+    const lanes = { demo: lane('skip'), engines: lane('run', 'f'.repeat(64)), php: lane('skip'), 'prod-image': lane('skip') };
+    assert.deepEqual(recorded(fx, lanes, setupFailed, { needs: { demo: { result: 'failure' } } }).markers, [], 'no failure marker for tests that never ran');
+    const testsFailed = engineJobs().map((job, i) => (i === 0 ? { ...job, conclusion: 'failure', steps: steps('failure') } : job));
+    assert.deepEqual(recorded(fx, lanes, testsFailed, { needs: { demo: { result: 'failure' } } }).markers, [`ci-fail-v1-engines-${'f'.repeat(64)}`]);
+    const { verdict } = verdictFixture(t, { engines: lane('run', 'f'.repeat(64)), event: 'daily' });
+    const out = verdict({ demo: 'failure' }, undefined, [], setupFailed);
+    assert.match(out.outputs, /^engines-status=incomplete$/m);
+    assert.doesNotMatch(out.outputs, /engines-report=Firefox\/WebKit failed/);
 });

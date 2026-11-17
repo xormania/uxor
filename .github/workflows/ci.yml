@@ -54,7 +54,8 @@ env:
     # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
     # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
     # result. `every-push`: on every push, as before the trial. This line is the one switch back.
-    CHROMIUM_SHARDS: '6'
+    # eight, measured: 4 min 35 s to CI result against 5 min 37 s with six, for the same test seconds
+    CHROMIUM_SHARDS: '8'
     ENGINES_ON: daily
 
 jobs:
