@@ -1215,11 +1215,14 @@ jobs:
 
     demo:
         name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
-        needs: [changes, importmap]
+        # not importmap: the shards start beside it and wait for it, by name, just before they need its packages (the
+        # plan runs Importmap packages whenever this job runs: its `importmap` output follows the browser lanes)
+        needs: changes
         if: needs.changes.outputs.browsers == 'run'
         runs-on: ubuntu-latest
         permissions:
             contents: read # no packages: write: the build cache is written by the cache job alone, on dev and main
+            actions: read # the run's jobs, to wait for Importmap packages
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
@@ -1248,6 +1251,17 @@ jobs:
 
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # The pinned Playwright image (2.4 GB, tools/playwright-image.mjs) is pulled in the background while the demo
+            # builds and starts, and waited for in Install Playwright, which fails with the pull's error if it failed
+            # (tools/ci/background.mjs). Fails here when the image's tag is not the locked @playwright/test. Started
+            # only once buildx is set up: unpacking the image's layers kept dockerd busy, and the buildx builder's
+            # container then took 16 s to create instead of 2.
+            - name: Start pulling the Playwright image
+              id: pull
+              run: |
+                  image=$(node tools/playwright-image.mjs)
+                  node tools/ci/background.mjs start playwright-image -- docker pull "$image"
 
             # The demo image's build cache is an image in this repository's GitHub packages (ghcr.io/<owner>/<repo>-cache,
             # tags dev and main), not the GitHub Actions cache: a push run reads Actions caches only from its own branch
@@ -1283,6 +1297,15 @@ jobs:
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
+
+            # The job does not need importmap, so it starts while that job downloads the packages (about 15 s) and
+            # waits for it here, by name, through the run's jobs (tools/ci/wait-for-job.mjs): it goes on only when the
+            # job succeeded, and fails naming it when it failed, was cancelled or skipped, or has not ended in 10 min
+            - name: Wait for the importmap packages
+              id: importmap
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: node tools/ci/wait-for-job.mjs --name 'Importmap packages' --timeout 600
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none
@@ -1345,11 +1368,16 @@ jobs:
                   start=$SECONDS
                   npm ci
                   echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
-                  start=$SECONDS
-                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
-                  image=$(node tools/playwright-image.mjs)
-                  docker pull "$image"
-                  echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  # the pull started at the top of the job; pulled here when it was not started (exit status 2)
+                  status=0
+                  node tools/ci/background.mjs wait playwright-image --timeout 300 || status=$?
+                  if [ "$status" -eq 2 ]; then
+                      start=$SECONDS
+                      docker pull "$(node tools/playwright-image.mjs)"
+                      echo "playwright-image-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  elif [ "$status" -ne 0 ]; then
+                      exit "$status"
+                  fi
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
             # (tools/prepare-tests.mjs): Playwright finds both up to date, and a failed build reads as a setup failure
@@ -1442,7 +1470,9 @@ jobs:
                   DEMO_STARTED: ${{ steps.start.outcome }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
+                      Start pulling the Playwright image=${{ steps.pull.outcome }}
                       Build the demo image=${{ steps.image.outcome }}
+                      Wait for the importmap packages=${{ steps.importmap.outcome }}
                       Start the demo=${{ steps.start.outcome }}
                       Sync recipes into the demo=${{ steps.sync.outcome }}
                       The sync leaves tracked files unchanged=${{ steps.tracked.outcome }}
@@ -1475,7 +1505,8 @@ jobs:
                   SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
                   NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
                   NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
-                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.image-pull-seconds }}
+                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.playwright-image-seconds }}
+                  IMAGE_PULL_WAIT_SECONDS: ${{ steps.install.outputs.playwright-image-wait-seconds }}
               run: |
                   timeout 30 docker buildx history ls --format json > "$RUNNER_TEMP/buildx-history.jsonl" || true
                   node tools/ci/ci-metrics.mjs job --buildx "$RUNNER_TEMP/buildx-history.jsonl" --out playwright-results/job-metrics.json
