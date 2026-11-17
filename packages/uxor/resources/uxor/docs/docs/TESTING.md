@@ -1521,7 +1521,10 @@ download of this commit's archive is not checked again within those 24 hours.
   a failed browser job makes the engines' failure marker due as well as Chromium's: which shard failed, and whether its
   tests had started, cannot be told, so the loss is reported rather than an older pass left to stand.
 - **Reuse:** the markers for the fingerprint are read newest first. A failure from a push or manual run of `ci.yml`
-  in this repository stops the search and runs the lane (one from anywhere else counts for nothing). The first pass
+  in this repository stops the search and runs the lane, but only one verified like a pass: that run's latest attempt
+  failed a job of the lane (the tests, for the browser lanes), the marker's record agrees, and the fingerprint
+  recomputed at its commit is this one. Any job of such a run could upload a marker under the predictable name, so one
+  from anywhere else, or one that fails these checks, counts for nothing; a lookup that fails runs the lane. The first pass
   that verifies is reused: at most 14 days old, from such a run (any branch: the tree is what was tested), whose jobs
   of the lane all passed in its latest attempt, the same jobs the marker names (a producer whose lane ran again since
   falls back to the next pass), and the fingerprint recomputed at that run's commit equal to this commit's. A missing
