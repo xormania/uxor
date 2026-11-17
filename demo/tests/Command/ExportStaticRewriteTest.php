@@ -4,6 +4,7 @@ namespace App\Tests\Command;
 
 use App\Command\ExportStaticCommand;
 use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -15,43 +16,45 @@ use PHPUnit\Framework\TestCase;
  * PCRE error still gives null, and must not be saved. Each case turns PCRE's JIT off and sets the backtrack limit to 1,
  * so any match attempt fails, and gives a page that only the step's own pattern starts an attempt on: the steps before
  * it lack their first or a required character in it, start no attempt and pass.
+ *
+ * PCRE's JIT does not count small backtrack limits, and a pattern compiled with JIT on keeps its JIT code in PHP's
+ * pattern cache when pcre.jit is turned off later: a case run after any test that rewrote a page (this class's healthy
+ * case, StaticExportBannerTest) would match and pass no error. So each case runs in its own PHP process, where JIT is
+ * off before any of the export's patterns is compiled.
  */
 final class ExportStaticRewriteTest extends TestCase
 {
     /**
-     * @return iterable<string, array{\Closure(): string, string, string}>
+     * @return iterable<string, array{'rewrite'|'addDemoNotice', string, string, string}>
      */
     public static function failingSteps(): iterable
     {
-        yield 'the preview links' => [static fn (): string => ExportStaticCommand::rewrite('<a href="/preview/a/b?theme=dark">', '/uxor', '/'), 'rewrite the preview links', '/'];
+        yield 'the preview links' => ['rewrite', '<a href="/preview/a/b?theme=dark">', '/', 'rewrite the preview links'];
         // no '/': the preview links' pattern starts no attempt
-        yield 'the Live controllers' => [static fn (): string => ExportStaticCommand::rewrite('<div data-controller="live x">', '/uxor', '/r/x'), "remove Live's controller", '/r/x'];
+        yield 'the Live controllers' => ['rewrite', '<div data-controller="live x">', '/r/x', "remove Live's controller"];
         // no '=', which the preview links' pattern requires, and no 'd': only the asset pattern starts
-        yield 'the asset URLs' => [static fn (): string => ExportStaticCommand::rewrite('"/assets/a.js"', '/uxor', '/r/x'), 'prefix the asset URLs', '/r/x'];
+        yield 'the asset URLs' => ['rewrite', '"/assets/a.js"', '/r/x', 'prefix the asset URLs'];
         // no '/', no quote (which the Live pattern requires): only the notice's pattern after <body>, on a /demo page
-        yield 'the demo notice after <body>' => [static fn (): string => ExportStaticCommand::rewrite('<body>', '/uxor', '/demo/x'), 'add the demo notice', '/demo/x'];
+        yield 'the demo notice after <body>' => ['rewrite', '<body>', '/demo/x', 'add the demo notice'];
         // `id="main"` holds a 'd', where the Live pattern would start: the notice before <main>, on its own
-        yield 'the demo notice before <main>' => [static fn (): string => ExportStaticCommand::addDemoNotice('<main id="main">', '/uxor', '/demo/x'), 'add the demo notice', '/demo/x'];
+        yield 'the demo notice before <main>' => ['addDemoNotice', '<main id="main">', '/demo/x', 'add the demo notice'];
     }
 
     /**
-     * @param \Closure(): string $export
+     * @param 'rewrite'|'addDemoNotice' $method
      */
     #[DataProvider('failingSteps')]
-    public function testAPcreErrorFailsTheExportNamingTheStep(\Closure $export, string $step, string $path): void
+    #[RunInSeparateProcess]
+    public function testAPcreErrorFailsTheExportNamingTheStep(string $method, string $html, string $path, string $step): void
     {
-        $limit = ini_get('pcre.backtrack_limit');
-        $jit = ini_get('pcre.jit');
         ini_set('pcre.jit', '0');
         ini_set('pcre.backtrack_limit', '1');
+        self::assertSame('0', ini_get('pcre.jit'));
         try {
-            $export();
+            ExportStaticCommand::$method($html, '/uxor', $path);
             self::fail(\sprintf('no exception: the step "%s" passed a PCRE error on', $step));
         } catch (\RuntimeException $exception) {
             self::assertSame(\sprintf('The static export could not %s on %s: Backtrack limit exhausted.', $step, $path), $exception->getMessage());
-        } finally {
-            ini_set('pcre.backtrack_limit', (string) $limit);
-            ini_set('pcre.jit', (string) $jit);
         }
     }
 
