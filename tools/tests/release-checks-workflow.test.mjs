@@ -175,7 +175,7 @@ test('missing structural evidence remains fatal, and required evidence and brows
 
 test('the required verdict rejects a failed or skipped suite, production image and target resolution, retaining only the trusted skips', (t) => {
     const fx = scratch(t);
-    const verdict = steps('verdict').find((step) => step.run);
+    const verdict = steps('verdict').find((step) => step.id === 'decide');
     // the production image runs when the suite does (needs.changed.outputs.run == 'true'): it must have succeeded then;
     // where the suite is trusted to be skipped it is skipped too, which passes, and a failed or cancelled one never does
     for (const [event, changed, run, suite, image, expected] of [
@@ -314,7 +314,7 @@ test('the matrix cannot publish passes or baselines until all lanes and their fr
         const properties = steps('checks').find((step) => step.id === 'properties');
         assert.equal(holds(properties.if, { matrix: { lane }, steps: { start: result('success') } }), lane === 'release', 'PHP properties run once');
     }
-    const verdict = steps('verdict').find((step) => step.run);
+    const verdict = steps('verdict').find((step) => step.id === 'decide');
     const fx = scratch(t);
     for (const complete of ['failure', 'skipped', 'cancelled']) {
         const out = shell(verdict.run, fx, { EVENT: 'pull_request', CHANGED: 'success', RUN: 'true', SUITE: 'success', COMPLETE: complete });

@@ -198,20 +198,8 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
-              run: |
-                  read -r _ head <<< "$(git cat-file -p "$GITHUB_SHA" | sed -n 's/^parent //p' | tr '\n' ' ')"
-                  if [ -z "$head" ] || [ "$(git rev-parse "$GITHUB_SHA^{tree}")" != "$(git rev-parse "$head^{tree}")" ]; then
-                      # nothing run on the head can stand for the merge: no engines run is started for it
-                      echo "engines=tree: the merge tests another tree than the head ${head:-unknown} (main has commits the branch lacks)" >> "$GITHUB_OUTPUT"
-                      exit 0
-                  fi
-                  if found=$(node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --sha "$head"); then
-                      echo "$found"
-                      echo "engines=pass" >> "$GITHUB_OUTPUT"
-                      exit 0
-                  fi
-                  echo "$found"
-                  echo "engines=missing: ${found//$'\n'/ }" >> "$GITHUB_OUTPUT"
+              # engines=pass, missing: … or tree: … (a merge that tests another tree than its head: nothing is started for it)
+              run: node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --merge "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
 
     # Starts Firefox and WebKit on the pull request's head branch when its head has no pass of theirs (What to check). A job of
     # its own, with no checkout: the token that may start a workflow never runs the pull request's code.
@@ -710,13 +698,35 @@ jobs:
         if: ${{ always() && github.event_name != 'schedule' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
+        permissions:
+            contents: read
+            actions: read # CI's engines markers and their runs, when What to check found none
         steps:
+            # What to check found no Firefox and WebKit pass and Start the engines started one. "Re-run failed jobs" after
+            # that run passed re-runs this job but not What to check, whose output stays `missing`: so this job looks the
+            # evidence up itself, with the same command and rule (the merge's tree must be its head's), and decides on what
+            # it finds now. Only the tool is checked out, with no token kept; this job holds no write token.
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              if: github.event_name == 'pull_request' && startsWith(needs.changed.outputs.engines, 'missing')
+              with:
+                  persist-credentials: false
+                  fetch-depth: 2 # the merge commit and its parents: the head's tree, and the merge's to compare it with
+                  sparse-checkout: |
+                      tools/ci
+
+            - id: recheck
+              if: github.event_name == 'pull_request' && startsWith(needs.changed.outputs.engines, 'missing')
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --merge "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
+
             - id: decide
               env:
                   EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.event_name }}
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
-                  ENGINES: ${{ needs.changed.outputs.engines }}
+                  ENGINES: ${{ steps.recheck.outputs.engines || needs.changed.outputs.engines }}
                   START: ${{ needs.start-engines.outputs.started }}
                   BRANCH: ${{ github.head_ref }}
                   SUITE: ${{ needs.checks.result }}

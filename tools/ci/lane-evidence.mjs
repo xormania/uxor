@@ -28,9 +28,10 @@
  * Common: --gh <command> (gh), --git-dir <dir> (.), --now <ISO time> (the clock), --budget-ms <n> (60000),
  * --retry-delay-ms <n> (1000: the verdict retries a failed API call twice, after it and twice it).
  *
- * Self-contained (Node's own modules only): CI result runs the copy the Changes job ran.
+ * Self-contained (Node's own modules only). CI result runs the copy at the run's commit, from its own checkout, and takes
+ * only the plan from the Changes job's artifact, by its id and SHA-256.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -63,6 +64,15 @@ const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily r
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 /**
+ * The lanes each excluded file's content is left out for: those that never read it. All of them are export-ignored and
+ * kept out of the production image, and the demo only links them; but Package's references step reads CHANGELOG.md's
+ * latest version heading (packages/uxor/tools/ReferenceGenerator.php, releaseRef), so CHANGELOG.md's content is
+ * Package's input.
+ */
+export const EXCLUDED_FOR = Object.fromEntries(EXCLUDED.map((file) => [file,
+    Object.keys(REUSABLE).filter((lane) => !(file === 'CHANGELOG.md' && lane === 'package'))]));
+const excludedFor = (lane) => EXCLUDED.filter((file) => EXCLUDED_FOR[file].includes(lane));
+/**
  * How old a pass may be, per lane. The installs, Lint kit and Package resolve dependencies live (a fresh Symfony
  * skeleton and Symfony Docker, the Toolkit and the consumer's packages from Packagist): their evidence goes stale with
  * time, not with the tree. dev's daily run checks that drift, and never reuses them; a pass on the same tree within a
@@ -73,7 +83,9 @@ const maxAge = (lane) => MAX_AGE_HOURS[lane] ?? MAX_AGE_HOURS.default;
 const WORKFLOW = '.github/workflows/ci.yml';
 const PRODUCER_EVENTS = ['push', 'workflow_dispatch'];
 /** the jobs of ci.yml that make up each lane, as CI result's `needs` names them */
-const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'] };
+// the engines run in the browser job (`demo` in `needs`): without the run's job list, a failed browser job may be an
+// engines failure, and cannot be told from one before the tests started, so the safe direction is that its marker was due
+const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'], engines: ['demo'] };
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
 /** the checks that are steps of the Quick checks job (`quick` in `needs`): their outcomes are its outputs */
 const QUICK_CHECKS = ['tools', 'contrast', 'workflows'];
@@ -121,16 +133,18 @@ function git(dir, args) {
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
-    // an excluded file counts by its path and mode, not its content: deleting it or making it a link still counts
-    const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean).map((entry) => {
-        const tab = entry.indexOf('\t');
-        if (!EXCLUDED.includes(entry.slice(tab + 1))) return entry;
-        const [mode, type] = entry.slice(0, tab).split(' ');
-        return `${mode} ${type} -${entry.slice(tab)}`;
-    });
-    const body = entries.map((entry) => `${entry}\0`).join('');
-    return Object.fromEntries(Object.keys(REUSABLE).map((lane) =>
-        [lane, createHash('sha256').update(`uxor-lane-evidence/2\0${lane}\0`).update(body).digest('hex')]));
+    // a file excluded for a lane counts by its path and mode, not its content: deleting it or making it a link still counts
+    const all = tree.stdout.toString('utf8').split('\0').filter(Boolean);
+    return Object.fromEntries(Object.keys(REUSABLE).map((lane) => {
+        const excluded = excludedFor(lane);
+        const body = all.map((entry) => {
+            const tab = entry.indexOf('\t');
+            if (!excluded.includes(entry.slice(tab + 1))) return entry;
+            const [mode, type] = entry.slice(0, tab).split(' ');
+            return `${mode} ${type} -${entry.slice(tab)}`;
+        }).map((entry) => `${entry}\0`).join('');
+        return [lane, createHash('sha256').update(`uxor-lane-evidence/3\0${lane}\0`).update(body).digest('hex')];
+    }));
 }
 
 /** the producer's commit, fetched by its id when this clone lacks it, without making the clone shallow */
@@ -152,6 +166,8 @@ function sleep(ms) {
 function api(ctx) {
     return {
         raw(path) {
+            // answered already by the plan's concurrent prefetch
+            if (ctx.cache?.has(path)) return ctx.cache.get(path);
             for (let attempt = 0; ; attempt++) {
                 if (Date.now() > ctx.deadline) throw new Refused('lookup_error', 'the lookup ran out of time');
                 ctx.calls++;
@@ -176,6 +192,56 @@ function api(ctx) {
             return value;
         },
     };
+}
+
+/** one `gh api` call without blocking: its answer, or null on any error (the synchronous call then fails as usual) */
+function ghAsync(ctx, path) {
+    return new Promise((resolve) => {
+        const child = spawn(ctx.gh, ['api', path], { stdio: ['ignore', 'pipe', 'ignore'] });
+        const chunks = [];
+        const timer = setTimeout(() => child.kill(), 20000);
+        child.stdout.on('data', (chunk) => chunks.push(chunk));
+        child.on('error', () => { clearTimeout(timer); resolve(null); });
+        child.on('close', (code) => { clearTimeout(timer); resolve(code === 0 ? Buffer.concat(chunks) : null); });
+    });
+}
+
+/** fetches these paths at the same time, at most eight at once, into the cache the synchronous checks read */
+async function prefetch(ctx, paths) {
+    const todo = [...new Set(paths)].filter((path) => !ctx.cache.has(path));
+    for (let i = 0; i < todo.length; i += 8) {
+        const answers = await Promise.all(todo.slice(i, i + 8).map(async (path) => {
+            ctx.calls++;
+            return [path, await ghAsync(ctx, path)];
+        }));
+        for (const [path, answer] of answers) if (answer) ctx.cache.set(path, answer);
+    }
+}
+
+/**
+ * The plan's lookups, ahead of its checks: every lane's pass and failure listings at once, then, for each lane's newest
+ * pass, its ZIP, its run and the run's jobs at once (a run shared by lanes is fetched once). Only answers are cached:
+ * what failed here is asked again, and fails, in the checks, which decide exactly as without this.
+ */
+async function prefetchLookups(ctx, lanes) {
+    const listing = (kind, lane, fp) => `repos/${ctx.repo}/actions/artifacts?name=${markerName(kind, lane, fp)}&per_page=100`;
+    await prefetch(ctx, lanes.flatMap(({ lane, fp }) => [listing('pass', lane, fp), listing('fail', lane, fp)]));
+    const next = [];
+    for (const { lane, fp } of lanes) {
+        let artifacts;
+        try {
+            artifacts = JSON.parse(ctx.cache.get(listing('pass', lane, fp))?.toString('utf8') ?? 'null')?.artifacts;
+        } catch {
+            continue;
+        }
+        if (!Array.isArray(artifacts)) continue;
+        const newest = artifacts.filter((a) => isObject(a) && Number.isInteger(a.id) && Number.isInteger(a.workflow_run?.id))
+            .sort((a, b) => time(b.created_at) - time(a.created_at))[0];
+        if (!newest) continue;
+        next.push(`repos/${ctx.repo}/actions/artifacts/${newest.id}/zip`, `repos/${ctx.repo}/actions/runs/${newest.workflow_run.id}`,
+            `repos/${ctx.repo}/actions/runs/${newest.workflow_run.id}/jobs?filter=latest&per_page=100`);
+    }
+    await prefetch(ctx, next);
 }
 
 /** the one file of a small artifact ZIP, without extracting anything */
@@ -229,6 +295,18 @@ function chromiumShards(value) {
     return shards;
 }
 
+/**
+ * A browser job that failed before its tests started (its setup: the image, the demo, the browsers) says nothing about
+ * the tests: incomplete, not failed. Without the job's steps, it counts as failed.
+ */
+const TESTS_STEP = 'Playwright (';
+export function testsFailed(job) {
+    if (!['failure', 'timed_out'].includes(job.conclusion)) return false;
+    if (!Array.isArray(job.steps)) return true;
+    const tests = job.steps.find((step) => isObject(step) && String(step.name).startsWith(TESTS_STEP));
+    return Boolean(tests) && ['success', 'failure', 'timed_out'].includes(tests.conclusion);
+}
+
 const markerName = (kind, lane, fp) => `ci-${kind}-v1-${lane}-${fp}`;
 const time = (value) => Date.parse(value ?? '');
 const ids = (list) => list.map((job) => job?.id).sort((a, b) => a - b).join(',');
@@ -249,11 +327,21 @@ function candidates(client, ctx, lane, fp) {
         .sort((a, b) => time(b.created_at) - time(a.created_at) || (a.kind === 'fail' ? -1 : 1));
 }
 
-function checkAge(ctx, artifact, lane) {
+function checkExpired(artifact) {
     if (artifact.expired) throw new Refused('evidence_expired', `marker ${artifact.id} has expired`);
-    const age = ctx.now - time(artifact.created_at);
+}
+
+/** when the lane's evidence was made: its oldest job's completion (a re-run's marker is no younger than its jobs) */
+export function completedAt(jobs) {
+    if (!jobs.length || jobs.some((job) => Number.isNaN(time(job?.completed_at)))) return null;
+    return jobs.reduce((oldest, job) => (time(job.completed_at) < time(oldest.completed_at) ? job : oldest)).completed_at;
+}
+
+/** the age of a pass is its lane jobs' completion, as the jobs API reports it, not its marker's creation */
+function checkAge(ctx, completed, lane, what) {
+    const age = ctx.now - time(completed);
     if (Number.isNaN(age) || age > maxAge(lane) * 3600000) {
-        throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 3600000)} hours old (at most ${maxAge(lane)} for ${lane})`);
+        throw new Refused('evidence_too_old', `${what}: its ${lane} jobs completed ${Math.floor(age / 3600000)} hours ago (at most ${maxAge(lane)})`);
     }
 }
 
@@ -295,9 +383,12 @@ function producerJobs(client, ctx, lane, run) {
 
 /** one pass marker, verified in full; throws Refused */
 function verifyPass(client, ctx, lane, fp, artifact) {
-    checkAge(ctx, artifact, lane);
+    checkExpired(artifact);
     const run = producerRun(client, ctx, artifact);
     const jobs = producerJobs(client, ctx, lane, run);
+    const completed = completedAt(jobs);
+    if (!completed) throw new Refused('marker_invalid', `run ${run.id} lists no completion time for its ${lane} jobs`);
+    checkAge(ctx, completed, lane, `marker ${artifact.id}`);
     let marker;
     try {
         marker = JSON.parse(zipEntry(client.raw(`repos/${ctx.repo}/actions/artifacts/${artifact.id}/zip`), 'evidence.json').toString('utf8'));
@@ -314,6 +405,7 @@ function verifyPass(client, ctx, lane, fp, artifact) {
         marker?.run_id !== run.id && 'run',
         marker?.sha !== run.head_sha && 'commit',
         (!Array.isArray(marker?.jobs) || ids(marker.jobs) !== ids(jobs)) && 'jobs (the run lists others now)',
+        time(marker?.completed_at) !== time(completed) && 'completion time (the jobs API says otherwise)',
     ].filter(Boolean);
     if (problems.length) throw new Refused('marker_invalid', `marker ${artifact.id} disagrees on its ${problems.join(', ')}`);
     ensureCommit(ctx.gitDir, run.head_sha);
@@ -322,7 +414,7 @@ function verifyPass(client, ctx, lane, fp, artifact) {
     }
     return {
         artifact_id: artifact.id, artifact_name: artifact.name, run_id: run.id, run_attempt: marker.run_attempt ?? null,
-        head_sha: run.head_sha, head_branch: run.head_branch ?? null, created_at: artifact.created_at,
+        head_sha: run.head_sha, head_branch: run.head_branch ?? null, created_at: artifact.created_at, completed_at: completed,
         url: run.html_url ?? `https://github.com/${ctx.repo}/actions/runs/${run.id}`,
         jobs: jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt })),
         flaky: Number.isInteger(marker.flaky) ? marker.flaky : null, tests: marker.tests ?? null,
@@ -365,7 +457,9 @@ function requalify(client, ctx, lane, fp, evidence) {
     if (!isObject(evidence)) throw new Refused('marker_invalid', 'the plan holds no evidence');
     const artifact = client.object(`repos/${ctx.repo}/actions/artifacts/${evidence.artifact_id}`);
     if (artifact.name !== evidence.artifact_name) throw new Refused('marker_invalid', `artifact ${evidence.artifact_id} is now ${artifact.name}`);
-    checkAge(ctx, artifact, lane);
+    // age is decided once, by the plan: a pass planned at the edge of its age is not refused minutes later. Expiry,
+    // disappearance, a later failure and the producer's jobs are integrity, and are checked again
+    checkExpired(artifact);
     for (const failure of markers(client, ctx.repo, 'fail', lane, fp)) {
         if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, failure)) {
             throw new Refused('later_failure', `run ${failure.workflow_run?.id} failed the lane with these inputs at ${failure.created_at}, after the pass the plan reuses`);
@@ -381,7 +475,7 @@ function context(opts, retries) {
     const now = opts.now ? Date.parse(opts.now) : Date.now();
     if (Number.isNaN(now)) usage('--now is not a time');
     return {
-        repo: opts.repo, gh: opts.gh ?? 'gh', gitDir: opts['git-dir'] ?? '.', now, calls: 0, runs: new Map(), jobs: new Map(),
+        repo: opts.repo, gh: opts.gh ?? 'gh', gitDir: opts['git-dir'] ?? '.', now, calls: 0, runs: new Map(), jobs: new Map(), cache: new Map(),
         deadline: Date.now() + Number(opts['budget-ms'] ?? 60000), retries, retryDelay: Number(opts['retry-delay-ms'] ?? 1000),
         chromiumShards: chromiumShards(opts['chromium-shards']),
     };
@@ -406,10 +500,10 @@ function fingerprintCommand(opts) {
     const dir = opts['git-dir'] ?? '.';
     const sha = git(dir, ['rev-parse', '--verify', `${opts.sha}^{commit}`]).stdout.toString().trim();
     if (!sha) usage(`no commit ${opts.sha}`);
-    console.log(JSON.stringify({ schema: 1, sha, excluded: EXCLUDED, lanes: fingerprints(dir, sha) }));
+    console.log(JSON.stringify({ schema: 1, sha, excluded: Object.fromEntries(Object.keys(REUSABLE).map((lane) => [lane, excludedFor(lane)])), lanes: fingerprints(dir, sha) }));
 }
 
-function planCommand(opts) {
+async function planCommand(opts) {
     need(opts, 'repo', 'sha', 'selection', 'out');
     const started = Date.now();
     const ctx = context(opts, 0);
@@ -434,6 +528,10 @@ function planCommand(opts) {
         own = fingerprints(ctx.gitDir, opts.sha);
     } catch (error) {
         ownError = refusal(error);
+    }
+    // the lanes that will look evidence up, all fetched at once before the checks below
+    if (!reuseOff && own) {
+        await prefetchLookups(ctx, LANES.filter((lane) => REUSABLE[lane] && (selected[lane] ?? true)).map((lane) => ({ lane, fp: own[lane] })));
     }
     const lanes = {};
     for (const lane of LANES) {
@@ -491,10 +589,18 @@ function planCommand(opts) {
     });
 }
 
-/** exit 0 when the lane has a pass at this commit that verifies (Release checks' requirement), 1 otherwise */
+/**
+ * Release checks' requirement. With --sha: exit 0 when the lane has a pass at this commit that verifies, 1 otherwise.
+ * With --merge (a pull request's merge commit) and --github-output: the head is the merge's second parent; a merge that
+ * tests another tree than its head gets `<lane>=tree: …` (no pass on the head can stand for it), else `<lane>=pass` or
+ * `<lane>=missing: …`, and the exit status is 0. What to check and the verdict both run it, so one rule decides, and a
+ * re-run of the verdict alone ("Re-run failed jobs") sees evidence that arrived since What to check ran.
+ */
 function requireCommand(opts) {
-    need(opts, 'lane', 'repo', 'sha');
+    need(opts, 'lane', 'repo');
     if (!REUSABLE[opts.lane]) usage(`${opts.lane} is not a lane whose pass is recorded`);
+    if (opts.merge !== undefined) return requireMerge(opts);
+    need(opts, 'sha');
     const ctx = context(opts, 2);
     const client = api(ctx);
     try {
@@ -504,6 +610,33 @@ function requireCommand(opts) {
         const refused = refusal(error);
         console.log(`${opts.lane}: ${refused.reason}: ${refused.message}`);
         process.exitCode = 1;
+    }
+}
+
+function requireMerge(opts) {
+    need(opts, 'github-output');
+    const dir = opts['git-dir'] ?? '.';
+    const out = (value) => writeOutputs(opts['github-output'], { [opts.lane]: value.replace(/[\r\n]+/g, ' ') });
+    const parents = git(dir, ['rev-list', '--parents', '-n', '1', opts.merge]).stdout.toString().trim().split(' ').slice(1);
+    const head = parents.length === 2 ? parents[1] : null;
+    const tree = (rev) => git(dir, ['rev-parse', `${rev}^{tree}`]).stdout.toString().trim();
+    if (!head || tree(opts.merge) !== tree(head)) {
+        const line = `the merge tests another tree than the head ${head ?? 'unknown'} (main has commits the branch lacks)`;
+        console.log(`${opts.lane}: ${line}`);
+        out(`tree: ${line}`);
+        return;
+    }
+    const ctx = context(opts, 2);
+    const client = api(ctx);
+    try {
+        const evidence = qualify(client, ctx, opts.lane, fingerprints(dir, head)[opts.lane]);
+        console.log(`${opts.lane}: passed by run ${evidence.run_id} attempt ${evidence.run_attempt} on ${evidence.head_sha} ${evidence.url}`);
+        out('pass');
+    } catch (error) {
+        const refused = refusal(error);
+        const line = `${opts.lane}: ${refused.reason}: ${refused.message}`;
+        console.log(line);
+        out(`missing: ${line}`);
     }
 }
 
@@ -566,11 +699,26 @@ function recordCommand(opts) {
             continue;
         }
         const mine = laneJobs(lane, jobs);
+        // a lane whose jobs all ran in an earlier attempt was recorded by that attempt's CI result: never again, or a
+        // re-run would make an old pass look young
+        const attempt = Number(opts['run-attempt']);
+        if (mine.length && mine.every((job) => Number.isInteger(job.run_attempt) && job.run_attempt < attempt)) {
+            console.log(`${lane}: its jobs ran in an earlier attempt, which recorded them`);
+            continue;
+        }
         const count = entry.jobs_expected ?? expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS);
         const passed = mine.length === count && mine.every((job) => job.conclusion === 'success');
-        const failed = (BROWSER_LANES.includes(lane) ? false : failedByNeeds) || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
+        // a browser shard that failed before its tests is incomplete, not a failure of these inputs
+        const failed = BROWSER_LANES.includes(lane)
+            ? mine.some(testsFailed)
+            : failedByNeeds || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
         if (!passed && !failed) continue;
         const kind = failed ? 'fail' : 'pass';
+        const completed = completedAt(mine);
+        if (kind === 'pass' && !completed) {
+            console.log(`::warning::${lane}: no pass recorded (its jobs carry no completion time, so its age could not be told)`);
+            continue;
+        }
         const tests = BROWSER_LANES.includes(lane) ? testCounts(opts.shards, lane === 'demo' ? ['chromium'] : ENGINE_BROWSERS) : null;
         const name = markerName(kind, lane, fp);
         try {
@@ -579,7 +727,7 @@ function recordCommand(opts) {
                 schema: 1, kind, lane, fingerprint: fp, repo: plan.repo, sha: plan.sha,
                 run_id: Number(opts['run-id']), run_attempt: Number(opts['run-attempt']),
                 jobs: mine.map(({ id, name: job, conclusion, run_attempt }) => ({ id, name: job, conclusion, run_attempt })),
-                flaky: tests ? tests.flaky : null, tests,
+                completed_at: completed, flaky: tests ? tests.flaky : null, tests,
                 runner: { image_os: process.env.ImageOS ?? null, image_version: process.env.ImageVersion ?? null },
                 recorded_at: new Date(opts.now ? Date.parse(opts.now) : Date.now()).toISOString(),
             }, null, 2)}\n`);
@@ -656,9 +804,14 @@ function verdictCommand(opts) {
     const result = (job) => {
         if (QUICK_CHECKS.includes(job) && needs.quick) {
             const outcome = needs.quick.outputs?.[job];
-            if (outcome) return outcome;
             // no output: the job was skipped, or ended before its summary (cancelled, failed in setup)
-            return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+            if (!outcome) return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+            // the job itself must have passed too: a red or cancelled job whose checks all say success left something
+            // unexplained (a setup step, the summary), and no selected check of it passes
+            const outcomes = QUICK_CHECKS.map((name) => needs.quick.outputs?.[name]);
+            const explained = outcomes.some((value) => value && !['success', 'skipped'].includes(value));
+            if (needs.quick.result !== 'success' && !explained && outcome === 'success') return needs.quick.result ?? 'missing';
+            return outcome;
         }
         return needs[job]?.result ?? 'missing';
     };
@@ -724,7 +877,7 @@ function verdictCommand(opts) {
     const engines = plan.lanes?.engines;
     if (plan.event === 'daily' && ['run', 'reuse'].includes(engines?.decision)) {
         const at = String(plan.sha).slice(0, 12);
-        const failedShard = (jobs ?? []).some((job) => laneJobs('engines', [job]).length && ['failure', 'timed_out'].includes(job.conclusion));
+        const failedShard = laneJobs('engines', jobs ?? []).some(testsFailed);
         if (lanes.engines.status === 'fresh' || lanes.engines.status === 'reused') {
             outputs['engines-status'] = 'passed';
             outputs['engines-report'] = lanes.engines.status === 'reused'
@@ -782,5 +935,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const opts = options(process.argv.slice(2));
     const commands = { fingerprint: fingerprintCommand, plan: planCommand, record: recordCommand, verdict: verdictCommand, require: requireCommand, finish: finishCommand };
     if (!commands[opts.command]) usage('the command is fingerprint, plan, record, verdict, finish or require');
-    commands[opts.command](opts);
+    await commands[opts.command](opts);
 }

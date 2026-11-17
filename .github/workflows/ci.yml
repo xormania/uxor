@@ -54,7 +54,8 @@ env:
     # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
     # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
     # result. `every-push`: on every push, as before the trial. This line is the one switch back.
-    CHROMIUM_SHARDS: '6'
+    # eight, measured: 4 min 35 s to CI result against 5 min 37 s with six, for the same test seconds
+    CHROMIUM_SHARDS: '8'
     ENGINES_ON: daily
 
 jobs:
@@ -108,6 +109,9 @@ jobs:
             browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
             # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
             lane-plan: ${{ steps.plan.outputs.artifact }}
+            # the plan's artifact by id and its plan.json's SHA-256: CI result takes nothing else from it, and checks both
+            lane-plan-id: ${{ steps.plan-upload.outputs.artifact-id }}
+            lane-plan-sha256: ${{ steps.plan.outputs.sha256 }}
             base: ${{ steps.jobs.outputs.base }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -210,17 +214,19 @@ jobs:
               run: |
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
-                  cp tools/ci/lane-evidence.mjs "$RUNNER_TEMP/lane-plan/lane-evidence.mjs"
-                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
+                  node tools/ci/lane-evidence.mjs plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
                       --event "$PLAN_EVENT" --engines-on "$ENGINES_ON" --engines "$ENGINES" --chromium-shards "$CHROMIUM_SHARDS" \
                       --selection "$RUNNER_TEMP/jobs" --out "$RUNNER_TEMP/lane-plan/plan.json" --github-output "$GITHUB_OUTPUT"
+                  echo "sha256=$(sha256sum "$RUNNER_TEMP/lane-plan/plan.json" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
                   jq -r '"Lanes planned in \(.elapsed_ms) ms, \(.api_calls) API calls"' "$RUNNER_TEMP/lane-plan/plan.json" >> "$GITHUB_STEP_SUMMARY"
 
-            # the plan and the copy of the tool that made it, for CI result's record and verdict
+            # the plan alone, for CI result's record and verdict (which run the tool of the run's own commit, never a copy
+            # from an artifact: another job of the run could replace an artifact of a predictable name)
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              id: plan-upload
               with:
                   name: ${{ steps.plan.outputs.artifact }}
-                  path: ${{ runner.temp }}/lane-plan/
+                  path: ${{ runner.temp }}/lane-plan/plan.json
                   if-no-files-found: error
                   retention-days: 7
 
@@ -321,17 +327,124 @@ jobs:
                   persist-credentials: false
                   fetch-depth: 0 # the README pairing reads the branch's commits since its base, the release dry run main's history and tags
 
+
+            # the setups have ids so the summary counts them: a check that ran after a failed setup, on the image's own
+            # Node or PHP, is no pass
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              id: setup-node
               with:
                   node-version: 22
                   cache: npm
 
+
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              id: setup-php
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   coverage: none
 
-            # Tool tests ------------------------------------------------------------------------------------------------
+            # Workflows ------------------------------------------------------------------------------------------------
+            # first, before any step runs repository code: nothing can have rewritten the workflows or the release plan,
+            # and the release dry run comes before the plan's own cases
+
+            # The committed tree, before these checks: a tracked file that differs from HEAD on disk (rewritten by an earlier
+            # step's repository code) would let them check a file the commit does not hold
+            - name: The tracked files are the commit's
+              id: workflows-guard
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              run: |
+                  changed=$(git status --porcelain --untracked-files=no)
+                  if [ -n "$changed" ] || ! git diff --quiet HEAD --; then
+                      echo "::error::tracked files differ from the commit before these checks: $(echo "$changed" | awk '{print $NF}' | tr '\n' ' ')"
+                      exit 1
+                  fi
+
+
+            - name: Install actionlint and ShellCheck
+              id: workflows-install
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              working-directory: ${{ runner.temp }}
+              run: |
+                  curl -fsSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+                  curl -fsSLo shellcheck.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+                  printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz | sha256sum --check --strict
+                  mkdir bin
+                  tar -xzf actionlint.tar.gz -C bin actionlint
+                  tar -xJf shellcheck.tar.xz -C bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+
+
+            # the runner's own ShellCheck and Python are not used: only the pinned tools decide
+            - name: actionlint
+              id: workflows-actionlint
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              run: |
+                  set -o pipefail
+                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-workflows-actionlint.log"
+
+
+            # what release.yml would tag and publish from main, with this commit's script; it creates nothing
+            - name: Release dry run on main
+              id: workflows-dry-run
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              run: |
+                  set -o pipefail
+                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-workflows-dry-run.log"
+
+
+            - name: The release plan's own cases
+              id: workflows-release-plan
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              run: |
+                  set -o pipefail
+                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-workflows-release-plan.log"
+
+
+            # Tool tests -----------------------------------------------------------------------------------------------
+            # the file checks on the committed tree first, then the tools' own cases (repository code)
+
+            # The committed tree, before these checks: a tracked file that differs from HEAD on disk (rewritten by an earlier
+            # step's repository code) would let them check a file the commit does not hold
+            - name: The tracked files are the commit's
+              id: tools-guard
+              if: ${{ !cancelled() }}
+              run: |
+                  changed=$(git status --porcelain --untracked-files=no)
+                  if [ -n "$changed" ] || ! git diff --quiet HEAD --; then
+                      echo "::error::tracked files differ from the commit before these checks: $(echo "$changed" | awk '{print $NF}' | tr '\n' ' ')"
+                      exit 1
+                  fi
+
+
+            - name: Repository security policy
+              id: tools-policy
+              if: ${{ !cancelled() }}
+              run: node tools/security-policy.mjs
+
+
+            - name: The bundled references are up to date
+              id: tools-references
+              if: ${{ !cancelled() }}
+              run: php packages/uxor/tools/generate-reference.php --check
+
+
+            - name: The test inventory names existing tests
+              id: tools-inventory
+              if: ${{ !cancelled() }}
+              run: node tools/test-inventory.mjs
+
+
+            - name: The archive holds what the kit and the package declare
+              id: tools-archive
+              if: ${{ !cancelled() }}
+              run: python3 packages/uxor/tools/check-package.py
+
+
+            - name: Every URL of the kit's repository is manifest.json's homepage
+              id: tools-names
+              if: ${{ !cancelled() }}
+              run: node tools/name-check.mjs
+
+
             - name: The tools' own cases
               id: tools-cases
               if: ${{ !cancelled() }}
@@ -339,6 +452,7 @@ jobs:
                   node --test --test-reporter=tap --test-reporter-destination=stdout
                   --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
                   'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
 
             # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis of the tools' cases (advisory)
@@ -352,36 +466,27 @@ jobs:
                   job: Quick checks
                   artifact: jev-input-ci-${{ github.job }}-cases-${{ github.run_id }}-${{ github.run_attempt }}
 
-            - name: Repository security policy
-              id: tools-policy
-              if: ${{ !cancelled() }}
-              run: node tools/security-policy.mjs
 
-            - name: The bundled references are up to date
-              id: tools-references
-              if: ${{ !cancelled() }}
-              run: php packages/uxor/tools/generate-reference.php --check
+            # Contrast -------------------------------------------------------------------------------------------------
 
-            - name: The test inventory names existing tests
-              id: tools-inventory
-              if: ${{ !cancelled() }}
-              run: node tools/test-inventory.mjs
+            # The committed tree, before these checks: a tracked file that differs from HEAD on disk (rewritten by an earlier
+            # step's repository code) would let them check a file the commit does not hold
+            - name: The tracked files are the commit's
+              id: contrast-guard
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  changed=$(git status --porcelain --untracked-files=no)
+                  if [ -n "$changed" ] || ! git diff --quiet HEAD --; then
+                      echo "::error::tracked files differ from the commit before these checks: $(echo "$changed" | awk '{print $NF}' | tr '\n' ' ')"
+                      exit 1
+                  fi
 
-            - name: The archive holds what the kit and the package declare
-              id: tools-archive
-              if: ${{ !cancelled() }}
-              run: python3 packages/uxor/tools/check-package.py
 
-            - name: Every URL of the kit's repository is manifest.json's homepage
-              id: tools-names
-              if: ${{ !cancelled() }}
-              run: node tools/name-check.mjs
-
-            # Contrast --------------------------------------------------------------------------------------------------
             - name: Install the Contrast tools' packages
               id: contrast-npm
               if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
               run: npm ci
+
 
             - name: Token contrast (tools/contrast/pairs.json, both themes)
               id: contrast-tokens
@@ -390,12 +495,14 @@ jobs:
                   set -o pipefail
                   node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-tokens.log"
 
+
             - name: The theme recipe ships kit.css unchanged
               id: contrast-theme-css
               if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
               run: |
                   set -o pipefail
                   cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-contrast-theme-css.log"
+
 
             - name: llms.txt matches docs/RECIPES.md's recipe tables
               id: contrast-llms
@@ -404,12 +511,14 @@ jobs:
                   set -o pipefail
                   node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-contrast-llms.log"
 
+
             - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
               id: contrast-docs-lint
               if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
               run: |
                   set -o pipefail
                   node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-docs-lint.log"
+
 
             - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
               id: contrast-icons
@@ -418,12 +527,14 @@ jobs:
                   set -o pipefail
                   node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-icons.log"
 
+
             - name: Every README example is one the demo reads
               id: contrast-fences
               if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
               run: |
                   set -o pipefail
                   node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-fences.log"
+
 
             - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
               id: contrast-inventory
@@ -432,12 +543,14 @@ jobs:
                   set -o pipefail
                   node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-inventory.log"
 
+
             - name: Each recipe README renders its manifest's dependencies and writes no version table
               id: contrast-readme-versions
               if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
               run: |
                   set -o pipefail
                   node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-readme-versions.log"
+
 
             # The Changes job's base: none for main, dev or a run by hand, which compares nothing
             - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
@@ -449,41 +562,6 @@ jobs:
                   set -o pipefail
                   node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-contrast-readme-pairing.log"
 
-            # Workflows -------------------------------------------------------------------------------------------------
-            - name: Install actionlint and ShellCheck
-              id: workflows-install
-              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
-              working-directory: ${{ runner.temp }}
-              run: |
-                  curl -fsSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-                  curl -fsSLo shellcheck.tar.xz "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
-                  printf '%s  %s\n' "$ACTIONLINT_SHA256" actionlint.tar.gz "$SHELLCHECK_SHA256" shellcheck.tar.xz | sha256sum --check --strict
-                  mkdir bin
-                  tar -xzf actionlint.tar.gz -C bin actionlint
-                  tar -xJf shellcheck.tar.xz -C bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
-
-            # the runner's own ShellCheck and Python are not used: only the pinned tools decide
-            - name: actionlint
-              id: workflows-actionlint
-              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
-              run: |
-                  set -o pipefail
-                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-workflows-actionlint.log"
-
-            - name: The release plan's own cases
-              id: workflows-release-plan
-              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
-              run: |
-                  set -o pipefail
-                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-workflows-release-plan.log"
-
-            # what release.yml would tag and publish from main, with this commit's script; it creates nothing
-            - name: Release dry run on main
-              id: workflows-dry-run
-              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
-              run: |
-                  set -o pipefail
-                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-workflows-dry-run.log"
 
             # Advisory diagnosis of the steps that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
@@ -496,6 +574,7 @@ jobs:
                   job: Quick checks
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+
             # Each check's outcome, from its steps: the job's outputs (CI result reads them per lane) and the summary page
             - name: Summary
               id: summary
@@ -506,6 +585,8 @@ jobs:
                   WORKFLOWS: ${{ needs.changes.outputs.workflows }}
               run: |
                   status=0
+                  # a setup that did not succeed leaves every selected check incomplete, whatever its steps said
+                  setup=$(jq -r '[to_entries[] | select(.key | startswith("setup-")) | select(.value.outcome != "success") | .key] | join(", ")' <<< "$STEPS")
                   printf '### Quick checks\n\n| Check | Result | Steps |\n|---|---|---|\n' >> "$GITHUB_STEP_SUMMARY"
                   for lane in tools contrast workflows; do
                       case "$lane" in
@@ -521,7 +602,10 @@ jobs:
                           failed=$(pick 'select(.value.outcome == "failure")')
                           missing=$(pick 'select(.value.outcome != "success" and .value.outcome != "failure")')
                           ran=$(pick 'select(.value.outcome == "success" or .value.outcome == "failure")')
-                          if [ -n "$failed" ]; then
+                          if [ -n "$setup" ]; then
+                              outcome=incomplete; steps="setup: $setup"
+                              echo "::error::$label: the setup did not succeed ($setup), so its checks ran on the image's own tools"
+                          elif [ -n "$failed" ]; then
                               outcome=failure; steps=$failed
                               echo "::error::$label: $failed failed"
                           elif [ -n "$missing" ] || [ -z "$ran" ]; then
@@ -538,6 +622,7 @@ jobs:
                   exit "$status"
 
     # Two lanes: the Toolkit version the demo locks (what the kit is developed with) and the minimum supported one
+
     lint-kit:
         name: Lint kit (${{ matrix.toolkit }} toolkit)
         needs: changes
@@ -1445,16 +1530,46 @@ jobs:
         permissions:
             contents: read
             actions: read # the run's jobs, the lanes' markers
-        # No setup-node, no checkout: the tool the Changes job ran (its artifact, Node's own modules only) runs on the
-        # runner image's Node, which it checks is 20 or later. The advisory CI metrics are the CI metrics job, after this one.
+        # No setup-node: the tool (Node's own modules only) runs on the runner image's Node, which it checks is 20 or later.
+        # It is the tool of the run's own commit, from a sparse checkout: only plan.json comes from the Changes job's
+        # artifact. The advisory CI metrics are the CI metrics job, after this one.
         steps:
-            # The plan the Changes job made and the copy of the tool that made it
-            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            # The finish below runs the tool of the run's own commit, checked out here, never anything from
+            # an artifact: only plan.json comes from the Changes job's artifact, by its id, and its SHA-256 (a Changes job
+            # output) is checked before anything reads it
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               if: ${{ always() }}
+              with:
+                  persist-credentials: false
+                  sparse-checkout: |
+                      tools/ci
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ always() && needs.changes.result == 'success' }}
               continue-on-error: true
               with:
-                  name: ${{ needs.changes.outputs.lane-plan }}
+                  artifact-ids: ${{ needs.changes.outputs.lane-plan-id }}
+                  merge-multiple: true
                   path: ${{ runner.temp }}/lane-plan
+
+            # The Changes job must have succeeded, and plan.json must be the one it wrote: else no record and no verdict,
+            # and this step fails the job
+            - name: The lane plan is the one the Changes job wrote
+              id: lane-plan
+              if: ${{ always() }}
+              env:
+                  CHANGES: ${{ needs.changes.result }}
+                  PLAN_SHA256: ${{ needs.changes.outputs.lane-plan-sha256 }}
+              run: |
+                  if [ "$CHANGES" != success ]; then
+                      echo "::error::the Changes job ended with $CHANGES: no plan, no verdict"
+                      exit 1
+                  fi
+                  plan="$RUNNER_TEMP/lane-plan/plan.json"
+                  if [ ! -f "$plan" ] || [ -z "$PLAN_SHA256" ] || ! printf '%s  %s\n' "$PLAN_SHA256" "$plan" | sha256sum --check --status; then
+                      echo "::error::plan.json is not the one the Changes job wrote (missing, or another SHA-256 than its output): no verdict"
+                      exit 1
+                  fi
 
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               if: ${{ always() && needs.demo.result != 'skipped' }}
@@ -1471,21 +1586,16 @@ jobs:
             # list unreadable) fails this step, and its upload below is never continue-on-error; a lost pass marker warns.
             - name: Every lane passed, was reused or was skipped
               id: finish
-              if: ${{ always() }}
+              if: ${{ always() && steps.lane-plan.outcome == 'success' }}
               timeout-minutes: 3
               env:
                   NEEDS: ${{ toJSON(needs) }}
-                  CHANGES: ${{ needs.changes.result }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
                   RUN_ATTEMPT: ${{ github.run_attempt }}
               run: |
                   set -o pipefail
-                  if [ ! -f "$RUNNER_TEMP/lane-plan/plan.json" ] || [ ! -f "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" ]; then
-                      echo "::error::no lane plan from the Changes job (it ended with $CHANGES): no verdict"
-                      exit 1
-                  fi
                   echo "Node $(node --version)"
                   printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
                   # a listing that fails leaves no file: the tool then fails if a failure marker was due, and the verdict
@@ -1494,7 +1604,7 @@ jobs:
                       echo "::warning::the run's jobs could not be listed"
                       rm -f "$RUNNER_TEMP/run-jobs.json"
                   fi
-                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
+                  node tools/ci/lane-evidence.mjs finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
                       --jobs "$RUNNER_TEMP/run-jobs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
                       --out "$RUNNER_TEMP/lane-markers" --repo "$REPO" \
                       --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
