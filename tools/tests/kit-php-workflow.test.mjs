@@ -86,6 +86,9 @@ function repository(files) {
     return { dir, temp };
 }
 
+/** Whether PHP's lint reported a parse error in `path` (as given, or with ./ before it): whole lines, no pattern built from the path. */
+const linted = (output, path) => output.split('\n').some((line) => line === `Errors parsing ${path}` || line === `Errors parsing ./${path}`);
+
 const script = (step) => step.text.match(/^ {14}run: \|\n([\s\S]*)$/m)[1].replace(/^ {18}/gm, '');
 
 test('Syntax lints a tracked file whose path starts with a dash as a file, never as PHP\'s options', () => {
@@ -94,7 +97,7 @@ test('Syntax lints a tracked file whose path starts with a dash as a file, never
     const output = result.stdout + result.stderr;
     assert.notEqual(result.status, 0, `two syntax errors fail the step:\n${output}`);
     for (const path of ['-n.php', '-d/x.php']) {
-        assert.match(output, new RegExp(`Errors parsing (?:\\./)?${path.replace(/[.]/g, '\\.')}\\n`), `${path} is linted:\n${output}`);
+        assert.ok(linted(output, path), `${path} is linted:\n${output}`);
     }
     assert.doesNotMatch(output, /Standard input|Usage: php/, 'no path read as an option');
     assert.match(output, /^1 files without a syntax error$/m);
@@ -112,7 +115,7 @@ test('the documented local commands lint a tracked file whose path starts with a
         const { dir } = repository(files);
         const result = run(`${command} || true`, dir);
         const output = result.stdout + result.stderr;
-        assert.match(output, new RegExp(`Errors parsing (?:\\./)?${path.replace(/[.]/g, '\\.')}\\n`), `${where}: ${path} is linted:\n${output}`);
+        assert.ok(linted(output, path), `${where}: ${path} is linted:\n${output}`);
         assert.doesNotMatch(output, /Standard input|Usage: php|unknown predicate/, `${where}: no path read as an option`);
     }
 });
