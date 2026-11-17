@@ -1392,6 +1392,29 @@ jobs:
                       node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
                   fi
 
+            # The browser server on the runner's own network (the pinned image the Install step pulled), so the browser
+            # reaches https://localhost itself instead of through the test process (playwright.config.ts,
+            # PW_DIRECT_NETWORK); Playwright then reuses it. Fails here, with the server's log, when port 3000 is already
+            # taken or the server does not answer within two minutes
+            - name: Start the browser server
+              id: browser-server
+              run: |
+                  if ss -Hltn 'sport = :3000' | grep -q .; then
+                      echo "::error::port 3000 is already in use: the browser server cannot start"; ss -ltnp 'sport = :3000'; exit 1
+                  fi
+                  image=$(node tools/playwright-image.mjs)
+                  version=$(node -p "require('@playwright/test/package.json').version")
+                  docker run -d --rm --init --name playwright-browser --network host "$image" \
+                      npx -y "playwright@$version" run-server --port 3000 --host 127.0.0.1 > /dev/null
+                  for _ in $(seq 1 120); do
+                      if [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" != 000 ]; then
+                          echo "browser server up: $image"; exit 0
+                      fi
+                      docker inspect playwright-browser > /dev/null 2>&1 || break
+                      sleep 1
+                  done
+                  echo "::error::the browser server did not answer on port 3000"; docker logs playwright-browser 2>&1 | tail -50 || true; exit 1
+
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks run in
             # release-checks.yml, not here (their projects exist only with RELEASE_CHECKS set)
@@ -1399,6 +1422,7 @@ jobs:
               id: tests
               env:
                   DEMO_URL: https://localhost
+                  PW_DIRECT_NETWORK: '1'
               run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
@@ -1427,6 +1451,7 @@ jobs:
                       Install Playwright=${{ steps.install.outcome }}
                       Prepare the tests=${{ steps.prepare.outcome }}
                       Plan the shard's tests=${{ steps.plan.outcome }}
+                      Start the browser server=${{ steps.browser-server.outcome }}
               run: |
                   if [ "$DEMO_STARTED" = success ]; then
                       # the PHP snippet is single-quoted on purpose: its $m is PHP's, not the shell's

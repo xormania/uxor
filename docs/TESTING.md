@@ -13,7 +13,14 @@ Components, `flowbite.min.css` and a strict Content Security Policy meet. Bugs b
 none of which fail an assertion on their own.
 
 A Playwright fixture records them for every test and fails the test at its end; a test that expects an error allows
-exactly that response. Requests leaving the app are blocked, so no test depends on the network.
+exactly that response. Requests leaving the app are blocked, so no test depends on the network: an image gets a local
+placeholder, any other request fails. The guard's route names them with a RegExp (`leavingTheDemo()`), never a function:
+Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only what
+matches, while a function has it hand over every request of the page, the app's own scripts, styles and fonts
+included, and wait for the answer. The guard reads the app's requests from the page's events, which see every request
+whatever the route takes. `smoke.spec.ts` ("the page guard › requests and violations") checks the route against the
+app's address and others built to trip it, a request leaving the app (it never reaches a route behind the guard's), a
+local 404 and a local failure, and a policy violation.
 
 ```ts
 // tests/e2e/fixtures.ts (shortened)
@@ -1314,7 +1321,13 @@ fail.
 
 In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
 computes: `CHROMIUM_SHARDS` shards for Chromium (8), which also runs the screenshots, and three each for Firefox and
-WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`).
+WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`). Each job starts the browser server itself (*Start the browser server*: the pinned image on the runner's network, failing at
+once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the
+browser reaches `https://localhost` itself. Without it (a local run, the default), `playwright.config.ts` has the
+browser's requests to the demo's loopback address go through the test's process (`exposeNetwork`), which works where
+the container cannot reach the host's loopback, as under Docker Desktop. Measured in CI against the same suite
+through the tunnel: the Chromium shards' summed test time fell from 1,719 to 1,037 s (run 43971587193), Firefox's by 16%,
+WebKit's within the runners' spread.
 
 **When Firefox and WebKit run (a trial, `ENGINES_ON: daily` in `ci.yml`).** Chromium runs on every push that selects
 the browser tests. Firefox and WebKit run:

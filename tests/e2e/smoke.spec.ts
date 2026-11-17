@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
-import { test, expect, guardPage, markDocument } from './fixtures';
+import { test, expect, guardPage, leavingTheDemo, markDocument } from './fixtures';
 import { kitName, recipes } from './inventory';
 
 // Every page answering 200 with its heading: a11y.spec.ts, which opens each of them. The theme toggle: theme-toggle.spec.ts.
@@ -381,6 +381,74 @@ test.describe('the page guard', () => {
      * document stays) or by `window.stop()`. Each is reported.
      */
     const PREFETCH_MESSAGE = 'NetworkError when attempting to fetch resource.';
+
+    /*
+     * What the guard's route takes, and what its events report. The route (leavingTheDemo) takes every request leaving
+     * the demo and none of the demo's: Playwright's server matches it, so the demo's requests are never handed to the
+     * test's process. The demo's failures, answers of 400 or more and the policy's violations are read from the page's
+     * events, which see every request whatever the route takes.
+     */
+    test.describe('requests and violations', () => {
+        const OUTSIDE = 'https://uxor-guard.invalid';
+
+        test("the route takes every URL that is not the demo's, and none of the demo's", ({ baseURL }) => {
+            test.skip('smoke' !== test.info().project.name, 'checks no browser: run in the smoke project only');
+            // the demo's addresses, and one made of every character a RegExp reads as syntax
+            for (const base of [baseURL ?? 'http://127.0.0.1:8000', 'https://localhost', 'http://127.0.0.1:8000', 'https://a.b+c(d)[e]{f}|g$h^i?j*k\\l']) {
+                const route = leavingTheDemo(base);
+                const local = (url: string) => url.startsWith(`${base}/`);
+                const urls = [`${base}/`, `${base}/lab?q=1#top`, `${base}/assets/app-0a1b2c.js`, `${base}x/`, `${base}.example.org/`, `${base}:8443/`, `${base}`, `${OUTSIDE}/${base}/`, `${OUTSIDE}/picture.png`, 'data:image/png;base64,AA'];
+                expect(urls.filter((url) => route.test(url) === local(url)), `under ${base}: taken although the demo's, or left although not`).toEqual([]);
+            }
+        });
+
+        test('a request leaving the demo never leaves: an image gets the placeholder, any other fails, and neither is reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            // registered before the guard, so it runs only for a request the guard's route lets through
+            const reached: string[] = [];
+            await page.route(`${OUTSIDE}/**`, (route) => {
+                reached.push(route.request().url());
+                return route.fulfill({ status: 200, contentType: 'text/plain', body: 'reached' });
+            });
+            const guard = await guardPage(page, baseURL);
+            // a page of the demo's origin without the demo's policy, so the browser asks for what it names
+            await page.route('**/guard-outside-page', (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Outside</title><img id="outside" src="${OUTSIDE}/picture.png">` }));
+            await page.goto('/guard-outside-page');
+            await loaded(page.mainFrame(), 'outside');
+            // no-cors: a cross-origin read Firefox would log as an error of the page, which is not what this checks
+            const fetched = await page.evaluate((url) => fetch(url, { mode: 'no-cors' }).then((response) => response.text(), (error) => `rejected: ${error}`), `${OUTSIDE}/data.json`);
+            expect(fetched).toMatch(/^rejected: /);
+            expect(reached, 'requests the guard let leave').toEqual([]);
+            expect(errorsOf(guard)).toBe('');
+            await page.close();
+        });
+
+        test('a local answer of 400 or more, and a local request that fails: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            await page.route('**/guard-refused', (route) => route.abort('connectionrefused'));
+            const answered = page.waitForResponse((response) => response.url().endsWith('/guard-missing'));
+            const failed = page.waitForEvent('requestfailed', (request) => request.url().endsWith('/guard-refused'));
+            await page.evaluate(() => Promise.allSettled([fetch('/guard-missing'), fetch('/guard-refused')]));
+            expect((await answered).status()).toBe(404);
+            await failed;
+            const errors = errorsOf(guard);
+            expect(errors).toContain(`http 404: ${baseURL}/guard-missing`);
+            expect(errors).toContain(`requestfailed: GET ${baseURL}/guard-refused`);
+            await page.close();
+        });
+
+        test('a Content Security Policy violation: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            // a <style> without the page's nonce
+            await page.evaluate(() => document.head.append(Object.assign(document.createElement('style'), { textContent: 'body { outline: 0 }' })));
+            await expect.poll(() => errorsOf(guard)).toContain('csp: style-src');
+            await page.close();
+        });
+    });
 
     test("Turbo's prefetch message outside a full load: reported", async ({ context, baseURL }) => {
         const page = await context.newPage();
