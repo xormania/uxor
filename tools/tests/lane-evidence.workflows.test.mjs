@@ -69,7 +69,10 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
     const { workflow, job } = workflowJobs('ci.yml');
     // the two settings, each in one place
-    assert.equal(workflow.match(/^ {4}CHROMIUM_SHARDS: '6'$/gm)?.length, 1, 'CHROMIUM_SHARDS starts at 6, set once');
+    // CHROMIUM_SHARDS is tuned from measurements: set once, a whole number the plan accepts (1 to 20)
+    const shards = [...workflow.matchAll(/^ {4}CHROMIUM_SHARDS: '(\d+)'$/gm)].map((m) => Number(m[1]));
+    assert.equal(shards.length, 1, 'CHROMIUM_SHARDS is set once');
+    assert.ok(shards[0] >= 1 && shards[0] <= 20, `CHROMIUM_SHARDS is a sane number (${shards[0]})`);
     assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
     assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
     for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'package']) {
@@ -148,7 +151,7 @@ test('Release checks requires an engines pass for the release head, and starts o
     assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref "\$BRANCH" -f engines_only=true/);
     assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
     const verdict = job('verdict');
-    assert.match(verdict.text, /ENGINES: \$\{\{ needs\.changed\.outputs\.engines \}\}/);
+    assert.match(verdict.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
     assert.match(verdict.needs, /start-engines/);
     assert.match(verdict.text, /no Firefox\/WebKit pass for/);
     assert.match(verdict.text, /re-run Release checks when it passes/);
@@ -362,4 +365,65 @@ test('the browser shards plan from timings that include the engines\' latest run
     const timings = job('changes').text.slice(job('changes').text.indexOf('name: Shard timings'));
     assert.match(timings, /runs\?branch=dev&status=success&per_page=/);
     assert.doesNotMatch(timings.slice(0, timings.indexOf('upload-artifact')), /event=push/, 'not only push runs: the daily and engines-only runs refresh Firefox and WebKit');
+});
+
+test("Release checks' verdict looks the engines evidence up itself when What to check said missing, so Re-run failed jobs recovers (the owner's Codex review)", (t) => {
+    const fx = scratch(t);
+    const { workflow, job } = workflowJobs('release-checks.yml');
+    const verdictJob = job('verdict');
+    assert.match(verdictJob.text, /^ {12}actions: read\b/m, 'it may read the run artifacts and markers');
+    assert.doesNotMatch(verdictJob.text, /: write\b/, 'and holds no write token');
+    const checkout = verdictJob.text.split(/\n(?= {12}- )/).find((s) => s.includes('actions/checkout@'));
+    assert.ok(checkout, 'a checkout of the tool');
+    assert.match(checkout, /persist-credentials: false/);
+    assert.match(checkout, /sparse-checkout: \|?\s*\n?\s*tools\/ci/);
+    const recheck = stepIn(workflow, 'verdict', 'recheck');
+    assert.ok(recheck, 'a recheck step');
+    assert.match(verdictJob.text, /id: recheck\n {14}if: .*startsWith\(needs\.changed\.outputs\.engines, 'missing'\)/);
+    assert.match(verdictJob.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
+    // the same command, one rule, in What to check and in the verdict
+    for (const step of [stepIn(workflow, 'changed', 'engines'), recheck]) assert.match(step.run, /lane-evidence\.mjs"? require --lane engines --repo "\$REPO" --merge "\$GITHUB_SHA" --github-output "\$GITHUB_OUTPUT"/);
+
+    // a release pull request: its head, and GitHub's merge of it into main
+    mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
+    writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'the tool');
+    const base = fx.head();
+    fx.git('checkout', '-qb', 'release');
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '-');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const step = (s, sha, routes) => {
+        writeFileSync(join(fx.dir, 'routes.json'), JSON.stringify(routes));
+        writeFileSync(join(fx.dir, 'gh-api.log'), '');
+        const output = join(fx.dir, 'verdict-out');
+        writeFileSync(output, '');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', s.run], { cwd: fx.repo, encoding: 'utf8',
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+        assert.equal(out.status, 0, out.stderr);
+        return readFileSync(output, 'utf8').match(/^engines=(.*)$/m)?.[1];
+    };
+    const decide = (engines) => spawnSync('bash', ['-eo', 'pipefail', '-c', stepIn(workflow, 'verdict', 'decide').run], { encoding: 'utf8',
+        env: { PATH: process.env.PATH, EVENT: 'pull_request', CHANGED: 'success', RUN: 'false', SUITE: 'skipped', COMPLETE: 'skipped', PROD_IMAGE: 'skipped', START: 'dispatched', BRANCH: 'release', ENGINES: engines } });
+    // attempt 1 said missing; the engines run has passed since: the verdict's own lookup finds it, and the check passes
+    const found = step(recheck, merge, engineRoutes(fx, head, fp));
+    assert.equal(found, 'pass');
+    assert.equal(decide(found).status, 0, 'Re-run failed jobs recovers once the engines passed');
+    // still missing: the same message as before
+    const still = step(recheck, merge, {});
+    assert.match(still, /^missing: engines: no_evidence/);
+    const red = decide(still);
+    assert.equal(red.status, 1);
+    assert.match(red.stdout + red.stderr, /no Firefox\/WebKit pass for this release's head: .*re-run Release checks when it passes/);
+    // main moved on: the merge tests another tree, which no pass on the head can stand for
+    fx.git('checkout', '-q', base);
+    fx.git('checkout', '-qb', 'main2');
+    fx.commit('README.md', 'main moved\n');
+    fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
+    const tree = step(recheck, fx.head(), engineRoutes(fx, head, fp));
+    assert.match(tree, /^tree: /);
+    assert.match(decide(tree).stdout + decide(tree).stderr, /[Bb]ring main into release/);
 });

@@ -1938,7 +1938,8 @@ inputs, once the merge is shown to test the head's own tree; the pull request's 
 workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
 checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
 one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
-passes. When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+passes: the verdict looks the evidence up again itself whenever What to check said missing, so *Re-run failed jobs* is
+enough (What to check, not re-run, keeps its old output). When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
 stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
 for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
 the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
