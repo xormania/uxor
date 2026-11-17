@@ -1352,7 +1352,7 @@ the other engines compare it with a baseline that is not theirs (`examples-*`) o
 fail.
 
 In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
-computes: `CHROMIUM_SHARDS` shards for Chromium (6), which also runs the screenshots, and three each for Firefox and
+computes: `CHROMIUM_SHARDS` shards for Chromium (8), which also runs the screenshots, and three each for Firefox and
 WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`). Each job starts the browser server itself (*Start the browser server*: the pinned image on the runner's network, failing at
 once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the
 browser reaches `https://localhost` itself. Without it (a local run, the default), `playwright.config.ts` has the
@@ -1476,7 +1476,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (6) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (8) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1533,15 +1533,21 @@ re-prove: it downloaded GitHub's archive of another commit with the same tree, w
 download of this commit's archive is not checked again within those 24 hours.
 
 - **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`), but only the path and mode of
-  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, whose content
-  no reusable lane reads (they are export-ignored, the production image does not hold them, and the demo only links
-  them on GitHub): editing one keeps the fingerprint, deleting it or making it a link does not. Any other change,
+  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, for the lanes
+  that never read their content (they are export-ignored, the production image does not hold them, and the demo only
+  links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
+  `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
+  fingerprints, deleting it or making it a link does not. Any other change,
   `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
-  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above.
+  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
+  its lane jobs' completion (the oldest of them, as the jobs API reports it), never from its marker's creation.
 - **Evidence:** CI result records one artifact per lane that ran in its run, reuse on or off:
   `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed in its latest attempt (a shard that passed on
   its retry counts, its flaky count recorded), `ci-fail-v1-<lane>-<fingerprint>` when one failed, nothing when one was
-  cancelled. A later attempt of the run replaces its earlier marker of the same kind, so the newest attempt stands. A
+  cancelled. A browser shard that ended before its tests started (its setup, the wait for the importmap packages)
+  says nothing about them: no marker, and the daily run reports *incomplete*. A later attempt of the run replaces its
+  earlier marker of the same kind, so the newest attempt stands; a lane whose jobs all ran in an earlier attempt is not
+  recorded again, so a re-run never makes an old pass look young. A
   reused lane records nothing, so the evidence always names the run that executed the tests. A failure marker that
   cannot be recorded or uploaded fails *CI result*'s step; a lost pass marker only warns.
 - **Reuse:** the markers for the fingerprint are read newest first. A failure from a push or manual run of `ci.yml`
@@ -1553,8 +1559,10 @@ download of this commit's archive is not checked again within those 24 hours.
   job's log has one line per lane: its decision, the reason and the run it reuses.
 - **Verdict:** *CI result* reports each lane as *fresh*, *reused* (with the producing run, attempt, commit and flaky
   count), *not applicable* or *incomplete*, in its summary with the time and API calls the plan took. It checks each
-  reused lane's evidence again before passing, retrying an API error twice: evidence that disappeared, aged out, a
-  producer whose lane ran again or a failure recorded since the plan fails the run. Re-running failed jobs keeps the
+  reused lane's evidence again before passing, retrying an API error twice: evidence that disappeared or expired, a
+  producer whose lane ran again or a failure recorded since the plan fails the run. Its age is not checked again: the
+  plan decided it, so a 24-hour pass planned at 23 h 55 is not refused ten minutes later. *Quick checks* must have
+  passed as a job, not only report its checks as passed: a failed setup leaves its checks *incomplete*. Re-running failed jobs keeps the
   plan, so only *Re-run all jobs* plans the lanes again. The build cache on `dev` and `main` is written whether the
   browser lane ran or was reused.
 - **Work orders:** a push to a work order's own branch runs like any branch's, its pull request a draft or not. When
@@ -1567,7 +1575,12 @@ download of this commit's archive is not checked again within those 24 hours.
 The Changes job runs the selector as the base branch has it (a branch could otherwise skip its own checks by editing
 it), but this tool as the branch has it: the tool and `ci.yml` are inside every fingerprint, so a branch's own copy
 can only match a pass recorded by that same copy and workflow, and a push already runs the branch's own `ci.yml`. Its
-cases: `node --test tools/tests/lane-evidence.test.mjs`.
+cases: `node --test tools/tests/lane-evidence.*.test.mjs` (one file per section, the shared helpers in
+`tools/tests/lane-evidence-fixtures.mjs`). Its acceptance cases,
+`tools/tests/lane-evidence.acceptance.test.mjs`, are written from the CI performance specification's acceptance
+scenarios, one per row this tool answers for: each drives the real commands through CI runs on a scratch repository
+and a simulated GitHub, the markers being the ones the tool records. A row the tool does not meet yet is a `todo`
+case named FINDING, reported as failing without failing the suite.
 
 ### Quick checks
 
@@ -1925,7 +1938,8 @@ inputs, once the merge is shown to test the head's own tree; the pull request's 
 workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
 checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
 one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
-passes. When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+passes: the verdict looks the evidence up again itself whenever What to check said missing, so *Re-run failed jobs* is
+enough (What to check, not re-run, keeps its old output). When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
 stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
 for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
 the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
