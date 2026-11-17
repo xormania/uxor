@@ -1519,3 +1519,87 @@ test('the verdict accepts the age the plan accepted for a 24-hour lane, and stil
     const expired = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO], routesFor('fresh-install', fp, [marker(fx, { lane: 'fresh-install', sha: fx.head(), fp, jobs: installJobs(), artifactId: 9810, runId: 81, created: '2026-11-15T11:55:00Z', artifact: { expired: true } })]));
     assert.equal(expired.status, 1, 'an expired marker is still refused');
 });
+
+// the stack's review and the owner's Codex review of this pull request ------------------------------------------------------
+
+test('a red or cancelled Quick checks fails CI result even when its outputs all say success, and finish reads it', (t) => {
+    const { fx } = verdictFixture(t);
+    for (const result of ['failure', 'cancelled']) {
+        const file = join(fx.dir, `needs-${result}.json`);
+        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        writeFileSync(file, JSON.stringify({ ...Object.fromEntries(Object.entries(base).map(([job, r]) => [job, { result: r, outputs: {} }])), quick: { result, outputs: { tools: 'success', contrast: 'success', workflows: 'skipped' } } }));
+        const out = run(fx, ['verdict', '--plan', join(fx.dir, 'plan.json'), '--needs', file, '--repo', REPO], producer(fx, fx.head(), fingerprints(fx, fx.head()).lanes.demo));
+        assert.equal(out.status, 1, `Quick checks ${result}`);
+        assert.match(out.stderr, new RegExp(`(tools|contrast).*${result}`));
+    }
+});
+
+test("Codex's fixture: a failed Quick checks job with a successful tools output and skipped optional lanes fails CI result", (t) => {
+    const fx = scratch(t);
+    const lanes = Object.fromEntries([...LANES, 'engines'].map((name) => [name, lane('skip', null)]));
+    const planFile = join(fx.dir, 'plan.json');
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'failure', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } };
+    writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
+    const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
+    assert.notEqual(out.status, 0, out.stdout);
+    assert.match(out.stderr, /::error::tools ended with failure/);
+});
+
+test("Quick checks' summary counts its setup steps, and a cancelled step is no pass", (t) => {
+    const fx = scratch(t);
+    const { workflow, job } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'quick', 'summary');
+    assert.match(job('quick').text, /id: setup-node/);
+    assert.match(job('quick').text, /id: setup-php/);
+    const run2 = (steps) => {
+        const output = join(fx.dir, 'q-out');
+        writeFileSync(output, '');
+        writeFileSync(join(fx.dir, 'q-sum'), '');
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: { PATH: process.env.PATH, STEPS: JSON.stringify(steps), CONTRAST: 'run', WORKFLOWS: 'skip', GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.dir, 'q-sum') } });
+        return { ...out, outputs: Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').filter(Boolean).map((l) => l.split('='))) };
+    };
+    const s = (outcome) => ({ outcome, conclusion: outcome, outputs: {} });
+    const setupFailed = run2({ 'setup-node': s('success'), 'setup-php': s('failure'), 'tools-cases': s('success'), 'contrast-tokens': s('success') });
+    assert.equal(setupFailed.status, 1);
+    assert.equal(setupFailed.outputs.tools, 'incomplete', 'checks run on the image\'s own PHP after its setup failed are no pass');
+    assert.equal(setupFailed.outputs.contrast, 'incomplete');
+    const cancelled = run2({ 'setup-node': s('success'), 'setup-php': s('success'), 'tools-cases': s('success'), 'contrast-tokens': s('cancelled') });
+    assert.equal(cancelled.outputs.contrast, 'incomplete');
+    const none = run2({ 'setup-node': s('success'), 'setup-php': s('success'), 'tools-cases': s('success') });
+    assert.equal(none.outputs.contrast, 'incomplete', 'a selected check with no step run');
+});
+
+test('no repository code runs before the Workflows checks, and each group of file checks starts on the committed tree (Codex)', (t) => {
+    const fx = scratch(t);
+    const { workflow, job } = workflowJobs('ci.yml');
+    const ids = [...job('quick').text.matchAll(/^ {14}id: ([a-z0-9-]+)$/gm)].map((m) => m[1]);
+    const at = (id) => { const i = ids.indexOf(id); assert.ok(i >= 0, `step ${id}`); return i; };
+    // only the setups come before the Workflows checks; the release dry run before the plan's own cases
+    assert.deepEqual(ids.slice(0, at('workflows-guard')), ['setup-node', 'setup-php']);
+    assert.ok(at('workflows-guard') < at('workflows-install') && at('workflows-actionlint') < at('workflows-dry-run') && at('workflows-dry-run') < at('workflows-release-plan'));
+    // the tools' file checks before their cases, each group after its guard
+    for (const id of ['tools-policy', 'tools-references', 'tools-inventory', 'tools-archive', 'tools-names']) assert.ok(at('tools-guard') < at(id) && at(id) < at('tools-cases'), id);
+    assert.ok(at('workflows-release-plan') < at('tools-guard'));
+    assert.ok(at('tools-cases') < at('contrast-guard') && at('contrast-guard') < at('contrast-npm'));
+    // the guard itself: a tracked file rewritten on disk fails it; an untracked file does not
+    const guard = stepIn(workflow, 'quick', 'workflows-guard');
+    const check = () => spawnSync('bash', ['-eo', 'pipefail', '-c', guard.run], { cwd: fx.repo, encoding: 'utf8', env: { PATH: process.env.PATH } });
+    assert.equal(check().status, 0, check().stdout);
+    writeFileSync(join(fx.repo, 'scratch-untracked.txt'), 'x\n');
+    assert.equal(check().status, 0, 'an untracked file is no rewrite');
+    writeFileSync(join(fx.repo, '.github', 'workflows', 'ci.yml'), 'name: rewritten\n');
+    const rewritten = check();
+    assert.equal(rewritten.status, 1);
+    assert.match(rewritten.stdout + rewritten.stderr, /::error::.*\.github\/workflows\/ci\.yml/);
+    for (const id of ['tools-guard', 'contrast-guard']) assert.equal(stepIn(workflow, 'quick', id).run, guard.run, `${id}: the same guard`);
+    // a failed guard is its check's failure in the summary, so the job fails
+    const summary = stepIn(workflow, 'quick', 'summary');
+    const output = join(fx.dir, 'g-out');
+    writeFileSync(output, '');
+    const s = (outcome) => ({ outcome, conclusion: outcome, outputs: {} });
+    const out = spawnSync('bash', ['-eo', 'pipefail', '-c', summary.run], { encoding: 'utf8', env: { PATH: process.env.PATH, STEPS: JSON.stringify({ 'setup-node': s('success'), 'setup-php': s('success'), 'workflows-guard': s('failure'), 'workflows-actionlint': s('success'), 'tools-guard': s('success'), 'tools-cases': s('success') }), CONTRAST: 'skip', WORKFLOWS: 'run', GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.dir, 'g-sum') } });
+    assert.equal(out.status, 1);
+    assert.match(readFileSync(output, 'utf8'), /^workflows=failure$/m);
+});

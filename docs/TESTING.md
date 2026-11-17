@@ -1549,6 +1549,18 @@ when a selected check did not pass, and *CI result* reads the outcomes per lane,
 as a failed Workflows. *Static site*, *Lint kit* and *Package* stay jobs of their own: the static site needs the
 importmap packages, and the other two can be reused, which keys on their jobs.
 
+The setups count: a setup that did not succeed leaves every selected check *incomplete*, since the checks then ran on
+the runner image's own Node or PHP. *CI result* requires the job itself to have passed too: a red or cancelled *Quick
+checks* whose outputs all say success (a failed setup, a lost summary) leaves its checks unpassed.
+
+The checks share one workspace, so their order guards what they check. The *Workflows* checks run first, before any
+step runs repository code, and the release dry run comes before the release plan's own cases; then *Tool tests*' file
+checks (security policy, references, inventory, archive, names) before the tools' own cases; then *Contrast*. Each group
+starts with the same guard, `git status --porcelain --untracked-files=no` and `git diff --quiet HEAD`: a tracked file
+that differs from the commit on disk, rewritten by an earlier step's repository code, fails that check, so no check
+validates a restored file while Git keeps another blob for a release to run. The guards take well under a second each;
+a job of its own for *Workflows* would cost a runner admission instead.
+
 ### CI metrics
 
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache`, with

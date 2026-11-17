@@ -804,9 +804,14 @@ function verdictCommand(opts) {
     const result = (job) => {
         if (QUICK_CHECKS.includes(job) && needs.quick) {
             const outcome = needs.quick.outputs?.[job];
-            if (outcome) return outcome;
             // no output: the job was skipped, or ended before its summary (cancelled, failed in setup)
-            return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+            if (!outcome) return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+            // the job itself must have passed too: a red or cancelled job whose checks all say success left something
+            // unexplained (a setup step, the summary), and no selected check of it passes
+            const outcomes = QUICK_CHECKS.map((name) => needs.quick.outputs?.[name]);
+            const explained = outcomes.some((value) => value && !['success', 'skipped'].includes(value));
+            if (needs.quick.result !== 'success' && !explained && outcome === 'success') return needs.quick.result ?? 'missing';
+            return outcome;
         }
         return needs[job]?.result ?? 'missing';
     };
