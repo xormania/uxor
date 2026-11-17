@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument, stubPreviewFrames } from './fixtures';
 import { turboOperation } from './transitions';
 import { demoPages, previewUrl, recipes } from './inventory';
 
@@ -287,8 +287,13 @@ test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
     for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
-        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError, browserName }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+            if (path.startsWith('/r/') && 'chromium' === browserName) {
+                // the embedded previews cannot widen the page and their text is theirs; in Firefox and WebKit they load,
+                // since no other test there loads the dark ones
+                await stubPreviewFrames(page);
+            }
             await page.goto(path);
             const heading = page.getByRole('heading', { level: 1 }).first();
             await expect(heading).toBeVisible();
