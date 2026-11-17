@@ -1,4 +1,4 @@
-import { test, expect, expectA11y, controllersConnected } from './fixtures';
+import { test, expect, expectA11y, controllersConnected, stubPreviewFrames } from './fixtures';
 import { examples, recipes } from './inventory';
 import { lowContrastText } from './contrast';
 
@@ -33,6 +33,10 @@ for (const path of pages) {
         // every widget in every state on one page: axe alone takes 13-18 s on it in each engine, too close to the 30 s
         // budget on a loaded runner
         test.slow('/lab/value-matrix' === path, 'the value matrix holds every widget: axe scans it for 13-18 s');
+        if (path.startsWith('/r/')) {
+            // the scan leaves the embedded previews out, and scans each of them on its own (/preview/…, below)
+            await stubPreviewFrames(page);
+        }
         const response = await page.goto(path);
         expect(response?.status()).toBe(200);
         if (!path.startsWith('/preview/')) {

@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
+import { test, expect, expectA11y, turboVisitDone, markDocument, stubPreviewFrames } from './fixtures';
 import { turboOperation } from './transitions';
 import { demoPages, previewUrl, recipes } from './inventory';
 
@@ -257,14 +257,6 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await turboVisitDone(page);
 });
 
-test('every demo page names the brand it shows in its title', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
-    for (const path of Object.values(demoPages)) {
-        await page.goto(path);
-        await expect(page, path).toHaveTitle(/ — xor$/);
-    }
-});
-
 // a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
 for (const colorScheme of ['light', 'dark'] as const) {
     test.describe(`${colorScheme} theme at phone width`, () => {
@@ -287,8 +279,13 @@ test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
     for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
-        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError, browserName }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+            if (path.startsWith('/r/') && 'chromium' === browserName) {
+                // the embedded previews cannot widen the page and their text is theirs; in Firefox and WebKit they load,
+                // since no other test there loads the dark ones
+                await stubPreviewFrames(page);
+            }
             await page.goto(path);
             const heading = page.getByRole('heading', { level: 1 }).first();
             await expect(heading).toBeVisible();

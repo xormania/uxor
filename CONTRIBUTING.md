@@ -269,7 +269,7 @@ node tools/js-duplication.mjs                       # the recipes' JS copies no 
 node tools/security-policy.mjs                      # immutable Actions and read-only defaults; reviewed executable sinks; no generated output; current support and protected agent rules
 node --test tools/tests/*.test.mjs                  # the cases of the CI tools (tools/ci/: results summary, CI metrics, shard plan, Jev diagnosis, JUnit and step attempts), of tools/prepare-tests.mjs, of tools/icon-lint.mjs, of the README checks, of tools/recipe-imports.mjs and of tools/js-duplication.mjs, which also run them on the kit, and the repository security policy
 tools/tests/sync-demo.sh                            # tools/sync-demo copies what ux:install copies, on a test kit (needs demo/vendor)
-find */src -name '*.php' -not -path 'demo/*' -not -path 'tools/*' -print0 | xargs -0 -n1 php -l   # the syntax of the recipes' PHP
+find ./*/src -name '*.php' -not -path './demo/*' -not -path './tools/*' -print0 | xargs -0 -n1 php -l   # the syntax of the recipes' PHP
 (cd demo && bin/phpunit)                            # the PHP tests (demo/tests/): the data tables' limits, Live and Twig components, snapshots, profiler counts
 phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php data-table/src data-table-live/src editor/src markdown-editor/src demo/src/Demo demo/tests   # PHPStan with its Symfony and PHPUnit extensions installed next to it (CI pins all three); run the tests first
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
@@ -339,8 +339,8 @@ the default branch through a release. See *Jev diagnosis* in the same section fo
 needed to protect a repository secret from a malicious branch writer.
 
 - `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
-  Components, the components given hostile prop values (`hostile-props.spec.ts`), the demo's security headers and
-  Content Security Policy (`csp.spec.ts`), an axe accessibility scan of every demo page (no serious or critical
+  Components, the components given hostile prop values (`hostile-props.spec.ts`), what a strict Content Security
+  Policy would break (`csp.spec.ts`; each page's headers and nonces are PHPUnit's `SecurityHeadersTest`), an axe accessibility scan of every demo page (no serious or critical
   issue), and the counts of the key interactions (`counts.spec.ts`: requests, Stimulus controllers connected and
   disconnected, listeners left, response bytes under a budget; a change that moves one updates its number in the spec,
   [`docs/TESTING.md`](docs/TESTING.md), *Interaction counts*).

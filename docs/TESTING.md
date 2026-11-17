@@ -583,17 +583,23 @@ inline script alone).
 **Catches:** a timer contract (a toast's countdown and its pause, a type-ahead that forgets what was typed) checked by
 waiting real time: seconds on every run, and a wait that means something else on a slower machine.
 
-Install Playwright's clock before the page loads. Time still passes as it does; `runFor(ms)` moves it on at once,
-firing every timer due on the way:
+Install Playwright's clock before the page loads, and pause it once the page is ready (`pauseClock()` in
+`tests/e2e/fixtures.ts`). Installed and not paused, the clock keeps real time: a timer the test needs to stay pending
+between two steps (a countdown until the hover that pauses it, a type-ahead buffer from one letter to the next) runs
+out on a slow run. Paused, only `runFor(ms)` moves time, at once, firing every timer due on the way:
 
 ```ts
 await page.clock.install();
 await page.goto('/lab/turbo-stream-toast');
-// show a toast (1500 ms), then:
+await pauseClock(page);
+// show a toast (1500 ms; Turbo renders the Stream on an animation frame, which runFor gives it), then:
 await toast.hover();
 await page.clock.runFor(2000);   // past its timeout: paused, so still shown
 await expect(toast).toBeVisible();
 ```
+
+A paused clock also holds Turbo's rendering, which waits for an animation frame: resume it (`page.clock.resume()`)
+before steps that visit, or move it on with `runFor()`. `lab.side-nav.spec.ts` pauses for its type-ahead only.
 
 The clock also fakes `requestAnimationFrame` and `performance.now()`: keep the real clock where a test observes frames
 or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time.
@@ -865,6 +871,37 @@ They render the recipes as the demo has them: run `tools/sync-demo` first, and `
 page tests (a page links the built CSS). PHPStan checks the tests with its PHPUnit and Symfony extensions
 (`tools/phpstan.neon`).
 
+### Kit PHP
+
+**Catches:** a PHP syntax error anywhere in the repository, and a Twig syntax error in a template no PHPUnit test
+renders, before the tests run; a failing test hiding what PHPStan finds.
+
+CI's *Kit PHP* job runs, in order:
+
+1. **Syntax:** `php -l` on every PHP file Git tracks (the recipes' `src/`, the demo and its tests, the package, the tools
+   and their fixtures) and the PHP scripts without an extension (`bin/console`, `tools/sync-demo`…), in about a second;
+   it lists every file that fails, not only the first.
+2. **Install the demo:** `tools/sync-demo`, `composer install`, the CSS.
+3. **Twig syntax:** `bin/console lint:twig` on the demo's templates and each recipe's, compiled by the demo's Twig with
+   its extensions, in about 2 s. A syntax error, an unknown tag (a misspelled `props`), filter or function fails here.
+   PHPUnit renders only some of the recipes' templates: an unclosed `{% if %}` in the modal's or the button group's
+   template passed every PHPUnit test, and before this step first failed in the browser jobs. It compiles without
+   rendering, so an HTML component tag naming no component (`<twig:NoSuch />`), a wrong prop or an error raised while
+   rendering still fails only where the template is rendered (PHPUnit, the browser tests).
+4. **PHPUnit**, then **PHPStan** (level 8, `tools/phpstan.neon`, on the recipes' `src/`, `demo/src/Demo` and
+   `demo/tests`).
+
+From the demo's install on, each step runs whatever one before it found (`!cancelled()`), so one run reports a syntax
+error, a template error, a failing test and a PHPStan error together; the job fails when any of them failed. None of
+them runs after a failed PHP setup, where the runner's own PHP would run them on another version, and PHPStan finds the
+recipes' `src/` directories in its own step, where no earlier step can change the paths it analyses. The same
+locally, from the repository root:
+
+```sh
+git ls-files -z '*.php' | xargs -0 -n1 php -l -f | grep -v '^No syntax errors'
+(cd demo && bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done))
+```
+
 ### A Live Component through real Live requests
 
 **Catches:** what a crafted Live request can make a component do, without a browser: a writable `LiveProp` set to
@@ -977,6 +1014,19 @@ given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes,
 case. The URL corpus includes case and whitespace changes, C0 controls,
 character references, attribute breakouts, `Markup` values and stringable objects.
 
+The four corpora of hundreds of cases (the `as` tags, the link props, the image props, the attributes) are parsed in
+batches: each case is a document of its own, a frame's (`srcdoc`), fifty frames to a page, all read in one call once
+they have loaded (`parseAll()`), so a case's markup, `<base>`, scripts and handlers reach no other case. A case that
+fails is parsed again alone, as the whole page (`parse()`), and reported with what that finds (`check()`).
+
+Some handlers only one element of a page can trigger: `autofocus` focuses the first candidate of a top-level page, so
+in a page of frames only one case's `onfocus` would run, and `accesskey` belongs to the page too. A case whose markup
+holds either is never batched: it is parsed alone, in a document of its own (`about:blank` first, since `setContent()`
+writes into the page's document, which runs its autofocus only once), read after the rendering that follows the load,
+where the focus lands. So `ran` (a payload that ran) stays a signal for those cases beside the static check of every
+attribute named `on…`. A test plants two autofocus handlers among ordinary cases and expects both seen, which fails
+when every case is batched.
+
 Here: [`hostile-props.spec.ts`](../tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](../demo/src/Command/HostilePropsCommand.php).
 
 What a server-side sanitizer or renderer returns is a string: test it where it runs, with PHPUnit, on the same hostile
@@ -996,10 +1046,16 @@ without failing CI, and passes on its own once the fault is fixed.
 **Catches:** a policy that allows more than it says, and what a strict policy silently breaks (an inline theme
 script, Turbo's progress bar, inline `style` attributes).
 
-The headers come from one listener; a spec checks the policy itself (nonces, no `'unsafe-inline'`), and the fixture
-above fails every other test on a violation, so the whole suite runs under the policy.
+The headers come from one listener. A PHPUnit test checks each page's headers and policy (nonces, `'strict-dynamic'`,
+no `'unsafe-inline'`, no `style-src-attr`) and the nonces its markup carries (every `<script>` the script nonce, the
+`csp-nonce` meta the style nonce), on a page of each kind and of each recipe with a controller of its own, parsed by
+PHP's HTML5 parser: a header or a template is the server's, the same in every browser. The fixture above fails every
+browser test on a violation, in every engine, so the whole suite runs under the policy: each of those pages is loaded
+in full in Chromium, Firefox and WebKit by another spec. `csp.spec.ts` keeps what only a browser shows: fresh nonces
+per response, and what a blocked inline script or style would silently break.
 
-Here: [`csp.spec.ts`](../tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](../demo/src/EventListener/SecurityHeadersListener.php).
+Here: [`SecurityHeadersTest.php`](../demo/tests/Security/SecurityHeadersTest.php), [`csp.spec.ts`](../tests/e2e/csp.spec.ts),
+[`SecurityHeadersListener.php`](../demo/src/EventListener/SecurityHeadersListener.php).
 
 ## Production boot and route trust boundaries
 
@@ -1093,6 +1149,20 @@ page's running animations to finish first, so a color transition the spec starte
 read at its end, not half-way; endless and paused ones are not awaited. A whole-page scan first waits for the
 widgets to mount, every controller named in a `data-controller` connected (`controllersConnected`, lazy ones
 loaded), so it reads what the controllers render, not the server's markup before them.
+
+A recipe page (`/r/<recipe>`) embeds each README example as a preview frame in both themes, which its scan leaves out
+(`exclude: 'iframe'`) since each preview is scanned on its own. Its test answers those frames with an empty page
+(`stubPreviewFrames()`), as does the 320px test of the recipe pages in `demo-app.spec.ts`: a frame never widens the
+page (its width is the page's; the preview-frame controller sets only its height) and its text is its own. Only in
+Chromium, where `a11y.spec.ts` loads every preview on its own under the guard, in both themes; in Firefox and WebKit
+the 320px test keeps the real frames, since no other test there loads the dark previews.
+
+The scan runs axe in the page itself (`setLegacyMode()` of the axe-core Playwright package), not its default of a partial
+run in each frame finished in a blank page of its own, which injects axe a second time and opens a page per scan. Both
+give the same result lists, rule for rule and node for node: compared on every page `a11y.spec.ts` scans (in
+Chromium, its only engine) and on every other `expectA11y` call in Chromium, Firefox and WebKit. It is safe because
+every frame of the demo has the demo's origin. Legacy mode does not scan a cross-origin frame: a page with one that
+must be scanned (an embed from another origin) needs the default mode back for that scan.
 
 ```ts
 await controllersConnected(page);                                                  // the widgets mounted
