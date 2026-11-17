@@ -54,7 +54,8 @@ env:
     # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
     # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
     # result. `every-push`: on every push, as before the trial. This line is the one switch back.
-    CHROMIUM_SHARDS: '6'
+    # eight, measured: 4 min 35 s to CI result against 5 min 37 s with six, for the same test seconds
+    CHROMIUM_SHARDS: '8'
     ENGINES_ON: daily
 
 jobs:
@@ -114,6 +115,9 @@ jobs:
             browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
             # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
             lane-plan: ${{ steps.plan.outputs.artifact }}
+            # the plan's artifact by id and its plan.json's SHA-256: CI result takes nothing else from it, and checks both
+            lane-plan-id: ${{ steps.plan-upload.outputs.artifact-id }}
+            lane-plan-sha256: ${{ steps.plan.outputs.sha256 }}
             base: ${{ steps.jobs.outputs.base }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -230,17 +234,19 @@ jobs:
               run: |
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
-                  cp tools/ci/lane-evidence.mjs "$RUNNER_TEMP/lane-plan/lane-evidence.mjs"
-                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
+                  node tools/ci/lane-evidence.mjs plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
                       --event "$PLAN_EVENT" --engines-on "$ENGINES_ON" --engines "$ENGINES" --chromium-shards "$CHROMIUM_SHARDS" \
                       --selection "$RUNNER_TEMP/jobs" --out "$RUNNER_TEMP/lane-plan/plan.json" --github-output "$GITHUB_OUTPUT"
+                  echo "sha256=$(sha256sum "$RUNNER_TEMP/lane-plan/plan.json" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
                   jq -r '"Lanes planned in \(.elapsed_ms) ms, \(.api_calls) API calls"' "$RUNNER_TEMP/lane-plan/plan.json" >> "$GITHUB_STEP_SUMMARY"
 
-            # the plan and the copy of the tool that made it, for CI result's record and verdict
+            # the plan alone, for CI result's record and verdict (which run the tool of the run's own commit, never a copy
+            # from an artifact: another job of the run could replace an artifact of a predictable name)
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              id: plan-upload
               with:
                   name: ${{ steps.plan.outputs.artifact }}
-                  path: ${{ runner.temp }}/lane-plan/
+                  path: ${{ runner.temp }}/lane-plan/plan.json
                   if-no-files-found: error
                   retention-days: 7
 
@@ -1465,16 +1471,46 @@ jobs:
         permissions:
             contents: read
             actions: read # the run's jobs, the lanes' markers
-        # No setup-node, no checkout: the tool the Changes job ran (its artifact, Node's own modules only) runs on the
-        # runner image's Node, which it checks is 20 or later. The advisory CI metrics are the CI metrics job, after this one.
+        # No setup-node: the tool (Node's own modules only) runs on the runner image's Node, which it checks is 20 or later.
+        # It is the tool of the run's own commit, from a sparse checkout: only plan.json comes from the Changes job's
+        # artifact. The advisory CI metrics are the CI metrics job, after this one.
         steps:
-            # The plan the Changes job made and the copy of the tool that made it
-            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+            # The finish below runs the tool of the run's own commit, checked out here, never anything from
+            # an artifact: only plan.json comes from the Changes job's artifact, by its id, and its SHA-256 (a Changes job
+            # output) is checked before anything reads it
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               if: ${{ always() }}
+              with:
+                  persist-credentials: false
+                  sparse-checkout: |
+                      tools/ci
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ always() && needs.changes.result == 'success' }}
               continue-on-error: true
               with:
-                  name: ${{ needs.changes.outputs.lane-plan }}
+                  artifact-ids: ${{ needs.changes.outputs.lane-plan-id }}
+                  merge-multiple: true
                   path: ${{ runner.temp }}/lane-plan
+
+            # The Changes job must have succeeded, and plan.json must be the one it wrote: else no record and no verdict,
+            # and this step fails the job
+            - name: The lane plan is the one the Changes job wrote
+              id: lane-plan
+              if: ${{ always() }}
+              env:
+                  CHANGES: ${{ needs.changes.result }}
+                  PLAN_SHA256: ${{ needs.changes.outputs.lane-plan-sha256 }}
+              run: |
+                  if [ "$CHANGES" != success ]; then
+                      echo "::error::the Changes job ended with $CHANGES: no plan, no verdict"
+                      exit 1
+                  fi
+                  plan="$RUNNER_TEMP/lane-plan/plan.json"
+                  if [ ! -f "$plan" ] || [ -z "$PLAN_SHA256" ] || ! printf '%s  %s\n' "$PLAN_SHA256" "$plan" | sha256sum --check --status; then
+                      echo "::error::plan.json is not the one the Changes job wrote (missing, or another SHA-256 than its output): no verdict"
+                      exit 1
+                  fi
 
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               if: ${{ always() && needs.demo.result != 'skipped' }}
@@ -1491,12 +1527,11 @@ jobs:
             # list unreadable) fails this step, and its upload below is never continue-on-error; a lost pass marker warns.
             - name: Every lane passed, was reused or was skipped
               id: finish
-              if: ${{ always() }}
+              if: ${{ always() && steps.lane-plan.outcome == 'success' }}
               timeout-minutes: 3
               env:
                   NEEDS: ${{ toJSON(needs) }}
                   WO_DRAFT: ${{ needs.changes.outputs.wo-draft }}
-                  CHANGES: ${{ needs.changes.result }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
@@ -1507,10 +1542,6 @@ jobs:
                       echo "::error::work order draft: CI ran no tests. Mark its pull request into dev ready, then re-run this run (Re-run all jobs)"
                       exit 1
                   fi
-                  if [ ! -f "$RUNNER_TEMP/lane-plan/plan.json" ] || [ ! -f "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" ]; then
-                      echo "::error::no lane plan from the Changes job (it ended with $CHANGES): no verdict"
-                      exit 1
-                  fi
                   echo "Node $(node --version)"
                   printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
                   # a listing that fails leaves no file: the tool then fails if a failure marker was due, and the verdict
@@ -1519,7 +1550,7 @@ jobs:
                       echo "::warning::the run's jobs could not be listed"
                       rm -f "$RUNNER_TEMP/run-jobs.json"
                   fi
-                  node "$RUNNER_TEMP/lane-plan/lane-evidence.mjs" finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
+                  node tools/ci/lane-evidence.mjs finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
                       --jobs "$RUNNER_TEMP/run-jobs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
                       --out "$RUNNER_TEMP/lane-markers" --repo "$REPO" --wo-draft "${WO_DRAFT:-false}" \
                       --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
