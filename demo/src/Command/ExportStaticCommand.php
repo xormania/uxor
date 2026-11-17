@@ -174,13 +174,22 @@ final class ExportStaticCommand
             return $html;
         }
 
+        return self::rewrite($html, $basePath, $path);
+    }
+
+    /**
+     * A page as the static copy saves it: its preview links per theme, without Live's controller, its asset URLs under
+     * the base path, and on a /demo page the notice that its forms do not submit.
+     */
+    public static function rewrite(string $html, string $basePath, string $path): string
+    {
         // A file cannot depend on the query string: the previews are saved per theme, in their own directory. A
         // preview's own links (a table's sort and page links) carry more parameters after the theme: they follow it.
-        $html = preg_replace_callback(
+        $html = self::checked(preg_replace_callback(
             '#(/preview/[a-z0-9-]+/[a-z0-9-]+)\?theme=(light|dark)(?:(?:&amp;|&)([^"\'\s<>]*))?#',
             static fn (array $match): string => $match[1].'/'.$match[2].'/'.(isset($match[3]) && '' !== $match[3] ? '?'.$match[3] : ''),
             $html,
-        );
+        ), 'rewrite the preview links', $path);
 
         // A preview's own forms (a table's search) point at the preview without its theme, sent as a field instead:
         // on this page, they submit to the page's own directory
@@ -194,19 +203,19 @@ final class ExportStaticCommand
 
         // No server answers Live Components here: without their controller, a click does nothing instead of opening
         // Live's error dialog (the recipe page says what needs the server)
-        $html = preg_replace_callback(
+        $html = self::checked(preg_replace_callback(
             '#\bdata-controller="([^"]*)"#',
-            static fn (array $match): string => 'data-controller="'.trim(preg_replace('#(?:^|\s)live(?=\s|$)#', ' ', $match[1]) ?? $match[1]).'"',
+            static fn (array $match): string => 'data-controller="'.trim(self::checked(preg_replace('#(?:^|\s)live(?=\s|$)#', ' ', $match[1]), "remove Live's controller", $path)).'"',
             $html,
-        );
+        ), "remove Live's controller", $path);
 
         // AssetMapper prints absolute /assets/ URLs, which no base path changes (the compiled JS and CSS refer to each
         // other relatively or through the importmap): the links, preloads and the importmap need the base path.
-        $html = preg_replace('#(["\'])/assets/#', '$1'.$basePath.'/assets/', $html);
+        $html = self::checked(preg_replace('#(["\'])/assets/#', '$1'.$basePath.'/assets/', $html), 'prefix the asset URLs', $path);
 
         // The /demo pages come from the kit's layouts, which know nothing of this copy: say it there too.
         if (str_starts_with($path, '/demo')) {
-            $html = self::addDemoNotice($html, $basePath);
+            $html = self::addDemoNotice($html, $basePath, $path);
         }
 
         return $html;
@@ -217,14 +226,23 @@ final class ExportStaticCommand
      * the app layout, at the top of the column beside the sidebar, which sticks as tall as the window (above it, the
      * notice would push the sidebar's bottom out of the window).
      */
-    public static function addDemoNotice(string $html, string $basePath): string
+    public static function addDemoNotice(string $html, string $basePath, string $path = '/demo'): string
     {
         $notice = \sprintf('<div class="border-b border-default bg-neutral-secondary-medium px-4 py-2 text-center text-sm text-body">A static copy of the demo application: its forms do not submit. <a href="%s/" class="underline hover:text-heading">Back to the gallery</a></div>', $basePath);
 
         if (str_contains($html, '<main id="main"')) {
-            return preg_replace('#<main id="main"#', $notice.'$0', $html, 1) ?? $html;
+            return self::checked(preg_replace('#<main id="main"#', $notice.'$0', $html, 1), 'add the demo notice', $path);
         }
 
-        return preg_replace('#<body\b[^>]*>#', '$0'.$notice, $html, 1) ?? $html;
+        return self::checked(preg_replace('#<body\b[^>]*>#', '$0'.$notice, $html, 1), 'add the demo notice', $path);
+    }
+
+    /**
+     * The result of a preg_replace*() call: PCRE gives null on an error (its backtrack limit on a large page, invalid
+     * UTF-8), which would save an empty page or one left unrewritten, so the export fails naming the step instead.
+     */
+    private static function checked(?string $result, string $step, string $path): string
+    {
+        return $result ?? throw new \RuntimeException(\sprintf('The static export could not %s on %s: %s.', $step, $path, preg_last_error_msg()));
     }
 }

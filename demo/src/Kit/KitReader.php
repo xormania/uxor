@@ -76,7 +76,14 @@ final class KitReader
      */
     public function getExamples(Recipe $recipe): array
     {
-        if (null === $recipe->doc || !preg_match_all('/^```(?<language>\S+)\h+(?<json>\{.*?\})\h*$\R(?<code>.*?)\R```\h*$/ms', $recipe->doc, $matches, \PREG_SET_ORDER | \PREG_OFFSET_CAPTURE)) {
+        if (null === $recipe->doc) {
+            return [];
+        }
+        $found = preg_match_all('/^```(?<language>\S+)\h+(?<json>\{.*?\})\h*$\R(?<code>.*?)\R```\h*$/ms', $recipe->doc, $matches, \PREG_SET_ORDER | \PREG_OFFSET_CAPTURE);
+        if (false === $found) {
+            throw self::pcreError('find the README examples', $recipe->name);
+        }
+        if (0 === $found) {
             return [];
         }
 
@@ -89,7 +96,7 @@ final class KitReader
                 continue;
             }
 
-            $baseId = self::getExampleBaseId(substr($recipe->doc, 0, $match[0][1]), $slugger);
+            $baseId = self::getExampleBaseId(substr($recipe->doc, 0, $match[0][1]), $slugger, $recipe->name);
             $id = $baseId;
             for ($i = 2; isset($usedIds[$id]); ++$i) {
                 $id = $baseId.'-'.$i;
@@ -123,10 +130,14 @@ final class KitReader
     /**
      * The slug of the last heading above the example; "default" right under the title.
      */
-    private static function getExampleBaseId(string $docBefore, AsciiSlugger $slugger): string
+    private static function getExampleBaseId(string $docBefore, AsciiSlugger $slugger, string $recipe): string
     {
-        $prose = preg_replace('/^```.*?^```\h*$/ms', '', $docBefore);
-        if (!preg_match_all('/^(#{1,6})\h+(.+)$/m', $prose, $headings, \PREG_SET_ORDER)) {
+        $prose = preg_replace('/^```.*?^```\h*$/ms', '', $docBefore) ?? throw self::pcreError('name the README example', $recipe);
+        $found = preg_match_all('/^(#{1,6})\h+(.+)$/m', $prose, $headings, \PREG_SET_ORDER);
+        if (false === $found) {
+            throw self::pcreError('name the README example', $recipe);
+        }
+        if (0 === $found) {
             return 'default';
         }
 
@@ -138,5 +149,14 @@ final class KitReader
         $slug = $slugger->slug($title)->lower()->toString();
 
         return '' === $slug ? 'default' : $slug;
+    }
+
+    /**
+     * A PCRE error (its backtrack limit on a long README, invalid UTF-8): reading the examples fails naming the step,
+     * where the error read as "no examples" or gave the example the id "default".
+     */
+    private static function pcreError(string $step, string $recipe): \RuntimeException
+    {
+        return new \RuntimeException(\sprintf('Reading the README examples of %s could not %s: %s.', $recipe, $step, preg_last_error_msg()));
     }
 }
