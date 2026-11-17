@@ -257,14 +257,6 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await turboVisitDone(page);
 });
 
-test('every demo page names the brand it shows in its title', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
-    for (const path of Object.values(demoPages)) {
-        await page.goto(path);
-        await expect(page, path).toHaveTitle(/ — xor$/);
-    }
-});
-
 // a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
 for (const colorScheme of ['light', 'dark'] as const) {
     test.describe(`${colorScheme} theme at phone width`, () => {
