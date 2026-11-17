@@ -871,6 +871,35 @@ They render the recipes as the demo has them: run `tools/sync-demo` first, and `
 page tests (a page links the built CSS). PHPStan checks the tests with its PHPUnit and Symfony extensions
 (`tools/phpstan.neon`).
 
+### Kit PHP
+
+**Catches:** a PHP syntax error anywhere in the repository, and a Twig syntax error in a template no PHPUnit test
+renders, before the tests run; a failing test hiding what PHPStan finds.
+
+CI's *Kit PHP* job runs, in order:
+
+1. **Syntax:** `php -l` on every PHP file Git tracks (the recipes' `src/`, the demo and its tests, the package, the tools
+   and their fixtures) and the PHP scripts without an extension (`bin/console`, `tools/sync-demo`…), in about a second;
+   it lists every file that fails, not only the first.
+2. **Install the demo:** `tools/sync-demo`, `composer install`, the CSS.
+3. **Twig syntax:** `bin/console lint:twig` on the demo's templates and each recipe's, compiled by the demo's Twig with
+   its extensions, in about 2 s. A syntax error, an unknown tag (a misspelled `props`), filter or function fails here.
+   PHPUnit renders only some of the recipes' templates: an unclosed `{% if %}` in the modal's or the button group's
+   template passed every PHPUnit test, and before this step first failed in the browser jobs. It compiles without
+   rendering, so an HTML component tag naming no component (`<twig:NoSuch />`), a wrong prop or an error raised while
+   rendering still fails only where the template is rendered (PHPUnit, the browser tests).
+4. **PHPUnit**, then **PHPStan** (level 8, `tools/phpstan.neon`, on the recipes' `src/`, `demo/src/Demo` and
+   `demo/tests`).
+
+From the demo's install on, each step runs whatever one before it found (`!cancelled()`), so one run reports a syntax
+error, a template error, a failing test and a PHPStan error together; the job fails when any of them failed. The same
+locally, from the repository root:
+
+```sh
+git ls-files -z '*.php' | xargs -0 -n1 php -l | grep -v '^No syntax errors'
+(cd demo && bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done))
+```
+
 ### A Live Component through real Live requests
 
 **Catches:** what a crafted Live request can make a component do, without a browser: a writable `LiveProp` set to

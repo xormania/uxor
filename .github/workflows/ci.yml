@@ -722,27 +722,51 @@ jobs:
                   tools: composer:v2
                   coverage: none
 
-            # The kit lint does not look at PHP: a recipe's PHP (copied into src/ by ux:install) is checked here.
+            # The kit lint does not look at PHP: every PHP file the repository tracks (the recipes' src, the demo and its
+            # tests, the package, the tools and their fixtures) and its PHP scripts without an extension are checked here,
+            # first, in about a second. The recipes' src directories are also what PHPStan analyses below.
             - name: Syntax
               run: |
                   for manifest in */manifest.json; do
                       if [ -d "${manifest%/manifest.json}/src" ]; then echo "${manifest%/manifest.json}/src"; fi
                   done > "$RUNNER_TEMP/php-dirs"
-                  cat "$RUNNER_TEMP/php-dirs"
-                  # shellcheck disable=SC2046 # one directory per line, none with a space
-                  find $(cat "$RUNNER_TEMP/php-dirs") -name '*.php' -print0 | xargs -0 -n1 php -l
+                  # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one
+                  # shellcheck disable=SC2016 # $1 is the inner shell's
+                  { git ls-files -z '*.php'
+                    git ls-files -z demo/bin/console demo/bin/phpunit packages/uxor/bin/uxor packages/uxor/dev/app/bin/console tools/sync-demo
+                  } | xargs -0 -n1 -P4 sh -c 'php -l "$1" || exit 1' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
+                  grep -v '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log" || true
+                  echo "$(grep -c '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log") files without a syntax error"
+                  exit "${status:-0}"
 
-            # the run's importmap packages (job importmap): the install below downloads none
+            # the run's importmap packages (job importmap): the install below downloads none. From here on each check runs
+            # even when one before it failed (`!cancelled()`), so one run reports every kind of error; the job stays red.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ !cancelled() }}
               with:
                   name: importmap-packages
                   path: demo/assets/vendor
 
             # The tests render the recipes' templates as the demo has them, and its pages with their CSS
             - name: Install the demo
+              id: demo-install
+              if: ${{ !cancelled() }}
               run: |
                   php tools/sync-demo
                   (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+
+            # Every template the demo compiles, its own and the recipes' (as tools/sync-demo copied them; the paths below are
+            # the recipes' originals, which give the error its source file), through the demo's Twig and its extensions:
+            # a syntax error, an unknown tag (a misspelled `props`), filter or function fails here in about 2 s. PHPUnit
+            # renders only some of the recipes' templates, so before this step most such errors first failed in the
+            # browser jobs. It does not render: an HTML component tag naming no component (`<twig:NoSuch />`), a wrong
+            # prop or a runtime error still fail only where the template is rendered (docs/TESTING.md, *Kit PHP*).
+            - name: Twig syntax
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
+              working-directory: demo
+              run: |
+                  # shellcheck disable=SC2046 # one directory per line, none with a space
+                  bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done)
 
             # demo/tests: the data tables' limits (the deepest page, the loader calls, the selection), the Live table
             # through real Live requests, components rendered against their snapshots, the loader calls of one
@@ -751,6 +775,7 @@ jobs:
             # A missing snapshot fails here instead of being written.
             - name: PHPUnit
               id: phpunit
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               working-directory: demo
               env:
                   CREATE_SNAPSHOTS: 'false'
@@ -773,8 +798,11 @@ jobs:
 
             # PHPStan reads the classes the kit's PHP uses (Symfony) from the demo's dependencies, and also checks the
             # demo's tables and tests; it is installed in a scratch directory with its Symfony and PHPUnit extensions
-            # (tools/phpstan.neon), whose Symfony one reads the demo's test container.
+            # (tools/phpstan.neon), whose Symfony one reads the demo's test container. It runs whether or not PHPUnit
+            # passed: a failing test no longer hides what PHPStan finds.
             - name: Install PHPStan
+              id: phpstan-install
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               working-directory: ${{ runner.temp }}
               run: |
                   mkdir phpstan && cd phpstan
@@ -783,6 +811,7 @@ jobs:
 
             # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).
             - name: PHPStan
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' && steps.phpstan-install.outcome == 'success' }}
               run: |
                   (cd demo && bin/console cache:warmup --env=test)
                   # shellcheck disable=SC2046 # one directory per line, none with a space
