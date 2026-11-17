@@ -183,14 +183,20 @@ test('a fingerprint ignores the excluded files\' content, not their path or mode
     const fx = scratch(t);
     const base = fingerprints(fx, fx.head());
     assert.deepEqual(Object.keys(base.lanes).sort(), [...REUSABLE].sort());
-    assert.deepEqual(base.excluded, EXCLUDED);
+    // each lane names what it ignores the content of; Package reads CHANGELOG.md's latest version for its references
+    for (const lane of REUSABLE) {
+        assert.deepEqual(base.excluded[lane], lane === 'package' ? EXCLUDED.filter((f) => f !== 'CHANGELOG.md') : EXCLUDED, lane);
+    }
     for (const fp of Object.values(base.lanes)) assert.match(fp, /^[0-9a-f]{64}$/);
     assert.equal(new Set(Object.values(base.lanes)).size, REUSABLE.length, 'each lane has its own fingerprint');
 
-    for (const path of ['CHANGELOG.md', 'AGENTS.md']) {
-        assert.deepEqual(fingerprints(fx, fx.commit(path, `edited ${path}\n`)).lanes, base.lanes, `${path}'s content is not an input`);
+    assert.deepEqual(fingerprints(fx, fx.commit('AGENTS.md', 'edited AGENTS.md\n')).lanes, base.lanes, "AGENTS.md's content is no lane's input");
+    const changelog = fingerprints(fx, fx.commit('CHANGELOG.md', 'edited CHANGELOG.md\n')).lanes;
+    for (const lane of REUSABLE) {
+        if (lane === 'package') assert.notEqual(changelog.package, base.lanes.package, "CHANGELOG.md's content is Package's input");
+        else assert.equal(changelog[lane], base.lanes[lane], `CHANGELOG.md's content is not ${lane}'s input`);
     }
-    let previous = base.lanes;
+    let previous = changelog;
     const changed = (what) => {
         const now = fingerprints(fx, fx.head()).lanes;
         for (const lane of Object.keys(now)) assert.notEqual(now[lane], previous[lane], `${what} changes ${lane}`);
@@ -1379,4 +1385,46 @@ test('an engines shard that ended before its tests is incomplete: no failure mar
     const out = verdict({ demo: 'failure' }, undefined, [], setupFailed);
     assert.match(out.outputs, /^engines-status=incomplete$/m);
     assert.doesNotMatch(out.outputs, /engines-report=Firefox\/WebKit failed/);
+});
+
+// the stack's review: the 24-hour lanes ---------------------------------------------------------------------------------------
+
+test('each excluded file is tied to the lanes it is excluded for: CHANGELOG.md is Package\'s input', async () => {
+    const { EXCLUDED_FOR, REUSABLE: rules } = await import('../ci/lane-evidence.mjs');
+    const all = Object.keys(rules).sort();
+    assert.deepEqual(Object.keys(EXCLUDED_FOR), EXCLUDED);
+    for (const [file, lanes] of Object.entries(EXCLUDED_FOR)) {
+        const expected = file === 'CHANGELOG.md' ? all.filter((lane) => lane !== 'package') : all;
+        assert.deepEqual([...lanes].sort(), expected, `${file}: the lanes that never read its content`);
+    }
+});
+
+test("a 24-hour lane's age is its jobs' completion too: a re-run's young marker for old jobs is refused", (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes['fresh-install'];
+    // a marker made an hour ago (a re-run's CI result) for jobs that completed 30 hours ago: too old for a 24-hour lane
+    const rerun = routesFor('fresh-install', fp, [marker(fx, { lane: 'fresh-install', sha: fx.head(), fp, jobs: installJobs(), artifactId: 9800, runId: 80, created: '2026-11-16T11:00:00Z', completedAt: '2026-11-15T06:00:00Z' })]);
+    const old = plan(fx, rerun, ['fresh-install']);
+    assert.equal(old.outputs['fresh-install'], 'run');
+    assert.equal(old.plan.lanes['fresh-install'].reason, 'evidence_too_old');
+    const young = routesFor('fresh-install', fp, [marker(fx, { lane: 'fresh-install', sha: fx.head(), fp, jobs: installJobs(), artifactId: 9801, runId: 81, created: '2026-11-16T11:00:00Z', completedAt: '2026-11-16T10:00:00Z' })]);
+    assert.equal(plan(fx, young, ['fresh-install']).outputs['fresh-install'], 'reuse');
+});
+
+test('the verdict accepts the age the plan accepted for a 24-hour lane, and still refuses an expired marker', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes['fresh-install'];
+    // planned at 23 h 55 old; the verdict runs at 24 h 05
+    const m = marker(fx, { lane: 'fresh-install', sha: fx.head(), fp, jobs: installJobs(), artifactId: 9810, runId: 81, created: '2026-11-15T11:55:00Z' });
+    const evidence = { artifact_id: 9810, artifact_name: m.artifact.name, run_id: 81, run_attempt: 1, head_sha: fx.head(), url: 'https://github.com/example/project/actions/runs/81', jobs: brief(installJobs()), completed_at: '2026-11-15T11:55:00Z', flaky: null };
+    const lanes = Object.fromEntries([...LANES, 'engines'].map((name) => [name, lane('skip', null)]));
+    lanes['fresh-install'] = { ...lane('reuse', fp), evidence };
+    const planFile = join(fx.dir, 'plan.json');
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
+    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
+    const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO, '--now', '2026-11-16T12:00:00Z'], routesFor('fresh-install', fp, [m]));
+    assert.equal(out.status, 0, out.stderr);
+    const expired = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO], routesFor('fresh-install', fp, [marker(fx, { lane: 'fresh-install', sha: fx.head(), fp, jobs: installJobs(), artifactId: 9810, runId: 81, created: '2026-11-15T11:55:00Z', artifact: { expired: true } })]));
+    assert.equal(expired.status, 1, 'an expired marker is still refused');
 });

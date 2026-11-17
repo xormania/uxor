@@ -1488,9 +1488,11 @@ re-prove: it downloaded GitHub's archive of another commit with the same tree, w
 download of this commit's archive is not checked again within those 24 hours.
 
 - **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`), but only the path and mode of
-  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, whose content
-  no reusable lane reads (they are export-ignored, the production image does not hold them, and the demo only links
-  them on GitHub): editing one keeps the fingerprint, deleting it or making it a link does not. Any other change,
+  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, for the lanes
+  that never read their content (they are export-ignored, the production image does not hold them, and the demo only
+  links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
+  `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
+  fingerprints, deleting it or making it a link does not. Any other change,
   `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
   runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
   its lane jobs' completion (the oldest job's, as GitHub's job list reports it and as the marker must say), never from

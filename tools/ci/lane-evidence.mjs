@@ -64,6 +64,15 @@ const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily r
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 /**
+ * The lanes each excluded file's content is left out for: those that never read it. All of them are export-ignored and
+ * kept out of the production image, and the demo only links them; but Package's references step reads CHANGELOG.md's
+ * latest version heading (packages/uxor/tools/ReferenceGenerator.php, releaseRef), so CHANGELOG.md's content is
+ * Package's input.
+ */
+export const EXCLUDED_FOR = Object.fromEntries(EXCLUDED.map((file) => [file,
+    Object.keys(REUSABLE).filter((lane) => !(file === 'CHANGELOG.md' && lane === 'package'))]));
+const excludedFor = (lane) => EXCLUDED.filter((file) => EXCLUDED_FOR[file].includes(lane));
+/**
  * How old a pass may be, per lane. The installs, Lint kit and Package resolve dependencies live (a fresh Symfony
  * skeleton and Symfony Docker, the Toolkit and the consumer's packages from Packagist): their evidence goes stale with
  * time, not with the tree. dev's daily run checks that drift, and never reuses them; a pass on the same tree within a
@@ -122,16 +131,18 @@ function git(dir, args) {
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
-    // an excluded file counts by its path and mode, not its content: deleting it or making it a link still counts
-    const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean).map((entry) => {
-        const tab = entry.indexOf('\t');
-        if (!EXCLUDED.includes(entry.slice(tab + 1))) return entry;
-        const [mode, type] = entry.slice(0, tab).split(' ');
-        return `${mode} ${type} -${entry.slice(tab)}`;
-    });
-    const body = entries.map((entry) => `${entry}\0`).join('');
-    return Object.fromEntries(Object.keys(REUSABLE).map((lane) =>
-        [lane, createHash('sha256').update(`uxor-lane-evidence/2\0${lane}\0`).update(body).digest('hex')]));
+    // a file excluded for a lane counts by its path and mode, not its content: deleting it or making it a link still counts
+    const all = tree.stdout.toString('utf8').split('\0').filter(Boolean);
+    return Object.fromEntries(Object.keys(REUSABLE).map((lane) => {
+        const excluded = excludedFor(lane);
+        const body = all.map((entry) => {
+            const tab = entry.indexOf('\t');
+            if (!excluded.includes(entry.slice(tab + 1))) return entry;
+            const [mode, type] = entry.slice(0, tab).split(' ');
+            return `${mode} ${type} -${entry.slice(tab)}`;
+        }).map((entry) => `${entry}\0`).join('');
+        return [lane, createHash('sha256').update(`uxor-lane-evidence/3\0${lane}\0`).update(body).digest('hex')];
+    }));
 }
 
 /** the producer's commit, fetched by its id when this clone lacks it, without making the clone shallow */
@@ -487,7 +498,7 @@ function fingerprintCommand(opts) {
     const dir = opts['git-dir'] ?? '.';
     const sha = git(dir, ['rev-parse', '--verify', `${opts.sha}^{commit}`]).stdout.toString().trim();
     if (!sha) usage(`no commit ${opts.sha}`);
-    console.log(JSON.stringify({ schema: 1, sha, excluded: EXCLUDED, lanes: fingerprints(dir, sha) }));
+    console.log(JSON.stringify({ schema: 1, sha, excluded: Object.fromEntries(Object.keys(REUSABLE).map((lane) => [lane, excludedFor(lane)])), lanes: fingerprints(dir, sha) }));
 }
 
 async function planCommand(opts) {
