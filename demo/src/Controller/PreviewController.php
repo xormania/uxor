@@ -13,8 +13,8 @@ use Symfony\UX\Toolkit\Recipe\RecipeType;
 use Twig\Environment;
 
 /**
- * Renders one README example of a recipe alone on a page, like the UX Toolkit's own preview app
- * (symfony/ux apps/toolkit), so screenshots can be compared with the upstream ones.
+ * Renders one README example of a UXor recipe alone on a page. The Symfony UX Toolkit preview app
+ * (symfony/ux apps/toolkit) is a reference for screenshot comparisons; UXor's recipes define what renders here.
  *
  * The example is Twig code from the repository, compiled and run with the app's services: trusted code
  * (CONTRIBUTING.md, *Setup*). A request only picks a recipe and an example among those KitReader finds.
@@ -42,7 +42,7 @@ final class PreviewController extends AbstractController
         $code = $kit->getExample($recipe, $example)['code'] ?? throw new NotFoundHttpException(\sprintf('Unknown example "%s" of recipe "%s".', $example, $recipe));
 
         $template = $twig->createTemplate($code);
-        // Twig's random() draws from mt_rand(): a fixed seed keeps screenshots stable (as upstream does).
+        // Twig's random() draws from mt_rand(): a fixed seed keeps UXor's screenshots stable.
         mt_srand(0);
 
         return $this->render('preview.html.twig', [

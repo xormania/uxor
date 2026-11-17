@@ -3,15 +3,21 @@
 You are a coding agent, and your human just gave you this repository's URL. This page tells you what UXor
 gives you, how to set a Symfony project up for it, and how to build pages with it while writing as little code as
 possible. The same text, as plain markdown:
-<https://raw.githubusercontent.com/xormania/uxor/0.3.1/FOR-AGENTS.md>. Every page of the kit, with one line
-each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.1/llms.txt).
+<https://raw.githubusercontent.com/xormania/uxor/0.3.2/FOR-AGENTS.md>. Every page of the kit, with one line
+each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.2/llms.txt).
 
 ## What you get
 
-UXor is a [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
+UXor is an independently maintained Symfony UI library, currently distributed as a
+[Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
 components, Stimulus controllers, a form theme, page layouts and blocks (ready-made parts of a page), styled with
 Flowbite v4 and Tailwind CSS v4. Each one is a recipe: `php bin/console ux:install <recipe>` copies its files into
 the project, which then owns them.
+
+The official Symfony UX `flowbite-4` kit was an initial reference only. Use UXor's documentation and the project's
+installed code for UXor behavior; there is no requirement to match that reference kit's names, markup or tests.
+Toolkit installation support, Flowbite CSS and the icon set describe current integrations that can evolve with
+UXor's requirements and compatibility commitments.
 
 - Every behavior is a Stimulus controller, so components keep working through Turbo visits, Turbo Frames and
   Streams, and Live Component re-renders. There is no Flowbite JavaScript.
@@ -72,7 +78,7 @@ The same repository is the Composer package `xormania/uxor`, a development depen
 (`setup`, `build`, `verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
 `vendor/bin/uxor` to search the recipes, read their READMEs from the package, and check the project's setup.
 It installs no recipe: keep using `ux:install`. Install it as
-[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.1/packages/uxor/README.md) says, with your human's agreement, since it changes the
+[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.2/packages/uxor/README.md) says, with your human's agreement, since it changes the
 project's `composer.json`.
 
 ## Which recipe
@@ -85,7 +91,7 @@ Every recipe, as [`docs/RECIPES.md`](docs/RECIPES.md) lists it:
 
 | Install | What it is |
 |---|---|
-| [`theme`](theme/README.md) | Flowbite's color roles, with this kit's contrast fixes and its roles for text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. A role is a named color with a light and a dark value, used as a utility: `bg-brand`, `text-heading`, `border-default`. |
+| [`theme`](theme/README.md) | UXor's light and dark color roles, including text on a solid fill (`fg-on-*`), as one stylesheet to import in `assets/styles/app.css`. The theme uses Flowbite's role names and adds UXor's contrast and chart colors. Use roles through utilities such as `bg-brand`, `text-heading` and `border-default`. |
 | [`theme-toggle`](theme-toggle/README.md) | A button switching between the light and dark themes, remembered in `localStorage` and following the system preference until the user chooses. |
 
 **Shared code**
@@ -243,14 +249,14 @@ Recipes are copies the project owns. Commit first, then reinstall from a newer v
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
-Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.1/CHANGELOG.md)). Always name one: without a version, `ux:install`
+Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.2/CHANGELOG.md)). Always name one: without a version, `ux:install`
 takes the repository's default branch, which can hold work that is not released yet.
 
 ## Quick reference
 
 | You need | Read |
 |---|---|
-| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.1/llms.txt) |
+| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.2/llms.txt) |
 | The rules to paste into the project | [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) |
 | Every recipe, one line each | [`docs/RECIPES.md`](docs/RECIPES.md) |
 | A recipe's props and examples | `<recipe>/README.md` |
@@ -258,4 +264,4 @@ takes the repository's default branch, which can hold work that is not released 
 | Turbo, Live Components, security | [`docs/GUIDE.md`](docs/GUIDE.md#turbo-and-live-components) |
 | Every example rendered, light and dark | <https://xormania.github.io/uxor/> |
 | Testing an app built with the kit (Turbo, Live, CSP, request limits) | [`docs/TESTING.md`](docs/TESTING.md) |
-| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.1/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.1/AGENTS.md) |
+| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.2/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.2/AGENTS.md) |

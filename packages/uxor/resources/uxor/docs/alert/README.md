@@ -231,8 +231,8 @@ Use this example to show a list and a description inside an alert component.
 
 ### Dismissing
 
-**Requires Flowbite JS**<br>
-Use the following alert elements that are also dismissible.
+Set `dismissible` to add a close button. The recipe's `alert` Stimulus controller fades the alert out and hides it;
+with reduced motion enabled, it hides it immediately.
 
 ```twig {"preview":true}
 <div class="grid w-full max-w-xl items-start gap-4">

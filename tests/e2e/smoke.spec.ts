@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import { test, expect, guardPage, markDocument } from './fixtures';
+import { fileURLToPath } from 'node:url';
+import { test, expect, guardPage, leavingTheDemo, markDocument } from './fixtures';
 import { kitName, recipes } from './inventory';
 
 // Every page answering 200 with its heading: a11y.spec.ts, which opens each of them. The theme toggle: theme-toggle.spec.ts.
@@ -140,6 +141,237 @@ test.describe('the page guard', () => {
     });
 
     /*
+     * A local subresource the browser cancels and then requests again: Firefox, under Playwright's interception (the
+     * guard's route), aborts a frame's images at a same-document navigation and re-issues them (the gallery's preview
+     * frames). The guard excuses a cancelled request only when the same URL, from the same frame, is requested again
+     * after it failed and that request succeeds; anything else is still reported. Calibrated on an image of the page
+     * whose load the page itself cancels (its `src` dropped while the request is held), so the browser reports a
+     * cancellation as it does for the real one. WebKit reports no failure for an image load the page cancels: it never
+     * meets the condition, and these cases run in Chromium and Firefox.
+     */
+    const CALIBRATION = '/guard-calibration.png';
+    /** Answers the calibration image's requests in order: `hold` keeps one until release(), `ok` serves it at once. */
+    const serveCalibration = async (page: Page, plan: ('hold' | 'ok')[]) => {
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => (release = resolve));
+        let index = 0;
+        await page.route(`**${CALIBRATION}`, async (route) => {
+            if ('hold' === (plan[index++] ?? 'ok')) {
+                await held;
+            }
+            await route.fulfill({ path: PLACEHOLDER }).catch(() => undefined); // its request may be cancelled
+        });
+        return release;
+    };
+    const PLACEHOLDER = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
+    /**
+     * Adds an image of the calibration URL to `frame`'s document, under `id`, and waits until its request went out. A
+     * `cors` image (crossOrigin) is a request of its own: the browser shares one load, or its cached image, between the
+     * plain images of one URL, never with it.
+     */
+    const addImage = async (page: Page, id: string, frame = page.mainFrame(), cors = false) => {
+        const sent = page.waitForRequest((request) => request.url().endsWith(CALIBRATION) && request.frame() === frame);
+        await frame.evaluate(([id, url, cors]) => {
+            const image = new Image();
+            image.id = id;
+            if (cors) {
+                image.crossOrigin = 'anonymous';
+            }
+            image.src = url;
+            document.body.append(image);
+        }, [id, CALIBRATION, cors] as const);
+        await sent;
+    };
+    /** Drops the `src` of image `id` while its request is held: the browser cancels the load, and reports it. */
+    const cancelImage = async (page: Page, id: string, frame = page.mainFrame()) => {
+        const failed = page.waitForEvent('requestfailed', (request) => request.url().endsWith(CALIBRATION) && request.frame() === frame);
+        await frame.evaluate((id) => document.getElementById(id)!.removeAttribute('src'), id);
+        expect(['net::ERR_ABORTED', 'NS_BINDING_ABORTED'], 'the browser reports a cancellation').toContain((await failed).failure()?.errorText);
+    };
+    /** Waits until the image `id` of `frame` has loaded. */
+    const loaded = (frame: import('@playwright/test').Frame, id: string) =>
+        frame.waitForFunction((id) => { const image = document.getElementById(id) as HTMLImageElement | null; return !!image && image.complete && image.naturalWidth > 0; }, id);
+    const calibrationFailure = (errors: string) => errors.includes(`requestfailed: GET`) && errors.includes(CALIBRATION);
+
+    test.describe('a cancelled local subresource', () => {
+        test.beforeEach(({ browserName }) => {
+            test.skip('webkit' === browserName, 'WebKit reports no failure for an image load the page cancels');
+        });
+
+        test('requested again from the same frame and received: fails nothing', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold', 'ok']);
+            await addImage(page, 'first');
+            await cancelImage(page, 'first');
+            await addImage(page, 'again');
+            await loaded(page.mainFrame(), 'again');
+            release();
+            expect(errorsOf(guard)).toBe('');
+            await page.close();
+        });
+
+        test('never requested again: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold']);
+            await addImage(page, 'first');
+            await cancelImage(page, 'first');
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('requested again and cancelled again: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold', 'hold']);
+            await addImage(page, 'first');
+            await cancelImage(page, 'first');
+            await addImage(page, 'again');
+            await cancelImage(page, 'again');
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('requested again from another frame: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold', 'ok']);
+            await page.evaluate(() => new Promise<void>((resolve) => {
+                const frame = document.createElement('iframe');
+                frame.name = 'calibration';
+                frame.addEventListener('load', () => resolve(), { once: true });
+                frame.srcdoc = '<!doctype html><body></body>';
+                document.body.append(frame);
+            }));
+            const other = page.frame({ name: 'calibration' })!;
+            await addImage(page, 'first');
+            await cancelImage(page, 'first');
+            await addImage(page, 'again', other);
+            await loaded(other, 'again');
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('received by a request that was already running when it was cancelled: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            // two images of the same URL, both requests held: one cancelled, the other then received. It was sent
+            // before the cancellation, so it is no request made again, and the cancelled image shows nothing
+            const release = await serveCalibration(page, ['hold', 'hold']);
+            await addImage(page, 'first');
+            await addImage(page, 'second', page.mainFrame(), true);
+            await cancelImage(page, 'first');
+            release();
+            await loaded(page.mainFrame(), 'second');
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('received before it was cancelled: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['ok', 'hold']);
+            await addImage(page, 'earlier');
+            await loaded(page.mainFrame(), 'earlier');
+            await addImage(page, 'first', page.mainFrame(), true);
+            await cancelImage(page, 'first');
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('requested again by the next document of the frame and received: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold', 'ok']);
+            // a page of the demo's origin whose document shows the same image
+            await page.route('**/guard-calibration-page', (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Calibration</title><img id="next" src="${CALIBRATION}">` }));
+            await addImage(page, 'first');
+            await cancelImage(page, 'first');
+            // a full load of the frame: the next document requests the image again, and receives it
+            await page.goto('/guard-calibration-page');
+            await loaded(page.mainFrame(), 'next');
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+
+        test('a fetch cancelled, then fetched again and received: reported (only images are excused)', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            const release = await serveCalibration(page, ['hold', 'ok']);
+            const failed = page.waitForEvent('requestfailed', (request) => request.url().endsWith(CALIBRATION));
+            await page.evaluate((url) => {
+                const controller = new AbortController();
+                fetch(url, { signal: controller.signal }).catch(() => undefined);
+                setTimeout(() => controller.abort(), 100);
+            }, CALIBRATION);
+            expect((await failed).resourceType()).toBe('fetch');
+            await page.evaluate((url) => fetch(url).then((response) => response.blob()), CALIBRATION);
+            release();
+            expect(calibrationFailure(errorsOf(guard))).toBe(true);
+            await page.close();
+        });
+    });
+
+    /*
+     * Only an image is excused: a stylesheet or a script the browser cancels and requests again is still reported (a
+     * script requested twice can run twice). Cancelled here by `window.stop()` while its request is held, which every
+     * engine reports as a cancellation; the request made again is received.
+     */
+    test.describe('a cancelled local stylesheet or script', () => {
+        for (const kind of ['stylesheet', 'script'] as const) {
+            test(`a ${kind} requested again from the same frame and received: reported`, async ({ context, baseURL }) => {
+                const page = await context.newPage();
+                const guard = await guardPage(page, baseURL);
+                await page.goto('/lab');
+                const url = 'stylesheet' === kind ? '/guard-calibration.css' : '/guard-calibration.js';
+                let release!: () => void;
+                const held = new Promise<void>((resolve) => (release = resolve));
+                let index = 0;
+                await page.route(`**${url}`, async (route) => {
+                    if (0 === index++) {
+                        await held;
+                    }
+                    const body = 'stylesheet' === kind ? 'body {}' : '';
+                    await route.fulfill({ contentType: 'stylesheet' === kind ? 'text/css' : 'text/javascript', body }).catch(() => undefined);
+                });
+                const add = () => page.evaluate(([kind, url]) => {
+                    const element = 'stylesheet' === kind ? Object.assign(document.createElement('link'), { rel: 'stylesheet', href: url }) : Object.assign(document.createElement('script'), { src: url });
+                    document.head.append(element);
+                }, [kind, url] as const);
+                const sent = page.waitForRequest((request) => request.url().endsWith(url));
+                await add();
+                await sent;
+                const failed = page.waitForEvent('requestfailed', (request) => request.url().endsWith(url));
+                await page.evaluate(() => window.stop());
+                const cancelled = await failed;
+                expect(cancelled.resourceType()).toBe(kind);
+                expect(['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'], 'the browser reports a cancellation').toContain(cancelled.failure()?.errorText);
+                const received = page.waitForEvent('requestfinished', (request) => request.url().endsWith(url));
+                await add();
+                await received;
+                release();
+                const errors = errorsOf(guard);
+                expect(errors.includes('requestfailed: GET') && errors.includes(url)).toBe(true);
+                await page.close();
+            });
+        }
+    });
+
+    /*
      * The guard's exception for Firefox (PREFETCH_CANCELLED_BY_UNLOAD): Turbo's prefetch, cancelled by a full load,
      * rejected with this message and rethrown by Turbo. Above, the real one: nothing reported. Below, the same message
      * where one of its conditions is missing: thrown by the page itself, outside a full load or during one; thrown by
@@ -149,6 +381,74 @@ test.describe('the page guard', () => {
      * document stays) or by `window.stop()`. Each is reported.
      */
     const PREFETCH_MESSAGE = 'NetworkError when attempting to fetch resource.';
+
+    /*
+     * What the guard's route takes, and what its events report. The route (leavingTheDemo) takes every request leaving
+     * the demo and none of the demo's: Playwright's server matches it, so the demo's requests are never handed to the
+     * test's process. The demo's failures, answers of 400 or more and the policy's violations are read from the page's
+     * events, which see every request whatever the route takes.
+     */
+    test.describe('requests and violations', () => {
+        const OUTSIDE = 'https://uxor-guard.invalid';
+
+        test("the route takes every URL that is not the demo's, and none of the demo's", ({ baseURL }) => {
+            test.skip('smoke' !== test.info().project.name, 'checks no browser: run in the smoke project only');
+            // the demo's addresses, and one made of every character a RegExp reads as syntax
+            for (const base of [baseURL ?? 'http://127.0.0.1:8000', 'https://localhost', 'http://127.0.0.1:8000', 'https://a.b+c(d)[e]{f}|g$h^i?j*k\\l']) {
+                const route = leavingTheDemo(base);
+                const local = (url: string) => url.startsWith(`${base}/`);
+                const urls = [`${base}/`, `${base}/lab?q=1#top`, `${base}/assets/app-0a1b2c.js`, `${base}x/`, `${base}.example.org/`, `${base}:8443/`, `${base}`, `${OUTSIDE}/${base}/`, `${OUTSIDE}/picture.png`, 'data:image/png;base64,AA'];
+                expect(urls.filter((url) => route.test(url) === local(url)), `under ${base}: taken although the demo's, or left although not`).toEqual([]);
+            }
+        });
+
+        test('a request leaving the demo never leaves: an image gets the placeholder, any other fails, and neither is reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            // registered before the guard, so it runs only for a request the guard's route lets through
+            const reached: string[] = [];
+            await page.route(`${OUTSIDE}/**`, (route) => {
+                reached.push(route.request().url());
+                return route.fulfill({ status: 200, contentType: 'text/plain', body: 'reached' });
+            });
+            const guard = await guardPage(page, baseURL);
+            // a page of the demo's origin without the demo's policy, so the browser asks for what it names
+            await page.route('**/guard-outside-page', (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Outside</title><img id="outside" src="${OUTSIDE}/picture.png">` }));
+            await page.goto('/guard-outside-page');
+            await loaded(page.mainFrame(), 'outside');
+            // no-cors: a cross-origin read Firefox would log as an error of the page, which is not what this checks
+            const fetched = await page.evaluate((url) => fetch(url, { mode: 'no-cors' }).then((response) => response.text(), (error) => `rejected: ${error}`), `${OUTSIDE}/data.json`);
+            expect(fetched).toMatch(/^rejected: /);
+            expect(reached, 'requests the guard let leave').toEqual([]);
+            expect(errorsOf(guard)).toBe('');
+            await page.close();
+        });
+
+        test('a local answer of 400 or more, and a local request that fails: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            await page.route('**/guard-refused', (route) => route.abort('connectionrefused'));
+            const answered = page.waitForResponse((response) => response.url().endsWith('/guard-missing'));
+            const failed = page.waitForEvent('requestfailed', (request) => request.url().endsWith('/guard-refused'));
+            await page.evaluate(() => Promise.allSettled([fetch('/guard-missing'), fetch('/guard-refused')]));
+            expect((await answered).status()).toBe(404);
+            await failed;
+            const errors = errorsOf(guard);
+            expect(errors).toContain(`http 404: ${baseURL}/guard-missing`);
+            expect(errors).toContain(`requestfailed: GET ${baseURL}/guard-refused`);
+            await page.close();
+        });
+
+        test('a Content Security Policy violation: reported', async ({ context, baseURL }) => {
+            const page = await context.newPage();
+            const guard = await guardPage(page, baseURL);
+            await page.goto('/lab');
+            // a <style> without the page's nonce
+            await page.evaluate(() => document.head.append(Object.assign(document.createElement('style'), { textContent: 'body { outline: 0 }' })));
+            await expect.poll(() => errorsOf(guard)).toContain('csp: style-src');
+            await page.close();
+        });
+    });
 
     test("Turbo's prefetch message outside a full load: reported", async ({ context, baseURL }) => {
         const page = await context.newPage();

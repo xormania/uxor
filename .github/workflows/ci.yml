@@ -1,11 +1,14 @@
 name: CI
+# an engines-only run (Release checks' Start the engines, or by hand) is named so that Start the engines can find one already
+# queued or running for a head; every other run keeps GitHub's own name (the commit's title, or the workflow's)
+run-name: "${{ github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI: Firefox and WebKit only' || '' }}"
 
 # Every push to a branch runs CI, so a branch is green before its PR opens; there is no pull_request trigger, whose
 # runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
 # push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
 # release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml). Once a day the jobs that install unpinned upstream versions run alone, on dev (the Changes
-# job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
+# (.github/dependabot.yml). Once a day the install jobs that resolve consumer dependencies afresh run alone, on dev
+# (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
 # no install may no longer run. GitHub runs a schedule on the default branch, main: that run only starts the daily run
 # on dev (the Start on dev job), so a failure shows on dev, where its fix lands, and main changes only by a release.
 on:
@@ -16,22 +19,44 @@ on:
     workflow_dispatch:
         inputs:
             daily:
-                description: 'On dev only, the daily run: the installs of unpinned upstream versions only (what the schedule starts)'
+                description: 'On dev only, the daily run: install checks with fresh consumer dependency resolution (what the schedule starts)'
                 type: boolean
                 default: false
+            engines:
+                description: 'Run the browser tests in Firefox and WebKit too (on a push they wait for dev''s daily run: docs/TESTING.md, *Browsers*)'
+                type: boolean
+                default: false
+            engines_only:
+                description: 'Run only the Firefox and WebKit browser tests, for this head (what Release checks starts); its result is CI result (engines only)'
+                type: boolean
+                default: false
+            reuse:
+                description: 'Reuse an earlier pass of a lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*); off runs every selected lane fresh'
+                type: boolean
+                default: true
 
 permissions:
     contents: read
 
 concurrency:
-    # the schedule's start and the daily run in groups of their own: neither cancels, nor is cancelled by, a push
-    group: ci-${{ github.event_name == 'schedule' && 'schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.ref }}
-    cancel-in-progress: true
+    # the schedule's start, the daily run and an engines-only run in groups of their own: none cancels, or is cancelled by,
+    # a push; an engines-only run never cancels another (a second one waits)
+    group: ${{ github.event_name == 'schedule' && 'ci-schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'ci-daily' || inputs.engines_only && format('ci-engines-{0}', github.ref) || format('ci-{0}', github.ref) }}
+    cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.engines_only) }}
 
 env:
     PHP_VERSION: '8.4'
-    # Pinned: the toolkit is experimental, bump deliberately (same version as demo/composer.lock).
-    UX_TOOLKIT_VERSION: '3.5.1'
+    # The minimum supported Symfony UX Toolkit: the kit must keep linting and installing with it. Lint kit's other lane
+    # takes the newest version the demo runs, read at run time; the fresh installs use this one.
+    UX_TOOLKIT_MINIMUM_VERSION: '3.5.1'
+    # The browser tests (docs/TESTING.md, *Browsers*): Chromium in CHROMIUM_SHARDS shards on every push that selects them;
+    # Firefox and WebKit, three shards each, as ENGINES_ON says. `daily` (the trial): on dev's daily run when dev changed
+    # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
+    # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
+    # result. `every-push`: on every push, as before the trial. This line is the one switch back.
+    # eight, measured: 4 min 35 s to CI result against 5 min 37 s with six, for the same test seconds
+    CHROMIUM_SHARDS: '8'
+    ENGINES_ON: daily
 
 jobs:
     # The schedule's run, on main: it only starts the daily run on dev (gh workflow run, a workflow_dispatch event, which
@@ -54,13 +79,9 @@ jobs:
     # is compared with where it left dev, so each push checks the whole pull request, not only its last commit. A push to
     # dev is compared with the commit of dev's last successful run, so every merge since is checked, those of a run that
     # was cancelled or failed included; with none (a first run, a force push), everything runs. The daily run runs the
-    # installs only.
-    #
-    # A work order's own branch (claude/wo-<name>, not its jobs' claude/wo-<name>--<job>) runs nothing else while its pull
-    # request into dev is a draft or not open: each job ran CI on its own branch before it merged. CI result then fails,
-    # saying so, so a draft never shows a pass that tested nothing. Once the pull request is ready, re-run the work
-    # order's latest run (Re-run all jobs): a re-run keeps its push event, which the rulesets count, and reads the pull
-    # request's state again (CONTRIBUTING.md, *Work orders*).
+    # installs only. A work order's own branch (claude/wo-<name>) runs like any branch, its pull request a draft or not:
+    # when its jobs are stacked, its tree after a job's merge is that job's, whose passes it reuses (CONTRIBUTING.md,
+    # *Work orders*).
     changes:
         name: Changes
         if: github.event_name != 'schedule'
@@ -68,19 +89,29 @@ jobs:
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
             contents: read
-            pull-requests: read # whether a work order's pull request into dev is a draft
             actions: read # the shard timings of dev's last green run
         outputs:
             timings: ${{ steps.timings.outputs.artifact }}
-            wo-draft: ${{ steps.jobs.outputs.wo-draft }}
-            lint-kit: ${{ steps.jobs.outputs.lint-kit }}
-            php: ${{ steps.jobs.outputs.php }}
-            static-site: ${{ steps.jobs.outputs.static-site }}
-            fresh-install: ${{ steps.jobs.outputs.fresh-install }}
-            contrast: ${{ steps.jobs.outputs.contrast }}
-            demo: ${{ steps.jobs.outputs.demo }}
-            workflows: ${{ steps.jobs.outputs.workflows }}
-            package: ${{ steps.jobs.outputs.package }}
+            # each lane: run, reuse (an earlier pass with the same inputs) or skip (the change cannot affect it)
+            lint-kit: ${{ steps.plan.outputs.lint-kit }}
+            php: ${{ steps.plan.outputs.php }}
+            static-site: ${{ steps.plan.outputs.static-site }}
+            fresh-install: ${{ steps.plan.outputs.fresh-install }}
+            contrast: ${{ steps.plan.outputs.contrast }}
+            demo: ${{ steps.plan.outputs.demo }}
+            workflows: ${{ steps.plan.outputs.workflows }}
+            package: ${{ steps.plan.outputs.package }}
+            prod-image: ${{ steps.plan.outputs.prod-image }}
+            importmap: ${{ steps.plan.outputs.importmap }}
+            # the browser job: Firefox and WebKit (run, reuse, defer or skip), whether it runs, and its computed matrix
+            engines: ${{ steps.plan.outputs.engines }}
+            browsers: ${{ steps.plan.outputs.browsers }}
+            browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
+            # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
+            lane-plan: ${{ steps.plan.outputs.artifact }}
+            # the plan's artifact by id and its plan.json's SHA-256: CI result takes nothing else from it, and checks both
+            lane-plan-id: ${{ steps.plan-upload.outputs.artifact-id }}
+            lane-plan-sha256: ${{ steps.plan.outputs.sha256 }}
             base: ${{ steps.jobs.outputs.base }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -98,24 +129,11 @@ jobs:
               env:
                   EVENT: ${{ github.event_name }}
                   DAILY: ${{ inputs.daily }}
+                  ENGINES_ONLY: ${{ inputs.engines_only }}
                   REF: ${{ github.ref }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
               run: |
-                  # A work order's own branch while its pull request into dev is a draft or not open: nothing else runs
-                  branch=${REF#refs/heads/}
-                  if [ "$EVENT" = push ] && [[ "$branch" == claude/wo-* ]] && [[ "$branch" != claude/wo-*--* ]]; then
-                      state=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$branch&base=dev&state=open" \
-                          --jq 'if length == 0 then "not open" elif .[0].draft then "draft" else "ready" end')
-                      echo "Work order $branch: its pull request into dev is $state"
-                      if [ "$state" != ready ]; then
-                          echo "wo-draft=true" >> "$GITHUB_OUTPUT"
-                          for job in lint-kit php static-site fresh-install contrast demo workflows package; do
-                              echo "$job=false" | tee -a "$GITHUB_OUTPUT"
-                          done
-                          exit 0
-                      fi
-                  fi
                   # Where the branch left dev; none for main, dev or a run by hand. Computed here, in the workflow, not by a
                   # script in the tree: a branch cannot choose the range it is checked against. Contrast reads the same
                   # range (tools/readme-pairing.mjs --base).
@@ -140,11 +158,21 @@ jobs:
                   # without the script runs everything.
                   # the daily run on dev only: elsewhere `daily` is ignored and everything runs, so a dispatch on a
                   # branch cannot pass CI result with its checks skipped
-                  if [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
-                      echo "The daily run: the installs of unpinned upstream versions only"
-                      for job in lint-kit php static-site fresh-install contrast demo workflows package; do
+                  if [ "$EVENT" = workflow_dispatch ] && [ "$ENGINES_ONLY" = true ]; then
+                      # Firefox and WebKit only, for the release pull request's head (Release checks) or by hand: every
+                      # other lane already has its result on this head's push run
+                      echo "Firefox and WebKit only"
+                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                          echo "$job=false"
+                      done > "$RUNNER_TEMP/jobs"
+                      echo "engines=true" >> "$RUNNER_TEMP/jobs"
+                  elif [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
+                      echo "The daily run: install checks with fresh consumer dependency resolution"
+                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
+                      # and Firefox and WebKit, unless they already passed on dev's inputs (the plan)
+                      echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ -n "$from" ] && git show "$from:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
                       echo "Changed since $from:"
                       git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
@@ -153,13 +181,57 @@ jobs:
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site fresh-install contrast demo workflows package; do
+                  for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
-                  tee -a "$GITHUB_OUTPUT" < "$RUNNER_TEMP/jobs"
+                  cat "$RUNNER_TEMP/jobs"
+
+            # The browser tests are two lanes of one job: the Chromium shards (demo) and Firefox and WebKit (engines), which
+            # with ENGINES_ON=daily wait on a push (defer: NOT RUN AT THIS STAGE in CI result) and run on the daily run
+            # (unless they passed on these inputs), on main and when a manual run asks; the plan writes the job's matrix.
+            # Each selected lane runs, or reuses an earlier pass with the same inputs (tools/ci/lane-evidence.mjs,
+            # docs/TESTING.md, *Reused lanes*): the markers for the lane's fingerprint, newest first, until a failure from
+            # a verified producer (which runs the lane) or a pass that verifies: at most 14 days old, recorded by CI result
+            # of a push or manual ci.yml run of this repository whose lane jobs all passed in their latest attempt, the
+            # fingerprint recomputed at that run's commit this one's. Never on main; off with the repository variable
+            # CI_REUSE=off or a manual run's `reuse` unchecked (both only stop the lookups: the run still records its
+            # markers). A lookup that fails runs the lane.
+            # This runs the branch's own copy of the tool, unlike the selector above, which runs as the base has it: the
+            # selector decides from the diff what a change can affect, so a branch could skip its own checks by editing
+            # it. The tool and ci.yml are inside every fingerprint, so a branch's own copy can only match a pass recorded
+            # by that same copy and workflow, and a push already runs the branch's own ci.yml.
+            - name: Plan the lanes
+              id: plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  SHA: ${{ github.sha }}
+                  REF: ${{ github.ref }}
+                  REUSE: ${{ (vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
+                  ARTIFACT: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
+                  ENGINES: ${{ inputs.engines && 'true' || 'false' }}
+                  PLAN_EVENT: ${{ github.event_name == 'workflow_dispatch' && (inputs.engines_only && 'engines' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
+              run: |
+                  echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
+                  mkdir -p "$RUNNER_TEMP/lane-plan"
+                  node tools/ci/lane-evidence.mjs plan --repo "$REPO" --sha "$SHA" --ref "$REF" --reuse "$REUSE" \
+                      --event "$PLAN_EVENT" --engines-on "$ENGINES_ON" --engines "$ENGINES" --chromium-shards "$CHROMIUM_SHARDS" \
+                      --selection "$RUNNER_TEMP/jobs" --out "$RUNNER_TEMP/lane-plan/plan.json" --github-output "$GITHUB_OUTPUT"
+                  echo "sha256=$(sha256sum "$RUNNER_TEMP/lane-plan/plan.json" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+                  jq -r '"Lanes planned in \(.elapsed_ms) ms, \(.api_calls) API calls"' "$RUNNER_TEMP/lane-plan/plan.json" >> "$GITHUB_STEP_SUMMARY"
+
+            # the plan alone, for CI result's record and verdict (which run the tool of the run's own commit, never a copy
+            # from an artifact: another job of the run could replace an artifact of a predictable name)
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              id: plan-upload
+              with:
+                  name: ${{ steps.plan.outputs.artifact }}
+                  path: ${{ runner.temp }}/lane-plan/plan.json
+                  if-no-files-found: error
+                  retention-days: 7
 
             # The browser shards' timings, read once for the whole run so every shard plans from the same file: the
-            # shard-timings.json of dev's last green push run (its ci-metrics artifact, written by CI result), else the
+            # shard-timings.json of dev's last green run (its ci-metrics artifact, written by the CI metrics job), else the
             # committed tests/shard-timings.json. A file that is not schema 1 with a time in ms for every test is not
             # used. dev changes only through reviewed pull requests; the times only balance the shards, and every
             # shard's plan still checks that it runs each listed test once (docs/TESTING.md, *Shard balance*)
@@ -174,7 +246,9 @@ jobs:
                   mkdir -p "$out"
                   cp tests/shard-timings.json "$out/shard-timings.json"
                   source="the committed tests/shard-timings.json"
-                  run=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=dev&event=push&status=success&per_page=5" \
+                  # any event, not pushes only: dev's daily and engines-only runs are the ones that run Firefox and WebKit,
+                  # and each run's file carries every browser's newest times forward
+                  run=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=dev&status=success&per_page=5" \
                       --jq ".workflow_runs[] | select(.head_repository.full_name == \"$REPO\") | .id" 2>/dev/null | head -n1 || true)
                   if [ -n "$run" ]; then
                       artifact=$(gh api "repos/$REPO/actions/runs/$run/artifacts?per_page=100" \
@@ -212,29 +286,83 @@ jobs:
                   job: Changes
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-    # Every workflow's syntax, expressions, job graph, action inputs and reusable workflow calls, and the shell of its
-    # run steps (ShellCheck). It reads the workflows only: tools/ci-changes.sh also runs the jobs that run what a
-    # workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Both tools are release
-    # binaries pinned by version and SHA-256. Then release.yml's decision, as a dry run: tools/release-plan.sh's cases,
-    # and its plan for main as it is (the commit, the tag and the notes of each version; a wrong tag fails here).
-    workflows:
-        name: Workflows
+    # Quick checks: the short checks of three former jobs, as steps of one job (one runner, one admission, one setup):
+    #
+    # - Tool tests, on every run: every tool's own cases (tools/tests/*.test.mjs and tools/monthly/*.test.mjs; Node
+    #   built-ins only, no install, a few seconds; no browser job runs them again; Node's JUnit report, beside the
+    #   console's TAP, gives Jev each failed case), the repository security policy (the workflows, executable sinks,
+    #   tracked paths and ownership controls), and what any path can break whichever lanes the change runs: the bundled
+    #   references' links, the test inventory's names, the archive's payload, and the name check, which reads every file.
+    # - Contrast, when tools/ci-changes.sh selects it: the theme's contrast, kit.css, llms.txt, what the markdown
+    #   teaches, the icons, the README examples, the test inventory, the READMEs' versions and the README pairing (which
+    #   reads the branch's commits since the Changes job's base).
+    # - Workflows, when selected: every workflow's syntax, expressions, job graph, action inputs and the shell of its run
+    #   steps (actionlint with ShellCheck, release binaries pinned by version and SHA-256); tools/ci-changes.sh also runs
+    #   the jobs that run what a workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Then
+    #   release.yml's decision, as a dry run: tools/release-plan.sh's cases, and its plan for main as it is.
+    #
+    # Every check is a step whose id names its check (tools-, contrast-, workflows-) and runs whatever another did
+    # (`!cancelled()`), so a failure never hides the rest. The summary then writes each check's outcome (success, failure,
+    # skipped when not selected, incomplete when a selected step did not run) to the job's outputs, which CI result reads
+    # per lane, and to the summary page, and fails the job when a selected check did not pass. (Each check's output also
+    # goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs.)
+    quick:
+        name: Quick checks
         needs: changes
-        if: needs.changes.outputs.workflows == 'true'
+        if: github.event_name != 'schedule'
         runs-on: ubuntu-latest
-        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        timeout-minutes: 15 # the three checks' 5, 10 and 5 in a row, plus 3 for the advisory Jev steps
         env:
             ACTIONLINT_VERSION: '1.7.12'
             ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 # actionlint_1.7.12_linux_amd64.tar.gz
             SHELLCHECK_VERSION: '0.11.0'
             SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198 # shellcheck-v0.11.0.linux.x86_64.tar.xz
+        outputs:
+            tools: ${{ steps.summary.outputs.tools }}
+            contrast: ${{ steps.summary.outputs.contrast }}
+            workflows: ${{ steps.summary.outputs.workflows }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  fetch-depth: 0 # the release dry run reads main's history and the tags
+                  fetch-depth: 0 # the README pairing reads the branch's commits since its base, the release dry run main's history and tags
+
+
+            # the setups have ids so the summary counts them: a check that ran after a failed setup, on the image's own
+            # Node or PHP, is no pass
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              id: setup-node
+              with:
+                  node-version: 22
+                  cache: npm
+
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              id: setup-php
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  coverage: none
+
+            # Workflows ------------------------------------------------------------------------------------------------
+            # first, before any step runs repository code: nothing can have rewritten the workflows or the release plan,
+            # and the release dry run comes before the plan's own cases
+
+            # The committed tree, before these checks: a tracked file that differs from HEAD on disk (rewritten by an earlier
+            # step's repository code) would let them check a file the commit does not hold
+            - name: The tracked files are the commit's
+              id: workflows-guard
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              run: |
+                  changed=$(git status --porcelain --untracked-files=no)
+                  if [ -n "$changed" ] || ! git diff --quiet HEAD --; then
+                      echo "::error::tracked files differ from the commit before these checks: $(echo "$changed" | awk '{print $NF}' | tr '\n' ' ')"
+                      exit 1
+                  fi
+
 
             - name: Install actionlint and ShellCheck
+              id: workflows-install
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               working-directory: ${{ runner.temp }}
               run: |
                   curl -fsSLo actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
@@ -244,28 +372,198 @@ jobs:
                   tar -xzf actionlint.tar.gz -C bin actionlint
                   tar -xJf shellcheck.tar.xz -C bin --strip-components=1 "shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
-            # the runner's own ShellCheck and Python are not used: only the pinned tools decide
-            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
-            - name: actionlint
-              id: actionlint
-              run: |
-                  set -o pipefail
-                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-actionlint.log"
 
-            - name: The release plan's own cases
-              id: release-plan
+            # the runner's own ShellCheck and Python are not used: only the pinned tools decide
+            - name: actionlint
+              id: workflows-actionlint
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               run: |
                   set -o pipefail
-                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-release-plan.log"
+                  "$RUNNER_TEMP/bin/actionlint" -shellcheck="$RUNNER_TEMP/bin/shellcheck" -pyflakes= 2>&1 | tee "$RUNNER_TEMP/jev-workflows-actionlint.log"
+
 
             # what release.yml would tag and publish from main, with this commit's script; it creates nothing
             - name: Release dry run on main
-              id: dry-run
+              id: workflows-dry-run
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
               run: |
                   set -o pipefail
-                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-dry-run.log"
+                  tools/release-plan.sh --dry-run --ref origin/main 2>&1 | tee "$RUNNER_TEMP/jev-workflows-dry-run.log"
 
-            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+
+            - name: The release plan's own cases
+              id: workflows-release-plan
+              if: ${{ !cancelled() && needs.changes.outputs.workflows == 'run' }}
+              run: |
+                  set -o pipefail
+                  tools/tests/release-plan.sh 2>&1 | tee "$RUNNER_TEMP/jev-workflows-release-plan.log"
+
+
+            # Tool tests -----------------------------------------------------------------------------------------------
+            # the file checks on the committed tree first, then the tools' own cases (repository code)
+
+            # The committed tree, before these checks: a tracked file that differs from HEAD on disk (rewritten by an earlier
+            # step's repository code) would let them check a file the commit does not hold
+            - name: The tracked files are the commit's
+              id: tools-guard
+              if: ${{ !cancelled() }}
+              run: |
+                  changed=$(git status --porcelain --untracked-files=no)
+                  if [ -n "$changed" ] || ! git diff --quiet HEAD --; then
+                      echo "::error::tracked files differ from the commit before these checks: $(echo "$changed" | awk '{print $NF}' | tr '\n' ' ')"
+                      exit 1
+                  fi
+
+
+            - name: Repository security policy
+              id: tools-policy
+              if: ${{ !cancelled() }}
+              run: node tools/security-policy.mjs
+
+
+            - name: The bundled references are up to date
+              id: tools-references
+              if: ${{ !cancelled() }}
+              run: php packages/uxor/tools/generate-reference.php --check
+
+
+            - name: The test inventory names existing tests
+              id: tools-inventory
+              if: ${{ !cancelled() }}
+              run: node tools/test-inventory.mjs
+
+
+            - name: The archive holds what the kit and the package declare
+              id: tools-archive
+              if: ${{ !cancelled() }}
+              run: python3 packages/uxor/tools/check-package.py
+
+
+            - name: Every URL of the kit's repository is manifest.json's homepage
+              id: tools-names
+              if: ${{ !cancelled() }}
+              run: node tools/name-check.mjs
+
+
+            - name: The tools' own cases
+              id: tools-cases
+              if: ${{ !cancelled() }}
+              run: >-
+                  node --test --test-reporter=tap --test-reporter-destination=stdout
+                  --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
+                  'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
+
+
+            # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis of the tools' cases (advisory)
+              if: ${{ failure() && steps.tools-cases.outcome == 'failure' }}
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  junit: ${{ runner.temp }}/node-tests.xml
+                  junit-project: node
+                  job: Quick checks
+                  artifact: jev-input-ci-${{ github.job }}-cases-${{ github.run_id }}-${{ github.run_attempt }}
+
+
+            # Contrast -------------------------------------------------------------------------------------------------
+
+            # The committed tree, before these checks: a tracked file that differs from HEAD on disk (rewritten by an earlier
+            # step's repository code) would let them check a file the commit does not hold
+            - name: The tracked files are the commit's
+              id: contrast-guard
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  changed=$(git status --porcelain --untracked-files=no)
+                  if [ -n "$changed" ] || ! git diff --quiet HEAD --; then
+                      echo "::error::tracked files differ from the commit before these checks: $(echo "$changed" | awk '{print $NF}' | tr '\n' ' ')"
+                      exit 1
+                  fi
+
+
+            - name: Install the Contrast tools' packages
+              id: contrast-npm
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: npm ci
+
+
+            - name: Token contrast (tools/contrast/pairs.json, both themes)
+              id: contrast-tokens
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-tokens.log"
+
+
+            - name: The theme recipe ships kit.css unchanged
+              id: contrast-theme-css
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-contrast-theme-css.log"
+
+
+            - name: llms.txt matches docs/RECIPES.md's recipe tables
+              id: contrast-llms
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-contrast-llms.log"
+
+
+            - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
+              id: contrast-docs-lint
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-docs-lint.log"
+
+
+            - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
+              id: contrast-icons
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-icons.log"
+
+
+            - name: Every README example is one the demo reads
+              id: contrast-fences
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-fences.log"
+
+
+            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
+              id: contrast-inventory
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-inventory.log"
+
+
+            - name: Each recipe README renders its manifest's dependencies and writes no version table
+              id: contrast-readme-versions
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              run: |
+                  set -o pipefail
+                  node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-readme-versions.log"
+
+
+            # The Changes job's base: none for main, dev or a run by hand, which compares nothing
+            - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
+              id: contrast-readme-pairing
+              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
+              env:
+                  BASE: ${{ needs.changes.outputs.base }}
+              run: |
+                  set -o pipefail
+                  node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-contrast-readme-pairing.log"
+
+
+            # Advisory diagnosis of the steps that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
               if: failure()
               continue-on-error: true
@@ -273,13 +571,66 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Workflows
+                  job: Quick checks
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+
+            # Each check's outcome, from its steps: the job's outputs (CI result reads them per lane) and the summary page
+            - name: Summary
+              id: summary
+              if: ${{ always() }}
+              env:
+                  STEPS: ${{ toJSON(steps) }}
+                  CONTRAST: ${{ needs.changes.outputs.contrast }}
+                  WORKFLOWS: ${{ needs.changes.outputs.workflows }}
+              run: |
+                  status=0
+                  # a setup that did not succeed leaves every selected check incomplete, whatever its steps said
+                  setup=$(jq -r '[to_entries[] | select(.key | startswith("setup-")) | select(.value.outcome != "success") | .key] | join(", ")' <<< "$STEPS")
+                  printf '### Quick checks\n\n| Check | Result | Steps |\n|---|---|---|\n' >> "$GITHUB_STEP_SUMMARY"
+                  for lane in tools contrast workflows; do
+                      case "$lane" in
+                          tools) label='Tool tests'; selected=run ;;
+                          contrast) label=Contrast; selected=$CONTRAST ;;
+                          workflows) label=Workflows; selected=$WORKFLOWS ;;
+                      esac
+                      steps=''
+                      if [ "$selected" != run ]; then
+                          outcome=skipped
+                      else
+                          pick() { jq -r --arg p "$lane-" "[to_entries[] | select(.key | startswith(\$p)) | $1 | .key] | join(\", \")" <<< "$STEPS"; }
+                          failed=$(pick 'select(.value.outcome == "failure")')
+                          missing=$(pick 'select(.value.outcome != "success" and .value.outcome != "failure")')
+                          ran=$(pick 'select(.value.outcome == "success" or .value.outcome == "failure")')
+                          if [ -n "$setup" ]; then
+                              outcome=incomplete; steps="setup: $setup"
+                              echo "::error::$label: the setup did not succeed ($setup), so its checks ran on the image's own tools"
+                          elif [ -n "$failed" ]; then
+                              outcome=failure; steps=$failed
+                              echo "::error::$label: $failed failed"
+                          elif [ -n "$missing" ] || [ -z "$ran" ]; then
+                              outcome=incomplete; steps=${missing:-none ran}
+                              echo "::error::$label: $steps did not run"
+                          else
+                              outcome=success
+                          fi
+                      fi
+                      echo "$lane=$outcome" >> "$GITHUB_OUTPUT"
+                      echo "| $label | $outcome | $steps |" >> "$GITHUB_STEP_SUMMARY"
+                      case "$outcome" in success | skipped) ;; *) status=1 ;; esac
+                  done
+                  exit "$status"
+
+    # Two lanes: the Toolkit version the demo locks (what the kit is developed with) and the minimum supported one
+
     lint-kit:
-        name: Lint kit
+        name: Lint kit (${{ matrix.toolkit }} toolkit)
         needs: changes
-        if: needs.changes.outputs.lint-kit == 'true'
+        if: needs.changes.outputs.lint-kit == 'run'
+        strategy:
+            fail-fast: false
+            matrix:
+                toolkit: [locked, minimum]
         runs-on: ubuntu-latest
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -294,11 +645,29 @@ jobs:
                   tools: composer:v2
                   coverage: none
 
-            - name: Install symfony/ux-toolkit in a scratch directory
+            # read at run time, so the lane follows each update of the demo's lock without an edit here
+            - name: Read the Toolkit version demo/composer.lock holds
+              id: locked
+              if: matrix.toolkit == 'locked'
+              run: |
+                  version="$(jq -r '[.packages[], (.["packages-dev"] // [])[]] | map(select(.name == "symfony/ux-toolkit"))[0].version // empty' demo/composer.lock)"
+                  if [ -z "$version" ]; then echo "::error::demo/composer.lock holds no symfony/ux-toolkit"; exit 1; fi
+                  echo "Toolkit locked by the demo: $version"
+                  echo "version=${version#v}" >> "$GITHUB_OUTPUT"
+
+            - name: Install the locked symfony/ux-toolkit in a scratch directory
+              if: matrix.toolkit == 'locked'
               working-directory: ${{ runner.temp }}
               run: |
                   mkdir toolkit && cd toolkit
-                  composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:${UX_TOOLKIT_VERSION}"
+                  composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:${{ steps.locked.outputs.version }}"
+
+            - name: Install the minimum symfony/ux-toolkit in a scratch directory
+              if: matrix.toolkit == 'minimum'
+              working-directory: ${{ runner.temp }}
+              run: |
+                  mkdir toolkit && cd toolkit
+                  composer require --no-interaction --no-progress --dev "symfony/ux-toolkit:${UX_TOOLKIT_MINIMUM_VERSION}"
 
             # ux-toolkit-kit-lint reports every top-level directory without a manifest.json as an error
             # (demo/, tools/, .github/…), so lint the tree `ux:install` actually downloads: GitHub's
@@ -344,80 +713,18 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Lint kit
-                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  job: Lint kit (${{ matrix.toolkit }} toolkit)
+                  artifact: jev-input-ci-${{ github.job }}-${{ matrix.toolkit }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
     # an artifact with every job that installs the demo: the browser shards, Kit PHP and the static site. AssetMapper
     # skips a package whose file and installed.php entry are already there, so their own install downloads nothing.
     # A CDN error is retried here, twice, before the run fails: one bad connection no longer fails a shard before any
     # test runs. The fresh-install jobs still download for themselves: that is what they check.
-    # Every tool's own cases, once per run, on every run: tools/tests/*.test.mjs (the CI results summarizer, the Jev
-    # diagnosis, prepare-tests, icon-lint, the README checks) and tools/monthly/*.test.mjs (the monthly reports). Node
-    # built-ins only, no install, a few seconds; no browser job or Contrast runs them again. Node's JUnit report, beside
-    # the console's TAP (Node 22's own output when it writes to no terminal), gives Jev each failed case. The repository
-    # security policy then reads the workflows, executable sinks, tracked paths and ownership controls. Then the name
-    # check, here because it reads every file: a URL of the kit's repository that is not manifest.json's homepage fails.
-    tools:
-        name: Tool tests
-        if: github.event_name != 'schedule'
-        runs-on: ubuntu-latest
-        timeout-minutes: 8 # 5, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version: 22
-
-            - name: The tools' own cases
-              id: cases
-              run: >-
-                  node --test --test-reporter=tap --test-reporter-destination=stdout
-                  --test-reporter=junit --test-reporter-destination="$RUNNER_TEMP/node-tests.xml"
-                  'tools/tests/*.test.mjs' 'tools/monthly/*.test.mjs'
-
-            # Advisory diagnosis of each failed case (.github/actions/jev-diagnosis): never the job's verdict
-            - name: Jev diagnosis (advisory)
-              if: ${{ failure() && steps.cases.outcome == 'failure' }}
-              continue-on-error: true
-              timeout-minutes: 3
-              uses: ./.github/actions/jev-diagnosis
-              with:
-                  junit: ${{ runner.temp }}/node-tests.xml
-                  junit-project: node
-                  job: Tool tests
-                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-            - name: Repository security policy
-              run: node tools/security-policy.mjs
-
-            # What any path can break, whichever jobs the change runs: the bundled references' links name files across the
-            # repository, the test inventory names specs, tests and tools, and the archive holds every root file. Package
-            # and Contrast run them too, with the jobs they belong to
-            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-              with:
-                  php-version: ${{ env.PHP_VERSION }}
-                  coverage: none
-
-            - name: The bundled references are up to date
-              run: php packages/uxor/tools/generate-reference.php --check
-
-            - name: The test inventory names existing tests
-              run: node tools/test-inventory.mjs
-
-            - name: The archive holds what the kit and the package declare
-              run: python3 packages/uxor/tools/check-package.py
-
-            - name: Every URL of the kit's repository is manifest.json's homepage
-              run: node tools/name-check.mjs
-
     importmap:
         name: Importmap packages
         needs: changes
-        if: needs.changes.outputs.demo == 'true' || needs.changes.outputs.php == 'true' || needs.changes.outputs.static-site == 'true'
+        if: needs.changes.outputs.importmap == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -481,7 +788,7 @@ jobs:
     php:
         name: Kit PHP
         needs: [changes, importmap]
-        if: needs.changes.outputs.php == 'true'
+        if: needs.changes.outputs.php == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         env:
@@ -494,33 +801,60 @@ jobs:
                   persist-credentials: false
 
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              id: php-setup
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   extensions: intl # the calendar formats dates with twig/intl-extra
                   tools: composer:v2
                   coverage: none
+                  # as the demo's dev container runs PHP: PHPUnit's and the code's own assert() calls checked, in every
+                  # process (php.ini, not a -d flag, reaches the tests PHPUnit runs in their own processes)
+                  ini-values: zend.assertions=1, assert.exception=1
 
-            # The kit lint does not look at PHP: a recipe's PHP (copied into src/ by ux:install) is checked here.
+            # The kit lint does not look at PHP: every PHP file the repository tracks (the recipes' src, the demo and its
+            # tests, the package, the tools and their fixtures) and its PHP scripts without an extension are checked here,
+            # first, in about a second.
             - name: Syntax
               run: |
-                  for manifest in */manifest.json; do
-                      if [ -d "${manifest%/manifest.json}/src" ]; then echo "${manifest%/manifest.json}/src"; fi
-                  done > "$RUNNER_TEMP/php-dirs"
-                  cat "$RUNNER_TEMP/php-dirs"
-                  # shellcheck disable=SC2046 # one directory per line, none with a space
-                  find $(cat "$RUNNER_TEMP/php-dirs") -name '*.php' -print0 | xargs -0 -n1 php -l
+                  # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one.
+                  # -f: a path starting with a dash (-d/x.php) is the file to lint, never PHP's options
+                  # shellcheck disable=SC2016 # $1 is the inner shell's
+                  { git ls-files -z '*.php'
+                    git ls-files -z demo/bin/console demo/bin/phpunit packages/uxor/bin/uxor packages/uxor/dev/app/bin/console tools/sync-demo
+                  } | xargs -0 -n1 -P4 sh -c 'php -l -f "$1" || exit 1' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
+                  grep -v '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log" || true
+                  echo "$(grep -c '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log") files without a syntax error"
+                  exit "${status:-0}"
 
-            # the run's importmap packages (job importmap): the install below downloads none
+            # the run's importmap packages (job importmap): the install below downloads none. From here on each check runs
+            # even when one before it failed (`!cancelled()`), so one run reports every kind of error; the job stays red.
+            # Never after a failed PHP setup: the runner's own PHP would run the checks, and pass them, on another version.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               with:
                   name: importmap-packages
                   path: demo/assets/vendor
 
             # The tests render the recipes' templates as the demo has them, and its pages with their CSS
             - name: Install the demo
+              id: demo-install
+              if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               run: |
                   php tools/sync-demo
                   (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+
+            # Every template the demo compiles, its own and the recipes' (as tools/sync-demo copied them; the paths below are
+            # the recipes' originals, which give the error its source file), through the demo's Twig and its extensions:
+            # a syntax error, an unknown tag (a misspelled `props`), filter or function fails here in about 2 s. PHPUnit
+            # renders only some of the recipes' templates, so before this step most such errors first failed in the
+            # browser jobs. It does not render: an HTML component tag naming no component (`<twig:NoSuch />`), a wrong
+            # prop or a runtime error still fail only where the template is rendered (docs/TESTING.md, *Kit PHP*).
+            - name: Twig syntax
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
+              working-directory: demo
+              run: |
+                  # shellcheck disable=SC2046 # one directory per line, none with a space
+                  bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done)
 
             # demo/tests: the data tables' limits (the deepest page, the loader calls, the selection), the Live table
             # through real Live requests, components rendered against their snapshots, the loader calls of one
@@ -529,6 +863,7 @@ jobs:
             # A missing snapshot fails here instead of being written.
             - name: PHPUnit
               id: phpunit
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               working-directory: demo
               env:
                   CREATE_SNAPSHOTS: 'false'
@@ -551,8 +886,11 @@ jobs:
 
             # PHPStan reads the classes the kit's PHP uses (Symfony) from the demo's dependencies, and also checks the
             # demo's tables and tests; it is installed in a scratch directory with its Symfony and PHPUnit extensions
-            # (tools/phpstan.neon), whose Symfony one reads the demo's test container.
+            # (tools/phpstan.neon), whose Symfony one reads the demo's test container. It runs whether or not PHPUnit
+            # passed: a failing test no longer hides what PHPStan finds.
             - name: Install PHPStan
+              id: phpstan-install
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               working-directory: ${{ runner.temp }}
               run: |
                   mkdir phpstan && cd phpstan
@@ -561,16 +899,22 @@ jobs:
 
             # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).
             - name: PHPStan
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' && steps.phpstan-install.outcome == 'success' }}
               run: |
                   (cd demo && bin/console cache:warmup --env=test)
-                  # shellcheck disable=SC2046 # one directory per line, none with a space
+                  # the recipes' src directories, read here: the install before could write any file a step passed on
+                  dirs=()
+                  for manifest in */manifest.json; do
+                      if [ -d "${manifest%/manifest.json}/src" ]; then dirs+=("${manifest%/manifest.json}/src"); fi
+                  done
+                  # --: a directory starting with a dash (-l/src) is a path to analyse, never PHPStan's options
                   "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" analyse --no-progress --configuration=tools/phpstan.neon \
-                      --autoload-file=demo/vendor/autoload.php $(cat "$RUNNER_TEMP/php-dirs") demo/src/Demo demo/tests
+                      --autoload-file=demo/vendor/autoload.php -- "${dirs[@]}" demo/src/Demo demo/tests
 
     static-site:
         name: Static site
         needs: [changes, importmap]
-        if: needs.changes.outputs.static-site == 'true'
+        if: needs.changes.outputs.static-site == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         # The GitHub Pages copy (pages.yml) is built only on release: this builds it on every push, so a page that does
@@ -615,7 +959,7 @@ jobs:
     fresh-install:
         name: Fresh install
         needs: changes
-        if: needs.changes.outputs.fresh-install == 'true'
+        if: needs.changes.outputs.fresh-install == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -634,6 +978,8 @@ jobs:
             # (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
             - name: ux:install dashboard-home on a fresh Symfony skeleton
               id: install
+              env:
+                  UX_TOOLKIT_VERSION: ${{ env.UX_TOOLKIT_MINIMUM_VERSION }}
               run: |
                   set -o pipefail
                   tools/tests/fresh-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
@@ -652,7 +998,7 @@ jobs:
     docker-install:
         name: Fresh install (Symfony Docker, from GitHub)
         needs: changes
-        if: needs.changes.outputs.fresh-install == 'true'
+        if: needs.changes.outputs.fresh-install == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -667,6 +1013,7 @@ jobs:
               env:
                   KIT_REPOSITORY: ${{ github.repository }}
                   KIT_REF: ${{ github.sha }}
+                  UX_TOOLKIT_VERSION: ${{ env.UX_TOOLKIT_MINIMUM_VERSION }}
               run: |
                   set -o pipefail
                   tools/tests/docker-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
@@ -682,6 +1029,52 @@ jobs:
                   job: Fresh install (Symfony Docker, from GitHub)
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # The demo's production image (demo/Dockerfile, target frankenphp_prod), which no other job builds: built from the
+    # repository as the dev image is (the kit beside the demo, demo/Dockerfile.dockerignore naming what it holds), for
+    # linux/amd64 only, then run by tools/tests/prod-image.sh: it refuses to boot without the explicit opt-in, holds no
+    # baked secret, development package or Xdebug, runs as www-data, turns healthy, serves the gallery's pages (each
+    # kind of file it reads from the kit) and holds nothing the allow-list leaves out. It runs when the image's build
+    # inputs change (tools/ci-changes.sh); a plain build, with no cache shared with the dev image's bake.
+    prod-image:
+        name: Production image
+        needs: changes
+        if: needs.changes.outputs.prod-image == 'run'
+        runs-on: ubuntu-latest
+        timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # (the output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
+            - name: Build the production image
+              id: build
+              run: |
+                  set -o pipefail
+                  {
+                      docker buildx build --platform linux/amd64 --target frankenphp_prod --load --progress plain -t uxor-demo-prod:ci -f demo/Dockerfile .
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+
+            # (the output also goes to $RUNNER_TEMP/jev-prod-image.log, for the Jev step)
+            - name: Run the production image
+              id: prod-image
+              run: |
+                  set -o pipefail
+                  tools/tests/prod-image.sh uxor-demo-prod:ci 2>&1 | tee "$RUNNER_TEMP/jev-prod-image.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Production image
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
     # The Composer package xormania/uxor: the root composer.json and its implementation in packages/uxor/. Its metadata
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
     # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
@@ -693,7 +1086,7 @@ jobs:
     package:
         name: Package
         needs: changes
-        if: needs.changes.outputs.package == 'true'
+        if: needs.changes.outputs.package == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15 (the consumer installs a Symfony application from Packagist), plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
         steps:
@@ -796,94 +1189,6 @@ jobs:
                   job: Package
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-    contrast:
-        name: Contrast
-        needs: changes
-        if: needs.changes.outputs.contrast == 'true'
-        runs-on: ubuntu-latest
-        timeout-minutes: 13 # 10, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-                  fetch-depth: 0 # the README pairing reads the branch's commits since its base
-
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              with:
-                  node-version: 22
-                  cache: npm
-
-            - run: npm ci
-
-            # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
-            - name: Token contrast (tools/contrast/pairs.json, both themes)
-              id: tokens
-              run: |
-                  set -o pipefail
-                  node tools/contrast/check.mjs 2>&1 | tee "$RUNNER_TEMP/jev-tokens.log"
-
-            - name: The theme recipe ships kit.css unchanged
-              id: theme-css
-              run: |
-                  set -o pipefail
-                  cmp kit.css theme/assets/styles/uxor.css 2>&1 | tee "$RUNNER_TEMP/jev-theme-css.log"
-
-            - name: llms.txt matches docs/RECIPES.md's recipe tables
-              id: llms
-              run: |
-                  set -o pipefail
-                  node tools/llms-txt.mjs --check 2>&1 | tee "$RUNNER_TEMP/jev-llms.log"
-
-            - name: The markdown teaches no Flowbite JS, palette color, inline handler or style
-              id: docs-lint
-              run: |
-                  set -o pipefail
-                  node tools/docs-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-docs-lint.log"
-
-            - name: Icons are flowbite names written in full, in the recipes' templates and the markdown
-              id: icons
-              run: |
-                  set -o pipefail
-                  node tools/icon-lint.mjs 2>&1 | tee "$RUNNER_TEMP/jev-icons.log"
-
-            - name: Every README example is one the demo reads
-              id: fences
-              run: |
-                  set -o pipefail
-                  node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-fences.log"
-
-            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
-              id: inventory
-              run: |
-                  set -o pipefail
-                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-inventory.log"
-
-            - name: Each recipe README renders its manifest's dependencies and writes no version table
-              id: readme-versions
-              run: |
-                  set -o pipefail
-                  node tools/readme-versions.mjs 2>&1 | tee "$RUNNER_TEMP/jev-readme-versions.log"
-
-            # The Changes job's base: none for main, dev or a run by hand, which compares nothing
-            - name: A recipe whose code changed has its README changed, or a Docs-waiver trailer
-              id: readme-pairing
-              env:
-                  BASE: ${{ needs.changes.outputs.base }}
-              run: |
-                  set -o pipefail
-                  node tools/readme-pairing.mjs --base "$BASE" 2>&1 | tee "$RUNNER_TEMP/jev-readme-pairing.log"
-
-            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
-            - name: Jev diagnosis (advisory)
-              if: failure()
-              continue-on-error: true
-              timeout-minutes: 3
-              uses: ./.github/actions/jev-diagnosis
-              with:
-                  steps: ${{ toJSON(steps) }}
-                  job: Contrast
-                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
-
     # The demo image's build cache (ghcr.io/<owner>/<repo>-cache:dev and :main), which every run's demo build reads. It
     # is the only job that can write a package, and it runs only on dev and main, whose code changes only through
     # reviewed pull requests (the rulesets): a branch's run, and any package or test code a run executes, never holds a
@@ -892,7 +1197,8 @@ jobs:
     cache:
         name: Build cache
         needs: changes
-        if: needs.changes.outputs.demo == 'true' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        # a reused browser lane builds no image, so the cache is written all the same
+        if: (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse') && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
         runs-on: ubuntu-latest
         timeout-minutes: 15
         # a cache that cannot be written fails no run: the run's conclusion, which release.yml waits for on main, stays
@@ -927,12 +1233,15 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   pull: true
                   set: |
+                      *.context=.
                       *.output=type=cacheonly
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }}
                       *.cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
@@ -943,43 +1252,29 @@ jobs:
 
     demo:
         name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
-        needs: [changes, importmap]
-        if: needs.changes.outputs.demo == 'true'
+        # not importmap: the shards start beside it and wait for it, by name, just before they need its packages (the
+        # plan runs Importmap packages whenever this job runs: its `importmap` output follows the browser lanes)
+        needs: changes
+        if: needs.changes.outputs.browsers == 'run'
         runs-on: ubuntu-latest
         permissions:
             contents: read # no packages: write: the build cache is written by the cache job alone, on dev and main
+            actions: read # the run's jobs, to wait for Importmap packages
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
-        # the browser suite is most of CI's time: four shards for Chromium, three for Firefox and WebKit, each with its own
-        # demo and browser (each reads the image cache the cache job writes on dev and main). Chromium runs every test, the
-        # screenshots included, so it has the extra shard; Firefox and WebKit run every behavior test, without the
-        # @screenshot ones (playwright.config.ts, browserProjects()), in jobs of their own beside Chromium's:
-        # docs/TESTING.md, *Browsers*
+        # the browser suite is most of CI's time: one job per browser and shard, each with its own demo and browser (each
+        # reads the image cache the cache job writes on dev and main). Two lanes share this one job, so its steps exist once:
+        # the Chromium shards (the demo lane, CHROMIUM_SHARDS of them: every test, the screenshots included) and three
+        # shards each of Firefox and WebKit (the engines lane: every behavior test, without the @screenshot ones,
+        # playwright.config.ts, browserProjects()). The Changes job's plan lists the shards that run, as the matrix:
+        # Chromium's when the demo lane runs, the engines' when they run (ENGINES_ON, above). docs/TESTING.md, *Browsers*
         env:
-            XDEBUG_MODE: 'off' # compose.override.yaml enables Xdebug's develop mode by default; the tests do not use it
+            XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
         strategy:
             fail-fast: false
-            matrix:
-                browser: [chromium, firefox, webkit]
-                shard: [1, 2, 3, 4]
-                # shard 4 is Chromium's only
-                exclude:
-                    - browser: firefox
-                      shard: 4
-                    - browser: webkit
-                      shard: 4
-                # each browser's shard count and two projects (smoke and examples)
-                include:
-                    - browser: chromium
-                      shards: 4
-                      projects: --project=smoke --project=examples
-                    - browser: firefox
-                      shards: 3
-                      projects: --project=smoke-firefox --project=examples-firefox
-                    - browser: webkit
-                      shards: 3
-                      projects: --project=smoke-webkit --project=examples-webkit
+            # each entry: browser, shard, shards and the two projects (smoke and examples) of that browser
+            matrix: ${{ fromJSON(needs.changes.outputs.browser-matrix) }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -993,6 +1288,17 @@ jobs:
 
             # The demo runs in Symfony Docker (demo/compose.yaml): FrankenPHP in worker mode, PHP 8.5
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+            # The pinned Playwright image (2.4 GB, tools/playwright-image.mjs) is pulled in the background while the demo
+            # builds and starts, and waited for in Install Playwright, which fails with the pull's error if it failed
+            # (tools/ci/background.mjs). Fails here when the image's tag is not the locked @playwright/test. Started
+            # only once buildx is set up: unpacking the image's layers kept dockerd busy, and the buildx builder's
+            # container then took 16 s to create instead of 2.
+            - name: Start pulling the Playwright image
+              id: pull
+              run: |
+                  image=$(node tools/playwright-image.mjs)
+                  node tools/ci/background.mjs start playwright-image -- docker pull "$image"
 
             # The demo image's build cache is an image in this repository's GitHub packages (ghcr.io/<owner>/<repo>-cache,
             # tags dev and main), not the GitHub Actions cache: a push run reads Actions caches only from its own branch
@@ -1014,17 +1320,29 @@ jobs:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
                   DOCKER_BUILD_RECORD_UPLOAD: 'false'
               with:
-                  source: ./demo                # bake's working directory: compose files and build context in demo/
+                  # bake resolves compose.override.yaml's `context: ..` against its working directory, not the file's:
+                  # *.context=. below names the same repository root compose means, with no fs entitlement needed
+                  source: .
                   files: |
-                      compose.yaml
-                      compose.override.yaml
+                      demo/compose.yaml
+                      demo/compose.override.yaml
                   load: true
                   pull: true
                   set: |
+                      *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
                       *.cache-from=type=gha,scope=demo-${{ github.ref }}
                       *.cache-from=type=gha,scope=demo-refs/heads/main
+
+            # The job does not need importmap, so it starts while that job downloads the packages (about 15 s) and
+            # waits for it here, by name, through the run's jobs (tools/ci/wait-for-job.mjs): it goes on only when the
+            # job succeeded, and fails naming it when it failed, was cancelled or skipped, or has not ended in 10 min
+            - name: Wait for the importmap packages
+              id: importmap
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: node tools/ci/wait-for-job.mjs --name 'Importmap packages' --timeout 600
 
             # the run's importmap packages (job importmap), and what they hold, to check below that the demo's first
             # install downloaded none
@@ -1078,20 +1396,25 @@ jobs:
               working-directory: demo
               run: docker compose exec -T php bash ../tools/tests/sync-demo.sh
 
-            # The browser runs in upstream's Playwright image (see playwright.config.ts), so the
-            # screenshots compare with the baselines copied from symfony/ux. The image holds the three browsers; the tests
-            # launch only the job's own. Each part's seconds go to the job's metrics.
+            # The browser runs in the Playwright image pinned by UXor (see playwright.config.ts), so
+            # screenshot comparisons use a reproducible browser environment and UXor's committed baselines. The image
+            # holds the three browsers; the tests launch only the job's own. Each part's seconds go to the job's metrics.
             - name: Install Playwright
               id: install
               run: |
                   start=$SECONDS
                   npm ci
                   echo "npm-ci-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
-                  start=$SECONDS
-                  # the image pinned by digest; fails when its tag is not the locked @playwright/test (tools/playwright-image.mjs)
-                  image=$(node tools/playwright-image.mjs)
-                  docker pull "$image"
-                  echo "image-pull-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  # the pull started at the top of the job; pulled here when it was not started (exit status 2)
+                  status=0
+                  node tools/ci/background.mjs wait playwright-image --timeout 300 || status=$?
+                  if [ "$status" -eq 2 ]; then
+                      start=$SECONDS
+                      docker pull "$(node tools/playwright-image.mjs)"
+                      echo "playwright-image-seconds=$((SECONDS - start))" >> "$GITHUB_OUTPUT"
+                  elif [ "$status" -ne 0 ]; then
+                      exit "$status"
+                  fi
 
             # The recipe specs' runnable copies and the demo's CSS, recorded with what it was built from
             # (tools/prepare-tests.mjs): Playwright finds both up to date, and a failed build reads as a setup failure
@@ -1134,13 +1457,37 @@ jobs:
                       node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
                   fi
 
+            # The browser server on the runner's own network (the pinned image the Install step pulled), so the browser
+            # reaches https://localhost itself instead of through the test process (playwright.config.ts,
+            # PW_DIRECT_NETWORK); Playwright then reuses it. Fails here, with the server's log, when port 3000 is already
+            # taken or the server does not answer within two minutes
+            - name: Start the browser server
+              id: browser-server
+              run: |
+                  if ss -Hltn 'sport = :3000' | grep -q .; then
+                      echo "::error::port 3000 is already in use: the browser server cannot start"; ss -ltnp 'sport = :3000'; exit 1
+                  fi
+                  image=$(node tools/playwright-image.mjs)
+                  version=$(node -p "require('@playwright/test/package.json').version")
+                  docker run -d --rm --init --name playwright-browser --network host "$image" \
+                      npx -y "playwright@$version" run-server --port 3000 --host 127.0.0.1 > /dev/null
+                  for _ in $(seq 1 120); do
+                      if [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/)" != 000 ]; then
+                          echo "browser server up: $image"; exit 0
+                      fi
+                      docker inspect playwright-browser > /dev/null 2>&1 || break
+                      sleep 1
+                  done
+                  echo "::error::the browser server did not answer on port 3000"; docker logs playwright-browser 2>&1 | tail -50 || true; exit 1
+
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks run in
             # release-checks.yml, not here (their projects exist only with RELEASE_CHECKS set)
-            - name: Playwright (smoke + every README example + upstream recipe specs)
+            - name: Playwright (smoke + every README example + UXor recipe specs)
               id: tests
               env:
                   DEMO_URL: https://localhost
+                  PW_DIRECT_NETWORK: '1'
               run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
@@ -1160,7 +1507,9 @@ jobs:
                   DEMO_STARTED: ${{ steps.start.outcome }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
+                      Start pulling the Playwright image=${{ steps.pull.outcome }}
                       Build the demo image=${{ steps.image.outcome }}
+                      Wait for the importmap packages=${{ steps.importmap.outcome }}
                       Start the demo=${{ steps.start.outcome }}
                       Sync recipes into the demo=${{ steps.sync.outcome }}
                       The sync leaves tracked files unchanged=${{ steps.tracked.outcome }}
@@ -1169,6 +1518,7 @@ jobs:
                       Install Playwright=${{ steps.install.outcome }}
                       Prepare the tests=${{ steps.prepare.outcome }}
                       Plan the shard's tests=${{ steps.plan.outcome }}
+                      Start the browser server=${{ steps.browser-server.outcome }}
               run: |
                   if [ "$DEMO_STARTED" = success ]; then
                       # the PHP snippet is single-quoted on purpose: its $m is PHP's, not the shell's
@@ -1192,7 +1542,8 @@ jobs:
                   SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
                   NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
                   NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
-                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.image-pull-seconds }}
+                  IMAGE_PULL_SECONDS: ${{ steps.install.outputs.playwright-image-seconds }}
+                  IMAGE_PULL_WAIT_SECONDS: ${{ steps.install.outputs.playwright-image-wait-seconds }}
               run: |
                   timeout 30 docker buildx history ls --format json > "$RUNNER_TEMP/buildx-history.jsonl" || true
                   node tools/ci/ci-metrics.mjs job --buildx "$RUNNER_TEMP/buildx-history.jsonl" --out playwright-results/job-metrics.json
@@ -1254,58 +1605,64 @@ jobs:
 
     # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
     # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
-    # pull request pending forever; this passes when every job passed or was skipped as unaffected.
+    # pull request pending forever. It passes when each lane ran fresh and passed, reused an earlier pass whose evidence
+    # still holds (requalified here), or was skipped as unaffected; and records the lanes that ran fresh, for later runs
+    # (tools/ci/lane-evidence.mjs, docs/TESTING.md, *Reused lanes*).
     result:
-        name: CI result
+        # The required check is the push's (and a full manual run's): the daily run and an engines-only run test part of a
+        # head and publish under names of their own, so a later green one can never stand in for a red CI result
+        name: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
         if: ${{ always() && github.event_name != 'schedule' }}
-        needs: [changes, tools, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, contrast, workflows, demo]
+        needs: [changes, quick, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, demo, prod-image]
         runs-on: ubuntu-latest
+        # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
+        outputs:
+            engines-status: ${{ steps.finish.outputs.engines-status }}
+            engines-report: ${{ steps.finish.outputs.engines-report }}
         timeout-minutes: 5
         permissions:
             contents: read
-            actions: read # the run's jobs and their step times, for the CI metrics below
+            actions: read # the run's jobs, the lanes' markers
+        # No setup-node: the tool (Node's own modules only) runs on the runner image's Node, which it checks is 20 or later.
+        # It is the tool of the run's own commit, from a sparse checkout: only plan.json comes from the Changes job's
+        # artifact. The advisory CI metrics are the CI metrics job, after this one.
         steps:
-            # success and skipped (a lane the change cannot affect) pass; failure and cancelled do not: a cancelled job
-            # checked nothing
-            - name: Every job passed or was skipped
-              env:
-                  NEEDS: ${{ toJSON(needs) }}
-                  WO_DRAFT: ${{ needs.changes.outputs.wo-draft }}
-              run: |
-                  if [ "$WO_DRAFT" = true ]; then
-                      echo "::error::work order draft: CI ran no tests. Mark its pull request into dev ready, then re-run this run (Re-run all jobs)"
-                      exit 1
-                  fi
-                  echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-                  failed=$(echo "$NEEDS" | jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped")
-                      | "\(.key) ended with \(.value.result)" + (if .value.result == "cancelled" then " (a cancelled job is not a pass)" else "" end)')
-                  if [ -n "$failed" ]; then
-                      while IFS= read -r line; do echo "::error::$line"; done <<< "$failed"
-                      exit 1
-                  fi
-                  echo "Every job passed or was skipped as unaffected by the change"
-
-            # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after the verdict and
-            # never changing it (continue-on-error on each step): every shard's durations.json and job-metrics.json, and
-            # every job's queue and step times from GitHub's API, in one summary (the shard balance per browser, each
-            # shard's setup, tests and worker use, the run's slowest tests and files, the retried tests, the browser jobs'
-            # time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI metrics*. With them,
-            # shard-timings.json: tests/shard-timings.json refreshed from this run's durations (tools/ci/shard-plan.mjs
-            # timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard balance*
+            # The finish below runs the tool of the run's own commit, checked out here, never anything from
+            # an artifact: only plan.json comes from the Changes job's artifact, by its id, and its SHA-256 (a Changes job
+            # output) is checked before anything reads it
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               if: ${{ always() }}
-              continue-on-error: true
               with:
                   persist-credentials: false
                   sparse-checkout: |
                       tools/ci
-                      tests
 
-            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-              if: ${{ always() }}
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ always() && needs.changes.result == 'success' }}
               continue-on-error: true
               with:
-                  node-version: 22
+                  artifact-ids: ${{ needs.changes.outputs.lane-plan-id }}
+                  merge-multiple: true
+                  path: ${{ runner.temp }}/lane-plan
+
+            # The Changes job must have succeeded, and plan.json must be the one it wrote: else no record and no verdict,
+            # and this step fails the job
+            - name: The lane plan is the one the Changes job wrote
+              id: lane-plan
+              if: ${{ always() }}
+              env:
+                  CHANGES: ${{ needs.changes.result }}
+                  PLAN_SHA256: ${{ needs.changes.outputs.lane-plan-sha256 }}
+              run: |
+                  if [ "$CHANGES" != success ]; then
+                      echo "::error::the Changes job ended with $CHANGES: no plan, no verdict"
+                      exit 1
+                  fi
+                  plan="$RUNNER_TEMP/lane-plan/plan.json"
+                  if [ ! -f "$plan" ] || [ -z "$PLAN_SHA256" ] || ! printf '%s  %s\n' "$PLAN_SHA256" "$plan" | sha256sum --check --status; then
+                      echo "::error::plan.json is not the one the Changes job wrote (missing, or another SHA-256 than its output): no verdict"
+                      exit 1
+                  fi
 
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               if: ${{ always() && needs.demo.result != 'skipped' }}
@@ -1314,16 +1671,192 @@ jobs:
                   pattern: playwright-results-*
                   path: ${{ runner.temp }}/shards
 
+            # One step, the tool's finish: the markers of the lanes that ran (reuse on or off: a pass when every job of the
+            # lane passed in its latest attempt, a failure when one failed, nothing when one was cancelled), then the
+            # verdict, per lane: fresh, reused (its evidence checked again), not applicable, NOT RUN AT THIS STAGE (the
+            # engines, deferred) or incomplete. Changes, Tool tests and Importmap packages must pass or be skipped. A
+            # failure marker is never best effort: one that cannot be recorded (the job
+            # list unreadable) fails this step, and its upload below is never continue-on-error; a lost pass marker warns.
+            - name: Every lane passed, was reused or was skipped
+              id: finish
+              if: ${{ always() && steps.lane-plan.outcome == 'success' }}
+              timeout-minutes: 3
+              env:
+                  NEEDS: ${{ toJSON(needs) }}
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  RUN_ID: ${{ github.run_id }}
+                  RUN_ATTEMPT: ${{ github.run_attempt }}
+              run: |
+                  set -o pipefail
+                  echo "Node $(node --version)"
+                  printf '%s' "$NEEDS" > "$RUNNER_TEMP/needs.json"
+                  # a listing that fails leaves no file: the tool then fails if a failure marker was due, and the verdict
+                  # looks the jobs up itself when the browser job ran
+                  if ! gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/jobs?filter=latest&per_page=100" --jq '.jobs[]' | jq -s . > "$RUNNER_TEMP/run-jobs.json"; then
+                      echo "::warning::the run's jobs could not be listed"
+                      rm -f "$RUNNER_TEMP/run-jobs.json"
+                  fi
+                  node tools/ci/lane-evidence.mjs finish --plan "$RUNNER_TEMP/lane-plan/plan.json" --needs "$RUNNER_TEMP/needs.json" \
+                      --jobs "$RUNNER_TEMP/run-jobs.json" --shards "$RUNNER_TEMP/shards" --run-id "$RUN_ID" --run-attempt "$RUN_ATTEMPT" \
+                      --out "$RUNNER_TEMP/lane-markers" --repo "$REPO" \
+                      --summary "$GITHUB_STEP_SUMMARY" --github-output "$GITHUB_OUTPUT"
+
+            # One artifact per lane and kind: its name is the marker a later run looks up (kept a day past the 14 days the
+            # longest-lived counts). Names are unique within a run, so a later attempt's marker replaces the earlier one
+            # (overwrite): the newest attempt's result is the one that stands. A failure's upload may not fail quietly.
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.php-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.php-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.php-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.php-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.php-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.php-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.demo-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.demo-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.demo-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.demo-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.demo-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.demo-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.engines-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.engines-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.engines-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.engines-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.engines-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.engines-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.prod-image-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.prod-image-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.prod-image-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.prod-image-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.prod-image-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.prod-image-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.fresh-install-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.fresh-install-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.fresh-install-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.fresh-install-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.fresh-install-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.fresh-install-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.lint-kit-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.lint-kit-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.lint-kit-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.lint-kit-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.lint-kit-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.lint-kit-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.package-kind == 'pass' }}
+              continue-on-error: true
+              with:
+                  name: ${{ steps.finish.outputs.package-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.package-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              if: ${{ always() && steps.finish.outputs.package-kind == 'fail' }}
+              with:
+                  name: ${{ steps.finish.outputs.package-marker }}
+                  path: ${{ runner.temp }}/lane-markers/${{ steps.finish.outputs.package-marker }}/evidence.json
+                  overwrite: true
+                  retention-days: 15
+
+    # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs run), report only, after CI result so the
+    # required check never waits for them, and allowed to fail without failing the run (release.yml and the lookups of
+    # dev's last green run read the run's conclusion). No ruleset names this job. Every shard's durations.json and
+    # job-metrics.json, and every job's queue and step times from GitHub's API but this job's own, in one summary (the
+    # shard balance per browser, each shard's setup, tests and worker use, the run's slowest tests and files, the retried
+    # tests, the browser jobs' time per step) and ci-metrics.json, kept 90 days to compare runs: docs/TESTING.md, *CI
+    # metrics*. With them, shard-timings.json: tests/shard-timings.json refreshed from this run's durations
+    # (tools/ci/shard-plan.mjs timings), to copy over the committed one when the shards drift: docs/TESTING.md, *Shard
+    # balance*; the next run's Changes job plans its shards from it (the ci-metrics artifact)
+    metrics:
+        name: CI metrics
+        needs: [changes, demo, result]
+        if: ${{ always() && github.event_name != 'schedule' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        continue-on-error: true
+        permissions:
+            contents: read
+            actions: read # the run's jobs and their step times
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  sparse-checkout: |
+                      tools/ci
+                      tests
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: ${{ needs.demo.result != 'skipped' }}
+              continue-on-error: true
+              with:
+                  pattern: playwright-results-*
+                  path: ${{ runner.temp }}/shards
+
             # The timings this run planned from, preserved even when its browser jobs were skipped.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-              if: ${{ always() }}
               continue-on-error: true
               with:
                   name: ${{ needs.changes.outputs.timings }}
                   path: ${{ runner.temp }}/shard-timings
 
             - name: CI metrics (advisory)
-              if: ${{ always() }}
               continue-on-error: true
               timeout-minutes: 2
               env:
@@ -1332,12 +1865,11 @@ jobs:
                   RUN_ID: ${{ github.run_id }}
                   RUN_ATTEMPT: ${{ github.run_attempt }}
               run: |
-                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[]' \
+                  gh api --paginate "repos/$REPO/actions/runs/$RUN_ID/attempts/$RUN_ATTEMPT/jobs?per_page=100" --jq '.jobs[] | select(.name != "CI metrics")' \
                       > "$RUNNER_TEMP/jobs.jsonl" || echo "::warning::CI metrics: the run's jobs could not be listed"
                   node tools/ci/ci-metrics.mjs run --shards "$RUNNER_TEMP/shards" --jobs "$RUNNER_TEMP/jobs.jsonl" --out "$RUNNER_TEMP/ci-metrics"
 
             - name: Shard timings (advisory)
-              if: ${{ always() }}
               continue-on-error: true
               timeout-minutes: 1
               run: |
@@ -1347,10 +1879,46 @@ jobs:
                       --out "$RUNNER_TEMP/ci-metrics/shard-timings.json"
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ always() }}
               continue-on-error: true
               with:
                   name: ci-metrics-${{ github.run_id }}-${{ github.run_attempt }}
                   path: ${{ runner.temp }}/ci-metrics/
                   if-no-files-found: warn
                   retention-days: 90
+
+    # The daily run's Firefox and WebKit verdict on one issue labeled engines, after the release checks' issue: a failure
+    # opens it, or comments on the open one, naming the commits since their last all-browser pass; a pass closes it. Only
+    # the daily run on dev reports here: a push that defers them, or a manual run, shows its result where it ran.
+    engines-issue:
+        name: Engines issue
+        needs: result
+        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.result.outputs.engines-status != '' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        permissions:
+            issues: write
+        steps:
+            # failed (a shard failed) and incomplete (cancelled, short, unreadable) both comment, each in its own words
+            - id: issue
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  STATUS: ${{ needs.result.outputs.engines-status }}
+                  REPORT: ${{ needs.result.outputs.engines-report }}
+                  RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+              run: |
+                  open=$(gh issue list --repo "$REPO" --label engines --state open --limit 1 --json number --jq '.[0].number // empty')
+                  if [ "$STATUS" = passed ]; then
+                      if [ -n "$open" ]; then
+                          gh issue close "$open" --repo "$REPO" --comment "$REPORT: $RUN_URL"
+                      fi
+                      exit 0
+                  fi
+                  body="$REPORT. Run: $RUN_URL"
+                  if [ -n "$open" ]; then
+                      gh issue comment "$open" --repo "$REPO" --body "$body"
+                  else
+                      gh label create engines --repo "$REPO" --color B60205 \
+                          --description 'The daily Firefox and WebKit run failed on dev (ci.yml)' 2>/dev/null || true
+                      gh issue create --repo "$REPO" --label engines --title 'Firefox or WebKit fails on dev' --body "$body"
+                  fi

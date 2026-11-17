@@ -1,7 +1,8 @@
 /**
- * The kit's positioning of a floating element (a menu, a popover, a tooltip) next to the element it belongs to: the
- * one implementation that `dropdown`, `popover` (so `date-picker`) and `tooltip` import, ported from Popper as Flowbite
- * configures it, so the elements land on the same pixels as Flowbite's. No dependency, no style attribute in markup:
+ * UXor's positioning of a floating element (a menu, a popover, a tooltip) next to the element it belongs to: the
+ * shared implementation that `dropdown`, `popover` (so `date-picker`) and `tooltip` import. The initial placement
+ * logic was ported from Popper as configured by Flowbite; placement, flipping and viewport adjustment follow UXor's
+ * documented behavior. No dependency, no style attribute in markup:
  * it writes `element.style` (the CSSOM), which a Content Security Policy without `'unsafe-inline'` allows.
  */
 

@@ -1,9 +1,9 @@
 /*
- * Port of symfony/ux src/Toolkit/assets/test/browser/fixtures.ts (f152d0b) for this repository:
- * same page setup, clock, request blocking and error checks, so screenshots match the upstream
- * baselines copied into <recipe>/tests/screenshots/. Differences:
+ * Adapted from symfony/ux src/Toolkit/assets/test/browser/fixtures.ts (f152d0b).
+ * These fixtures support UXor's local recipe specs and checked-in screenshot baselines; page setup, clocks,
+ * request blocking and error checks evolve with UXor's requirements. Local behavior:
  * - gotoExample('<kit>/<recipe>/<example>') opens this demo's /preview/<recipe>/<example>
- *   (the kit segment, e.g. "flowbite-4" in upstream specs, is ignored);
+ *   (the kit segment, "uxor" in this repository's specs, is ignored);
  * - screenshot names drop the kit segment: <recipe>/tests/screenshots/<file>.png;
  * - the page checks are the smoke project's (tests/e2e/fixtures.ts guardPage()): a Content Security Policy
  *   violation (the demo enforces a strict policy) and a failed local request fail the test too.

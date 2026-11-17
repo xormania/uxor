@@ -2,9 +2,9 @@
 /*
  * What the browser tests need before they run, made idempotent and safe to run from several processes at once:
  *
- * - The recipe specs. Each <recipe>/tests/*.spec.ts, copied from upstream byte-identical, imports
- *   '../../../../assets/test/browser/fixtures', a path inside the symfony/ux repository. They run as copies in
- *   tests/e2e/examples/recipes/ (gitignored) with that import pointed at our port, tests/e2e/examples/fixtures.ts.
+ * - UXor's recipe specs in <recipe>/tests/*.spec.ts. Some retain a fixture import path from the initial
+ *   symfony/ux reference. They run as copies in tests/e2e/examples/recipes/ (gitignored), with that inherited import
+ *   pointed at tests/e2e/examples/fixtures.ts. Maintain the source specs for UXor's behavior and contracts.
  *   The copies are built in a temporary directory, then each new or changed one is renamed into place and each one
  *   no recipe has any more is deleted: a process listing the tests meanwhile sees every file whole, old or new, and
  *   nothing is written when nothing changed.

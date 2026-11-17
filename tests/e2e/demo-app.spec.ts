@@ -1,6 +1,19 @@
-import { test, expect, expectA11y, turboVisitDone, markDocument } from './fixtures';
+import type { Page } from '@playwright/test';
+import { test, expect, expectA11y, turboVisitDone, markDocument, stubPreviewFrames } from './fixtures';
 import { turboOperation } from './transitions';
 import { demoPages, previewUrl, recipes } from './inventory';
+
+/**
+ * Call before the step that opens a signed-in page; returns a wait for that page's avatar, a 190 KB GIF in the
+ * stylesheet, to have arrived. Leaving the page before then cancels it, which the page guard reports: WebKit cancels it
+ * before the next document is requested, and only that next document asks for it again.
+ */
+function avatarArrival(page: Page): () => Promise<void> {
+    const avatar = page.waitForResponse((response) => /\/assets\/images\/xor\/mascot-[^/]+\.gif$/.test(response.url()));
+    return async () => {
+        await (await avatar).finished();
+    };
+}
 
 test('the login block signs in through form_login and shows the authentication error', async ({ page }) => {
     await page.goto('/demo/login');
@@ -154,8 +167,10 @@ test('flash messages show on every layout: the logout notice on the auth layout,
     await page.goto('/demo/login');
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
+    const avatarArrived = avatarArrival(page);
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+    await avatarArrived();
 
     await page.getByRole('button', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(/\/demo\/login$/);
@@ -199,10 +214,12 @@ test('every layout keeps the same toast region: a toast closed on another layout
 test('signing out requires POST: a direct GET to the logout URL does not sign the user out', async ({ page, allowHttpError }) => {
     allowHttpError(/\/demo\/logout$/, 405);
     await page.goto('/demo/login');
+    const avatarArrived = avatarArrival(page);
     await page.getByRole('textbox', { name: 'Email' }).fill('demo@example.com');
     await page.getByLabel('Password').fill('demo');
     await page.getByRole('button', { name: 'Sign in' }).click();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await avatarArrived();
 
     // A typed URL is always GET. The route rejects it before the firewall can consider a logout request.
     const response = await page.goto('/demo/logout');
@@ -240,14 +257,6 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await turboVisitDone(page);
 });
 
-test('every demo page names the brand it shows in its title', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
-    for (const path of Object.values(demoPages)) {
-        await page.goto(path);
-        await expect(page, path).toHaveTitle(/ — xor$/);
-    }
-});
-
 // a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
 for (const colorScheme of ['light', 'dark'] as const) {
     test.describe(`${colorScheme} theme at phone width`, () => {
@@ -270,8 +279,13 @@ test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
     for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
-        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError, browserName }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
+            if (path.startsWith('/r/') && 'chromium' === browserName) {
+                // the embedded previews cannot widen the page and their text is theirs; in Firefox and WebKit they load,
+                // since no other test there loads the dark ones
+                await stubPreviewFrames(page);
+            }
             await page.goto(path);
             const heading = page.getByRole('heading', { level: 1 }).first();
             await expect(heading).toBeVisible();

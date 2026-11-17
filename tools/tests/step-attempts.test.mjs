@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const script = join(root, 'tools/ci/step-attempts.mjs');
-const workspace = '/home/runner/work/flowbite-xor/flowbite-xor';
+const workspace = '/home/runner/work/uxor/uxor';
 
 const WORKFLOW = `name: CI
 jobs:

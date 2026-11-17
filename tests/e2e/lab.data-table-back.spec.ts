@@ -59,26 +59,56 @@ async function pageVisitDone(page: Page, since: number, expected: Record<string,
 /**
  * From now on, records the form's values at the first animation frame of each page Turbo renders, a cached copy
  * included: what the user first sees, before any later fix.
+ *
+ * Returns a reader: the values recorded so far or, while there are none, a description of every turbo:before-render
+ * since recording started (waiting for its body, recorded, or given up after 60 frames without its body in place) and
+ * of the page visits of a promoted frame visit, which announce a render they do not do. Poll it: the first frame can
+ * come after the visit's turbo:load, and a failure then names how far each render got.
  */
-async function recordFirstFrameValues(page: Page): Promise<() => Promise<State[]>> {
+async function recordFirstFrameValues(page: Page): Promise<() => Promise<State[] | string>> {
     await page.evaluate(() => {
         const records: State[] = ((window as any).__firstFrameValues = []);
+        const renders: { state: 'waiting' | 'recorded' | 'gave up'; frames: number }[] = ((window as any).__firstFrameRenders = []);
+        (window as any).__firstFrameNoRender = 0;
         document.addEventListener('turbo:before-render', (event: any) => {
+            // the page visit of a frame visit promoted to history announces a render it does not do (Turbo 8)
+            if (false === (window as any).Turbo?.session?.navigator?.currentVisit?.willRender) {
+                (window as any).__firstFrameNoRender++;
+                return;
+            }
             const body = event.detail.newBody;
-            let frames = 0;
+            const render = { state: 'waiting' as 'waiting' | 'recorded' | 'gave up', frames: 0 };
+            renders.push(render);
             const record = () => {
-                // a frame visit promoted to history renders no body
+                render.frames++;
                 if (document.body !== body) {
-                    return ++frames < 60 && requestAnimationFrame(record);
+                    if (render.frames < 60) {
+                        requestAnimationFrame(record);
+                    } else {
+                        render.state = 'gave up';
+                    }
+                    return;
                 }
                 const value = (selector: string) => (document.querySelector(selector) as HTMLInputElement | HTMLSelectElement).value;
                 records.push({ search: value('#orders-search'), status: value('#orders-filter-status'), size: value('#orders-size') });
+                render.state = 'recorded';
             };
             requestAnimationFrame(record);
         });
     });
 
-    return () => page.evaluate(() => (window as any).__firstFrameValues as State[]);
+    return () =>
+        page.evaluate(() => {
+            const records = (window as any).__firstFrameValues as State[];
+            if (records.length) {
+                return records;
+            }
+            const renders = (window as any).__firstFrameRenders as { state: string; frames: number }[];
+            const described = renders.length
+                ? renders.map((render, index) => `turbo:before-render ${index + 1}: ${render.state} after ${render.frames} frame(s)`).join('; ')
+                : 'no turbo:before-render since recording started';
+            return `no values recorded: ${described} (and ${(window as any).__firstFrameNoRender} page visit(s) of a promoted frame visit, which render nothing)`;
+        });
 }
 
 /** Every control of the form, the rows shown and the sort, against what the URL says. */
@@ -124,7 +154,7 @@ for (const { control, edit, state } of EDITS) {
         expect(tableParams(page)).toEqual({});
         await expectState(page, DEFAULTS, 'Showing 1–10 of 57', 10);
         // the restored copy showed the earlier values from its first frame
-        expect(await firstFrames()).toEqual([DEFAULTS]);
+        await expect.poll(firstFrames, { message: "the restored copy's first-frame values" }).toEqual([DEFAULTS]);
 
         since = await mark(page);
         await page.goForward();

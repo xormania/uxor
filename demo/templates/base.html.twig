@@ -8,7 +8,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>{% block title %}{{ kit_reader.manifest.name }} demo{% endblock %}</title>
         {#- a page's description block prints plain text unescaped: it is escaped once, here, where it is printed -#}
-        {%- set description = block('description') is defined ? block('description')|trim : 'Flowbite 4 and Tailwind CSS 4 components, layouts, blocks and a form theme for the Symfony UX Toolkit, with all behavior in Stimulus controllers.' %}
+        {%- set description = block('description') is defined ? block('description')|trim : kit_reader.manifest.description %}
         <meta name="description" content="{{ description }}">
         {#- the static copy's public pages: their canonical URL (each is saved as <path>/index.html) and what a link to them
             shows when shared; app:export-static gives the site's public URL -#}

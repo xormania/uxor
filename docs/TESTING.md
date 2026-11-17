@@ -13,7 +13,14 @@ Components, `flowbite.min.css` and a strict Content Security Policy meet. Bugs b
 none of which fail an assertion on their own.
 
 A Playwright fixture records them for every test and fails the test at its end; a test that expects an error allows
-exactly that response. Requests leaving the app are blocked, so no test depends on the network.
+exactly that response. Requests leaving the app are blocked, so no test depends on the network: an image gets a local
+placeholder, any other request fails. The guard's route names them with a RegExp (`leavingTheDemo()`), never a function:
+Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only what
+matches, while a function has it hand over every request of the page, the app's own scripts, styles and fonts
+included, and wait for the answer. The guard reads the app's requests from the page's events, which see every request
+whatever the route takes. `smoke.spec.ts` ("the page guard › requests and violations") checks the route against the
+app's address and others built to trip it, a request leaving the app (it never reaches a route behind the guard's), a
+local 404 and a local failure, and a policy violation.
 
 ```ts
 // tests/e2e/fixtures.ts (shortened)
@@ -42,6 +49,25 @@ full load (a reload, a `goto`) cancels, in the one engine that throws it (*Brows
 as its own request ends cancelled, and a full load after it commits). Anywhere else
 the same messages fail the test: `smoke.spec.ts` ("the page guard") calibrates both, with the real case and with the
 message where one condition is missing.
+
+It also excuses one request failure: a local image that the browser cancelled and then requested again, the same URL
+from the same frame and the same document (no navigation request of that frame between the two), sent after the
+cancellation and answered below 400. Firefox does that under Playwright's request interception, which the guard's route
+for requests leaving the app turns on for every request: at a same-document navigation of a frame (Turbo's
+`history.replaceState` as a page starts, in each of the gallery's preview frames), it cancels the frame's images still
+loading (`NS_BINDING_ABORTED`) and requests them again, and they load (*Browsers*). The page is not at fault and a user
+never sees it: without the interception nothing is cancelled. Only images are excused, the one type seen and calibrated:
+a stylesheet or a script cancelled and requested again is reported (a script requested twice can run twice). Anything
+else is reported too: a cancellation never followed by such a request, a request made again that is cancelled or fails
+too, one from another frame or from the frame's next document, one already running when the first was cancelled, and any
+other request type (documents, fetches, XHRs and the rest, with `allowCancelledRequest` for the cancellations a test
+causes). The guard decides at its check, from the requests it recorded, so the order the browser reports the two in does
+not matter; a request made again that is still running at the check leaves the cancellation reported (it fails safe). The
+rule names no engine: it asks for a cancellation followed by a successful request for the same image from the same
+document, which is harmless in any engine, and an engine test would have to follow which of Playwright's backends does
+it. `smoke.spec.ts` ("the page guard", "a cancelled local subresource", "a cancelled local stylesheet or script")
+calibrates it: on an image the page cancels itself, in Chromium and Firefox (WebKit reports no failure for an image load
+the page cancels), and on a stylesheet and a script stopped by `window.stop()`, in every engine.
 
 ## Turbo
 
@@ -418,7 +444,11 @@ leaves the widget in place and kept (a Live re-render, a frame or a Stream besid
 `keeps` (the focus). The cell ends with `stillWorks()`: a widget shown as rendered takes the change again; one shown
 changed is taken back by its `undo` (an overlay by its trigger, then, opened by the user, by Escape with the focus back
 on the trigger; a tab, a branch, a file, a row, an editor's typing, a Markdown editor's preview), changed again and
-undone again. A widget showing the server's values is left as it is. A single-transition journey of an older lab spec
+undone again. A widget showing the server's values is left as it is. A step that opens a Live Component's tab waits for the server's
+render of it (the Markdown editor's `openTab`: the tab the answer marks `aria-selected`), not for text the page already
+held: a textarea last rendered with the same Markdown matches before the request is even sent, and typing during the
+round trip is lost when Live's answer arrives. Two tests slow the editor's round trips and fail when its `undo` or its
+re-render returns before every round trip it started has been answered. A single-transition journey of an older lab spec
 belongs here, with what it asserted beyond the end state: a lab spec keeps what the matrix cannot hold (the first
 frame of a copy, the order of a copy, repeated visits, another change than the row's, a route of its own).
 
@@ -553,21 +583,28 @@ inline script alone).
 **Catches:** a timer contract (a toast's countdown and its pause, a type-ahead that forgets what was typed) checked by
 waiting real time: seconds on every run, and a wait that means something else on a slower machine.
 
-Install Playwright's clock before the page loads. Time still passes as it does; `runFor(ms)` moves it on at once,
-firing every timer due on the way:
+Install Playwright's clock before the page loads, and pause it once the page is ready (`pauseClock()` in
+`tests/e2e/fixtures.ts`). Installed and not paused, the clock keeps real time: a timer the test needs to stay pending
+between two steps (a countdown until the hover that pauses it, a type-ahead buffer from one letter to the next) runs
+out on a slow run. Paused, only `runFor(ms)` moves time, at once, firing every timer due on the way:
 
 ```ts
 await page.clock.install();
 await page.goto('/lab/turbo-stream-toast');
-// show a toast (1500 ms), then:
+await pauseClock(page);
+// show a toast (1500 ms; Turbo renders the Stream on an animation frame, which runFor gives it), then:
 await toast.hover();
 await page.clock.runFor(2000);   // past its timeout: paused, so still shown
 await expect(toast).toBeVisible();
 ```
 
+A paused clock also holds Turbo's rendering, which waits for an animation frame: resume it (`page.clock.resume()`)
+before steps that visit, or move it on with `runFor()`. `lab.side-nav.spec.ts` pauses for its type-ahead only.
+
 The clock also fakes `requestAnimationFrame` and `performance.now()`: keep the real clock where a test observes frames
-or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time. An
-upstream recipe spec stays as upstream wrote it.
+or paint (`recordFirstFrames`, the data table's frame recorders), waits for a scroll to settle, or measures time.
+Recipe specs and screenshot baselines test UXor's behavior, including its compatibility commitments. Adapt them as
+UXor evolves; their origin in the initial reference kit does not require matching that kit's implementation or tests.
 
 Here: [`lab.turbo-stream-toast.spec.ts`](../tests/e2e/lab.turbo-stream-toast.spec.ts) (the pause tests),
 [`lab.side-nav.spec.ts`](../tests/e2e/lab.side-nav.spec.ts) (type-ahead).
@@ -834,6 +871,37 @@ They render the recipes as the demo has them: run `tools/sync-demo` first, and `
 page tests (a page links the built CSS). PHPStan checks the tests with its PHPUnit and Symfony extensions
 (`tools/phpstan.neon`).
 
+### Kit PHP
+
+**Catches:** a PHP syntax error anywhere in the repository, and a Twig syntax error in a template no PHPUnit test
+renders, before the tests run; a failing test hiding what PHPStan finds.
+
+CI's *Kit PHP* job runs, in order:
+
+1. **Syntax:** `php -l` on every PHP file Git tracks (the recipes' `src/`, the demo and its tests, the package, the tools
+   and their fixtures) and the PHP scripts without an extension (`bin/console`, `tools/sync-demo`…), in about a second;
+   it lists every file that fails, not only the first.
+2. **Install the demo:** `tools/sync-demo`, `composer install`, the CSS.
+3. **Twig syntax:** `bin/console lint:twig` on the demo's templates and each recipe's, compiled by the demo's Twig with
+   its extensions, in about 2 s. A syntax error, an unknown tag (a misspelled `props`), filter or function fails here.
+   PHPUnit renders only some of the recipes' templates: an unclosed `{% if %}` in the modal's or the button group's
+   template passed every PHPUnit test, and before this step first failed in the browser jobs. It compiles without
+   rendering, so an HTML component tag naming no component (`<twig:NoSuch />`), a wrong prop or an error raised while
+   rendering still fails only where the template is rendered (PHPUnit, the browser tests).
+4. **PHPUnit**, then **PHPStan** (level 8, `tools/phpstan.neon`, on the recipes' `src/`, `demo/src/Demo` and
+   `demo/tests`).
+
+From the demo's install on, each step runs whatever one before it found (`!cancelled()`), so one run reports a syntax
+error, a template error, a failing test and a PHPStan error together; the job fails when any of them failed. None of
+them runs after a failed PHP setup, where the runner's own PHP would run them on another version, and PHPStan finds the
+recipes' `src/` directories in its own step, where no earlier step can change the paths it analyses. The same
+locally, from the repository root:
+
+```sh
+git ls-files -z '*.php' | xargs -0 -n1 php -l -f | grep -v '^No syntax errors'
+(cd demo && bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done))
+```
+
 ### A Live Component through real Live requests
 
 **Catches:** what a crafted Live request can make a component do, without a browser: a writable `LiveProp` set to
@@ -946,6 +1014,19 @@ given `onclick`, `ONCLICK`, ` onfocus` and the like next to ordinary attributes,
 case. The URL corpus includes case and whitespace changes, C0 controls,
 character references, attribute breakouts, `Markup` values and stringable objects.
 
+The four corpora of hundreds of cases (the `as` tags, the link props, the image props, the attributes) are parsed in
+batches: each case is a document of its own, a frame's (`srcdoc`), fifty frames to a page, all read in one call once
+they have loaded (`parseAll()`), so a case's markup, `<base>`, scripts and handlers reach no other case. A case that
+fails is parsed again alone, as the whole page (`parse()`), and reported with what that finds (`check()`).
+
+Some handlers only one element of a page can trigger: `autofocus` focuses the first candidate of a top-level page, so
+in a page of frames only one case's `onfocus` would run, and `accesskey` belongs to the page too. A case whose markup
+holds either is never batched: it is parsed alone, in a document of its own (`about:blank` first, since `setContent()`
+writes into the page's document, which runs its autofocus only once), read after the rendering that follows the load,
+where the focus lands. So `ran` (a payload that ran) stays a signal for those cases beside the static check of every
+attribute named `on…`. A test plants two autofocus handlers among ordinary cases and expects both seen, which fails
+when every case is batched.
+
 Here: [`hostile-props.spec.ts`](../tests/e2e/hostile-props.spec.ts), [`HostilePropsCommand.php`](../demo/src/Command/HostilePropsCommand.php).
 
 What a server-side sanitizer or renderer returns is a string: test it where it runs, with PHPUnit, on the same hostile
@@ -965,10 +1046,16 @@ without failing CI, and passes on its own once the fault is fixed.
 **Catches:** a policy that allows more than it says, and what a strict policy silently breaks (an inline theme
 script, Turbo's progress bar, inline `style` attributes).
 
-The headers come from one listener; a spec checks the policy itself (nonces, no `'unsafe-inline'`), and the fixture
-above fails every other test on a violation, so the whole suite runs under the policy.
+The headers come from one listener. A PHPUnit test checks each page's headers and policy (nonces, `'strict-dynamic'`,
+no `'unsafe-inline'`, no `style-src-attr`) and the nonces its markup carries (every `<script>` the script nonce, the
+`csp-nonce` meta the style nonce), on a page of each kind and of each recipe with a controller of its own, parsed by
+PHP's HTML5 parser: a header or a template is the server's, the same in every browser. The fixture above fails every
+browser test on a violation, in every engine, so the whole suite runs under the policy: each of those pages is loaded
+in full in Chromium, Firefox and WebKit by another spec. `csp.spec.ts` keeps what only a browser shows: fresh nonces
+per response, and what a blocked inline script or style would silently break.
 
-Here: [`csp.spec.ts`](../tests/e2e/csp.spec.ts), [`SecurityHeadersListener.php`](../demo/src/EventListener/SecurityHeadersListener.php).
+Here: [`SecurityHeadersTest.php`](../demo/tests/Security/SecurityHeadersTest.php), [`csp.spec.ts`](../tests/e2e/csp.spec.ts),
+[`SecurityHeadersListener.php`](../demo/src/EventListener/SecurityHeadersListener.php).
 
 ## Production boot and route trust boundaries
 
@@ -983,6 +1070,72 @@ the limit of the production opt-in are in [`DEMO-SECURITY.md`](DEMO-SECURITY.md)
 Here: [`ProductionConfigurationTest.php`](../demo/tests/Security/ProductionConfigurationTest.php),
 [`RouteSecurityTest.php`](../demo/tests/Security/RouteSecurityTest.php).
 
+## The production image
+
+**Catches:** a production image (`demo/Dockerfile`, target `frankenphp_prod`) that no longer builds, boots without
+the opt-in, bakes a secret, ships a development package or Xdebug, cannot serve the gallery, or holds files its
+allow-list leaves out, or a recipe page that errors.
+
+CI's *Production image* job, and the release checks' job of the same name, build the image from the repository for
+linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_prod --load -f demo/Dockerfile .`) and run
+[`tools/tests/prod-image.sh`](../tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
+images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
+image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
+its extensions, without Xdebug or any `require-dev` package, without UX Toolkit's bundle or commands; its working
+directory and server root are the app's; it serves a page of each kind that reads the kit (the dashboard, a recipe page
+and a preview, the install guide, `llms.txt`), and every recipe page in the image (`/app/*/manifest.json`) with the
+first preview it shows, all answering 200 (an image with no recipe fails); and it holds no `node_modules`, tests, `.git`, `packages/`, `.github` or
+`tools/`, and no docs but `docs/GUIDE.md`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
+and their docs), so the package is a `require` of the demo and its templates are registered for prod in
+`config/packages/twig.yaml`; its bundle is registered in dev and test only. Symfony applies the demo's overrides of
+those templates (`templates/bundles/UXToolkitBundle/`: the installation steps, which name a binary file instead of
+inlining it, the API reference, the alerts, tabs and the light and dark previews) only to a registered bundle, so the
+prod path names that directory first, ahead of the vendor's. Its standalone scripts
+(`vendor/bin/ux-toolkit-kit-*`) stay in the image: nothing serves `vendor/`, running them needs a shell in the
+container, and the app's files are owned by root.
+
+The build context is the repository, read through `demo/Dockerfile.dockerignore` alone, an allow-list at every level:
+the recipes' directories their copy-files names, the root files the gallery reads, `tools/sync-demo`, and from `demo/`
+only the twelve entries the build and the pages use. Three rules keep it tight, each stated in the file: a re-include
+below the root starts with a letter or a digit (`![a-z0-9]*/…`, never `!*/…`, which once took `.git/config`); every
+exclusion names the directory and everything below it (`x` and `x/**`), since a file is judged by the last pattern
+matching its own path; and `demo/` is admitted entry by entry (`!demo/<entry>`), so a developer's secrets key, local
+env file or editor folder stays out. The harness's context part checks the result on the checkout it runs in: no
+`.git`, `.github`, `node_modules`, `packages` or `tests`, no tools but `tools/sync-demo`, only the expected entries at
+the top of `demo/`, nothing `demo/.gitignore` ignores, no secret or machine-local file; it says whether the checkout's
+`.git` is a directory (a clone, as in CI) or a file (a worktree, which cannot show a `.git` leak). Every file in the
+context must be tracked by git or be a copy `tools/sync-demo` writes. CI builds from a clone, which holds only tracked
+files; a developer's checkout can hold local files inside the admitted directories (a `config/packages/local.yaml`, a
+file a global gitignore hides), and the image copies those directories whole. Build it by hand from a clean clone, or
+run the context check first: `tools/tests/prod-image.sh no-such-image` checks the context without building.
+
+What the build downloads is pinned but not all verified: the importmap packages by version, not by a content hash;
+the Tailwind standalone binary by version, its checksum verified only when its release publishes one. The dev image's
+build downloads the same, with the same exposure.
+
+The job runs (`tools/ci-changes.sh`, the *prod-image* output) for every file of the demo the image holds: the twelve
+entries its allow-list admits (`bin`, `config`, `src`, `templates`, `assets`, `public`, `frankenphp`, `composer.json`,
+`composer.lock`, `symfony.lock`, `importmap.php`, `.env`), since the app runs differently in prod (no development
+package, no Toolkit bundle); for its other build inputs: `demo/Dockerfile`, `demo/Dockerfile.dockerignore`,
+`demo/compose.yaml`, `demo/compose.override.yaml` and `tools/sync-demo`, which the builder runs; for its harness,
+`tools/tests/prod-image.sh`; for every recipe file the image holds, which it renders without the development packages: a
+recipe's `manifest.json`, `README.md`, `templates/`, `assets/`, `src/` and `config/`; for the root files it admits
+(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`); and for what its
+allow-list may have to name: a new root file, and any file in a top-level directory that is not a recipe (new, or
+deleted), its README included. It does not run for a recipe's `tests/` (its browser specs and screenshot baselines) or
+another file the allow-list leaves out, the browser specs in `tests/`, the docs but `docs/GUIDE.md`, the tools but the
+two above, `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
+it: most pull requests run the lane beside *Kit PHP*, *Static site* and *Demo + Playwright*, about 2 minutes 15 seconds
+on its own runner, in parallel, so it adds runner time but not the time to a verdict, which *Demo + Playwright* sets.
+The release checks reuse an earlier pass only when nothing the suite reads changed; `docs/GUIDE.md` and `llms.txt`,
+pages of the image, count as read, the rest of `docs/` does not. In the release checks, the required *Release checks*
+verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip skips both), and
+the daily issue stays open, with a comment naming it, while the image fails. It is a plain build, sharing no cache with
+the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
+[`tools/tests/prod-image-workflow.test.mjs`](../tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
+build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a
+recipe's tests, the docs or the tools, and that the dev image's bake steps read the compose files from the root.
+
 ## Accessibility
 
 **Catches:** serious and critical axe violations on every page, in both themes; and, in a component's own specs, the
@@ -996,6 +1149,20 @@ page's running animations to finish first, so a color transition the spec starte
 read at its end, not half-way; endless and paused ones are not awaited. A whole-page scan first waits for the
 widgets to mount, every controller named in a `data-controller` connected (`controllersConnected`, lazy ones
 loaded), so it reads what the controllers render, not the server's markup before them.
+
+A recipe page (`/r/<recipe>`) embeds each README example as a preview frame in both themes, which its scan leaves out
+(`exclude: 'iframe'`) since each preview is scanned on its own. Its test answers those frames with an empty page
+(`stubPreviewFrames()`), as does the 320px test of the recipe pages in `demo-app.spec.ts`: a frame never widens the
+page (its width is the page's; the preview-frame controller sets only its height) and its text is its own. Only in
+Chromium, where `a11y.spec.ts` loads every preview on its own under the guard, in both themes; in Firefox and WebKit
+the 320px test keeps the real frames, since no other test there loads the dark previews.
+
+The scan runs axe in the page itself (`setLegacyMode()` of the axe-core Playwright package), not its default of a partial
+run in each frame finished in a blank page of its own, which injects axe a second time and opens a page per scan. Both
+give the same result lists, rule for rule and node for node: compared on every page `a11y.spec.ts` scans (in
+Chromium, its only engine) and on every other `expectA11y` call in Chromium, Firefox and WebKit. It is safe because
+every frame of the demo has the demo's origin. Legacy mode does not scan a cross-origin frame: a page with one that
+must be scanned (an embed from another origin) needs the default mode back for that scan.
 
 ```ts
 await controllersConnected(page);                                                  // the widgets mounted
@@ -1071,7 +1238,7 @@ Here: [`packages/uxor/tests/`](../packages/uxor/tests/),
 new executable rendering sink, tracked dependency or build output, stale supported-version table, or removal of the
 repository's ownership and agent-safety rules.
 
-`tools/security-policy.mjs` runs in the always-on *Tool tests* job. Its rendering-sink manifest names the exact line
+`tools/security-policy.mjs` runs in the always-on *Tool tests* checks (the *Quick checks* job). Its rendering-sink manifest names the exact line
 shape, expected count and reason for every accepted Twig raw output and DOM HTML write in installed recipe code, plus
 the dynamic demo's trusted preview boundary. A new or moved sink fails until its data flow and reason are reviewed;
 the manifest is an inventory, not a sanitizer. Unit cases plant each class of failure. CODEOWNERS protects the tool,
@@ -1084,22 +1251,69 @@ Here: [`security-policy.mjs`](../tools/security-policy.mjs),
 
 ### Locked and moving lanes
 
+The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm lockfiles with
+`npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`. The browser packages an
+`importmap.php` selects are in no lockfile, so a third job audits those with `bin/console importmap:audit`:
+
+| Project | Lockfile or importmap |
+|---|---|
+| Repository browser tests | `package-lock.json` |
+| Consumer browser checks | `packages/uxor/dev/package-lock.json` |
+| Package and its development tools | `composer.lock` |
+| Demo | `demo/composer.lock` |
+| Consumer harness | `packages/uxor/dev/app/composer.lock` |
+| Demo's browser packages | `demo/importmap.php` |
+| Consumer harness's browser packages | `packages/uxor/dev/app/importmap.php` |
+
+It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand on the selected branch, and on pull
+requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
+audit runs; a workflow change runs them all. The lockfile audits read the lockfiles without installing
+dependencies or executing project scripts; the importmap audits install dependencies but run no scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
+artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all five locks
+against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
+the consumer browser checks install Chromium for their own Playwright version.
+`tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection
+and audit shell steps with local fixtures.
+
+The importmap lanes (`importmap-audit`, one per tracked `importmap.php`) install the application's Composer
+dependencies without scripts, because `bin/console` needs `vendor/`, and print the package names and versions the
+`importmap.php` selects. Installing without scripts still runs the Composer plugins the locks allow (`symfony/runtime`
+writes the `vendor/autoload_runtime.php` that `bin/console` loads), and the lane then boots the application to run the
+command: the job has read-only permissions and no long-lived secrets, only its own short-lived read-only token, which
+`setup-php` passes to Composer and the audit step uses for the advisory request. That step alone gets the token, as
+`AUDIT_GITHUB_TOKEN`, and writes for itself a config, never committed and removed when the step ends, that points
+AssetMapper's client at one adding the header for `https://api.github.com/` only; with no token the request goes
+anonymously. `importmap:audit` fails the lane on an advisory, and also when the check itself cannot be
+made: a non-200 answer from the advisory service throws. `importmap:outdated` reports newer versions in a step of its
+own and never fails the lane, since a newer version is not an advisory. The command exits 1 both when anything is
+outdated and when it cannot check (a registry it cannot reach); the step reads the JSON it prints to tell them apart,
+and ends with a notice naming how many packages have newer versions, or a warning that nothing could be checked,
+never an error annotation on a passing job. Two limits come from the command, not from the workflow: it queries GitHub's
+advisory API, with the job's token (a higher rate limit than an anonymous request from a shared runner), and a rate
+limit still turns the lane red (loudly, never silently); and it asks for the API's default page size of 30, so a
+package set matching more than 30 advisories could be cut short.
+`tools/tests/importmap-audit.test.mjs` checks the lanes' shape: one per tracked `importmap.php`, no way for an audit
+failure to be swallowed, the pull request paths, the listing of versions, and the separate `importmap:outdated` step;
+it also reads the steps' conditions for a manual run and a selected pull request, and runs each lane's changed-files
+guard in scratch repositories.
+
 Some CI jobs check fixed versions, others what a new user gets today. A failure in a moving lane with no change of
-ours in it is news from upstream: read the versions it resolved before looking for a regression.
+ours in it may reflect a dependency release: read the versions it resolved before looking for a regression.
 
 | Job | Fixed | Resolved at each run | Where the versions are |
 |---|---|---|---|
 | *Importmap packages* | `importmap.php`; the demo's `composer.lock` for the command | the CDN's answer (three attempts); the files are shared with the jobs below | the download step's log |
 | *Kit PHP*, *Static site* | the demo's `composer.lock`; PHP 8.4 (`PHP_VERSION`); PHPStan and its extensions by version | the PHP patch release; PHPStan's own dependencies | the composer and PHPStan steps' logs |
 | *Demo + Playwright* | `composer.lock`, `importmap.php`, `package-lock.json`; Playwright's image by digest (`tools/playwright-image.json`, its tag the locked `@playwright/test`); the demo's base images by digest (`demo/Dockerfile`: `dunglas/frankenphp:1-php8.5`, `debian:13-slim`, moved by Dependabot pull requests) | the Debian packages and PHP extensions the demo's image installs as it builds (`apt-get`, `install-php-extensions`), when the build cache misses | the job summary: PHP, Symfony, Turbo, Node, Playwright |
-| *Lint kit* | `symfony/ux-toolkit` by version (`UX_TOOLKIT_VERSION`) | its dependencies, in a scratch project | the install step's log |
-| *Fresh install* | `symfony/ux-toolkit` by version | `symfony/skeleton` 7.4.\* and every other package, as for a new user | the composer steps' logs |
-| *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` by version | Symfony 8.1.\*, the template's FrankenPHP image (its own `Dockerfile`, by tag, pulled at build: not the demo's pinned one), every other package | the last line (`ok: Symfony …`) and the logs |
+| *Lint kit* | two lanes, each installing `symfony/ux-toolkit` in a scratch project: *locked*, the version `demo/composer.lock` holds, read at each run; *minimum*, the minimum supported version (`UX_TOOLKIT_MINIMUM_VERSION`, `ci.yml`) | the Toolkit's dependencies | each lane's install step's log (the locked lane's earlier step prints the version it read) |
+| *Fresh install* | `symfony/ux-toolkit` at the minimum supported version (`UX_TOOLKIT_MINIMUM_VERSION`) | `symfony/skeleton` 7.4.\* and every other package, as for a new user | the composer steps' logs |
+| *Fresh install (Symfony Docker)* | the Symfony Docker template's commit, `symfony/ux-toolkit` at the minimum supported version (`UX_TOOLKIT_MINIMUM_VERSION`) | Symfony 8.1.\*, the template's FrankenPHP image (its own `Dockerfile`, by tag, pulled at build: not the demo's pinned one), every other package | the last line (`ok: Symfony …`) and the logs |
 | *Workflows*, *Contrast* | actionlint and ShellCheck by version and SHA-256; `package-lock.json` | Node 22's patch release | the job's log |
 | *Package* | the root `composer.lock`; PHP 8.4, pinned in the job (the package's minimum) | the PHP patch release; Composer 2's release | the install step's log |
 
-The moving parts are on purpose: the install jobs are the kit as a user installs it, and the toolkit is pinned
-because it is experimental (`ci.yml`, `UX_TOOLKIT_VERSION`).
+The moving parts are on purpose: the install jobs are the kit as a user installs it. The Toolkit is the exception: the
+fresh installs use the minimum supported version (`UX_TOOLKIT_MINIMUM_VERSION` in `ci.yml`), so the kit keeps installing
+with it, and *Lint kit* checks the kit against both that minimum and the version the demo locks.
 
 ## One place for shared code
 
@@ -1171,15 +1385,62 @@ browser has two projects in `playwright.config.ts` (`browserProjects()`): `smoke
 pixels, with a baseline or two screenshots with each other, is tagged `@screenshot` (`screenshotAnnotation()` in
 `tests/e2e/examples/fixtures.ts` tags every baseline test, `testState()` included; `forms.spec.ts`' parity test and
 `baselines.spec.ts` carry the tag themselves), and the Firefox and WebKit projects leave it out (`grepInvert`): the
-baselines are Chromium's, rendered in upstream's Playwright image. A new screenshot test takes the tag: without it,
+baselines are Chromium's, rendered in UXor's pinned Playwright image. A new screenshot test takes the tag: without it,
 the other engines compare it with a baseline that is not theirs (`examples-*`) or that does not exist (`smoke-*`), and
 fail.
 
-In CI, *Demo + Playwright* is one job per browser and shard: four shards for Chromium, which also runs the
-screenshots, and three each for Firefox and WebKit, side by side, so the other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
+In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
+computes: `CHROMIUM_SHARDS` shards for Chromium (8), which also runs the screenshots, and three each for Firefox and
+WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`). Each job starts the browser server itself (*Start the browser server*: the pinned image on the runner's network, failing at
+once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the
+browser reaches `https://localhost` itself. Without it (a local run, the default), `playwright.config.ts` has the
+browser's requests to the demo's loopback address go through the test's process (`exposeNetwork`), which works where
+the container cannot reach the host's loopback, as under Docker Desktop. Measured in CI against the same suite
+through the tunnel: the Chromium shards' summed test time fell from 1,719 to 1,037 s (run 43971587193), Firefox's by 16%,
+WebKit's within the runners' spread.
+
+**When Firefox and WebKit run (a trial, `ENGINES_ON: daily` in `ci.yml`).** Chromium runs on every push that selects
+the browser tests. Firefox and WebKit run:
+
+- on `dev`'s daily run, when `dev`'s inputs changed since their last pass (no valid engines pass for its fingerprint);
+  a failure opens the `engines` issue, or comments on it, with the short SHAs, count and compare link of the commits
+  since the last engines pass in `dev`'s history (never their subjects), a run that did not complete says so in its own
+  words, and a pass, or a pass on these inputs reused, closes it;
+- on every push to `main`;
+- in a manual run of CI with *engines* checked (with everything else), or *engines_only* (Firefox and WebKit alone), on
+  any branch;
+- for the release pull request: *Release checks*, a required check on `main`, fails unless the head has an engines
+  pass, and when it has none it starts an engines-only run on the pull request's branch (re-run *Release checks* once
+  that run passes).
+
+An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
+push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
+result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
+partial run can never stand in for a red full one on the same commit.
+
+On any other push, a branch's or `dev`'s, they wait: *CI result* reports the lane as *NOT RUN AT THIS STAGE*, which
+fails nothing and is never read as a pass, unless a pass on the same inputs already exists (then *reused*). This
+changes when an engine-specific defect (an event order, a focus rule, a load's failure wording) is first caught: on
+`dev`'s next daily run, on the release pull request or in a manual run, no longer before a branch merges. Setting
+`ENGINES_ON: every-push` (one line in `ci.yml`) runs them on every push again.
+
+`PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
 tagged tests only, compared with the Chromium baselines, to report how far the other engines render from them. Any
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
+
+Locally against the Docker demo, run `DEMO_URL=https://localhost npx playwright test --workers=2`, the worker count of
+a CI shard (*Worker budget*), with Xdebug off, which is how the demo starts (`compose.override.yaml`; CONTRIBUTING.md,
+*Setup*, for the ports and project name). With Xdebug's `develop` mode on, the demo aborted some requests ("Xdebug has
+detected a possible infinite loop, and aborted your script with a stack depth of '512' frames", in
+`docker compose logs php`, run from `demo/`) and answered 500, and tests failed that pass without it. On one checkout,
+three full Chromium runs with it on gave 32, 35 and 30 failures, a different set each time, and a run with it off
+gave 1 failure in 1225 tests. CI sets `XDEBUG_MODE: 'off'` in the browser jobs, the monthly job and the release checks.
+To read the mode of a running demo, from `demo/`:
+
+```bash
+docker compose exec php php -r 'echo json_encode(xdebug_info("mode"));'   # [] when off, ["develop"] when develop is on
+```
 
 What differs between the engines, met so far, and how the kit and the suite stay portable:
 
@@ -1205,6 +1466,13 @@ What differs between the engines, met so far, and how the kit and the suite stay
   document replaces the old one (`FETCH_CANCELLED_BY_UNLOAD`); a navigation that fails or leaves the document in place
   (a 204) ends that window. Anywhere else they fail the test: `smoke.spec.ts` ("the page guard") plants them during a
   full load, outside one and after a 204, in every engine.
+- **A same-document navigation of a frame, under request interception:** Firefox cancels the frame's subresources still
+  loading (`NS_BINDING_ABORTED`) and requests them again, which load. The gallery's preview frames do it as they start
+  (Turbo's `history.replaceState`), and `demo-app.spec.ts`'s 320px tests of `/r/social-login` and
+  `/r/oauth-provider-button` failed on the cancelled first attempts of the Google logos (17 of 40 runs locally). It
+  happens only because the guard's route turns on interception for every request, in Firefox: without it, nothing is
+  cancelled. `guardPage()` excuses such a cancelled image only once the same URL, from the same frame and document, was
+  requested again after it and received (*Every test: fail on what the user would not see*).
 - **A full load while Turbo's prefetch runs:** Firefox cancels the request (`NS_BINDING_ABORTED`) and rejects the
   fetch with a TypeError, *NetworkError when attempting to fetch resource.*, not an AbortError. Turbo 8.0.23 starts
   its prefetch from a timer with no catch (`PrefetchCache.putLater`) and rethrows all but an AbortError, so the page
@@ -1246,7 +1514,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (8) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](../tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1279,6 +1547,113 @@ The script's exit status says what it found: 0 a report it read (whatever its te
 report, 4 tests not reached. Run it on a local report with `node tools/ci/playwright-summary.mjs` after
 `CI=1 npx playwright test` (CI writes the JSON report); its cases: `node --test tools/tests/*.test.mjs`.
 
+### Reused lanes
+
+**Catches:** a push that changes only the changelog or the contributor docs running the browser tests again on code
+that already passed, and the reverse, a pass carried over to inputs it never tested.
+
+A branch is compared with where it left `dev` (`CONTRIBUTING.md`, *Checks*), so a push that changes only
+`CHANGELOG.md` after green code still selects every lane the code selected. Before running one, the Changes job asks
+[`tools/ci/lane-evidence.mjs`](../tools/ci/lane-evidence.mjs) whether an earlier run already passed it on the same
+inputs. Seven lanes can be reused: *Kit PHP*, *Demo + Playwright*'s Chromium shards (`demo`, `CHROMIUM_SHARDS` jobs),
+its Firefox and WebKit shards (`engines`, six jobs) and *Production image* for 14 days; both *Fresh install* jobs
+(`fresh-install`), *Lint kit*'s two (`lint-kit`) and *Package* for 24 hours. The browser lanes share one job, so CI
+result tells them apart by its matrix jobs. *Static site* (its pages print the branch and commit), *Contrast* (its
+README pairing reads the branch's history) and *Workflows* (`main` and its tags move) always run when selected, and
+*Tool tests* on every run.
+
+**The 24-hour lanes.** The installs, Lint kit and Package resolve dependencies live: a fresh Symfony skeleton and
+Symfony Docker, the Toolkit and its packages, the consumer's packages from Packagist. Their evidence goes stale with
+time, not with the tree, so a pass counts for a day (`MAX_AGE_HOURS` in the tool, one table). `dev`'s daily run is the
+check of that drift: it never reuses them, and its pass serves the day's pushes. Within a day, a pass on the same tree
+says what a run minutes later would say. One thing a reused *Fresh install (Symfony Docker, from GitHub)* does not
+re-prove: it downloaded GitHub's archive of another commit with the same tree, which holds the same files, so the
+download of this commit's archive is not checked again within those 24 hours.
+
+- **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`), but only the path and mode of
+  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, for the lanes
+  that never read their content (they are export-ignored, the production image does not hold them, and the demo only
+  links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
+  `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
+  fingerprints, deleting it or making it a link does not. Any other change,
+  `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
+  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
+  its lane jobs' completion (the oldest job's, as GitHub's job list reports it and as the marker must say), never from
+  its marker's creation.
+- **Evidence:** CI result records one artifact per lane that ran in its run, reuse on or off:
+  `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed in its latest attempt (a shard that passed on
+  its retry counts, its flaky count recorded), `ci-fail-v1-<lane>-<fingerprint>` when one failed, nothing when one was
+  cancelled. A browser shard that failed before its tests started (its setup) is incomplete, not a failure: it records
+  nothing. A later attempt of the run replaces its earlier marker of the same kind, so the newest attempt stands; a
+  lane whose jobs all ran in an earlier attempt is not recorded again, so a re-run cannot make an old pass look young. A
+  reused lane records nothing, so the evidence always names the run that executed the tests. A failure marker that
+  cannot be recorded or uploaded fails *CI result*'s step; a lost pass marker only warns. Without the run's job list,
+  a failed browser job makes the engines' failure marker due as well as Chromium's: which shard failed, and whether its
+  tests had started, cannot be told, so the loss is reported rather than an older pass left to stand.
+- **Reuse:** the markers for the fingerprint are read newest first. A failure from a push or manual run of `ci.yml`
+  in this repository stops the search and runs the lane, but only one verified like a pass: that run's latest attempt
+  failed a job of the lane (the tests, for the browser lanes), the marker's record agrees, and the fingerprint
+  recomputed at its commit is this one. Any job of such a run could upload a marker under the predictable name, so one
+  from anywhere else, or one that fails these checks, counts for nothing; a lookup that fails runs the lane. The first pass
+  that verifies is reused: at most 14 days old, from such a run (any branch: the tree is what was tested), whose jobs
+  of the lane all passed in its latest attempt, the same jobs the marker names (a producer whose lane ran again since
+  falls back to the next pass), and the fingerprint recomputed at that run's commit equal to this commit's. A missing
+  shard, an expired or unreadable marker, an unexpected answer or an API call that fails runs the lane. The plan
+  fetches its lookups for every lane at the same time (at most eight calls at once). The Changes job's log has one line
+  per lane: its decision, the reason and the run it reuses.
+- **Verdict:** *CI result* reports each lane as *fresh*, *reused* (with the producing run, attempt, commit and flaky
+  count), *not applicable* or *incomplete*, in its summary with the time and API calls the plan took. It checks each
+  reused lane's evidence again before passing, retrying an API error twice: evidence that disappeared or expired, a
+  producer whose lane ran again or a failure recorded since the plan fails the run. Age is decided once, by the plan,
+  so a pass planned at the edge of its age is not refused minutes later. Re-running failed jobs keeps the
+  plan, so only *Re-run all jobs* plans the lanes again. The build cache on `dev` and `main` is written whether the
+  browser lane ran or was reused.
+- **The plan's integrity:** *CI result* runs the tool from its own checkout of the run's commit (only `tools/ci`, no
+  credentials kept), never a copy from an artifact, since another job of the run could replace an artifact of a
+  predictable name. It takes only `plan.json` from the Changes job's artifact, downloaded by the artifact id Changes
+  outputs, and checks its SHA-256 against Changes' output before anything reads it. When Changes did not succeed, or
+  the digest differs, there is no record and no verdict, and *CI result* fails.
+- **Work orders:** a push to a work order's own branch runs like any branch's, its pull request a draft or not. When
+  its jobs are stacked, its tree after a job's merge is that job's, so it reuses the job's passes; a merge of jobs made
+  side by side makes a new tree, which runs what it selects (`CONTRIBUTING.md`, *Work orders*).
+- **Off:** `main` always runs every selected lane fresh. The repository variable `CI_REUSE=off`, or a manual run
+  with *reuse* unchecked, turns reuse off everywhere. Both stop only the lookups: the lanes' markers are still
+  recorded, so a failure there still counts.
+
+The Changes job runs the selector as the base branch has it (a branch could otherwise skip its own checks by editing
+it), but this tool as the branch has it: the tool and `ci.yml` are inside every fingerprint, so a branch's own copy
+can only match a pass recorded by that same copy and workflow, and a push already runs the branch's own `ci.yml`. Its
+cases: `node --test tools/tests/lane-evidence.test.mjs`. Its acceptance cases,
+`tools/tests/lane-evidence.acceptance.test.mjs`, are written from the CI performance specification's acceptance
+scenarios, one per row this tool answers for: each drives the real commands through CI runs on a scratch repository
+and a simulated GitHub, the markers being the ones the tool records. A row the tool does not meet yet is a `todo`
+case named FINDING, reported as failing without failing the suite.
+
+### Quick checks
+
+**Catches:** a failing short check hiding the ones after it, and runner admissions spent on three jobs of seconds each.
+
+*Tool tests*, *Contrast* and *Workflows* run as the steps of one job, *Quick checks*: one runner, one checkout (with
+the history Contrast's README pairing and the release dry run read), one Node and one PHP setup. *Tool tests* runs on
+every run; *Contrast* and *Workflows* when `tools/ci-changes.sh` selects them. Every check runs whatever another did
+(`!cancelled()`), and the last step writes each check's outcome to the job's outputs and the summary page: success,
+failure (naming the failed steps), skipped (not selected) or incomplete (a selected step did not run). The job fails
+when a selected check did not pass, and *CI result* reads the outcomes per lane, so a failed Contrast is never reported
+as a failed Workflows. *Static site*, *Lint kit* and *Package* stay jobs of their own: the static site needs the
+importmap packages, and the other two can be reused, which keys on their jobs.
+
+The setups count: a setup that did not succeed leaves every selected check *incomplete*, since the checks then ran on
+the runner image's own Node or PHP. *CI result* requires the job itself to have passed too: a red or cancelled *Quick
+checks* whose outputs all say success (a failed setup, a lost summary) leaves its checks unpassed.
+
+The checks share one workspace, so their order guards what they check. The *Workflows* checks run first, before any
+step runs repository code, and the release dry run comes before the release plan's own cases; then *Tool tests*' file
+checks (security policy, references, inventory, archive, names) before the tools' own cases; then *Contrast*. Each group
+starts with the same guard, `git status --porcelain --untracked-files=no` and `git diff --quiet HEAD`: a tracked file
+that differs from the commit on disk, rewritten by an earlier step's repository code, fails that check, so no check
+validates a restored file while Git keeps another blob for a release to run. The guards take well under a second each;
+a job of its own for *Workflows* would cost a runner admission instead.
+
 ### CI metrics
 
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache`, with
@@ -1297,10 +1672,13 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mj
 
 - **Each browser shard** writes `job-metrics.json` next to its results (`playwright-results-<browser>-<shard>`, 30
   days): the demo image's build records from `docker buildx history ls` (cached of total steps: whether the build
-  cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
-  the Playwright image's pull. The Playwright browsers come from that image, pulled on every run: there is no browser
-  cache to hit.
-- **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
+  cache served the build), whether `setup-node` restored the npm cache, the seconds of `npm ci`, of the Playwright
+  image's pull and of *Install Playwright*'s wait for it. The Playwright browsers come from that image, pulled on every
+  run: there is no browser cache to hit. The pull starts once buildx is set up (earlier, unpacking its layers slowed
+  the builder's start from 2 to 16 s) and runs while the demo builds and starts ([`tools/ci/background.mjs`](../tools/ci/background.mjs)); *Install Playwright* waits for it, at most 5 min, and
+  fails with the pull's own error, so only the wait is on the job's path.
+- **CI metrics**, a job after *CI result* on every run (so the required check never waits for it; it may fail without
+  failing the run, and no ruleset names it), reads every shard's `durations.json` and `job-metrics.json` and the
   run's jobs from GitHub's API (each job's queue time and each step's start and end, to the second), and writes one
   section on the run's *Summary* page and `ci-metrics.json` in the `ci-metrics-<run>-<attempt>` artifact (90 days):
   - per browser, the shard balance: the shards' wall times (max, min, mean), the imbalance ((max − min) / mean), the
@@ -1316,7 +1694,7 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](../tools/ci/ci-metrics.mj
 
 What it cannot see: the runner's CPU and memory use (no sampler runs), the time inside a test spent in fixtures or a
 worker's start (Playwright's report does not split it; idle worker time is the bound), the bytes the image cache
-moves, and the *CI result* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
+moves, and the *CI metrics* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
 
 ### Shard balance
@@ -1370,7 +1748,7 @@ verdict, and a slower run only makes the split less even, never incomplete. The 
 416 s (497, 385, 364 and 326 s before), WebKit's at 364, 257 and 364 s (383, 356, 344 s) and Firefox's at 403, 300 and
 375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
 
-**Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
+**Refreshing the timings.** *CI metrics* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
 artifact: the timings the run planned from, merged with its durations (a browser whose every shard reported replaces
 its times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Each run
 plans from the newest of those: CI's *Changes* job reads `shard-timings.json` from the `ci-metrics` artifact of
@@ -1455,7 +1833,7 @@ The attempts come from one of three places:
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-<lane>-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit* and *composer audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit*, *composer audit* and *importmap audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
@@ -1612,6 +1990,19 @@ with `dev`'s copy of the workflow, and its failures show on `dev`, never on `mai
 `release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful daily run on `dev` of this workflow
 in this repository using the same workflow revision. Other manual runs, pull request runs and older markers cannot
 suppress it; a change to either the target or the workflow requires another real daily pass.
+
+On the release pull request, the verdict also requires a Firefox and WebKit pass on the head (*Browsers*): *What to
+check* asks `tools/ci/lane-evidence.mjs require --lane engines` for a pass marker of CI's engines lane on the head's
+inputs, once the merge is shown to test the head's own tree; the pull request's own copy of the tool and of this
+workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
+checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
+one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
+passes: the verdict looks the evidence up again itself whenever What to check said missing, so *Re-run failed jobs* is
+enough (What to check, not re-run, keeps its old output). When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
+for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
+the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
+checks (manual)*.
 
 On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
 request in this repository merged with the same base, and every path changed since is one the suite never reads:

@@ -6,9 +6,14 @@ on the project how to use the kit's recipes.
 ````markdown
 ## UI: UXor
 
-The UI is built from the [UXor](https://github.com/xormania/uxor) Symfony UX Toolkit kit.
+The UI is built from [UXor](https://github.com/xormania/uxor), an independently maintained Symfony UI library
+currently installed through Symfony UX Toolkit.
 Its recipes are copied into `templates/components/`, `templates/layouts/`, `templates/form/`,
 `assets/controllers/` and `assets/styles/uxor.css` (the theme's color roles); we own those files.
+
+The official Symfony UX `flowbite-4` kit was an initial reference only. UXor and this project's requirements govern
+these components; do not impose parity with the reference kit. Toolkit installation support, Flowbite CSS and the
+icon set are current integrations whose evolution follows UXor's requirements and compatibility commitments.
 
 - **Use the kit's components, not raw Flowbite HTML.** `<twig:Button>`, `<twig:Modal>`, `<twig:Dropdown>`,
   `<twig:Toast:Stream>`, `<twig:FormField>`… A missing one is installed with

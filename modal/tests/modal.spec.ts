@@ -1,6 +1,6 @@
 import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
 
-describeRecipe('flowbite-4/modal', () => {
+describeRecipe('uxor/modal', () => {
     testState('opens on click', {
         example: 'default',
         state: 'open',
@@ -63,7 +63,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('stays closed and out of reach until opened', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/default');
+        await gotoExample('uxor/modal/default');
 
         await page.keyboard.press('Tab');
         await page.keyboard.press('Tab');
@@ -74,7 +74,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('closes on Escape and gives focus back to the trigger', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/default');
+        await gotoExample('uxor/modal/default');
         const trigger = page.getByRole('button', { name: 'Open Modal' });
         await trigger.click();
         await expect(page.getByRole('dialog')).toBeVisible();
@@ -87,7 +87,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('closes with the close button and the Decline button', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/default');
+        await gotoExample('uxor/modal/default');
         const trigger = page.getByRole('button', { name: 'Open Modal' });
         await trigger.click();
 
@@ -107,7 +107,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('closes on a click on the backdrop', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/default');
+        await gotoExample('uxor/modal/default');
         const trigger = page.getByRole('button', { name: 'Open Modal' });
         await trigger.click();
         await expect(page.getByRole('dialog')).toBeVisible();
@@ -119,7 +119,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('keeps its state in sync over several openings', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/default');
+        await gotoExample('uxor/modal/default');
         const trigger = page.getByRole('button', { name: 'Open Modal' });
 
         for (let i = 0; i < 3; i++) {
@@ -134,7 +134,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('does not close on a click on its content', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/default');
+        await gotoExample('uxor/modal/default');
         await page.getByRole('button', { name: 'Open Modal' }).click();
 
         await page.getByText('With less than a month to go').click();
@@ -143,7 +143,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('does not close on a click on the backdrop with a static backdrop', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/static-modal');
+        await gotoExample('uxor/modal/static-modal');
         await page.getByRole('button', { name: 'Open Modal' }).click();
         await expect(page.getByRole('dialog')).toBeVisible();
 
@@ -153,7 +153,7 @@ describeRecipe('flowbite-4/modal', () => {
     });
 
     test('is open on page load when asked to', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/modal/opened-by-default');
+        await gotoExample('uxor/modal/opened-by-default');
 
         await expect(page.getByRole('dialog', { name: 'Edit profile' })).toBeVisible();
 

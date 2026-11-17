@@ -7,7 +7,7 @@
 /tools export-ignore
 # xorder test runner config (named planted faults), repository tooling
 /.xorder export-ignore
-# Recipe tests (upstream specs, screenshot baselines) are not installed by ux:install
+# Recipe tests and screenshot baselines are not installed by ux:install
 /*/tests export-ignore
 /package.json export-ignore
 /package-lock.json export-ignore

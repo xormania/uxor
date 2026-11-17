@@ -5,6 +5,57 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-16
+
+### Added
+
+- `dropzone`: a `maxFiles` prop caps a zone for several files in the browser, files over it left out with
+  `dropzone:reject`; through the form theme, `DropzoneType`'s `max_files` option sets it (UX Dropzone's type adds the
+  server's `Count`).
+- `dropzone`: a `preview_item` block gives the markup of each picked file (UX Dropzone's preview template, with its
+  `image`, `filename` and `remove` slots); through the form theme, a `dropzone_preview_item` block in your own theme
+  does the same (`form-theme`). UX Dropzone's own `dropzone_preview_item_template` block is not read.
+- `dropzone`: a `DropzoneType` with `'placeholder' => false` shows no main line; a field that sets no placeholder keeps
+  the default phrase, with custom `attr` or without. The recipe now copies a PHP class, `DropzonePlaceholderExtension`,
+  into `src/UXor/Dropzone/`: an app updating the recipe gets it registered by Symfony's default `services.yaml`
+  (`autoconfigure`), with nothing to do; an app that registers its services otherwise tags it `form.type_extension`.
+
+### Changed
+
+- `dropzone` requires `symfony/ux-dropzone` ^3.7, 3.7 and later 3.x releases (it allowed ^3.5): UX Dropzone 3.7
+  shows and hides the zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5
+  or 3.6 runs `composer require symfony/ux-dropzone:^3.7` before installing or updating the recipe; read UX Dropzone's
+  upgrade notes for 3.7 (dropped files checked against `accept`, the `placeholder` option replacing
+  `attr.placeholder`, `dropzone:clear` no longer dispatched on connect; the kit still dispatches it when it empties a
+  zone restored outside a POST form, see the README). If you changed your copy of
+  `templates/components/Dropzone.html.twig`, replace the `hidden` class on the preview
+  (`data-symfony--ux-dropzone--dropzone-target="preview"`) with the `hidden` attribute, remove the `hidden` class from
+  the preview image, and add no `display` class to the parts UX Dropzone hides: otherwise the picked file stays hidden.
+
+### Fixed
+
+- `autocomplete`: a choice made, or the field left, right after a keystroke no longer opens the list again and takes the
+  focus back: the recipe's `autocomplete-sync` cancels the list refresh Tom Select had scheduled for that keystroke.
+- `dropzone` with UX Dropzone 3.7: a picked file's name, image and Remove button show (they stayed hidden), a pick
+  after a file drag left the empty zone shows its preview (it stayed hidden), and a zone for one file outside a POST
+  form starts empty after Back and Forward (Chromium and Firefox brought the file back).
+- The demo's production image builds and serves the gallery: it holds the kit beside the demo, as on disk, and the
+  demo needs UX Toolkit's library at run time. CI and the release checks build it and run it when its inputs change.
+- Dependency audits now cover all five npm and Composer lockfiles independently. Weekly Dependabot updates also
+  cover the consumer harness's PHP and browser dependencies. Remaining source comments and a breadcrumb test sample now
+  describe UXor without promising Flowbite parity.
+- The package and consumer harness lockfiles use patched Symfony dependencies after the expanded audits exposed
+  advisories in their previous versions. The updates stay within the existing release series and constraints.
+- Repository and consumer guidance now state that the official Symfony UX `flowbite-4` kit is a reference only.
+  UXor owns its design, interfaces, behavior and tests; Toolkit installation support, Flowbite CSS and icons are
+  current integrations that can evolve with UXor's requirements.
+- The gallery, kit description and icon identify UXor, and recipe documentation no longer claims that Flowbite
+  JavaScript is required or that reference-kit markup and behavior must be preserved. Legacy recipe schema paths,
+  reference-project version metadata and test identifiers are corrected.
+- The kit is linted with two Symfony UX Toolkit versions: the one the demo locks, read from its lock file on each run,
+  and 3.5.1, the minimum supported version, which the fresh installs also use. CI no longer claims that 3.5.1 is the
+  demo's version.
+
 ## [0.3.1] - 2026-11-05
 
 ### Added
@@ -335,7 +386,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.3.1...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.2...HEAD
+[0.3.2]: https://github.com/xormania/uxor/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/xormania/uxor/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0
 [0.2.0]: https://github.com/xormania/uxor/compare/0.1.0...0.2.0

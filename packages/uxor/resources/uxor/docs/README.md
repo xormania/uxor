@@ -1,13 +1,18 @@
 # UXor
 
-A [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit built on the free
+An independently maintained Symfony UI library, currently distributed as a
+[Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit and styled with the free
 [Flowbite](https://flowbite.com/) v4 library and Tailwind CSS v4: a theme, Twig components, a form theme, page layouts
 and ready-made blocks such as a login card or a dashboard, each one a recipe. `php bin/console ux:install` copies a
 recipe into your project, where you own it. Every behavior is a Stimulus controller, so components keep working with
 Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
 
-![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/0.3.1/docs/images/dashboard-dark.png)
+The official Symfony UX `flowbite-4` kit was an initial reference only. UXor follows its own requirements and
+compatibility commitments, with no requirement to track that kit's names, markup, behavior or tests. Toolkit
+installation support, Flowbite CSS and the icon set are current implementation choices that can evolve with UXor.
+
+![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/0.3.2/docs/images/dashboard-dark.png)
 
 ## Install
 
@@ -41,7 +46,7 @@ php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<vers
 ```
 
 Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
-that is not released yet. [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.1/CHANGELOG.md) lists what each version changes.
+that is not released yet. [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.2/CHANGELOG.md) lists what each version changes.
 
 `ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
 packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
@@ -62,7 +67,7 @@ The repository is also a Composer package, `xormania/uxor`, for the coding agent
 [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
 and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
 setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
-recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.1/packages/uxor/README.md) says how to
+recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.2/packages/uxor/README.md) says how to
 install it.
 
 ## Requirements
@@ -81,10 +86,10 @@ install it.
 - [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
 - [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
 - [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
-- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.1/llms.txt), and paste
+- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.2/llms.txt), and paste
   [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
-- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.1/CHANGELOG.md): what each version changes.
-- [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.1/CONTRIBUTING.md): the repository layout, the checks and the conventions.
+- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.2/CHANGELOG.md): what each version changes.
+- [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.2/CONTRIBUTING.md): the repository layout, the checks and the conventions.
 - [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
 
 ## License

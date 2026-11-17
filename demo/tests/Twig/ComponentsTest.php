@@ -65,13 +65,13 @@ final class ComponentsTest extends KernelTestCase
             <twig:Breadcrumb>
                 <twig:Breadcrumb:Item href="/">Home</twig:Breadcrumb:Item>
                 <twig:Breadcrumb:Item href="/projects">Projects</twig:Breadcrumb:Item>
-                <twig:Breadcrumb:Item>Flowbite</twig:Breadcrumb:Item>
+                <twig:Breadcrumb:Item>UXor</twig:Breadcrumb:Item>
             </twig:Breadcrumb>
             TWIG)->render();
         $rendered = new RenderedComponent($html);
 
         self::assertSame(['/', '/projects'], $rendered->crawler()->filter('a')->extract(['href']));
-        self::assertSame('Flowbite', trim($rendered->crawler()->filter('[aria-current="page"]')->text()));
+        self::assertSame('UXor', trim($rendered->crawler()->filter('[aria-current="page"]')->text()));
         $this->assertMatchesSnapshot($html, new Html5Driver());
     }
 

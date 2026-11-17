@@ -186,7 +186,7 @@ Use this example if you want to show a dropdown menu when clicking on the avatar
     <twig:Dropdown:Content>
         <twig:Dropdown:Header>
             <div class="font-medium">Bonnie Green</div>
-            <div class="truncate">name@flowbite.com</div>
+            <div class="truncate">name@example.com</div>
         </twig:Dropdown:Header>
         <twig:Dropdown:Group>
             <twig:Dropdown:Item>Dashboard</twig:Dropdown:Item>

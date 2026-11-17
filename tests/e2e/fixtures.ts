@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
-import { test as base, expect, type Locator, type Page, type Request } from '@playwright/test';
+import { test as base, expect, type Frame, type Locator, type Page, type Request } from '@playwright/test';
 import { startJsCoverage } from './coverage';
 
 const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
@@ -20,6 +20,14 @@ export const HARSH_NETWORK = { offline: false, latency: 150 * 3.75, downloadThro
 
 /** How each engine names a request the page cancelled (an aborted fetch, a navigation away): Chromium, Firefox, WebKit. */
 const CANCELLED = ['net::ERR_ABORTED', 'NS_BINDING_ABORTED', 'Load request cancelled'];
+
+/**
+ * The one request type the guard excuses when the browser cancels a request and requests it again: an image. Firefox,
+ * under Playwright's request interception (the route below, for requests leaving the demo), cancels a frame's images
+ * at a same-document navigation and requests them again (the gallery's preview frames do it as they load). Every other
+ * type keeps the usual handling. Calibrated in smoke.spec.ts ("the page guard", "a cancelled local subresource").
+ */
+const REQUESTED_AGAIN = 'image';
 
 /**
  * WebKit's rejection of a fetch the document still runs when a full load replaces it (a reload, a `goto`): Turbo's
@@ -72,6 +80,18 @@ export async function recordCspViolations(page: Page): Promise<string[]> {
 }
 
 /**
+ * The URLs the guard's route takes: every one that is not the demo's (`isLocal` in guardPage). A RegExp, not a
+ * function: Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only
+ * the requests that match, while a function makes it hand over every request of the page and wait for the answer, the
+ * demo's own scripts, styles and fonts included (in CI, a round trip from the browser's container to the runner and
+ * back). The guard sees the demo's requests through the page's events, never through this route.
+ */
+export function leavingTheDemo(baseURL: string | undefined): RegExp {
+    const local = `${baseURL}/`.replace(/[\\^$.*+?()[\]{}|/]/g, (character) => `\\${character}`);
+    return new RegExp(`^(?!${local})`);
+}
+
+/**
  * The checks every test of every project runs. Requests leaving the demo are blocked (images get a local placeholder),
  * and the test fails on a console error, an uncaught page error, a Content Security Policy violation, or a local
  * request that fails or answers >= 400.
@@ -113,10 +133,33 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
     const isLocal = (url: string) => url.startsWith(`${baseURL}/`);
     const cspViolations = await recordCspViolations(page);
 
-    await page.route(
-        (url) => !isLocal(url.href),
-        (route) => ('image' === route.request().resourceType() ? route.fulfill({ path: PLACEHOLDER_IMAGE }) : route.abort()),
-    );
+    await page.route(leavingTheDemo(baseURL), (route) => ('image' === route.request().resourceType() ? route.fulfill({ path: PLACEHOLDER_IMAGE }) : route.abort()));
+
+    // a local image the browser cancelled, held until check(): excused only if the same URL is requested again from the
+    // same frame, by the same document (no navigation request of that frame between the two requests), after the
+    // cancellation, and that request is received (an answer below 400). Decided in check(), from what was recorded
+    let order = 0;
+    const documentsOf = new WeakMap<Frame, number>(); // the navigation requests of each frame so far
+    const sent = new WeakMap<Request, { order: number; documents: number }>();
+    const answered = new WeakMap<Request, number>();
+    const received: { url: string; frame: Frame; order: number; documents: number }[] = [];
+    const cancelledImages: { request: Request; failedAt: number }[] = [];
+    page.on('request', (request) => {
+        if (request.isNavigationRequest()) {
+            documentsOf.set(request.frame(), (documentsOf.get(request.frame()) ?? 0) + 1);
+        }
+        sent.set(request, { order: ++order, documents: documentsOf.get(request.frame()) ?? 0 });
+    });
+    page.on('response', (response) => answered.set(response.request(), response.status()));
+    page.on('requestfinished', (request) => {
+        const status = answered.get(request);
+        const at = sent.get(request);
+        if (undefined !== status && status < 400 && undefined !== at) {
+            received.push({ url: request.url(), frame: request.frame(), ...at });
+        }
+    });
+    const requestedAgain = ({ request, failedAt }: { request: Request; failedAt: number }) =>
+        received.some((again) => again.url === request.url() && again.frame === request.frame() && again.order > failedAt && again.documents === sent.get(request)?.documents);
 
     page.on('request', (request) => {
         if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
@@ -191,6 +234,8 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
             );
         if (expected) {
             expected.count--;
+        } else if (isLocal(request.url()) && aborted && REQUESTED_AGAIN === request.resourceType()) {
+            cancelledImages.push({ request, failedAt: ++order });
         } else if (isLocal(request.url()) && !cancelledPrefetch) {
             errors.push({ message: `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}` });
         }
@@ -220,6 +265,9 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
                 ...errors.filter((error) => !isAllowed(error)).map(({ message }) => message),
                 ...unmatchedRejections.map(() => `pageerror: ${PREFETCH_CANCELLED_BY_UNLOAD}`),
                 ...cspViolations.map((violation) => `csp: ${violation}`),
+                ...cancelledImages
+                    .filter((cancelled) => !requestedAgain(cancelled))
+                    .map(({ request }) => `requestfailed: ${request.method()} ${request.url()} ${request.failure()?.errorText}`),
             ];
             expect(unexpected, 'console errors, page errors, CSP violations or failed requests').toEqual([]);
         },
@@ -236,7 +284,23 @@ export const test = base.extend<{
     allowCancelledRequest: (allowance: CancelledRequest) => void;
     harshConditions: boolean;
     harsh: void;
+    fileChoosers: void;
 }>({
+    /**
+     * The page's file choosers are intercepted from its creation, before its first navigation. A test waits for one
+     * with `page.waitForEvent('filechooser')` just before the key press or click that opens it, but the first listener
+     * only asks Playwright's server to intercept, without waiting for it, and the server handles that request beside the
+     * press: when the press reached the browser first, the chooser opened unintercepted and the wait timed out (CI run
+     * 43973800407). With this listener the interception is in place long before any test's action, and a test's own
+     * listener sends nothing.
+     */
+    fileChoosers: [
+        async ({ page }, use) => {
+            page.on('filechooser', () => {});
+            await use();
+        },
+        { auto: true },
+    ],
     /**
      * The release checks' harsh conditions (docs/PLAN-test-tiers.md, tier 3; the `release-harsh` project of
      * playwright.config.ts): the page's CPU 4 times slower and a slow network (HARSH_NETWORK), set before the test
@@ -270,6 +334,35 @@ export const test = base.extend<{
 });
 
 export { expect };
+
+/**
+ * Pauses Playwright's clock, installed before the page loaded (`page.clock.install()`): from then on only `runFor()`
+ * moves time, so no timer of the page fires between two steps of the test, however slow the run. Installed and not
+ * paused, the clock keeps real time. `pauseAt()` takes a time ahead of the page's: the clock moves 1 s on first,
+ * firing the timers due by then, so call it once the page is ready and before the steps that start the timers.
+ */
+export async function pauseClock(page: Page): Promise<void> {
+    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+}
+
+/**
+ * Answers the gallery's preview frames (`/preview/…`: the README examples a recipe page embeds, each in both themes)
+ * with an empty page, for a test of the recipe page that excludes them (a11y.spec.ts scans without `iframe`) or cannot
+ * see them (a frame's content never widens the page: its width is the page's, its height the preview-frame
+ * controller's). The previews themselves are each loaded on their own under the guard, in both themes, by a11y.spec.ts
+ * in Chromium, so only a Chromium test may stub them: in Firefox and WebKit no other test loads the dark ones. The
+ * page's own document is never stubbed. A glob, so Playwright hands the test's process only these requests.
+ */
+export async function stubPreviewFrames(page: Page): Promise<void> {
+    if ('chromium' !== page.context().browser()?.browserType().name()) {
+        throw new Error('stubPreviewFrames: Chromium only, where a11y.spec.ts loads every preview on its own');
+    }
+    await page.route('**/preview/**', (route) =>
+        route.request().frame() === page.mainFrame()
+            ? route.fallback()
+            : route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Preview</title>' }),
+    );
+}
 
 /**
  * Waits until the current Turbo visit has rendered the server's response. A visit to a page Turbo has cached first
@@ -543,7 +636,10 @@ export async function expectA11y(page: Page, policy: A11yPolicy, label?: string)
                 .map((animation) => animation.finished.catch(() => undefined)),
         ),
     );
-    let builder = new AxeBuilder({ page });
+    // axe.run in the page itself (legacy mode), not runPartial here and finishRun in a blank page of its own: the same
+    // results, without injecting axe a second time and opening a page per scan. Safe because every frame of the demo
+    // has its origin; legacy mode does not scan a cross-origin frame (docs/TESTING.md, *Accessibility*)
+    let builder = new AxeBuilder({ page }).setLegacyMode();
     if (policy.include) {
         builder = builder.include(policy.include);
     }

@@ -20,7 +20,7 @@ const baseEnv = {
     PATH: process.env.PATH,
     GITHUB_SHA: '0123456789abcdef0123456789abcdef01234567',
     GITHUB_REF_NAME: 'claude/ci-shards',
-    GITHUB_REPOSITORY: 'xorman/flowbite-xor',
+    GITHUB_REPOSITORY: 'xormania/uxor',
     GITHUB_RUN_ID: '42',
     GITHUB_RUN_ATTEMPT: '1',
 };
@@ -82,6 +82,7 @@ test('job: the shard\'s Docker build cache (cached of total steps), npm cache hi
     const out = join(dir, 'playwright-results', 'job-metrics.json');
     const result = metrics(['job', '--buildx', join(fixtures, 'buildx-history.jsonl'), '--out', out], {
         BROWSER: 'webkit', SHARD: '3/3', NPM_CACHE_HIT: 'false', NPM_CI_SECONDS: '25', IMAGE_PULL_SECONDS: '41',
+        IMAGE_PULL_WAIT_SECONDS: '3',
     });
     assert.equal(result.code, 0, result.stderr);
     const job = JSON.parse(readFileSync(out, 'utf8'));
@@ -90,7 +91,7 @@ test('job: the shard\'s Docker build cache (cached of total steps), npm cache hi
     assert.equal(job.shard, '3/3');
     assert.equal(job.sha, baseEnv.GITHUB_SHA);
     assert.equal(job.npmCacheHit, false);
-    assert.deepEqual(job.setupSeconds, { npmCi: 25, playwrightImagePull: 41 });
+    assert.deepEqual(job.setupSeconds, { npmCi: 25, playwrightImagePull: 41, playwrightImageWait: 3 });
     assert.deepEqual(job.dockerCache, { builds: 2, totalSteps: 24, cachedSteps: 16, ratio: 0.67 });
     assert.deepEqual(job.dockerBuilds.map((b) => [b.name, b.status, b.cachedSteps, b.totalSteps, b.durationMs]),
         [['php', 'Completed', 14, 20, 114500], ['php', 'Completed', 2, 4, 1000]]);
@@ -103,7 +104,7 @@ test('job: no build record or no inputs is metrics left unknown, never a failure
     assert.equal(result.code, 0, result.stderr);
     const job = JSON.parse(readFileSync(out, 'utf8'));
     assert.equal(job.npmCacheHit, null);
-    assert.deepEqual(job.setupSeconds, { npmCi: null, playwrightImagePull: null });
+    assert.deepEqual(job.setupSeconds, { npmCi: null, playwrightImagePull: null, playwrightImageWait: null });
     assert.equal(job.dockerCache, null);
     assert.match(job.unavailable.join('\n'), /build history/);
 });
@@ -134,7 +135,7 @@ test('run: each shard\'s tests, retries, wall and summed time, worker use, and i
     assert.deepEqual(c1.job, { name: 'Demo + Playwright (chromium 1/4)', conclusion: 'success', queuedMs: 10000, durationMs: 710000, setupMs: 230000, testsMs: 420000, afterMs: 60000 });
     assert.deepEqual(c1.dockerCache, { builds: 2, totalSteps: 24, cachedSteps: 16, ratio: 0.67 });
     assert.equal(c1.npmCacheHit, true);
-    assert.deepEqual(c1.setupSeconds, { npmCi: 21, playwrightImagePull: 38 });
+    assert.deepEqual(c1.setupSeconds, { npmCi: 21, playwrightImagePull: 38, playwrightImageWait: null });
     assert.equal(f1.job.testsMs, 145000);
     assert.equal(f2.status, 'not-reached');
     assert.equal(f2.wallMs, null);
@@ -193,7 +194,7 @@ test('run: every job\'s queue and duration, the run\'s wall time, and where the 
     assert.deepEqual(changes.steps.map((s) => [s.name, s.durationMs]), [['Set up job', 2000], ["The script's own cases", 23000], ['Complete job', 5000]]);
     assert.deepEqual(json.run, { wallMs: 780000, jobs: 5, longestJob: 'Demo + Playwright (chromium 1/4)', longestJobMs: 710000 });
     assert.deepEqual(json.demoSteps['Build the demo image'], { chromium: 90000, firefox: 60000 });
-    assert.deepEqual(json.demoSteps['Playwright (smoke + every README example + upstream recipe specs)'], { chromium: 347500, firefox: 145000 });
+    assert.deepEqual(json.demoSteps['Playwright (smoke + every README example + UXor recipe specs)'], { chromium: 347500, firefox: 145000 });
     assert.equal(json.demoSteps['The sync leaves tracked files unchanged'], undefined, 'a skipped step is no time spent');
     assert.match(markdown, /### Browser jobs, step by step/);
     assert.match(markdown, /\| Build the demo image \| 90\.0 s \| 60\.0 s \| – \|/);

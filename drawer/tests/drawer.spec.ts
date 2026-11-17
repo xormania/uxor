@@ -17,9 +17,9 @@ async function moveInTheDom(page: Page): Promise<void> {
     });
 }
 
-describeRecipe('flowbite-4/drawer', () => {
+describeRecipe('uxor/drawer', () => {
     test('is open on page load when asked to, as a modal', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/drawer/default');
+        await gotoExample('uxor/drawer/default');
         const dialog = page.getByRole('dialog', { name: 'Filters' });
         const trigger = page.getByRole('button', { name: 'Filters' });
 
@@ -34,7 +34,7 @@ describeRecipe('flowbite-4/drawer', () => {
     });
 
     test('closes on a click on the backdrop, not on a click on its content', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/drawer/default');
+        await gotoExample('uxor/drawer/default');
         const dialog = page.getByRole('dialog', { name: 'Filters' });
         await expect(dialog).toBeVisible();
 
@@ -50,7 +50,7 @@ describeRecipe('flowbite-4/drawer', () => {
     });
 
     test('closes with its close button and with a Drawer:Close button, and opens again from its trigger', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/drawer/default');
+        await gotoExample('uxor/drawer/default');
         const dialog = page.getByRole('dialog', { name: 'Filters' });
         const trigger = page.getByRole('button', { name: 'Filters' });
 
@@ -68,7 +68,7 @@ describeRecipe('flowbite-4/drawer', () => {
     });
 
     test('stays open and modal after being moved in the DOM', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/drawer/default');
+        await gotoExample('uxor/drawer/default');
         const dialog = page.getByRole('dialog', { name: 'Filters' });
         await expect(dialog).toBeVisible();
 
@@ -82,7 +82,7 @@ describeRecipe('flowbite-4/drawer', () => {
     });
 
     test('stays closed after being moved in the DOM once closed, though rendered open', async ({ page, gotoExample }) => {
-        await gotoExample('flowbite-4/drawer/default');
+        await gotoExample('uxor/drawer/default');
         const dialog = page.getByRole('dialog', { name: 'Filters' });
         await page.keyboard.press('Escape');
         await expect(dialog).toBeHidden();

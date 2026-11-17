@@ -24,7 +24,7 @@ final class GuideDocs
 {
     /** the guides, by name: their file in the repository, their title and description in the gallery */
     public const GUIDES = [
-        'install' => ['file' => 'INSTALL.md', 'title' => 'Getting started', 'description' => 'Set a Symfony project up for the UXor kit: requirements, Tailwind CSS and Flowbite, the theme, then installing recipes with ux:install.'],
+        'install' => ['file' => 'INSTALL.md', 'title' => 'Getting started', 'description' => 'Set a Symfony project up for the UXor kit: requirements, Tailwind CSS and Flowbite CSS, the theme, then installing recipes with ux:install.'],
         'guide' => ['file' => 'docs/GUIDE.md', 'title' => 'Guide', 'description' => "Installing and updating the UXor kit's recipes, using them with Turbo and Live Components, security, and versioning."],
     ];
 

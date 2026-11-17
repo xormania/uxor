@@ -4,7 +4,9 @@ services:
   php:
     image: ${IMAGES_PREFIX:-}app-php-dev
     build:
-      context: .
+      # UXor: the repository is the context (the production image takes the kit beside the demo, as on disk)
+      context: ..
+      dockerfile: demo/Dockerfile
       target: frankenphp_dev
     # UXor: the whole repository, so the demo sits in /app/demo as it does on disk; it reads the kit
     # from its parent directory, and its stylesheet imports the kit's files by relative path
@@ -23,7 +25,11 @@ services:
       FRANKENPHP_SITE_CONFIG: hot_reload
       MERCURE_EXTRA_DIRECTIVES: playground
       # See https://xdebug.org/docs/all_settings#mode
-      XDEBUG_MODE: "${XDEBUG_MODE:-develop}"
+      # UXor: off by default, where the Symfony Docker template's default is develop. In develop mode Xdebug aborts a
+      # call stack deeper than 512 frames, which the browser tests' concurrent requests reached: the demo answered 500
+      # and tests failed in different places on each run. Set XDEBUG_MODE=debug (or develop) on `docker compose up` to
+      # use it.
+      XDEBUG_MODE: "${XDEBUG_MODE:-off}"
       APP_ENV: "${APP_ENV:-dev}"
       # UXor: the demo's public directory (frankenphp/Caddyfile)
       SERVER_ROOT: /app/demo/public
@@ -31,5 +37,12 @@ services:
       # Ensure that host.docker.internal is correctly defined on Linux
       - host.docker.internal:host-gateway
     tty: true
+    # UXor: the image's HEALTHCHECK (demo/Dockerfile, frankenphp_base), probed every second while the demo starts
+    # instead of Docker's default 5 s, so `docker compose up --wait` returns about when the server answers. The check
+    # itself stays the image's; start_period restates the image's 60 s, which Compose requires beside start_interval
+    # (Docker Engine 25, Compose 2.20). Development only: the production image is run without this file.
+    healthcheck:
+      start_period: 60s
+      start_interval: 1s
 ###> symfony/mercure-bundle ###
 ###< symfony/mercure-bundle ###

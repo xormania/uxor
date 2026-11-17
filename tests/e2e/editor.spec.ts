@@ -107,7 +107,9 @@ test('the link dialog sets allowed links, refuses other schemes, and removes lin
     const editor = page.getByRole('textbox', { name: 'Your message' });
     await editor.click();
     await page.keyboard.type('See pricing');
-    await page.keyboard.press('Shift+Home');
+    // select from ProseMirror's own keymap: a selection made by Shift+Home reaches the editor on the next
+    // selectionchange, which the click on Link can beat, and the link then goes in at the caret
+    await page.keyboard.press('ControlOrMeta+a');
     await page.getByRole('button', { name: 'Link' }).click();
     const url = page.getByRole('textbox', { name: 'Link address' });
     await expect(url).toBeFocused();

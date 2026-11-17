@@ -27,7 +27,7 @@ Error [ERR_TEST_FAILURE]: Expected values to be strictly equal:
   - '## [1.2.0]'
          ^
   
-      at TestContext.&lt;anonymous> (file:///home/runner/work/flowbite-xor/flowbite-xor/tools/tests/release-notes.test.mjs:5:62)
+      at TestContext.&lt;anonymous> (file:///home/runner/work/uxor/uxor/tools/tests/release-notes.test.mjs:5:62)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1047:25)
       at Test.start (node:internal/test_runner/test:944:17)
@@ -51,18 +51,18 @@ Error [ERR_TEST_FAILURE]: Expected values to be strictly equal:
 			<testcase name="of a patch" time="0.0021" classname="test" failure="Cannot read properties of undefined (reading 'tag') &amp; more">
 				<failure type="testCodeFailure" message="Cannot read properties of undefined (reading 'tag') &amp; more">
 Error [ERR_TEST_FAILURE]: Cannot read properties of undefined (reading 'tag') &amp; more
-    at TestContext.&lt;anonymous> (file:///home/runner/work/flowbite-xor/flowbite-xor/tools/tests/release-notes.test.mjs:7:13)
+    at TestContext.&lt;anonymous> (file:///home/runner/work/uxor/uxor/tools/tests/release-notes.test.mjs:7:13)
     at Test.runInAsyncScope (node:async_hooks:214:14)
     at async Promise.all (index 0) {
   code: 'ERR_TEST_FAILURE',
   failureType: 'testCodeFailure',
   cause: TypeError: Cannot read properties of undefined (reading 'tag') &amp; more
-      at TestContext.&lt;anonymous> (file:///home/runner/work/flowbite-xor/flowbite-xor/tools/tests/release-notes.test.mjs:7:46)
+      at TestContext.&lt;anonymous> (file:///home/runner/work/uxor/uxor/tools/tests/release-notes.test.mjs:7:46)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1047:25)
       at Test.start (node:internal/test_runner/test:944:17)
       at TestContext.test (node:internal/test_runner/test:373:20)
-      at TestContext.&lt;anonymous> (file:///home/runner/work/flowbite-xor/flowbite-xor/tools/tests/release-notes.test.mjs:7:13)
+      at TestContext.&lt;anonymous> (file:///home/runner/work/uxor/uxor/tools/tests/release-notes.test.mjs:7:13)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1047:25)
       at Suite.processPendingSubtests (node:internal/test_runner/test:744:18)

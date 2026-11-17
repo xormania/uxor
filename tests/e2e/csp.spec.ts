@@ -5,10 +5,11 @@ import { png } from './files';
 /*
  * The demo's browser hardening headers and its enforced Content Security Policy
  * (demo/src/EventListener/SecurityHeadersListener.php). The fixtures fail every test on a policy violation, so the
- * whole suite runs the kit under this policy; these tests check the policy itself, and what a blocked inline script
- * or style would silently break: the theme before the first paint, Turbo's progress bar, the Progress bars.
+ * whole suite runs the kit under this policy. Each page's headers, policy and nonced markup are a PHPUnit test
+ * (demo/tests/Security/SecurityHeadersTest.php); these tests check what only a browser shows: fresh nonces per response,
+ * and what a blocked inline script or style would silently break (the theme before the first paint, Turbo's progress
+ * bar, the Progress bars).
  */
-const pages = ['/', '/r/button', '/preview/button/default?theme=light', '/preview/dropdown/default?theme=light', '/demo', '/demo/login', '/lab/live-table', '/lab/popover-turbo', '/preview/popover/default?theme=light', '/lab/calendar-turbo', '/preview/calendar/default?theme=light', '/lab/date-picker-turbo', '/preview/date-picker/default?theme=light', '/lab/chart-turbo', '/preview/chart/default?theme=light', '/lab/dropzone-turbo', '/preview/dropzone/default?theme=light', '/forms', '/lab/dropzone-form', '/lab/live-dropzone', '/lab/editor-turbo', '/preview/editor/default?theme=light', '/lab/markdown-turbo', '/preview/markdown-editor/default?theme=light', '/lab/side-nav', '/preview/side-nav/default?theme=light', '/lab/mobile-nav', '/preview/mobile-nav/default?theme=light', '/lab/nav-menu', '/preview/nav-menu/default?theme=light', '/lab/dropdown-turbo', '/lab/modal-turbo', '/lab/drawer-turbo', '/lab/section-nav', '/preview/section-nav/default?theme=light', '/preview/tabs/vertical?theme=light', '/demo/settings/notifications'];
 
 type Policy = Map<string, string[]>;
 
@@ -48,23 +49,6 @@ async function gotoAndCheckPolicy(page: Page, path: string): Promise<{ script: s
     expect(styleSources).toContain("'self'");
 
     return { script: nonceOf(scriptSources), style: nonceOf(styleSources), policy };
-}
-
-for (const path of pages) {
-    test(`${path} answers with the hardening headers and a nonce-based policy its scripts carry`, async ({ page }) => {
-        const { script, style, policy } = await gotoAndCheckPolicy(page, path);
-        expect(script).not.toEqual(style);
-        // style attributes: none at all, README previews included (tools/docs-lint.mjs keeps them out of the examples)
-        expect(policy.has('style-src-attr')).toBe(false);
-
-        const inPage = await page.evaluate(() => ({
-            scripts: [...document.scripts].map((element) => element.nonce),
-            meta: (document.querySelector('meta[name="csp-nonce"]') as HTMLElement | null)?.nonce,
-        }));
-        expect(inPage.scripts.length).toBeGreaterThan(0);
-        expect(new Set(inPage.scripts)).toEqual(new Set([script]));
-        expect(inPage.meta).toBe(style);
-    });
 }
 
 test('every response gets its own nonces', async ({ page }) => {
@@ -158,6 +142,46 @@ test('a picked image shows its preview under the policy (img-src data:)', async 
         return { scheme: url.slice(0, 15), width: probe.naturalWidth };
     });
     expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
+});
+
+// the same in the dark theme, walked as the user does: a keyboard pick shows the name, the image and Remove, focused;
+// Remove empties the zone and puts the focus back on the input
+test('in the dark theme, a picked image shows its name, its preview under the policy and Remove, focused; Remove empties the zone', async ({ page }) => {
+    const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=dark');
+    expect(policy.get('img-src')).toContain('data:');
+    await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
+    const input = page.getByLabel('Profile picture');
+    await input.focus();
+    const chooser = page.waitForEvent('filechooser');
+    await page.keyboard.press('Enter');
+    await (await chooser).setFiles(png('dark.png'));
+
+    const remove = page.getByRole('button', { name: 'Remove dark.png' });
+    await expect(remove).toBeFocused();
+    await expect(remove).toBeVisible();
+    await expect(page.getByText('dark.png', { exact: true })).toBeVisible();
+    await expect(page.getByText('Drag and drop or browse')).toBeHidden();
+    const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
+    await expect(image).toBeVisible();
+    const box = await image.boundingBox();
+    expect(box && box.width > 0 && box.height > 0).toBe(true);
+    // the image loads (the fixtures fail on a violation), read the way the browser loads a CSS background
+    const loaded = await image.evaluate(async (element) => {
+        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
+        const probe = new Image();
+        probe.src = url;
+        await probe.decode();
+
+        return { scheme: url.slice(0, 15), width: probe.naturalWidth };
+    });
+    expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
+
+    await page.keyboard.press('Enter');
+    await expect(input).toBeFocused();
+    await expect(image).toBeHidden();
+    await expect(remove).toBeHidden();
+    await expect(page.getByText('Drag and drop or browse')).toBeVisible();
+    expect(await input.evaluate((element: HTMLInputElement) => element.files?.length ?? 0)).toBe(0);
 });
 
 test("Symfony's error pages keep the hardening headers without a policy on scripts and styles", async ({ page, allowHttpError }) => {

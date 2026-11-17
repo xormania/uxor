@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { isPermanent, isPromotedFrameCache } from '../lib/uxor-turbo.js';
+import { isCachedCopy, isPermanent, isPromotedFrameCache } from '../lib/uxor-turbo.js';
 
 // through the prototype: a field named `method` shadows the form's own
 const methodOf = Object.getOwnPropertyDescriptor(HTMLFormElement.prototype, 'method').get;
@@ -14,85 +14,89 @@ let lastKey = 0;
 // one `turbo:before-cache` event is one copy of the page: every zone's cache action receives the same event
 let lastCacheEvent = null;
 let lastCopy = 0;
+// a Remove button: UX Dropzone's own in a list of files, or the remove slot of a `preview_item` template
+const REMOVE = '.dropzone-preview-list-remove, [data-dropzone-slot="remove"]';
 
 /**
  * Works next to Symfony UX Dropzone's controller (`symfony--ux-dropzone--dropzone`) on a `Dropzone`, which it never
- * changes: it reads its targets and listens to its `dropzone:*` events.
+ * patches: it reads its targets, listens to its `dropzone:*` events, and clears a restored zone through its `clear()`.
  *
  * - Drag-over state: `data-dragging` on the element while a file is dragged over it.
  * - Drops outside the file input (on the list of files, on the preview) are refused, so the browser never opens the
  *   file in the tab and loses the form.
  * - Focus: a pick hides the focused input, so focus moves to the Remove button, whose name ("Remove photo.png") says
  *   what was picked; Remove puts focus back on the input; removing one of several files focuses the next Remove
- *   button, else the last one, else the input. Connecting never moves focus.
- * - A drag that leaves without a drop shows the empty box again: UX Dropzone shows its empty preview instead.
- * - One file stays picked when the element is moved and its controllers reconnect (a `data-turbo-permanent` element
- *   across Turbo visits): UX Dropzone clears the input on every connect, so the file is put back and the input gets a
- *   `change` event (not bubbling), which shows it again.
+ *   button, else the last one, else the input. Connecting never moves focus. A `preview_item` template's
+ *   `data-dropzone-slot="remove"` element is the Remove button of its file.
  * - In a form that is not a GET form (a POST form holds the user's work), one file picked stays picked after Back and
  *   Forward: before Turbo copies the page, the file is kept under a key the zone carries into the copy, and put back
- *   the same way when the copy connects. A frame visit promoted to history copies the page as it starts, before its
- *   `turbo:before-cache`: the zone carries a key from its connect on, and takes a new one after each copy. A GET form,
- *   which cannot send files, and a zone outside a form start empty.
+ *   when the copy connects, with a `change` event on the input (not bubbling) that shows it, unless the browser's copy
+ *   of the input kept it. A frame visit promoted to history copies the page as it starts, before its
+ *   `turbo:before-cache`: the zone carries a key from its connect on, and takes a new one after each copy.
+ * - A zone for one file in a GET form, which cannot send files, or outside a form starts empty in Turbo's copy of the
+ *   page: some browsers' copy of an input keeps its file, which UX Dropzone keeps on connect, so the zone is cleared
+ *   through UX Dropzone (its `dropzone:clear` included). The same element connecting again (moved, a
+ *   `data-turbo-permanent` element across visits) is no copy, and keeps its file.
  *
  * @target input       The file input.
- * @target placeholder The inside of the box shown before a pick.
  * @target preview     The picked file (one file only).
- * @target clearButton The Remove button of the preview (one file only).
+ * @target clearButton The Remove button of the preview (one file only, without a `preview_item` template).
  * @target list        The list of picked files (several files only).
  * @action dragOver    Marks the element `data-dragging`, and refuses a drop outside the input.
  * @action dragLeave   Removes `data-dragging` once the drag leaves the element.
  * @action drop        Removes `data-dragging`, and refuses a drop outside the input.
  * @action remember    Records whether the input has focus, before a pick hides it (on `change`, in the capture phase).
  * @action changed     Focuses the Remove button after a pick made from the focused input (`dropzone:change`).
- * @action clearing    Records that the Remove button was clicked (in the capture phase).
+ * @action clearing    Records that the preview's Remove button was clicked (on the element, in the capture phase).
  * @action cleared     Focuses the input after the Remove button cleared the pick (`dropzone:clear`).
  * @action removing    Records which file's Remove button was clicked (in the capture phase).
  * @action removed     Focuses the Remove button now at that place, else the last one, else the input (`dropzone:remove`).
  * @action cache       On `turbo:before-cache`: keeps the file of a zone in a form that is not a GET form for the copy.
  */
 export default class extends Controller {
-    static targets = ['input', 'placeholder', 'preview', 'clearButton', 'list'];
+    static targets = ['input', 'preview', 'clearButton', 'list'];
 
     #inputFocused = false;
     #clearing = false;
     #removedIndex = null;
-    #leaveTimeout = null;
-    #kept = null;
 
     connect() {
-        // a copy of the page Turbo cached: the file the zone held then
+        // a zone in Turbo's copy of the page carries the key attribute every connect sets (and `cache` renews)
+        const copy = isCachedCopy(this, 'data-dropzone-assist-copy');
         const key = this.element.getAttribute('data-dropzone-assist-copy');
         const copied = copies.get(key)?.transfer ?? null;
         copies.delete(key);
         // the key the next copy taken before its `turbo:before-cache` (a frame visit promoted to history) carries
         this.element.setAttribute('data-dropzone-assist-copy', String(++lastKey));
-        const kept = this.#kept ?? copied;
-        this.#kept = null;
-        if (!kept?.files.length || this.hasListTarget || !this.hasPreviewTarget) {
+        if (!copy || this.hasListTarget || !this.hasPreviewTarget) {
             return;
         }
-        // after UX Dropzone's connect, wherever its controller comes in the order, has cleared the input
+        // after UX Dropzone's connect, wherever its controller comes in the order, has taken the input's files
         queueMicrotask(() => {
-            if (this.element.isConnected && !this.inputTarget.files?.length) {
-                this.inputTarget.files = kept.files;
-                this.inputTarget.dispatchEvent(new Event('change'));
+            if (!this.element.isConnected) {
+                return;
+            }
+            const form = this.inputTarget.form;
+            if ((form && 'get' !== methodOf.call(form)) || isPermanent(this.element)) {
+                if (copied?.files.length && !this.inputTarget.files?.length) {
+                    this.inputTarget.files = copied.files;
+                    this.inputTarget.dispatchEvent(new Event('change'));
+                }
+            } else if (this.inputTarget.files?.length) {
+                const dropzone = this.application.getControllerForElementAndIdentifier(this.element, 'symfony--ux-dropzone--dropzone');
+                if (dropzone) {
+                    dropzone.clear();
+                } else {
+                    // not connected yet: it takes the empty input when it does
+                    this.inputTarget.value = '';
+                }
             }
         });
     }
 
     disconnect() {
         // the key stays: Turbo may copy the page after its controllers disconnected
-        // the same element may connect again (moved); a new element (Back, a Turbo Stream) gets a new controller
-        if (!this.hasListTarget && this.inputTarget.files?.length) {
-            this.#kept = new DataTransfer();
-            for (const file of this.inputTarget.files) {
-                this.#kept.items.add(file);
-            }
-        }
         this.element.removeAttribute('data-dragging');
-        clearTimeout(this.#leaveTimeout);
-        this.#leaveTimeout = null;
         this.#inputFocused = false;
         this.#clearing = false;
         this.#removedIndex = null;
@@ -151,19 +155,6 @@ export default class extends Controller {
             return;
         }
         this.element.removeAttribute('data-dragging');
-        if (this.hasListTarget || !this.hasPreviewTarget) {
-            return;
-        }
-        // UX Dropzone then shows its preview, empty when nothing was picked: show the box again after its listener ran
-        clearTimeout(this.#leaveTimeout);
-        this.#leaveTimeout = setTimeout(() => {
-            this.#leaveTimeout = null;
-            if (!this.inputTarget.files?.length) {
-                this.inputTarget.style.display = 'block';
-                this.placeholderTarget.style.display = 'block';
-                this.previewTarget.style.display = 'none';
-            }
-        });
     }
 
     drop(event) {
@@ -182,13 +173,17 @@ export default class extends Controller {
     changed() {
         const focused = this.#inputFocused;
         this.#inputFocused = false;
-        if (focused && !this.hasListTarget && this.hasClearButtonTarget) {
-            this.clearButtonTarget.focus();
+        const remove = this.#previewRemove();
+        if (focused && !this.hasListTarget && remove) {
+            remove.focus();
         }
     }
 
-    clearing() {
-        this.#clearing = true;
+    clearing(event) {
+        const remove = this.#previewRemove();
+        if (remove && event.target instanceof Node && remove.contains(event.target)) {
+            this.#clearing = true;
+        }
     }
 
     cleared() {
@@ -199,9 +194,10 @@ export default class extends Controller {
     }
 
     removing(event) {
-        const button = event.target.closest('.dropzone-preview-list-remove');
-        const item = button?.closest('li');
-        this.#removedIndex = item && item.parentElement === this.listTarget ? [...this.listTarget.children].indexOf(item) : null;
+        const button = event.target instanceof Element ? event.target.closest(REMOVE) : null;
+        const items = [...this.listTarget.children];
+        const index = button ? items.findIndex((item) => item.contains(button)) : -1;
+        this.#removedIndex = index < 0 ? null : index;
     }
 
     removed() {
@@ -210,7 +206,17 @@ export default class extends Controller {
         if (null === index || !this.hasListTarget) {
             return;
         }
-        const buttons = this.listTarget.querySelectorAll('.dropzone-preview-list-remove');
-        (buttons[index] ?? buttons[buttons.length - 1] ?? this.inputTarget).focus();
+        const items = [...this.listTarget.children];
+        const item = items[index] ?? items[items.length - 1];
+        (item?.matches(REMOVE) ? item : item?.querySelector(REMOVE) ?? this.inputTarget).focus();
+    }
+
+    // the preview's Remove button (one file only): the template's remove slot, else the default one
+    #previewRemove() {
+        if (this.hasListTarget || !this.hasPreviewTarget) {
+            return null;
+        }
+
+        return this.previewTarget.querySelector('[data-dropzone-slot="remove"]') ?? (this.hasClearButtonTarget ? this.clearButtonTarget : null);
     }
 }

@@ -4,6 +4,12 @@ Use the UXor package when a Symfony task involves UXor components, layouts, form
 Turbo interactions or an incomplete installation. Load the setup, build or verify
 skill for the task, then read the relevant component references on demand.
 
+UXor is independently maintained. The official Symfony UX flowbite-4 kit was an
+initial reference only; it does not govern UXor's design, names, behavior or tests.
+Toolkit installation support, Flowbite CSS and the icon set are current integrations
+that can evolve with UXor's requirements and compatibility commitments. Use UXor's
+guidance and the application's installed code, rather than imposing parity with the reference kit.
+
 Discover installed tools with Mate's tools:list and inspect inputs before calling
 them. The UXor package provides component search/detail, bounded documentation reads,
 bound-project inspection, first-setup findings and native Maker/Mate metadata.

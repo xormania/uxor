@@ -1,9 +1,9 @@
-import { test, expect, expectA11y, controllersConnected } from './fixtures';
+import { test, expect, expectA11y, controllersConnected, stubPreviewFrames } from './fixtures';
 import { examples, recipes } from './inventory';
 import { lowContrastText } from './contrast';
 
 // Every page of the demo: the shell pages, every lab scenario, and every README example in both themes.
-const labPages = ['live-dropdown', 'live-modal', 'live-table', 'live-drawer', 'live-form', 'turbo-stream-toast', 'turbo-nav', 'turbo-nav/two', 'turbo-frame-detail', 'turbo-frame-detail/apple', 'permanent-plus-live', 'form-back/get', 'form-back/post', 'data-table-frame', 'data-table-live', 'data-table-live-frame', 'data-table-live-permanent', 'data-table-live-stream', 'autocomplete', 'autocomplete-frame', 'autocomplete-stream', 'live-autocomplete', 'popover-turbo', 'popover-turbo/two', 'popover-stream', 'live-popover', 'calendar-turbo', 'calendar-turbo/two', 'calendar-stream', 'live-calendar', 'date-picker-turbo', 'date-picker-turbo/two', 'date-picker-stream', 'live-date-picker', 'chart-turbo', 'chart-turbo/two', 'chart-stream', 'live-chart', 'chart-points', 'dropzone-turbo', 'dropzone-turbo/two', 'dropzone-stream', 'dropzone-events', 'dropzone-form', 'live-dropzone', 'editor-turbo', 'editor-turbo/two', 'editor-stream', 'live-editor', 'markdown-turbo', 'markdown-turbo/two', 'markdown-stream', 'turbo-restore', 'turbo-restore/two', 'side-nav', 'side-nav/three', 'mobile-nav', 'mobile-nav/three', 'nav-menu', 'nav-menu/three', 'tooltip-turbo', 'tooltip-turbo/two', 'tooltip-stream', 'dropdown-turbo', 'dropdown-turbo/two', 'dropdown-stream', 'modal-turbo', 'modal-turbo/two', 'modal-stream', 'drawer-turbo', 'drawer-turbo/two', 'drawer-stream', 'section-nav', 'section-nav/integrations', 'value-matrix', 'live-values'];
+const labPages = ['live-dropdown', 'live-modal', 'live-table', 'live-drawer', 'live-form', 'turbo-stream-toast', 'turbo-nav', 'turbo-nav/two', 'turbo-frame-detail', 'turbo-frame-detail/apple', 'permanent-plus-live', 'form-back/get', 'form-back/post', 'data-table-frame', 'data-table-live', 'data-table-live-frame', 'data-table-live-permanent', 'data-table-live-stream', 'autocomplete', 'autocomplete-frame', 'autocomplete-stream', 'live-autocomplete', 'popover-turbo', 'popover-turbo/two', 'popover-stream', 'live-popover', 'calendar-turbo', 'calendar-turbo/two', 'calendar-stream', 'live-calendar', 'date-picker-turbo', 'date-picker-turbo/two', 'date-picker-stream', 'live-date-picker', 'chart-turbo', 'chart-turbo/two', 'chart-stream', 'live-chart', 'chart-points', 'dropzone-turbo', 'dropzone-turbo/two', 'dropzone-turbo?get=1', 'dropzone-stream', 'dropzone-events', 'dropzone-form', 'live-dropzone', 'dropzone-options', 'dropzone-options/two', 'dropzone-options?form=1', 'dropzone-options?form=quiet', 'editor-turbo', 'editor-turbo/two', 'editor-stream', 'live-editor', 'markdown-turbo', 'markdown-turbo/two', 'markdown-stream', 'turbo-restore', 'turbo-restore/two', 'side-nav', 'side-nav/three', 'mobile-nav', 'mobile-nav/three', 'nav-menu', 'nav-menu/three', 'tooltip-turbo', 'tooltip-turbo/two', 'tooltip-stream', 'dropdown-turbo', 'dropdown-turbo/two', 'dropdown-stream', 'modal-turbo', 'modal-turbo/two', 'modal-stream', 'drawer-turbo', 'drawer-turbo/two', 'drawer-stream', 'section-nav', 'section-nav/integrations', 'value-matrix', 'live-values'];
 
 const pages = [
     '/',
@@ -33,6 +33,10 @@ for (const path of pages) {
         // every widget in every state on one page: axe alone takes 13-18 s on it in each engine, too close to the 30 s
         // budget on a loaded runner
         test.slow('/lab/value-matrix' === path, 'the value matrix holds every widget: axe scans it for 13-18 s');
+        if (path.startsWith('/r/')) {
+            // the scan leaves the embedded previews out, and scans each of them on its own (/preview/…, below)
+            await stubPreviewFrames(page);
+        }
         const response = await page.goto(path);
         expect(response?.status()).toBe(200);
         if (!path.startsWith('/preview/')) {
