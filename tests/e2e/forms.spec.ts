@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y } from './fixtures';
+import { test, expect, expectA11y, controllersConnected } from './fixtures';
 import { day } from './calendar';
 import { png, text } from './files';
 import { examples } from './inventory';
@@ -201,12 +201,28 @@ test('a file over upload_max_filesize gives its field the size error', async ({ 
  * The Input component's text starts at the same inline padding with or without a `type`: Flowbite's base rule pads
  * only `[type=text]`, `[type=email]` and the other typed fields, so an Input with no `type` (a text field all the
  * same) showed its text against the left border. Every text-like Input of every README example that renders one.
+ *
+ * One page load: every preview has the same layout (app.css, the importmap); only its body differs. So the first
+ * preview is loaded, and each example's body is swapped in, fetched with the page's request context and put in through
+ * an inert <template> (the body's markup alone: a whole document parsed into this page would carry the layout's nonced
+ * <style>, another response's nonce, which the policy refuses), then its controllers connect before it is measured.
  */
 test('every Input pads its text the same, with or without a type', async ({ page }) => {
     const recipes = ['input', 'form-field', 'date-picker', 'label', 'card', 'navbar', 'popover'];
+    const chosen = examples.filter(({ recipe }) => recipes.includes(recipe));
+    await page.goto(`/preview/${chosen[0].recipe}/${chosen[0].id}?theme=light`);
     const measured: { example: string; id: string; type: string | null; start: number; end: number }[] = [];
-    for (const { recipe, id } of examples.filter(({ recipe }) => recipes.includes(recipe))) {
-        await page.goto(`/preview/${recipe}/${id}?theme=light`);
+    for (const { recipe, id } of chosen) {
+        const response = await page.request.get(`/preview/${recipe}/${id}?theme=light`);
+        expect(response.status(), `${recipe}/${id}`).toBe(200);
+        const body = (await response.text()).match(/<body>([\s\S]*)<\/body>/)?.[1];
+        expect(body, `${recipe}/${id}: its body`).toBeDefined();
+        await page.evaluate((html) => {
+            const template = document.createElement('template');
+            template.innerHTML = html;
+            document.body.replaceChildren(document.importNode(template.content, true));
+        }, body!);
+        await controllersConnected(page);
         const inputs = await page.locator('input.bg-neutral-secondary-medium.border-default-medium:is(:not([type]), [type=text], [type=email], [type=password], [type=search], [type=number], [type=tel], [type=url])').evaluateAll((inputs) =>
             inputs.map((input) => {
                 const style = getComputedStyle(input);
