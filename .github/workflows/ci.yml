@@ -524,6 +524,9 @@ jobs:
                   extensions: intl # the calendar formats dates with twig/intl-extra
                   tools: composer:v2
                   coverage: none
+                  # as the demo's dev container runs PHP: PHPUnit's and the code's own assert() calls checked, in every
+                  # process (php.ini, not a -d flag, reaches the tests PHPUnit runs in their own processes)
+                  ini-values: zend.assertions=1, assert.exception=1
 
             # The kit lint does not look at PHP: a recipe's PHP (copied into src/ by ux:install) is checked here.
             - name: Syntax
