@@ -63,6 +63,15 @@ const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily r
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
 /**
+ * The lanes each excluded file's content is left out for: those that never read it. All of them are export-ignored and
+ * kept out of the production image, and the demo only links them; but Package's references step reads CHANGELOG.md's
+ * latest version heading (packages/uxor/tools/ReferenceGenerator.php, releaseRef), so CHANGELOG.md's content is
+ * Package's input.
+ */
+export const EXCLUDED_FOR = Object.fromEntries(EXCLUDED.map((file) => [file,
+    Object.keys(REUSABLE).filter((lane) => !(file === 'CHANGELOG.md' && lane === 'package'))]));
+const excludedFor = (lane) => EXCLUDED.filter((file) => EXCLUDED_FOR[file].includes(lane));
+/**
  * How old a pass may be, per lane. The installs, Lint kit and Package resolve dependencies live (a fresh Symfony
  * skeleton and Symfony Docker, the Toolkit and the consumer's packages from Packagist): their evidence goes stale with
  * time, not with the tree. dev's daily run checks that drift, and never reuses them; a pass on the same tree within a
@@ -121,16 +130,18 @@ function git(dir, args) {
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
-    // an excluded file counts by its path and mode, not its content: deleting it or making it a link still counts
-    const entries = tree.stdout.toString('utf8').split('\0').filter(Boolean).map((entry) => {
-        const tab = entry.indexOf('\t');
-        if (!EXCLUDED.includes(entry.slice(tab + 1))) return entry;
-        const [mode, type] = entry.slice(0, tab).split(' ');
-        return `${mode} ${type} -${entry.slice(tab)}`;
-    });
-    const body = entries.map((entry) => `${entry}\0`).join('');
-    return Object.fromEntries(Object.keys(REUSABLE).map((lane) =>
-        [lane, createHash('sha256').update(`uxor-lane-evidence/2\0${lane}\0`).update(body).digest('hex')]));
+    // a file excluded for a lane counts by its path and mode, not its content: deleting it or making it a link still counts
+    const all = tree.stdout.toString('utf8').split('\0').filter(Boolean);
+    return Object.fromEntries(Object.keys(REUSABLE).map((lane) => {
+        const excluded = excludedFor(lane);
+        const body = all.map((entry) => {
+            const tab = entry.indexOf('\t');
+            if (!excluded.includes(entry.slice(tab + 1))) return entry;
+            const [mode, type] = entry.slice(0, tab).split(' ');
+            return `${mode} ${type} -${entry.slice(tab)}`;
+        }).map((entry) => `${entry}\0`).join('');
+        return [lane, createHash('sha256').update(`uxor-lane-evidence/3\0${lane}\0`).update(body).digest('hex')];
+    }));
 }
 
 /** the producer's commit, fetched by its id when this clone lacks it, without making the clone shallow */
@@ -220,6 +231,18 @@ export function laneJobs(lane, jobs) {
         && (names ? names.includes(job.name) : prefixes.some((prefix) => job.name.startsWith(prefix))));
 }
 
+/**
+ * A browser job that failed before its tests started (its setup: the image, the demo, the wait for the importmap
+ * packages) says nothing about the tests: incomplete, not failed. Without the job's steps, it counts as failed.
+ */
+const TESTS_STEP = 'Playwright (';
+export function testsFailed(job) {
+    if (!['failure', 'timed_out'].includes(job.conclusion)) return false;
+    if (!Array.isArray(job.steps)) return true;
+    const tests = job.steps.find((step) => isObject(step) && String(step.name).startsWith(TESTS_STEP));
+    return Boolean(tests) && ['success', 'failure', 'timed_out'].includes(tests.conclusion);
+}
+
 /** how many jobs a full pass of the lane has */
 const expected = (lane, chromiumShards) => (lane === 'demo' ? chromiumShards : REUSABLE[lane].count);
 
@@ -249,11 +272,21 @@ function candidates(client, ctx, lane, fp) {
         .sort((a, b) => time(b.created_at) - time(a.created_at) || (a.kind === 'fail' ? -1 : 1));
 }
 
-function checkAge(ctx, artifact, lane) {
+function checkExpired(artifact) {
     if (artifact.expired) throw new Refused('evidence_expired', `marker ${artifact.id} has expired`);
-    const age = ctx.now - time(artifact.created_at);
+}
+
+/** when the lane's evidence was made: its oldest job's completion (a re-run's marker is no younger than its jobs) */
+export function completedAt(jobs) {
+    if (!jobs.length || jobs.some((job) => Number.isNaN(time(job?.completed_at)))) return null;
+    return jobs.reduce((oldest, job) => (time(job.completed_at) < time(oldest.completed_at) ? job : oldest)).completed_at;
+}
+
+/** the age of a pass is its lane jobs' completion, as the jobs API reports it, not its marker's creation */
+function checkAge(ctx, completed, lane, what) {
+    const age = ctx.now - time(completed);
     if (Number.isNaN(age) || age > maxAge(lane) * 3600000) {
-        throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 3600000)} hours old (at most ${maxAge(lane)} for ${lane})`);
+        throw new Refused('evidence_too_old', `${what}: its ${lane} jobs completed ${Math.floor(age / 3600000)} hours ago (at most ${maxAge(lane)})`);
     }
 }
 
@@ -295,9 +328,12 @@ function producerJobs(client, ctx, lane, run) {
 
 /** one pass marker, verified in full; throws Refused */
 function verifyPass(client, ctx, lane, fp, artifact) {
-    checkAge(ctx, artifact, lane);
+    checkExpired(artifact);
     const run = producerRun(client, ctx, artifact);
     const jobs = producerJobs(client, ctx, lane, run);
+    const completed = completedAt(jobs);
+    if (!completed) throw new Refused('marker_invalid', `run ${run.id} lists no completion time for its ${lane} jobs`);
+    checkAge(ctx, completed, lane, `marker ${artifact.id}`);
     let marker;
     try {
         marker = JSON.parse(zipEntry(client.raw(`repos/${ctx.repo}/actions/artifacts/${artifact.id}/zip`), 'evidence.json').toString('utf8'));
@@ -314,6 +350,7 @@ function verifyPass(client, ctx, lane, fp, artifact) {
         marker?.run_id !== run.id && 'run',
         marker?.sha !== run.head_sha && 'commit',
         (!Array.isArray(marker?.jobs) || ids(marker.jobs) !== ids(jobs)) && 'jobs (the run lists others now)',
+        time(marker?.completed_at) !== time(completed) && 'completion time (the jobs API says otherwise)',
     ].filter(Boolean);
     if (problems.length) throw new Refused('marker_invalid', `marker ${artifact.id} disagrees on its ${problems.join(', ')}`);
     ensureCommit(ctx.gitDir, run.head_sha);
@@ -322,7 +359,7 @@ function verifyPass(client, ctx, lane, fp, artifact) {
     }
     return {
         artifact_id: artifact.id, artifact_name: artifact.name, run_id: run.id, run_attempt: marker.run_attempt ?? null,
-        head_sha: run.head_sha, head_branch: run.head_branch ?? null, created_at: artifact.created_at,
+        head_sha: run.head_sha, head_branch: run.head_branch ?? null, created_at: artifact.created_at, completed_at: completed,
         url: run.html_url ?? `https://github.com/${ctx.repo}/actions/runs/${run.id}`,
         jobs: jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt })),
         flaky: Number.isInteger(marker.flaky) ? marker.flaky : null, tests: marker.tests ?? null,
@@ -365,7 +402,9 @@ function requalify(client, ctx, lane, fp, evidence) {
     if (!isObject(evidence)) throw new Refused('marker_invalid', 'the plan holds no evidence');
     const artifact = client.object(`repos/${ctx.repo}/actions/artifacts/${evidence.artifact_id}`);
     if (artifact.name !== evidence.artifact_name) throw new Refused('marker_invalid', `artifact ${evidence.artifact_id} is now ${artifact.name}`);
-    checkAge(ctx, artifact, lane);
+    // age is decided once, by the plan: a 24-hour pass planned at 23 h 55 is not refused ten minutes later. Expiry,
+    // disappearance, a later failure and the producer's jobs are integrity, and are checked again
+    checkExpired(artifact);
     for (const failure of markers(client, ctx.repo, 'fail', lane, fp)) {
         if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, failure)) {
             throw new Refused('later_failure', `run ${failure.workflow_run?.id} failed the lane with these inputs at ${failure.created_at}, after the pass the plan reuses`);
@@ -406,7 +445,7 @@ function fingerprintCommand(opts) {
     const dir = opts['git-dir'] ?? '.';
     const sha = git(dir, ['rev-parse', '--verify', `${opts.sha}^{commit}`]).stdout.toString().trim();
     if (!sha) usage(`no commit ${opts.sha}`);
-    console.log(JSON.stringify({ schema: 1, sha, excluded: EXCLUDED, lanes: fingerprints(dir, sha) }));
+    console.log(JSON.stringify({ schema: 1, sha, excluded: Object.fromEntries(Object.keys(REUSABLE).map((lane) => [lane, excludedFor(lane)])), lanes: fingerprints(dir, sha) }));
 }
 
 function planCommand(opts) {
@@ -566,11 +605,25 @@ function recordCommand(opts) {
             continue;
         }
         const mine = laneJobs(lane, jobs);
+        // a lane whose jobs all ran in an earlier attempt was recorded by that attempt's CI result: never again, or a
+        // re-run would make an old pass look young
+        const attempt = Number(opts['run-attempt']);
+        if (mine.length && mine.every((job) => Number.isInteger(job.run_attempt) && job.run_attempt < attempt)) {
+            console.log(`${lane}: its jobs ran in an earlier attempt, which recorded them`);
+            continue;
+        }
         const count = entry.jobs_expected ?? expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS);
         const passed = mine.length === count && mine.every((job) => job.conclusion === 'success');
-        const failed = (BROWSER_LANES.includes(lane) ? false : failedByNeeds) || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
+        const failed = BROWSER_LANES.includes(lane)
+            ? mine.some(testsFailed)
+            : failedByNeeds || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
         if (!passed && !failed) continue;
         const kind = failed ? 'fail' : 'pass';
+        const completed = completedAt(mine);
+        if (kind === 'pass' && !completed) {
+            console.log(`::warning::${lane}: no pass recorded (its jobs carry no completion time, so its age could not be told)`);
+            continue;
+        }
         const tests = BROWSER_LANES.includes(lane) ? testCounts(opts.shards, lane === 'demo' ? ['chromium'] : ENGINE_BROWSERS) : null;
         const name = markerName(kind, lane, fp);
         try {
@@ -579,7 +632,7 @@ function recordCommand(opts) {
                 schema: 1, kind, lane, fingerprint: fp, repo: plan.repo, sha: plan.sha,
                 run_id: Number(opts['run-id']), run_attempt: Number(opts['run-attempt']),
                 jobs: mine.map(({ id, name: job, conclusion, run_attempt }) => ({ id, name: job, conclusion, run_attempt })),
-                flaky: tests ? tests.flaky : null, tests,
+                completed_at: completed, flaky: tests ? tests.flaky : null, tests,
                 runner: { image_os: process.env.ImageOS ?? null, image_version: process.env.ImageVersion ?? null },
                 recorded_at: new Date(opts.now ? Date.parse(opts.now) : Date.now()).toISOString(),
             }, null, 2)}\n`);
@@ -656,9 +709,14 @@ function verdictCommand(opts) {
     const result = (job) => {
         if (QUICK_CHECKS.includes(job) && needs.quick) {
             const outcome = needs.quick.outputs?.[job];
-            if (outcome) return outcome;
             // no output: the job was skipped, or ended before its summary (cancelled, failed in setup)
-            return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+            if (!outcome) return needs.quick.result === 'skipped' ? 'skipped' : needs.quick.result ?? 'missing';
+            // the job itself must have passed too: a red or cancelled job whose checks all say success left something
+            // unexplained (a setup step, the summary), and no selected check of it passes
+            const outcomes = QUICK_CHECKS.map((name) => needs.quick.outputs?.[name]);
+            const explained = outcomes.some((value) => value && !['success', 'skipped'].includes(value));
+            if (needs.quick.result !== 'success' && !explained && outcome === 'success') return needs.quick.result ?? 'missing';
+            return outcome;
         }
         return needs[job]?.result ?? 'missing';
     };
@@ -724,7 +782,7 @@ function verdictCommand(opts) {
     const engines = plan.lanes?.engines;
     if (plan.event === 'daily' && ['run', 'reuse'].includes(engines?.decision)) {
         const at = String(plan.sha).slice(0, 12);
-        const failedShard = (jobs ?? []).some((job) => laneJobs('engines', [job]).length && ['failure', 'timed_out'].includes(job.conclusion));
+        const failedShard = laneJobs('engines', jobs ?? []).some(testsFailed);
         if (lanes.engines.status === 'fresh' || lanes.engines.status === 'reused') {
             outputs['engines-status'] = 'passed';
             outputs['engines-report'] = lanes.engines.status === 'reused'

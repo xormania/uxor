@@ -321,12 +321,16 @@ jobs:
                   persist-credentials: false
                   fetch-depth: 0 # the README pairing reads the branch's commits since its base, the release dry run main's history and tags
 
+            # the setups have ids so the summary counts them: a check that ran after a failed setup, on the image's own
+            # Node or PHP, is no pass
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              id: setup-node
               with:
                   node-version: 22
                   cache: npm
 
             - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              id: setup-php
               with:
                   php-version: ${{ env.PHP_VERSION }}
                   coverage: none
@@ -506,6 +510,8 @@ jobs:
                   WORKFLOWS: ${{ needs.changes.outputs.workflows }}
               run: |
                   status=0
+                  # a setup that did not succeed leaves every selected check incomplete, whatever its steps said
+                  setup=$(jq -r '[to_entries[] | select(.key | startswith("setup-")) | select(.value.outcome != "success") | .key] | join(", ")' <<< "$STEPS")
                   printf '### Quick checks\n\n| Check | Result | Steps |\n|---|---|---|\n' >> "$GITHUB_STEP_SUMMARY"
                   for lane in tools contrast workflows; do
                       case "$lane" in
@@ -521,7 +527,10 @@ jobs:
                           failed=$(pick 'select(.value.outcome == "failure")')
                           missing=$(pick 'select(.value.outcome != "success" and .value.outcome != "failure")')
                           ran=$(pick 'select(.value.outcome == "success" or .value.outcome == "failure")')
-                          if [ -n "$failed" ]; then
+                          if [ -n "$setup" ]; then
+                              outcome=incomplete; steps="setup: $setup"
+                              echo "::error::$label: the setup did not succeed ($setup), so its checks ran on the image's own tools"
+                          elif [ -n "$failed" ]; then
                               outcome=failure; steps=$failed
                               echo "::error::$label: $failed failed"
                           elif [ -n "$missing" ] || [ -z "$ran" ]; then

@@ -1533,15 +1533,21 @@ re-prove: it downloaded GitHub's archive of another commit with the same tree, w
 download of this commit's archive is not checked again within those 24 hours.
 
 - **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`), but only the path and mode of
-  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, whose content
-  no reusable lane reads (they are export-ignored, the production image does not hold them, and the demo only links
-  them on GitHub): editing one keeps the fingerprint, deleting it or making it a link does not. Any other change,
+  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, for the lanes
+  that never read their content (they are export-ignored, the production image does not hold them, and the demo only
+  links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
+  `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
+  fingerprints, deleting it or making it a link does not. Any other change,
   `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
-  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above.
+  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
+  its lane jobs' completion (the oldest of them, as the jobs API reports it), never from its marker's creation.
 - **Evidence:** CI result records one artifact per lane that ran in its run, reuse on or off:
   `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed in its latest attempt (a shard that passed on
   its retry counts, its flaky count recorded), `ci-fail-v1-<lane>-<fingerprint>` when one failed, nothing when one was
-  cancelled. A later attempt of the run replaces its earlier marker of the same kind, so the newest attempt stands. A
+  cancelled. A browser shard that ended before its tests started (its setup, the wait for the importmap packages)
+  says nothing about them: no marker, and the daily run reports *incomplete*. A later attempt of the run replaces its
+  earlier marker of the same kind, so the newest attempt stands; a lane whose jobs all ran in an earlier attempt is not
+  recorded again, so a re-run never makes an old pass look young. A
   reused lane records nothing, so the evidence always names the run that executed the tests. A failure marker that
   cannot be recorded or uploaded fails *CI result*'s step; a lost pass marker only warns.
 - **Reuse:** the markers for the fingerprint are read newest first. A failure from a push or manual run of `ci.yml`
@@ -1553,8 +1559,10 @@ download of this commit's archive is not checked again within those 24 hours.
   job's log has one line per lane: its decision, the reason and the run it reuses.
 - **Verdict:** *CI result* reports each lane as *fresh*, *reused* (with the producing run, attempt, commit and flaky
   count), *not applicable* or *incomplete*, in its summary with the time and API calls the plan took. It checks each
-  reused lane's evidence again before passing, retrying an API error twice: evidence that disappeared, aged out, a
-  producer whose lane ran again or a failure recorded since the plan fails the run. Re-running failed jobs keeps the
+  reused lane's evidence again before passing, retrying an API error twice: evidence that disappeared or expired, a
+  producer whose lane ran again or a failure recorded since the plan fails the run. Its age is not checked again: the
+  plan decided it, so a 24-hour pass planned at 23 h 55 is not refused ten minutes later. *Quick checks* must have
+  passed as a job, not only report its checks as passed: a failed setup leaves its checks *incomplete*. Re-running failed jobs keeps the
   plan, so only *Re-run all jobs* plans the lanes again. The build cache on `dev` and `main` is written whether the
   browser lane ran or was reused.
 - **Work orders:** a push to a work order's own branch runs like any branch's, its pull request a draft or not. When
