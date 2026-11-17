@@ -1161,7 +1161,7 @@ Here: [`packages/uxor/tests/`](https://github.com/xormania/uxor/tree/0.3.1/packa
 new executable rendering sink, tracked dependency or build output, stale supported-version table, or removal of the
 repository's ownership and agent-safety rules.
 
-`tools/security-policy.mjs` runs in the always-on *Tool tests* job. Its rendering-sink manifest names the exact line
+`tools/security-policy.mjs` runs in the always-on *Tool tests* checks (the *Quick checks* job). Its rendering-sink manifest names the exact line
 shape, expected count and reason for every accepted Twig raw output and DOM HTML write in installed recipe code, plus
 the dynamic demo's trusted preview boundary. A new or moved sink fails until its data flow and reason are reviewed;
 the manifest is an inventory, not a sanitizer. Unit cases plant each class of failure. CODEOWNERS protects the tool,
@@ -1312,8 +1312,36 @@ baselines are Chromium's, rendered in UXor's pinned Playwright image. A new scre
 the other engines compare it with a baseline that is not theirs (`examples-*`) or that does not exist (`smoke-*`), and
 fail.
 
-In CI, *Demo + Playwright* is one job per browser and shard: four shards for Chromium, which also runs the
-screenshots, and three each for Firefox and WebKit, side by side, so the other engines add jobs, not time. `PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
+In CI, *Demo + Playwright* is one job per browser and shard, from one job definition whose matrix the Changes job
+computes: `CHROMIUM_SHARDS` shards for Chromium (8), which also runs the screenshots, and three each for Firefox and
+WebKit. They are two lanes (*Reused lanes*): Chromium's (`demo`) and the engines (`engines`).
+
+**When Firefox and WebKit run (a trial, `ENGINES_ON: daily` in `ci.yml`).** Chromium runs on every push that selects
+the browser tests. Firefox and WebKit run:
+
+- on `dev`'s daily run, when `dev`'s inputs changed since their last pass (no valid engines pass for its fingerprint);
+  a failure opens the `engines` issue, or comments on it, with the short SHAs, count and compare link of the commits
+  since the last engines pass in `dev`'s history (never their subjects), a run that did not complete says so in its own
+  words, and a pass, or a pass on these inputs reused, closes it;
+- on every push to `main`;
+- in a manual run of CI with *engines* checked (with everything else), or *engines_only* (Firefox and WebKit alone), on
+  any branch;
+- for the release pull request: *Release checks*, a required check on `main`, fails unless the head has an engines
+  pass, and when it has none it starts an engines-only run on the pull request's branch (re-run *Release checks* once
+  that run passes).
+
+An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
+push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
+result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
+partial run can never stand in for a red full one on the same commit.
+
+On any other push, a branch's or `dev`'s, they wait: *CI result* reports the lane as *NOT RUN AT THIS STAGE*, which
+fails nothing and is never read as a pass, unless a pass on the same inputs already exists (then *reused*). This
+changes when an engine-specific defect (an event order, a focus rule, a load's failure wording) is first caught: on
+`dev`'s next daily run, on the release pull request or in a manual run, no longer before a branch merges. Setting
+`ENGINES_ON: every-push` (one line in `ci.yml`) runs them on every push again.
+
+`PW_SCREENSHOTS=all` turns the Firefox and WebKit projects around: they run the
 tagged tests only, compared with the Chromium baselines, to report how far the other engines render from them. Any
 difference fails that run, so its exit status is no verdict: run it apart from the behavior tests and report it,
 never gate on it. It never writes a baseline (`updateSnapshots: 'none'`).
@@ -1403,7 +1431,7 @@ Run one browser with its projects: `npx playwright test --project=smoke-firefox 
 **Catches:** a red shard whose failing test is lost in the log, a test that passed only on its retry and went
 unnoticed, a setup failure or a missing report read as "no tests failed".
 
-CI runs the browser tests in four Chromium shards and three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
+CI runs the browser tests in `CHROMIUM_SHARDS` Chromium shards (8) and, when they run, three each for Firefox and WebKit (*Browsers*), split by recorded test time (*Shard balance*), with one retry (`retries: 1` in `playwright.config.ts`). After the tests,
 each shard runs [`tools/ci/playwright-summary.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
@@ -1436,6 +1464,110 @@ The script's exit status says what it found: 0 a report it read (whatever its te
 report, 4 tests not reached. Run it on a local report with `node tools/ci/playwright-summary.mjs` after
 `CI=1 npx playwright test` (CI writes the JSON report); its cases: `node --test tools/tests/*.test.mjs`.
 
+### Reused lanes
+
+**Catches:** a push that changes only the changelog or the contributor docs running the browser tests again on code
+that already passed, and the reverse, a pass carried over to inputs it never tested.
+
+A branch is compared with where it left `dev` (`CONTRIBUTING.md`, *Checks*), so a push that changes only
+`CHANGELOG.md` after green code still selects every lane the code selected. Before running one, the Changes job asks
+[`tools/ci/lane-evidence.mjs`](https://github.com/xormania/uxor/blob/0.3.1/tools/ci/lane-evidence.mjs) whether an earlier run already passed it on the same
+inputs. Seven lanes can be reused: *Kit PHP*, *Demo + Playwright*'s Chromium shards (`demo`, `CHROMIUM_SHARDS` jobs),
+its Firefox and WebKit shards (`engines`, six jobs) and *Production image* for 14 days; both *Fresh install* jobs
+(`fresh-install`), *Lint kit*'s two (`lint-kit`) and *Package* for 24 hours. The browser lanes share one job, so CI
+result tells them apart by its matrix jobs. *Static site* (its pages print the branch and commit), *Contrast* (its
+README pairing reads the branch's history) and *Workflows* (`main` and its tags move) always run when selected, and
+*Tool tests* on every run.
+
+**The 24-hour lanes.** The installs, Lint kit and Package resolve dependencies live: a fresh Symfony skeleton and
+Symfony Docker, the Toolkit and its packages, the consumer's packages from Packagist. Their evidence goes stale with
+time, not with the tree, so a pass counts for a day (`MAX_AGE_HOURS` in the tool, one table). `dev`'s daily run is the
+check of that drift: it never reuses them, and its pass serves the day's pushes. Within a day, a pass on the same tree
+says what a run minutes later would say. One thing a reused *Fresh install (Symfony Docker, from GitHub)* does not
+re-prove: it downloaded GitHub's archive of another commit with the same tree, which holds the same files, so the
+download of this commit's archive is not checked again within those 24 hours.
+
+- **Inputs:** a lane's fingerprint hashes the commit's whole tree (`git ls-tree -r`), but only the path and mode of
+  `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `SECURITY.md` and `.github/pull_request_template.md`, for the lanes
+  that never read their content (they are export-ignored, the production image does not hold them, and the demo only
+  links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
+  `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
+  fingerprints, deleting it or making it a link does not. Any other change,
+  `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
+  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
+  its lane jobs' completion (the oldest job's, as GitHub's job list reports it and as the marker must say), never from
+  its marker's creation.
+- **Evidence:** CI result records one artifact per lane that ran in its run, reuse on or off:
+  `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed in its latest attempt (a shard that passed on
+  its retry counts, its flaky count recorded), `ci-fail-v1-<lane>-<fingerprint>` when one failed, nothing when one was
+  cancelled. A browser shard that failed before its tests started (its setup) is incomplete, not a failure: it records
+  nothing. A later attempt of the run replaces its earlier marker of the same kind, so the newest attempt stands; a
+  lane whose jobs all ran in an earlier attempt is not recorded again, so a re-run cannot make an old pass look young. A
+  reused lane records nothing, so the evidence always names the run that executed the tests. A failure marker that
+  cannot be recorded or uploaded fails *CI result*'s step; a lost pass marker only warns. Without the run's job list,
+  a failed browser job makes the engines' failure marker due as well as Chromium's: which shard failed, and whether its
+  tests had started, cannot be told, so the loss is reported rather than an older pass left to stand.
+- **Reuse:** the markers for the fingerprint are read newest first. A failure from a push or manual run of `ci.yml`
+  in this repository stops the search and runs the lane (one from anywhere else counts for nothing). The first pass
+  that verifies is reused: at most 14 days old, from such a run (any branch: the tree is what was tested), whose jobs
+  of the lane all passed in its latest attempt, the same jobs the marker names (a producer whose lane ran again since
+  falls back to the next pass), and the fingerprint recomputed at that run's commit equal to this commit's. A missing
+  shard, an expired or unreadable marker, an unexpected answer or an API call that fails runs the lane. The plan
+  fetches its lookups for every lane at the same time (at most eight calls at once). The Changes job's log has one line
+  per lane: its decision, the reason and the run it reuses.
+- **Verdict:** *CI result* reports each lane as *fresh*, *reused* (with the producing run, attempt, commit and flaky
+  count), *not applicable* or *incomplete*, in its summary with the time and API calls the plan took. It checks each
+  reused lane's evidence again before passing, retrying an API error twice: evidence that disappeared or expired, a
+  producer whose lane ran again or a failure recorded since the plan fails the run. Age is decided once, by the plan,
+  so a pass planned at the edge of its age is not refused minutes later. Re-running failed jobs keeps the
+  plan, so only *Re-run all jobs* plans the lanes again. The build cache on `dev` and `main` is written whether the
+  browser lane ran or was reused.
+- **The plan's integrity:** *CI result* runs the tool from its own checkout of the run's commit (only `tools/ci`, no
+  credentials kept), never a copy from an artifact, since another job of the run could replace an artifact of a
+  predictable name. It takes only `plan.json` from the Changes job's artifact, downloaded by the artifact id Changes
+  outputs, and checks its SHA-256 against Changes' output before anything reads it. When Changes did not succeed, or
+  the digest differs, there is no record and no verdict, and *CI result* fails.
+- **Work orders:** a push to a work order's own branch runs like any branch's, its pull request a draft or not. When
+  its jobs are stacked, its tree after a job's merge is that job's, so it reuses the job's passes; a merge of jobs made
+  side by side makes a new tree, which runs what it selects (`CONTRIBUTING.md`, *Work orders*).
+- **Off:** `main` always runs every selected lane fresh. The repository variable `CI_REUSE=off`, or a manual run
+  with *reuse* unchecked, turns reuse off everywhere. Both stop only the lookups: the lanes' markers are still
+  recorded, so a failure there still counts.
+
+The Changes job runs the selector as the base branch has it (a branch could otherwise skip its own checks by editing
+it), but this tool as the branch has it: the tool and `ci.yml` are inside every fingerprint, so a branch's own copy
+can only match a pass recorded by that same copy and workflow, and a push already runs the branch's own `ci.yml`. Its
+cases: `node --test tools/tests/lane-evidence.test.mjs`. Its acceptance cases,
+`tools/tests/lane-evidence.acceptance.test.mjs`, are written from the CI performance specification's acceptance
+scenarios, one per row this tool answers for: each drives the real commands through CI runs on a scratch repository
+and a simulated GitHub, the markers being the ones the tool records. A row the tool does not meet yet is a `todo`
+case named FINDING, reported as failing without failing the suite.
+
+### Quick checks
+
+**Catches:** a failing short check hiding the ones after it, and runner admissions spent on three jobs of seconds each.
+
+*Tool tests*, *Contrast* and *Workflows* run as the steps of one job, *Quick checks*: one runner, one checkout (with
+the history Contrast's README pairing and the release dry run read), one Node and one PHP setup. *Tool tests* runs on
+every run; *Contrast* and *Workflows* when `tools/ci-changes.sh` selects them. Every check runs whatever another did
+(`!cancelled()`), and the last step writes each check's outcome to the job's outputs and the summary page: success,
+failure (naming the failed steps), skipped (not selected) or incomplete (a selected step did not run). The job fails
+when a selected check did not pass, and *CI result* reads the outcomes per lane, so a failed Contrast is never reported
+as a failed Workflows. *Static site*, *Lint kit* and *Package* stay jobs of their own: the static site needs the
+importmap packages, and the other two can be reused, which keys on their jobs.
+
+The setups count: a setup that did not succeed leaves every selected check *incomplete*, since the checks then ran on
+the runner image's own Node or PHP. *CI result* requires the job itself to have passed too: a red or cancelled *Quick
+checks* whose outputs all say success (a failed setup, a lost summary) leaves its checks unpassed.
+
+The checks share one workspace, so their order guards what they check. The *Workflows* checks run first, before any
+step runs repository code, and the release dry run comes before the release plan's own cases; then *Tool tests*' file
+checks (security policy, references, inventory, archive, names) before the tools' own cases; then *Contrast*. Each group
+starts with the same guard, `git status --porcelain --untracked-files=no` and `git diff --quiet HEAD`: a tracked file
+that differs from the commit on disk, rewritten by an earlier step's repository code, fails that check, so no check
+validates a restored file while Git keeps another blob for a release to run. The guards take well under a second each;
+a job of its own for *Workflows* would cost a runner admission instead.
+
 ### CI metrics
 
 The demo image's build cache is an image in the repository's GitHub packages, `ghcr.io/<owner>/<repo>-cache`, with
@@ -1457,7 +1589,8 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](https://github.com/xorman
   cache served the build), whether `setup-node` restored the npm cache, and the seconds of `npm ci` and of
   the Playwright image's pull. The Playwright browsers come from that image, pulled on every run: there is no browser
   cache to hit.
-- **CI result**, on every run, after its verdict, reads every shard's `durations.json` and `job-metrics.json` and the
+- **CI metrics**, a job after *CI result* on every run (so the required check never waits for it; it may fail without
+  failing the run, and no ruleset names it), reads every shard's `durations.json` and `job-metrics.json` and the
   run's jobs from GitHub's API (each job's queue time and each step's start and end, to the second), and writes one
   section on the run's *Summary* page and `ci-metrics.json` in the `ci-metrics-<run>-<attempt>` artifact (90 days):
   - per browser, the shard balance: the shards' wall times (max, min, mean), the imbalance ((max − min) / mean), the
@@ -1473,7 +1606,7 @@ exits 0 whatever it reads ([`tools/ci/ci-metrics.mjs`](https://github.com/xorman
 
 What it cannot see: the runner's CPU and memory use (no sampler runs), the time inside a test spent in fixtures or a
 worker's start (Playwright's report does not split it; idle worker time is the bound), the bytes the image cache
-moves, and the *CI result* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
+moves, and the *CI metrics* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
 
 ### Shard balance
@@ -1527,7 +1660,7 @@ verdict, and a slower run only makes the split less even, never incomplete. The 
 416 s (497, 385, 364 and 326 s before), WebKit's at 364, 257 and 364 s (383, 356, 344 s) and Firefox's at 403, 300 and
 375 s (342, 404, 347 s): its fast runners finished early, its slowest shard as slow as before.
 
-**Refreshing the timings.** *CI result* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
+**Refreshing the timings.** *CI metrics* writes `shard-timings.json` into the run's `ci-metrics-<run>-<attempt>`
 artifact: the timings the run planned from, merged with its durations (a browser whose every shard reported replaces
 its times, so a deleted test leaves; a partial one updates what it ran; a failed test keeps its old time). Each run
 plans from the newest of those: CI's *Changes* job reads `shard-timings.json` from the `ci-metrics` artifact of
@@ -1769,6 +1902,19 @@ with `dev`'s copy of the workflow, and its failures show on `dev`, never on `mai
 `release-checks-passed-v2-<sha>` artifact. The daily run accepts only a successful daily run on `dev` of this workflow
 in this repository using the same workflow revision. Other manual runs, pull request runs and older markers cannot
 suppress it; a change to either the target or the workflow requires another real daily pass.
+
+On the release pull request, the verdict also requires a Firefox and WebKit pass on the head (*Browsers*): *What to
+check* asks `tools/ci/lane-evidence.mjs require --lane engines` for a pass marker of CI's engines lane on the head's
+inputs, once the merge is shown to test the head's own tree; the pull request's own copy of the tool and of this
+workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
+checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
+one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
+passes: the verdict looks the evidence up again itself whenever What to check said missing, so *Re-run failed jobs* is
+enough (What to check, not re-run, keeps its old output). When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
+for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
+the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
+checks (manual)*.
 
 On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
 request in this repository merged with the same base, and every path changed since is one the suite never reads:

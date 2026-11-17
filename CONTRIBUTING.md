@@ -34,7 +34,7 @@ shipped interfaces for compatibility, regardless of where their implementation b
 | `tools/icon-lint.mjs` | no | every icon in the recipes' templates and the markdown is a `flowbite:` name written in full (*Docs*) |
 | `tools/ci/playwright-summary.mjs` | no | reads a CI shard's Playwright report: the job summary, annotations, `failed-attempts.json` and `durations.json` ([`docs/TESTING.md`](docs/TESTING.md), *Reading CI results*) |
 | `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `.github/actions/jev-diagnosis/` | no | the advisory Jev diagnosis of each failed attempt in `failed-attempts.json`, and its policy; `junit-attempts.mjs` writes that file from a JUnit report (*Kit PHP*'s PHPUnit, *Tool tests*' Node), `step-attempts.mjs` from a failed step's captured log; the composite action is the one Jev step every job calls, collecting without the key, and `.github/workflows/jev.yml` the one job that diagnoses with it ([`docs/TESTING.md`](docs/TESTING.md), *Jev diagnosis*) |
-| `tools/ci/ci-metrics.mjs` | no | CI's own numbers for later optimizations, report only: each browser shard's build cache and setup times (`job-metrics.json`), and in *CI result* the run's shard balance, setup and test time per shard, slowest tests and files, retried tests and every job's step times (`ci-metrics.json`) ([`docs/TESTING.md`](docs/TESTING.md), *CI metrics*) |
+| `tools/ci/ci-metrics.mjs` | no | CI's own numbers for later optimizations, report only: each browser shard's build cache and setup times (`job-metrics.json`), and in the *CI metrics* job the run's shard balance, setup and test time per shard, slowest tests and files, retried tests and every job's step times (`ci-metrics.json`) ([`docs/TESTING.md`](docs/TESTING.md), *CI metrics*) |
 | `tools/ci/shard-plan.mjs`, `tests/shard-timings.json` | no | splits each browser's CI shards by recorded test time (`--test-list`), checks that the shards hold every test once, falls back to `--shard` without usable timings, and refreshes the timings from a run ([`docs/TESTING.md`](docs/TESTING.md), *Shard balance*) |
 | `tools/ci/release-timings.mjs` | no | the release checks' timings against `tests/perf/baseline.json`, report only, and a new baseline from a run ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
@@ -43,7 +43,7 @@ shipped interfaces for compatibility, regardless of where their implementation b
 | `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | outbound GitHub text names no account or team the allowlist does not: the *Metadata* workflow on every pull request, the hook before each commit (*Commits and pull requests*) |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
-| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s check and release jobs, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
+| `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/lane-evidence.mjs`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s check and release jobs, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
@@ -146,27 +146,32 @@ freshly resolved dependency versions run alone (both *Fresh install* jobs and *P
 default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
 job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
 release. The rulesets require the one
-*CI result* check, which passes when every job passed or was skipped, and `dev`'s requires a branch to be up to date
+*CI result* check, which passes when each lane passed, reused an earlier pass on the same inputs or was skipped (`docs/TESTING.md`, *Reused lanes*; the daily run and an engines-only run report as *CI result (daily)* and *CI result (engines only)*, never as the required check), and `dev`'s requires a branch to be up to date
 with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
-queue; a work order's jobs need not be up to date with it, *Work orders* below). CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
+queue; a work order's jobs need not be up to date with it, *Work orders* below). When *CI result* fails because a lane's reused pass no longer qualifies (its evidence expired or disappeared, its producer ran the lane again, or a failure on the same inputs was recorded since), use *Re-run all jobs*: it plans the lanes again and runs the lane; *Re-run failed jobs* keeps the first plan and fails the same way. CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
 script does not know yet runs. A path no row below names counts as part of the kit until `tools/ci-changes.sh` and its
 test (`tools/tests/ci-changes.sh`) say otherwise. A deleted file counts as a change to its path, a renamed one as a
 change to both paths.
+
+*Tool tests*, *Contrast* and *Workflows* below are checks, run as the steps of one job, *Quick checks*: Tool tests on
+every run, the other two when selected, each whatever another did. *Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
+`main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
+(`docs/TESTING.md`, *Browsers*).
 
 | A change to | runs |
 |---|---|
 | `.github/dependabot.yml` | nothing |
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them; *Production image*, which holds them |
-| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md` also *Production image* (the gallery's `/guide`) |
+| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md`, the gallery's `/guide`, also *Kit PHP* (its page tests), *Static site* (it exports the page), *Demo + Playwright* (the browser tests load it) and *Production image* |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
-| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) |
+| any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) but *Kit PHP*, which renders only a recipe's |
 | a recipe's `templates/`, `assets/`, `src/`, `config/` (Contrast pairs its code with its `README.md`; the production image holds them and renders them without the development packages) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | any other file of a recipe but `tests/` (one the production image does not hold) | the jobs of `kit.js` (above) and *Contrast* |
 | `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
-| a recipe's `README.md` (the toolkit's lint checks its headings, the static site, the browser tests and the production image render its examples, the references copy it) | *Lint kit*, *Static site*, *Demo + Playwright*, *Contrast*, *Package*, *Production image* |
+| a recipe's `README.md` (the toolkit's lint checks its headings, the gallery's page tests render it, the static site, the browser tests and the production image render its examples, the references copy it) | *Lint kit*, *Kit PHP*, *Static site*, *Demo + Playwright*, *Contrast*, *Package*, *Production image* |
 | `README.md` (no install, lint, PHP test or page reads it) | *Contrast*, *Package* |
-| `INSTALL.md` (the gallery's install guide, `/install`) | *Contrast*, *Package*, *Production image* |
+| `INSTALL.md` (the gallery's install guide, `/install`: its page tests, its static export, the browser tests that load it) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
 | `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
@@ -176,12 +181,12 @@ change to both paths.
 | `tests/e2e/leak-detector.mjs` (a release spec's; its cases run in *Tool tests*) | nothing else |
 | any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/playwright-image.mjs`, `tools/playwright-image.json`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
 | `tools/ci/junit-attempts.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/step-attempts.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/release-*.mjs` | nothing else: they run in advisory steps, in `jev.yml` or in the release checks only, so their cases (*Tool tests*) check them |
-| any other file in `tools/ci/` (the browser job's results summary and its provenance, the shard plan; *CI result*, on every run, also runs the shard timings) | *Demo + Playwright* |
+| any other file in `tools/ci/` (the browser job's results summary and its provenance, the shard plan; *CI metrics*, on every run, also runs the shard timings) | *Demo + Playwright* |
 | `tools/tests/*.test.mjs`, `tools/tests/fixtures/playwright-results/`, `tools/tests/fixtures/junit/`, `tools/tests/fixtures/ci-metrics/`, `tools/monthly/` (every tool's cases, and the monthly report tools) | nothing else: *Tool tests* runs all the tools' cases on every run, in seconds, with no install |
 | `package.json`, `package-lock.json` | *Contrast*, *Demo + Playwright* |
 | any other markdown file outside `demo/` | *Contrast* (`tools/docs-lint.mjs`, `tools/icon-lint.mjs`), and the jobs its path runs |
 | `tools/contrast/`, `tools/llms-txt.mjs`, `tools/docs-lint.mjs`, `tools/test-inventory.mjs` | *Contrast* |
-| `llms.txt` (the gallery serves it) | *Contrast*, *Production image* |
+| `llms.txt` (the gallery serves it at `/llms.txt`: *Kit PHP*'s site tests read it, the static site saves it) | *Kit PHP*, *Static site*, *Contrast*, *Production image* |
 | `tools/icon-lint.mjs` | *Contrast* |
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | *Contrast* |
 | `tools/fence-coverage.mjs` | *Contrast*, *Static site* |
@@ -210,7 +215,7 @@ change to both paths.
 | `.github/workflows/jev.yml`, `.github/workflows/metadata.yml` | *Workflows*; they run on their own events |
 | `.github/CODEOWNERS`, `.github/mention-allowlist` | nothing else: *Tool tests* reads them (the security policy, the mention check's cases) |
 | `.github/actions/jev-diagnosis/` | *Workflows* (actionlint checks every call's inputs); a passing job never runs the Jev step |
-| `.github/workflows/ci.yml`, `tools/ci-changes.sh`, `tools/tests/ci-changes.sh`, any other file in `.github/` (a new or renamed workflow) | everything |
+| `.github/workflows/ci.yml`, `tools/ci-changes.sh`, `tools/tests/ci-changes.sh`, `tools/ci/lane-evidence.mjs` (what runs, what is reused, what passes), any other file in `.github/` (a new or renamed workflow) | everything |
 
 *Lint kit* lints the kit as users download it: a copy of `git archive`'s export with only `packages/` removed. The
 toolkit's lint fails every root directory without a `manifest.json`, and `packages/` holds the Composer package, not a
@@ -496,7 +501,7 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 ## Docs
 
 The lists of recipes that agents read are written from `docs/RECIPES.md`'s recipe tables by `tools/llms-txt.mjs`: edit a
-row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* job runs
+row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* checks (in *Quick checks*) run
 it with `--check`, which fails when:
 
 - a directory with a `manifest.json` is missing from the tables, listed twice, or a row names no recipe;
@@ -590,7 +595,7 @@ that adds a plan's last recipe marks the plan `shipped`. `llms.txt` never links 
 `tools/tests/docker-install.sh`'s default repository, and `release.yml`'s tag message; the gallery's base path is the
 repository's name (`ci.yml`, `pages.yml`). The markdown keeps literal URLs, because GitHub renders it as written. To
 rename: change `manifest.json`, add the old `owner/repo` to `tools/kit-former-names.json`, rename the repository on
-GitHub, run `node tools/llms-txt.mjs`, then `node tools/name-check.mjs` (CI's *Tool tests* job runs it), which lists
+GitHub, run `node tools/llms-txt.mjs`, then `node tools/name-check.mjs` (CI's *Tool tests*, in *Quick checks*, runs it), which lists
 every URL of a former repository (`github.com/<owner>/<repo>`, its raw files, `<owner>.github.io/<repo>`) in any
 file, and the homepage's repository written in another case; the owner's other repositories pass;
 `CHANGELOG.md`'s released sections are history and are left as written. The display name in prose (`UXor is…`) and
@@ -640,12 +645,16 @@ since the last release, and a full 40-character commit SHA takes one commit (a b
 - **Bringing `dev` in:** the work order takes no direct push (a new commit has no checks yet), so `dev` comes in
   through a job, `claude/wo-<name>--sync`, that merges it; once just before the final pull request, and earlier
   when a job needs something `dev` gained.
-- **CI on the work order:** while its pull request into `dev` is a draft or not open, a push to `claude/wo-<name>` (a
-  job's merge) runs only *Changes* and *Tool tests*, and *CI result* fails with "work order draft: CI ran no tests":
-  each job already ran CI on its own branch. Once the pull request is ready, re-run the work order's latest CI run
-  (*Re-run all jobs*); that run checks everything, and its push event is what the rulesets count.
+- **CI on the work order:** a push to `claude/wo-<name>` (a job's merge) runs CI like any branch's, whether its pull
+  request into `dev` is a draft, ready or not open yet; nothing has to be re-run by hand. It is cheap when the jobs
+  are stacked (each made from the work order after the previous one merged, and merged in order): the work order's tree
+  after a merge is the job's own, so every reusable lane reuses the job's passes (`docs/TESTING.md`, *Reused lanes*),
+  and only the short checks that always run (*Quick checks*, *Static site*) and *CI result* run again. When jobs made
+  side by side merge one after another, each merge after the first makes a tree no job tested, and its CI runs every
+  lane that tree selects, about the cost of a job's own full run; that is the price of seeing at each merge, not at the
+  end, whether the parts work together. Firefox and WebKit wait for `dev`'s daily run, as on any branch.
 - **Finishing:** the work order's pull request into `dev` is marked ready when every job has merged, `dev` included;
-  its CI is then re-run and must pass on that commit, and its description checks each completion criterion against
+  the CI of its last push must pass on that commit, and its description checks each completion criterion against
   it. It merges like any pull request into `dev`. Each job ends merged, superseded (naming its successor) or abandoned
   (saying why); its branch is deleted once its work is in the work order or recorded as dropped.
 

@@ -24,14 +24,17 @@ on() { for job in "$@"; do run[$job]=true; done; }
 while IFS= read -r path; do
     [ -n "$path" ] || continue
     case "$path" in
-        # The workflow and this script decide what runs: a change to either runs everything
-        .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh) all ;;
+        # The workflow, this script and the lanes' plan and verdict (tools/ci/lane-evidence.mjs: what runs, what is
+        # reused, what passes) decide what runs: a change to any of them runs everything
+        .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh | tools/ci/lane-evidence.mjs) all ;;
 
         # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
         # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
         # Package checks the copies are up to date (generate-reference.php --check)
-        # docs/GUIDE.md is also a page of the gallery, which the production image serves from its own copy (/guide)
-        docs/GUIDE.md) on contrast package prod-image ;;
+        # docs/GUIDE.md is also a page of the gallery (/guide, /guide.md: demo/src/Kit/GuideDocs.php): Kit PHP's tests
+        # render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production image
+        # serves its own copy
+        docs/GUIDE.md) on php static-site demo contrast package prod-image ;;
         docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
@@ -87,8 +90,9 @@ while IFS= read -r path; do
 
         # Repository tools, each with the jobs that run it
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
-        # llms.txt is also served by the gallery (/llms.txt), from the production image's copy
-        llms.txt) on contrast prod-image ;;
+        # llms.txt is also served by the gallery (/llms.txt): Kit PHP's SiteMetadataTest reads it, the static site saves
+        # it, and the production image serves its own copy
+        llms.txt) on php static-site contrast prod-image ;;
         # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the
         # demo reads manifest.json itself
         tools/kit-identity.mjs) on contrast ;;
@@ -151,11 +155,13 @@ while IFS= read -r path; do
         */tests/*.spec.ts) on contrast demo ;;
         */tests/*) on demo ;;
 
-        # The kit's README.md and INSTALL.md are read by people and agents, by Contrast (what the markdown teaches) and
-        # by the package's references (Package); no install, lint, PHP test or page reads them
+        # The kit's README.md is read by people and agents, by Contrast (what the markdown teaches) and by the package's
+        # references (Package); no install, lint, PHP test or page reads it
         README.md) on contrast package ;;
-        # INSTALL.md is also the gallery's install guide (/install), from the production image's copy
-        INSTALL.md) on contrast package prod-image ;;
+        # INSTALL.md is also the gallery's install guide (/install, /install.md: demo/src/Kit/GuideDocs.php): Kit PHP's
+        # tests render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production
+        # image serves its own copy
+        INSTALL.md) on php static-site demo contrast package prod-image ;;
 
         # Anything else is part of the kit (recipes, kit.css, kit.js, manifest.json, .gitattributes...).
         # Contrast checks the theme's roles, what the markdown teaches and the palette colors of the recipes' templates
@@ -163,11 +169,13 @@ while IFS= read -r path; do
         # recipe: tools/readme-pairing.mjs pairs its code with its README, tools/readme-versions.mjs its README with its
         # manifest) and the root files below
         *)
-            # A recipe's README.md (one level down): the toolkit's lint checks its headings, the static site and the
-            # browser tests' examples render its examples, Contrast reads it (above) and the references copy it
-            # (Package); Kit PHP and the installs never read it
+            # A recipe's README.md (one level down): the toolkit's lint checks its headings, the gallery's page renders
+            # it (Kit PHP: RecipeDocsTest, RecipePageTest, for a directory with a manifest.json), the static site and
+            # the browser tests' examples render its examples, Contrast reads it (above) and the references copy it
+            # (Package); the installs never read it
             if [[ $path =~ ^[^/]+/README\.md$ ]]; then
                 on lint-kit static-site demo contrast package
+                [ -f "${path%%/*}/manifest.json" ] && on php
                 # the image holds a recipe's README (the gallery renders it), and a README elsewhere is in a new
                 # directory: the image's lane either way, as below
                 [[ $path == packages/* ]] || on prod-image
