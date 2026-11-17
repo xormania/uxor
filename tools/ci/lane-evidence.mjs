@@ -27,9 +27,10 @@
  * Common: --gh <command> (gh), --git-dir <dir> (.), --now <ISO time> (the clock), --budget-ms <n> (60000),
  * --retry-delay-ms <n> (1000: the verdict retries a failed API call twice, after it and twice it).
  *
- * Self-contained (Node's own modules only): CI result runs the copy the Changes job ran.
+ * Self-contained (Node's own modules only). CI result runs the copy at the run's commit, from its own checkout, and takes
+ * only the plan from the Changes job's artifact, by its id and SHA-256.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -138,6 +139,8 @@ function sleep(ms) {
 function api(ctx) {
     return {
         raw(path) {
+            // answered already by the plan's concurrent prefetch
+            if (ctx.cache?.has(path)) return ctx.cache.get(path);
             for (let attempt = 0; ; attempt++) {
                 if (Date.now() > ctx.deadline) throw new Refused('lookup_error', 'the lookup ran out of time');
                 ctx.calls++;
@@ -162,6 +165,56 @@ function api(ctx) {
             return value;
         },
     };
+}
+
+/** one `gh api` call without blocking: its answer, or null on any error (the synchronous call then fails as usual) */
+function ghAsync(ctx, path) {
+    return new Promise((resolve) => {
+        const child = spawn(ctx.gh, ['api', path], { stdio: ['ignore', 'pipe', 'ignore'] });
+        const chunks = [];
+        const timer = setTimeout(() => child.kill(), 20000);
+        child.stdout.on('data', (chunk) => chunks.push(chunk));
+        child.on('error', () => { clearTimeout(timer); resolve(null); });
+        child.on('close', (code) => { clearTimeout(timer); resolve(code === 0 ? Buffer.concat(chunks) : null); });
+    });
+}
+
+/** fetches these paths at the same time, at most eight at once, into the cache the synchronous checks read */
+async function prefetch(ctx, paths) {
+    const todo = [...new Set(paths)].filter((path) => !ctx.cache.has(path));
+    for (let i = 0; i < todo.length; i += 8) {
+        const answers = await Promise.all(todo.slice(i, i + 8).map(async (path) => {
+            ctx.calls++;
+            return [path, await ghAsync(ctx, path)];
+        }));
+        for (const [path, answer] of answers) if (answer) ctx.cache.set(path, answer);
+    }
+}
+
+/**
+ * The plan's lookups, ahead of its checks: every lane's pass and failure listings at once, then, for each lane's newest
+ * pass, its ZIP, its run and the run's jobs at once (a run shared by lanes is fetched once). Only answers are cached:
+ * what failed here is asked again, and fails, in the checks, which decide exactly as without this.
+ */
+async function prefetchLookups(ctx, lanes) {
+    const listing = (kind, lane, fp) => `repos/${ctx.repo}/actions/artifacts?name=${markerName(kind, lane, fp)}&per_page=100`;
+    await prefetch(ctx, lanes.flatMap(({ lane, fp }) => [listing('pass', lane, fp), listing('fail', lane, fp)]));
+    const next = [];
+    for (const { lane, fp } of lanes) {
+        let artifacts;
+        try {
+            artifacts = JSON.parse(ctx.cache.get(listing('pass', lane, fp))?.toString('utf8') ?? 'null')?.artifacts;
+        } catch {
+            continue;
+        }
+        if (!Array.isArray(artifacts)) continue;
+        const newest = artifacts.filter((a) => isObject(a) && Number.isInteger(a.id) && Number.isInteger(a.workflow_run?.id))
+            .sort((a, b) => time(b.created_at) - time(a.created_at))[0];
+        if (!newest) continue;
+        next.push(`repos/${ctx.repo}/actions/artifacts/${newest.id}/zip`, `repos/${ctx.repo}/actions/runs/${newest.workflow_run.id}`,
+            `repos/${ctx.repo}/actions/runs/${newest.workflow_run.id}/jobs?filter=latest&per_page=100`);
+    }
+    await prefetch(ctx, next);
 }
 
 /** the one file of a small artifact ZIP, without extracting anything */
@@ -214,6 +267,18 @@ function chromiumShards(value) {
     return shards;
 }
 
+/**
+ * A browser job that failed before its tests started (its setup: the image, the demo, the browsers) says nothing about
+ * the tests: incomplete, not failed. Without the job's steps, it counts as failed.
+ */
+const TESTS_STEP = 'Playwright (';
+export function testsFailed(job) {
+    if (!['failure', 'timed_out'].includes(job.conclusion)) return false;
+    if (!Array.isArray(job.steps)) return true;
+    const tests = job.steps.find((step) => isObject(step) && String(step.name).startsWith(TESTS_STEP));
+    return Boolean(tests) && ['success', 'failure', 'timed_out'].includes(tests.conclusion);
+}
+
 const markerName = (kind, lane, fp) => `ci-${kind}-v1-${lane}-${fp}`;
 const time = (value) => Date.parse(value ?? '');
 const ids = (list) => list.map((job) => job?.id).sort((a, b) => a - b).join(',');
@@ -234,11 +299,21 @@ function candidates(client, ctx, lane, fp) {
         .sort((a, b) => time(b.created_at) - time(a.created_at) || (a.kind === 'fail' ? -1 : 1));
 }
 
-function checkAge(ctx, artifact) {
+function checkExpired(artifact) {
     if (artifact.expired) throw new Refused('evidence_expired', `marker ${artifact.id} has expired`);
-    const age = ctx.now - time(artifact.created_at);
+}
+
+/** when the lane's evidence was made: its oldest job's completion (a re-run's marker is no younger than its jobs) */
+export function completedAt(jobs) {
+    if (!jobs.length || jobs.some((job) => Number.isNaN(time(job?.completed_at)))) return null;
+    return jobs.reduce((oldest, job) => (time(job.completed_at) < time(oldest.completed_at) ? job : oldest)).completed_at;
+}
+
+/** the age of a pass is its lane jobs' completion, as the jobs API reports it, not its marker's creation */
+function checkAge(ctx, completed, lane, what) {
+    const age = ctx.now - time(completed);
     if (Number.isNaN(age) || age > MAX_AGE_DAYS * 86400000) {
-        throw new Refused('evidence_too_old', `marker ${artifact.id} is ${Math.floor(age / 86400000)} days old (at most ${MAX_AGE_DAYS})`);
+        throw new Refused('evidence_too_old', `${what}: its ${lane} jobs completed ${Math.floor(age / 86400000)} days ago (at most ${MAX_AGE_DAYS})`);
     }
 }
 
@@ -280,9 +355,12 @@ function producerJobs(client, ctx, lane, run) {
 
 /** one pass marker, verified in full; throws Refused */
 function verifyPass(client, ctx, lane, fp, artifact) {
-    checkAge(ctx, artifact);
+    checkExpired(artifact);
     const run = producerRun(client, ctx, artifact);
     const jobs = producerJobs(client, ctx, lane, run);
+    const completed = completedAt(jobs);
+    if (!completed) throw new Refused('marker_invalid', `run ${run.id} lists no completion time for its ${lane} jobs`);
+    checkAge(ctx, completed, lane, `marker ${artifact.id}`);
     let marker;
     try {
         marker = JSON.parse(zipEntry(client.raw(`repos/${ctx.repo}/actions/artifacts/${artifact.id}/zip`), 'evidence.json').toString('utf8'));
@@ -299,6 +377,7 @@ function verifyPass(client, ctx, lane, fp, artifact) {
         marker?.run_id !== run.id && 'run',
         marker?.sha !== run.head_sha && 'commit',
         (!Array.isArray(marker?.jobs) || ids(marker.jobs) !== ids(jobs)) && 'jobs (the run lists others now)',
+        time(marker?.completed_at) !== time(completed) && 'completion time (the jobs API says otherwise)',
     ].filter(Boolean);
     if (problems.length) throw new Refused('marker_invalid', `marker ${artifact.id} disagrees on its ${problems.join(', ')}`);
     ensureCommit(ctx.gitDir, run.head_sha);
@@ -307,7 +386,7 @@ function verifyPass(client, ctx, lane, fp, artifact) {
     }
     return {
         artifact_id: artifact.id, artifact_name: artifact.name, run_id: run.id, run_attempt: marker.run_attempt ?? null,
-        head_sha: run.head_sha, head_branch: run.head_branch ?? null, created_at: artifact.created_at,
+        head_sha: run.head_sha, head_branch: run.head_branch ?? null, created_at: artifact.created_at, completed_at: completed,
         url: run.html_url ?? `https://github.com/${ctx.repo}/actions/runs/${run.id}`,
         jobs: jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt })),
         flaky: Number.isInteger(marker.flaky) ? marker.flaky : null, tests: marker.tests ?? null,
@@ -350,7 +429,9 @@ function requalify(client, ctx, lane, fp, evidence) {
     if (!isObject(evidence)) throw new Refused('marker_invalid', 'the plan holds no evidence');
     const artifact = client.object(`repos/${ctx.repo}/actions/artifacts/${evidence.artifact_id}`);
     if (artifact.name !== evidence.artifact_name) throw new Refused('marker_invalid', `artifact ${evidence.artifact_id} is now ${artifact.name}`);
-    checkAge(ctx, artifact);
+    // age is decided once, by the plan: a pass planned at the edge of its age is not refused minutes later. Expiry,
+    // disappearance, a later failure and the producer's jobs are integrity, and are checked again
+    checkExpired(artifact);
     for (const failure of markers(client, ctx.repo, 'fail', lane, fp)) {
         if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, failure)) {
             throw new Refused('later_failure', `run ${failure.workflow_run?.id} failed the lane with these inputs at ${failure.created_at}, after the pass the plan reuses`);
@@ -366,7 +447,7 @@ function context(opts, retries) {
     const now = opts.now ? Date.parse(opts.now) : Date.now();
     if (Number.isNaN(now)) usage('--now is not a time');
     return {
-        repo: opts.repo, gh: opts.gh ?? 'gh', gitDir: opts['git-dir'] ?? '.', now, calls: 0, runs: new Map(), jobs: new Map(),
+        repo: opts.repo, gh: opts.gh ?? 'gh', gitDir: opts['git-dir'] ?? '.', now, calls: 0, runs: new Map(), jobs: new Map(), cache: new Map(),
         deadline: Date.now() + Number(opts['budget-ms'] ?? 60000), retries, retryDelay: Number(opts['retry-delay-ms'] ?? 1000),
         chromiumShards: chromiumShards(opts['chromium-shards']),
     };
@@ -394,7 +475,7 @@ function fingerprintCommand(opts) {
     console.log(JSON.stringify({ schema: 1, sha, excluded: EXCLUDED, lanes: fingerprints(dir, sha) }));
 }
 
-function planCommand(opts) {
+async function planCommand(opts) {
     need(opts, 'repo', 'sha', 'selection', 'out');
     const started = Date.now();
     const ctx = context(opts, 0);
@@ -419,6 +500,10 @@ function planCommand(opts) {
         own = fingerprints(ctx.gitDir, opts.sha);
     } catch (error) {
         ownError = refusal(error);
+    }
+    // the lanes that will look evidence up, all fetched at once before the checks below
+    if (!reuseOff && own) {
+        await prefetchLookups(ctx, LANES.filter((lane) => REUSABLE[lane] && (selected[lane] ?? true)).map((lane) => ({ lane, fp: own[lane] })));
     }
     const lanes = {};
     for (const lane of LANES) {
@@ -548,11 +633,26 @@ function recordCommand(opts) {
             continue;
         }
         const mine = laneJobs(lane, jobs);
+        // a lane whose jobs all ran in an earlier attempt was recorded by that attempt's CI result: never again, or a
+        // re-run would make an old pass look young
+        const attempt = Number(opts['run-attempt']);
+        if (mine.length && mine.every((job) => Number.isInteger(job.run_attempt) && job.run_attempt < attempt)) {
+            console.log(`${lane}: its jobs ran in an earlier attempt, which recorded them`);
+            continue;
+        }
         const count = entry.jobs_expected ?? expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS);
         const passed = mine.length === count && mine.every((job) => job.conclusion === 'success');
-        const failed = (BROWSER_LANES.includes(lane) ? false : failedByNeeds) || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
+        // a browser shard that failed before its tests is incomplete, not a failure of these inputs
+        const failed = BROWSER_LANES.includes(lane)
+            ? mine.some(testsFailed)
+            : failedByNeeds || mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
         if (!passed && !failed) continue;
         const kind = failed ? 'fail' : 'pass';
+        const completed = completedAt(mine);
+        if (kind === 'pass' && !completed) {
+            console.log(`::warning::${lane}: no pass recorded (its jobs carry no completion time, so its age could not be told)`);
+            continue;
+        }
         const tests = BROWSER_LANES.includes(lane) ? testCounts(opts.shards, lane === 'demo' ? ['chromium'] : ENGINE_BROWSERS) : null;
         const name = markerName(kind, lane, fp);
         try {
@@ -561,7 +661,7 @@ function recordCommand(opts) {
                 schema: 1, kind, lane, fingerprint: fp, repo: plan.repo, sha: plan.sha,
                 run_id: Number(opts['run-id']), run_attempt: Number(opts['run-attempt']),
                 jobs: mine.map(({ id, name: job, conclusion, run_attempt }) => ({ id, name: job, conclusion, run_attempt })),
-                flaky: tests ? tests.flaky : null, tests,
+                completed_at: completed, flaky: tests ? tests.flaky : null, tests,
                 runner: { image_os: process.env.ImageOS ?? null, image_version: process.env.ImageVersion ?? null },
                 recorded_at: new Date(opts.now ? Date.parse(opts.now) : Date.now()).toISOString(),
             }, null, 2)}\n`);
@@ -741,5 +841,5 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     const opts = options(process.argv.slice(2));
     const commands = { fingerprint: fingerprintCommand, plan: planCommand, record: recordCommand, verdict: verdictCommand, require: requireCommand };
     if (!commands[opts.command]) usage('the command is fingerprint, plan, record, verdict or require');
-    commands[opts.command](opts);
+    await commands[opts.command](opts);
 }

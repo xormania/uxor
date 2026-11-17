@@ -48,6 +48,12 @@ function scratch(t) {
 const fs = require('node:fs');
 const path = process.argv[3];
 fs.appendFileSync(process.env.FAKE_GH_LOG, path + '\\n');
+// FAKE_GH_DELAY_MS: each answer takes that long, its start and end logged to FAKE_GH_TIMES (to see calls overlap)
+if (process.env.FAKE_GH_DELAY_MS) {
+    const start = Date.now();
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Number(process.env.FAKE_GH_DELAY_MS));
+    fs.appendFileSync(process.env.FAKE_GH_TIMES, start + ' ' + Date.now() + ' ' + path + '\\n');
+}
 const routes = JSON.parse(fs.readFileSync(process.env.FAKE_GH_ROUTES, 'utf8'));
 const route = routes[path] ?? (path.includes('/actions/artifacts?name=') ? { json: { total_count: 0, artifacts: [] } } : undefined);
 if (!route) { process.stderr.write('gh: Not Found (HTTP 404)\\n'); process.exit(1); }
@@ -70,13 +76,13 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : route.text !== u
     return { dir, repo, bin, git, commit, head: () => git('rev-parse', 'HEAD') };
 }
 
-function run(fx, args, routes = {}, { gitDir = fx.repo } = {}) {
+function run(fx, args, routes = {}, { gitDir = fx.repo, env = {} } = {}) {
     const routesFile = join(fx.dir, 'routes.json');
     const log = join(fx.dir, `gh-${Math.random().toString(36).slice(2)}.log`);
     writeFileSync(routesFile, JSON.stringify(routes));
     writeFileSync(log, '');
     const result = spawnSync(process.execPath, [tool, ...args, '--git-dir', gitDir, '--gh', join(fx.bin, 'gh'), '--now', NOW, '--retry-delay-ms', '1'], {
-        encoding: 'utf8', env: { PATH: process.env.PATH, FAKE_GH_ROUTES: routesFile, FAKE_GH_LOG: log },
+        encoding: 'utf8', env: { PATH: process.env.PATH, FAKE_GH_ROUTES: routesFile, FAKE_GH_LOG: log, ...env },
     });
     return { ...result, calls: readFileSync(log, 'utf8').split('\n').filter(Boolean) };
 }
@@ -116,9 +122,9 @@ const selection = (fx, lanes) => {
 // the browser job's matrix: CHROMIUM_SHARDS (6) Chromium shards are the demo lane, three each of Firefox and WebKit the
 // engines lane
 const demoJobs = (base = 500, attempt = 1, shards = 6) => Array.from({ length: shards }, (_, i) => `chromium ${i + 1}/${shards}`)
-    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt }));
+    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
 const engineJobs = (base = 700, attempt = 1) => [...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
-    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt }));
+    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
 const DEMO_JOBS = demoJobs();
 const SKIPPED_DEMO = { id: 499, name: 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
 const brief = (jobs) => jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt }));
@@ -127,9 +133,13 @@ const brief = (jobs) => jobs.map(({ id, name, conclusion, run_attempt }) => ({ i
  * One marker artifact and the producer run behind it, as API routes: the artifact, its ZIP, its run and the run's
  * latest jobs. `evidence`, `run`, `artifact` and `jobs` override the defaults; `latestJobs` is what the run lists now.
  */
-function marker(fx, { lane = 'demo', fp, sha, kind = 'pass', runId = 71, artifactId = 9001, attempt = 1, jobs = DEMO_JOBS, latestJobs, created = '2026-11-15T12:00:00Z', evidence = {}, run = {}, artifact = {}, zipBytes, deflate = false } = {}) {
+function marker(fx, { lane = 'demo', fp, sha, kind = 'pass', runId = 71, artifactId = 9001, attempt = 1, jobs: given = DEMO_JOBS, latestJobs: givenLatest, created = '2026-11-15T12:00:00Z', completedAt, evidence = {}, run = {}, artifact = {}, zipBytes, deflate = false } = {}) {
     const name = `ci-${kind}-v1-${lane}-${fp}`;
-    const content = { schema: 1, kind, lane, fingerprint: fp, repo: REPO, sha, run_id: runId, run_attempt: attempt, jobs: brief(jobs), flaky: 2, tests: { passed: 600, failed: 0, flaky: 2, skipped: 3 }, runner: { image_os: 'ubuntu24', image_version: '20261110.1' }, recorded_at: created, ...evidence };
+    // the lane's jobs completed when the test says, else when the marker was made
+    const stamp = (list) => list.map((job) => ({ ...job, completed_at: completedAt ?? created }));
+    const jobs = stamp(given);
+    const latestJobs = givenLatest && stamp(givenLatest);
+    const content = { schema: 1, kind, lane, fingerprint: fp, repo: REPO, sha, run_id: runId, run_attempt: attempt, jobs: brief(jobs), completed_at: completedAt ?? created, flaky: 2, tests: { passed: 600, failed: 0, flaky: 2, skipped: 3 }, runner: { image_os: 'ubuntu24', image_version: '20261110.1' }, recorded_at: created, ...evidence };
     const zipFile = join(fx.dir, `${name}-${artifactId}.zip`);
     writeFileSync(zipFile, zipBytes ?? zip('evidence.json', JSON.stringify(content), { deflate }));
     const a = { id: artifactId, name, expired: false, created_at: created, workflow_run: { id: runId, repository_id: 10, head_repository_id: 10, head_sha: sha, head_branch: 'feature' }, ...artifact };
@@ -326,7 +336,7 @@ test('a failure marker counts only from a verified producer, newest first across
     // one run's attempts: upload-artifact's overwrite keeps the newest attempt's marker of each kind
     // pass (1), fail (2), pass (3): the pass of attempt 3 is newest
     const pfp = [marker(fx, { sha, fp, runId: 73, artifactId: 9103, attempt: 3, created: '2026-11-15T15:00:00Z', jobs: demoJobs(600, 3) }),
-        marker(fx, { sha, fp, kind: 'fail', runId: 73, artifactId: 9102, attempt: 2, created: '2026-11-15T14:00:00Z', jobs: demoJobs(550, 2), latestJobs: demoJobs(600, 3) })];
+        marker(fx, { sha, fp, kind: 'fail', runId: 73, artifactId: 9102, attempt: 2, created: '2026-11-15T14:00:00Z', completedAt: '2026-11-15T15:00:00Z', jobs: demoJobs(550, 2), latestJobs: demoJobs(600, 3) })];
     assert.equal(plan(fx, routesFor('demo', fp, pfp)).outputs.demo, 'reuse', 'pass, fail, pass: reused');
     // fail (1), pass (2), fail (3): the failure of attempt 3 is newest
     const fpf = [marker(fx, { sha, fp, kind: 'fail', runId: 74, artifactId: 9203, attempt: 3, created: '2026-11-15T15:00:00Z', jobs: demoJobs(700, 3) }),
@@ -478,7 +488,7 @@ test('Release checks can require an engines pass for a commit: the require comma
 
 // record -------------------------------------------------------------------------------------------------------------------
 
-function recorded(fx, planLanes, jobs, { needs, reuse = true } = {}) {
+function recorded(fx, planLanes, jobs, { needs, reuse = true, attempt = '1' } = {}) {
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: 'a'.repeat(40), ref: 'refs/heads/feature', reuse, reuse_off: reuse ? null : 'switch', lanes: planLanes }));
     const jobsFile = join(fx.dir, 'jobs.json');
@@ -490,7 +500,7 @@ function recorded(fx, planLanes, jobs, { needs, reuse = true } = {}) {
     rmSync(out, { recursive: true, force: true });
     const github = join(fx.dir, 'record-output');
     writeFileSync(github, '');
-    const result = run(fx, ['record', '--plan', planFile, '--jobs', jobsFile, '--needs', needsFile, '--run-id', '88', '--run-attempt', '2', '--out', out, '--github-output', github]);
+    const result = run(fx, ['record', '--plan', planFile, '--jobs', jobsFile, '--needs', needsFile, '--run-id', '88', '--run-attempt', attempt, '--out', out, '--github-output', github]);
     const markers = existsSync(out) ? readdirSync(out).sort() : [];
     const read = (name) => JSON.parse(readFileSync(join(out, name, 'evidence.json'), 'utf8'));
     return { result, markers, read, output: readFileSync(github, 'utf8') };
@@ -508,7 +518,8 @@ test('CI result records a pass only for a lane that ran fresh and passed in full
     const pass = read(`ci-pass-v1-demo-${'d'.repeat(64)}`);
     assert.equal(pass.kind, 'pass');
     assert.equal(pass.run_id, 88);
-    assert.equal(pass.run_attempt, 2);
+    assert.equal(pass.run_attempt, 1);
+    assert.equal(pass.completed_at, '2026-11-15T12:00:00Z', 'the age of the evidence is its jobs\' completion');
     assert.deepEqual(pass.jobs.map((job) => job.id), DEMO_JOBS.map((job) => job.id));
     assert.match(output, new RegExp(`^demo-marker=ci-pass-v1-demo-${'d'.repeat(64)}$`, 'm'));
     assert.match(output, /^demo-kind=pass$/m);
@@ -537,7 +548,7 @@ test('CI result records markers with reuse off too: a fresh failure there blocks
     const fx = scratch(t);
     const failedDemo = DEMO_JOBS.map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job));
     const { markers } = recorded(fx, { demo: lane('run', 'd'.repeat(64), 'reuse_off'), php: lane('run', 'e'.repeat(64), 'reuse_off'), 'prod-image': lane('skip') },
-        [...failedDemo, { id: 600, name: 'Kit PHP', conclusion: 'success', status: 'completed', run_attempt: 1 }], { reuse: false });
+        [...failedDemo, { id: 600, name: 'Kit PHP', conclusion: 'success', status: 'completed', run_attempt: 1, completed_at: '2026-11-16T11:00:00Z' }], { reuse: false });
     assert.deepEqual(markers, [`ci-fail-v1-demo-${'d'.repeat(64)}`, `ci-pass-v1-php-${'e'.repeat(64)}`]);
 });
 
@@ -653,7 +664,8 @@ test('the verdict checks reused evidence again, and says that only Re-run all jo
     refused('a failure recorded since', routesFor('demo', fp, [marker(fx, { sha: fx.head(), fp }), marker(fx, { sha: fx.head(), fp, kind: 'fail', runId: 73, artifactId: 9003, created: '2026-11-16T02:00:00Z', jobs: demoJobs(400) })]));
     refused('the producer\'s jobs ran again', producer(fx, fx.head(), fp, { latestJobs: demoJobs(800, 2) }));
     refused('the marker expired', producer(fx, fx.head(), fp, { artifact: { expired: true } }));
-    refused('the marker aged out', producer(fx, fx.head(), fp, { created: '2026-11-01T00:00:00Z' }));
+    // age is decided once, by the plan: an older pass it accepted is not refused here for its age
+    assert.equal(verdict({}, producer(fx, fx.head(), fp, { created: '2026-11-01T00:00:00Z' })).json.lanes.demo.status, 'reused');
     refused('an artifact that is null', { ...routes, [`repos/${REPO}/actions/artifacts/9001`]: { text: 'null' } });
     const down = structuredClone(routes);
     down[`repos/${REPO}/actions/runs/71`] = { ...down[`repos/${REPO}/actions/runs/71`], fail: 'HTTP 502' };
@@ -732,10 +744,10 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.equal(evaluate(result.name, push), 'CI result', 'the rulesets require this exact name, from the push');
     // the engines run in the browser job (`demo`), which CI result needs
     for (const id of [...lanes.filter((id) => id !== 'engines'), 'docker-install', 'importmap', 'tools', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
-    assert.match(result.text, /name: \$\{\{ needs\.changes\.outputs\.lane-plan \}\}/);
+    assert.match(result.text, /artifact-ids: \$\{\{ needs\.changes\.outputs\.lane-plan-id \}\}/, 'the plan artifact by the id Changes gave it, whatever the attempt');
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
-    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs" record/);
-    assert.match(result.text, /lane-evidence\.mjs" verdict[^\n]*\n?[^\n]*--jobs "\$RUNNER_TEMP\/run-jobs\.json"/, 'the verdict reads the browser lanes from the jobs');
+    assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs record/);
+    assert.match(result.text, /lane-evidence\.mjs verdict[^\n]*\n?[^\n]*--jobs "\$RUNNER_TEMP\/run-jobs\.json"/, 'the verdict reads the browser lanes from the jobs');
     const steps = result.text.split(/\n(?= {12}- )/);
     for (const id of Object.keys(rules)) {
         for (const kind of ['pass', 'fail']) {
@@ -1038,4 +1050,113 @@ test('the browser shards plan from timings that include the engines\' latest run
     const timings = job('changes').text.slice(job('changes').text.indexOf('name: Shard timings'));
     assert.match(timings, /runs\?branch=dev&status=success&per_page=/);
     assert.doesNotMatch(timings.slice(0, timings.indexOf('upload-artifact')), /event=push/, 'not only push runs: the daily and engines-only runs refresh Firefox and WebKit');
+});
+
+// the stack's review, and the plan's speed ------------------------------------------------------------------------------------
+
+test("the age of a pass is its lane jobs' completion, not its marker's creation, checked against the API", (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes.demo;
+    // a marker made an hour ago (a re-run's CI result) for jobs that completed more than 14 days ago: too old
+    const stale = plan(fx, producer(fx, fx.head(), fp, { created: '2026-11-16T11:00:00Z', completedAt: '2026-11-01T00:00:00Z' }));
+    assert.equal(stale.outputs.demo, 'run');
+    assert.equal(stale.plan.lanes.demo.reason, 'evidence_too_old');
+    // a marker whose completion time disagrees with the jobs' is not believed
+    const lying = plan(fx, producer(fx, fx.head(), fp, { evidence: { completed_at: '2026-11-16T10:00:00Z' } }));
+    assert.equal(lying.plan.lanes.demo.reason, 'marker_invalid');
+    const fresh = plan(fx, producer(fx, fx.head(), fp, { created: '2026-11-16T11:00:00Z', completedAt: '2026-11-16T10:00:00Z' }));
+    assert.equal(fresh.outputs.demo, 'reuse');
+});
+
+test('a later attempt does not record again a lane whose jobs all ran in an earlier one', (t) => {
+    const fx = scratch(t);
+    const lanes = { php: lane('run', 'e'.repeat(64)), demo: lane('run', 'd'.repeat(64)), 'prod-image': lane('skip') };
+    const php = { id: 600, name: 'Kit PHP', conclusion: 'success', status: 'completed', run_attempt: 1, completed_at: '2026-11-15T06:00:00Z' };
+    // attempt 2 re-ran one browser shard: the demo lane records again, its age the oldest shard's; Kit PHP does not
+    const shards = demoJobs().map((job, i) => (i === 0 ? { ...job, run_attempt: 2, completed_at: '2026-11-16T11:00:00Z' } : job));
+    const { markers, read } = recorded(fx, lanes, [php, ...shards], { attempt: '2' });
+    assert.deepEqual(markers, [`ci-pass-v1-demo-${'d'.repeat(64)}`]);
+    assert.equal(read(markers[0]).completed_at, '2026-11-15T12:00:00Z', 'as old as its oldest job');
+    // a pass whose jobs carry no completion time records nothing (its age could not be told)
+    const { completed_at: _, ...undated } = php;
+    const unknown = recorded(fx, lanes, [{ ...undated, run_attempt: 2 }, ...demoJobs(500, 2)], { attempt: '2' });
+    assert.ok(!unknown.markers.some((m) => m.includes('-php-')));
+});
+
+test('a browser shard that ended before its tests started is incomplete, not failed: no failure marker', (t) => {
+    const fx = scratch(t);
+    const steps = (tests) => [{ name: 'Install the browsers', conclusion: tests === 'skipped' ? 'failure' : 'success' }, { name: 'Playwright (smoke + every README example + UXor recipe specs)', conclusion: tests }];
+    const lanes = { demo: lane('run', 'd'.repeat(64)), php: lane('skip'), 'prod-image': lane('skip') };
+    const setupFailed = DEMO_JOBS.map((job, i) => (i === 0 ? { ...job, conclusion: 'failure', steps: steps('skipped') } : job));
+    assert.deepEqual(recorded(fx, lanes, setupFailed, { needs: { demo: { result: 'failure' } } }).markers, [], 'no failure marker for tests that never ran');
+    const testsFailed = DEMO_JOBS.map((job, i) => (i === 0 ? { ...job, conclusion: 'failure', steps: steps('failure') } : job));
+    assert.deepEqual(recorded(fx, lanes, testsFailed, { needs: { demo: { result: 'failure' } } }).markers, [`ci-fail-v1-demo-${'d'.repeat(64)}`]);
+    const stepless = DEMO_JOBS.map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job));
+    assert.deepEqual(recorded(fx, lanes, stepless, { needs: { demo: { result: 'failure' } } }).markers, [`ci-fail-v1-demo-${'d'.repeat(64)}`], 'without its steps, a failed job counts as failed');
+});
+
+test("the plan's lookups for several lanes overlap, and decide as before", (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes;
+    const sha = fx.head();
+    const lanes = { demo: demoJobs(), php: [{ id: 600, name: 'Kit PHP', conclusion: 'success', status: 'completed', run_attempt: 1 }], 'prod-image': [{ id: 601, name: 'Production image', conclusion: 'success', status: 'completed', run_attempt: 1 }] };
+    // one producer run passed all three lanes
+    const all = Object.values(lanes).flat();
+    const routes = {};
+    Object.entries(lanes).forEach(([lane, jobs], i) => Object.assign(routes, routesFor(lane, fp[lane], [marker(fx, { lane, sha, fp: fp[lane], jobs, latestJobs: all, artifactId: 9900 + i, runId: 90 })])));
+    const times = join(fx.dir, 'times');
+    writeFileSync(times, '');
+    const out = join(fx.dir, 'plan.json');
+    const result = run(fx, ['plan', '--repo', REPO, '--sha', sha, '--ref', 'refs/heads/feature', '--selection', selection(fx, ['demo', 'php', 'prod-image']), '--out', out], routes, { env: { FAKE_GH_DELAY_MS: '200', FAKE_GH_TIMES: times } });
+    assert.equal(result.status, 0, result.stderr);
+    const planned = JSON.parse(readFileSync(out, 'utf8'));
+    for (const lane of Object.keys(lanes)) assert.equal(planned.lanes[lane].decision, 'reuse', `${lane}: ${planned.lanes[lane].detail}`);
+    const spans = readFileSync(times, 'utf8').trim().split('\n').map((line) => line.split(' ').slice(0, 2).map(Number));
+    const overlapping = spans.some(([start, end], i) => spans.some(([s2], j) => j !== i && s2 > start && s2 < end));
+    assert.ok(overlapping, 'some calls run at the same time');
+    const serial = spans.reduce((sum, [start, end]) => sum + (end - start), 0);
+    assert.ok(planned.elapsed_ms < serial * 0.6, `the plan (${planned.elapsed_ms} ms) is well under its calls one after another (${serial} ms)`);
+    const listings = result.calls.filter((c) => c.includes('/actions/artifacts?name='));
+    assert.equal(new Set(listings).size, listings.length, 'each listing fetched once');
+    assert.equal(result.calls.filter((c) => /\/runs\/90$/.test(c)).length, 1, 'the producer run once, shared by the lanes');
+});
+
+test("CI result runs the tool of the run's own commit, and takes only plan.json from the artifact, bound by id and digest", async (t) => {
+    const { stepIn } = await import('../ci/step-attempts.mjs');
+    const fx = scratch(t);
+    const workflow = readFileSync(fileURLToPath(new URL('../../.github/workflows/ci.yml', import.meta.url)), 'utf8');
+    const jobText = (id) => workflow.split(/\n(?= {4}[a-z0-9-]+:\n)/).find((text) => text.startsWith(`    ${id}:\n`));
+    const changes = jobText('changes');
+    assert.match(changes, /^ {12}lane-plan-id: \$\{\{ steps\.plan-upload\.outputs\.artifact-id \}\}$/m);
+    assert.match(changes, /^ {12}lane-plan-sha256: \$\{\{ steps\.plan\.outputs\.sha256 \}\}$/m);
+    assert.doesNotMatch(changes, /cp tools\/ci\/lane-evidence\.mjs/, 'no copy of the tool goes into the artifact');
+    const upload = changes.split(/\n(?= {12}- )/).find((s) => s.includes('id: plan-upload'));
+    assert.match(upload, /path: \$\{\{ runner\.temp \}\}\/lane-plan\/plan\.json/);
+    assert.doesNotMatch(workflow, /RUNNER_TEMP\/lane-plan\/lane-evidence\.mjs/, 'nothing is executed from the artifact');
+    const steps = jobText('result').split(/\n(?= {12}- )/);
+    const download = steps.find((s) => s.includes('download-artifact@') && s.includes('lane-plan'));
+    assert.match(download, /artifact-ids: \$\{\{ needs\.changes\.outputs\.lane-plan-id \}\}/);
+    const checkout = steps.find((s) => s.includes('actions/checkout@'));
+    assert.match(checkout, /persist-credentials: false/);
+    assert.match(checkout, /sparse-checkout: \|\n\s+tools\/ci/);
+    assert.ok(steps.indexOf(checkout) < steps.findIndex((s) => s.includes('id: lane-plan')), 'the checkout comes before the tool runs');
+    for (const id of ['record', 'verdict']) assert.match(steps.find((s) => s.includes(`id: ${id}\n`)), /if: \$\{\{ always\(\) && steps\.lane-plan\.outcome == 'success' \}\}/, `${id} runs only on the checked plan`);
+    // the check itself: Changes must have succeeded, and plan.json must be the one Changes wrote
+    const check = stepIn(workflow, 'result', 'lane-plan');
+    mkdirSync(join(fx.dir, 'temp', 'lane-plan'), { recursive: true });
+    const planFile = join(fx.dir, 'temp', 'lane-plan', 'plan.json');
+    writeFileSync(planFile, '{"schema":1}\n');
+    const digest = spawnSync('sha256sum', [planFile], { encoding: 'utf8' }).stdout.split(' ')[0];
+    const go = (env) => spawnSync('bash', ['-eo', 'pipefail', '-c', check.run], { encoding: 'utf8',
+        env: { PATH: process.env.PATH, RUNNER_TEMP: join(fx.dir, 'temp'), CHANGES: 'success', PLAN_SHA256: digest, ...env } });
+    const failedChanges = go({ CHANGES: 'failure' });
+    assert.equal(failedChanges.status, 1);
+    assert.match(failedChanges.stdout, /::error::the Changes job ended with failure/);
+    const forged = go({ PLAN_SHA256: 'f'.repeat(64) });
+    assert.equal(forged.status, 1);
+    assert.match(forged.stdout, /::error::plan\.json is not the one the Changes job wrote/);
+    assert.equal(go({ PLAN_SHA256: '' }).status, 1, 'no digest from Changes: no verdict');
+    assert.equal(go({}).status, 0);
+    writeFileSync(planFile, '{"schema":1,"lanes":{}}\n');
+    assert.equal(go({}).status, 1, 'a replaced plan.json is refused');
 });
