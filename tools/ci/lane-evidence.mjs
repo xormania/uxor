@@ -365,14 +365,19 @@ function producerRun(client, ctx, artifact) {
 }
 
 /** the lane's jobs in the run's latest attempt: the full count, all passed */
-function producerJobs(client, ctx, lane, run) {
+/** the run's jobs in its latest attempt, fetched once per run */
+function runJobs(client, ctx, run) {
     let jobs = ctx.jobs.get(run.id);
     if (!jobs) {
         jobs = client.object(`repos/${ctx.repo}/actions/runs/${run.id}/jobs?filter=latest&per_page=100`).jobs;
         if (!Array.isArray(jobs) || jobs.some((job) => !isObject(job))) throw new Refused('lookup_error', `run ${run.id}: no job list`);
         ctx.jobs.set(run.id, jobs);
     }
-    const mine = laneJobs(lane, jobs);
+    return jobs;
+}
+
+function producerJobs(client, ctx, lane, run) {
+    const mine = laneJobs(lane, runJobs(client, ctx, run));
     const count = expected(lane, ctx.chromiumShards);
     const bad = mine.filter((job) => job.conclusion !== 'success');
     if (mine.length !== count || bad.length) {
@@ -422,14 +427,38 @@ function verifyPass(client, ctx, lane, fp, artifact) {
 }
 
 /** a failure marker counts only from a verified producer; one that does not verify is no evidence either way */
-function verifiedFailure(client, ctx, artifact) {
+/**
+ * A failure marker vetoes the lane's evidence only when its run really failed that lane on these inputs, as a pass is
+ * verified: a producer run of ci.yml in this repository, a lane job of its latest attempt that failed (the tests, for
+ * the browser lanes, as the record step decides), the marker's own record agreeing on its kind, lane, fingerprint, run
+ * and commit, and the fingerprint recomputed at the producer's commit equal. Any job of a same-repository run can upload
+ * an artifact under the predictable name, so a marker that fails these counts for nothing. A lookup that fails throws:
+ * the lane then runs, never a reuse past a failure that could not be checked.
+ */
+function verifiedFailure(client, ctx, lane, fp, artifact) {
+    let run;
     try {
-        producerRun(client, ctx, artifact);
-        return true;
+        run = producerRun(client, ctx, artifact);
     } catch (error) {
         if (error instanceof Refused && error.reason === 'wrong_producer') return false;
         throw error;
     }
+    const mine = laneJobs(lane, runJobs(client, ctx, run));
+    const failed = BROWSER_LANES.includes(lane)
+        ? mine.some(testsFailed)
+        : mine.some((job) => job.conclusion === 'failure' || job.conclusion === 'timed_out');
+    if (!failed) return false;
+    let marker;
+    try {
+        marker = JSON.parse(zipEntry(client.raw(`repos/${ctx.repo}/actions/artifacts/${artifact.id}/zip`), 'evidence.json').toString('utf8'));
+    } catch (error) {
+        if (error instanceof Refused && error.reason === 'lookup_error') throw error;
+        return false;
+    }
+    if (!isObject(marker) || marker.kind !== 'fail' || marker.lane !== lane || marker.fingerprint !== fp
+        || marker.run_id !== run.id || marker.sha !== run.head_sha) return false;
+    ensureCommit(ctx.gitDir, run.head_sha);
+    return fingerprints(ctx.gitDir, run.head_sha)[lane] === fp;
 }
 
 /** newest first: a verified failure stops the search, the first pass that verifies is the evidence */
@@ -437,7 +466,7 @@ function qualify(client, ctx, lane, fp) {
     let last = null;
     for (const artifact of candidates(client, ctx, lane, fp)) {
         if (artifact.kind === 'fail') {
-            if (verifiedFailure(client, ctx, artifact)) {
+            if (verifiedFailure(client, ctx, lane, fp, artifact)) {
                 throw new Refused('later_failure', `run ${artifact.workflow_run?.id} failed the lane with these inputs at ${artifact.created_at}${last ? '' : ', after any pass'}`);
             }
             continue;
@@ -461,7 +490,7 @@ function requalify(client, ctx, lane, fp, evidence) {
     // disappearance, a later failure and the producer's jobs are integrity, and are checked again
     checkExpired(artifact);
     for (const failure of markers(client, ctx.repo, 'fail', lane, fp)) {
-        if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, failure)) {
+        if (time(failure.created_at) >= time(artifact.created_at) && verifiedFailure(client, ctx, lane, fp, failure)) {
             throw new Refused('later_failure', `run ${failure.workflow_run?.id} failed the lane with these inputs at ${failure.created_at}, after the pass the plan reuses`);
         }
     }

@@ -133,11 +133,12 @@ const brief = (jobs) => jobs.map(({ id, name, conclusion, run_attempt }) => ({ i
  * One marker artifact and the producer run behind it, as API routes: the artifact, its ZIP, its run and the run's
  * latest jobs. `evidence`, `run`, `artifact` and `jobs` override the defaults; `latestJobs` is what the run lists now.
  */
-function marker(fx, { lane = 'demo', fp, sha, kind = 'pass', runId = 71, artifactId = 9001, attempt = 1, jobs: given = DEMO_JOBS, latestJobs: givenLatest, created = '2026-11-15T12:00:00Z', completedAt, evidence = {}, run = {}, artifact = {}, zipBytes, deflate = false } = {}) {
+function marker(fx, { lane = 'demo', fp, sha, kind = 'pass', runId = 71, artifactId = 9001, attempt = 1, jobs: given = DEMO_JOBS, latestJobs: givenLatest, created = '2026-11-15T12:00:00Z', completedAt, evidence = {}, run = {}, artifact = {}, zipBytes, deflate = false, failed = kind === 'fail' } = {}) {
     const name = `ci-${kind}-v1-${lane}-${fp}`;
-    // the lane's jobs completed when the test says, else when the marker was made
+    // the lane's jobs completed when the test says, else when the marker was made; a failure marker's run failed one of
+    // them, unless the test says it did not (a forged marker)
     const stamp = (list) => list.map((job) => ({ ...job, completed_at: completedAt ?? created }));
-    const jobs = stamp(given);
+    const jobs = stamp(failed ? given.map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job)) : given);
     const latestJobs = givenLatest && stamp(givenLatest);
     const content = { schema: 1, kind, lane, fingerprint: fp, repo: REPO, sha, run_id: runId, run_attempt: attempt, jobs: brief(jobs), completed_at: completedAt ?? created, flaky: 2, tests: { passed: 600, failed: 0, flaky: 2, skipped: 3 }, runner: { image_os: 'ubuntu24', image_version: '20261110.1' }, recorded_at: created, ...evidence };
     const zipFile = join(fx.dir, `${name}-${artifactId}.zip`);
@@ -347,7 +348,8 @@ test('a failure marker counts only from a verified producer, newest first across
     assert.equal(plan(fx, routesFor('demo', fp, pfp)).outputs.demo, 'reuse', 'pass, fail, pass: reused');
     // fail (1), pass (2), fail (3): the failure of attempt 3 is newest
     const fpf = [marker(fx, { sha, fp, kind: 'fail', runId: 74, artifactId: 9203, attempt: 3, created: '2026-11-15T15:00:00Z', jobs: demoJobs(700, 3) }),
-        marker(fx, { sha, fp, runId: 74, artifactId: 9202, attempt: 2, created: '2026-11-15T14:00:00Z', jobs: demoJobs(650, 2), latestJobs: demoJobs(700, 3) })];
+        // the run's latest attempt (3) is the one that failed: its job list says so
+        marker(fx, { sha, fp, runId: 74, artifactId: 9202, attempt: 2, created: '2026-11-15T14:00:00Z', jobs: demoJobs(650, 2), latestJobs: demoJobs(700, 3).map((job, i) => (i === 0 ? { ...job, conclusion: 'failure' } : job)) })];
     assert.equal(plan(fx, routesFor('demo', fp, fpf)).plan.lanes.demo.reason, 'later_failure', 'fail, pass, fail: refused');
 });
 
@@ -1647,4 +1649,54 @@ test('no repository code runs before the Workflows checks, and each group of fil
     const out = spawnSync('bash', ['-eo', 'pipefail', '-c', summary.run], { encoding: 'utf8', env: { PATH: process.env.PATH, STEPS: JSON.stringify({ 'setup-node': s('success'), 'setup-php': s('success'), 'workflows-guard': s('failure'), 'workflows-actionlint': s('success'), 'tools-guard': s('success'), 'tools-cases': s('success') }), CONTRAST: 'skip', WORKFLOWS: 'run', GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.dir, 'g-sum') } });
     assert.equal(out.status, 1);
     assert.match(readFileSync(output, 'utf8'), /^workflows=failure$/m);
+});
+
+// the owner's Codex review of the reuse rollup: a failure marker vetoes only when its run failed the lane on these inputs ------
+
+test('a failure marker vetoes a pass only when its run failed that lane on the same inputs; a forged one counts for nothing', (t) => {
+    const fx = scratch(t);
+    const base = fx.head();
+    // another tree: a commit whose inputs differ, then back to the inputs the pass was made on
+    const other = fx.commit('kit.css', 'a { color: red }\n');
+    fx.commit('kit.css', '');
+    const sha = fx.head();
+    const fp = fingerprints(fx, sha).lanes.demo;
+    assert.equal(fingerprints(fx, base).lanes.demo, fp, 'the same inputs as before the detour');
+    assert.notEqual(fingerprints(fx, other).lanes.demo, fp);
+    const pass = marker(fx, { sha, fp });
+    const fail = (options) => marker(fx, { sha, fp, kind: 'fail', runId: 72, artifactId: 9002, created: '2026-11-16T01:00:00Z', jobs: demoJobs(400), ...options });
+    const decide = (failure) => plan(fx, routesFor('demo', fp, [pass, failure]));
+    // forged: the run passed every job of the lane, so it did not fail it
+    const passedRun = decide(fail({ failed: false }));
+    assert.equal(passedRun.outputs.demo, 'reuse', `a failure marker from a run whose lane passed: ${passedRun.plan.lanes.demo.detail}`);
+    // forged: the run failed the lane, but on another tree (a victim fingerprint uploaded by a branch's run)
+    assert.equal(decide(fail({ sha: other })).outputs.demo, 'reuse', 'a failure marker from a run of other inputs');
+    // forged: the marker's own record disagrees with its name or run
+    for (const evidence of [{ kind: 'pass' }, { lane: 'php' }, { fingerprint: 'e'.repeat(64) }, { run_id: 99 }]) {
+        assert.equal(decide(fail({ evidence })).outputs.demo, 'reuse', `a failure marker saying ${JSON.stringify(evidence)}`);
+    }
+    // forged: a browser shard that failed before its tests is no failure of the tests (as the record step decides)
+    const setupOnly = demoJobs(400).map((job, i) => (i === 0 ? { ...job, conclusion: 'failure', steps: [{ name: 'Playwright (smoke + every README example + UXor recipe specs)', conclusion: 'skipped' }] } : job));
+    assert.equal(decide(fail({ jobs: setupOnly, failed: false })).outputs.demo, 'reuse', 'a failure before the tests started');
+    // genuine: the run failed the lane on these inputs; it still vetoes
+    const genuine = decide(fail());
+    assert.equal(genuine.outputs.demo, 'run');
+    assert.equal(genuine.plan.lanes.demo.reason, 'later_failure');
+    // a failure whose producer cannot be read is no proof either way: the lane runs (never a reuse past it)
+    const unreadable = routesFor('demo', fp, [pass, fail()]);
+    unreadable[`repos/${REPO}/actions/runs/72/jobs?filter=latest&per_page=100`] = { fail: 'HTTP 502' };
+    assert.equal(plan(fx, unreadable).outputs.demo, 'run');
+    // the verdict's check of a reused pass: a forged later failure does not withdraw it, a genuine one does
+    const evidence = (() => { const p = plan(fx, routesFor('demo', fp, [pass])); return p.plan.lanes.demo.evidence; })();
+    const lanes = Object.fromEntries([...LANES, 'engines'].map((name) => [name, lane('skip', null)]));
+    lanes.demo = { ...lane('reuse', fp), evidence };
+    const planFile = join(fx.dir, 'verdict-plan.json');
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha, ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    writeFileSync(join(fx.dir, 'verdict-needs.json'), JSON.stringify({ ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'success', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } }));
+    const verdictWith = (failure) => run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'verdict-needs.json'), '--repo', REPO], routesFor('demo', fp, [pass, failure]));
+    assert.equal(verdictWith(fail({ failed: false })).status, 0, 'a forged later failure does not withdraw the pass');
+    const withdrawn = verdictWith(fail());
+    assert.equal(withdrawn.status, 1);
+    assert.match(withdrawn.stderr, /later_failure/);
 });
