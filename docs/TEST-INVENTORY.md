@@ -451,6 +451,8 @@ States: chosen values (one, several, remote, created), the Tom Select instance, 
 
 | Transition | Scope | Covered by |
 |---|---|---|
+| A cold dashboard skips Tom Select and a subsequent Turbo visit to a Live autocomplete field loads and enhances it | E2E demo | demo-app "the dashboard defers autocomplete until a Turbo visit adds a field" |
+| A native selection made while Tom Select downloads survives enhancement | E2E lab | lab.autocomplete "the first native selection survives a delayed autocomplete download" |
 | Form submit, invalid submit enhanced once, created value | E2E lab | lab.autocomplete (3 tests) |
 | Visits away and Back leave one Tom Select per field | E2E lab | lab.autocomplete "Turbo visits away and Back leave one working Tom Select per field" |
 | The quick-choice fix on every Tom Select a field gets: the one UX Autocomplete builds when the options change, and the ones a Turbo visit and Back set up again (Enter right after typing, Tab: the list stays closed, the focus not taken back) | E2E lab | lab.autocomplete "a quick choice stays closed after Tab on the Tom Select UX Autocomplete builds…", "…after a Turbo visit and Back" |

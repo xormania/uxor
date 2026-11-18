@@ -24,6 +24,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Changed
 
+- The demo loads Symfony Autocomplete and Tom Select when an autocomplete field appears and includes Live
+  Component’s loading indicators in its main stylesheet.
+
 - `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
   Charts share one 1×1 canvas to resolve theme colors on load and when switching themes.
 
