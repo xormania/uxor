@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run a real Mate beta installation against the locked development consumer.
+# Check the locked Mate beta in a disposable copy of the development consumer.
 set -euo pipefail
 
 root=$(cd "$(dirname "$0")/../../.." && pwd)
@@ -15,24 +15,24 @@ done
 cp "$root/packages/uxor/dev/app/"{composer.json,composer.lock} "$app/"
 cp "$root/packages/uxor/dev/app/mate/config.php" "$app/mate/"
 
-beta=1.0.0-BETA1
-composer --working-dir="$trial" require --no-update \
-    "symfony/ai-mate:$beta" "symfony/ai-symfony-mate-extension:$beta"
 cd "$app"
-composer require --dev --no-update "symfony/ai-mate:$beta" \
-    "symfony/ai-symfony-mate-extension:$beta" "symfony/ai-mate-composer-plugin:$beta"
-composer update --minimal-changes --no-interaction --no-progress \
-    xormania/uxor symfony/ai-mate symfony/ai-symfony-mate-extension symfony/ai-mate-composer-plugin
+composer install --prefer-dist --no-interaction --no-progress
 
+jq -e --arg version 'v1.0.0-BETA1' '
+    INDEX(.packages[]; .name)
+    | .["symfony/ai-mate"].version == $version
+      and .["symfony/ai-mate-composer-plugin"].version == $version
+      and .["symfony/ai-symfony-mate-extension"].version == $version
+' vendor/composer/installed.json
 vendor/bin/mate init --no-interaction
 composer dump-autoload --no-interaction
 vendor/bin/mate discover --no-interaction
-vendor/bin/mate tools:list --format=json > "$trial/tools.json"
+tools_json=$(vendor/bin/mate tools:list --format=json)
 jq -e '
     [.tools | to_entries[] | select(.value.extension == "xormania/uxor") | .key] | sort ==
     ["uxor_catalog","uxor_component","uxor_doctor","uxor_project","uxor_reference","uxor_tools","uxor_workflow"]
-' "$trial/tools.json"
-for tool in $(jq -r '.tools | keys[] | select(startswith("uxor_"))' "$trial/tools.json"); do
+' <<< "$tools_json"
+for tool in $(jq -r '.tools | keys[] | select(startswith("uxor_"))' <<< "$tools_json"); do
     vendor/bin/mate tools:inspect "$tool" --format=json |
         jq -e --arg tool "$tool" '.name == $tool and (.input_schema | type == "object")'
 done

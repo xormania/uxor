@@ -33,24 +33,31 @@ The package depends on Mate's Composer plugin, which Composer runs only when the
 composer config allow-plugins.symfony/ai-mate-composer-plugin true
 ```
 
-Once the package is published on Packagist:
+The development package uses Mate, its Symfony extension and its Composer plugin at `1.0.0-BETA1`.
+Require all three versions in your application's own dev dependencies to admit those prereleases while keeping
+Composer's default stable policy. UXor releases 0.3.0 through 0.3.2 require Mate 0.14.
+
+To install Beta1 before UXor tags a release that includes it, select the development branch explicitly.
 
 ```sh
-composer require --dev xormania/uxor
+composer require --dev \
+    'xormania/uxor:dev-claude/wo-symfony-trials--mate' \
+    'symfony/ai-mate:1.0.0-BETA1' \
+    'symfony/ai-mate-composer-plugin:1.0.0-BETA1' \
+    'symfony/ai-symfony-mate-extension:1.0.0-BETA1'
 ```
 
-Until then, add the repository and require a release tag that ships `composer.json` at the repository's root: 0.3.0
-is the first (the tags before it hold the kit only):
+After UXor publishes a release that includes Beta1, replace the development branch constraint with that release. If Packagist has yet to index the branch head you need, add the VCS
+repository before running the command.
 
 ```sh
 composer config repositories.uxor vcs https://github.com/xormania/uxor
-composer require --dev xormania/uxor:^0.3
 ```
 
 Composer installs the repository's archive (the kit and this package, without the development files), so the
 package's files are under `vendor/xormania/uxor/packages/uxor/`.
 
-For a new Mate setup:
+Run the Mate commands below with the application's configured invocation. For a new Mate setup:
 
 ```sh
 vendor/bin/mate init

@@ -5,6 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- The Composer development package uses Symfony AI Mate `1.0.0-BETA1`. Consuming applications opt into the three
+  Mate prereleases in their own Composer dev dependencies. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
+
 ## [0.3.2] - 2026-11-16
 
 ### Added

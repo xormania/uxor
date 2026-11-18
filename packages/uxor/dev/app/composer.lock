@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "72402809b600e30e687cc4307b721cb4",
+    "content-hash": "956cbda4bab21357ee5d7cbab12d6cd9",
     "packages": [
         {
             "name": "composer/semver",
@@ -749,8 +749,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:31:48+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/console",
@@ -1396,8 +1395,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:32:01+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/finder",
@@ -1725,8 +1723,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T07:46:24+00:00",
-            "published-time": "2026-11-04T11:27:38+00:00"
+            "time": "2026-11-04T07:46:24+00:00"
         },
         {
             "name": "symfony/http-client",
@@ -1827,8 +1824,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:27:22+00:00",
-            "published-time": "2026-11-04T11:28:32+00:00"
+            "time": "2026-11-04T08:27:22+00:00"
         },
         {
             "name": "symfony/http-client-contracts",
@@ -1991,8 +1987,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:31:54+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/http-kernel",
@@ -2102,8 +2097,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T11:29:46+00:00",
-            "published-time": "2026-11-04T11:32:19+00:00"
+            "time": "2026-11-04T11:29:46+00:00"
         },
         {
             "name": "symfony/mime",
@@ -2189,8 +2183,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-10-28T17:58:38+00:00",
-            "published-time": "2026-10-28T18:23:55+00:00"
+            "time": "2026-10-28T17:58:38+00:00"
         },
         {
             "name": "symfony/options-resolver",
@@ -3403,8 +3396,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:39:20+00:00",
-            "published-time": "2026-11-04T11:30:59+00:00"
+            "time": "2026-11-04T08:39:20+00:00"
         },
         {
             "name": "symfony/runtime",
@@ -4752,8 +4744,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:27:22+00:00",
-            "published-time": "2026-11-04T11:28:46+00:00"
+            "time": "2026-11-04T08:27:22+00:00"
         },
         {
             "name": "symfony/var-dumper",
@@ -4999,8 +4990,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-04T08:27:22+00:00",
-            "published-time": "2026-11-04T11:28:41+00:00"
+            "time": "2026-11-04T08:27:22+00:00"
         },
         {
             "name": "symfonycasts/tailwind-bundle",
@@ -5598,23 +5588,23 @@
         },
         {
             "name": "symfony/ai-mate",
-            "version": "v0.14.0",
+            "version": "v1.0.0-BETA1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/ai-mate.git",
-                "reference": "8cbb03c1a8c3bc5ea02e4072c69c4c9ab3f67a85"
+                "reference": "ae7fe465397ba7efe5661751ec3a09fa914150c0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/ai-mate/zipball/8cbb03c1a8c3bc5ea02e4072c69c4c9ab3f67a85",
-                "reference": "8cbb03c1a8c3bc5ea02e4072c69c4c9ab3f67a85",
+                "url": "https://api.github.com/repos/symfony/ai-mate/zipball/ae7fe465397ba7efe5661751ec3a09fa914150c0",
+                "reference": "ae7fe465397ba7efe5661751ec3a09fa914150c0",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.2",
                 "psr/container": "^1.1|^2.0",
                 "psr/log": "^2.0|^3.0",
-                "symfony/ai-mate-composer-plugin": "^0.14",
+                "symfony/ai-mate-composer-plugin": "^1.0",
                 "symfony/config": "^5.4|^6.4|^7.3|^8.0",
                 "symfony/console": "^5.4|^6.4|^7.3|^8.0",
                 "symfony/dependency-injection": "^5.4|^6.4|^7.3|^8.0",
@@ -5683,7 +5673,7 @@
                 "symfony"
             ],
             "support": {
-                "source": "https://github.com/symfony/ai-mate/tree/v0.14.0"
+                "source": "https://github.com/symfony/ai-mate/tree/v1.0.0-BETA1"
             },
             "funding": [
                 {
@@ -5703,20 +5693,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-25T00:21:15+00:00"
+            "time": "2026-10-26T14:03:07+00:00"
         },
         {
             "name": "symfony/ai-mate-composer-plugin",
-            "version": "v0.14.0",
+            "version": "v1.0.0-BETA1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/ai-mate-composer-plugin.git",
-                "reference": "f7497d8a8d5b4dcaf790c88a37bf3ace2d34b817"
+                "reference": "291ff5fc6e47f9d72e217bc504efa29ae7c91f60"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/ai-mate-composer-plugin/zipball/f7497d8a8d5b4dcaf790c88a37bf3ace2d34b817",
-                "reference": "f7497d8a8d5b4dcaf790c88a37bf3ace2d34b817",
+                "url": "https://api.github.com/repos/symfony/ai-mate-composer-plugin/zipball/291ff5fc6e47f9d72e217bc504efa29ae7c91f60",
+                "reference": "291ff5fc6e47f9d72e217bc504efa29ae7c91f60",
                 "shasum": ""
             },
             "require": {
@@ -5729,7 +5719,7 @@
                 "phpstan/phpstan-phpunit": "^2.0",
                 "phpstan/phpstan-strict-rules": "^2.0",
                 "phpunit/phpunit": "^11.5.53",
-                "symfony/ai-mate": "^0.14"
+                "symfony/ai-mate": "^1.0"
             },
             "type": "composer-plugin",
             "extra": {
@@ -5771,7 +5761,7 @@
                 "mate"
             ],
             "support": {
-                "source": "https://github.com/symfony/ai-mate-composer-plugin/tree/v0.14.0"
+                "source": "https://github.com/symfony/ai-mate-composer-plugin/tree/v1.0.0-BETA1"
             },
             "funding": [
                 {
@@ -5791,25 +5781,25 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-24T22:33:15+00:00"
+            "time": "2026-10-26T14:03:07+00:00"
         },
         {
             "name": "symfony/ai-symfony-mate-extension",
-            "version": "v0.14.0",
+            "version": "v1.0.0-BETA1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/ai-symfony-mate-extension.git",
-                "reference": "9fd6024206eb66b199b87b77ddddf58182470840"
+                "reference": "6d8aadc2dc76d4aa3ff23f6eb08550e52037883f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/ai-symfony-mate-extension/zipball/9fd6024206eb66b199b87b77ddddf58182470840",
-                "reference": "9fd6024206eb66b199b87b77ddddf58182470840",
+                "url": "https://api.github.com/repos/symfony/ai-symfony-mate-extension/zipball/6d8aadc2dc76d4aa3ff23f6eb08550e52037883f",
+                "reference": "6d8aadc2dc76d4aa3ff23f6eb08550e52037883f",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.2",
-                "symfony/ai-mate": "^0.14",
+                "symfony/ai-mate": "^1.0",
                 "symfony/dependency-injection": "^7.3|^8.0"
             },
             "require-dev": {
@@ -5888,7 +5878,7 @@
                 "symfony"
             ],
             "support": {
-                "source": "https://github.com/symfony/ai-symfony-mate-extension/tree/v0.14.0"
+                "source": "https://github.com/symfony/ai-symfony-mate-extension/tree/v1.0.0-BETA1"
             },
             "funding": [
                 {
@@ -5908,7 +5898,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-24T22:33:15+00:00"
+            "time": "2026-10-26T14:03:07+00:00"
         },
         {
             "name": "symfony/maker-bundle",
@@ -6132,8 +6122,9 @@
             },
             "require": {
                 "php": ">=8.4",
-                "symfony/ai-mate": "^0.14",
-                "symfony/ai-symfony-mate-extension": "^0.14",
+                "symfony/ai-mate": ">=1.0.0-BETA1 <1.0.0-BETA2",
+                "symfony/ai-mate-composer-plugin": ">=1.0.0-BETA1 <1.0.0-BETA2",
+                "symfony/ai-symfony-mate-extension": ">=1.0.0-BETA1 <1.0.0-BETA2",
                 "symfony/console": "^7.4 || ^8.0",
                 "symfony/filesystem": "^7.4 || ^8.0",
                 "symfony/process": "^7.4 || ^8.0"
@@ -6193,6 +6184,9 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "symfony/ai-mate": 10,
+        "symfony/ai-mate-composer-plugin": 10,
+        "symfony/ai-symfony-mate-extension": 10,
         "xormania/uxor": 20
     },
     "prefer-stable": true,
@@ -6206,5 +6200,5 @@
     "platform-overrides": {
         "php": "8.4.1"
     },
-    "plugin-api-version": "2.11.0"
+    "plugin-api-version": "2.9.0"
 }
