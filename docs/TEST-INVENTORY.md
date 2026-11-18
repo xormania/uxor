@@ -66,6 +66,10 @@ The demo itself has an executable deployment contract outside the recipe matrix:
 toolkit or profiler; `RouteSecurityTest` requires every app route to declare its trust category, allowed methods and,
 for a public POST route, its CSRF mechanism ([`DEMO-SECURITY.md`](DEMO-SECURITY.md)).
 
+| Opt-in demo trial | What it checks | Probe |
+| --- | --- | --- |
+| Symfony 8.2 AssetMapper | Dashboard HTML and import map size, modulepreload and script requests, deferred autocomplete across a Turbo visit and Live re-render | [AssetMapper browser probe](../tools/assetmapper-trial.mjs), with [reproduction and results](TRIAL-assetmapper.md) |
+
 ## The matrix: common transitions
 
 Columns are the plan's transitions. **Back** is a restoration visit from Turbo's cached copy; **Back, slow** is the

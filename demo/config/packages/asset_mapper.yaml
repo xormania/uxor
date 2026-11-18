@@ -5,6 +5,18 @@ framework:
             - assets/
         missing_import_mode: strict
 
+# The 8.2 enum requires a literal. These environments compare the same app
+# without changing the import map mode used for normal demo runs.
+when@assetmapper_all:
+    framework:
+        asset_mapper:
+            importmap_entries: all
+
+when@assetmapper_reachable:
+    framework:
+        asset_mapper:
+            importmap_entries: reachable
+
 when@prod:
     framework:
         asset_mapper:
