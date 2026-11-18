@@ -11,6 +11,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
 
+- The demo includes an opt-in Symfony UX CSS motion probe for generated styles, reduced motion, and token overrides.
+
 - `dropzone`: a `maxFiles` prop caps a zone for several files in the browser, files over it left out with
   `dropzone:reject`; through the form theme, `DropzoneType`'s `max_files` option sets it (UX Dropzone's type adds the
   server's `Count`).
