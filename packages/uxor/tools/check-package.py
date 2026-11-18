@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "packages/uxor"
 PACKAGE_PATH = PACKAGE.relative_to(ROOT).as_posix()
 PACKAGE_NAME = "xormania/uxor"
+CONSUMER_SKILL_NAMES = ("build", "setup", "verify")
 # The independent consumer application (a Symfony project that installs the archive as a dependency).
 FIXTURE = PACKAGE / "dev/app"
 # What the fixture renders in production. Fixture data: keep in step with the fixture's controller and templates.
@@ -226,8 +227,6 @@ def consumer_instruction_parts(content: str) -> tuple[str, str]:
 def versioned_archive(source: Path, destination: Path, version: str) -> str:
     """Make two temporary package versions without changing the maintained checkout."""
     marker = f"UXor archive update acceptance: {version}"
-    guidance = {f"{PACKAGE_PATH}/INSTRUCTIONS.md", f"{PACKAGE_PATH}/skills/build/SKILL.md"}
-    changed: set[str] = set()
     with tarfile.open(source, mode="r:") as original, tarfile.open(destination, mode="w:") as output:
         for member in original.getmembers():
             exported = original.extractfile(member) if member.isfile() else None
@@ -240,14 +239,11 @@ def versioned_archive(source: Path, destination: Path, version: str) -> str:
                 manifest = json.loads(content)
                 manifest["version"] = version
                 content = (json.dumps(manifest, indent=4) + "\n").encode()
-            elif name in guidance:
+            elif name == f"{PACKAGE_PATH}/INSTRUCTIONS.md" or fnmatch.fnmatch(name, f"{PACKAGE_PATH}/skills/*/SKILL.md"):
                 content += f"\n\n<!-- {marker} -->\n".encode()
-                changed.add(name)
             entry = copy.copy(member)
             entry.size = len(content)
             output.addfile(entry, io.BytesIO(content))
-    if changed != guidance:
-        raise RuntimeError(f"Versioned archive could not mark the packaged guidance: {sorted(guidance - changed)}")
     return marker
 
 
@@ -262,8 +258,45 @@ def archive_repository(archive: Path) -> dict:
     return {"type": "package", "package": dependency}
 
 
+def write_consumer_skills(application: Path) -> dict[str, bytes]:
+    sources = {}
+    for name in CONSUMER_SKILL_NAMES:
+        path = application / "project-skills" / name / "SKILL.md"
+        path.parent.mkdir(parents=True)
+        sources[name] = (f"---\nname: {name}\ndescription: Application-specific {name} instructions.\n---\n"
+                         f"Follow this application's {name} procedure.\n").encode()
+        path.write_bytes(sources[name])
+    return sources
+
+
+def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes], marker: str) -> None:
+    listed = json.loads(execute([php, "vendor/bin/mate", "skills:list", "--format=json"], application, capture=True))
+    expected = {("_custom", name) for name in consumer_sources} | {(PACKAGE_NAME, f"uxor-{name}") for name in consumer_sources}
+    skills = [skill for skill in listed["skills"] if skill["package"] in ("_custom", PACKAGE_NAME)]
+    if {(skill["package"], skill["original_name"]) for skill in skills} != expected:
+        raise RuntimeError("Mate must list the three application skills and the three UXor skills under their respective owners")
+    for skill in skills:
+        name = skill["original_name"]
+        installed = f"mate-{name}"
+        if skill["installed_name"] != installed or not skill["enabled"] or skill["status"] != "ok":
+            raise RuntimeError(f"Mate did not install a healthy, enabled {installed}")
+        if skill["package"] == "_custom":
+            source = consumer_sources[name]
+            if (application / "project-skills" / name / "SKILL.md").read_bytes() != source:
+                raise RuntimeError(f"Mate changed the application's {name} source")
+        else:
+            source = (application / "vendor" / PACKAGE_NAME / PACKAGE_PATH / "skills" / name / "SKILL.md").read_bytes()
+            if marker.encode() not in source:
+                raise RuntimeError(f"Packaged {name} has the wrong archive version")
+        # Mate rewrites the frontmatter name in its installed copies.
+        content = source.replace(f"\nname: {name}\n".encode(), f"\nname: {installed}\n".encode(), 1)
+        for target in (".agents/skills", ".claude/skills"):
+            if (application / target / installed / "SKILL.md").read_bytes() != content:
+                raise RuntimeError(f"Mate installed the wrong content in {target}/{installed}")
+
+
 def check_update(application: Path, manifest: dict, archive: Path, old_marker: str,
-                 new_marker: str, build_skill: Path) -> None:
+                 new_marker: str, consumer_sources: dict[str, bytes]) -> None:
     instructions = application / "AGENTS.md"
     custom_instructions = consumer_instruction_parts(instructions.read_text())
     component = application / "templates/components/ConsumerOwned.html.twig"
@@ -287,10 +320,10 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
     # Mate 0.14's plugin can resolve Composer's own root when Composer runs as a PHAR.
     php = os.environ.get("PHP_BIN", "php")
     execute([php, "vendor/bin/mate", "discover", "--no-interaction"], application)
-    for materialized in (application / "mate/AGENT_INSTRUCTIONS.md", build_skill):
-        content = materialized.read_text()
-        if new_marker not in content or old_marker in content:
-            raise RuntimeError(f"The updated package's Mate refresh did not replace old guidance: {materialized.relative_to(application)}")
+    check_skills(application, php, consumer_sources, new_marker)
+    guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
+    if new_marker not in guidance or old_marker in guidance:
+        raise RuntimeError("The updated package's Mate refresh did not replace old agent instructions")
     if consumer_instruction_parts(instructions.read_text()) != custom_instructions:
         raise RuntimeError("Composer update changed consumer-owned instructions")
     if component.read_bytes() != component_content:
@@ -322,6 +355,8 @@ def check_consumer(archive: Path, temporary: Path) -> None:
     new_marker = versioned_archive(archive, second_archive, "0.0.1")
     manifest["repositories"] = [archive_repository(first_archive)]
     manifest.setdefault("require-dev", {})[PACKAGE_NAME] = "0.0.*"
+    manifest["extra"]["ai-mate"]["skills"] = ["project-skills"]
+    consumer_sources = write_consumer_skills(application)
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     (application / ".env.local").write_text("APP_SECRET=" + secrets.token_hex(32) + "\n")
     # The fixture's repository wrapper is replaced by the independent application's invocation.
@@ -366,23 +401,14 @@ return static function (ContainerConfigurator $container): void {
                                          "--format=json"], application, capture=True), "reference")
     if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
         raise RuntimeError("The installed reference resource could not be read through Mate")
-    skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))
-    package_skills = [skill for skill in skills.get("skills", []) if skill.get("package") == PACKAGE_NAME]
-    if {skill["original_name"] for skill in package_skills} != {"setup", "build", "verify"}:
-        raise RuntimeError("Mate did not discover all three packaged UXor skills")
-    for skill in package_skills:
-        if not skill["enabled"] or not (application / ".agents/skills" / skill["installed_name"] / "SKILL.md").is_file():
-            raise RuntimeError("A packaged skill was discovered but not installed for agents")
+    check_skills(application, php, consumer_sources, old_marker)
     # Mate nests the package's headings, so look for the heading text of the packaged INSTRUCTIONS.md.
     if not re.search(r"Building with UXor\b", (application / "mate/AGENT_INSTRUCTIONS.md").read_text()):
         raise RuntimeError("Packaged UXor instructions were not materialized for agents")
-    build = next(skill for skill in package_skills if skill["original_name"] == "build")
-    build_skill = application / ".agents/skills" / build["installed_name"] / "SKILL.md"
-    for materialized in (application / "mate/AGENT_INSTRUCTIONS.md", build_skill):
-        if old_marker not in materialized.read_text():
-            raise RuntimeError("The first archive's agent guidance was not installed before the update")
-    print("Independent archive consumer: Mate operation, reference, provenance, three skills and repeated initialization verified.")
-    check_update(application, manifest, second_archive, old_marker, new_marker, build_skill)
+    if old_marker not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
+        raise RuntimeError("The first archive's agent instructions were not installed before the update")
+    print("Independent archive consumer: Mate operation, reference, provenance, six skills and repeated initialization verified.")
+    check_update(application, manifest, second_archive, old_marker, new_marker, consumer_sources)
 
     execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
     execute([*composer_command(), "install", "--no-dev", "--prefer-dist", "--no-interaction", "--no-progress"], application)
