@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, stubPreviewFrames } from './fixtures';
+import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, stubPreviewFrames, type CancelledRequest } from './fixtures';
 import { observeTurbo, turboOperation } from './transitions';
 import { demoPages, previewUrl, recipes } from './inventory';
 
@@ -60,6 +60,61 @@ test('the settings layout marks the current section and the profile block saves'
     await page.getByRole('button', { name: 'Save changes' }).click();
     await expect(page.getByRole('region', { name: 'Notifications' }).getByText('Profile saved.')).toBeVisible();
 });
+
+// EventSource.close() on a terminal message can finish the GET as cancelled in Chromium and WebKit.
+function closedRevenueStream(page: Page, prompt: string): CancelledRequest {
+    const url = new URL('/demo/revenue-assistant', page.url());
+    url.searchParams.set('prompt', prompt);
+    return { url: url.href, method: 'GET', accept: 'text/event-stream', count: 1 };
+}
+
+test('a revenue request can be retried and opens its chart and data table through Turbo', async ({ page, allowCancelledRequest }) => {
+    await page.goto('/demo/revenue-assistant');
+    await controllersConnected(page);
+    const sameDocument = await markDocument(page);
+    const prompt = page.getByRole('textbox', { name: 'Revenue request' });
+    const submit = page.getByRole('button', { name: 'Show revenue' });
+    allowCancelledRequest(closedRevenueStream(page, 'Show monthly revenue'));
+    await prompt.fill('Show monthly revenue');
+    await submit.click();
+    await expect(page.locator('form').getByRole('status')).toContainText('Choose weekly, yearly or all-time revenue');
+    await expect(page).toHaveURL(/\/demo\/revenue-assistant$/);
+
+    allowCancelledRequest(closedRevenueStream(page, 'Show weekly revenue'));
+    await prompt.fill('Show weekly revenue');
+    await turboOperation(page, { url: '/demo?revenue=week' }, () => submit.click());
+    await sameDocument.expectKept();
+    await expect(page.getByRole('tab', { name: 'This week', selected: true })).toBeVisible();
+    const panel = page.getByRole('tabpanel', { name: 'This week' });
+    await expect(panel.getByRole('img', { name: 'Revenue this week' })).toBeVisible();
+    await panel.getByText('Show the data as a table').click();
+    const table = panel.getByRole('table', { name: 'Revenue this week' });
+    await expect(table).toBeVisible();
+    await expect(table.getByRole('columnheader')).toHaveText(['Day', 'Revenue ($)']);
+    await expect(table.getByRole('rowheader')).toHaveText(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+});
+
+for (const [failure, ending] of [
+    ['malformed JSON', 'data: {\n\n'],
+    ['an interrupted stream', ''],
+    ['a different run finishing', 'data: {"type":"RUN_FINISHED","threadId":"revenue","runId":"other"}\n\n'],
+]) {
+    test(`a revenue request stays on the form after ${failure}`, async ({ page, allowCancelledRequest }) => {
+        await page.goto('/demo/revenue-assistant');
+        await controllersConnected(page);
+        await page.route('**/demo/revenue-assistant?*', (route) => route.fulfill({
+            contentType: 'text/event-stream',
+            body: 'data: {"type":"RUN_STARTED","threadId":"revenue","runId":"trial"}\n\n'
+                + 'data: {"type":"STATE_SNAPSHOT","snapshot":{"revenuePeriod":"week"}}\n\n'
+                + ending,
+        }));
+        allowCancelledRequest(closedRevenueStream(page, 'Show weekly revenue'));
+        await page.getByRole('textbox', { name: 'Revenue request' }).fill('Show weekly revenue');
+        await page.getByRole('button', { name: 'Show revenue' }).click();
+        await expect(page.locator('form').getByRole('status')).toHaveText('The revenue request did not finish. Try again.');
+        await expect(page).toHaveURL(/\/demo\/revenue-assistant$/);
+    });
+}
 
 test('the dashboard defers autocomplete until a Turbo visit adds a field', async ({ page }) => {
     const vendorRequests: string[] = [];

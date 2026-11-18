@@ -382,6 +382,9 @@ States: series colors per theme, server colors kept, data, the data table, reduc
 
 | Transition | Scope | Covered by |
 |---|---|---|
+| The dashboard renders the requested revenue tab for week, year and all time. It defaults to this year and returns HTTP 400 for invalid periods. | functional | `DashboardRevenueTest` |
+| A native revenue request redirects to the matching dashboard period or returns a 422 explanation. A stream for the same request carries the period between matching start and finish events, or ends with a run error. | functional | `RevenueAssistantTest` |
+| After an unknown request, a retry for weekly revenue keeps the document and shows the weekly chart and its accessible data table. Malformed JSON, a partial stream and mismatched run IDs leave the form available. | E2E demo | demo-app "a revenue request can be retried and opens its chart and data table through Turbo", "a revenue request stays on the form after…" |
 | Named image with its data table, roles per theme, `var(--color-…)`, reduced motion, doughnut, visible table | E2E demo | chart (5 tests) |
 | Translucent and invalid theme colors resolve independently when charts share a color-sampling canvas | E2E demo | chart "a translucent color is sampled on its own and an invalid color falls back to black" |
 | Back, N visits, theme switch redraws once, permanent follows the theme, server color through switches, frame ×3, Stream, Live data | E2E lab | lab.chart (7 tests) |
