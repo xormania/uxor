@@ -92,9 +92,10 @@ for (const motion of ['reduce', 'no-preference'] as const) {
                 selected: trigger.ariaSelected,
                 visible: panel.getClientRects().length > 0,
                 fading: panel.getAnimations().some((animation) => (animation as CSSTransition).transitionProperty === 'opacity'),
+                snapshotHasEntrance: (panel.cloneNode() as Element).hasAttribute('data-tabs-enter'),
             };
         });
-        expect(state).toEqual({ selected: 'true', visible: true, fading: motion === 'no-preference' });
+        expect(state).toEqual({ selected: 'true', visible: true, fading: motion === 'no-preference', snapshotHasEntrance: false });
         await expect(profile).toBeHidden();
         const panel = page.getByRole('tabpanel', { name: 'Settings' });
         await page.evaluate(() => document.dispatchEvent(new Event('turbo:before-cache')));
@@ -115,11 +116,11 @@ for (const motion of ['reduce', 'no-preference'] as const) {
             button.click();
             const drawer = document.getElementById(button.getAttribute('aria-controls')!) as HTMLDialogElement;
             const focusedInside = drawer.contains(document.activeElement);
-            const property = getComputedStyle(drawer).transitionProperty;
+            const sliding = drawer.getAnimations().some((animation) => (animation as CSSTransition).transitionProperty === 'translate');
             drawer.querySelector<HTMLButtonElement>('[data-action*="drawer#close"]')!.click();
-            return { focusedInside, property, closed: !drawer.open, focusReturned: document.activeElement === button };
+            return { focusedInside, sliding, closed: !drawer.open, focusReturned: document.activeElement === button };
         });
-        expect(state).toEqual({ focusedInside: true, property: motion === 'reduce' ? 'none' : 'translate', closed: true, focusReturned: true });
+        expect(state).toEqual({ focusedInside: true, sliding: motion === 'no-preference', closed: true, focusReturned: true });
     });
 }
 
