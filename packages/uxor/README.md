@@ -71,6 +71,13 @@ This sequence also works when Mate's Composer plugin does not refresh discovery.
 running from a PHAR, the plugin resolved Composer's own root instead of the consuming application. Explicit discovery
 uses the actual application and preserves project-authored instructions and configuration.
 
+If the application uses Claude Code, check `CLAUDE.md` after discovery. Mate 0.14 can mistake a mention of
+`AGENTS.md` in prose for an import. If the import is missing, add this line on its own outside Mate's managed block.
+
+```text
+@./AGENTS.md
+```
+
 ### Upgrade from the old skill names
 
 UXor's skill slugs are now `uxor-setup`, `uxor-build` and `uxor-verify`. Mate installs them with a `mate-` prefix.
