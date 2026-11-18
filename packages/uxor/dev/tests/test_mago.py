@@ -73,6 +73,9 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         for arg in args:
             options.extend(arg.split("=", 1) if arg.startswith("--") and "=" in arg else [arg])
         pairs = list(zip(options, options[1:]))
+        self.assertIn(("--user", f"{os.getuid()}:{os.getgid()}"), pairs)
+        expected_groups = {str(group) for group in os.getgroups() if group != os.getgid()}
+        self.assertEqual(expected_groups, {value for option, value in pairs if option == "--group-add"})
         self.assertIn(("--pull", "never"), pairs)
         self.assertIn(("--network", "none"), pairs)
         self.assertTrue(any(option in ("-w", "--workdir") and value == "/app" for option, value in pairs), args)

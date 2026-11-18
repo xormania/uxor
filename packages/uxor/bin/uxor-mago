@@ -81,7 +81,14 @@ esac
 
 # Use Docker's CSV form so paths containing spaces, commas or quotes stay one mount.
 source_field=$(printf '%s' "src=$root" | sed 's/"/""/g')
-exec docker run --rm --init -i --pull=never --network none --user "$(id -u):$(id -g)" \
+# A shared checkout may grant read access through one of the caller's other groups.
+primary_group=$(id -g)
+set -- -- "${UXOR_MAGO_IMAGE:-uxor-mago:b6dbec8}" "$@"
+for group in $(id -G); do
+    if [ "$group" != "$primary_group" ]; then
+        set -- --group-add "$group" "$@"
+    fi
+done
+exec docker run --rm --init -i --pull=never --network none --user "$(id -u):$primary_group" \
     --mount "type=bind,\"$source_field\",dst=/app,readonly" --workdir /app \
-    --tmpfs /state:mode=1777 --env POC_EVIDENCE= \
-    -- "${UXOR_MAGO_IMAGE:-uxor-mago:b6dbec8}" "$@"
+    --tmpfs /state:mode=1777 --env POC_EVIDENCE= "$@"
