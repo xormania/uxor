@@ -543,6 +543,10 @@ reduced motion; an animation that is the content runs three times slower there.
 | alert, toast, modal | Hide, removal and `aria-*` updates complete under reduced motion | E2E demo | motion (rows of alert, toast, modal above) |
 | all | Screenshots are taken under reduced motion with animations disabled: the end states | screenshot | shot:tabs, shot:alert |
 
+The optional [UX CSS motion probe](SYMFONY-UX-CSS-TRIAL.md) runs locally against the demo's motion environment.
+It checks generated rules served by AssetMapper, computed default and reduced motion, root and subtree token
+overrides, cascade layers and actual opacity transitions in Chromium. The shipped motion suite runs in CI.
+
 ## Rules and their tests
 
 The rules of [`FOR-AGENTS.md`](../FOR-AGENTS.md)'s *Working well*, each keyed by its bold lead-in exactly as written

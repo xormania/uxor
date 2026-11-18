@@ -1,0 +1,8 @@
+ux_css_motion_probe:
+    path: /_experiments/ux-css/motion
+    controller: Symfony\Bundle\FrameworkBundle\Controller\TemplateController::templateAction
+    methods: [GET]
+    options:
+        uxor_security: development-only
+    defaults:
+        template: '@motion/panel.html.twig'

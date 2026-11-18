@@ -1,0 +1,17 @@
+twig:
+    paths:
+        '%kernel.project_dir%/../tools/experiments/ux-css': motion
+
+ux_css:
+    tokens:
+        durations:
+            normal: 'var(--uxor-motion-duration-normal)'
+        easings:
+            out: 'var(--uxor-motion-ease-out)'
+
+framework:
+    asset_mapper:
+        server: true
+        public_prefix: /_experiments/ux-css/assets/
+        paths:
+            '%kernel.project_dir%/../tools/experiments/ux-css/assets': motion_probe

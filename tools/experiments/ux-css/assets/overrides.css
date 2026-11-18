@@ -1,0 +1,13 @@
+.motion-probe-root {
+    --uxor-motion-duration-normal: 240ms;
+    --uxor-motion-ease-out: linear;
+}
+
+.motion-probe-scope {
+    --uxor-motion-duration-normal: 410ms;
+    --uxor-motion-ease-out: ease-in;
+}
+
+.motion-probe-property {
+    transition-duration: 520ms;
+}

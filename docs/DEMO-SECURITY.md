@@ -28,6 +28,7 @@ other than GET, or when a public reference route accepts POST without a named CS
 | `public-reference` | `/demo/*`, `/forms*`, `/oauth-demo/*` | Reference forms and layouts. POST is handled by a Symfony form or by the firewall, with CSRF enabled; effects stay in the demo session. |
 | `trusted-code-preview` | `/preview/{recipe}/{example}` | GET only. Compiles Twig from the checked-out repository; the repository is trusted code, not user content. |
 | `development-only` | `/lab/*` | Test scenarios, including uploads, Live actions and Turbo Stream endpoints. Never a public application surface. |
+| `development-only` | `/_experiments/ux-css/motion` | GET only in the opt-in `motion` environment. Renders a fixed Twig fixture with the compiled kit and generated experiment stylesheets. |
 
 Framework routes such as `/_components` and `/autocomplete` are owned by their Symfony UX packages. Their access and
 authorization follow the application route that renders the component; an application using UXor must enforce its

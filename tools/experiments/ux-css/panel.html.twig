@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>UX CSS motion probe</title>
+    <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('motion_probe/overrides.css') }}" id="override-css">
+    <link rel="stylesheet" href="{{ asset('ux_css/styles.css') }}" id="generated-css">
+</head>
+<body>
+    <div id="panels">
+        <div class="uxor-page-transition">
+            <main id="kit">Kit CSS</main>
+        </div>
+        <div id="named" class="{{ css({
+            transitionProperty: '[none]',
+            _motionSafe: {
+                transitionProperty: '[opacity]',
+                transitionDuration: 'normal',
+                transitionTimingFunction: 'out'
+            }
+        }) }}">Named tokens</div>
+        <div id="direct" class="{{ css({
+            transitionProperty: '[none]',
+            _motionSafe: {
+                transitionProperty: '[opacity]',
+                transitionDuration: '[var(--uxor-motion-duration-normal)]',
+                transitionTimingFunction: '[var(--uxor-motion-ease-out)]'
+            }
+        }) }}">Direct custom properties</div>
+    </div>
+</body>
+</html>
