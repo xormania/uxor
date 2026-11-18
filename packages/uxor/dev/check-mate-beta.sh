@@ -41,7 +41,7 @@ vendor/bin/mate tools:call uxor_component --name=button --format=json |
 vendor/bin/mate tools:call uxor_workflow --name=customer-management --limit=64 --format=json |
     jq -e '.status == "completed" and .data.truncated and .data.next_offset == 64'
 vendor/bin/mate tools:call uxor_tools --format=json |
-    jq -e '.untrusted_data.status == "incomplete" and .untrusted_data.operation == "tools"'
+    jq -e '.untrusted_data | .status == "incomplete" and .operation == "tools" and .data.project_code_executed == false'
 skill_names=()
 for directory in "$package"/skills/*/; do
     [[ -d "$directory" ]] || continue
