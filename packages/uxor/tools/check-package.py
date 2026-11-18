@@ -294,6 +294,17 @@ def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes]
             if (application / target / installed / "SKILL.md").read_bytes() != content:
                 raise RuntimeError(f"Mate installed the wrong content in {target}/{installed}")
 
+    # The names in the installed instructions must refer agents to UXor skills.
+    skill_names = {skill[key] for skill in skills for key in ("original_name", "installed_name")}
+    for installed, targets in {
+        "mate-uxor-build": {"mate-uxor-setup", "mate-uxor-verify"},
+        "mate-uxor-setup": {"mate-uxor-verify"},
+    }.items():
+        guidance = (application / ".agents/skills" / installed / "SKILL.md").read_text()
+        references = set(re.findall(r"`([^`\n]+)`", guidance)) & skill_names
+        if references != targets:
+            raise RuntimeError(f"{installed} refers to {sorted(references)}; expected {sorted(targets)}")
+
 
 def check_update(application: Path, manifest: dict, archive: Path, old_marker: str,
                  new_marker: str, consumer_sources: dict[str, bytes]) -> None:

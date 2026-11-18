@@ -20,11 +20,11 @@ For a searchable list with an editor, validation and save feedback, read `uxor:/
 ## Procedure
 
 1. State the complete user journey: initial page, loading/empty state, inputs, validation, successful action, affected content, feedback, focus and intended Back/Forward behavior. Choose how Turbo Drive, Frames, Streams and Live Components participate in that journey.
-2. Inspect the existing application and choose the smallest existing UXor components or block that cover it. Read their docs before composing them. Use the project's `setup` procedure to install missing components and complete their dependencies.
+2. Inspect the existing application and choose the smallest existing UXor components or block that cover it. Read their docs before composing them. Use the `mate-uxor-setup` skill to install missing components and complete their dependencies.
 3. Reuse Symfony Forms, validation, routing and installed Makers for application wiring. Add business code in the application's own classes. Installed UXor PHP commonly lives under `App\UXor\`; inspect its actual autoloading and service configuration rather than relying on the demo's sibling-directory wiring.
 4. Follow the selected components' contracts. Preserve stable identifiers where Turbo/Live needs them. Use their Stimulus behavior and cleanup; avoid a second initialization system. For the reviewed reference profile, Flowbite supplies CSS while component behavior lives in Stimulus. Follow the selected version's theme roles, icon handling and CSP requirements.
 5. Complete the interaction across updates. Handle invalid submitted forms and successful redirects with the documented response behavior. Deliver toast feedback through the documented stream mechanism, including when its region is permanent. For record lists, choose the table variant whose history and update behavior match the journey. Review file-upload and editor-specific integration when those components are used.
-6. Run the `verify` procedure against the served page and inspect the actual change before declaring completion.
+6. Run the `mate-uxor-verify` procedure against the served page and inspect the actual change before declaring completion.
 
 ## Use source and runtime tools together
 

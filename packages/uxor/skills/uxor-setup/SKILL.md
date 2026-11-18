@@ -30,7 +30,7 @@ outside Mate's managed block and application-owned component files remain intact
 2. Read the installation reference. Reuse working project configuration. Establish the required PHP extensions, regular runtime dependencies, Toolkit development dependencies, Stimulus discovery, styling and theme. Keep packages needed by installed PHP, Twig or browser components in the application's regular dependencies.
 3. Select components from `uxor://catalog`, then read only their `uxor://reference/<recipe>/README.md` resources. Choose an explicit UXor release or revision compatible with the application and record it. The package version describes the supplied guidance; it does not establish the origin of existing customized files.
 4. Use Symfony UX Toolkit's supported `ux:install` command. Follow its output and the component README through Composer dependencies, importmap requirements, CSS imports and controller configuration. Copied files alone do not establish completed integration. Existing application files and customizations need inspection before replacement.
-5. Render a small page using the selected component and exercise its behavior through the served application. Confirm controller loading and inspect request, console and CSP failures. Complete the `verify` skill for the actual interaction.
+5. Render a small page using the selected component and exercise its behavior through the served application. Confirm controller loading and inspect request, console and CSP failures. Complete the `mate-uxor-verify` skill for the actual interaction.
 
 ## Deliver useful completion evidence
 
