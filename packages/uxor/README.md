@@ -77,9 +77,13 @@ UXor's skill slugs are now `uxor-setup`, `uxor-build` and `uxor-verify`. Mate in
 Use the new names in agent instructions and skill commands. Application skills can use the original generic slugs
 in their own source directories.
 
-Before updating with Composer, record any per-skill disable settings you want to carry forward. Save edits made
-directly in `.agents/skills/mate-*` or `.claude/skills/mate-*` outside those directories. Mate manages those targets
-and can remove them when Composer triggers discovery during the update.
+Before updating with Composer, record which skills are disabled or overridden and keep the override sources in
+`mate/skills/`. Save edits made directly in `.agents/skills/mate-*` or `.claude/skills/mate-*` outside those
+directories. Mate manages those targets and can remove them when Composer triggers discovery during the update.
+
+Choose a release that includes the rename once one is available. If your application's root Composer constraint
+for `xormania/uxor` is `^0.3`, widen it to allow the chosen release. If the rename ships in 0.4.0, for example,
+`composer require --dev 'xormania/uxor:^0.4'` updates the constraint and selects the 0.4 series.
 
 Run `vendor/bin/mate discover` after the update. Mate registers the application skills from their configured
 sources, retires the old generated UXor copies and installs the new ones. Old override sources under `mate/skills/`
