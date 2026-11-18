@@ -180,6 +180,18 @@
             "config/packages/ux_icons.yaml"
         ]
     },
+    "symfony/ux-inspector": {
+        "version": "3.7",
+        "recipe": {
+            "repo": "github.com/symfony/recipes",
+            "branch": "main",
+            "version": "3.7",
+            "ref": "e05b4dea1f8d05cee2cdab98b4346c849f12227e"
+        },
+        "files": [
+            "config/routes/ux_inspector.yaml"
+        ]
+    },
     "symfony/ux-live-component": {
         "version": "3.5",
         "recipe": {
