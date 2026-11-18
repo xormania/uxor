@@ -6142,7 +6142,8 @@
                 "phpunit/phpunit": "^12.5"
             },
             "bin": [
-                "packages/uxor/bin/uxor"
+                "packages/uxor/bin/uxor",
+                "packages/uxor/bin/uxor-mago"
             ],
             "type": "library",
             "extra": {

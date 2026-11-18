@@ -71,6 +71,68 @@ This sequence also works when Mate's Composer plugin does not refresh discovery.
 running from a PHAR, the plugin resolved Composer's own root instead of the consuming application. Explicit discovery
 uses the actual application and preserves project-authored instructions and configuration.
 
+## Optional PHP checks and Serena with Mago
+
+The Composer package also installs `vendor/bin/uxor-mago`. It runs formatting checks, lint and static analysis
+on the consuming application's PHP. Serena can use the same Mago binary as its PHP language server for symbol
+lookup and diagnostics. Run PHPUnit separately for the application's runtime tests.
+
+On a POSIX host with local Docker, build the optional provider image once. The build compiles Rust and includes
+the Serena adapter and patched Mago language server from the
+[pinned proof of concept](https://github.com/xormania/mago-serena_v2-poc/tree/b6dbec8378338e39fe51489bc28f9ad578e4f3ab).
+
+```sh
+docker buildx build --load -t uxor-mago:b6dbec8 \
+  'https://github.com/xormania/mago-serena_v2-poc.git#b6dbec8378338e39fe51489bc28f9ad578e4f3ab'
+```
+
+Configure PHP source paths in `mago.toml` at the application root. The pinned Mago defaults to an empty source
+list. For example, an application targeting PHP 8.4 with `src/`, `tests/` and Composer dependencies can use:
+
+```toml
+version = "1"
+php-version = "8.4"
+
+[source]
+paths = ["src", "tests"]
+includes = ["vendor"]
+```
+
+From the application root, run the checks together or request a native report for one of them:
+
+```sh
+vendor/bin/uxor-mago check
+vendor/bin/uxor-mago lint --reporting-format json src/
+vendor/bin/uxor-mago analyze --reporting-format json
+vendor/bin/uxor-mago format src/
+```
+
+`check` verifies that each step has files to check, then stops at the first failure in the order format, lint,
+analyze. Individual commands return Mago's exit status. Pass paths and options for the selected subcommand after
+its name. Put workspace-wide settings in `mago.toml`.
+
+To use the language server, register a stdio MCP server with your client. Substitute the absolute application
+path in both places so the client can start it from any directory:
+
+```json
+{
+  "mcpServers": {
+    "uxor-mago": {
+      "command": "/path/to/app/vendor/bin/uxor-mago",
+      "args": ["--project-root", "/path/to/app", "serena"]
+    }
+  }
+}
+```
+
+Each invocation mounts the selected application at `/app` read-only and runs offline. Use paths relative to the
+application for Mago and Serena queries. To resolve dependency symbols, install those dependencies inside the
+mounted tree. Composer path repositories symlinked outside it are inaccessible. Serena keeps its project settings and index in temporary container
+storage, so the application's own `.serena/` settings stay available to its other sessions. If a symbol range is
+stale after an external edit, restart the language server or reconnect. The
+[provider documents this limitation](https://github.com/xormania/mago-serena_v2-poc/blob/b6dbec8378338e39fe51489bc28f9ad578e4f3ab/README.md).
+Set `UXOR_MAGO_IMAGE` to select a compatible local build, for example `mago-serena-poc:local` from that revision.
+
 ## Use
 
 Search first, then load the relevant component detail and documentation:

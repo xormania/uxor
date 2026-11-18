@@ -338,6 +338,7 @@ return static function (ContainerConfigurator $container): void {
     installed = application / "vendor" / PACKAGE_NAME
     if installed.is_symlink() or not installed.is_dir():
         raise RuntimeError("Independent consumer must install the archive, not a source symlink")
+    execute(["vendor/bin/uxor-mago", "--help"], application)
     php = os.environ.get("PHP_BIN", "php")
     mate = [php, "vendor/bin/mate"]
     execute([*mate, "init", "--no-interaction"], application)

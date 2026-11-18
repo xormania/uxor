@@ -1,0 +1,87 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    cat <<'HELP'
+Usage: uxor-mago [--project-root DIR] <command> [arguments]
+
+  check             Check formatting, lint, then analyze the application
+  format [args]     Check formatting with mago format --check
+  lint [args]       Run mago lint
+  analyze [args]    Run mago analyze
+  serena            Start Serena over MCP stdio with the Mago language server
+
+Run from the Composer application root or select it with --project-root.
+Configure source paths in the application's mago.toml and build the optional
+Docker image as described in the UXor package README.
+UXOR_MAGO_IMAGE selects an already-built image.
+HELP
+}
+
+root=.
+if [ "${1:-}" = --project-root ]; then
+    if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
+    root=$2
+    shift 2
+fi
+
+case "${1:-}" in
+    -h|--help) usage; exit 0 ;;
+    check|serena) if [ "$#" -ne 1 ]; then usage >&2; exit 2; fi ;;
+    format|lint|analyze) ;;
+    *) usage >&2; exit 2 ;;
+esac
+command=$1
+shift
+if ! root=$(CDPATH='' cd -P -- "$root" && pwd -P) || [ ! -f "$root/composer.json" ]; then
+    echo 'Select a Composer application directory containing composer.json.' >&2
+    exit 2
+fi
+
+if [ ! -f "$root/mago.toml" ]; then
+    echo 'Configure PHP source paths in mago.toml at the application root. See the UXor package README.' >&2
+    exit 2
+fi
+
+case "$command" in
+    check)
+        # shellcheck disable=SC2016 # Check the scopes inside the provider container.
+        set -- sh -ec '
+            for scope in formatter linter analyzer; do
+                files=$(mago list-files --command "$scope")
+                if [ -z "$files" ]; then
+                    echo "Mago selected no files for $scope. Check the paths and excludes in mago.toml." >&2
+                    exit 2
+                fi
+            done
+            mago format --check && mago lint && mago analyze
+        '
+        ;;
+    format) set -- mago format --check "$@" ;;
+    lint|analyze) set -- mago "$command" "$@" ;;
+    serena)
+        # Keep the application and its normal Serena configuration read-only. The
+        # adapter, its index and its settings live in this container for one session.
+        # shellcheck disable=SC2016 # Expand SERENA_HOME inside the image.
+        set -- sh -ec '
+            mkdir -p "$SERENA_HOME" /state/project
+            printf "%s\n" "projects: []" "project_serena_folder_location: /state/project" > "$SERENA_HOME/serena_config.yml"
+            cat > /state/project/project.yml <<EOF
+project_name: application
+language_servers: [mago]
+read_only: true
+ignored_paths: [var, .serena, .phpunit.cache, public/assets]
+included_apis: [lsp.restart_language_server, lsp.get_diagnostics_for_file]
+EOF
+            exec serena start-mcp-server --project /app --transport stdio --agent-interface REPL \
+                --enable-web-dashboard false --open-web-dashboard false --enable-gui-log-window false
+        '
+        ;;
+esac
+
+# Use Docker's CSV form so paths containing spaces, commas or quotes stay one mount.
+source_field=$(printf '%s' "src=$root" | sed 's/"/""/g')
+exec docker run --rm --init -i --pull=never --network none --user "$(id -u):$(id -g)" \
+    --mount "type=bind,\"$source_field\",dst=/app,readonly" --workdir /app \
+    --tmpfs /state:mode=1777 --env POC_EVIDENCE= \
+    -- "${UXOR_MAGO_IMAGE:-uxor-mago:b6dbec8}" "$@"
