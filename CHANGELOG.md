@@ -7,6 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- `theme` provides shared motion durations and easing. Layouts can opt into a short entrance for main content on
+  forward Turbo visits. Drawers and tabs animate on interaction and respect reduced motion.
+
 - `dropzone`: a `maxFiles` prop caps a zone for several files in the browser, files over it left out with
   `dropzone:reject`; through the form theme, `DropzoneType`'s `max_files` option sets it (UX Dropzone's type adds the
   server's `Count`).
@@ -20,6 +23,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Changed
 
+- `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
+
 - `dropzone` requires `symfony/ux-dropzone` ^3.7, 3.7 and later 3.x releases (it allowed ^3.5): UX Dropzone 3.7
   shows and hides the zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5
   or 3.6 runs `composer require symfony/ux-dropzone:^3.7` before installing or updating the recipe; read UX Dropzone's
@@ -31,6 +36,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   the preview image, and add no `display` class to the parts UX Dropzone hides: otherwise the picked file stays hidden.
 
 ### Fixed
+
+- `dropdown` keeps a hover menu closed after a second tap or an explicit dismissal.
+- `pagination` wraps its links when the container is too narrow for one row.
 
 - `autocomplete`: a choice made, or the field left, right after a keystroke no longer opens the list again and takes the
   focus back: the recipe's `autocomplete-sync` cancels the list refresh Tom Select had scheduled for that keystroke.

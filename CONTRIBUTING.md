@@ -435,7 +435,10 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
   motion with `motion-reduce:transition-none!` (important, because of the CSS order above). An animation that is the
   content (a spinner, a skeleton's pulse) runs three times slower there instead. A controller that waits for a fade
   before hiding or removing an element does it at once under `prefers-reduced-motion`; never wait for a
-  `transitionend` that may not come. `tests/e2e/motion.spec.ts` checks each moving recipe.
+  `transitionend` that may not come. Use the theme's `--uxor-motion-duration-fast` (100ms) for short feedback and
+  `--uxor-motion-duration-normal` (150ms) for drawer and chart entrances. CSS entrances share
+  `--uxor-motion-ease-out`. Update focus and selection as soon as the user acts. `tests/e2e/motion.spec.ts`
+  checks each moving recipe.
 - **Twig inside components.** In a component's content (`<twig:X>…</twig:X>`), `block('name')` and `{% block %}`
   belong to the component: reach the surrounding template's blocks with `block(outerBlocks.name)`.
 - **Turbo forms.** A submitted form answers with a redirect (303) when it succeeds and 422 when it shows errors;

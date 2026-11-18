@@ -48,6 +48,19 @@ Fill `settings_nav` with one `SectionNav:Item` per settings page (the `section-n
 
 Flash messages added with `$this->addFlash('success', '…')` (also `warning`, `danger`, anything else as `info`) appear as toasts on the next page, whatever its layout, Turbo visit or not.
 
+## Page transitions
+
+To fade in the main content on forward Turbo visits, add `uxor-page-transition` to the body
+in your application’s layout. This uses the `theme` stylesheet and Turbo Drive.
+
+```twig
+{% block body_class %}{{ parent() }} uxor-page-transition{% endblock %}
+```
+
+The incoming content accepts input during the fade. The sidebar and navbar stay in place.
+The fade uses the theme’s `--uxor-motion-duration-fast` and `--uxor-motion-ease-out` and
+respects reduced motion.
+
 ## Back and forms
 
 `base.html.twig` puts `data-controller="form-reset"` on `<body>`. After Back and Forward, Turbo shows the copy of the

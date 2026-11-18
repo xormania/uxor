@@ -1,5 +1,6 @@
 {% extends 'layouts/app.html.twig' %}
 
+{% block body_class %}{{ parent() }} uxor-page-transition{% endblock %}
 {% block head %}<link rel="icon" href="data:,">{% endblock %}
 
 {% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}

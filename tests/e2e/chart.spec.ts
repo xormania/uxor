@@ -49,6 +49,37 @@ test('under prefers-reduced-motion the chart does not animate', async ({ page })
     await expect.poll(async () => (await chartState(page, 'chart-revenue'))?.animation).toBe(false);
 });
 
+test('the chart reads its animation duration from the theme, including a scoped duration of zero', async ({ page }) => {
+    await page.goto('/preview/chart/default?theme=light');
+    const animation = async () => (await chartState(page, 'chart-revenue'))?.animation;
+    await expect.poll(animation).toMatchObject({ duration: 150 });
+
+    const figure = page.locator('#chart-revenue');
+    for (const [cssTime, duration] of [['.24s', 240], ['0ms', 0]] as const) {
+        await figure.evaluate((element, value) => element.style.setProperty('--uxor-motion-duration-normal', value), cssTime);
+        await toggleDark(page);
+        await expect.poll(animation).toMatchObject({ duration });
+    }
+});
+
+test('an updated Chart.js animation option takes precedence over the theme', async ({ page }) => {
+    await page.goto('/preview/chart/default?theme=light');
+    const animation = async () => (await chartState(page, 'chart-revenue'))?.animation;
+    await expect.poll(animation).toMatchObject({ duration: 150 });
+
+    for (const value of [{ easing: 'linear', duration: 425 }, false]) {
+        await page.locator('#chart-revenue canvas').evaluate((canvas, option) => {
+            const attribute = 'data-symfony--ux-chartjs--chart-view-value';
+            const view = JSON.parse(canvas.getAttribute(attribute)!);
+            view.options = { ...view.options, animation: option };
+            canvas.setAttribute(attribute, JSON.stringify(view));
+        }, value);
+        await expect.poll(animation).toEqual(value);
+        await toggleDark(page);
+        await expect.poll(animation).toEqual(value);
+    }
+});
+
 test('a doughnut colors each slice; a table can be always visible', async ({ page }) => {
     await page.goto('/preview/chart/doughnut?theme=light');
     const roles = await Promise.all(['chart-1', 'chart-2', 'chart-3', 'chart-4'].map((role) => roleColor(page, role)));

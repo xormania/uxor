@@ -17,7 +17,7 @@
     data-state="{{ open ? 'active' : 'inactive' }}"
     {{ attributes.defaults({
         tabindex: '0',
-        class: 'data-[state=inactive]:hidden'|tailwind_classes,
+        class: 'data-[state=inactive]:hidden transition-opacity duration-[var(--uxor-motion-duration-fast,100ms)] ease-[var(--uxor-motion-ease-out,ease-out)] data-tabs-enter:opacity-75 motion-reduce:transition-none!'|tailwind_classes,
     }) }}
 >
     {##- The default block. -#}

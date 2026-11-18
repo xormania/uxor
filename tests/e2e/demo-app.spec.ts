@@ -228,6 +228,31 @@ test('signing out requires POST: a direct GET to the logout URL does not sign th
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 });
 
+for (const motion of ['no-preference', 'reduce'] as const) {
+    test(`the settings layout enters on a forward Turbo visit with ${motion} motion`, async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: motion });
+        await page.goto('/demo/settings/profile');
+        await page.evaluate(() => {
+            document.addEventListener('transitionrun', (event) => {
+                if (event.target === document.querySelector('main') && event.propertyName === 'opacity') {
+                    document.documentElement.dataset.observedPageEntrance = location.pathname;
+                }
+            });
+        });
+
+        const sameDocument = await markDocument(page);
+        const notifications = page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Notifications' });
+        await turboOperation(page, { url: '/demo/settings/notifications' }, () => notifications.click());
+        await sameDocument.expectKept();
+        if ('reduce' === motion) {
+            await expect(page.locator('main')).toHaveCSS('transition-duration', '0s');
+            await expect(page.locator('html')).not.toHaveAttribute('data-observed-page-entrance');
+        } else {
+            await expect(page.locator('html')).toHaveAttribute('data-observed-page-entrance', '/demo/settings/notifications');
+        }
+    });
+}
+
 // The layouts mark the importmap `data-turbo-track="reload"` (UX Turbo's bundle sets the same default; the layout's
 // value wins): Turbo loads a page in full when its tracked elements differ from the current page's, so a page from a
 // new deploy never runs beside the old scripts

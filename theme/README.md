@@ -23,6 +23,14 @@ The recipe copies `assets/styles/uxor.css`, UXor's theme, which uses Flowbite's 
 @source "../../templates";
 ```
 
+### Motion
+
+Drawer entrances and chart animations use `--uxor-motion-duration-normal` (150ms).
+Tabs and optional page entrances use `--uxor-motion-duration-fast` (100ms).
+The CSS entrances use `--uxor-motion-ease-out` (`ease-out`). Override these properties on
+`:root` or a section in your stylesheet. Use a duration such as `120ms`, `0.12s` or `0ms`.
+The recipes respect the operating system’s reduced-motion preference.
+
 ### Dark mode
 
 Dark mode is class based: the `.dark` overrides and the `dark:` variant apply below an element with the `dark` class, normally `<html class="dark">`. The `theme-toggle` recipe switches it and documents a snippet that sets it before the first paint.

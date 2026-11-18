@@ -273,6 +273,9 @@
     /* UXor: native controls follow the light theme, also under a dark system (`.dark` sets dark) */
     :root {
         color-scheme: light;
+        --uxor-motion-duration-fast: 100ms;
+        --uxor-motion-duration-normal: 150ms;
+        --uxor-motion-ease-out: ease-out;
     }
 
     body {
@@ -284,4 +287,17 @@
    adds at the top of <head>, it overrides Turbo's own color. */
 .turbo-progress-bar {
     background-color: var(--color-brand);
+}
+
+/* The incoming main enters as Turbo inserts it. Navigation and focus proceed during the fade. */
+@media (prefers-reduced-motion: no-preference) {
+    .uxor-page-transition main {
+        transition: opacity var(--uxor-motion-duration-fast) var(--uxor-motion-ease-out);
+    }
+
+    @starting-style {
+        html[data-turbo-visit-direction="forward"]:not([data-turbo-preview]) .uxor-page-transition main {
+            opacity: 0.9;
+        }
+    }
 }
