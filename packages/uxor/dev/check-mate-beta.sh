@@ -42,12 +42,23 @@ vendor/bin/mate tools:call uxor_workflow --name=customer-management --limit=64 -
     jq -e '.status == "completed" and .data.truncated and .data.next_offset == 64'
 vendor/bin/mate tools:call uxor_tools --format=json |
     jq -e '.untrusted_data.status == "incomplete" and .untrusted_data.operation == "tools"'
-vendor/bin/mate skills:list --format=json | jq -e '
-    [.skills[] | select(.package == "xormania/uxor" and .enabled and .status == "ok") | .original_name]
-    | sort == ["build","setup","verify"]
-'
-for skill in build setup verify; do
+skill_names=()
+for directory in "$package"/skills/*/; do
+    [[ -d "$directory" ]] || continue
+    directory=${directory%/}
+    skill_names+=("${directory##*/}")
+done
+if [[ ${#skill_names[@]} -ne 3 ]]; then
+    printf 'Expected three UXor skill source directories, found %s.\n' "${#skill_names[@]}" >&2
+    exit 1
+fi
+vendor/bin/mate skills:list --format=json | jq -e --args '
+    [.skills[] | select(.package == "xormania/uxor")] as $owned
+    | ($owned | map(.original_name) | sort) == ($ARGS.positional | sort)
+      and all($owned[]; .enabled == true and .status == "ok" and .installed_name == ("mate-" + .original_name))
+' "${skill_names[@]}"
+for skill in "${skill_names[@]}"; do
     vendor/bin/mate skills:validate "$skill" --format=json |
-        jq -e '.skills | length == 1 and .[0].status == "ok"'
+        jq -e --arg installed "mate-$skill" '.skills | length == 1 and .[0].name == $installed and .[0].status == "ok"'
 done
 echo 'Seven tool schemas, two reads, the trust check and three installed skills passed.'
