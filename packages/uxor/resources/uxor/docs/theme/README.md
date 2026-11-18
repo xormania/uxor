@@ -25,8 +25,8 @@ The recipe copies `assets/styles/uxor.css`, UXor's theme, which uses Flowbite's 
 
 ### Motion
 
-Drawer entrances and chart animations use `--uxor-motion-duration-normal` (150ms).
-Tabs and optional page entrances use `--uxor-motion-duration-fast` (100ms).
+Drawer entrances, chart animations and optional page entrances use
+`--uxor-motion-duration-normal` (150ms). Tab panels use `--uxor-motion-duration-fast` (100ms).
 The CSS entrances use `--uxor-motion-ease-out` (`ease-out`). Override these properties on
 `:root` or a section in your stylesheet. Use a duration such as `120ms`, `0.12s` or `0ms`.
 The recipes respect the operating system’s reduced-motion preference.

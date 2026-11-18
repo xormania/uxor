@@ -43,6 +43,21 @@ test('a role the data gives as var(--color-…) resolves in each theme; the desc
     await expect(swatch).toHaveCSS('background-color', await roleColor(page, 'fg-success'));
 });
 
+test('a translucent color is sampled on its own and an invalid color falls back to black', async ({ page }) => {
+    await page.goto('/preview/chart/default?theme=light');
+    await page.locator('#chart-revenue').evaluate((figure) => {
+        figure.style.setProperty('--color-chart-1', 'red');
+        figure.style.setProperty('--color-chart-2', 'rgb(0 0 255 / 80%)');
+    });
+    await toggleDark(page);
+    const colors = async () => (await chartState(page, 'chart-revenue'))?.colors;
+    await expect.poll(colors).toEqual(['rgb(255, 0, 0)', 'rgba(0, 0, 255, 0.8)']);
+
+    await page.locator('#chart-revenue').evaluate((figure) => figure.style.setProperty('--color-chart-2', 'invalid-color'));
+    await toggleDark(page);
+    await expect.poll(colors).toEqual(['rgb(255, 0, 0)', 'rgb(0, 0, 0)']);
+});
+
 test('under prefers-reduced-motion the chart does not animate', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/preview/chart/default?theme=light');

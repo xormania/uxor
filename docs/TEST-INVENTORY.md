@@ -383,6 +383,7 @@ States: series colors per theme, server colors kept, data, the data table, reduc
 | Transition | Scope | Covered by |
 |---|---|---|
 | Named image with its data table, roles per theme, `var(--color-…)`, reduced motion, doughnut, visible table | E2E demo | chart (5 tests) |
+| Translucent and invalid theme colors resolve independently when charts share a color-sampling canvas | E2E demo | chart "a translucent color is sampled on its own and an invalid color falls back to black" |
 | Back, N visits, theme switch redraws once, permanent follows the theme, server color through switches, frame ×3, Stream, Live data | E2E lab | lab.chart (7 tests) |
 | Value blocks, point data | E2E lab | lab.chart (2 tests) |
 | Beside a frame visit promoted to history, the theme switched on the new entry: Back and Forward draw one chart per canvas, none left, each with the data of its copy (the framed one its load's) in the current theme, the server's color kept; a switch then redraws each once (failed with the chart's `configure` broken: light colors) | E2E lab | lab.chart "beside a frame visit promoted to history…" |
@@ -533,7 +534,7 @@ reduced motion; an animation that is the content runs three times slower there.
 | Recipe | State or transition | Scope | Covered by |
 |---|---|---|---|
 | tabs, toggle, sidebar, nav-menu, side-nav, table, toast, modal | Without a preference: the computed `transition-property` holds what the part animates (tabs: colors; toggle knob `::after`: `translate`, `border-color`; sidebar: `width`; chevrons: transforms; table rows: colors; toast: `opacity`; modal `::backdrop`: colors) and no other layout property; under reduced motion it is `none` (failed before the change for each, the sidebar's and the chevrons' under reduce only) | E2E demo | motion "…: animates only what it names, and nothing under reduced motion" (11) |
-| layouts | A forward Turbo visit in the opted-in settings layout fades the incoming main content and honors reduced motion | E2E demo | demo-app "the settings layout enters on a forward Turbo visit…" |
+| layouts | Dashboard and settings enter on load and forward visits, fade at the restored position on Back, and skip motion for cached previews and reduced motion | E2E demo | demo-app "dashboard and settings enter on load, a forward visit and Back…", "a cached settings preview stays still and the fresh response enters" |
 | drawer, tabs, chart | Recipe entrances use the theme’s motion settings, and chart options can override the default duration | E2E demo | motion, chart |
 | tabs | No `all`, no layout property, a non-zero duration (the `transition-all` axe raced: `expectA11y` waits for running finite animations) | E2E demo | motion "a tabs trigger animates its colors only…" |
 | spinner, skeleton | `animation-duration` 1 s and 2 s, 3 s and 6 s under reduced motion; every animated element of their previews, a README example's own `animate-*` class included | E2E demo | motion "the spinner and the skeleton pulse run three times slower under reduced motion", "every animation in … is slowed under reduced motion" (5 previews) |

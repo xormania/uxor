@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y, turboVisitDone, markDocument, stubPreviewFrames } from './fixtures';
-import { turboOperation } from './transitions';
+import { observeTurbo, turboOperation } from './transitions';
 import { demoPages, previewUrl, recipes } from './inventory';
 
 /**
@@ -228,30 +228,77 @@ test('signing out requires POST: a direct GET to the logout URL does not sign th
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
 });
 
-for (const motion of ['no-preference', 'reduce'] as const) {
-    test(`the settings layout enters on a forward Turbo visit with ${motion} motion`, async ({ page }) => {
-        await page.emulateMedia({ reducedMotion: motion });
-        await page.goto('/demo/settings/profile');
-        await page.evaluate(() => {
-            document.addEventListener('transitionrun', (event) => {
-                if (event.target === document.querySelector('main') && event.propertyName === 'opacity') {
-                    document.documentElement.dataset.observedPageEntrance = location.pathname;
-                }
-            });
-        });
+type MainWithEntrance = HTMLElement & { observedEntrance?: string[] };
 
-        const sameDocument = await markDocument(page);
-        const notifications = page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Notifications' });
-        await turboOperation(page, { url: '/demo/settings/notifications' }, () => notifications.click());
-        await sameDocument.expectKept();
-        if ('reduce' === motion) {
-            await expect(page.locator('main')).toHaveCSS('transition-duration', '0s');
-            await expect(page.locator('html')).not.toHaveAttribute('data-observed-page-entrance');
-        } else {
-            await expect(page.locator('html')).toHaveAttribute('data-observed-page-entrance', '/demo/settings/notifications');
-        }
+async function observePageEntrance(page: Page) {
+    await page.addInitScript(() => {
+        document.addEventListener('transitionrun', ({ target, propertyName }) => {
+            if (!(target instanceof HTMLElement) || !['opacity', 'translate'].includes(propertyName)) return;
+            if (target.matches('main')) {
+                // A property on the element keeps Turbo's cached clone from inheriting an earlier event.
+                ((target as MainWithEntrance).observedEntrance ??= []).push(propertyName);
+            } else if (target.matches('html, body, #sidebar, header[data-controller~="navbar"]')) {
+                document.documentElement.dataset.shellTransition = propertyName;
+            }
+        });
     });
 }
+
+async function expectPageEntrance(page: Page, properties: string[]) {
+    const main = page.locator('main');
+    // Give a newly inserted main a render opportunity before checking that no transition started.
+    await main.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect.poll(() => main.evaluate((el: MainWithEntrance) => (el.observedEntrance ?? []).slice().sort())).toEqual(properties);
+    await expect(main).toHaveCSS('pointer-events', 'auto');
+    await expect(page.locator('html')).not.toHaveAttribute('data-shell-transition');
+}
+
+for (const motion of ['no-preference', 'reduce'] as const) {
+    test(`dashboard and settings enter on load, a forward visit and Back with ${motion} motion`, async ({ page }) => {
+        await page.emulateMedia({ reducedMotion: motion });
+        await observePageEntrance(page);
+        await page.goto('/demo');
+        const onArrival = motion === 'reduce' ? [] : ['opacity', 'translate'];
+        await expectPageEntrance(page, onArrival);
+
+        const sameDocument = await markDocument(page);
+        const site = page.getByRole('navigation', { name: 'Site' });
+        await site.getByRole('button', { name: 'Account' }).click();
+        await turboOperation(page, { url: '/demo/settings/profile' }, () => site.getByRole('link', { name: 'Profile' }).click());
+        await expectPageEntrance(page, onArrival);
+
+        await turboOperation(page, { url: '/demo' }, () => page.goBack());
+        await expectPageEntrance(page, motion === 'reduce' ? [] : ['opacity']);
+        await sameDocument.expectKept();
+    });
+}
+
+test('a cached settings preview stays still and the fresh response enters', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await observePageEntrance(page);
+    await page.goto('/demo/settings/profile');
+    await expectPageEntrance(page, ['opacity', 'translate']);
+    const settings = page.getByRole('navigation', { name: 'Settings' });
+    await turboOperation(page, { url: '/demo/settings/notifications' }, () => settings.getByRole('link', { name: 'Notifications' }).press('Enter'));
+
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/demo/settings/profile', async (route) => {
+        await gate;
+        await route.continue();
+    }, { times: 1 });
+
+    const loaded = await observeTurbo(page, { url: '/demo/settings/profile' });
+    try {
+        await settings.getByRole('link', { name: 'Profile' }).press('Enter');
+        await expect(page.locator('html')).toHaveAttribute('data-turbo-preview');
+        await expectPageEntrance(page, []);
+    } finally {
+        release();
+    }
+    await loaded.done();
+    await expectPageEntrance(page, ['opacity', 'translate']);
+});
 
 // The layouts mark the importmap `data-turbo-track="reload"` (UX Turbo's bundle sets the same default; the layout's
 // value wins): Turbo loads a page in full when its tracked elements differ from the current page's, so a page from a

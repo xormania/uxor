@@ -289,15 +289,22 @@
     background-color: var(--color-brand);
 }
 
-/* The incoming main enters as Turbo inserts it. Navigation and focus proceed during the fade. */
+/* Animate the new content as it first appears. The shell stays still and navigation never waits for an exit. */
 @media (prefers-reduced-motion: no-preference) {
     .uxor-page-transition main {
-        transition: opacity var(--uxor-motion-duration-fast) var(--uxor-motion-ease-out);
+        transition-property: opacity, translate;
+        transition-duration: var(--uxor-motion-duration-normal);
+        transition-timing-function: var(--uxor-motion-ease-out);
     }
 
     @starting-style {
-        html[data-turbo-visit-direction="forward"]:not([data-turbo-preview]) .uxor-page-transition main {
+        html:not([data-turbo-preview], [data-turbo-visit-direction="none"]) .uxor-page-transition main {
             opacity: 0.9;
+        }
+
+        /* Keep restored content at its exact scroll position on Back. */
+        html:not([data-turbo-preview], [data-turbo-visit-direction="back"], [data-turbo-visit-direction="none"]) .uxor-page-transition main {
+            translate: 0 3px;
         }
     }
 }

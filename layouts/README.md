@@ -50,16 +50,19 @@ Flash messages added with `$this->addFlash('success', '…')` (also `warning`, `
 
 ## Page transitions
 
-To fade in the main content on forward Turbo visits, add `uxor-page-transition` to the body
-in your application’s layout. This uses the `theme` stylesheet and Turbo Drive.
+To give main content a subtle entrance, add `uxor-page-transition` to the body in your
+application’s layout. The theme stylesheet handles the first load and reads Turbo Drive’s
+visit direction on subsequent pages.
 
 ```twig
 {% block body_class %}{{ parent() }} uxor-page-transition{% endblock %}
 ```
 
-The incoming content accepts input during the fade. The sidebar and navbar stay in place.
-The fade uses the theme’s `--uxor-motion-duration-fast` and `--uxor-motion-ease-out` and
-respects reduced motion.
+Main content starts at 90% opacity and moves up 3px over 150ms on first load and
+forward visits. On Back, it fades in at the restored scroll position. It accepts input
+throughout. The sidebar and navbar stay in place. Reduced motion, Turbo’s temporary previews and replace visits display the content
+immediately. Set `--uxor-motion-duration-normal` and `--uxor-motion-ease-out` to
+customize the entrance.
 
 ## Back and forms
 

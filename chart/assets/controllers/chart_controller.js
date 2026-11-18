@@ -7,6 +7,7 @@ const CARTESIAN = ['bar', 'line', 'scatter', 'bubble'];
 const RADIAL = ['radar', 'polarArea'];
 const SLICES = ['pie', 'doughnut', 'polarArea'];
 const VAR = /^var\(--[\w-]+\)$/;
+let colorContext;
 
 /** Chart.js takes milliseconds; the theme supplies a CSS time on the chart or an ancestor. */
 function motionDuration(style) {
@@ -260,12 +261,17 @@ export default class extends Controller {
                 return undefined;
             }
         }
-        const context = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-        context.clearRect(0, 0, 1, 1);
-        context.fillStyle = '#000';
-        context.fillStyle = css;
-        context.fillRect(0, 0, 1, 1);
-        const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+        if (!colorContext) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            colorContext = canvas.getContext('2d', { willReadFrequently: true });
+        }
+        colorContext.clearRect(0, 0, 1, 1);
+        colorContext.fillStyle = '#000';
+        colorContext.fillStyle = css;
+        colorContext.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = colorContext.getImageData(0, 0, 1, 1).data;
         const color = 255 === a ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${Math.round((a / 255) * 1000) / 1000})`;
         this.#cache.set(key, color);
 

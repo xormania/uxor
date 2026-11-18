@@ -7,8 +7,9 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
-- `theme` provides shared motion durations and easing. Layouts can opt into a short entrance for main content on
-  forward Turbo visits. Drawers and tabs animate on interaction and respect reduced motion.
+- `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
+  first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
+  on interaction and respect reduced motion.
 
 - `dropzone`: a `maxFiles` prop caps a zone for several files in the browser, files over it left out with
   `dropzone:reject`; through the form theme, `DropzoneType`'s `max_files` option sets it (UX Dropzone's type adds the
@@ -24,6 +25,7 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 ### Changed
 
 - `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
+  Charts share one 1×1 canvas to resolve theme colors on load and when switching themes.
 
 - `dropzone` requires `symfony/ux-dropzone` ^3.7, 3.7 and later 3.x releases (it allowed ^3.5): UX Dropzone 3.7
   shows and hides the zone's parts with the `hidden` attribute, which the recipe's markup now relies on. An app on 3.5

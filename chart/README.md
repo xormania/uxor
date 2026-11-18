@@ -26,7 +26,8 @@ and adds `chart.js` to the import map. If `importmap.php` has no `chart.js` entr
 ## Usage
 
 Give the data, never colors: the series take the theme's chart roles in order, and the axes, legend and tooltip its
-text and border roles. They follow light and dark as the theme switches.
+text and border roles. They follow light and dark as the theme switches. Charts on the same page share one pixel
+to convert CSS colors for Chart.js, and each chart caches the colors resolved from its own theme.
 
 ```twig
 <twig:Chart
