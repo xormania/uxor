@@ -5,6 +5,12 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Changed
+
+- The Composer package names its Mate skills `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify` so
+  application skills can use the original generic names. See the [migration steps](packages/uxor/README.md#upgrade-from-the-old-skill-names)
+  for custom overrides and disable settings.
+
 ## [0.3.2] - 2026-11-16
 
 ### Added

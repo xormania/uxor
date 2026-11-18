@@ -1,5 +1,5 @@
 ---
-name: setup
+name: uxor-setup
 description: Set up UXor in a Symfony application, or diagnose an incomplete installation, using the project's actual runtime and the packaged UXor reference.
 ---
 

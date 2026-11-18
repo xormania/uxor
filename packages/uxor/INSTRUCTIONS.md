@@ -1,8 +1,9 @@
 # Building with UXor
 
 Use the UXor package when a Symfony task involves UXor components, layouts, forms,
-Turbo interactions or an incomplete installation. Load the setup, build or verify
-skill for the task, then read the relevant component references on demand.
+Turbo interactions or an incomplete installation. Load `mate-uxor-setup`,
+`mate-uxor-build` or `mate-uxor-verify` for the task, then read the relevant
+component references on demand.
 
 UXor is independently maintained. The official Symfony UX flowbite-4 kit was an
 initial reference only; it does not govern UXor's design, names, behavior or tests.

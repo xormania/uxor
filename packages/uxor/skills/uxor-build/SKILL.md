@@ -1,5 +1,5 @@
 ---
-name: build
+name: uxor-build
 description: Build a complete Symfony application interaction with existing UXor components, forms, Stimulus and Turbo, preserving the project's customized code.
 ---
 

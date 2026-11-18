@@ -10,7 +10,7 @@ commitments rather than a requirement to match the reference kit.
 references, task guidance and project diagnostics into an agent's workflow, through
 [Symfony AI Mate](https://github.com/symfony/ai-mate) and a command line:
 
-- three Mate skills: `setup`, `build` and `verify`;
+- three Mate skills: `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify`;
 - references for the kit's 64 recipes, with its install guide and docs, as Mate resources (`uxor://catalog`,
   `uxor://reference/…`) and as files in the package;
 - seven operations, through `vendor/bin/uxor` and the Mate tools `uxor_catalog`, `uxor_component`,
@@ -70,6 +70,23 @@ vendor/bin/mate discover
 This sequence also works when Mate's Composer plugin does not refresh discovery. With Mate 0.14 and Composer 2.10.3
 running from a PHAR, the plugin resolved Composer's own root instead of the consuming application. Explicit discovery
 uses the actual application and preserves project-authored instructions and configuration.
+
+### Upgrade from the old skill names
+
+UXor's skill slugs are now `uxor-setup`, `uxor-build` and `uxor-verify`. Mate installs them with a `mate-` prefix.
+Use the new names in agent instructions and skill commands. Application skills can use the original generic slugs
+in their own source directories.
+
+Before updating with Composer, record any per-skill disable settings you want to carry forward. Save edits made
+directly in `.agents/skills/mate-*` or `.claude/skills/mate-*` outside those directories. Mate manages those targets
+and can remove them when Composer triggers discovery during the update.
+
+Run `vendor/bin/mate discover` after the update. Mate registers the application skills from their configured
+sources, retires the old generated UXor copies and installs the new ones. Old override sources under `mate/skills/`
+remain in place. To carry forward a build override, run `vendor/bin/mate skills:override uxor-build`, port your
+edits from `mate/skills/build/` into `mate/skills/uxor-build/`, then run `vendor/bin/mate discover` again. Keep
+`name: uxor-build` in the new skill's front matter. Reapply any disable setting with the new slug, for example
+`vendor/bin/mate skills:disable uxor-build`.
 
 ## Use
 

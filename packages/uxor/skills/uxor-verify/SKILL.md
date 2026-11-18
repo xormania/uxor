@@ -1,5 +1,5 @@
 ---
-name: verify
+name: uxor-verify
 description: Verify a UXor application interaction through its real Symfony runtime, including Turbo history and updates, validation, accessibility and interrupted-work recovery where relevant.
 ---
 
