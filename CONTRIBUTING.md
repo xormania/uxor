@@ -139,6 +139,13 @@ trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md
 
 ### Mago and Serena
 
+Before running `tools/mago` or enabling the `uxor-mago` server in Codex or Claude Code, review the checkout's
+launcher and `mago.toml`, including any configuration it inherits through `extends`. Use a checkout only if you
+trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
+Mago can start worker programs declared under `[extension-hosts]` during analysis or language-server startup.
+Those workers can read files in the mounted checkout even though the mount is read-only and networking is disabled.
+[Mago extension hosts](https://mago.carthage.software/1.58.2/en/extensions/configuration/)
+
 For local PHP checks and navigation, run these commands from the checkout root. Pull the pinned xorder
 PHP 8.4 Mago and Serena image once per Docker host. Set `UXOR_MAGO_IMAGE` to use another compatible
 image already available locally. UXor uses the image's patched Mago 1.58.2 for both CLI analysis and
@@ -160,9 +167,9 @@ from `demo/vendor/` for all three code areas. The checks run offline against a r
 at the first failure. Run them individually to see every report while the existing diagnostics
 are being addressed. PHPStan and the checks below still apply.
 
-Codex and the Claude Code CLI pick up the project's `uxor-mago` MCP server from `.codex/config.toml`
-and `.mcp.json`, respectively. Codex loads project configuration in trusted checkouts and treats
-this server as optional. In Claude Code, review and approve the project server when prompted.
+Codex loads the optional `uxor-mago` server from `.codex/config.toml` when you trust the checkout.
+Claude Code reads `.mcp.json` and prompts for project-server approval. Review the server command and
+the Mago configuration above before granting trust in Codex or approving the server in Claude Code.
 Open the chosen checkout or a directory inside it so the server resolves that worktree's Git root.
 For another MCP client, use the absolute path to the checkout's `tools/mago` as the command and
 `serena` as its only argument. The server uses stdio and provides read-only PHP navigation.
