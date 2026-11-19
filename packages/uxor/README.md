@@ -77,6 +77,12 @@ The Composer package also installs `vendor/bin/uxor-mago`. It runs formatting ch
 on the consuming application's PHP. Serena can use the same Mago binary as its PHP language server for symbol
 lookup and diagnostics. Run PHPUnit separately for the application's runtime tests.
 
+Use the CLI and MCP server only with a trusted application checkout. Review the effective Mago configuration,
+including `mago.toml`, any files it inherits through `extends`, and the worker programs configured under
+`[extension-hosts]`. Running Mago from the CLI or starting its language server through Serena can launch
+those programs inside the offline container. They can read files in the checkout mounted read-only at `/app`.
+[Mago extension host configuration](https://mago.carthage.software/1.58.2/en/extensions/configuration/)
+
 On a POSIX host with local Docker, build the optional provider image once. The build compiles Rust and includes
 the Serena adapter and patched Mago language server from the
 [pinned proof of concept](https://github.com/xormania/mago-serena_v2-poc/tree/b6dbec8378338e39fe51489bc28f9ad578e4f3ab).
