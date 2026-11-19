@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Frame, type Locator, type Page, type Request } from '@playwright/test';
+import { recordBrowserDiagnostics } from '../../packages/uxor/resources/browser/diagnostics.mjs';
 import { startJsCoverage } from './coverage';
 
 const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
@@ -285,7 +286,9 @@ export const test = base.extend<{
     harshConditions: boolean;
     harsh: void;
     fileChoosers: void;
+    browserDiagnostics: void;
 }>({
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
     /**
      * The page's file choosers are intercepted from its creation, before its first navigation. A test waits for one
      * with `page.waitForEvent('filechooser')` just before the key press or click that opens it, but the first listener

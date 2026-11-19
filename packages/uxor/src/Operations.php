@@ -7,12 +7,16 @@ namespace Xormania\UXor;
 /** Shared operation/result contract consumed unchanged by the CLI and Mate adapters. */
 final class Operations
 {
+    private readonly BrowserDiagnostics $browserDiagnostics;
+
     public function __construct(
         private readonly ReferenceBundle $references,
         private readonly ProjectInspector $inspector,
         private readonly ProjectDoctor $doctor,
         private readonly NativeTools $nativeTools,
+        ?BrowserDiagnostics $browserDiagnostics = null,
     ) {
+        $this->browserDiagnostics = $browserDiagnostics ?? new BrowserDiagnostics($inspector);
     }
 
     public static function create(): self
@@ -43,7 +47,8 @@ final class Operations
                 'doctor' => $this->diagnose($root, (string) ($arguments['component'] ?? ''), (string) ($arguments['asset_profile'] ?? 'auto')),
                 'tools' => $this->nativeTools->discover($root, (string) ($arguments['kind'] ?? 'maker'),
                     (string) ($arguments['name'] ?? ''), (int) ($arguments['limit'] ?? 20), true === ($arguments['trust_project_code'] ?? false)),
-                default => throw new \InvalidArgumentException('Unknown operation. Use catalog, component, reference, workflow, inspect, doctor, or tools.'),
+                'browser-diagnostics' => $this->browserDiagnostics->read($root, (string) ($arguments['path'] ?? '')),
+                default => throw new \InvalidArgumentException('Unknown operation. Use catalog, component, reference, workflow, inspect, doctor, tools, or browser-diagnostics.'),
             };
             $result['status'] = $result['data']['status'] ?? 'completed';
             $result['summary'] = $result['data']['summary'] ?? match ($operation) {

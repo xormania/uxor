@@ -1,6 +1,10 @@
 import { test as base, expect } from '@playwright/test';
+import { recordBrowserDiagnostics } from '../app/vendor/xormania/uxor/packages/uxor/resources/browser/diagnostics.mjs';
 
-const test = base.extend({
+const diagnosticTest = base.extend({
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
+});
+const test = diagnosticTest.extend({
     expectedHttpErrors: async ({}, use) => { await use(new Map()); },
     page: async ({ page, expectedHttpErrors }, use) => {
         const failures = [];
@@ -107,20 +111,23 @@ test('search, edit validation, save streams and history work in one application'
     await expect(page.locator('#customers-row-1')).toContainText('ada.updated@example.test');
 });
 
-test('ordinary browser submission has server validation and a redirect after saving', async ({ browser }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
-    const page = await context.newPage();
+// This scenario verifies the server fallback with JavaScript deliberately unavailable.
+const noJsTest = diagnosticTest.extend({ javaScriptEnabled: false });
+noJsTest('ordinary browser submission has server validation and a redirect after saving', async ({ page }) => {
     await page.goto('/customers/1/edit');
     await page.getByRole('textbox', { name: 'Email', exact: true }).fill('invalid');
+    const editUrl = new URL(await page.locator('form').getAttribute('action'), page.url()).href;
+    const submitted = (response) => response.url() === editUrl && response.request().method() === 'POST';
+    const invalid = page.waitForResponse(submitted);
     await page.getByRole('button', { name: 'Save customer' }).click();
+    expect((await invalid).status()).toBe(422);
     await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveAttribute('aria-invalid', 'true');
     await page.getByRole('textbox', { name: 'Email', exact: true }).fill('ada.plain@example.test');
-    const saved = page.waitForResponse((response) => response.url().includes('/customers/1/edit') && response.request().method() === 'POST');
+    const saved = page.waitForResponse(submitted);
     await page.getByRole('button', { name: 'Save customer' }).click();
     expect((await saved).status()).toBe(303);
     await expect(page).toHaveURL(/\/customers$/);
     await expect(page.locator('#customers-row-1')).toContainText('ada.plain@example.test');
-    await context.close();
 });
 
 test('email sorting retains the current search, pagination and Turbo history', async ({ page }) => {

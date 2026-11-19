@@ -176,7 +176,8 @@ every run, the other two when selected, each whatever another did. *Demo + Playw
 | `INSTALL.md` (the gallery's install guide, `/install`: its page tests, its static export, the browser tests that load it) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
-| `composer.lock`, any file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
+| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures) | *Package*, *Demo + Playwright* |
+| `composer.lock`, any other file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
 | a release check's spec, `tests/e2e/release.*.spec.ts` (it runs in the release projects only) | *Contrast* |

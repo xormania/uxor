@@ -5,6 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+### Added
+
+- The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
+  failures to exact Symfony request profiles. The demo and independent consumer use the same fixture.
+
 ## [0.3.2] - 2026-11-16
 
 ### Added

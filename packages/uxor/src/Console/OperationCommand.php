@@ -28,8 +28,9 @@ final class OperationCommand extends Command
             'inspect' => 'Inspect the selected application metadata.',
             'doctor' => 'Check setup, selected component wiring and runtime unknowns.',
             'tools' => 'Discover native Maker/Mate metadata by executing trusted project PHP (explicit opt-in).',
+            'browser-diagnostics' => 'Read a local Playwright capture of browser errors, failed requests, and exact Symfony profile tokens.',
         })->addOption('format', null, InputOption::VALUE_REQUIRED, 'text or json', 'text');
-        if (in_array($this->operation, ['inspect', 'doctor', 'tools'], true)) {
+        if (in_array($this->operation, ['inspect', 'doctor', 'tools', 'browser-diagnostics'], true)) {
             $this->addOption('project-root', null, InputOption::VALUE_REQUIRED, 'Explicit application directory; defaults to current directory', getcwd());
         }
         if ('catalog' === $this->operation) {
@@ -60,6 +61,9 @@ final class OperationCommand extends Command
         if ('doctor' === $this->operation) {
             $this->addOption('component', null, InputOption::VALUE_REQUIRED, 'Installed component to check against its reference requirements', '')
                 ->addOption('asset-profile', null, InputOption::VALUE_REQUIRED, 'auto, assetmapper, or custom', 'auto');
+        }
+        if ('browser-diagnostics' === $this->operation) {
+            $this->addArgument('path', InputArgument::REQUIRED, 'Project-relative path to browser-diagnostics.json');
         }
     }
 

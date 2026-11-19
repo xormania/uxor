@@ -72,6 +72,8 @@ while IFS= read -r path; do
         # file is export-ignored and only the package installs from it. .gitattributes decides what both archives hold.
         # The package's markdown runs Contrast too (the markdown rule below); .gitattributes, another directory under
         # packages/ and the references' inputs in the kit are below, with the kit.
+        # The demo's Playwright fixtures also import the browser recorder shipped by the package.
+        packages/uxor/resources/browser/*) on package demo ;;
         composer.json) on package ;;
         composer.lock | packages/uxor/*) on package ;;
 

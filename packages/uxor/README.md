@@ -13,10 +13,9 @@ references, task guidance and project diagnostics into an agent's workflow, thro
 - three Mate skills: `setup`, `build` and `verify`;
 - references for the kit's 64 recipes, with its install guide and docs, as Mate resources (`uxor://catalog`,
   `uxor://reference/…`) and as files in the package;
-- seven operations, through `vendor/bin/uxor` and the Mate tools `uxor_catalog`, `uxor_component`,
-  `uxor_reference`, `uxor_workflow`, `uxor_project`, `uxor_doctor` and `uxor_tools`: catalog search, component
-  detail, bounded document reads, a practical workflow, project inspection, first-setup checks and installed
-  Maker/Mate discovery.
+- operations through `vendor/bin/uxor` and Mate for catalog search, component detail, bounded document reads,
+  application workflows, project inspection, first-setup checks, installed Maker/Mate discovery and browser diagnostics.
+- a shared Playwright fixture that pairs the app's Symfony Profiler tokens with failed requests and page errors.
 
 The package does not install recipes. They still install with Symfony UX Toolkit's `ux:install`, as the
 [UXor README](https://github.com/xormania/uxor#install) says, and the files it copies belong to the application, like
@@ -87,6 +86,11 @@ vendor/bin/uxor inspect --format=json
 Complete setup with `ux:install` and the selected component's integration guide. Metadata inspection does not
 establish runtime behavior. [Operations](OPERATIONS.md) covers result limits, unknowns, exit statuses and installed
 Maker/Mate discovery.
+
+For a local browser failure, capture the affected test with the package's Playwright fixture, then read its evidence
+with `vendor/bin/uxor browser-diagnostics` or `uxor_browser_diagnostics` in Mate. The
+[browser diagnostics setup](OPERATIONS.md#browser-diagnostics) shows how to register the fixture and open the exact
+Symfony profile.
 
 The customer-management workflow connects a searchable list, modal form, validation, successful-save feedback and
 Turbo history. It is written for this package, beside the component references generated from the kit's READMEs,
