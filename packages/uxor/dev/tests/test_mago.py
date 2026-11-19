@@ -3,12 +3,14 @@ import csv
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
 
 WRAPPER = Path(__file__).resolve().parents[2] / "bin" / "uxor-mago"
+REPOSITORY = WRAPPER.parents[3]
 IMAGE = "local/uxor-mago:trial"
 SCOPES = ["formatter", "linter", "analyzer"]
 CHECKS = [["format", "--check"], ["lint"], ["analyze"]]
@@ -52,10 +54,10 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
 """)
         mago.chmod(0o755)
 
-    def invoke(self, *arguments, cwd=None, stdin="", **env):
+    def invoke(self, *arguments, cwd=None, stdin="", executable=WRAPPER, **env):
         self.log.unlink(missing_ok=True)
         return subprocess.run(
-            [str(WRAPPER), *arguments], cwd=cwd or self.project, input=stdin,
+            [str(executable), *arguments], cwd=cwd or self.project, input=stdin,
             capture_output=True, text=True, timeout=10,
             env={"PATH": os.pathsep.join((str(self.directory), os.defpath)),
                  "DOCKER_CALLS": str(self.log), **env},
@@ -183,6 +185,41 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         for command in ("check", "format", "lint", "analyze", "serena"):
             self.assertRegex(help_text, rf"\b{command}\b")
         self.assertFalse(self.log.exists())
+
+    def check_repository_client(self, server):
+        subprocess.run(["git", "init", "--quiet", str(self.project)], check=True)
+        for relative in ("tools/mago", WRAPPER.relative_to(REPOSITORY)):
+            target = self.project / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(REPOSITORY / relative, target)
+        result = self.invoke(*server["args"], executable=server["command"], cwd=self.project / "src",
+                             UXOR_MAGO_IMAGE=IMAGE, stdin="MCP input")
+        self.assertEqual(0, result.returncode, result.stderr)
+        call = self.docker_call()
+        self.assert_container(call["args"][:call["args"].index(IMAGE)])
+        self.assertIn("serena start-mcp-server", " ".join(call["args"]))
+        self.assertEqual("MCP input", call["stdin"])
+
+    def test_claude_server_mounts_the_relocated_checkout_from_a_subdirectory(self):
+        servers = json.loads((REPOSITORY / ".mcp.json").read_text())["mcpServers"]
+        self.check_repository_client(servers["uxor-mago"])
+
+    @unittest.skipIf(sys.version_info < (3, 11), "Reading the Codex TOML needs Python 3.11")
+    def test_codex_server_mounts_the_relocated_checkout_from_a_subdirectory(self):
+        import tomllib
+        servers = tomllib.loads((REPOSITORY / ".codex/config.toml").read_text())["mcp_servers"]
+        self.check_repository_client(servers["uxor-mago"])
+
+    def test_repository_pull_uses_a_pinned_default_and_accepts_a_local_override(self):
+        launcher = REPOSITORY / "tools/mago"
+        result = self.invoke("pull", executable=launcher)
+        self.assertEqual(0, result.returncode, result.stderr)
+        verb, image = self.docker_call()["args"]
+        self.assertEqual("pull", verb)
+        self.assertRegex(image, r"@sha256:[0-9a-f]{64}$")
+        result = self.invoke("pull", executable=launcher, UXOR_MAGO_IMAGE=IMAGE)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(["pull", IMAGE], self.docker_call()["args"])
 
 
 if __name__ == "__main__":

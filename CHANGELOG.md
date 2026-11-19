@@ -9,6 +9,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
   Serena session using the Mago language server.
+- UXor contributors can use the same PHP checks and language server in the kit checkout with
+  `tools/mago` and the project configurations for Claude Code and Codex.
 
 - `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate

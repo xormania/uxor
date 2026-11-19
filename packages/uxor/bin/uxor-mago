@@ -91,4 +91,4 @@ for group in $(id -G); do
 done
 exec docker run --rm --init -i --pull=never --network none --user "$(id -u):$primary_group" \
     --mount "type=bind,\"$source_field\",dst=/app,readonly" --workdir /app \
-    --tmpfs /state:mode=1777 --env POC_EVIDENCE= "$@"
+    --tmpfs /state:mode=1777 --env SERENA_HOME=/state/serena --env POC_EVIDENCE= "$@"
