@@ -18,7 +18,8 @@ Turbo history/reconnection, and the upgraded focus outline's default-theme contr
 fingerprint checks on pushes to the feature integration branch and its sibling work branches. Browser scenarios
 run only when its manual `browsers` input is enabled (the manual default); push receipts record them as unrun.
 `tools/tests/package-pilot-workflow.test.mjs` executes the workflow's selection step to check that pushes never
-enable its browser container and manual runs respect that input.
+enable its browser container and manual runs respect that input. It also checks that the workflow builds UXor’s PHP
+image for the archive checks and its Node-equipped test tools image when it enables the browser contracts.
 
 - **Specs** are named by file without `.spec.ts`: `lab.popover` is `tests/e2e/lab.popover.spec.ts`; a recipe's own
   spec (`<recipe>/tests/*.spec.ts`, run as `tests/e2e/examples/recipes/`) is `recipe:<name>`; the interaction

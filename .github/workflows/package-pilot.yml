@@ -25,7 +25,7 @@ jobs:
         runs-on: ubuntu-latest
         timeout-minutes: 20
         env:
-            PILOT_IMAGE: ghcr.io/xormania/uxor-dev@sha256:c271b1f78c7bccaf5a0c3e962c2ac09707d3088705fc8ff8f1bae83c70c0cdfd
+            PILOT_IMAGE: uxor-package-pilot:${{ github.sha }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -45,8 +45,11 @@ jobs:
                   else
                       echo 'Archive upgrade and rollback: PHP/Symfony checks. Browser contracts are unrun; start a manual run with browsers enabled to include them.' >> "$GITHUB_STEP_SUMMARY"
                   fi
-            - name: Pull the project-pinned PHP image
-              run: docker pull "$PILOT_IMAGE"
+            - name: Build the pilot image
+              run: |
+                  target=php
+                  if [ -n "${PILOT_BROWSER_CONTAINER:-}" ]; then target=tools; fi
+                  docker build --target "$target" --tag "$PILOT_IMAGE" tools/tests/images/package-pilot
             - name: Start the project-pinned browser server
               if: env.PILOT_BROWSER_CONTAINER != ''
               run: |

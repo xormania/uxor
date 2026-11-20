@@ -2,7 +2,7 @@
 # Package an archive, then test in a consumer that cannot access this checkout or the demo's vendor directory.
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
-image=${PILOT_IMAGE:?Set PILOT_IMAGE to a PHP 8.4+ image with Composer, Node, Python and Tailwind 4.3.3}
+image=${PILOT_IMAGE:?Build the image under tools/tests/images/package-pilot and set PILOT_IMAGE to its local tag}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$root/test-results"
@@ -28,15 +28,15 @@ if [ -n "${PILOT_BROWSER_CONTAINER:-}" ]; then
 fi
 if [ -n "${PILOT_COMPOSER_CACHE_DIR:-}" ]; then
     [ -d "$PILOT_COMPOSER_CACHE_DIR" ] || { echo 'PILOT_COMPOSER_CACHE_DIR must already exist' >&2; exit 1; }
-    options+=(-v "$PILOT_COMPOSER_CACHE_DIR:/home/dev/.cache/composer")
+    options+=(-v "$PILOT_COMPOSER_CACHE_DIR:/tmp/pilot-composer-cache")
 fi
 ca=${PILOT_CA_CERTIFICATE:-/usr/local/share/ca-certificates/environment-proxy-ca.crt}
 if [ -f "$ca" ]; then
-    options+=(-v "$ca:/run/pilot-proxy.pem:ro" -e LIBRARY_CA_FILE=/run/pilot-proxy.pem)
+    options+=(-v "$ca:/run/pilot-proxy.pem:ro" -e PILOT_CA_FILE=/run/pilot-proxy.pem)
 fi
 python3 - "${options[@]}" \
-    -e "PUID=${PUID:-$(id -u)}" -e "PGID=${PGID:-$(id -g)}" \
-    -e COMPOSER_CACHE_DIR=/home/dev/.cache/composer \
+    --user "${PUID:-$(id -u)}:${PGID:-$(id -g)}" \
+    -e COMPOSER_CACHE_DIR=/tmp/pilot-composer-cache \
     -e PILOT_BROWSER_CONTAINER -e PILOT_BROWSER_WS -e PILOT_PORT \
     -e HTTP_PROXY -e HTTPS_PROXY -e http_proxy -e https_proxy -e NO_PROXY -e no_proxy \
     -v "$work/dist:/dist:ro" \

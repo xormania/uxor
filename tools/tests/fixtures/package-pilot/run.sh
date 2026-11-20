@@ -29,7 +29,7 @@ path.write_text(json.dumps(app, indent=4))
 PY
 python3 consumer-state.py > /reports/application-source-before.json
 if [ -n "${PILOT_BROWSER_CONTAINER:-}" ]; then
-    npm --prefix browser install --ignore-scripts --no-audit --no-fund --cache /home/dev/.cache/npm
+    npm --prefix browser install --ignore-scripts --no-audit --no-fund --cache /tmp/pilot-npm-cache
 fi
 
 validate_release() {

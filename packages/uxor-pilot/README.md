@@ -162,11 +162,12 @@ preserving pre-existing manifest and asset sentinel files. Reinstalling 0.0.2 re
 This fixture is also part of the *Kit PHP* CI job, using a freshly generated Toolkit plan. Set `PILOT_TOOLKIT_PLAN`
 to a generated plan when running that same author path locally; no browser or CSS compiler is required.
 
-To use the prepared cloud PHP image instead of host PHP/Composer:
+To build the Flex archives and run the fixture in Docker, build the test tools target from the repository root.
 
 ```bash
+docker build --target tools --tag uxor-package-pilot:tools tools/tests/images/package-pilot
 PILOT_TOOLKIT_PLAN=/tmp/uxor-toolkit-plan.json \
-PILOT_IMAGE=uxor-cloud-php:c271b1f78c7b bash tools/tests/package-flex.sh
+PILOT_IMAGE=uxor-package-pilot:tools bash tools/tests/package-flex.sh
 ```
 
 With a plan and an image, the author build runs inside that image using the author installation's autoloader.
@@ -177,15 +178,22 @@ exercise Flex's metadata lifecycle and the frontend build guard; they do not est
 compatibility or frontend dependency resolution. App code that references package classes still depends on the
 package after recipe removal.
 
-For the independent consumer, supply a development image with PHP, Composer, Node, Python, and Tailwind 4.3.3:
+The archive upgrade and rollback fixture uses PHP, Composer, Python and the standalone Tailwind 4.3.3 binary.
+Build and run the same PHP target that CI uses for feature pushes.
 
 ```bash
-PILOT_IMAGE=uxor-cloud-php:c271b1f78c7b \
-PILOT_BROWSER_CONTAINER=uxor-cloud-browser-1 \
-bash tools/tests/package-pilot.sh
+docker build --target php --tag uxor-package-pilot:php tools/tests/images/package-pilot
+PILOT_IMAGE=uxor-package-pilot:php bash tools/tests/package-pilot.sh
 ```
 
-That image tag refers to the prepared local cloud toolchain; other hosts must supply their own suitable image.
+To include Chromium, build the `tools` target above and run the fixture against a running Playwright server.
+
+```bash
+PILOT_IMAGE=uxor-package-pilot:tools PILOT_BROWSER_CONTAINER=package-pilot-browser bash tools/tests/package-pilot.sh
+```
+
+The `tools` target adds Node.js for Playwright and the optional archive builder. The Dockerfile pins the PHP,
+Composer and Node.js images by digest and verifies the Tailwind binary against its release checksum.
 An existing trusted Composer download cache can be supplied with `PILOT_COMPOSER_CACHE_DIR`; this reuses archives,
 not another application's installed vendor tree. Download trust verification and dist-only installation remain enabled.
 The test container defaults to your user and group IDs. Set `PUID` and `PGID` when the Docker daemon sees mounted

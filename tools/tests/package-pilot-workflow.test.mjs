@@ -47,8 +47,20 @@ for (const [event, browsers, enabled] of [
 test('the workflow leaves the browser container unset until selection and keeps archive checks unconditional', () => {
     assert.match(workflow, /browsers:\n\s+description: [^\n]+\n\s+type: boolean\n\s+default: true/);
     assert.doesNotMatch(workflow, /^\s+PILOT_BROWSER_CONTAINER:/m, 'no job or step env activates the browser fixture on push');
-    assert.match(workflow, /- name: Pull the project-pinned PHP image\n\s+run: docker pull "\$PILOT_IMAGE"/);
     assert.match(workflow, /- name: Start the project-pinned browser server\n\s+if: env\.PILOT_BROWSER_CONTAINER != ''/);
     assert.match(workflow, /- name: Upgrade, rollback and source fingerprints\n\s+run: bash tools\/tests\/package-pilot\.sh/);
     assert.match(workflow, /- name: Stop the browser started by this job\n\s+if: always\(\) && env\.PILOT_BROWSER_CONTAINER != ''/);
+});
+
+test('pushes build the PHP target and browser runs build the test tools target from the checkout', () => {
+    const build = workflow.match(/- name: Build the pilot image\n\s+run: \|\n([\s\S]*?)(?=\n            - )/)?.[1];
+    assert.ok(build, 'the workflow builds a local pilot image');
+    for (const [container, target] of [['', 'php'], ['package-pilot-browser', 'tools']]) {
+        const run = spawnSync('bash', ['-eu', '-c', 'docker() { printf "%s\n" "$@"; }\n' + build], {
+            env: { ...process.env, PILOT_IMAGE: 'uxor-package-pilot:test', PILOT_BROWSER_CONTAINER: container },
+            encoding: 'utf8',
+        });
+        assert.equal(run.status, 0, run.stderr);
+        assert.deepEqual(run.stdout.trim().split('\n'), ['build', '--target', target, '--tag', 'uxor-package-pilot:test', 'tools/tests/images/package-pilot']);
+    }
 });

@@ -33,17 +33,17 @@ fi
 options=()
 if [ -n "${PILOT_COMPOSER_CACHE_DIR:-}" ]; then
     [ -d "$PILOT_COMPOSER_CACHE_DIR" ] || { echo 'PILOT_COMPOSER_CACHE_DIR must already exist' >&2; exit 1; }
-    options+=(-v "$PILOT_COMPOSER_CACHE_DIR:/home/dev/.cache/composer")
+    options+=(-v "$PILOT_COMPOSER_CACHE_DIR:/tmp/pilot-composer-cache")
 fi
 if proxy_ip=$(getent ahostsv4 proxy | awk 'NR==1 {print $1}') && [ -n "$proxy_ip" ]; then
     options+=(--add-host "proxy:$proxy_ip")
 fi
 ca=${PILOT_CA_CERTIFICATE:-/usr/local/share/ca-certificates/environment-proxy-ca.crt}
 if [ -f "$ca" ]; then
-    options+=(-v "$ca:/run/pilot-proxy.pem:ro" -e LIBRARY_CA_FILE=/run/pilot-proxy.pem)
+    options+=(-v "$ca:/run/pilot-proxy.pem:ro" -e PILOT_CA_FILE=/run/pilot-proxy.pem)
 fi
-docker run --rm "${options[@]}" \
-    -e COMPOSER_CACHE_DIR=/home/dev/.cache/composer \
+docker run --rm --user "${PUID:-$(id -u)}:${PGID:-$(id -g)}" "${options[@]}" \
+    -e COMPOSER_CACHE_DIR=/tmp/pilot-composer-cache \
     -e HTTP_PROXY -e HTTPS_PROXY -e http_proxy -e https_proxy -e NO_PROXY -e no_proxy \
     -v "$work/dist:/dist:ro" \
     -v "$root/tools/tests/fixtures/package-flex:/fixture:ro" \
