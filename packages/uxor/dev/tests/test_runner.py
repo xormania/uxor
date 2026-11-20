@@ -83,12 +83,20 @@ class DevelopmentRunnerTest(unittest.TestCase):
             self.assertEqual(secret, (Path(temporary) / ".env.local").read_bytes())
             self.assertEqual(0o600, (Path(temporary) / ".env.local").stat().st_mode & 0o777)
 
-    def test_checks_reject_a_running_container_from_an_old_build(self):
-        env = runner.environment()
-        with patch.object(runner, "require_docker"), patch.object(runner, "compose", return_value=Mock(stdout="cid\n")), \
-                patch.object(runner, "run", side_effect=[Mock(stdout="sha256:new\n"), Mock(stdout="sha256:old\n")]):
-            with self.assertRaisesRegex(ValueError, "run .* up"):
-                runner.check_running_image(env)
+    def test_check_and_exec_only_run_commands_against_the_selected_image(self):
+        for args in (["check"], ["exec", "php", "--version"]):
+            for active in ("sha256:old", "sha256:selected"):
+                with self.subTest(args=args, active=active), patch.object(runner, "require_docker"), \
+                        patch.object(runner, "compose", return_value=Mock(stdout="container-id\n")), \
+                        patch.object(runner, "run", side_effect=[Mock(stdout="sha256:selected\n"), Mock(stdout=active)]), \
+                        patch.object(runner, "execute") as execute:
+                    if active == "sha256:selected":
+                        self.assertEqual(0, runner.main(args))
+                        execute.assert_called()
+                    else:
+                        with self.assertRaisesRegex(ValueError, "run .* up"):
+                            runner.main(args)
+                        execute.assert_not_called()
 
     def test_serena_forwards_the_selected_flags_to_the_checkout_launcher(self):
         for flags in ([], ["--prepare"], ["--write"]):

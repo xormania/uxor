@@ -6,6 +6,7 @@ on:
         paths:
             - packages/uxor/dev/images/**
             - packages/uxor/dev/*.py
+            - packages/uxor/dev/tests/test_*.py
             - packages/uxor/dev/compose.yaml
             - packages/uxor/dev/Caddyfile
             - packages/uxor/dev/app/composer.json

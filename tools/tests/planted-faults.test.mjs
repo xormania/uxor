@@ -68,7 +68,7 @@ set -eu
 mkdir -p node_modules/.bin
 cat >node_modules/.bin/playwright <<'PLAYWRIGHT'
 #!/bin/sh
-printf '%s\\n' "$@" > "$PLANT_TEST_ARGS"
+printf '%s\\n' "$DEMO_URL" "$@" > "$PLANT_TEST_ARGS"
 if [ -n "$WAIT_FOR_SIGNAL" ]; then exec sleep 60; fi
 exit 19
 PLAYWRIGHT
@@ -91,20 +91,28 @@ chmod +x node_modules/.bin/playwright
             assert.notEqual(result.status, 0);
             assert.equal(existsSync(log), false);
         } else {
-            assert.match(output, /confirmed/i);
+            const confirmed = output.match(/Confirmed the planted fault at (http:\/\/127\.0\.0\.1:\d+)$/m);
+            assert.ok(confirmed, output);
             assert.equal(result.status, 19, output);
-            assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n'), ['test', 'tests/e2e/smoke.spec.ts', '--retries=0']);
+            assert.deepEqual(readFileSync(log, 'utf8').trim().split('\n'), [confirmed[1], 'test', 'tests/e2e/smoke.spec.ts', '--retries=0']);
         }
         assert.equal(readFileSync(occupied, 'utf8'), 'in-progress work that must survive\n');
         assert.deepEqual(readdirSync(scratch), []);
     }
 
     // Page 3 may already exist on the clean page. Only the destination of the Page 2 link proves this mutation.
-    for (const page of ['2', '3']) {
-        const result = spawnSync('python3', [runner, 'data-table-page-link-next', '--confirm-only'], {
+    for (const [page, flags, status, message] of [
+        ['2', [], 1, /planted fault is not served/i],
+        ['3', [], 0, /confirmed the planted fault/i],
+        ['2', ['--baseline'], 0, /confirmed the clean baseline/i],
+        ['3', ['--baseline'], 1, /marker already served in the clean baseline/i],
+    ]) {
+        const result = spawnSync('python3', [runner, 'data-table-page-link-next', '--confirm-only', ...flags], {
             ...options, env: { ...options.env, SERVED_PAGE: page },
         });
-        assert.equal(result.status, page === '3' ? 0 : 1, result.stdout + result.stderr);
+        const output = result.stdout + result.stderr;
+        assert.equal(result.status, status, output);
+        assert.match(output, message);
     }
 
     rmSync(log);
