@@ -1,0 +1,25 @@
+[project]
+name = "mago-serena-provider"
+version = "0.1.0"
+requires-python = "==3.12.*"
+dependencies = [
+  "serena-agent @ git+https://github.com/oraios/serena.git@7f7d6245bf96b60fdf4e752a779917372fd1ee6e",
+  "serena-mago-adapter",
+]
+
+[tool.uv]
+package = false
+environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# Retain the dependency fixes needed by the previous runtime while upstream
+# Serena still requires Werkzeug 3.1.7 and filelock 3.25.2.
+override-dependencies = ["werkzeug==3.1.9", "filelock==4.2.1"]
+build-constraint-dependencies = [
+  "hatchling==1.27.0",
+  "packaging==26.3",
+  "pathspec==0.12.1",
+  "pluggy==1.6.0",
+  "trove-classifiers==2026.9.21.13",
+]
+
+[tool.uv.sources]
+serena-mago-adapter = { path = "../adapter" }

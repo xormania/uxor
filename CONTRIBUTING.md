@@ -147,8 +147,8 @@ Those workers can read files in the mounted checkout even though the mount is re
 [Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
 The checkout and Composer package share the same Mago 1.60.2 pins. The CLI uses the official release binary
-and the xorder PHP 8.4 runtime. Serena uses a separate build of the same Mago release with language-server
-support. On Linux amd64, prepare each provider once per Docker host. `tools/mago pull` prepares both.
+in the official PHP 8.4.28 runtime. A separate UXor image builds language-server support from the same Mago
+release and pins upstream Serena at `7f7d6245`. Both recipes ship with the Composer package. On Linux amd64, prepare each provider once per Docker host. `tools/mago pull` prepares both.
 `UXOR_MAGO_IMAGE` selects a compatible custom build. [Mago 1.60.2](https://github.com/carthage-software/mago/releases/tag/1.60.2)
 
 ```bash

@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["mcp==2.2.0"]
+# dependencies = ["mcp==2.3.0"]
 # ///
 """Run the Mago and Serena checks for a disposable consumer or the UXor checkout."""
 import argparse
