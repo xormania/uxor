@@ -164,12 +164,27 @@ class ComparisonTest(unittest.TestCase):
             ({"issues": []}, 0, "clean", 0),
             ({"issues": []}, 1, "malformed_report", None),
             ({"issues": {}}, 0, "malformed_report", None),
+            ({}, 0, "malformed_report", None),
         ):
             with self.subTest(report=report, status=status):
                 result, rows = self.mago_report(report, status)
                 self.assertEqual(expected, result["outcome"])
                 self.assertEqual(count, result["findings_count"])
                 self.assertEqual([], rows)
+
+    def test_formatter_reports_how_many_files_would_change_and_rejects_incomplete_output(self):
+        for status, stderr, expected, changed in (
+            (0, "All files are already formatted.", "clean", 0),
+            (1, "Found 2 file(s) need formatting.", "findings", 2),
+            (1, "Found 3 file(s) need formatting.", "malformed_report", None),
+            (0, "", "missing_report", None),
+        ):
+            process = CompletedProcess([], status, "", stderr)
+            with self.subTest(stderr=stderr), patch("subprocess.run", return_value=process):
+                result, findings = self.analyze("mago-format", [RECIPE_FILE, TEST_FILE])
+                self.assertEqual(expected, result["outcome"])
+                self.assertEqual(changed, result["needs_formatting_count"])
+                self.assertEqual([], findings)
 
     def test_overlap_counts_unique_located_errors_from_both_analyzers(self):
         findings = [

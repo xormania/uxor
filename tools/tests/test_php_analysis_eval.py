@@ -1,9 +1,12 @@
 """Verify the controlled comparison's scores and failure handling."""
+import contextlib
+import io
 import json
 import runpy
 import subprocess
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -74,6 +77,49 @@ class EvaluationTest(unittest.TestCase):
         self.assertEqual("pass", case["good"]["tools"]["mago"]["status"])
         self.assertEqual("miss", case["bad"]["tools"]["mago"]["status"])
         self.assertEqual("warning", case["good"]["tools"]["mago"]["observed"][0]["severity"])
+
+    def test_command_publishes_a_complete_report_only_if_both_analyzers_and_runtime_finished(self):
+        main = evaluation["main"]
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            for phpstan, mago, runtime, expected in (
+                ("clean", "findings", "passed", True),
+                ("tool_error", "clean", "passed", False),
+                ("clean", "missing_report", "passed", False),
+                ("clean", "clean", "failed", False),
+                ("findings", "findings", "tool_error", False),
+            ):
+                with self.subTest(phpstan=phpstan, mago=mago, runtime=runtime):
+                    results = [({"outcome": outcome}, []) for outcome in (phpstan, mago)]
+                    analyzer = Mock(side_effect=results)
+                    with (patch("sys.argv", ["eval", "--phpstan", "phpstan", "--out", directory]),
+                          patch("runpy.run_path", return_value={"run_analysis": analyzer}),
+                          patch.dict(main.__globals__, {"runtime_evidence": lambda: {"outcome": runtime}}),
+                          contextlib.redirect_stdout(io.StringIO())):
+                        status = main()
+                    report = json.loads((out / "evaluation.json").read_text())
+                    self.assertIs(expected, report["complete"])
+                    self.assertEqual(0 if expected else 1, status)
+
+    def test_phpunit_evidence_requires_every_selected_test_to_run_and_pass(self):
+        expected = [(cls, method) for cls, methods in evaluation["RUNTIME_TESTS"].values() for method in methods]
+        for names, skipped, outcome in (
+            (expected, False, "passed"),
+            (expected[1:], False, "failed"),
+            ([expected[0], *expected[:-1]], False, "failed"),
+            (expected, True, "failed"),
+        ):
+            with self.subTest(names=names, skipped=skipped):
+                def phpunit(command, **kwargs):
+                    suite = ET.Element("testsuite")
+                    for cls, method in names:
+                        case = ET.SubElement(suite, "testcase", {"class": cls, "name": method})
+                        if skipped and (cls, method) == names[0]:
+                            ET.SubElement(case, "skipped")
+                    ET.ElementTree(suite).write(command[command.index("--log-junit") + 1])
+                    return subprocess.CompletedProcess(command, 0)
+                with patch("subprocess.run", side_effect=phpunit):
+                    self.assertEqual(outcome, evaluation["runtime_evidence"]()["outcome"])
 
     def test_missing_phpunit_report_never_publishes_process_output(self):
         with patch("subprocess.run", return_value=subprocess.CompletedProcess([], 1, "", "private-output-marker")):

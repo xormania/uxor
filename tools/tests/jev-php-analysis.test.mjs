@@ -27,6 +27,7 @@ function report() {
 
 test('equal totals retain distinct fixture gaps without leaking arbitrary producer data', async (t) => {
     let received;
+    let confidence = 0.96;
     const server = createServer(async (req, res) => {
         let body = '';
         for await (const chunk of req) body += chunk.toString();
@@ -34,7 +35,7 @@ test('equal totals retain distinct fixture gaps without leaking arbitrary produc
         const choices = Object.keys(received.questions.next_focus.criteria);
         const probabilities = Object.fromEntries(choices.map((choice) => [choice, Number(choice === 'phpunit_narrowing')]));
         res.end(JSON.stringify({ model: policy.model, answers: { next_focus: {
-            type: 'choice', choice: 'phpunit_narrowing', probabilities, confidence: 0.96,
+            type: 'choice', choice: 'phpunit_narrowing', probabilities, confidence,
         } }, usage: { input_tokens: 80, output_tokens: 3 } }));
     });
     server.listen(0, '127.0.0.1');
@@ -52,6 +53,18 @@ test('equal totals retain distinct fixture gaps without leaking arbitrary produc
     assert.deepEqual(received.state.cases.nullable_receiver.phpstan, { bad: 'miss', good: 'pass' });
     assert.deepEqual(received.state.cases.phpunit_narrowing.mago, { bad: 'miss', good: 'pass' });
     assert.doesNotMatch(JSON.stringify(received), /UNTRUSTED_PAYLOAD|PRIVATE/);
+
+    await t.test('the advisory focus requires the configured confidence, including the threshold itself', async () => {
+        const threshold = policy.min_confidence;
+        for (const [value, expectedFocus] of [[threshold, 'phpunit_narrowing'], [threshold - 0.01, 'unknown']]) {
+            confidence = value;
+            const response = await assessComparison(data, localPolicy, 'dummy-local-test');
+            assert.equal(response.status, 'assessed');
+            assert.equal(response.choice, 'phpunit_narrowing');
+            assert.equal(response.confidence, value);
+            assert.equal(response.next_focus, expectedFocus);
+        }
+    });
 });
 
 test('incomplete, forged and unavailable evidence never yields a model judgment', async () => {
