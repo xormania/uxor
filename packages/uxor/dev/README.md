@@ -20,9 +20,9 @@ matching `require-dev` constraint together. The installed package is a symbolic 
 `vendor/xormania/uxor` inside the consumer leads back to the checkout: tools that follow links must not walk into
 `packages/uxor/dev/app/vendor/`.
 
-The consumer has no database and no paths into the kit's recipes. It starts on Symfony 7.4 and Symfony UX 3.5.1
-with PHP 8.4 or later (its `config.platform.php` is 8.4.1); the Docker environment runs PHP 8.5. A version is
-supported once CI runs it, not because an environment defines it.
+The consumer has no database and no paths into the kit's recipes. Its lock installs Symfony FrameworkBundle 8.1.11
+and Symfony UX Toolkit 3.7.1. It requires PHP 8.4 or later (`config.platform.php` is 8.4.1), and the Docker
+environment runs PHP 8.5. CI's *Fresh install* job exercises the kit on Symfony 7.4 with Toolkit 3.5.1.
 
 The runner, `run.py`, receives the three roots from its own location: the repository root is what Docker mounts at
 `/workspace` and what Serena binds; commands run in `/workspace/packages/uxor/dev/app`.
