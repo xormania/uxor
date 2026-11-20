@@ -160,7 +160,7 @@ def mago_findings(report: dict, tool: str, root: Path, scope: set[str]) -> list[
 
 
 def format_count(process: subprocess.CompletedProcess, file_count: int) -> int:
-    # Mago 1.58's formatter has no JSON reporting or per-file list with --check.
+    # The formatter reports a total on stderr for --check.
     report = ANSI.sub("", process.stderr)
     clean = report.count("All files are already formatted.")
     changes = re.findall(r"Found (\d+) file\(s\) need formatting\.", report)
@@ -202,6 +202,8 @@ def run_analysis(tool: str, paths: list[str | Path], phpstan: str | Path, *, roo
             if (PurePosixPath(file).is_absolute() or ".." in Path(file).parts or path.suffix != ".php"
                     or path.resolve() != path or not path.is_file()):
                 raise ReportError("tool_error", "invalid_scope_file")
+        if tool.startswith("mago-") and os.environ.get("MAGO_SETUP", "success") != "success":
+            raise ReportError("tool_error", "mago_setup_failed")
         if tool != "mago-format" and not (root / DEMO_AUTOLOAD).is_file():
             raise ReportError("tool_error", "demo_dependencies_missing")
         if tool == "phpstan" and not (root / TEST_CONTAINER).is_file():
@@ -281,31 +283,33 @@ def file_hash(path: Path) -> str | None:
 
 
 def mago_image(root: Path) -> tuple[dict, str | None]:
-    # Read the launcher's default instead of maintaining a second provider pin.
-    try:
-        launcher = (root / "tools/mago").read_text(encoding="utf-8")
-    except OSError:
-        launcher = ""
-    default = re.search(r'^export UXOR_MAGO_IMAGE="\$\{UXOR_MAGO_IMAGE:-([^}]+)\}"$', launcher, re.M)
-    reference = os.environ.get("UXOR_MAGO_IMAGE") or (default[1] if default else None)
-    metadata: dict[str, str | None] = dict(reference=None, digest=None, id=None)
-    if reference is None or not re.fullmatch(r"[\w./:-]+(?:@" + DIGEST + r")?", reference):
-        return metadata, None
+    reference = probe(["tools/mago", "image"], root)
+    actual_version = version(["tools/mago", "version"], r"\Amago (\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\Z", root)
+    metadata: dict[str, str | None] = dict(reference=None, digest=None, id=None,
+                                            upstream_reference=None, upstream_digest=None)
+    image_name = r"[a-zA-Z0-9][\w./:-]*"
+    if not re.fullmatch(image_name + rf"(?:@{DIGEST})?", reference):
+        return metadata, actual_version
     metadata["reference"] = reference
-    inspection = probe(["docker", "image", "inspect", "--format", "{{.Id}} {{json .RepoDigests}}", reference], root)
-    image_id, _, repo_digests = inspection.partition(" ")
-    if not re.fullmatch(DIGEST, image_id):
-        return metadata, None
-    metadata["id"] = image_id
-    digests = set(re.findall("@" + "(" + DIGEST + ")", repo_digests))
+    # Read just the image identity and the Mago release label. The locally built image has a distinct PHP base.
+    template = ('{"id":{{json .Id}},"repo_digests":{{json .RepoDigests}},'
+                '"upstream_reference":{{if .Config.Labels}}{{json (index .Config.Labels "io.uxor.mago.release-image")}}{{else}}null{{end}}}')
+    try:
+        details = json.loads(probe(["docker", "image", "inspect", "--format", template, reference], root))
+    except ValueError:
+        return metadata, actual_version
+    if not isinstance(details, dict) or not isinstance(details.get("id"), str) or not re.fullmatch(DIGEST, details["id"]):
+        return metadata, actual_version
+    metadata["id"] = details["id"]
+    digests = {ref.rsplit("@", 1)[1] for ref in details.get("repo_digests") or []
+               if isinstance(ref, str) and re.fullmatch(image_name + "@" + DIGEST, ref)}
     if "@" in reference:
-        metadata["digest"] = reference.split("@", 1)[1]
+        metadata["digest"] = reference.rsplit("@", 1)[1]
     elif len(digests) == 1:
         metadata["digest"] = digests.pop()
-    actual_version = version(
-        ["docker", "run", "--rm", "--pull=never", "--network", "none", "--entrypoint", "mago", image_id, "--version"],
-        r"^mago (\S+)", root,
-    )
+    upstream = details.get("upstream_reference")
+    if isinstance(upstream, str) and re.fullmatch(image_name + "@" + DIGEST, upstream):
+        metadata["upstream_reference"], metadata["upstream_digest"] = upstream, upstream.rsplit("@", 1)[1]
     return metadata, actual_version
 
 
@@ -385,6 +389,7 @@ def main() -> int:
     )
     (args.out / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return int(not commit or not all(versions.values()) or not all(provenance.values())
+               or not image["id"] or not image["upstream_digest"]
                or any(row["outcome"] not in COMPLETE for row in results.values()))
 
 

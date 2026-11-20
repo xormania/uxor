@@ -1,6 +1,7 @@
 """Exercise the comparison collector without PHPStan or Docker."""
 
 import json
+import os
 from pathlib import Path
 import runpy
 from subprocess import CompletedProcess
@@ -47,6 +48,43 @@ class ComparisonTest(unittest.TestCase):
     def mago_report(self, report, status=0, paths=(RECIPE_FILE,)):
         with patch("subprocess.run", return_value=CompletedProcess([], status, json.dumps(report), "")):
             return self.analyze("mago-analyze", paths)
+
+    def test_mago_provenance_tracks_selected_cli_and_distinguishes_the_upstream_binary(self):
+        reference = "uxor-mago-cli:1.60.2"
+        image_id = "sha256:" + "1" * 64
+        upstream_digest = "sha256:" + "a" * 64
+        upstream = "ghcr.io/carthage-software/mago:1.60.2@" + upstream_digest
+        distribution = "sha256:" + "d" * 64
+        for repo_digests, expected_digest in (([], None), (["example.test/cli@" + distribution], distribution)):
+            with self.subTest(repo_digests=repo_digests):
+                def respond(command, **kwargs):
+                    if command == ["tools/mago", "image"]:
+                        output = reference
+                    elif command == ["tools/mago", "version"]:
+                        output = "mago 1.60.2"
+                    else:
+                        self.assertEqual(["docker", "image", "inspect", "--format"], command[:4])
+                        self.assertEqual(reference, command[-1])
+                        self.assertIn("io.uxor.mago.release-image", command[4])
+                        output = json.dumps(dict(id=image_id, repo_digests=repo_digests, upstream_reference=upstream))
+                    return CompletedProcess(command, 0, output, "")
+
+                with patch("subprocess.run", side_effect=respond), patch.dict(os.environ, {"UXOR_MAGO_IMAGE": "old-serena:legacy"}):
+                    image, version = COLLECTOR["mago_image"](self.root)
+                self.assertEqual("1.60.2", version)
+                self.assertEqual(dict(reference=reference, id=image_id, digest=expected_digest,
+                                      upstream_reference=upstream, upstream_digest=upstream_digest), image)
+
+    def test_failed_mago_setup_preserves_phpstan_evidence_and_avoids_the_stale_cli(self):
+        report = {"totals": {"errors": 0, "file_errors": 0}, "files": {}, "errors": []}
+        with patch.dict(os.environ, {"MAGO_SETUP": "failure"}), patch("subprocess.run", return_value=CompletedProcess([], 0, json.dumps(report), "")) as run:
+            for tool in ("mago-analyze", "mago-format", "mago-lint"):
+                result, findings = self.analyze(tool, [TEST_FILE])
+                self.assertEqual("tool_error", result["outcome"])
+                self.assertEqual("mago_setup_failed", result["reason"])
+                self.assertEqual([], findings)
+            run.assert_not_called()
+            self.assertEqual("clean", self.analyze("phpstan", [TEST_FILE])[0]["outcome"])
 
     def test_mago_uses_primary_location_and_converts_line_to_one_based(self):
         entry = issue(f"/app/{RECIPE_FILE}", level="Warning",

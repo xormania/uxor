@@ -1703,8 +1703,14 @@ moves, and the *CI metrics* job itself. Comparing runs means downloading their `
 The *PHP analysis comparison* workflow runs on pushes that change PHP, the demo dependencies, the analyzer
 configuration or the comparison itself. It can also be dispatched for a selected branch. The existing *Kit PHP*
 job still enforces PHPStan level 8 with the Symfony and PHPUnit extensions. Both workflows install PHPStan from
-the same Composer lock. The comparison uses the checkout’s digest-pinned, patched Mago image. A provider upgrade
-changes the recorded version and digest, so its results can be evaluated separately.
+the same Composer lock. The comparison prepares the CLI with `tools/mago pull cli` and verifies that
+`tools/mago version` reports `mago 1.60.2` before measuring Mago. If preparation fails, the artifact records
+the failed setup and preserves available PHPStan results. Serena uses its own provider for navigation.
+
+In `summary.json`, `versions.mago` records the version reported by the CLI launcher. The `mago_image` object
+records its selected `reference` and local image `id`. A locally built image can have a null distribution
+`digest`. Its `upstream_reference` and `upstream_digest` identify the official Mago release image used to supply
+the CLI binary. Use the upstream digest when comparing local builds of the same release.
 
 Both analyzers receive the same explicit PHP files under the recipes’ source directories, `demo/src/Demo` and
 `demo/tests`. PHPStan uses the demo’s compiled Symfony test container. The fingerprint in `scope.sha256` describes

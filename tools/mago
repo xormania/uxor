@@ -2,19 +2,5 @@
 set -eu
 
 root=$(CDPATH='' cd -P -- "$(dirname -- "$0")/.." && pwd -P)
-# xorder php-mago-serena/8.4-trixie v1.0.1, verified for linux/amd64.
-export UXOR_MAGO_IMAGE="${UXOR_MAGO_IMAGE:-ghcr.io/xormania/php-mago-serena@sha256:1f2129133e9754a88e6553bb7f2a69f760b817f5d0667a0db2ef48549b089ded}"
-
-case "${1:-}" in
-    -h|--help|'')
-        printf '%s\n' 'Usage: tools/mago pull|check|format|lint|analyze|serena [arguments]' \
-            'Use pull to download the selected provider image. All other commands run in this UXor checkout.'
-        exit 0
-        ;;
-    pull)
-        if [ "$#" -ne 1 ]; then echo 'Usage: tools/mago pull' >&2; exit 2; fi
-        exec docker pull "$UXOR_MAGO_IMAGE"
-        ;;
-esac
-
+if [ "$#" -eq 0 ]; then set -- --help; fi
 exec "$root/packages/uxor/bin/uxor-mago" --project-root "$root" "$@"

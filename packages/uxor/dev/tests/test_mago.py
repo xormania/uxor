@@ -92,6 +92,37 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
                     return
         self.fail(f"No read-only mount of the requested project at /app in {args}")
 
+    def test_default_cli_uses_the_release_image_and_reports_the_installed_version(self):
+        selected = self.invoke("image", cwd=self.directory)
+        self.assertEqual(0, selected.returncode, selected.stderr)
+        image = selected.stdout.strip()
+        self.assertFalse(self.log.exists())
+        result = self.invoke("pull", "cli", cwd=self.directory)
+        self.assertEqual(0, result.returncode, result.stderr)
+        build = self.docker_call()
+        self.assertEqual(["build", "--tag", image, "-"], build["args"])
+        self.assertRegex(build["stdin"], r"MAGO_RELEASE=ghcr.io/carthage-software/mago:1\.60\.2@sha256:[0-9a-f]{64}\n")
+        result = self.invoke("version", cwd=self.directory)
+        self.assertEqual(0, result.returncode, result.stderr)
+        arguments = self.docker_call()["args"]
+        self.assertIn("--network", arguments)
+        self.assertIn("none", arguments)
+        self.assertEqual(["--entrypoint", "mago", image, "--version"], arguments[-4:])
+
+    def test_explicit_serena_setup_uses_an_immutable_provider_revision(self):
+        result = self.invoke("pull", "serena", cwd=self.directory)
+        self.assertEqual(0, result.returncode, result.stderr)
+        args = self.docker_call()["args"]
+        self.assertEqual(["buildx", "build", "--load", "--tag"], args[:4])
+        self.assertIn(("--file", "Dockerfile.provider"), list(zip(args, args[1:])))
+        self.assertRegex(args[-1], r"^https://github\.com/xormania/mago-serena_v2-poc\.git#[0-9a-f]{40}$")
+        image = self.invoke("image", "serena").stdout.strip()
+        self.assertEqual(image, args[4])
+        self.assertNotEqual(self.invoke("image").stdout.strip(), image)
+        result = self.invoke("version", "serena")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(["mago", image, "--version"], self.docker_call()["args"][-3:])
+
     def test_single_checks_use_the_selected_image_and_preserve_native_arguments(self):
         for command in ("format", "lint", "analyze"):
             with self.subTest(command=command):
@@ -212,11 +243,15 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
 
     def test_repository_pull_uses_a_pinned_default_and_accepts_a_local_override(self):
         launcher = REPOSITORY / "tools/mago"
-        result = self.invoke("pull", executable=launcher)
-        self.assertEqual(0, result.returncode, result.stderr)
-        verb, image = self.docker_call()["args"]
-        self.assertEqual("pull", verb)
-        self.assertRegex(image, r"@sha256:[0-9a-f]{64}$")
+        for command in (["image"], ["pull", "cli"], ["pull", "serena"]):
+            with self.subTest(command=command):
+                result = self.invoke(*command, executable=launcher)
+                self.assertEqual(0, result.returncode, result.stderr)
+                arguments = self.docker_call()["args"] if self.log.exists() else None
+                package = self.invoke(*command)
+                self.assertEqual(0, package.returncode, package.stderr)
+                self.assertEqual(package.stdout, result.stdout)
+                self.assertEqual(self.docker_call()["args"] if self.log.exists() else None, arguments)
         result = self.invoke("pull", executable=launcher, UXOR_MAGO_IMAGE=IMAGE)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual(["pull", IMAGE], self.docker_call()["args"])

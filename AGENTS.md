@@ -19,7 +19,7 @@ distributed as a Symfony UX Toolkit kit.
 - Behavior lives in Stimulus controllers only: no `import 'flowbite'`, no `initFlowbite()`.
 - Use the Mago CLI and Serena server only in a trusted checkout. Review the launcher, `mago.toml`, any
   inherited configuration and the extension-host programs they select. These programs can read the mounted checkout.
-  For local PHP checks from the checkout root, provision the Docker image with `tools/mago pull` and run
+  For local PHP checks from the checkout root, prepare the pinned CLI and language server with `tools/mago pull` and run
   `tools/mago format`, `tools/mago lint` and `tools/mago analyze`. Use `tools/mago serena` for read-only PHP
   navigation over stdio. [Mago and Serena](CONTRIBUTING.md#mago-and-serena) covers dependencies and the
   project-scoped Codex and Claude Code setup.

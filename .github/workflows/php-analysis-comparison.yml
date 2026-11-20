@@ -12,6 +12,7 @@ on:
             - tools/sync-demo
             - mago.toml
             - tools/mago
+            - packages/uxor/resources/mago/Dockerfile
             - packages/uxor/bin/uxor-mago
             - tools/phpstan.neon
             - tools/ci/phpstan/composer.json
@@ -67,20 +68,30 @@ jobs:
                   git show "$GITHUB_SHA:tools/ci/phpstan/composer.lock" > "$RUNNER_TEMP/phpstan/composer.lock"
                   composer install --working-dir="$RUNNER_TEMP/phpstan" --no-interaction --no-progress --no-plugins --no-scripts
 
-            - name: Pull the checkout's pinned Mago image
+            - name: Prepare Mago CLI 1.60.2
               id: mago
               if: ${{ !cancelled() && steps.php.outcome == 'success' }}
-              run: tools/mago pull
+              run: |
+                  tools/mago pull cli
+                  actual=$(tools/mago version)
+                  if [ "$actual" != 'mago 1.60.2' ]; then
+                      echo "::error::Expected mago 1.60.2 for this comparison, got $actual"
+                      exit 1
+                  fi
 
             - name: Compare repository findings
               id: comparison
               if: ${{ !cancelled() && steps.demo.outcome == 'success' }}
+              env:
+                  MAGO_SETUP: ${{ steps.mago.outcome }}
               run: |
                   python3 tools/ci/php-analysis-comparison.py --phpstan "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" --out "$RUNNER_TEMP/php-analysis"
 
             - name: Evaluate known PHP cases
               id: evaluation
               if: ${{ !cancelled() && steps.demo.outcome == 'success' }}
+              env:
+                  MAGO_SETUP: ${{ steps.mago.outcome }}
               run: |
                   python3 tools/ci/php-analysis-eval.py --phpstan "$RUNNER_TEMP/phpstan/vendor/bin/phpstan" --out "$RUNNER_TEMP/php-analysis"
 
