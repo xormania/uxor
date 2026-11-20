@@ -71,6 +71,78 @@ This sequence also works when Mate's Composer plugin does not refresh discovery.
 running from a PHAR, the plugin resolved Composer's own root instead of the consuming application. Explicit discovery
 uses the actual application and preserves project-authored instructions and configuration.
 
+## Optional PHP checks and Serena with Mago
+
+The Composer package also installs `vendor/bin/uxor-mago`. It runs formatting checks, lint and static analysis
+on the consuming application's PHP with the official Mago 1.60.2 release. Serena uses a separate
+language-server build based on that exact release for symbol lookup and diagnostics. Run PHPUnit separately for the application's runtime tests.
+
+Use the CLI and MCP server only with a trusted application checkout. Review the effective Mago configuration,
+including `mago.toml`, any files it inherits through `extends`, and the worker programs configured under
+`[extension-hosts]`. Running Mago from the CLI or starting its language server through Serena can launch
+those programs inside the offline container. They can read files in the checkout mounted read-only at `/app`.
+[Mago extension host configuration](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
+
+On Linux amd64 with local Docker, prepare the providers once. The CLI copies the official digest-pinned Mago
+binary into the official PHP 8.4.28 CLI image. The runtime includes Intl and Zip for Symfony extension workers. The Serena build compiles the experimental
+language server and its extension support from Mago 1.60.2 and uses upstream Serena revision `7f7d6245`.
+The adapter and its patches come from the pinned mago-serena proof of concept. UXor ships both Docker build recipes and the Serena dependency lock in the Composer archive.
+[Release binary](https://github.com/carthage-software/mago/releases/tag/1.60.2) · [Language-server build](resources/mago/serena/Dockerfile)
+
+```sh
+vendor/bin/uxor-mago pull cli
+vendor/bin/uxor-mago version
+vendor/bin/uxor-mago pull serena
+vendor/bin/uxor-mago version serena
+```
+
+Configure PHP source paths in `mago.toml` at the application root. The pinned Mago defaults to an empty source
+list. For example, an application targeting PHP 8.4 with `src/`, `tests/` and Composer dependencies can use:
+
+```toml
+version = "1.60.2"
+php-version = "8.4"
+
+[source]
+paths = ["src", "tests"]
+includes = ["vendor"]
+```
+
+From the application root, run the checks together or request a native report for one of them:
+
+```sh
+vendor/bin/uxor-mago check
+vendor/bin/uxor-mago lint --reporting-format json src/
+vendor/bin/uxor-mago analyze --reporting-format json
+vendor/bin/uxor-mago format src/
+```
+
+`check` verifies that each step has files to check, then stops at the first failure in the order format, lint,
+analyze. Individual commands return Mago's exit status. Pass paths and options for the selected subcommand after
+its name. Put workspace-wide settings in `mago.toml`.
+
+To use the language server, register a stdio MCP server with your client. Substitute the absolute application
+path in both places so the client can start it from any directory:
+
+```json
+{
+  "mcpServers": {
+    "uxor-mago": {
+      "command": "/path/to/app/vendor/bin/uxor-mago",
+      "args": ["--project-root", "/path/to/app", "serena"]
+    }
+  }
+}
+```
+
+Each invocation mounts the selected application at `/app` read-only and runs offline. Use paths relative to the
+application for Mago and Serena queries. To resolve dependency symbols, install those dependencies inside the
+mounted tree. Composer path repositories symlinked outside it are inaccessible. Serena keeps its project settings and index in temporary container
+storage, so the application's own `.serena/` settings stay available to its other sessions. If a symbol range is
+stale after an external edit, restart the language server or reconnect. The
+[provider documents this limitation](https://github.com/xormania/mago-serena_v2-poc/blob/4e811e48ee9c934791695ebfc9622daa251534b4/README.md).
+Set `UXOR_MAGO_IMAGE` to use a compatible custom image for both commands. `uxor-mago version` reports its CLI version.
+
 ## Use
 
 Search first, then load the relevant component detail and documentation:

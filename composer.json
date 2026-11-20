@@ -22,7 +22,7 @@
     "autoload-dev": {
         "psr-4": {"Xormania\\UXor\\Tests\\": "packages/uxor/tests/"}
     },
-    "bin": ["packages/uxor/bin/uxor"],
+    "bin": ["packages/uxor/bin/uxor", "packages/uxor/bin/uxor-mago"],
     "config": {
         "sort-packages": true,
         "allow-plugins": {"symfony/ai-mate-composer-plugin": true}
