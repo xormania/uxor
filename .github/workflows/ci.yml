@@ -889,8 +889,8 @@ jobs:
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               run: |
                   mkdir -p "$RUNNER_TEMP/phpstan"
-                  git show "$GITHUB_SHA:tools/ci/phpstan-composer.json" > "$RUNNER_TEMP/phpstan/composer.json"
-                  git show "$GITHUB_SHA:tools/ci/phpstan-composer.lock" > "$RUNNER_TEMP/phpstan/composer.lock"
+                  git show "$GITHUB_SHA:tools/ci/phpstan/composer.json" > "$RUNNER_TEMP/phpstan/composer.json"
+                  git show "$GITHUB_SHA:tools/ci/phpstan/composer.lock" > "$RUNNER_TEMP/phpstan/composer.lock"
                   composer install --working-dir="$RUNNER_TEMP/phpstan" --no-interaction --no-progress --no-plugins --no-scripts
 
             # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).

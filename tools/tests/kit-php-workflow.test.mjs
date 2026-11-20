@@ -23,7 +23,7 @@ test('Kit PHP and the comparison install the same analyzer and extensions from t
     const comparison = readFileSync(new URL('../../.github/workflows/php-analysis-comparison.yml', import.meta.url), 'utf8');
     for (const source of [named('Install PHPStan').text, comparison]) {
         for (const extension of ['json', 'lock']) {
-            assert.ok(source.includes(`git show "$GITHUB_SHA:tools/ci/phpstan-composer.${extension}" > "$RUNNER_TEMP/phpstan/composer.${extension}"`));
+            assert.ok(source.includes(`git show "$GITHUB_SHA:tools/ci/phpstan/composer.${extension}" > "$RUNNER_TEMP/phpstan/composer.${extension}"`));
         }
         assert.ok(source.includes('composer install --working-dir="$RUNNER_TEMP/phpstan"'));
     }

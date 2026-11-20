@@ -106,7 +106,7 @@ while IFS= read -r path; do
         tools/tests/install-scenario.sh) on fresh-install ;;
         tools/tests/live-action.php | tools/tests/fixtures/fresh-app/*) on fresh-install ;;
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
-        tools/phpstan.neon | tools/ci/phpstan-composer.json | tools/ci/phpstan-composer.lock) on php ;;
+        tools/phpstan.neon | tools/ci/phpstan/composer.json | tools/ci/phpstan/composer.lock) on php ;;
         # The separate PHP analysis comparison workflow exercises its collector, fixtures and exporter.
         tools/ci/php-analysis-*.py | tools/ci/jev-php-analysis.mjs | tools/tests/test_php_analysis*.py | tools/tests/fixtures/php-analysis/*) ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;

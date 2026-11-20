@@ -1262,6 +1262,7 @@ The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |
+| CI PHPStan and its extensions | `tools/ci/phpstan/composer.lock` |
 | Demo's browser packages | `demo/importmap.php` |
 | Consumer harness's browser packages | `packages/uxor/dev/app/importmap.php` |
 
@@ -1269,7 +1270,7 @@ It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand o
 requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
 audit runs; a workflow change runs them all. The lockfile audits read the lockfiles without installing
 dependencies or executing project scripts; the importmap audits install dependencies but run no scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
-artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all five locks
+artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all lockfiles
 against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
 the consumer browser checks install Chromium for their own Playwright version.
 `tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection

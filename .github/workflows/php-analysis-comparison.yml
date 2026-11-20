@@ -14,8 +14,8 @@ on:
             - tools/mago
             - packages/uxor/bin/uxor-mago
             - tools/phpstan.neon
-            - tools/ci/phpstan-composer.json
-            - tools/ci/phpstan-composer.lock
+            - tools/ci/phpstan/composer.json
+            - tools/ci/phpstan/composer.lock
             - tools/ci/php-analysis-*
             - tools/ci/jev-diagnosis.mjs
             - tools/ci/jev-php-analysis.mjs
@@ -63,8 +63,8 @@ jobs:
               if: ${{ !cancelled() && steps.php.outcome == 'success' }}
               run: |
                   mkdir -p "$RUNNER_TEMP/phpstan"
-                  git show "$GITHUB_SHA:tools/ci/phpstan-composer.json" > "$RUNNER_TEMP/phpstan/composer.json"
-                  git show "$GITHUB_SHA:tools/ci/phpstan-composer.lock" > "$RUNNER_TEMP/phpstan/composer.lock"
+                  git show "$GITHUB_SHA:tools/ci/phpstan/composer.json" > "$RUNNER_TEMP/phpstan/composer.json"
+                  git show "$GITHUB_SHA:tools/ci/phpstan/composer.lock" > "$RUNNER_TEMP/phpstan/composer.lock"
                   composer install --working-dir="$RUNNER_TEMP/phpstan" --no-interaction --no-progress --no-plugins --no-scripts
 
             - name: Pull the checkout's pinned Mago image

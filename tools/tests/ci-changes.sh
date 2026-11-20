@@ -182,7 +182,7 @@ check 'php static-site contrast demo prod-image' demo/src/Controller/LabControll
 check 'contrast demo'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
 check 'php static-site demo prod-image' demo/src/Demo/DataTableCollector.php
-check 'php'                       tools/phpstan.neon tools/ci/phpstan-composer.json tools/ci/phpstan-composer.lock
+check 'php'                       tools/phpstan.neon tools/ci/phpstan/composer.json tools/ci/phpstan/composer.lock
 check ''                          tools/ci/php-analysis-comparison.py tools/ci/php-analysis-eval.py tools/ci/php-analysis-export.py
 check ''                          tools/ci/jev-php-analysis.mjs tools/tests/test_php_analysis_eval.py tools/tests/fixtures/php-analysis/return_type/bad.php
 check 'fresh-install'             tools/tests/fresh-install.sh

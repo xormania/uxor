@@ -341,7 +341,7 @@ def main() -> int:
         **phpstan_extension_versions(phpstan),
     }
     provenance = {
-        "phpstan_composer_lock_sha256": file_hash(ROOT / "tools/ci/phpstan-composer.lock"),
+        "phpstan_composer_lock_sha256": file_hash(ROOT / "tools/ci/phpstan/composer.lock"),
         "mago_toml_sha256": file_hash(ROOT / "mago.toml"),
     }
     results, findings = {}, []
