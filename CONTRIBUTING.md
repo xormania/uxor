@@ -144,16 +144,17 @@ launcher and `mago.toml`, including any configuration it inherits through `exten
 trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
 Mago can start worker programs declared under `[extension-hosts]` during analysis or language-server startup.
 Those workers can read files in the mounted checkout even though the mount is read-only and networking is disabled.
-[Mago extension hosts](https://mago.carthage.software/1.58.2/en/extensions/configuration/)
+[Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
-For local PHP checks and navigation, run these commands from the checkout root. Pull the pinned xorder
-PHP 8.4 Mago and Serena image once per Docker host. Set `UXOR_MAGO_IMAGE` to use another compatible
-image already available locally. UXor uses the image's patched Mago 1.58.2 for both CLI analysis and
-the language server so diagnostics can be compared. The image is verified on Linux amd64.
-[xorder image release](https://github.com/xormania/xorder/releases/tag/php-mago-serena%2F8.4-trixie%2Fv1.0.1)
+The checkout and Composer package share the same Mago 1.60.2 pins. The CLI uses the official release binary
+and the xorder PHP 8.4 runtime. Serena uses a separate build of the same Mago release with language-server
+support. On Linux amd64, prepare each provider once per Docker host. `tools/mago pull` prepares both.
+`UXOR_MAGO_IMAGE` selects a compatible custom build. [Mago 1.60.2](https://github.com/carthage-software/mago/releases/tag/1.60.2)
 
 ```bash
-tools/mago pull
+tools/mago pull cli
+tools/mago version
+tools/mago pull serena
 tools/mago format
 tools/mago lint
 tools/mago analyze
