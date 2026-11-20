@@ -339,7 +339,17 @@ for (const change of changes) {
         expect(new URL(changed).searchParams.get(change.param[0]), 'phase 2: history changed').toBe(change.param[1]);
         expect((await log(page)).slice(from), 'phase 2: the frame not rendered').not.toContain(`turbo:frame-render #${FRAME}`);
 
+        // Observe the outgoing frame after its history listener runs, before the restoration can replace it.
+        await page.evaluate((id) => {
+            const frame = document.getElementById(id)!;
+            window.addEventListener('popstate', () => {
+                (window as any).__sourceAtTraversal = frame.getAttribute('src');
+            }, { once: true });
+        }, FRAME);
         await page.goBack();
+        if (change.name === 'page link') {
+            expect(await page.evaluate(() => (window as any).__sourceAtTraversal), 'the outgoing link is cancelled at Back').toBeNull();
+        }
         await quiet(page);
         await expectConsistent(page, second);
 
