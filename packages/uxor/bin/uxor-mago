@@ -27,19 +27,18 @@ if [ "${1:-}" = --project-root ]; then
     shift 2
 fi
 
-cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2}
-serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-4e811e4}
+cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2-php8.4.28}
+serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624}
 case "${1:-}" in
     pull)
         case "$#:${2-}" in 1:|2:cli|2:serena) ;; *) usage >&2; exit 2 ;; esac
         if [ -n "${UXOR_MAGO_IMAGE:-}" ]; then exec docker pull "$UXOR_MAGO_IMAGE"; fi
+        bin=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd -P)
         if [ "${2-all}" != serena ]; then
-            bin=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd -P)
             docker build --tag "$cli_image" - < "$bin/../resources/mago/Dockerfile"
         fi
         if [ "${2-all}" != cli ]; then
-            docker buildx build --load --tag "$serena_image" --file Dockerfile.provider \
-                'https://github.com/xormania/mago-serena_v2-poc.git#4e811e48ee9c934791695ebfc9622daa251534b4'
+            docker buildx build --load --tag "$serena_image" "$bin/../resources/mago/serena"
         fi
         exit 0
         ;;

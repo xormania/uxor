@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["mcp==2.2.0"]
+# dependencies = ["mcp==2.3.0"]
 # ///
 """Run the public launcher against a real provider and a disposable Composer app."""
 import asyncio

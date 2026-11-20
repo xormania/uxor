@@ -84,9 +84,10 @@ those programs inside the offline container. They can read files in the checkout
 [Mago extension host configuration](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
 On Linux amd64 with local Docker, prepare the providers once. The CLI copies the official digest-pinned Mago
-binary into a PHP 8.4 environment so PHP extension hosts can run. The Serena build compiles the experimental
-language server and its extension support from pinned source. The package launcher provides both setup commands.
-[Release binary](https://github.com/carthage-software/mago/releases/tag/1.60.2) · [Language-server build](https://github.com/xormania/mago-serena_v2-poc/blob/4e811e48ee9c934791695ebfc9622daa251534b4/Dockerfile.provider)
+binary into the official PHP 8.4.28 CLI image. The runtime includes Intl and Zip for Symfony extension workers. The Serena build compiles the experimental
+language server and its extension support from Mago 1.60.2 and uses upstream Serena revision `7f7d6245`.
+The adapter and its patches come from the pinned mago-serena proof of concept. UXor ships both Docker build recipes and the Serena dependency lock in the Composer archive.
+[Release binary](https://github.com/carthage-software/mago/releases/tag/1.60.2) · [Language-server build](resources/mago/serena/Dockerfile)
 
 ```sh
 vendor/bin/uxor-mago pull cli
