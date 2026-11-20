@@ -94,7 +94,7 @@ updates:
               patterns: ['*']
 
     - package-ecosystem: docker
-      directory: /demo
+      directories: [/demo, /packages/uxor/resources/mago, /packages/uxor/resources/mago/serena]
       target-branch: dev
       schedule:
           interval: weekly

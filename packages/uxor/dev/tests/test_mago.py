@@ -3,6 +3,7 @@ import csv
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -102,6 +103,11 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         build = self.docker_call()
         self.assertEqual(["build", "--tag", image, "-"], build["args"])
         self.assertRegex(build["stdin"], r"MAGO_RELEASE=ghcr.io/carthage-software/mago:1\.60\.2@sha256:[0-9a-f]{64}\n")
+        stages = re.findall(r"(?im)^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)", build["stdin"])
+        self.assertTrue(stages, "The CLI Dockerfile has no FROM instruction")
+        self.assertRegex(
+            stages[-1], r"^(?:docker\.io/)?(?:library/)?php:8\.4\.[0-9]+-cli(?:-[a-z0-9.-]+)?@sha256:[0-9a-f]{64}$"
+        )
         result = self.invoke("version", cwd=self.directory)
         self.assertEqual(0, result.returncode, result.stderr)
         arguments = self.docker_call()["args"]
@@ -109,13 +115,15 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertIn("none", arguments)
         self.assertEqual(["--entrypoint", "mago", image, "--version"], arguments[-4:])
 
-    def test_explicit_serena_setup_uses_an_immutable_provider_revision(self):
+    def test_serena_build_uses_the_recipe_shipped_with_the_launcher(self):
         result = self.invoke("pull", "serena", cwd=self.directory)
         self.assertEqual(0, result.returncode, result.stderr)
         args = self.docker_call()["args"]
         self.assertEqual(["buildx", "build", "--load", "--tag"], args[:4])
-        self.assertIn(("--file", "Dockerfile.provider"), list(zip(args, args[1:])))
-        self.assertRegex(args[-1], r"^https://github\.com/xormania/mago-serena_v2-poc\.git#[0-9a-f]{40}$")
+        context = Path(args[-1]).resolve()
+        self.assertEqual(WRAPPER.parents[1] / "resources" / "mago" / "serena", context)
+        self.assertTrue((context / "Dockerfile").is_file())
+        self.assertTrue((context / "uv.lock").is_file())
         image = self.invoke("image", "serena").stdout.strip()
         self.assertEqual(image, args[4])
         self.assertNotEqual(self.invoke("image").stdout.strip(), image)
