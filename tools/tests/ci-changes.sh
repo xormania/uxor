@@ -104,7 +104,7 @@ check ''                          tools/tests/release-timings.test.mjs
 check 'contrast'                  tests/e2e/release.fuzz.spec.ts tests/e2e/release.long-session.spec.ts
 check ''                          tests/e2e/leak-detector.mjs tools/tests/leak-detector.test.mjs
 # jev.yml and metadata.yml run on their own events: actionlint; CODEOWNERS and the mentions' allowlist: Tool tests
-check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml
+check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml .github/workflows/php-analysis-comparison.yml
 check ''                          .github/CODEOWNERS .github/mention-allowlist
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
 check 'demo'                      tests/e2e/coverage.ts
@@ -182,7 +182,9 @@ check 'php static-site contrast demo prod-image' demo/src/Controller/LabControll
 check 'contrast demo'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
 check 'php static-site demo prod-image' demo/src/Demo/DataTableCollector.php
-check 'php'                       tools/phpstan.neon
+check 'php'                       tools/phpstan.neon tools/ci/phpstan-composer.json tools/ci/phpstan-composer.lock
+check ''                          tools/ci/php-analysis-comparison.py tools/ci/php-analysis-eval.py tools/ci/php-analysis-export.py
+check ''                          tools/ci/jev-php-analysis.mjs tools/tests/test_php_analysis_eval.py tools/tests/fixtures/php-analysis/return_type/bad.php
 check 'fresh-install'             tools/tests/fresh-install.sh
 check 'fresh-install'             tools/tests/install-scenario.sh
 check 'fresh-install'             tools/tests/live-action.php

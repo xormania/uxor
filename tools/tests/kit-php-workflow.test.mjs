@@ -19,6 +19,16 @@ const named = (name) => {
     return { index, text: steps[index], if: steps[index].match(/^ {14}if: (.+)$/m)?.[1] ?? '' };
 };
 
+test('Kit PHP and the comparison install the same analyzer and extensions from the committed lock', () => {
+    const comparison = readFileSync(new URL('../../.github/workflows/php-analysis-comparison.yml', import.meta.url), 'utf8');
+    for (const source of [named('Install PHPStan').text, comparison]) {
+        for (const extension of ['json', 'lock']) {
+            assert.ok(source.includes(`git show "$GITHUB_SHA:tools/ci/phpstan-composer.${extension}" > "$RUNNER_TEMP/phpstan/composer.${extension}"`));
+        }
+        assert.ok(source.includes('composer install --working-dir="$RUNNER_TEMP/phpstan"'));
+    }
+});
+
 test('Kit PHP checks the syntax of every tracked PHP file, and the PHP scripts without an extension, before PHPUnit', () => {
     const syntax = named('Syntax');
     assert.match(syntax.text, /git ls-files -z '\*\.php'/, 'every tracked .php file, not only the recipes\' src');

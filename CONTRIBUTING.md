@@ -139,6 +139,10 @@ trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md
 
 ### Mago and Serena
 
+The *PHP analysis comparison* workflow runs the existing PHPStan configuration and the pinned Mago analyzer on the
+same PHP sources. It also runs labeled controls and publishes machine-readable results for GitHub API clients.
+[Reports, evaluation and export](docs/TESTING.md#php-analysis-comparison)
+
 Before running `tools/mago` or enabling the `uxor-mago` server in Codex or Claude Code, review the checkout's
 launcher and `mago.toml`, including any configuration it inherits through `extends`. Use a checkout only if you
 trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
@@ -234,7 +238,7 @@ every run, the other two when selected, each whatever another did. *Demo + Playw
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | *Contrast* |
 | `tools/fence-coverage.mjs` | *Contrast*, *Static site* |
 | `tools/build-static.sh` | *Static site* |
-| `tools/phpstan.neon` | *Kit PHP* |
+| `tools/phpstan.neon`, `tools/ci/phpstan-composer.json` and its lock file | *Kit PHP* and the separate *PHP analysis comparison* workflow |
 | `tools/release-plan.sh`, `tools/tests/release-plan.sh` | *Workflows* |
 | `tools/security-policy.mjs`, `tools/security-sinks.json`, `tools/check-github-mentions.mjs`, `tools/hooks/`, `tools/js-duplication.mjs`, `tools/recipe-imports.mjs`, `tools/kit-former-names.json`, `tools/tests/fixtures/release-checks/` | nothing else: *Tool tests* runs them against the real kit or their own config |
 | `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |

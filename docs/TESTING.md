@@ -1697,6 +1697,58 @@ worker's start (Playwright's report does not split it; idle worker time is the b
 moves, and the *CI metrics* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
 
+### PHP analysis comparison
+
+The *PHP analysis comparison* workflow runs on pushes that change PHP, the demo dependencies, the analyzer
+configuration or the comparison itself. It can also be dispatched for a selected branch. The existing *Kit PHP*
+job still enforces PHPStan level 8 with the Symfony and PHPUnit extensions. Both workflows install PHPStan from
+the same Composer lock. The comparison uses the checkout’s digest-pinned, patched Mago image. A provider upgrade
+changes the recorded version and digest, so its results can be evaluated separately.
+
+Both analyzers receive the same explicit PHP files under the recipes’ source directories, `demo/src/Demo` and
+`demo/tests`. PHPStan uses the demo’s compiled Symfony test container. The fingerprint in `scope.sha256` describes
+the sorted path list, and the commit identifies the source contents. Evaluate the results at the same commit and
+scope. The analyzer overlap counts distinct matching **file and line positions at error severity**. A shared
+position can represent two different diagnoses. Mago lint and format are reported separately. Each duration
+covers that tool invocation, including its launcher overhead.
+
+Four paired controls exercise return types, nullable method calls, a Symfony service argument and PHPUnit
+assertion narrowing. On the bad variant the expected error identifier must appear at the marked line. On the
+good variant an error on that line counts as a false positive. Warnings and other observations stay in the data.
+The runtime witnesses run separately. Misses and false positives are measured outcomes. A missing tool,
+malformed report or failed runtime witness marks collection incomplete. The comparison workflow reports such
+failures independently of the normal CI gate.
+
+The results are GitHub Actions artifacts retained for 90 days. The REST API lists them by run with
+`GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts` and downloads by artifact ID. The
+`php-analysis-comparison-<run>-<attempt>` artifact contains:
+
+| File | Data |
+| --- | --- |
+| `run.json` | Source repository, ref, commit, run ID, attempt and producer step outcomes, including setup failures |
+| `summary.json` | Actual tool versions and image, shared file count and fingerprint, times, exits, severity and rule counts, format count and error-location overlap |
+| `findings.jsonl` | One diagnostic per row with analyzer, repository-relative path, one-based line when available, rule, severity and message |
+| `evaluation.json` | Expected and observed results per fixture, per-tool totals, runtime witness outcome and completeness |
+
+Use the GitHub CLI with access to this repository’s Actions artifacts. The exporter prints one JSON line per
+source run attempt and preserves unavailable, expired and incomplete measurements. Download or archive the
+export before retention expires for longer trend analysis.
+
+```bash
+python3 tools/ci/php-analysis-export.py --branch dev --limit 20 --with-jev > php-analysis.jsonl
+python3 tools/ci/php-analysis-export.py --run "$RUN_ID" --with-jev | jq '.evaluation.totals, .jev'
+gh run download "$RUN_ID" --name "php-analysis-comparison-$RUN_ID-$ATTEMPT" --dir php-analysis
+```
+
+After the source workflow completes, the existing trusted *Jev diagnosis* workflow can publish
+`php-analysis-jev-<source run>-<source attempt>/assessment.json` in its own run. The exporter joins it using
+the source IDs and SHA. Jev receives only the fixed fixture IDs, statuses and verified counts. The assessment
+records the model, rubric version, confidence and suggested next area to examine. Inspection of raw diagnostics
+and source stays with the maintainer. The model’s advice has no effect on fixture scores or CI. Missing Jev
+output and an unavailable provider are distinguishable in the export. GitHub starts this consumer after the
+updated workflow reaches the default branch and its trusted evaluator is present on the selected `dev` or `main`
+branch. Changing a feature branch alone cannot activate it.
+
 ### Shard balance
 
 **Catches:** one shard holding the slow tests (the axe scans, the value matrix, the heavy recipes) and setting CI's
@@ -1869,8 +1921,9 @@ status remain. The captured attempts and any Jev excerpts therefore cannot publi
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone. Producers neither read it nor forward it;
-`tools/security-policy.mjs` checks that boundary. Without a configured key, every collected attempt is *unavailable
+Only the failure-diagnosis and PHP comparison assessment steps in the trusted `jev.yml` workflow receive
+`TYPESAFE_API_KEY`. The repository security policy limits secret use to that workflow, and the Jev workflow
+tests check the two specific steps. Without a configured key, every collected attempt is *unavailable
 (missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
 them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.
