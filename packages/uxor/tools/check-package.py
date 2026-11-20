@@ -39,7 +39,7 @@ FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development"}
 # Local tool output (vendor/, Playwright reports) is never committed, so `git archive` leaves it out; it is listed for
 # archives built some other way (`composer archive` reads the working tree and not .gitignore).
 DEVELOPMENT_DIRECTORIES = (
-    ".git", ".github", ".phpunit.cache", ".xorder", "blob-report", "coverage", "demo", "docs", "node_modules",
+    ".git", ".github", ".phpunit.cache", "blob-report", "coverage", "demo", "docs", "node_modules",
     "playwright-report", "playwright-results", "test-results", "tests", "tools", "var", "vendor",
     f"{PACKAGE_PATH}/dev", f"{PACKAGE_PATH}/tests", f"{PACKAGE_PATH}/tools",
 )

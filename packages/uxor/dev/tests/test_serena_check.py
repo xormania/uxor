@@ -38,11 +38,17 @@ class SerenaEvidenceTest(unittest.TestCase):
                     instances.append(self)
 
                 def repl(self, code):
+                    if "forbidden-write" in code:
+                        return {"ok": False, "result": "AttributeError: has no attribute 'edit'"}
                     if code.startswith("s.edit.replace_content"):
                         scratch.write_text("after-probe")
                         return {"ok": False, "result": "RuntimeError: uxor-deliberate-failure"}
                     value = "DevelopmentController" if "find_symbol('DevelopmentController'" in code else ""
-                    if "uxor_probe =" in code:
+                    if "find_referencing_symbols" in code:
+                        value = "CustomerController/edit"
+                    elif "get_symbols_overview" in code:
+                        value = "increment"
+                    elif "uxor_probe =" in code:
                         value = "41"
                     elif "uxor_probe +" in code:
                         value = "42"
@@ -59,11 +65,30 @@ class SerenaEvidenceTest(unittest.TestCase):
             original_root = check.ROOT
             try:
                 check.ROOT = root
-                result = check.exercise(Client, ["external-provider"], scratch, protected, 30)
+                result = check.exercise(Client, ["editor"], scratch, protected, 30)
             finally:
                 check.ROOT = original_root
             self.assertEqual("passed", result["status"])
-            self.assertEqual(5, len(result["checks"]))
+            self.assertEqual(8, len(result["checks"]))
             self.assertEqual(2, len(instances))
             self.assertTrue(all(instance.closed for instance in instances))
             self.assertEqual("protected source", protected.read_text())
+
+    def test_state_directory_and_lock_symlinks_cannot_redirect_evidence_writes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            target = root / "target"
+            target.mkdir()
+            state = root / ".state"
+            state.symlink_to(target, target_is_directory=True)
+            with self.assertRaises(OSError), check.verification_state(state):
+                self.fail("followed the state directory symlink")
+            state.unlink()
+            state.mkdir()
+            sentinel = target / "sentinel"
+            sentinel.write_text("unchanged")
+            (state / "serena-check.lock").symlink_to(sentinel)
+            with self.assertRaises(OSError), check.verification_state(state):
+                self.fail("followed the lock symlink")
+            self.assertEqual("unchanged", sentinel.read_text())
+            self.assertEqual([sentinel], list(target.iterdir()))

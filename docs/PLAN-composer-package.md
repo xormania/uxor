@@ -110,11 +110,9 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
 
 ## Deferred, and why
 
-- **The consumer's browser journey and the prepared environment in CI.** The former companion ran them in two
-  workflows (a browser journey followed by a no-dev runtime check; `run.py up`, `check` and
-  `check-serena.py` in the xorder images). They need their own job, with Playwright's browsers, the xorder images and
-  their support policy, and a classifier output; the commands are in `packages/uxor/dev/README.md`, and the
-  harness tests in *Package* do not establish the provider's behavior (audit, `UXOR-AUD-PKG-006`).
+- **The consumer's browser journey.** The browser journey and the subsequent no-dev runtime check remain deferred.
+  The *Development images* workflow now builds the consumer and Serena from the repository recipes and runs
+  `check-serena.py --package`. See [the development consumer](../packages/uxor/dev/README.md).
 - **Publication.** Registering `xormania/uxor` on Packagist and holding its token are owner actions, not authorized
   by this plan. Until then, the package installs from the repository as a VCS dependency.
 - **The companion's consumers and retirement.** Moving an installed `xormania/uxorscient` to `xormania/uxor` is a

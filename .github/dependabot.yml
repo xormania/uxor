@@ -47,6 +47,17 @@ updates:
           consumer-npm:
               patterns: ['*']
 
+    - package-ecosystem: npm
+      directory: /packages/uxor/dev/images/serena
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+      groups:
+          editor-npm:
+              patterns: ['*']
+
     - package-ecosystem: composer
       directory: /
       target-branch: dev
@@ -83,7 +94,7 @@ updates:
               patterns: ['*']
 
     - package-ecosystem: docker
-      directory: /demo
+      directories: [/demo, /packages/uxor/dev/images/php, /packages/uxor/dev/images/serena]
       target-branch: dev
       schedule:
           interval: weekly
