@@ -36,7 +36,7 @@ class SerenaLaunchTest(unittest.TestCase):
             with patch.object(editor, "CONTEXT", context):
                 original = editor.image_tag()
                 self.assertRegex(original, r"^uxor-dev-serena:[a-f0-9]{16,}$")
-                for path in context.iterdir():
+                for path in (item for item in context.iterdir() if item.is_file()):
                     with self.subTest(path=path.name):
                         previous = path.read_bytes()
                         path.write_bytes(previous + b"\n")
