@@ -47,13 +47,16 @@ async def check_language_server(root: Path) -> None:
 
 
 async def main():
+    for provider in ("cli", "serena"):
+        version = subprocess.check_output([LAUNCHER, "version", provider], text=True, timeout=30).strip()
+        assert version == "mago 1.60.2", (provider, version)
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         (root / "composer.json").write_text("{}\n")
         (root / "src").mkdir()
         missing = subprocess.run([LAUNCHER, "check"], cwd=root, capture_output=True, text=True, timeout=60)
         assert missing.returncode != 0 and "mago.toml" in missing.stderr, missing
-        (root / "mago.toml").write_text('version = "1"\nphp-version = "8.4"\n[source]\npaths = ["src"]\n')
+        (root / "mago.toml").write_text('version = "1.60.2"\nphp-version = "8.4"\n[source]\npaths = ["src"]\n')
         empty = subprocess.run([LAUNCHER, "check"], cwd=root, capture_output=True, text=True, timeout=60)
         assert empty.returncode != 0 and "no files" in empty.stderr, empty
         (root / "src/Receipt.php").write_text(

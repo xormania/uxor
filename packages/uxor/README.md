@@ -74,29 +74,32 @@ uses the actual application and preserves project-authored instructions and conf
 ## Optional PHP checks and Serena with Mago
 
 The Composer package also installs `vendor/bin/uxor-mago`. It runs formatting checks, lint and static analysis
-on the consuming application's PHP. Serena can use the same Mago binary as its PHP language server for symbol
-lookup and diagnostics. Run PHPUnit separately for the application's runtime tests.
+on the consuming application's PHP with the official Mago 1.60.2 release. Serena uses a separate
+language-server build based on that exact release for symbol lookup and diagnostics. Run PHPUnit separately for the application's runtime tests.
 
 Use the CLI and MCP server only with a trusted application checkout. Review the effective Mago configuration,
 including `mago.toml`, any files it inherits through `extends`, and the worker programs configured under
 `[extension-hosts]`. Running Mago from the CLI or starting its language server through Serena can launch
 those programs inside the offline container. They can read files in the checkout mounted read-only at `/app`.
-[Mago extension host configuration](https://mago.carthage.software/1.58.2/en/extensions/configuration/)
+[Mago extension host configuration](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
-On a POSIX host with local Docker, build the optional provider image once. The build compiles Rust and includes
-the Serena adapter and patched Mago language server from the
-[pinned proof of concept](https://github.com/xormania/mago-serena_v2-poc/tree/b6dbec8378338e39fe51489bc28f9ad578e4f3ab).
+On Linux amd64 with local Docker, prepare the providers once. The CLI copies the official digest-pinned Mago
+binary into a PHP 8.4 environment so PHP extension hosts can run. The Serena build compiles the experimental
+language server and its extension support from pinned source. The package launcher provides both setup commands.
+[Release binary](https://github.com/carthage-software/mago/releases/tag/1.60.2) · [Language-server build](https://github.com/xormania/mago-serena_v2-poc/blob/4e811e48ee9c934791695ebfc9622daa251534b4/Dockerfile.provider)
 
 ```sh
-docker buildx build --load -t uxor-mago:b6dbec8 \
-  'https://github.com/xormania/mago-serena_v2-poc.git#b6dbec8378338e39fe51489bc28f9ad578e4f3ab'
+vendor/bin/uxor-mago pull cli
+vendor/bin/uxor-mago version
+vendor/bin/uxor-mago pull serena
+vendor/bin/uxor-mago version serena
 ```
 
 Configure PHP source paths in `mago.toml` at the application root. The pinned Mago defaults to an empty source
 list. For example, an application targeting PHP 8.4 with `src/`, `tests/` and Composer dependencies can use:
 
 ```toml
-version = "1"
+version = "1.60.2"
 php-version = "8.4"
 
 [source]
@@ -136,8 +139,8 @@ application for Mago and Serena queries. To resolve dependency symbols, install 
 mounted tree. Composer path repositories symlinked outside it are inaccessible. Serena keeps its project settings and index in temporary container
 storage, so the application's own `.serena/` settings stay available to its other sessions. If a symbol range is
 stale after an external edit, restart the language server or reconnect. The
-[provider documents this limitation](https://github.com/xormania/mago-serena_v2-poc/blob/b6dbec8378338e39fe51489bc28f9ad578e4f3ab/README.md).
-Set `UXOR_MAGO_IMAGE` to select a compatible local build, for example `mago-serena-poc:local` from that revision.
+[provider documents this limitation](https://github.com/xormania/mago-serena_v2-poc/blob/4e811e48ee9c934791695ebfc9622daa251534b4/README.md).
+Set `UXOR_MAGO_IMAGE` to use a compatible custom image for both commands. `uxor-mago version` reports its CLI version.
 
 ## Use
 
