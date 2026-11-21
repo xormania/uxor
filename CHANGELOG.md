@@ -1,7 +1,10 @@
 # Changelog
 
-All notable changes to UXor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y.Z`, no `v`).
+All notable changes to UXor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versions use [Semantic Versioning](https://semver.org/)'s `X.Y.Z` format as git tags, without a `v`.
+UXor is in `0.x` development: its public interfaces are not yet stable, and changes may be incompatible.
+The maintainer chooses each release number and may skip numbers; the entries describe changes and migration needs.
+See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ## [Unreleased]
 

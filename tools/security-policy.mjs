@@ -398,24 +398,53 @@ export function supportProblems(changelog, security) {
 }
 
 export function codeownerProblems(source) {
-    const owners = new Map();
+    const entries = [];
     const problems = [];
-    for (const line of source.split('\n')) {
+
+    for (const [index, line] of source.split('\n').entries()) {
         const content = line.replace(/\s+#.*$/, '').trim();
         if (!content || content.startsWith('#')) {
             continue;
         }
         const [pattern, ...names] = content.split(/\s+/);
-        owners.set(pattern, names);
-        if (!names.includes('@xormania')) {
-            problems.push(`.github/CODEOWNERS: ${pattern} can override ownership without @xormania`);
+        entries.push({ pattern, names, line: index + 1 });
+        if (names.length === 0) {
+            problems.push(`.github/CODEOWNERS:${index + 1}: ${pattern} must have owners`);
         }
     }
-    problems.push(
-        ...requiredOwners
-            .filter((pattern) => !owners.get(pattern)?.includes('@xormania'))
-            .map((pattern) => `.github/CODEOWNERS: ${pattern} must require review from @xormania`),
-    );
+
+    // The default owners are the repository maintainers. Component ownership may differ; the protected tail below
+    // restores maintainer ownership for the trust controls after any component patterns, using CODEOWNERS' last match.
+    const defaults = entries.filter(({ pattern }) => pattern === '*');
+    if (defaults.length !== 1 || entries[0]?.pattern !== '*') {
+        problems.push('.github/CODEOWNERS: declare exactly one root * ownership rule as the first rule');
+    }
+    const maintainers = defaults[0]?.names ?? [];
+    const protectedPatterns = requiredOwners.filter((pattern) => pattern !== '*');
+
+    for (const pattern of protectedPatterns) {
+        const matches = entries.filter((entry) => entry.pattern === pattern);
+        if (matches.length !== 1) {
+            problems.push(`.github/CODEOWNERS: declare exactly one protected ownership rule for ${pattern}`);
+            continue;
+        }
+        const additional = matches[0].names.filter((name) => !maintainers.includes(name));
+        if (additional.length) {
+            problems.push(`.github/CODEOWNERS: ${pattern} must be owned only by the root maintainers: ${additional.join(', ')}`);
+        }
+        const missing = maintainers.filter((name) => !matches[0].names.includes(name));
+        if (missing.length) {
+            problems.push(`.github/CODEOWNERS: ${pattern} must retain the root maintainer owners: ${missing.join(', ')}`);
+        }
+    }
+
+    const tail = entries.slice(-protectedPatterns.length);
+    if (tail.length !== protectedPatterns.length
+        || new Set(tail.map(({ pattern }) => pattern)).size !== protectedPatterns.length
+        || !protectedPatterns.every((pattern) => tail.some((entry) => entry.pattern === pattern))) {
+        problems.push('.github/CODEOWNERS: protected ownership rules must be the final block, after component ownership rules');
+    }
+
     return problems;
 }
 

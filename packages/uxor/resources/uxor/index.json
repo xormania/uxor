@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "f7e2ff5dafda20782fa5f861a68bd9b8b20983422c77adb544aa926422dd33cb",
+        "inputs_sha256": "3bc96916f37c4689d480f5823105447e4de542c5650718342bb23da7f82e847c",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "license": "MIT"
     },
@@ -1811,8 +1811,8 @@
         },
         "docs/GUIDE.md": {
             "path": "docs/docs/GUIDE.md",
-            "sha256": "1d111cfca95a3e1d07189b5f2fb075e7e69f913d1e908e09675c5d3d6964fca7",
-            "source_sha256": "ae40ed303f19630b9cfe5716ee28af391e0f1ee37e426cfe1ad6db04d99b3229",
+            "sha256": "6d3c3a343ae17f886ce46701dce761deb65684782929c91f3c7d90e27e5345fe",
+            "source_sha256": "1f1ba5594b4406f9cf2cae7e9207c696479aa473b18fddf23e0468a5dae5d6b0",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/GUIDE.md"
         },
         "docs/PROJECT-AGENTS-SNIPPET.md": {
@@ -1829,8 +1829,8 @@
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "db1483f50da8a255b3306994dd40f9e1915a6dd78a0458dd96156f3941a461c7",
-            "source_sha256": "a139e5ac1181bab8dd595cf3af3311147158e4f7b6fd2f0defbf3e5b346f9a45",
+            "sha256": "10486817a3f245d8ce72cc98e74428b157cd226420a6d89ebc5ab46d24576a55",
+            "source_sha256": "a2e964878a26ec8a93badf89dc3cc3d973b1fed2d4eecca14b1e5d0d12821b42",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/TESTING.md"
         },
         "drawer/README.md": {

@@ -6,6 +6,14 @@ detailed plan before it is built._
 Each package's status is in the *Sequence* table: `shipped` means its recipes are in `docs/RECIPES.md`, and their
 READMEs describe how they behave now. This page and the `shipped` plans are records of the decisions, not instructions.
 
+## Current release direction
+
+_2026-11-21._ Publish the current development work as **0.3.5**, exercise the Symfony UX Toolkit kit and the
+Composer development package in local test projects, and stabilize the `0.3.x` work before starting `0.4.0` work.
+The maintainer chooses any further release numbers. The kit and the development package continue to share one
+version sequence; [CONTRIBUTING.md](../CONTRIBUTING.md#releases) describes release preparation and publication.
+This direction updates the immediate sequence; the completed recipe plans below remain historical records.
+
 ## Context
 
 Two research docs (`…-integration-report.md` and `…-proposals.md`, which are not authoritative) and a third report

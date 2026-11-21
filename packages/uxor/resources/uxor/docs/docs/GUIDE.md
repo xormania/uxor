@@ -117,8 +117,9 @@ vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/bl
 
 ## Versioning
 
-Versions are git tags `X.Y.Z`, without a `v`: GitHub names the archive of a `v1.2.3` tag `uxor-1.2.3`,
-which the toolkit then cannot find. Install one with `--kit=https://github.com/xormania/uxor:<version>`, the latest
-release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
+Versions are git tags `X.Y.Z`, without a `v`, for compatibility with supported Toolkit versions.
+The maintainer chooses each release number and may skip unused numbers. UXor's `0.x` interfaces are still in
+development; read the release notes for changes and migration needs. Install with
+`--kit=https://github.com/xormania/uxor:<version>`, choosing the latest release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
 default branch, which can hold work that is not released yet.
 [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md) lists what each version changes.

@@ -13,6 +13,13 @@ requirement to match that kit. Toolkit installation support, Flowbite CSS and th
 choices, which can change as UXor's needs change. Preserve legal attribution in `NOTICE` and assess changes to
 shipped interfaces for compatibility, regardless of where their implementation began.
 
+For a first contribution, fork the repository, create a descriptive branch from `dev`, and open a pull request
+back to `dev`. A draft is welcome while you investigate or finish checks. Small fixes do not need a work order.
+The [commit and pull request guide](#commits-and-pull-requests) explains the review process.
+
+You do not need an AI assistant, a particular editor or access to the maintainer's services to contribute.
+Use the checks relevant to your change, and describe any environment limitation in the pull request.
+
 ## Repository layout
 
 | Path | In the `ux:install` download | What it is |
@@ -42,7 +49,7 @@ shipped interfaces for compatibility, regardless of where their implementation b
 | `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
-| `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | outbound GitHub text names no account or team the allowlist does not: the *Metadata* workflow on every pull request, the hook before each commit (*Commits and pull requests*) |
+| `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | the required account-reference check on pull request metadata and commit messages, plus a self-contained local hook (*Commits and pull requests*); this is not a complete public-attribution check |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
 | `mago.toml`, `tools/mago`, `.codex/config.toml`, `.mcp.json` | no | local PHP checks and Serena navigation in the checkout ([Mago and Serena](#mago-and-serena)) |
@@ -200,22 +207,30 @@ It looks up package, recipe and demo symbols and compares the analyzer's diagnos
 
 ## Checks
 
-CI runs them on every push, each job only when the change could affect what it checks
-([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main`, and a run by hand, run everything. A
-branch is compared with where it left `dev`, so each push checks the whole pull request. A push to `dev` is compared
-with the commit of `dev`'s last successful run, so every merge since is checked (one whose run was cancelled or failed
-too); with none, everything runs. *Tool tests* runs on every push, and checks what any path can break: the bundled
-references' links, the test inventory's names and the archive's payload. Once a day, on `dev`, the jobs that install
-freshly resolved dependency versions run alone (both *Fresh install* jobs and *Package*). GitHub runs every schedule on the
-default branch, `main`; there each scheduled workflow (CI's daily run, the audits, the release checks, the monthly
-job) only starts itself on `dev`, so what they find shows on `dev`, where its fix lands, and `main` changes only by a
-release. The rulesets require the one
-*CI result* check, which passes when each lane passed, reused an earlier pass on the same inputs or was skipped (`docs/TESTING.md`, *Reused lanes*; the daily run and an engines-only run report as *CI result (daily)* and *CI result (engines only)*, never as the required check), and `dev`'s requires a branch to be up to date
-with it before it merges: merge `dev` in and push, so that CI has run on the code that lands (there is no merge
-queue; a work order's jobs need not be up to date with it, *Work orders* below). When *CI result* fails because a lane's reused pass no longer qualifies (its evidence expired or disappeared, its producer ran the lane again, or a failure on the same inputs was recorded since), use *Re-run all jobs*: it plans the lanes again and runs the lane; *Re-run failed jobs* keeps the first plan and fails the same way. CI runs the script as the base branch has it, so a branch cannot change its own checks; a job the base's
-script does not know yet runs. A path no row below names counts as part of the kit until `tools/ci-changes.sh` and its
-test (`tools/tests/ci-changes.sh`) say otherwise. A deleted file counts as a change to its path, a renamed one as a
-change to both paths.
+CI runs on every branch push and on pull requests from forks. Fork contributions are checked at their proposed
+merge with the target branch; a maintainer may need to approve a first-time contributor's workflow run in GitHub.
+Same-repository pull requests use their branch's push run, with a differently named skipped result on the pull
+request event so it cannot satisfy the required *CI result* early. Each job runs when the change could affect what
+it checks ([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main`, and a full run by hand, run everything.
+
+A branch push is compared with where it left `dev`. A fork pull request uses the target base supplied by GitHub
+and runs selected lanes fresh, without reusing evidence from other runs. A push to `dev` is compared with the commit
+of its last successful run, so every merge since is checked; with none, everything runs. *Tool tests* runs in every
+full CI run and checks what any path can break: bundled reference links, test inventory names and archive contents.
+
+Once a day on `dev`, the jobs that install freshly resolved dependencies run alone (both *Fresh install* jobs and
+*Package*). GitHub schedules run on the default branch, `main`; each scheduled workflow starts its work on `dev`,
+where fixes land. The rulesets require *CI result*, which passes when each applicable lane passed or reused valid
+evidence. Daily and engines-only runs report their own result names, so they cannot satisfy that required check
+([`docs/TESTING.md`](docs/TESTING.md), *Reused lanes*). Other required checks depend on the target branch.
+
+`main` requires the branch to be up to date before merge. The current `dev` ruleset does not; maintainers may ask
+for an update when another change affects the contribution. There is no merge queue. If *CI result* rejects reused
+evidence that expired, disappeared or was superseded by a failure, use *Re-run all jobs*: it replans and runs the
+lane. *Re-run failed jobs* keeps the first plan. The classifier is read from the comparison base, so a change cannot
+alter its own lane selection; a lane that base does not know runs. A path with no classification counts as kit
+input until the classifier and its tests say otherwise. A deletion counts as a change to its path, and a rename
+as a change to both paths.
 
 *Tool tests*, *Contrast* and *Workflows* below are checks, run as the steps of one job, *Quick checks*: Tool tests on
 every run, the other two when selected, each whatever another did. *Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
@@ -275,7 +290,7 @@ every run, the other two when selected, each whatever another did. *Demo + Playw
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
-| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when the release pull request is marked ready for review, never on a push |
+| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when a same-repository `dev`-to-`main` pull request is marked ready for review, never on a push |
 | `.github/workflows/release-checks.yml` | *Workflows*; it runs on the release pull request, daily on `dev` and by hand, never on a push |
 | `.github/workflows/jev.yml`, `.github/workflows/metadata.yml` | *Workflows*; they run on their own events |
 | `.github/CODEOWNERS`, `.github/mention-allowlist` | nothing else: *Tool tests* reads them (the security policy, the mention check's cases) |
@@ -689,73 +704,74 @@ side effect. A visual change is a commit of its own:
 
 Examples: `feat(stat-card): show the trend as text`, `fix(layouts): every layout shows flash messages`.
 
-**Branches:** `main` holds released code only. Work branches start from `dev` and their pull requests target `dev`;
-a release is a pull request from `dev` to `main` (*Releases* below). Work made of several pull requests goes through
-a work order (below); a single change stays one branch and one pull request into `dev`.
+**Branches:** work branches start from `dev` and ordinary pull requests target `dev`. Use a descriptive name such
+as `fix/modal-focus` or `docs/install-guide`, in your fork if you do not have repository write access. A release is
+a maintainer-controlled pull request from a short-lived release branch to `main` (*Releases* below). Maintainers review and merge contributions;
+contributors do not need access to protected branches or repository secrets.
 
 **Trying unreleased work in an app.** The consumer documentation (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`,
-`llms.txt`, the gallery) always names a release ([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)).
+`llms.txt`, the gallery) names a release ([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)).
 Installing from a branch is for contributors: `--kit=https://github.com/xormania/uxor:dev` takes the work merged
 since the last release, and a full 40-character commit SHA takes one commit (a branch name holding `/`, such as
-`feat/x`, does not work: use its SHA). Without a version, `ux:install` takes the default branch, `main`.
+`feat/x`, does not work: use its SHA). Without a version, `ux:install` takes `main`.
 
-**Work orders:** one objective delivered in several reviewable parts, without each part merging into `dev` on its own.
+**Work orders (optional):** for a larger change, agree with a maintainer whether linked pull requests or an
+integration branch will make review easier. Ordinary contributions need no work order or particular agent.
 
-- **Branches:** the work order is `claude/wo-<name>`, made from `dev`; each part (a job) is
-  `claude/wo-<name>--<job>`, made from the work order and merged back into it by its pull request. The names are
-  siblings, not `<name>/<job>`, which Git cannot hold beside `<name>`. The work order's ruleset (`claude/wo-*`,
-  leaving out `claude/wo-*--*`) requires *CI result* and *CodeQL*, merge commits and resolved conversations, but not
-  being up to date, so jobs merge as they are ready. Job branches take ordinary pushes, review fixes included.
-- **The record:** the work order's pull request into `dev`, opened as a draft once its first job has merged, holds the
-  objective, what is in and out, the completion criteria, each revision of them and why, a row per job (outcome,
-  branch, pull request, merged head, disposition) and what is still open.
-- **A job's pull request** follows the standard here, Codex review included, and carries its own `CHANGELOG.md`
-  entries and `docs/TEST-INVENTORY.md` rows. A conflict with a job merged before it is resolved in the job's branch,
-  by merging the work order in.
-- **Bringing `dev` in:** the work order takes no direct push (a new commit has no checks yet), so `dev` comes in
-  through a job, `claude/wo-<name>--sync`, that merges it; once just before the final pull request, and earlier
-  when a job needs something `dev` gained.
-- **CI on the work order:** a push to `claude/wo-<name>` (a job's merge) runs CI like any branch's, whether its pull
-  request into `dev` is a draft, ready or not open yet; nothing has to be re-run by hand. It is cheap when the jobs
-  are stacked (each made from the work order after the previous one merged, and merged in order): the work order's tree
-  after a merge is the job's own, so every reusable lane reuses the job's passes (`docs/TESTING.md`, *Reused lanes*),
-  and only the short checks that always run (*Quick checks*, *Static site*) and *CI result* run again. When jobs made
-  side by side merge one after another, each merge after the first makes a tree no job tested, and its CI runs every
-  lane that tree selects, about the cost of a job's own full run; that is the price of seeing at each merge, not at the
-  end, whether the parts work together. Firefox and WebKit wait for `dev`'s daily run, as on any branch.
-- **Finishing:** the work order's pull request into `dev` is marked ready when every job has merged, `dev` included;
-  the CI of its last push must pass on that commit, and its description checks each completion criterion against
-  it. It merges like any pull request into `dev`. Each job ends merged, superseded (naming its successor) or abandoned
-  (saying why); its branch is deleted once its work is in the work order or recorded as dropped.
+- An integration branch uses `work/<name>`, with jobs on `work/<name>--<job>`. These names avoid Git's conflict
+  between a branch and a directory of the same name. Name new branches for the work they contain, without naming
+  a model or assistant assigned to it. Existing integration branches can finish under their current names.
+- Before using an integration branch, a maintainer protects it with pull requests, *CI result*, *CodeQL* and
+  resolved conversations. Jobs merge by pull request; updates from `dev` also arrive through a job, such as
+  `work/<name>--sync`. Contributors should not push directly to the protected integration branch.
+- Its draft pull request into `dev` records the objective, completion criteria, links to the jobs and remaining
+  work. Each job receives normal review and includes the documentation, changelog and test evidence its change needs.
+- CI runs on each integration merge. Existing lane evidence can be reused only under the ordinary CI rules
+  ([`docs/TESTING.md`](docs/TESTING.md), *Reused lanes*).
+- Mark the final pull request ready when its agreed scope is complete, it includes current `dev`, its checks pass
+  and the description explains how the completion criteria were met. Record deferred or superseded work with links.
+  The maintainer decides when to merge and when completed branches can be removed.
 
-**Pull request:** one topic, with a title in the commit subject format. The description follows
-[the template](.github/pull_request_template.md):
+**Pull request:** one topic, with a title in the commit subject format. Use
+[the template](.github/pull_request_template.md) to explain the change, why it is needed and how it was checked.
 
-- *What* lists the changes.
-- *Why* gives the problem or the goal.
-- *Coverage map* lists each guarantee the change adds or touches, at which scope it is tested and whether that
-  coverage is new, extended, moved or removed, then what was reused, the new shared test support and the gaps left
-  (see [`docs/TESTING.md`](docs/TESTING.md)), and updates the rows it changes in the suite-wide map,
-  [`docs/TEST-INVENTORY.md`](docs/TEST-INVENTORY.md). A pull request with no behavior or test change says so.
-- *Checks* says whether CI passed on the last commit and what you verified by hand.
+For behavior or test changes, identify the affected guarantees and their tests, including coverage added, changed
+or removed, reused test support and any remaining gaps. A short paragraph or list is enough; use a coverage table
+when it makes a larger change easier to review. Update [`docs/TEST-INVENTORY.md`](docs/TEST-INVENTORY.md) when its
+coverage map changes. Documentation-only changes can simply say that no runtime behavior changed. Report checks
+as passed, failed or not run, and give the relevant CI result for the current commit before merge.
 
-**No account references:** a title, a description, a commit message or a comment names no GitHub account or team:
-no at-sign directly followed by a name, in backticks or not. On GitHub that text links, and may notify, whoever holds
-the name, now or after they register it; a test tag, a package scope or a bot command copied from the code is enough.
-Describe the thing in words instead ("the release checks", "the Playwright test package"). The *Metadata* workflow
-checks every pull request's title, description and commit messages ([`tools/check-github-mentions.mjs`](tools/check-github-mentions.mjs)),
-the `commit-msg` hook (*Setup*) each commit before it is made. The hook is a self-contained copy in `.git/hooks`, never
-`core.hooksPath` pointed at the repository: hooks in a tracked folder run whatever the branch checked out holds. A clone
-set up the earlier way runs `git config --unset core.hooksPath` once; a name meant to be notified goes in
-[`.github/mention-allowlist`](.github/mention-allowlist) first. Dependabot's pull requests are left out: GitHub writes
-their text. When a release brings those messages again, the commit check verifies the merged Dependabot pull request
-in this repository through GitHub's API: its merge commit and its bot-authored commits are left out too. A human
-commit added to that pull request still gets checked. A matching subject or Git author string grants no exemption,
-and an unavailable API leaves the rejected message rejected. The release's own title and description are checked.
+**Authorship and credit:** commit under your own chosen Git identity and preserve other contributors' human
+authorship. Accurate human co-author trailers and acknowledgements are welcome. Preserve required legal attribution.
+You remain responsible for reviewing the code, its provenance and the evidence you submit.
 
-Use plain words throughout, and no AI attribution lines (`Co-Authored-By`, "Generated with" footers). Pull requests
-are merged with a merge commit (no squash, no rebase), so every commit of the branch lands on `dev`, then on
-`main`: each one follows the commit standard above.
+**Public work attribution:** do not publish which AI model, assistant, provider or version performed, reviewed or
+routed project work. This applies to commit metadata and messages, branch names, pull requests, issues, reviews,
+comments, repository files and published reports or artifacts. Omit AI co-author trailers, generated attribution
+footers, identifying delegation or task-routing records, and session traces or links that disclose those assignments.
+
+Technical documentation may identify a tool, dependency or supported integration to explain product behavior,
+configuration or compatibility. It must not use that documentation to identify the AI system behind a project task.
+
+**Account references:** the existing mention restriction remains in force. Pull request titles, descriptions and
+commit messages must not contain an at-sign directly followed by an account or team name, including in code spans,
+unless [`.github/mention-allowlist`](.github/mention-allowlist) permits it. Apply the same rule to comments and review
+replies. Describe test tags, package scopes and bot commands in words in these public messages; a required account
+reference needs the maintainer's agreement and an allowlist entry.
+
+The *Metadata* workflow checks titles, descriptions and commit messages with
+[`tools/check-github-mentions.mjs`](tools/check-github-mentions.mjs). Dependabot's own pull requests are exempt.
+When a release carries dependency-update commits, an exemption requires GitHub evidence of a merged Dependabot
+pull request in this repository; a human commit in it is still checked, and unavailable evidence grants no exemption.
+The release's own title and description are always checked.
+
+For a local preflight, install the reviewed, self-contained `tools/hooks/commit-msg` copy described in *Setup*.
+Do not point `core.hooksPath` at unreviewed tracked code. The mention check covers account-reference syntax.
+Review public text and attachments for AI execution attribution separately; passing that check does not prove
+compliance with the public work attribution rule.
+
+Use plain words throughout. Pull requests are merged with a merge commit (no squash, no rebase), preserving the
+branch's commits and their authorship.
 
 **Changelog:** a user-visible change (a recipe added, changed or removed, a fix users notice) gets an entry under
 `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md), in the pull request that makes it: one line naming the recipe,
@@ -763,29 +779,47 @@ under `### Added`, `### Changed`, `### Fixed` or `### Removed`, as Keep a Change
 
 ## Releases
 
-Versions are git tags `X.Y.Z` ([Semantic Versioning](https://semver.org/)) without a `v`: the toolkit cannot
-install a `v` tag (see [`docs/NOTES.md`](docs/NOTES.md)). The version is declared in one place: a
-`## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field: Composer reads
-the version from the tag.
+Versions are git tags `X.Y.Z` without a `v`, for compatibility with supported Toolkit versions
+(see [`docs/NOTES.md`](docs/NOTES.md)). The version is declared in one place: a
+`## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field:
+Composer reads the version from the tag. The kit and the Composer development package share this version sequence.
 
-A release is a pull request from `dev` to `main`, opened as a draft when the maintainer decides to release. Its own
-commit moves the entries under `## [Unreleased]` to the new `## [X.Y.Z] - YYYY-MM-DD` section and updates the compare
-links at the bottom. It also runs `node tools/llms-txt.mjs`, which writes `llms.txt` for the new version with its links at the new tag (*Docs*), and `php packages/uxor/tools/generate-reference.php`, which points the package's bundled references at it: both take the version from the new `## [X.Y.Z]` heading, so the commit release.yml tags already holds them. Until a version is tagged, `llms.txt` and the references keep describing the last release. Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
-version, *Removed* or anything that breaks an installed recipe, or the Composer package's commands, Mate tools,
-`uxor://` resources or skills, a major version (a minor one while the version is `0.x`). CI runs on this pull request
-like on any other, and so do the release checks (`release-checks.yml`: timings, harsh
-conditions, long sessions, wide matrices, fuzzing and properties; [`docs/TESTING.md`](docs/TESTING.md), *Release
-checks*). Their timings are reported against the baseline and fail nothing until their tolerances are set; everything else in
-them can fail. `main`'s ruleset requires the *Release checks* check beside *CI result* from 0.2.0
-(`docs/PLAN-test-tiers.md`, decision 4), so a release merges only with both green. Merging it is the release.
+The maintainer chooses each release number and may skip unused numbers. An agent preparing a release uses the
+number the maintainer supplied; changelog categories do not select it. UXor is in the initial `0.x` development
+stage described by [Semantic Versioning](https://semver.org/): its public interfaces are not yet stable.
+The changelog and release notes describe changes and migration needs, including anything that breaks installed
+recipes or the package's commands, Mate tools, `uxor://` resources or skills.
 
-A fix that cannot wait for the next release goes to `main` in its own pull request with its version heading (a
-patch), and `main` is then merged into `dev`.
+The current release tools publish plain `X.Y.Z` versions. Prereleases such as `0.3.5-rc.1` need support in
+version parsing, generated references and release publication before this workflow can publish them correctly.
+The public gallery currently follows the latest non-prerelease.
 
-After each release, merge `main` back into `dev` in a pull request of its own (`git checkout -b sync/X.Y.Z origin/dev &&
-git merge --no-ff origin/main`, with nothing else in it). The tag `X.Y.Z` is on the release pull request's merge
-commit, which only `main` holds: until `dev` contains it, `git describe` on `dev` (`tools/build-static.sh` reads it) still
-names the previous release, and the next release pull request may need `main` merged into it before it can merge.
+When the maintainer decides to release, create a short-lived release branch from `dev` and open its pull request
+to `main` as a draft. Its release commit moves the entries under `## [Unreleased]` to the chosen version's dated
+section, leaves an empty `## [Unreleased]` section, and updates the compare links at the bottom. Compare with the
+previous actual release: a release of `0.3.5` after `0.3.2` links `0.3.2...0.3.5`; skipped numbers need no headings
+or tags. Use the release date in the new heading.
+
+Run `node tools/llms-txt.mjs` and `php packages/uxor/tools/generate-reference.php` in that commit. Both take the
+version from the new changelog heading, so the commit that release.yml tags already contains references linking
+the chosen tag. During ordinary development, the generated references keep the last release's version.
+
+CI runs on the release pull request, as do the release checks (`release-checks.yml`: timings, harsh conditions,
+long sessions, wide matrices, fuzzing and properties; [`docs/TESTING.md`](docs/TESTING.md), *Release checks*).
+Their timings report against the baseline and fail nothing until their tolerances are set; the other checks can
+fail. The release pull request must satisfy all checks required by
+[`main`'s ruleset](https://github.com/xormania/uxor/rules), including *CI result* and *Release checks*.
+Merging it starts publication after CI passes on `main`.
+
+A fix that cannot wait for the next development release starts from `main` on a short-lived branch and goes to
+`main` in its own pull request. The maintainer chooses its version too; prepare its changelog heading, references
+and checks as above. This keeps unrelated work on `dev` out of the urgent release.
+
+After each release, including an urgent fix, merge `main` back into `dev` in a pull request of its own
+(`git checkout -b sync/X.Y.Z origin/dev && git merge --no-ff origin/main`, with nothing else in it).
+The tag `X.Y.Z` is on the release pull request's merge commit, which only `main` holds: until `dev` contains it,
+`git describe` on `dev` (`tools/build-static.sh` reads it) still names the previous release, and the next release
+pull request may need `main` merged into it before it can merge.
 
 Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: its
 *Check the new version's install* job, with a read-only token, checks that the merge commit installs from GitHub in a

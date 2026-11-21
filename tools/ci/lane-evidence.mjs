@@ -12,7 +12,7 @@
  * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
  *   fingerprint --sha <rev>
- *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch|engines]
+ *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|pull_request|daily|dispatch|engines]
  *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
  *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--summary <f>] [--github-output <f>]
@@ -538,7 +538,7 @@ async function planCommand(opts) {
     const ctx = context(opts, 0);
     const client = api(ctx);
     const event = opts.event ?? 'push';
-    if (!['push', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, daily, dispatch or engines');
+    if (!['push', 'pull_request', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, pull_request, daily, dispatch or engines');
     const enginesOn = opts['engines-on'] ?? 'daily';
     if (!['daily', 'every-push'].includes(enginesOn)) usage('--engines-on is daily or every-push');
     const selected = Object.fromEntries(readFileSync(opts.selection, 'utf8').split('\n').filter(Boolean).map((line) => {

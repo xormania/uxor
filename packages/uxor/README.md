@@ -91,9 +91,10 @@ Before updating with Composer, record which skills are disabled or overridden an
 `mate/skills/`. Save edits made directly in `.agents/skills/mate-*` or `.claude/skills/mate-*` outside those
 directories. Mate manages those targets and can remove them when Composer triggers discovery during the update.
 
-Choose a release that includes the rename once one is available. If your application's root Composer constraint
-for `xormania/uxor` is `^0.3`, widen it to allow the chosen release. If the rename ships in 0.4.0, for example,
-`composer require --dev 'xormania/uxor:^0.4'` updates the constraint and selects the 0.4 series.
+The skill rename ships in UXor 0.3.5. An existing `xormania/uxor` constraint of `^0.3` already permits 0.3.5;
+it does not need widening. The `^0.3.5` constraint in the [install command](#install-in-a-symfony-application)
+requires at least this release and stays below 0.4.0. Follow that command when upgrading so the application's
+own dev dependencies also admit the required Mate prereleases.
 
 Run `vendor/bin/mate discover` after the update. Mate registers the application skills from their configured
 sources, retires the old generated UXor copies and installs the new ones. Old override sources under `mate/skills/`

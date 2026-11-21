@@ -1264,7 +1264,8 @@ the commit under test by `install-uxor.py`), the Docker stack and Serena run by 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
 SHA-256 of each input and of all of them (`source.inputs_sha256`, `sha256sum`'s lines for the sorted input paths,
-hashed again), and the ref their repository links use (`source.ref`, `main` unless `--ref` says otherwise).
+hashed again), and the ref their repository links use (`source.ref`, the latest version heading in `CHANGELOG.md`
+unless `--ref` explicitly selects another ref).
 
 Here: [`packages/uxor/tests/`](https://github.com/xormania/uxor/tree/0.3.5/packages/uxor/tests),
 [`check-package.py`](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/tools/check-package.py),
@@ -2052,10 +2053,11 @@ own update.
 workflow and its tools, so a change to them is tried by running it on its own branch. There is no input naming another
 ref: a run on one would execute that ref's code in the default branch's context, where it could poison the cache.
 
-**On the release.** When the owner marks the release pull request (`dev` into `main`) ready for review, the
-workflow runs on its own (`pull_request`, `ready_for_review`), on the pull request's merge of `dev` into `main`: the
-release's coverage, mutants, other engines and timings sit beside its other checks, and its numbers are compared with
-the last successful run on `dev`. Any other pull request into `main` skips every job.
+**On a pull request directly from `dev`.** Marking a same-repository pull request from `dev` into `main` ready
+for review starts this workflow (`pull_request`, `ready_for_review`) on its proposed merge. Its coverage, mutants,
+other engines and timings sit beside the other checks, compared with the last successful run on `dev`.
+A release prepared on a separate branch skips these jobs; that branch can be checked with the manual run above.
+This reporting workflow is separate from the required *Release checks*.
 
 **Locally**, from the repository root, with the demo installed (*PHP tests*); the reports go to `coverage/`
 (gitignored). PCOV or Xdebug (`XDEBUG_MODE=coverage`) can measure; Infection runs as its PHAR, outside the demo's
