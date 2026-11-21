@@ -20,8 +20,8 @@ has the `zip` extension. CI installs the kit this way, in a fresh Symfony Docker
 
 ## Updating
 
-Recipes are copies you own, so an update is a change you review like any other. Commit first, then reinstall
-the recipe from the newer version with `--force`:
+Recipes are copies you own, so an update is a change you review like any other. Preserve local changes using
+the application's normal workflow, then reinstall the recipe from the newer version with `--force`:
 
 ```bash
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force

@@ -1,5 +1,6 @@
-# The UX Toolkit installs a kit from GitHub's archive of the whole repository
-# (archive/<version>.zip). Keep everything that is not part of the kit out of it.
+# The UX Toolkit kit and the Composer development package install from GitHub's
+# archive of this repository (archive/<version>.zip). Keep their shipped files;
+# exclude contributor configuration, fixtures, development tools and build output.
 /.github export-ignore
 /demo export-ignore
 /docs export-ignore
