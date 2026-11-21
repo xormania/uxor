@@ -71,7 +71,7 @@
                             {% endfor %}
                         </dd>
                     {% endif %}
-                    {% for group, label in {composer: 'Composer', npm: 'npm', importmap: 'Importmap'} %}
+                    {% for group, label in {composer: 'Composer', importmap: 'Importmap'} %}
                         {% if dependencies[group] %}
                             <dt class="font-medium text-heading">{{ label }}</dt>
                             <dd>{% for dependency in dependencies[group] %}<code>{{ dependency }}</code>{% if not loop.last %}<br>{% endif %}{% endfor %}</dd>

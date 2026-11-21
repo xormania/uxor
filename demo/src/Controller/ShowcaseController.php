@@ -13,7 +13,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\UX\Toolkit\Dependency\ImportmapPackageDependency;
-use Symfony\UX\Toolkit\Dependency\NpmPackageDependency;
 use Symfony\UX\Toolkit\Dependency\PhpPackageDependency;
 use Symfony\UX\Toolkit\Dependency\RecipeDependency;
 use Symfony\UX\Toolkit\Recipe\Recipe;
@@ -48,12 +47,11 @@ final class ShowcaseController extends AbstractController
             throw $this->createNotFoundException(\sprintf('Recipe "%s" does not exist in the kit.', $recipe));
         }
 
-        $dependencies = ['recipes' => [], 'composer' => [], 'npm' => [], 'importmap' => []];
+        $dependencies = ['recipes' => [], 'composer' => [], 'importmap' => []];
         foreach ($found->manifest->dependencies as $dependency) {
             $group = match (true) {
                 $dependency instanceof RecipeDependency => 'recipes',
                 $dependency instanceof PhpPackageDependency => 'composer',
-                $dependency instanceof NpmPackageDependency => 'npm',
                 $dependency instanceof ImportmapPackageDependency => 'importmap',
                 default => null,
             };
