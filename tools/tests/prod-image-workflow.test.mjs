@@ -11,6 +11,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { stepIn } from '../ci/step-attempts.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const workflowsDir = '.github/workflows';
@@ -199,14 +200,24 @@ test('the development image still runs the repository bind-mounted, the app in /
 
 test("the release checks never reuse an earlier pass across a change to one of the production image's inputs", () => {
     const text = readFileSync(join(root, workflowsDir, 'release-checks.yml'), 'utf8');
-    const filters = [...text.matchAll(/grep -vE '([^']+)'/g)].map((m) => m[1]);
-    assert.ok(filters.length > 0, 'release-checks.yml filters the paths the suite never reads with grep -vE');
-    for (const filter of filters) {
-        // through grep -E itself, as the workflow runs it: a pattern grep reads otherwise, or refuses, counts
-        const kept = spawnSync('grep', ['-vE', filter], { input: `${IMAGE_INPUTS.join('\n')}\n`, encoding: 'utf8' });
-        assert.ok(kept.status === 0 || kept.status === 1, `grep -E reads the filter ${filter}: ${kept.stderr}`);
-        const skipped = IMAGE_INPUTS.filter((path) => !kept.stdout.split('\n').includes(path));
-        assert.deepEqual(skipped, [], `the release checks count ${skipped.join(', ')} as never read (${filter}), though the production image holds or builds from them`);
+    const compare = stepIn(text, 'changed', 'compare');
+    assert.ok(compare?.run, 'the release workflow compares the inputs of a previous pass with the current head');
+    const lines = compare.run.split('\n');
+    const changed = lines.findIndex((line) => /^\s*changed=\$\(git diff /.test(line));
+    const decision = lines.findIndex((line, i) => i > changed && /^\s*if \[ -z "\$other" \]; then$/.test(line));
+    assert.ok(changed >= 0 && decision > changed, 'a shell predicate connects the changed paths to the reuse decision');
+    const predicate = lines.slice(changed + 1, decision).join('\n');
+    const docs = ['CHANGELOG.md', 'AGENTS.md', 'docs/TESTING.md', 'docs/GUIDE.md.bak', 'packages/uxor/README.md'];
+    for (const [inputs, expected] of [
+        [IMAGE_INPUTS, IMAGE_INPUTS],
+        [docs, []],
+        [[...docs, ...IMAGE_INPUTS], IMAGE_INPUTS],
+    ]) {
+        const kept = spawnSync('bash', ['-euo', 'pipefail', '-c', `${predicate}\nprintf '%s' "$other"`], {
+            env: { ...process.env, changed: inputs.join('\n') }, encoding: 'utf8',
+        });
+        assert.equal(kept.status, 0, kept.stderr);
+        assert.deepEqual(kept.stdout.split('\n').filter(Boolean), expected, `paths that require a fresh release check: ${inputs.join(', ')}`);
     }
 });
 

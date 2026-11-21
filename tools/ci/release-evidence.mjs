@@ -2,8 +2,8 @@
 /*
  * The release checks' structural evidence (docs/TESTING.md, *Release checks*): a Playwright run can exit 0 having run
  * only part of the suite (a project left out, a release spec skipped), so the release job checks, from the JSON
- * report, that each required project ran at least one test and each release spec ran at least one and skipped none.
- * It counts tests, never timings, and never freezes a total: a group present is what it asks.
+ * report, that each required project ran at least one test and each release spec skipped none. The release runner also
+ * supplies its discovered selection, in which every case must appear exactly once with a passed attempt.
  *
  * Usage: node tools/ci/release-evidence.mjs --project <name>... --spec <file>... <results.json>
  * Exit status 0 when complete; 1 naming each gap, or when the report is missing or unreadable; 64 on bad usage.
@@ -13,23 +13,30 @@ import { readFileSync } from 'node:fs';
 import { basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-/** Every test of a Playwright JSON report: its project, its spec file's name and its status. */
-function testsOf(report) {
+/** The project, source file and nested title identify the same case in discovery and execution. */
+export function testsOf(report) {
     const tests = [];
-    const walk = (suite) => {
+    const walk = (suite, titles) => {
         for (const spec of suite.specs ?? []) {
             for (const test of spec.tests ?? []) {
-                tests.push({ project: test.projectName ?? '', file: basename(spec.file ?? suite.file ?? ''), status: test.status });
+                const project = test.projectName ?? '';
+                const path = spec.file ?? suite.file ?? '';
+                const title = spec.title;
+                tests.push({
+                    project, path, file: basename(path), status: test.status,
+                    key: project && path && typeof title === 'string' && title ? JSON.stringify([project, path, ...titles, title]) : null,
+                    passed: Array.isArray(test.results) && test.results.some((attempt) => attempt.status === 'passed'),
+                });
             }
         }
-        (suite.suites ?? []).forEach(walk);
+        for (const child of suite.suites ?? []) walk(child, child.title ? [...titles, child.title] : titles);
     };
-    (report.suites ?? []).forEach(walk);
+    for (const suite of report.suites ?? []) walk(suite, []);
     return tests;
 }
 
 /** The gaps in the evidence, in words; none when every required project and release spec ran as asked. */
-export function evidence(report, { projects = [], specs = [] }) {
+export function evidence(report, { projects = [], specs = [], selection } = {}) {
     const tests = testsOf(report);
     const ran = (test) => 'skipped' !== test.status;
     const gaps = [];
@@ -45,6 +52,23 @@ export function evidence(report, { projects = [], specs = [] }) {
             gaps.push(`${spec} ran no test`);
         } else if (skipped) {
             gaps.push(`${spec} skipped ${skipped} test${1 === skipped ? '' : 's'}`);
+        }
+    }
+    if (selection) {
+        const expected = new Set(selection);
+        const executed = new Map();
+        for (const test of tests) {
+            if (!expected.has(test.key)) {
+                gaps.push(`unexpected case: ${test.key ?? test.path}`);
+            } else if (executed.has(test.key)) {
+                gaps.push(`duplicate case: ${test.key}`);
+            }
+            executed.set(test.key, test);
+        }
+        for (const key of expected) {
+            const test = executed.get(key);
+            if (!test) gaps.push(`missing case: ${key}`);
+            else if (!test.passed || !['expected', 'flaky'].includes(test.status)) gaps.push(`case did not complete successfully: ${key}`);
         }
     }
     return gaps;

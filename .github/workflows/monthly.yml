@@ -19,8 +19,8 @@ on:
     # no input chooses another ref, so no run executes a ref it was handed in the default branch's context (CodeQL:
     # cache poisoning)
     workflow_dispatch:
-    # and on the release pull request (dev into main) when the owner marks it ready for review, so the release's run
-    # sits beside its other checks: the run tests the pull request's merge of dev into main (a pull_request event from
+    # and on a release pull request when the owner marks it ready for review, so the release's run sits beside its
+    # other checks: the run tests the prospective merge (a pull_request event from
     # this repository, never pull_request_target); the jobs' `if` skips any other pull request into main
     pull_request:
         types: [ready_for_review]
@@ -54,11 +54,33 @@ jobs:
                   REPO: ${{ github.repository }}
               run: gh workflow run monthly.yml --repo "$REPO" --ref dev
 
+    eligible:
+        name: Select the Monthly run
+        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+        runs-on: ubuntu-latest
+        timeout-minutes: 2
+        permissions:
+            contents: none
+        outputs:
+            run: ${{ steps.select.outputs.run }}
+        steps:
+            - id: select
+              env:
+                  EVENT: ${{ github.event_name }}
+                  BRANCH: ${{ github.head_ref }}
+              run: |
+                  run=false
+                  if [ "$EVENT" != pull_request ] || [ "$BRANCH" = dev ] || [[ "$BRANCH" =~ (^|/)release[-/][0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                      run=true
+                  fi
+                  echo "run=$run" >> "$GITHUB_OUTPUT"
+
     # The demo's PHPUnit tests (demo/tests) with PCOV over the recipes' src/ only (tools/monthly/php-scope.php: not the
     # demo's code, its copies of the recipes or the tests' fixtures), then Infection on the same directories and tests.
     php:
         name: PHP coverage and mutants
-        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository))
+        needs: eligible
+        if: needs.eligible.outputs.run == 'true'
         runs-on: ubuntu-latest
         timeout-minutes: 48 # 45 for the job, plus 3 for the advisory collector and its upload
         steps:
@@ -196,7 +218,8 @@ jobs:
     # A behavior test or a count that fails fails its job, as in CI; Jev diagnoses each failed attempt, as in CI.
     browsers:
         name: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
-        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository))
+        needs: eligible
+        if: needs.eligible.outputs.run == 'true'
         runs-on: ubuntu-latest
         timeout-minutes: 45
         env:
@@ -408,8 +431,8 @@ jobs:
     # when a job above failed too, and shows a missing report as missing.
     report:
         name: Monthly report
-        needs: [php, browsers]
-        if: ${{ !cancelled() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || (github.head_ref == 'dev' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        needs: [eligible, php, browsers]
+        if: ${{ !cancelled() && needs.eligible.outputs.run == 'true' }}
         runs-on: ubuntu-latest
         timeout-minutes: 10
         permissions:
@@ -476,7 +499,7 @@ jobs:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
                   RUN_ID: ${{ github.run_id }}
-                  REF: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+                  REF: ${{ github.event_name == 'pull_request' && 'dev' || github.ref_name }}
               run: |
                   note="no earlier successful run of this workflow on $REF"
                   file=
