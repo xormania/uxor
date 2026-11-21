@@ -60,6 +60,27 @@
         "rule": "php-process-execution",
         "contains": "new Process($argv, $root, timeout: 30)",
         "count": 1,
-        "reason": "Runs the bound project's own bin/console or vendor/bin/mate, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
+        "reason": "Runs the bound project's own bin/console or configured Composer Mate entry point, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
+    },
+    {
+        "path": "packages/uxor/src/EnvironmentSetup.php",
+        "rule": "php-process-execution",
+        "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1',",
+        "count": 1,
+        "reason": "Explicit apply/install and trusted-project acknowledgement execute only the selected application's native Composer/Mate argv in its PHP environment. Preflight confines project paths; Composer manifest/vendor/bin redirects are bound to that root. Timeouts apply and raw process output is not returned."
+    },
+    {
+        "path": "packages/uxor/src/EnvironmentStatus.php",
+        "rule": "php-process-execution",
+        "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1'], timeout: 30);",
+        "count": 1,
+        "reason": "An explicit trusted-project probe invokes fixed native readiness commands in the selected application; static inspection executes nothing. Commands use argv, a 30-second timeout and disabled output. Provider-version evidence does not establish an MCP session or a healthy request."
+    },
+    {
+        "path": "packages/uxor/src/SymfonyPreparation.php",
+        "rule": "php-process-execution",
+        "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1'], timeout: 120);",
+        "count": 1,
+        "reason": "Explicit trusted-project preparation runs fixed Symfony Console/exporter argv with the application's PHP and selected root. Capture is bounded in private temporary files; raw stderr is withheld, only sanitized validated wiring is published, and request profiles/logs are not cleared."
     }
 ]
