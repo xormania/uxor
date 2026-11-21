@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.2",
-        "inputs_sha256": "78318404b9a600565f8f06f7e89450f8e8d0b8d8ca0096e87dc68437bf65ed4e",
+        "inputs_sha256": "49db46080f9f536a6cac673ab189691fac7b410c7517c2b4bc80810bb9d1adb8",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "license": "MIT"
     },
@@ -1685,8 +1685,8 @@
     "documents": {
         "FOR-AGENTS.md": {
             "path": "docs/FOR-AGENTS.md",
-            "sha256": "0456e6235e15d807e36f6119d527bfa140edd0b965440d36a6aa56dae90004fd",
-            "source_sha256": "c8bdc9e959e6a95d12da5be6e184e59300c88c7ce15b0c931da2fcbae9793828",
+            "sha256": "54b0e8818c835d33bd8ca038fcc685682f7d81c14e786e248313fde48e35a8c0",
+            "source_sha256": "f67c796327418d71a7a706e90887603c509c0df6f65c0daf202ece6544ea1f1d",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.2/FOR-AGENTS.md"
         },
         "INSTALL.md": {

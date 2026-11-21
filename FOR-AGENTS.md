@@ -76,7 +76,7 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
 ## Tools for you: the Composer package
 
 The same repository is the Composer package `xormania/uxor`, a development dependency that gives you Mate skills
-(`setup`, `build`, `verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
+(`mate-uxor-setup`, `mate-uxor-build`, `mate-uxor-verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
 `vendor/bin/uxor` to search the recipes, read their READMEs from the package, and check the project's setup.
 It installs no recipe: keep using `ux:install`. Install it as
 [`packages/uxor/README.md`](packages/uxor/README.md) says, with your human's agreement, since it changes the
