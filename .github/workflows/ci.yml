@@ -843,6 +843,16 @@ jobs:
                   php tools/sync-demo
                   (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
 
+            - name: Check the demo's Mate guidance
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
+              working-directory: demo
+              run: |
+                  php vendor/bin/mate discover --no-interaction
+                  git diff --exit-code HEAD -- AGENTS.md CLAUDE.md mate/AGENT_INSTRUCTIONS.md
+                  test -f ../AGENTS.md
+                  grep -Fqx '@../AGENTS.md' CLAUDE.md
+                  grep -Eq '^@([.]/)?AGENTS[.]md$' CLAUDE.md
+
             # Every template the demo compiles, its own and the recipes' (as tools/sync-demo copied them; the paths below are
             # the recipes' originals, which give the error its source file), through the demo's Twig and its extensions:
             # a syntax error, an unknown tag (a misspelled `props`), filter or function fails here in about 2 s. PHPUnit
