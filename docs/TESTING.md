@@ -1269,8 +1269,8 @@ consumer's own instructions and a custom component, then a production render wit
 Python tests in `packages/uxor/dev/tests/` check the development runner and the Serena harness against a mocked
 provider: that the repository, package and application roots agree, and that a wrong binding is never reported as
 success. *Package* runs both. The [fixture checks](../packages/uxor/dev/README.md#checks) describe the locked
-Chromium journey and production `/customers` check with recipes installed from the tested revision. See the
-[Package workflow](../.github/workflows/ci.yml) for its hosted commands.
+Chromium journey and production `/customers` check with recipes installed from the tested revision, and record
+which checks run in CI.
 [*Development images*](../.github/workflows/development-images.yml) checks Docker and Serena on matching pushes
 and manual runs.
 
@@ -1470,8 +1470,8 @@ the browser tests. Firefox and WebKit run:
 - on every push to `main`;
 - in a manual run of CI with *engines* checked (with everything else), or *engines_only* (Firefox and WebKit alone), on
   any branch;
-- for the release pull request: *Release checks* requires verified engine evidence on the head. Its workflow
-  controls dispatch, waiting and the final evidence check.
+- for the release pull request: *Release checks* dispatches an engines-only run when evidence is missing and
+  requires verified engine evidence on the head.
 
 An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
 push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
@@ -2069,9 +2069,8 @@ workflow and its tools, so a change to them is tried by running it on its own br
 ref: a run on one would execute that ref's code in the default branch's context, where it could poison the cache.
 
 **On a release pull request.** When a same-repository pull request into `main` is marked ready for review, the
-Monthly workflow checks its [branch eligibility](../.github/workflows/monthly.yml), including `dev` and
-versioned release branch patterns. Eligible runs measure the proposed merge and compare it with the last
-successful run on `dev`. Use the manual run above for another branch.
+Monthly workflow checks its [branch eligibility](../.github/workflows/monthly.yml). Eligible runs measure the
+proposed merge and compare it with the last successful run on `dev`. Use the manual run above for another branch.
 This reporting workflow is separate from the required *Release checks*.
 
 **Locally**, from the repository root, with the demo installed (*PHP tests*); the reports go to `coverage/`

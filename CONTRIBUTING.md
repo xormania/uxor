@@ -317,7 +317,7 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
 | `.github/workflows/release.yml` | *Workflows*, both *Fresh install* jobs (it runs `docker-install.sh`), *Static site* (it calls `pages.yml`); nothing runs the release itself, *Workflows* runs its plan as a dry run, and *Tool tests* runs its check and release jobs' steps on a scratch repository with `gh`, `git push` and the install check stubbed (`tools/tests/release-workflow.test.mjs`) |
 | `.github/workflows/audit.yml`, `.github/workflows/codeql.yml` | *Workflows*; each also runs itself on the pull request that changes it |
-| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when a same-repository `dev`-to-`main` pull request is marked ready for review, never on a push |
+| `.github/workflows/monthly.yml` | *Workflows*; it runs on its schedule, by hand, and when an eligible same-repository pull request into `main` is marked ready for review |
 | `.github/workflows/release-checks.yml` | *Workflows*; it runs on the release pull request, daily on `dev` and by hand, never on a push |
 | `.github/workflows/jev.yml`, `.github/workflows/metadata.yml` | *Workflows*; they run on their own events |
 | `.github/CODEOWNERS`, `.github/mention-allowlist` | nothing else: *Tool tests* reads them (the security policy, the mention check's cases) |
@@ -336,9 +336,9 @@ required kit and package payload. The archive checker reads the committed tree, 
 *Package* validates, installs, lints and tests the Composer package. Its archive consumer checks Mate
 initialization and discovery, an upgrade that preserves application-owned work, and rendering without dev
 dependencies. The independent [consumer fixture](packages/uxor/dev/README.md#checks) provides the locked
-Chromium journey and production `/customers` check. See the [Package job](.github/workflows/ci.yml) for its
-hosted entry points. [*Development images*](.github/workflows/development-images.yml) checks Docker and Serena
-on matching pushes and manual runs.
+Chromium journey and production `/customers` check. Its check table lists the commands and their CI coverage.
+[*Development images*](.github/workflows/development-images.yml) checks Docker and Serena on matching pushes and
+manual runs.
 
 *Workflows* runs [actionlint](https://github.com/rhysd/actionlint) with ShellCheck on every workflow: YAML, expressions,
 job graph, action and reusable workflow inputs, and the shell of each `run` step. Then it runs
@@ -465,9 +465,9 @@ other ports or a project name (`docker compose -p <name>`) needs `COMPOSE_PROJEC
 `HTTP3_PORT` exported in the shell for every command, because `tools/demo-php` finds the project only from the
 environment, and a later `docker compose up` (such as turning Xdebug on) without the ports recreates the demo on the
 default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). For a manually started native demo, pass its URL in `DEMO_URL` and route Symfony requests with the native setup command above.
-For an already running native server, also set `PHP_BINARY=php` or its PHP executable. Use distinct
-`DEMO_PORT` and `PW_BROWSER_PORT` values for managed servers in parallel worktrees. Select an already running
-browser server with `PW_BROWSER_WS_ENDPOINT`. Before the tests, Playwright
+For an already running native server, also set `PHP_BINARY=php` or its PHP executable. For managed native servers,
+choose a free `DEMO_PORT`. [The Playwright configuration](playwright.config.ts) defines how the tests connect to
+the browser server. Before the tests, Playwright
 builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
 kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it
 builds nothing. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
