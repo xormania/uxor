@@ -1,4 +1,4 @@
-// The demo image's build caches across .github/workflows: a build reads (cache-from) only caches some build writes
+// Build caches across .github/workflows: a build reads (cache-from) only caches some build writes
 // (cache-to), so no workflow keeps reading a cache that nothing fills any more. A registry cache is matched by its image
 // (each workflow names it in its `cache` step) and tag; a GitHub Actions cache by its scope. A GitHub Actions cache
 // nothing writes is accepted only as a fallback, after a written registry cache in the same build (CI keeps them while
@@ -44,7 +44,7 @@ function caches() {
                 const args = format[2].split(',').slice(1).map((arg) => arg.trim());
                 text = format[1].replace(/\{(\d)\}/g, (_, n) => args[Number(n)]);
             }
-            const entry = /cache-(from|to)=type=(registry|gha),[^\s']*?(ref|scope)=([^,\s']+)/.exec(resolve(text, image, file));
+            const entry = /cache-(from|to)=type=(registry|gha),[^\s'"]*?(ref|scope)=([^,\s'"]+)/.exec(resolve(text, image, file));
             assert.ok(entry, `${file}:${i + 1}: a cache this test cannot read: ${line.trim()}`);
             found.push({ file, line: i + 1, block: `${file}#${block}`, kind: entry[1], type: entry[2], key: entry[4] });
         });

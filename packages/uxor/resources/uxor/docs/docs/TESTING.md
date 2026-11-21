@@ -1289,7 +1289,7 @@ Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/0.3.2/tools/
 
 ### Locked and moving lanes
 
-The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm lockfiles with
+The dependency-advisory workflow (`.github/workflows/audit.yml`) checks each npm lockfile with
 `npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`. The browser packages an
 `importmap.php` selects are in no lockfile, so a third job audits those with `bin/console importmap:audit`:
 
@@ -1297,6 +1297,7 @@ The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm
 |---|---|
 | Repository browser tests | `package-lock.json` |
 | Consumer browser checks | `packages/uxor/dev/package-lock.json` |
+| Serena TypeScript navigation | `packages/uxor/dev/images/serena/package-lock.json` |
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |
@@ -1308,7 +1309,7 @@ It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand o
 requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
 audit runs; a workflow change runs them all. The lockfile audits read the lockfiles without installing
 dependencies or executing project scripts; the importmap audits install dependencies but run no scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
-artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all lockfiles
+artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for each audited lockfile
 against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
 the consumer browser checks install Chromium for their own Playwright version.
 `tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection
@@ -1376,20 +1377,25 @@ with [`recipe-imports.mjs`](https://github.com/xormania/uxor/blob/0.3.2/tools/re
 stops a test from failing: green before and after proves nothing about what the tests still detect.
 
 A cleanup is accepted when the same planted faults fail the same tests, by title, before and after it, and no test
-fails without them. The faults are named in [`.xorder/testing.json`](https://github.com/xormania/uxor/blob/0.3.2/.xorder/testing.json): each one a source edit
-in the kit (or the demo's layout), the page or served asset that shows it took effect, and what it tests. xorder's plant
-helper applies one, syncs the demo, confirms it is served, runs the specs and restores the source and the synced
-copies, even when the run fails or is interrupted:
+fails without them. [The fault catalog](https://github.com/xormania/uxor/blob/0.3.2/tools/planted-faults.json) records each edit and the marker to look for
+in a rendered page or its imported controller. Add `--baseline` to run the same specs on the unmodified revision and confirm the marker is absent.
+
+From a UXor checkout, select a committed revision with `--ref` (default `HEAD`). The runner prepares a temporary
+clone with the demo's Composer dependencies, syncs the recipes and starts a PHP server on its own loopback port.
+It checks the served marker before starting the selected Playwright tests. The test command returns Playwright's
+exit status and prints the failing titles. The original checkout and its running demo stay available throughout.
+The temporary clone is removed after success, failure or Ctrl-C.
 
 ```sh
-python3 scripts/xr.py ~/uxor plant calendar-select-nothing -- tests/e2e/calendar.spec.ts tests/e2e/lab.calendar.spec.ts --project=smoke --retries=0
-python3 scripts/xr.py ~/uxor plant --restore    # after an interrupted run; `sync --check` then shows no planted copy left in demo/
+python3 tools/plant-fault.py --list
+python3 tools/plant-fault.py calendar-silent-removal --confirm-only
+python3 tools/plant-fault.py calendar-silent-removal --ref HEAD -- tests/e2e/calendar.spec.ts --project=smoke --retries=0
 ```
 
 The last cleanup, the duplicated helpers of [`TEST-INVENTORY.md`](https://github.com/xormania/uxor/blob/0.3.2/docs/TEST-INVENTORY.md) moved into shared modules, in
 Chromium: the tests failing on each fault, the same before (the specs of `dev`) and after, title for title.
 
-| Fault (`.xorder/testing.json`) | Helpers it proves | Failing, before and after |
+| Fault | Helpers it proves | Failing, before and after |
 |---|---|---|
 | `calendar-select-nothing`: a day takes no pick | `day`, `dayCell`, `reloadFrames` | 51 of 260: calendar 6, date-picker 3, lab.calendar 4, lab.date-picker 6 (the frame reloaded three times among them), forms 1, lab.form-back 1, counts 1, lab.value-matrix 29 |
 | `calendar-change-twice`: a pick dispatches two change events | `countEvents` | 6 of 23: calendar 1, lab.calendar 3, lab.date-picker 2 |

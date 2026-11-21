@@ -1,10 +1,8 @@
-"""Exercise ownership, isolation and provider-check ordering without Docker."""
+"""Exercise checkout ownership, isolated stacks and image selection without Docker."""
 import importlib.util
-import contextlib
 import json
 from pathlib import Path
 import tempfile
-import subprocess
 import unittest
 from unittest.mock import Mock, patch
 
@@ -35,21 +33,30 @@ class DevelopmentRunnerTest(unittest.TestCase):
         self.assertEqual(["exec", "--no-TTY", "--workdir", "/workspace/packages/uxor/dev/app", "php", "php", "bin/console", "about"],
                          compose.call_args.args[0])
 
-    def test_provider_rejects_an_untracked_import_before_loading_code(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            checkout = Path(temporary)
-            subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
-            (checkout / "scripts").mkdir()
-            (checkout / "scripts/provider.py").write_text("PINNED = True\n")
-            subprocess.run(["git", "-C", str(checkout), "add", "scripts/provider.py"], check=True)
-            subprocess.run(["git", "-C", str(checkout), "-c", "user.name=xormania", "-c",
-                            "user.email=xormania@users.noreply.github.com", "commit", "--quiet", "-m", "provider fixture"], check=True)
-            revision = subprocess.check_output(["git", "-C", str(checkout), "rev-parse", "HEAD"], text=True).strip()
-            with patch.dict(runner.os.environ, {"XORDER_DIR": str(checkout)}), patch.object(runner, "XORDER_REVISION", revision):
-                self.assertEqual(checkout, runner.xorder_source())
-                (checkout / "scripts/subprocess.py").write_text("raise RuntimeError('unreviewed import executed')\n")
-                with self.assertRaisesRegex(ValueError, "untracked modifications"):
-                    runner.xorder_source()
+    def test_consumer_builds_its_local_recipe_and_runs_as_the_checkout_owner(self):
+        compose = (runner.DEV / "compose.yaml").read_text()
+        self.assertIn("context: ./images/php", compose)
+        self.assertIn('user: "${UXOR_DEV_UID:-1000}:${UXOR_DEV_GID:-1000}"', compose)
+        self.assertIn("pull_policy: never", compose)
+        recipe = (runner.DEV / "images/php/Dockerfile").read_text()
+        self.assertRegex(recipe, r"(?m)^FROM composer:[0-9.]+@sha256:[0-9a-f]{64} AS composer$")
+        self.assertRegex(recipe, r"(?m)^FROM dunglas/frankenphp:[0-9.]+-php8\.5\.[0-9]+-trixie@sha256:[0-9a-f]{64}$")
+        with patch.object(runner, "require_docker"), patch.object(runner, "compose") as build:
+            env = runner.environment()
+            runner.prepare_image(env)
+            build.assert_called_once_with(["build", "php"], env)
+
+    def test_recipe_changes_select_a_new_local_image(self):
+        with tempfile.TemporaryDirectory() as temporary, patch.object(runner, "DEV", Path(temporary)), \
+                patch.dict(runner.os.environ, clear=True):
+            directory = Path(temporary) / "images/php"
+            directory.mkdir(parents=True)
+            recipe = directory / "Dockerfile"
+            recipe.write_text("first")
+            first = runner.environment()["UXOR_DEV_PHP_IMAGE"]
+            recipe.write_text("second")
+            self.assertNotEqual(first, runner.environment()["UXOR_DEV_PHP_IMAGE"])
+            self.assertNotIn("UXOR_DEV_PHP_IMAGE", runner.environment(True))
 
     def test_worktrees_have_separate_stack_names_and_default_ports(self):
         first = runner.workspace_identity(Path("/work/one"))
@@ -76,49 +83,28 @@ class DevelopmentRunnerTest(unittest.TestCase):
             self.assertEqual(secret, (Path(temporary) / ".env.local").read_bytes())
             self.assertEqual(0o600, (Path(temporary) / ".env.local").stat().st_mode & 0o777)
 
-    def test_support_precheck_happens_before_pull_and_observation_after(self):
-        events = []
-        module = Mock()
-        module.runner_precheck.side_effect = lambda *args: events.append("policy") or {"prepared": True}
-        module.runner_check.side_effect = lambda *args, **kwargs: events.append("observed")
-        with patch.object(runner, "require_docker"), patch.object(runner, "xorder_source", return_value=Path("/provider")), \
-                patch.object(runner, "support_module", return_value=module), \
-                patch.object(runner, "current_support", side_effect=lambda module, env: contextlib.nullcontext(env)), \
-                patch.object(runner, "run", side_effect=lambda *args, **kwargs: events.append("pull")):
-            runner.prepare_image(runner.environment())
-        self.assertEqual(["policy", "pull", "observed"], events)
+    def test_check_and_exec_only_run_commands_against_the_selected_image(self):
+        for args in (["check"], ["exec", "php", "--version"]):
+            for active in ("sha256:old", "sha256:selected"):
+                with self.subTest(args=args, active=active), patch.object(runner, "require_docker"), \
+                        patch.object(runner, "compose", return_value=Mock(stdout="container-id\n")), \
+                        patch.object(runner, "run", side_effect=[Mock(stdout="sha256:selected\n"), Mock(stdout=active)]), \
+                        patch.object(runner, "execute") as execute:
+                    if active == "sha256:selected":
+                        self.assertEqual(0, runner.main(args))
+                        execute.assert_called()
+                    else:
+                        with self.assertRaisesRegex(ValueError, "run .* up"):
+                            runner.main(args)
+                        execute.assert_not_called()
 
-    def test_failed_support_precheck_never_pulls(self):
-        module = Mock()
-        module.runner_precheck.side_effect = ValueError("expired")
-        with patch.object(runner, "require_docker"), patch.object(runner, "xorder_source", return_value=Path("/provider")), \
-                patch.object(runner, "support_module", return_value=module), \
-                patch.object(runner, "current_support", side_effect=lambda module, env: contextlib.nullcontext(env)), \
-                patch.object(runner, "run") as command:
-            with self.assertRaisesRegex(ValueError, "expired"):
-                runner.prepare_image(runner.environment())
-            command.assert_not_called()
-
-    def test_completed_support_receipt_is_private_and_scoped_to_one_check(self):
-        module = Mock(DEFAULT_POLICY_URL="https://canonical.example/policy")
-        module.fetch_cli.side_effect = lambda args: args.output.write_text('{"policy": {}, "receipt": {}}')
-        with tempfile.TemporaryDirectory() as temporary, patch.object(runner, "DEV", Path(temporary)):
-            with runner.current_support(module, {"XORDER_SUPPORT_POLICY_URL": module.DEFAULT_POLICY_URL}) as env:
-                snapshot = Path(env["XORDER_SUPPORT_POLICY_FILE"])
-                self.assertTrue(snapshot.is_file())
-                self.assertEqual(0o600, snapshot.stat().st_mode & 0o777)
-                self.assertEqual(0o700, snapshot.parent.stat().st_mode & 0o777)
-                self.assertNotIn("XORDER_SUPPORT_POLICY_URL", env)
-                self.assertEqual(module.DEFAULT_POLICY_URL, module.fetch_cli.call_args.args[0].policy_url)
-                module.fetch_cli.assert_called_once()
-            self.assertFalse(snapshot.exists())
-
-    def test_explicit_offline_receipt_is_checked_without_refresh_or_removal(self):
-        module = Mock()
-        env = {"XORDER_SUPPORT_POLICY_FILE": "/owned/policy.json"}
-        with runner.current_support(module, env) as selected:
-            self.assertEqual(env, selected)
-        module.fetch_cli.assert_not_called()
+    def test_serena_forwards_the_selected_flags_to_the_checkout_launcher(self):
+        for flags in ([], ["--prepare"], ["--write"]):
+            with self.subTest(flags=flags), patch.object(runner.os, "execvpe") as launch:
+                self.assertEqual(0, runner.main(["serena", *flags]))
+                binary, command, _ = launch.call_args.args
+                self.assertEqual(runner.sys.executable, binary)
+                self.assertEqual([binary, str(runner.DEV / "serena.py"), *flags], command)
 
     def test_native_prepare_never_uses_docker_and_preserves_local_ownership(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(runner, "APP", Path(temporary)), \

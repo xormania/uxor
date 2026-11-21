@@ -1,6 +1,6 @@
 name: Audit
 
-# Known advisories in both npm projects (repository tests and consumer browser checks), all Composer
+# Known advisories in the npm projects (repository tests, consumer browser checks and editor tooling), all Composer
 # projects (the package, demo, consumer harness and CI analyzers) and the browser packages of the demo's and the consumer's
 # importmap.php, which no lock file lists: weekly, as advisories appear without any change
 # here, and on every pull request that changes a lockfile or an importmap. On a pull request each audit runs only when its own files
@@ -16,6 +16,8 @@ on:
             - package-lock.json
             - packages/uxor/dev/package.json
             - packages/uxor/dev/package-lock.json
+            - packages/uxor/dev/images/serena/package.json
+            - packages/uxor/dev/images/serena/package-lock.json
             - composer.json
             - composer.lock
             - demo/composer.json
@@ -61,6 +63,8 @@ jobs:
                       directory: .
                     - project: consumer
                       directory: packages/uxor/dev
+                    - project: editor
+                      directory: packages/uxor/dev/images/serena
         steps:
             # the pull request's merge commit and its first parent, the base branch
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
