@@ -6,6 +6,7 @@ use App\Kit\DocKitRef;
 use App\Kit\KitReader;
 use App\Kit\RecipeDocs;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\UX\Toolkit\Recipe\Recipe;
 
@@ -95,6 +96,17 @@ final class RecipeDocsTest extends KernelTestCase
         // the dev server's pages install the default branch, as the gallery's own install block does there
         self::assertStringContainsString("ux:install badge --kit=https://github.com/xormania/uxor\n</code>", $docs->html($recipe)->html);
         self::assertNull(static::getContainer()->get(DocKitRef::class)->get(), 'the ref holds for one render only');
+    }
+
+    public function testTheManualTabRegistersTheKitStylesheetAndChartWithAssetMapper(): void
+    {
+        $doc = new Crawler(self::docs()->html(self::recipe('chart'))->html);
+        $shell = $doc->filter('[role="tabpanel"][data-tab-id="manual"] code.language-shell');
+        $commands = implode("\n", $shell->each(static fn (Crawler $block): string => $block->text(null, false)));
+
+        self::assertMatchesRegularExpression('~^php bin/console importmap:require [^\n]*\bflowbite/dist/flowbite\.min\.css(?:@\S+)?(?=\s|$)~m', $commands);
+        self::assertMatchesRegularExpression('~^php bin/console importmap:require [^\n]*\bchart\.js(?:@\S+)?(?=\s|$)~m', $commands);
+        self::assertDoesNotMatchRegularExpression('/^\h*npm\h+install\b/m', $commands);
     }
 
     public function testARecipeThatNeedsTheServerKeepsItsProseAndItsPreview(): void

@@ -10,6 +10,17 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
   Serena session using the Mago language server.
 
+### Changed
+
+- The Composer development package uses Symfony AI Mate `1.0.0-BETA1`. Consuming applications opt into the three
+  Mate prereleases in their own Composer dev dependencies. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
+- The Composer package names its Mate skills `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify` so
+  application skills can use the original generic names. See the [migration steps](packages/uxor/README.md#upgrade-from-the-old-skill-names)
+  for custom overrides and disable settings.
+- Kit installation uses the documented Symfony AssetMapper and TailwindBundle setup without requiring Node.js.
+  The installer drops the Flowbite npm suggestion, and the demo's Manual tab now shows the AssetMapper command
+  for recipes with importmap dependencies.
+
 ## [0.3.2] - 2026-11-16
 
 ### Added

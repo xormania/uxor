@@ -61,20 +61,21 @@ same way unless users of the kit or of the package need it.
 
 ## Setup
 
-The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker): FrankenPHP in worker mode, PHP 8.5,
-HTTPS. You need Docker and Node.js (CI uses 22); no PHP on your machine. Playwright's browser also runs in Docker,
-in the `mcr.microsoft.com/playwright` image pinned for UXor by digest in
-`tools/playwright-image.json`, so screenshots match the committed baselines. After bumping `@playwright/test`, run
-`node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
+The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker) with FrankenPHP in worker mode,
+PHP 8.5 and HTTPS. Docker is enough to serve it locally. Symfony AssetMapper fetches browser packages and
+TailwindBundle builds CSS with the standalone Tailwind binary.
 
 ```bash
-cd demo
-docker compose up --wait                            # builds the image the first time, then installs the Composer packages
-docker compose exec php php ../tools/sync-demo      # copy every recipe into demo/ (safe to re-run; deletes nothing)
-docker compose exec php bin/console tailwind:build  # add --watch to rebuild the CSS as you edit
-cd .. && npm ci
-cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it: refuse a commit message that names a GitHub account
+(
+    cd demo
+    docker compose up --wait
+    docker compose exec php php ../tools/sync-demo
+    docker compose exec php bin/console tailwind:build
+)
 ```
+
+The first startup builds the image and installs the Composer packages. Add `--watch` to the Tailwind command to
+rebuild CSS as you edit.
 
 The demo starts with Xdebug off. To debug with it, set a mode on the `up` command, from `demo/`:
 `XDEBUG_MODE=debug docker compose up --wait` (or `develop`); Compose recreates the container with the new setting.
@@ -111,6 +112,18 @@ Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
 `(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
 the demo with `php -S 127.0.0.1:8000 -t demo/public`. PHP's built-in server only serves the compiled CSS and
 JavaScript in `demo/public/assets/`, so compile again after each change.
+
+For the repository's Node-based checks and Playwright runner, use Node.js (CI uses 22) and install the tooling
+from the checkout root:
+
+```bash
+npm ci
+cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it
+```
+
+Playwright's browser runs in Docker in the `mcr.microsoft.com/playwright` image pinned by digest in
+`tools/playwright-image.json` so screenshots match the committed baselines. After bumping `@playwright/test`, run
+`node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
 
 The Composer package is developed at the repository root, with PHP 8.4 or later and Composer, apart from the demo:
 `composer install` (the root `vendor/`, from `composer.lock`), then `composer test`, and `php packages/uxor/bin/uxor list`
