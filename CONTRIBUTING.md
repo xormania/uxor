@@ -770,9 +770,11 @@ the version from the tag.
 
 A release is a pull request from `dev` to `main`, opened as a draft when the maintainer decides to release. Its own
 commit moves the entries under `## [Unreleased]` to the new `## [X.Y.Z] - YYYY-MM-DD` section and updates the compare
-links at the bottom. It also runs `node tools/llms-txt.mjs`, which writes `llms.txt` for the new version with its links at the new tag (*Docs*), and `php packages/uxor/tools/generate-reference.php`, which points the package's bundled references at it: both take the version from the new `## [X.Y.Z]` heading, so the commit release.yml tags already holds them. Until a version is tagged, `llms.txt` and the references keep describing the last release. Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
-version, *Removed* or anything that breaks an installed recipe, or the Composer package's commands, Mate tools,
-`uxor://` resources or skills, a major version (a minor one while the version is `0.x`). CI runs on this pull request
+links at the bottom. It also runs `node tools/llms-txt.mjs`, which writes `llms.txt` for the new version with its links at the new tag (*Docs*), and `php packages/uxor/tools/generate-reference.php`, which points the package's bundled references at it: both take the version from the new `## [X.Y.Z]` heading, so the commit release.yml tags already holds them. Until a version is tagged, `llms.txt` and the references keep describing the last release. The maintainer chooses
+the version number when deciding to release; an agent preparing the pull request uses the number the maintainer gave
+and does not derive one from the entries. The entries still say what changed, including anything that breaks an
+installed recipe or the Composer package's commands, Mate tools, `uxor://` resources or skills, and the release notes
+carry them as written. CI runs on this pull request
 like on any other, and so do the release checks (`release-checks.yml`: timings, harsh
 conditions, long sessions, wide matrices, fuzzing and properties; [`docs/TESTING.md`](docs/TESTING.md), *Release
 checks*). Their timings are reported against the baseline and fail nothing until their tolerances are set; everything else in
