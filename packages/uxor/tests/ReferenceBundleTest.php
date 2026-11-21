@@ -251,7 +251,7 @@ final class ReferenceBundleTest extends TestCase
 
     public function testCopiedSkillsCanUseResourcesWithoutEscapingTheirDirectories(): void
     {
-        foreach (['setup', 'build', 'verify'] as $name) {
+        foreach (['uxor-setup', 'uxor-build', 'uxor-verify'] as $name) {
             $content = file_get_contents(dirname(__DIR__).'/skills/'.$name.'/SKILL.md');
             self::assertStringStartsWith("---\nname: ".$name."\n", $content);
             self::assertStringContainsString('uxor://reference/', $content);

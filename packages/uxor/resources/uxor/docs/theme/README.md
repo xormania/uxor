@@ -15,7 +15,6 @@ The recipe copies `assets/styles/uxor.css`, UXor's theme, which uses Flowbite's 
 
 /* AssetMapper: `php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"` downloads it to assets/vendor */
 @import "../vendor/flowbite/dist/flowbite.min.css";
-/* Webpack Encore: @import "flowbite/dist/flowbite.min.css"; */
 
 @import "./uxor.css";
 
@@ -68,4 +67,4 @@ deficiencies. The `chart` recipe applies them; use them yourself as `bg-chart-1`
 
 ### Contrast
 
-In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/uxor/blob/0.3.1/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.
+In both themes, text roles reach a contrast of 4.5:1 on the backgrounds they are meant for (the `fg-on-*` roles on their fills), and the focus ring 3:1. The kit's repository checks [these pairs](https://github.com/xormania/uxor/blob/0.3.2/tools/contrast/pairs.json) on every change. Keep small `fg-brand` text off `brand-soft` backgrounds: in dark mode that pair is below 4.5:1, so use `fg-brand-strong` there.

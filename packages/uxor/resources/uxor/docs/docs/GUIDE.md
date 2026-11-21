@@ -5,11 +5,11 @@ says.
 
 ## Installing recipes
 
-`ux:install` also installs the recipes a recipe depends on. It then prints the commands that install the
-packages they need: run the `composer require` one. The `importmap:require` and `npm install` lines are for
-Flowbite's stylesheet, already installed if you followed [`INSTALL.md`](../INSTALL.md). `ux:install dashboard-home`,
-for instance, brings the layouts and every component the dashboard uses, but not the `theme`. Its README shows the
-controller and template that render it.
+`ux:install` also installs the recipes a recipe depends on. Run the printed `composer require` and
+`importmap:require` commands for the recipe's packages. If the importmap command repeats the Flowbite stylesheet
+from [setup](../INSTALL.md), run it for any additional packages it lists, such as the editor's Tiptap modules.
+`ux:install dashboard-home` brings the layouts and every component the dashboard uses.
+Install the `theme` during setup and use the dashboard recipe's README for the controller and template.
 
 With [Symfony Docker](https://github.com/dunglas/symfony-docker), run every `composer` and `php bin/console`
 command of the [README](../README.md#install) and of [`INSTALL.md`](../INSTALL.md) inside the container, from the
@@ -113,7 +113,7 @@ unchecked. On top of escaping, the components check what shapes their markup:
 
 `tests/e2e/hostile-props.spec.ts` renders each of these props with hostile values and checks what the browser parses.
 The kit's demo enforces a strict Content Security Policy, and every browser test fails on a violation. Report a
-vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/0.3.1/SECURITY.md).
+vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/0.3.2/SECURITY.md).
 
 ## Versioning
 
@@ -121,4 +121,4 @@ Versions are git tags `X.Y.Z`, without a `v`: GitHub names the archive of a `v1.
 which the toolkit then cannot find. Install one with `--kit=https://github.com/xormania/uxor:<version>`, the latest
 release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
 default branch, which can hold work that is not released yet.
-[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.1/CHANGELOG.md) lists what each version changes.
+[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.2/CHANGELOG.md) lists what each version changes.
