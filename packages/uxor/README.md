@@ -32,22 +32,19 @@ The package depends on Mate's Composer plugin, which Composer runs only when the
 composer config allow-plugins.symfony/ai-mate-composer-plugin true
 ```
 
-The development package uses Mate, its Symfony extension and its Composer plugin at `1.0.0-BETA1`.
+The development package uses Mate, its Symfony extension and its Composer plugin at `1.0.0-BETA1` from UXor 0.3.5.
 Require all three versions in your application's own dev dependencies to admit those prereleases while keeping
 Composer's default stable policy. UXor releases 0.3.0 through 0.3.2 require Mate 0.14.
 
-To install Beta1 before UXor tags a release that includes it, select the development branch explicitly.
-
 ```sh
 composer require --dev \
-    'xormania/uxor:dev-claude/wo-symfony-trials--mate' \
+    'xormania/uxor:^0.3.5' \
     'symfony/ai-mate:1.0.0-BETA1' \
     'symfony/ai-mate-composer-plugin:1.0.0-BETA1' \
     'symfony/ai-symfony-mate-extension:1.0.0-BETA1'
 ```
 
-After UXor publishes a release that includes Beta1, replace the development branch constraint with that release. If Packagist has yet to index the branch head you need, add the VCS
-repository before running the command.
+If Packagist has yet to index the release you need, add the VCS repository before running the command.
 
 ```sh
 composer config repositories.uxor vcs https://github.com/xormania/uxor

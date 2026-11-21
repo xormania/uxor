@@ -5,10 +5,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-21
+
 ### Added
 
 - The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
-
 - `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
@@ -422,7 +423,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.3.2...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.5...HEAD
+[0.3.5]: https://github.com/xormania/uxor/compare/0.3.2...0.3.5
 [0.3.2]: https://github.com/xormania/uxor/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/xormania/uxor/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0

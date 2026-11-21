@@ -3,8 +3,8 @@
 You are a coding agent, and your human just gave you this repository's URL. This page tells you what UXor
 gives you, how to set a Symfony project up for it, and how to build pages with it while writing as little code as
 possible. The same text, as plain markdown:
-<https://raw.githubusercontent.com/xormania/uxor/0.3.2/FOR-AGENTS.md>. Every page of the kit, with one line
-each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.2/llms.txt).
+<https://raw.githubusercontent.com/xormania/uxor/0.3.5/FOR-AGENTS.md>. Every page of the kit, with one line
+each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.5/llms.txt).
 
 ## What you get
 
@@ -79,7 +79,7 @@ The same repository is the Composer package `xormania/uxor`, a development depen
 (`mate-uxor-setup`, `mate-uxor-build`, `mate-uxor-verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
 `vendor/bin/uxor` to search the recipes, read their READMEs from the package, and check the project's setup.
 It installs no recipe: keep using `ux:install`. Install it as
-[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.2/packages/uxor/README.md) says, with your human's agreement, since it changes the
+[`packages/uxor/README.md`](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md) says, with your human's agreement, since it changes the
 project's `composer.json`.
 
 ## Which recipe
@@ -250,14 +250,14 @@ Recipes are copies the project owns. Commit first, then reinstall from a newer v
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
-Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.2/CHANGELOG.md)). Always name one: without a version, `ux:install`
+Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md)). Always name one: without a version, `ux:install`
 takes the repository's default branch, which can hold work that is not released yet.
 
 ## Quick reference
 
 | You need | Read |
 |---|---|
-| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.2/llms.txt) |
+| Every page, one line each | [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.5/llms.txt) |
 | The rules to paste into the project | [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) |
 | Every recipe, one line each | [`docs/RECIPES.md`](docs/RECIPES.md) |
 | A recipe's props and examples | `<recipe>/README.md` |
@@ -265,4 +265,4 @@ takes the repository's default branch, which can hold work that is not released 
 | Turbo, Live Components, security | [`docs/GUIDE.md`](docs/GUIDE.md#turbo-and-live-components) |
 | Every example rendered, light and dark | <https://xormania.github.io/uxor/> |
 | Testing an app built with the kit (Turbo, Live, CSP, request limits) | [`docs/TESTING.md`](docs/TESTING.md) |
-| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.2/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.2/AGENTS.md) |
+| Changing the kit itself | [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md), [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.5/AGENTS.md) |
