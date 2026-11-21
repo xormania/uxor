@@ -1243,7 +1243,7 @@ test('Start the engines dispatches an engines-only run on the head branch, unles
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: env(bin) });
         assert.equal(out.status, moved ? 1 : 0, out.stdout + out.stderr);
         const calls = ghCalls(fx);
-        assert.match(calls, new RegExp(`branch=release%2F0\.3\.5.*head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
+        assert.match(calls, new RegExp(`branch=release%2F0[.]3[.]5.*head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
         assert.equal(/^workflow run ci\.yml --repo example\/project --ref release\/0\.3\.5 -f engines_only=true$/m.test(calls), status === 'dispatched', calls);
         const output = readFileSync(join(fx.dir, 'start-out'), 'utf8');
         if (status === 'dispatched') {
