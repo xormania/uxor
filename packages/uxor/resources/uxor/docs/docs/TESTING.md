@@ -1,5 +1,10 @@
 # Testing patterns
 
+This is UXor's contributor reference: its demo-based component tests, independent package-consumer checks and
+repository CI. For a Symfony application using the kit, start with [Testing an application using UXor](APPLICATION-TESTING.md).
+Individual patterns below can be adapted to that application's runtime and tests; UXor's fixture paths, governance,
+CI jobs and release procedures do not become application requirements.
+
 _2026-10-08. The tests of this repository, written up so they can be reused in any Symfony app built with Turbo,
 Stimulus and Live Components. Each pattern says what it catches, shows the core of it, and links the spec that uses
 it here. The snippets use Playwright Test; the PHP ones need only the app's autoloader._
@@ -1231,6 +1236,11 @@ their shared steps [`install-scenario.sh`](https://github.com/xormania/uxor/blob
 
 ## The Composer package
 
+This section checks the package being developed in the UXor checkout. The demo and the independent application
+fixture have separate roots and dependencies; neither supplies the configuration of an outside application using
+the released package. For that application, use [application testing](APPLICATION-TESTING.md) and the
+[installed package's operations](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md).
+
 **Catches:** a `composer.json` that points at a moved path, a file the package needs left out of the archive or a
 development file let into it, an operation or Mate tool that reads outside its bounds, a tampered bundled reference,
 a CLI that no longer starts.
@@ -1272,6 +1282,9 @@ Here: [`packages/uxor/tests/`](https://github.com/xormania/uxor/tree/0.3.5/packa
 [`phpunit.xml.dist`](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/phpunit.xml.dist), [`packages/uxor/dev/`](https://github.com/xormania/uxor/tree/0.3.5/packages/uxor/dev).
 
 ## Repository security policy
+
+These controls govern contributions and publication to UXor. Applications using the kit or the Composer helper
+retain their own repository policies; the product's component-security and tool-execution contracts still apply.
 
 **Catches:** a mutable external Action, privileged pull-request workflow, broad workflow permission, remote shell pipe,
 new executable rendering sink, tracked dependency or build output, stale supported-version table, or removal of the

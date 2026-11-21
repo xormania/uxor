@@ -51,6 +51,7 @@ check 'contrast'                  CHANGELOG.md .github/pull_request_template.md
 check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs/NOTES.md
 # the inputs of the Composer package's generated references: Package checks their copies are up to date
 check 'contrast package'          docs/TESTING.md
+check 'contrast package'          docs/APPLICATION-TESTING.md
 check 'contrast package'          FOR-AGENTS.md
 check 'contrast package'          docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
 # docs/GUIDE.md is also the gallery's /guide (demo/src/Kit/GuideDocs.php): its PHP tests, its static export, the browser

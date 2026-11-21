@@ -1,7 +1,9 @@
 # Guide
 
 How to install, update and use the kit's recipes once your project is set up as the [README](../README.md#install)
-says.
+says. This guide is for the consuming application: use its instructions, runtime and existing configuration.
+Its installed recipe files belong to the application. Contributing changes to UXor itself follows
+[CONTRIBUTING.md](../CONTRIBUTING.md#project-boundaries).
 
 ## Installing recipes
 
@@ -18,8 +20,8 @@ has the `zip` extension. CI installs the kit this way, in a fresh Symfony Docker
 
 ## Updating
 
-Recipes are copies you own, so an update is a change you review like any other. Commit first, then reinstall
-the recipe from the newer version with `--force`:
+Recipes are copies you own, so an update is a change you review like any other. Preserve local changes using
+the application's normal workflow, then reinstall the recipe from the newer version with `--force`:
 
 ```bash
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
@@ -115,6 +117,12 @@ unchecked. On top of escaping, the components check what shapes their markup:
 The kit's demo enforces a strict Content Security Policy, and every browser test fails on a violation. Report a
 vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/main/SECURITY.md).
 
+## Verification
+
+Check the application's actual integration and changed user journey with
+[Testing an application using UXor](APPLICATION-TESTING.md). The demo is UXor's fixture; its setup and test commands
+are examples for contributors, not the consuming application's environment.
+
 ## Versioning
 
 Versions are git tags `X.Y.Z`, without a `v`, for compatibility with supported Toolkit versions.
@@ -122,4 +130,6 @@ The maintainer chooses each release number and may skip unused numbers. UXor's `
 development; read the release notes for changes and migration needs. Install with
 `--kit=https://github.com/xormania/uxor:<version>`, choosing the latest release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
 default branch, which can hold work that is not released yet.
+For explicitly requested testing of unreleased work, select the intended source revision deliberately and record
+its resolved commit; do not treat it as a published release or rely on an unrecorded moving default.
 [`CHANGELOG.md`](../CHANGELOG.md) lists what each version changes.

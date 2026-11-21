@@ -5,6 +5,12 @@ components, Stimulus controllers, a form theme, layouts and blocks (ready-made p
 [Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with
 `php bin/console ux:install`, once the project is set up as below.
 
+These steps install the Toolkit kit into a consuming application, which owns the copied recipes. UXor also provides
+an optional [Composer development package, `xormania/uxor`](packages/uxor/README.md), for agent guidance, diagnostics
+and tools; it does not install recipes. Follow the application's own instructions, workflow and permissions, and
+preserve its existing configuration. Developing either deliverable or the repository's demo and test fixtures
+starts with [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 The official Symfony UX `flowbite-4` kit was an initial reference only. The Toolkit installer, Flowbite stylesheet
 and icon set are current integrations, not a requirement to track that kit. These setup instructions describe the
 current release; UXor's requirements and compatibility commitments govern how its integrations evolve.
@@ -51,7 +57,8 @@ The kit is tested with Flowbite 4. `importmap:update` ignores the version constr
 php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
 ```
 
-`<version>` is a release (`X.Y.Z`): the latest one on the [Releases](https://github.com/xormania/uxor/releases) page, the same for every recipe of a project.
+`<version>` is the application's chosen tagged release (`X.Y.Z`) by default, the same for its recipes.
+See [Choosing a revision](#choosing-a-revision) for a new installation, an update or an explicitly requested unreleased test.
 
 ```css
 @import 'tailwindcss';
@@ -69,3 +76,30 @@ php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version
 ```
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
+
+## Choosing a revision
+
+For a new installation, choose a tagged release from [Releases](https://github.com/xormania/uxor/releases).
+For an existing application, keep its chosen release unless the task includes an update. Use the explicit revision
+in every `--kit` argument; omitting it selects the repository's moving default branch.
+
+Establish an existing recipe's origin from the application's installation or update records. Copied files may
+have been customized, and the optional helper package's version does not prove their origin. If the revision is
+unknown, report it as unknown; choosing a revision for new work does not establish the history of existing files.
+
+For explicitly authorized testing of unreleased UXor work, replace `<version>` with the full 40-character commit
+SHA and record that revision with the test results and relevant local adaptations. Use the same pinned revision
+throughout that test so another person can reproduce it.
+
+## Application-owned files and guidance
+
+The application owns and may customize installed recipe files. Read the recipe's README for its props, extension
+points and security contracts. Before reinstalling with `--force`, preserve local changes using the application's
+normal workflow; review the resulting diff and reconcile customizations.
+
+The optional [Composer development package](packages/uxor/README.md) supplies tools, documentation and
+package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
+the [project snippet](docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
+guidance is wanted, and avoid duplicating guidance already supplied by the helper.
+
+Verify the installed components in their application context using [application testing](docs/APPLICATION-TESTING.md).

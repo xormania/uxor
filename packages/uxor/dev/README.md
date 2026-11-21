@@ -1,9 +1,16 @@
 # UXor package: development consumer and environment
 
-`packages/uxor/dev/` is where UXor's Composer package, `xormania/uxor`, is developed and checked from the side of
-an application that uses it. It is not part of the archive that Composer and `ux:install` download
-(`.gitattributes`). [CONTRIBUTING](../../../CONTRIBUTING.md) describes branches, reviews and checks. The
-[package README](../README.md) describes the package.
+`packages/uxor/dev/` is a repository-only test harness for UXor's Composer package, `xormania/uxor`, exercised
+through an independent consuming application in `app/`. It is separate from the recipe demo in `demo/` and is
+excluded from the archive that Composer and `ux:install` download (`.gitattributes`).
+[Project boundaries](../../../CONTRIBUTING.md#project-boundaries) explains the contributor and consumer contexts;
+[local agent guidance](AGENTS.md) applies while working on this fixture. The [package README](../README.md)
+describes the product consumers install.
+
+This fixture follows UXor's contribution policies because it is part of UXor's development repository. Its installed
+package guidance describes application integration; it does not impose UXor's contribution, publication or release
+policies on real consuming projects. Use this harness's runner and application runtime, not the demo's dependencies,
+cache or Mate profiles.
 
 ## Three roots
 
@@ -20,7 +27,8 @@ matching `require-dev` constraint together. The installed package is a symbolic 
 `vendor/xormania/uxor` inside the consumer leads back to the checkout: tools that follow links must not walk into
 `packages/uxor/dev/app/vendor/`.
 
-The consumer has no database and no paths into the kit's recipes. Its lock installs Symfony FrameworkBundle 8.1.11
+The consumer has no database and no direct source-path wiring to the kit's recipes. The customer workflow below
+installs recipe copies through Toolkit. Its lock installs Symfony FrameworkBundle 8.1.11
 and Symfony UX Toolkit 3.7.1. It requires PHP 8.4 or later (`config.platform.php` is 8.4.1), and the Docker
 environment runs PHP 8.5. CI's *Fresh install* job exercises the kit on Symfony 7.4 with Toolkit 3.5.1.
 

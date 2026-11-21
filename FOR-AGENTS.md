@@ -1,8 +1,11 @@
 # For agents
 
-You are a coding agent, and your human just gave you this repository's URL. This page tells you what UXor
-gives you, how to set a Symfony project up for it, and how to build pages with it while writing as little code as
-possible. The same text, as plain markdown:
+This is product guidance for using UXor in a consuming Symfony application: install recipes, build pages and
+verify their integration. The application's own instructions, workflow and permissions govern work in it.
+For changes to UXor's kit, Composer package or repository demo and test fixtures, use
+[`CONTRIBUTING.md`](CONTRIBUTING.md) and the repository's [`AGENTS.md`](AGENTS.md).
+
+The same text, as plain markdown:
 <https://raw.githubusercontent.com/xormania/uxor/main/FOR-AGENTS.md>. Every page of the kit, with one line
 each: [`llms.txt`](llms.txt).
 
@@ -12,7 +15,8 @@ UXor is an independently maintained Symfony UI library, currently distributed as
 [Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit: Twig
 components, Stimulus controllers, a form theme, page layouts and blocks (ready-made parts of a page), styled with
 Flowbite v4 and Tailwind CSS v4. Each one is a recipe: `php bin/console ux:install <recipe>` copies its files into
-the project, which then owns them.
+the application, which owns and may customize them. UXor's second deliverable is the optional Composer development
+package `xormania/uxor`: it supplies agent guidance, diagnostics and tools for using the kit, and installs no recipes.
 
 The official Symfony UX `flowbite-4` kit was an initial reference only. Use UXor's documentation and the project's
 installed code for UXor behavior; there is no requirement to match that reference kit's names, markup or tests.
@@ -23,13 +27,15 @@ UXor's requirements and compatibility commitments.
   Streams, and Live Component re-renders. There is no Flowbite JavaScript.
 - Colors come from the theme's color roles, which switch with light and dark and pass contrast checks.
 - The components print no inline script, style or event handler: they work under a strict Content Security Policy.
-- Each recipe's README is written for you: its props, its examples, and what to do in forms, Live Components and
-  Turbo Frames.
+- Each recipe's README describes its props, examples, forms, Live Components and Turbo Frames. Read the relevant
+  recipe documentation when the task needs it.
 
-## Set your human's project up
+## Set up the application
 
-Run these on a Symfony project (`composer create-project symfony/skeleton`), once, in this order. PHP 8.4 or later
-with the `zip` extension is required. AssetMapper and TailwindBundle handle the asset setup without Node.js.
+For a setup task, inspect the application's existing dependencies and asset configuration first. On a new Symfony
+project (`composer create-project symfony/skeleton`), run these once, in this order. PHP 8.4 or later with the
+`zip` extension is required. AssetMapper and TailwindBundle handle the asset setup without Node.js.
+Choose `<version>` using [the revision guidance](INSTALL.md#choosing-a-revision).
 With Symfony Docker, run each command in the container (`docker compose exec php composer …`,
 `docker compose exec php bin/console …`).
 
@@ -44,7 +50,7 @@ php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
 php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
 ```
 
-Then make `assets/styles/app.css` start with these imports, in this order:
+Make `assets/styles/app.css` start with these imports, in this order, preserving the application's other styles:
 
 ```css
 @import 'tailwindcss';
@@ -55,10 +61,11 @@ Then make `assets/styles/app.css` start with these imports, in this order:
 Keep `php bin/console tailwind:build --watch` running while you work, or run `tailwind:build` after each change.
 [`INSTALL.md`](INSTALL.md) explains each step.
 
-## Your first moves
+## Building with the recipes
 
-1. Paste the block in [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into the project's
-   `AGENTS.md` or `CLAUDE.md`, so every later session follows the same rules.
+1. Establish the installed recipe revision from the application's recorded installation or update history.
+   If it is unknown, say so; the helper package's version and the current documentation do not establish the
+   origin of copied or customized recipe files.
 2. Install the recipes the task needs. `ux:install` brings the recipes a recipe depends on. Run the printed
    `composer require` and `importmap:require` commands for the recipe's packages.
 
@@ -66,21 +73,28 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
    php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
    ```
 
-   `<version>` is a release (`X.Y.Z`): the one the project's recipes came from, else the latest on the
-   [Releases](https://github.com/xormania/uxor/releases) page. Never leave it out, and never install a branch.
+   Use the application's chosen tagged release (`X.Y.Z`) by default. Explicitly requested testing of unreleased
+   work uses a full commit SHA, recorded with the results; [revision guidance](INSTALL.md#choosing-a-revision)
+   explains how to choose and report it.
 
-3. Read the recipe's README before using it: `<recipe>/README.md` in this repository.
+3. Read the recipe's README for the chosen revision before using it: `<recipe>/README.md` in UXor.
+   Check the application's installed files for local adaptations.
 4. Pages extend `layouts/app.html.twig` (`ux:install layouts`), or `auth`, `settings`, `error` or `blank`. A block
    such as `dashboard-home` or `login` shows a whole page, controller included, in its README.
 
-## Tools for you: the Composer package
+## Optional Composer development package and application guidance
 
-The same repository is the Composer package `xormania/uxor`, a development dependency that gives you Mate skills
+The Composer package `xormania/uxor` is a development dependency that gives you Mate skills
 (`mate-uxor-setup`, `mate-uxor-build`, `mate-uxor-verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
-`vendor/bin/uxor` to search the recipes, read their READMEs from the package, and check the project's setup.
-It installs no recipe: keep using `ux:install`. Install it as
-[`packages/uxor/README.md`](packages/uxor/README.md) says, with your human's agreement, since it changes the
-project's `composer.json`.
+`vendor/bin/uxor` to search the recipes, read their bundled READMEs and check the project's setup.
+When adding these development tools is within the task's scope, follow
+[`packages/uxor/README.md`](packages/uxor/README.md). Recipe installation still uses `ux:install`.
+
+The helper's setup supplies package-managed consumer guidance through the application's configured integration.
+Use that guidance without duplicating it in a pasted block. For a kit-only application, the short
+[`PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) is an optional starting point when the application
+wants persistent UXor guidance. Adapt it to the installed components and merge it with existing project-owned
+instructions; preserve the application's workflow and permissions.
 
 ## Which recipe
 
@@ -243,26 +257,28 @@ Where two recipes are close:
 
 ## Updating
 
-Recipes are copies the project owns. Commit first, then reinstall from a newer version with `--force` and review
-`git diff`:
+Recipes are application-owned copies and may be customized. Before an update, preserve local changes using the
+application's normal workflow and review which files the recipe will replace. Reinstall the selected revision with
+`--force`, then review `git diff` and reconcile local adaptations:
 
 ```bash
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
 ```
 
-Versions are git tags `X.Y.Z` ([`CHANGELOG.md`](CHANGELOG.md)). Always name one: without a version, `ux:install`
-takes the repository's default branch, which can hold work that is not released yet.
+Use a tagged release by default and keep the chosen revision explicit: without one, `ux:install` takes the
+repository's default branch. Follow [the revision guidance](INSTALL.md#choosing-a-revision) for an authorized
+unreleased test. Check the changed integration using [application testing](docs/APPLICATION-TESTING.md).
 
 ## Quick reference
 
 | You need | Read |
 |---|---|
 | Every page, one line each | [`llms.txt`](llms.txt) |
-| The rules to paste into the project | [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) |
+| Optional application guidance for kit-only use | [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) |
 | Every recipe, one line each | [`docs/RECIPES.md`](docs/RECIPES.md) |
 | A recipe's props and examples | `<recipe>/README.md` |
 | Each setup step explained | [`INSTALL.md`](INSTALL.md) |
 | Turbo, Live Components, security | [`docs/GUIDE.md`](docs/GUIDE.md#turbo-and-live-components) |
 | Every example rendered, light and dark | <https://xormania.github.io/uxor/> |
-| Testing an app built with the kit (Turbo, Live, CSP, request limits) | [`docs/TESTING.md`](docs/TESTING.md) |
-| Changing the kit itself | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md) |
+| Testing UXor in your application | [`docs/APPLICATION-TESTING.md`](docs/APPLICATION-TESTING.md) |
+| Developing UXor's kit, package or demo fixtures | [`CONTRIBUTING.md`](CONTRIBUTING.md), [`AGENTS.md`](AGENTS.md), [`docs/TESTING.md`](docs/TESTING.md) |
