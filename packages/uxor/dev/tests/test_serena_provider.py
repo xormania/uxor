@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import sys
 import tempfile
 import types
@@ -48,6 +49,31 @@ class SerenaProviderStateTest(unittest.TestCase):
 
     def response(self, data, status=0):
         return subprocess.CompletedProcess(["php"], status, json.dumps(data), "")
+
+
+    def test_untrusted_worker_and_autoload_canary_do_not_execute(self):
+        self.assertIsNotNone(shutil.which("php"), "The execution canary requires the Package job's PHP runtime")
+        directory = self.worker()
+        vendor = self.project / "vendor"
+        vendor.mkdir()
+        (vendor / "autoload.php").write_text(
+            "<?php file_put_contents(dirname(__DIR__).'/autoload-canary', 'executed');\n")
+        (directory / "worker.php").write_text(
+            "<?php\n"
+            "require dirname(__DIR__, 2).'/vendor/autoload.php';\n"
+            "file_put_contents(dirname(__DIR__, 2).'/worker-canary', 'executed');\n"
+            "echo json_encode(['enabled' => false]);\n")
+        refused = None
+        try:
+            # Intentionally use the existing default API: the regression must
+            # fail on actual execution, not on an unsupported new argument.
+            self.helper.preparation_generation(self.project)
+        except RuntimeError as error:
+            refused = str(error)
+        executed = [name for name in ("autoload-canary", "worker-canary") if (self.project / name).exists()]
+        self.assertEqual([], executed, "UNTRUSTED_PROJECT_CODE_EXECUTED: " + ", ".join(executed))
+        self.assertIsNotNone(refused, "Untrusted preparation must require explicit execution consent")
+        self.assertIn("--trust-project-code", refused)
 
     def test_native_graph_is_available_without_a_prepared_extension(self):
         self.assertIsNone(self.helper.preparation_generation(self.project))
