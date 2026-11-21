@@ -139,12 +139,16 @@ jobs:
                           [ "$marker" = "release-checks-pr-passed-v1-$proved_base-$sha" ] || continue
                           git cat-file -e "$sha^{commit}" 2>/dev/null || continue
                           changed=$(git diff --name-only --no-renames "$sha" "$head") || break
-                          # The paths the suite never reads: docs (the specs and tools only name them in comments) but
-                          # docs/GUIDE.md, the changelog, the agent rules and the Composer package (the demo does not
-                          # install it). docs/GUIDE.md and llms.txt are pages of the production image the suite builds
-                          # (/guide, /llms.txt), so they run it. grep -E has no lookahead: the docs/ alternative spells
-                          # out every name but GUIDE.md. Anything else, the workflow and its tools included, runs it.
-                          other=$(printf '%s\n' "$changed" | grep -vE '^(docs/([^G].*|G([^U].*)?|GU([^I].*)?|GUI([^D].*)?|GUID([^E].*)?|GUIDE([^.].*)?|GUIDE\.([^m].*)?|GUIDE\.m([^d].*)?|GUIDE\.md.+)$|packages/uxor/|CHANGELOG\.md$|AGENTS\.md$)' || true)
+                          # The release fixtures import the package's browser recorder. The production image serves
+                          # GUIDE.md and llms.txt. These paths and anything else outside the allowlist run the suite.
+                          other=$(while IFS= read -r path; do
+                              case "$path" in
+                                  '' ) ;;
+                                  docs/GUIDE.md | packages/uxor/resources/browser | packages/uxor/resources/browser/*) printf '%s\n' "$path" ;;
+                                  docs/* | packages/uxor/* | CHANGELOG.md | AGENTS.md) ;;
+                                  *) printf '%s\n' "$path" ;;
+                              esac
+                          done <<< "$changed")
                           if [ -z "$other" ]; then
                               run=false
                               echo "Run $id passed the release suite on $sha against $base; changed since, none of which the suite reads:"
@@ -189,8 +193,8 @@ jobs:
 
             # The release needs a Firefox and WebKit pass on its head: CI defers them on pushes (ENGINES_ON in ci.yml,
             # docs/TESTING.md, *Browsers*), so this check requires their evidence, a pass marker of CI's engines lane for
-            # the head's inputs (tools/ci/lane-evidence.mjs require). With none, Start the engines starts ci.yml on dev with
-            # them, and the verdict fails until it is re-run after that run passes. The merge must test the head's tree:
+            # the head's inputs (tools/ci/lane-evidence.mjs require). With none, Start the engines dispatches CI on the
+            # release branch and the verdict waits for verified evidence. The merge must test the head's tree:
             # main changes only by a release, so it does; a merge with another tree is refused rather than judged by the head.
             - name: A Firefox and WebKit pass for the head
               id: engines
@@ -198,21 +202,25 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
+                  PR_HEAD: ${{ github.event.pull_request.head.sha }}
               # engines=pass, missing: … or tree: … (a merge that tests another tree than its head: nothing is started for it)
-              run: node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --merge "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
+              run: node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --merge "$GITHUB_SHA" --head "$PR_HEAD" --github-output "$GITHUB_OUTPUT"
 
     # Starts Firefox and WebKit on the pull request's head branch when its head has no pass of theirs (What to check). A job of
     # its own, with no checkout: the token that may start a workflow never runs the pull request's code.
     start-engines:
         name: Start the engines
         needs: changed
-        if: github.event_name == 'pull_request' && needs.changed.result == 'success' && startsWith(needs.changed.outputs.engines, 'missing')
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && needs.changed.result == 'success' && startsWith(needs.changed.outputs.engines, 'missing')
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:
             actions: write # start ci.yml on the pull request's head branch
+            contents: read # confirm the branch still points to the event's head
         outputs:
             started: ${{ steps.start.outputs.started }}
+            run-id: ${{ steps.start.outputs.run-id }}
+            since: ${{ steps.start.outputs.since }}
         steps:
             # An engines-only run on the pull request's head branch (ci.yml's engines_only: its own concurrency group, so it
             # never cancels a push run, and Firefox and WebKit only), unless one for this head is already queued or running
@@ -223,15 +231,24 @@ jobs:
                   BRANCH: ${{ github.head_ref }}
                   HEAD: ${{ github.event.pull_request.head.sha }}
               run: |
-                  running=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=$BRANCH&event=workflow_dispatch&head_sha=$HEAD&per_page=20" \
-                      --jq '[.workflow_runs[] | select(.display_title == "CI: Firefox and WebKit only" and .status != "completed")] | length')
-                  if [ "${running:-0}" -gt 0 ]; then
+                  branch_query=$(jq -nr --arg branch "$BRANCH" '$branch | @uri')
+                  running=$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?branch=$branch_query&event=workflow_dispatch&head_sha=$HEAD&per_page=20" \
+                      --jq '[.workflow_runs[] | select(.display_title == "CI: Firefox and WebKit only" and .status != "completed") | .id] | first // empty')
+                  if [ -n "$running" ]; then
                       echo "A Firefox and WebKit run for $HEAD is already queued or running"
                       echo "started=running" >> "$GITHUB_OUTPUT"
+                      echo "run-id=$running" >> "$GITHUB_OUTPUT"
                       exit 0
                   fi
+                  tip=$(gh api "repos/$REPO/git/ref/heads/$branch_query" --jq '.object.sha')
+                  if [ "$tip" != "$HEAD" ]; then
+                      echo "::error::The release branch moved from $HEAD before Firefox and WebKit could be dispatched"
+                      exit 1
+                  fi
+                  since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
                   gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH" -f engines_only=true
                   echo "started=dispatched" >> "$GITHUB_OUTPUT"
+                  echo "since=$since" >> "$GITHUB_OUTPUT"
 
     checks:
         name: Release suite (${{ matrix.lane }})
@@ -371,11 +388,13 @@ jobs:
                   set -o pipefail
                   node "$RELEASE_RUNNER" run 2>&1 | tee "$RUNNER_TEMP/jev-tests.log"
 
-            # Structural evidence (tools/ci/release-evidence.mjs): each release project ran a test, each release spec ran
-            # and skipped none, so a run that exits 0 having run part of the suite fails here
+            # Verify the pre-run selection and a passed attempt for every selected case, including the required files
+            # in each release project. An incomplete run fails here even if Playwright exited successfully.
             - name: Release evidence
               id: evidence
               if: ${{ !cancelled() && steps.tests.outcome != 'skipped' }}
+              env:
+                  RELEASE_SELECTION_SHA256: ${{ steps.tests.outputs.selection-sha256 }}
               run: node "$RELEASE_RUNNER" evidence
 
             # The PHP properties (demo/tests/Property) with a random seed and more runs than CI's fixed one; the seed is
@@ -697,17 +716,15 @@ jobs:
         needs: [changed, checks, complete, prod-image, start-engines]
         if: ${{ always() && github.event_name != 'schedule' }}
         runs-on: ubuntu-latest
-        timeout-minutes: 5
+        timeout-minutes: 22
         permissions:
             contents: read
             actions: read # CI's engines markers and their runs, when What to check found none
         steps:
-            # What to check found no Firefox and WebKit pass and Start the engines started one. "Re-run failed jobs" after
-            # that run passed re-runs this job but not What to check, whose output stays `missing`: so this job looks the
-            # evidence up itself, with the same command and rule (the merge's tree must be its head's), and decides on what
-            # it finds now. Only the tool is checked out, with no token kept; this job holds no write token.
+            # The read-only verdict requalifies early passes and waits for a dispatch while GitHub publishes its marker.
+            # Qualifying evidence still binds the immutable merge tree to its PR head. If a heavy lane failed, check once.
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              if: github.event_name == 'pull_request' && startsWith(needs.changed.outputs.engines, 'missing')
+              if: github.event_name == 'pull_request' && needs.changed.result == 'success' && !startsWith(needs.changed.outputs.engines, 'tree')
               with:
                   persist-credentials: false
                   fetch-depth: 2 # the merge commit and its parents: the head's tree, and the merge's to compare it with
@@ -715,18 +732,31 @@ jobs:
                       tools/ci
 
             - id: recheck
-              if: github.event_name == 'pull_request' && startsWith(needs.changed.outputs.engines, 'missing')
+              if: github.event_name == 'pull_request' && needs.changed.result == 'success' && !startsWith(needs.changed.outputs.engines, 'tree')
               env:
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
-              run: node tools/ci/lane-evidence.mjs require --lane engines --repo "$REPO" --merge "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
+                  PR_HEAD: ${{ github.event.pull_request.head.sha }}
+                  BRANCH: ${{ github.head_ref }}
+                  START: ${{ needs.start-engines.outputs.started }}
+                  START_RUN: ${{ needs.start-engines.outputs.run-id }}
+                  START_SINCE: ${{ needs.start-engines.outputs.since }}
+                  HEAVY_READY: ${{ needs.changed.outputs.run == 'false' || (needs.checks.result == 'success' && needs.complete.result == 'success' && needs.prod-image.result == 'success') }}
+              run: |
+                  args=(--lane engines --repo "$REPO" --merge "$GITHUB_SHA" --head "$PR_HEAD" --github-output "$GITHUB_OUTPUT")
+                  if [ "$HEAVY_READY" = true ] && [ "$START" = running ] && [ -n "$START_RUN" ]; then
+                      args+=(--wait-seconds 1200 --branch "$BRANCH" --run-id "$START_RUN")
+                  elif [ "$HEAVY_READY" = true ] && [ "$START" = dispatched ] && [ -n "$START_SINCE" ]; then
+                      args+=(--wait-seconds 1200 --branch "$BRANCH" --since "$START_SINCE")
+                  fi
+                  node tools/ci/lane-evidence.mjs require "${args[@]}"
 
             - id: decide
               env:
                   EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || github.event_name }}
                   CHANGED: ${{ needs.changed.result }}
                   RUN: ${{ needs.changed.outputs.run }}
-                  ENGINES: ${{ steps.recheck.outputs.engines || needs.changed.outputs.engines }}
+                  ENGINES: ${{ startsWith(needs.changed.outputs.engines, 'tree') && needs.changed.outputs.engines || steps.recheck.outputs.engines }}
                   START: ${{ needs.start-engines.outputs.started }}
                   BRANCH: ${{ github.head_ref }}
                   SUITE: ${{ needs.checks.result }}
@@ -742,6 +772,8 @@ jobs:
                       case "$ENGINES" in
                           tree:*)
                               echo "::error::no Firefox/WebKit pass can stand for this release: ${ENGINES#tree: }. Bring main into $BRANCH and push; this check then runs again" ;;
+                          failed:* | timed_out:* | incomplete:*)
+                              echo "::error::no Firefox/WebKit pass for this release's head: $ENGINES" ;;
                           *)
                               case "$START" in
                                   dispatched) started="started a Firefox and WebKit run on $BRANCH (Actions › CI: Firefox and WebKit only)" ;;
