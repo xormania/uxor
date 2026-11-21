@@ -1501,9 +1501,9 @@ jobs:
                   fi
 
             # The browser server on the runner's own network (the pinned image the Install step pulled), so the browser
-            # reaches https://localhost itself instead of through the test process (playwright.config.ts,
-            # PW_DIRECT_NETWORK); Playwright then reuses it. Fails here, with the server's log, when port 3000 is already
-            # taken or the server does not answer within two minutes
+            # reaches https://localhost itself instead of through the test process (PW_DIRECT_NETWORK in
+            # playwright.config.ts). The test step names that server explicitly. Fail here with the server's log
+            # when port 3000 is taken or the server does not answer within two minutes.
             - name: Start the browser server
               id: browser-server
               run: |
@@ -1530,6 +1530,7 @@ jobs:
               id: tests
               env:
                   DEMO_URL: https://localhost
+                  PW_BROWSER_WS_ENDPOINT: ws://127.0.0.1:3000/
                   PW_DIRECT_NETWORK: '1'
               run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2
 

@@ -281,16 +281,36 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
  * The checks of guardPage() on every test; a test expecting an HTTP error allows it with `allowHttpError`, a test
  * interrupting a frame visit on purpose allows its cancelled request with `allowCancelledRequest`.
  */
-export const test = base.extend<{
+export const guardedTest = base.extend<{
     pageGuard: Guard;
     allowHttpError: (url: RegExp, status: number) => void;
     allowCancelledRequest: (allowance: CancelledRequest) => void;
+    /** Status expected specifically from a main-frame document, such as the rendered 404 page. */
+    documentStatus: number | undefined;
+    browserDiagnostics: void;
+}>({
+    documentStatus: [undefined, { option: true }],
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
+    pageGuard: [
+        async ({ page, baseURL, documentStatus }, use, testInfo) => {
+            const guard = await guardPage(page, baseURL);
+            if (documentStatus !== undefined) guard.allowHttpError('document', documentStatus);
+            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
+            await use(guard);
+            await stopCoverage();
+            guard.check();
+        },
+        { auto: true },
+    ],
+    allowHttpError: async ({ pageGuard }, use) => use(pageGuard.allowHttpError),
+    allowCancelledRequest: async ({ pageGuard }, use) => use(pageGuard.allowCancelledRequest),
+});
+
+export const test = guardedTest.extend<{
     harshConditions: boolean;
     harsh: void;
     fileChoosers: void;
-    browserDiagnostics: void;
 }>({
-    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
     /**
      * The page's file choosers are intercepted from its creation, before its first navigation. A test waits for one
      * with `page.waitForEvent('filechooser')` just before the key press or click that opens it, but the first listener
@@ -324,18 +344,6 @@ export const test = base.extend<{
         },
         { auto: true },
     ],
-    pageGuard: [
-        async ({ page, baseURL }, use, testInfo) => {
-            const guard = await guardPage(page, baseURL);
-            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
-            await use(guard);
-            await stopCoverage();
-            guard.check();
-        },
-        { auto: true },
-    ],
-    allowHttpError: async ({ pageGuard }, use) => use(pageGuard.allowHttpError),
-    allowCancelledRequest: async ({ pageGuard }, use) => use(pageGuard.allowCancelledRequest),
 });
 
 export { expect };

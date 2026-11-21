@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, stubPreviewFrames, type CancelledRequest } from './fixtures';
 import { observeTurbo, turboOperation } from './transitions';
-import { demoPages, previewUrl, recipes } from './inventory';
+import { demoRoutePaths, previewUrl, recipes } from './inventory';
 
 /**
  * Call before the step that opens a signed-in page; returns a wait for that page's avatar, a 190 KB GIF in the
@@ -115,6 +115,52 @@ for (const [failure, ending] of [
         await expect(page).toHaveURL(/\/demo\/revenue-assistant$/);
     });
 }
+
+test('leaving a pending revenue request closes its stream and Back restores a form that can retry', async ({ page }) => {
+    await page.addInitScript(() => {
+        // Hold the stream open until the controller closes it. No server delay or reconnect is needed.
+        const streams: { closed: boolean }[] = [];
+        Object.assign(window, {
+            revenueStreams: streams,
+            EventSource: class {
+                private state = { closed: false };
+                constructor() {
+                    streams.push(this.state);
+                }
+                close() {
+                    this.state.closed = true;
+                }
+            },
+        });
+    });
+    const streamStates = () => page.evaluate(() => (
+        window as Window & { revenueStreams: { closed: boolean }[] }
+    ).revenueStreams.map(({ closed }) => closed));
+
+    await page.goto('/demo/revenue-assistant');
+    await controllersConnected(page);
+    const sameDocument = await markDocument(page);
+    const prompt = page.getByRole('textbox', { name: 'Revenue request' });
+    const submit = page.getByRole('button', { name: 'Show revenue' });
+    const status = page.locator('form').getByRole('status');
+    await prompt.fill('Show weekly revenue');
+    await submit.click();
+    await expect(status).toHaveText('Looking up revenue…');
+    expect(await streamStates()).toEqual([false]);
+
+    const dashboard = page.getByRole('navigation', { name: 'Main' }).getByRole('treeitem', { name: 'Dashboard' });
+    await turboOperation(page, { url: '/demo' }, () => dashboard.press('Enter'));
+    expect(await streamStates()).toEqual([true]);
+    await turboOperation(page, { url: '/demo/revenue-assistant' }, () => page.goBack());
+    await sameDocument.expectKept();
+    await controllersConnected(page);
+    await expect(status).toHaveText('');
+
+    await prompt.fill('Show yearly revenue');
+    await submit.click();
+    await expect(status).toHaveText('Looking up revenue…');
+    expect(await streamStates()).toEqual([true, false]);
+});
 
 test('the dashboard defers autocomplete until a Turbo visit adds a field', async ({ page }) => {
     const vendorRequests: string[] = [];
@@ -434,7 +480,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
 test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
-    for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
+    for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...demoRoutePaths]) {
         test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError, browserName }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
             if (path.startsWith('/r/') && 'chromium' === browserName) {
@@ -476,7 +522,7 @@ test.describe('at 320px', () => {
 test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
     // the markup is what matters, so each page is fetched rather than visited: a visit from page to page cancels the
     // last page's late requests (lazy controllers, their imports), which the page guard counts as failed
-    for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...Object.values(demoPages)]) {
+    for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...demoRoutePaths]) {
         const response = await page.request.get(path);
         expect(response.status(), path).toBe(path.endsWith('/demo/not-found') ? 404 : 200); // the error page answers 404 on purpose
         const head = (await response.text()).match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';

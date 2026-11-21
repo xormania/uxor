@@ -14,8 +14,8 @@
  *   against stale CSS, whoever runs the tests, and nothing is rebuilt when nothing changed. The record is read and
  *   written by PHP_BINARY's PHP: in the Docker demo, demo/var/ lives in the container.
  *
- * Each step holds a lock (a directory in tests/.prepare/, gitignored) while it runs, so a second process waits for the
- * first and then finds nothing to do. A lock whose process is gone is taken over.
+ * Each step holds a lock (a populated directory in tests/.prepare/, gitignored) while it runs, so a second process
+ * waits for the first and then finds nothing to do. A local lock whose process is gone is taken over.
  *
  * playwright.config.ts runs both: the specs when it loads (`--list` needs them), the CSS as its globalSetup (only
  * before tests run). By hand, or as CI's own step before the tests: `node tools/prepare-tests.mjs`.
@@ -23,7 +23,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmdirSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { hostname } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -111,70 +111,75 @@ export function buildCssIfStale(root = repository) {
 }
 
 /*
- * Runs fn while holding tests/.prepare/<name>.lock, a directory (mkdir is atomic) holding its owner's host and pid.
- * A lock whose owner is a process gone from this host is taken over; one held longer than LOCK_TIMEOUT_MS fails.
+ * Publish a nonempty lock directory atomically. Each acquisition has a unique owner file, so a waiter can remove
+ * the exact stale owner it observed without touching a successor. An empty lock can be removed or replaced safely.
  */
 export function withLock(root, name, fn, { timeoutMs = LOCK_TIMEOUT_MS } = {}) {
     const lock = join(root, 'tests/.prepare', `${name}.lock`);
     mkdirSync(join(root, 'tests/.prepare'), { recursive: true });
+    const candidate = mkdtempSync(`${lock}-`);
+    const marker = `owner-${randomBytes(16).toString('hex')}`;
     const deadline = Date.now() + timeoutMs;
     let waiting = false;
-    for (;;) {
-        try {
-            mkdirSync(lock);
-            break;
-        } catch (error) {
-            if (error.code !== 'EEXIST') {
-                throw error;
-            }
-        }
-        if (abandoned(lock)) {
-            // renamed away first, so two processes that both found it abandoned do not both take it
-            rmSync(`${lock}.abandoned-${process.pid}`, { recursive: true, force: true });
+    try {
+        writeFileSync(join(candidate, marker), `${hostname()} ${process.pid}\n`);
+        for (;;) {
             try {
-                renameSync(lock, `${lock}.abandoned-${process.pid}`);
-                rmSync(`${lock}.abandoned-${process.pid}`, { recursive: true, force: true });
-            } catch {}
-            continue;
+                renameSync(candidate, lock);
+                break;
+            } catch (error) {
+                if (!['EEXIST', 'ENOTEMPTY'].includes(error.code)) throw error;
+            }
+            const holder = lockOwner(lock);
+            if (holder && abandoned(holder.identity)) {
+                releaseLock(lock, holder.marker);
+                continue;
+            }
+            if (Date.now() > deadline) {
+                throw new Error(`${lock} is held by ${holder?.identity ?? 'another process'} for more than ${timeoutMs / 1000}s: delete it if that process is gone`);
+            }
+            if (!waiting) {
+                console.log(`Waiting for ${holder?.identity ?? 'another process'} to finish preparing (${name})`);
+                waiting = true;
+            }
+            Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
         }
-        if (Date.now() > deadline) {
-            throw new Error(`${lock} is held by ${owner(lock) ?? 'another process'} for more than ${timeoutMs / 1000}s: delete it if that process is gone`);
-        }
-        if (!waiting) {
-            console.log(`Waiting for ${owner(lock) ?? 'another process'} to finish preparing (${name})`);
-            waiting = true;
-        }
-        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
-    }
-    try {
-        writeFileSync(join(lock, 'owner'), `${hostname()} ${process.pid}\n`);
-        return fn();
-    } finally {
-        rmSync(lock, { recursive: true, force: true });
-    }
-}
-
-function owner(lock) {
-    try {
-        return readFileSync(join(lock, 'owner'), 'utf8').trim() || null;
-    } catch {
-        return null;
-    }
-}
-
-function abandoned(lock) {
-    const [host, pid] = (owner(lock) ?? '').split(' ');
-    if (!pid) {
-        // its owner has not written its name yet, or died first: abandoned once it is old
         try {
-            return Date.now() - statSync(lock).mtimeMs > 30_000;
-        } catch {
-            return false;
+            return fn();
+        } finally {
+            releaseLock(lock, marker);
         }
+    } finally {
+        rmSync(candidate, { recursive: true, force: true });
     }
-    if (host !== hostname()) {
-        return false;
+}
+
+function lockOwner(lock) {
+    try {
+        const [marker, unexpected] = readdirSync(lock);
+        // Accept the simple marker of a lock created by an older checkout, too.
+        if (unexpected || !marker || (marker !== 'owner' && !marker.startsWith('owner-'))) return null;
+        const identity = readFileSync(join(lock, marker), 'utf8').trim();
+        return { marker, identity };
+    } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        return null; // the owner released the lock between reading the directory and its marker
     }
+}
+
+function releaseLock(lock, marker) {
+    try {
+        unlinkSync(join(lock, marker));
+        rmdirSync(lock);
+    } catch (error) {
+        // The observed generation is already gone, or another process published its populated lock after unlink.
+        if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error;
+    }
+}
+
+function abandoned(identity) {
+    const [host, pid] = identity.split(' ');
+    if (host !== hostname() || !/^[1-9]\d*$/.test(pid) || !Number.isSafeInteger(Number(pid))) return false;
     try {
         process.kill(Number(pid), 0);
         return false;
