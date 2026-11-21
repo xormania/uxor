@@ -178,6 +178,7 @@ async def provider_session(launcher: Path, root: Path, *, write: bool = False):
         async def repl(code, *, allow_error=False):
             return await tool("serena_repl", {"session": session[1], "code": code}, allow_error=allow_error)
 
+        await repl("import json")
         yield repl
 
 
@@ -236,7 +237,7 @@ async def check_installed(launcher: Path, root: Path) -> None:
         return payload["data"]["preparation_id"]
 
     def graph_code():
-        return f"s.lsp.get_symbol_references({graph_path!r}, {owner!r}, '__construct')"
+        return f"json.dumps(s.lsp.get_symbol_references({graph_path!r}, {owner!r}, '__construct'))"
 
     try:
         # Native control uses the public, inert configuration supplied by setup.
