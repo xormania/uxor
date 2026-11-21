@@ -13,6 +13,7 @@ import argparse
 import copy
 import fnmatch
 import hashlib
+import importlib.util
 import io
 import json
 import os
@@ -35,7 +36,7 @@ CONSUMER_SKILL_NAMES = ("build", "setup", "verify")
 # The independent consumer application (a Symfony project that installs the archive as a dependency).
 FIXTURE = PACKAGE / "dev/app"
 # What the fixture renders in production. Fixture data: keep in step with the fixture's controller and templates.
-FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development"}
+FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development", "/_uxor_probe/production": '"value":"fixed"'}
 MATE_PACKAGES = ("symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension")
 MATE_BETA = "1.0.0-BETA1"
 
@@ -454,7 +455,7 @@ await recordBrowserDiagnostics({ context, baseURL: 'http://127.0.0.1:8765' }, as
     print("Verified the installed browser recorder import and request correlation through CLI and Mate.")
 
 
-def check_consumer(archive: Path, temporary: Path) -> None:
+def check_consumer(archive: Path, temporary: Path, *, providers: bool = False) -> None:
     application = temporary / "consumer"
     tracked = execute(["git", "ls-files", "-z", "--", FIXTURE.relative_to(ROOT).as_posix()], ROOT, capture=True)
     fixture_files = list(filter(None, tracked.split("\0")))
@@ -498,6 +499,13 @@ return static function (ContainerConfigurator $container): void {
     execute(["vendor/bin/uxor-mago", "--help"], application)
     php = os.environ.get("PHP_BIN", "php")
     mate = [php, "vendor/bin/mate"]
+    spec = importlib.util.spec_from_file_location("uxor_environment_acceptance", PACKAGE / "dev/environment_acceptance.py")
+    environment = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(environment)
+    # Exercise the public installed setup before manual initialization. Keep its
+    # added dev dependencies in the update manifest instead of undoing setup.
+    manifest = environment.setup(application, php)
+    check_mate_versions(application, MATE_BETA)
     execute([*mate, "init", "--no-interaction"], application)
     execute([*composer_command(), "dump-autoload", "--no-interaction"], application)
     execute([*mate, "discover", "--no-interaction"], application)
@@ -534,6 +542,10 @@ return static function (ContainerConfigurator $container): void {
         raise RuntimeError("The first archive's agent instructions were not installed before the update")
     print("Independent archive consumer: Mate operation, reference, provenance, six skills and repeated initialization verified.")
     check_update(application, manifest, second_archive, old_marker, new_marker, consumer_sources)
+    environment.exercise(application, php)
+    if providers:
+        execute(["uv", "run", "--script", str(PACKAGE / "dev/check-mago.py"),
+                 "--application", str(application), "--launcher", str(application / "vendor/bin/uxor-mago")], ROOT)
 
     execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
     execute([*composer_command(), "install", "--no-dev", "--prefer-dist", "--no-interaction", "--no-progress"], application)
@@ -626,7 +638,10 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--consumer", action="store_true", help="Install the archive in an independent Symfony application and verify Mate and no-dev runtime")
+    parser.add_argument("--providers", action="store_true", help="Exercise the installed Mago and Serena providers inside the archive consumer (requires --consumer)")
     arguments = parser.parse_args()
+    if arguments.providers and not arguments.consumer:
+        parser.error("--providers requires --consumer")
     if arguments.consumer and not FIXTURE.is_dir():
         raise RuntimeError(f"--consumer needs the independent consumer fixture at {FIXTURE.relative_to(ROOT)}, "
                            "which arrives with the later dev job")
@@ -641,7 +656,7 @@ def main() -> None:
         count = check_archive(archive)
         print(f"Repository archive verified for the kit and {PACKAGE_NAME}: {count} regular files; development files excluded.")
         if arguments.consumer:
-            check_consumer(archive, temporary)
+            check_consumer(archive, temporary, providers=arguments.providers)
     except BaseException:
         print(f"Failed package check retained for inspection: {temporary}", file=sys.stderr)
         raise

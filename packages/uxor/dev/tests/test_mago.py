@@ -13,6 +13,7 @@ import unittest
 WRAPPER = Path(__file__).resolve().parents[2] / "bin" / "uxor-mago"
 REPOSITORY = WRAPPER.parents[3]
 IMAGE = "local/uxor-mago:trial"
+DIGEST = "sha256:" + "a" * 64
 SCOPES = ["formatter", "linter", "analyzer"]
 CHECKS = [["format", "--check"], ["lint"], ["analyze"]]
 
@@ -33,8 +34,12 @@ class MagoCommandTest(unittest.TestCase):
         docker = self.directory / "docker"
         docker.write_text(f"#!{sys.executable}\n" + """
 import json, os, sys
+inspect = sys.argv[1:3] == ["image", "inspect"]
 with open(os.environ["DOCKER_CALLS"], "a") as log:
-    print(json.dumps({"args": sys.argv[1:], "stdin": sys.stdin.read()}), file=log)
+    print(json.dumps({"args": sys.argv[1:], "stdin": "" if inspect else sys.stdin.read()}), file=log)
+if inspect:
+    print(os.environ.get("DOCKER_IMAGE_ID", "sha256:" + "a" * 64))
+    sys.exit(int(os.environ.get("DOCKER_INSPECT_STATUS", "0")))
 if "NATIVE_CALLS" in os.environ:
     command = sys.argv[sys.argv.index(os.environ["UXOR_MAGO_IMAGE"]) + 1:]
     os.execvp(command[0], command)
@@ -66,10 +71,14 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
 
     def docker_call(self):
         calls = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertEqual(1, len(calls), calls)
-        return calls[0]
+        if len(calls) == 2:
+            self.assertEqual(["image", "inspect"], calls[0]["args"][:2])
+            self.assertEqual("run", calls[1]["args"][0])
+        else:
+            self.assertEqual(1, len(calls), calls)
+        return calls[-1]
 
-    def assert_container(self, args):
+    def assert_container(self, args, *, writable=False):
         self.assertEqual("run", args[0])
         # Docker accepts --option=value as well as --option value.
         options = []
@@ -81,17 +90,19 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertEqual(expected_groups, {value for option, value in pairs if option == "--group-add"})
         self.assertIn(("--pull", "never"), pairs)
         self.assertIn(("--network", "none"), pairs)
+        self.assertIn("--read-only", options)
+        self.assertIn(("--cap-drop", "ALL"), pairs)
+        self.assertIn(("--security-opt", "no-new-privileges"), pairs)
         self.assertTrue(any(option in ("-w", "--workdir") and value == "/app" for option, value in pairs), args)
         for option, value in pairs:
-            if option in ("-v", "--volume") and value == f"{self.project}:/app:ro":
-                return
             if option == "--mount":
                 fields = set(next(csv.reader([value])))
-                if ("type=bind" in fields and fields.intersection(("ro", "readonly"))
+                if ("type=bind" in fields
                     and fields.intersection((f"source={self.project}", f"src={self.project}"))
                     and fields.intersection(("dst=/app", "target=/app", "destination=/app"))):
+                    self.assertEqual(not writable, bool(fields.intersection(("ro", "readonly"))))
                     return
-        self.fail(f"No read-only mount of the requested project at /app in {args}")
+        self.fail(f"No correctly scoped application mount at /app in {args}")
 
     def test_default_cli_uses_the_release_image_and_reports_the_installed_version(self):
         selected = self.invoke("image", cwd=self.directory)
@@ -132,7 +143,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertEqual(["mago", image, "--version"], self.docker_call()["args"][-3:])
 
     def test_single_checks_use_the_selected_image_and_preserve_native_arguments(self):
-        for command in ("format", "lint", "analyze"):
+        for command in ("format", "lint", "analyze", "guard", "cst", "twig:fmt", "twig:lint"):
             with self.subTest(command=command):
                 native = ["test files/example.php"]
                 if command in ("lint", "analyze"):
@@ -144,7 +155,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
                 self.assert_container(args[:args.index(IMAGE)])
                 self.assertIn(command, args[args.index(IMAGE) + 1:])
                 self.assertEqual(native, args[-len(native):])
-                if command == "format":
+                if command in ("format", "twig:fmt"):
                     self.assertIn("--check", args[args.index(IMAGE) + 1:])
 
     def aggregate(self, **env):
@@ -187,10 +198,8 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertEqual(message, call["stdin"])
         self.assertTrue(any(arg in ("-i", "--interactive") for arg in call["args"]), call)
         self.assert_container(call["args"])
-        command = " ".join(call["args"])
-        self.assertIn("serena start-mcp-server", command)
-        self.assertIn("--project /app", command)
-        self.assertIn("--transport stdio", command)
+        self.assertIn(DIGEST, call["args"])
+        self.assertEqual(["python", "/opt/provider/start.py"], call["args"][call["args"].index(DIGEST) + 1:])
 
     def test_each_command_requires_the_project_configuration_before_docker(self):
         (self.project / "mago.toml").unlink()
@@ -225,6 +234,101 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             self.assertRegex(help_text, rf"\b{command}\b")
         self.assertFalse(self.log.exists())
 
+    def test_mutating_native_modes_require_write_before_starting_docker(self):
+        for arguments in [
+            ("fix",), ("lint", "--fix"), ("analyze", "--fix"),
+            ("guard", "--generate-baseline"), ("lint", "--remove-outdated-baseline-entries"),
+            ("analyze", "--backup-baseline"), ("format", "--staged"), ("twig:lint", "--fix"),
+        ]:
+            with self.subTest(arguments=arguments):
+                result = self.invoke(*arguments)
+                self.assertNotEqual(0, result.returncode)
+                self.assertIn("--write", result.stderr)
+                self.assertFalse(self.log.exists())
+
+    def test_write_mode_is_explicit_and_preserves_native_arguments(self):
+        for arguments in [
+            ("format", "src/Example.php"), ("lint", "--fix", "src/Example.php"),
+            ("analyze", "--fix", "src/Example.php"), ("guard", "--generate-baseline"),
+            ("fix", "src/Example.php"), ("twig:fmt", "templates/example.html.twig"),
+            ("twig:lint", "--fix", "templates/example.html.twig"),
+        ]:
+            with self.subTest(arguments=arguments):
+                result = self.invoke("--write", "--project-root", str(self.project), *arguments, UXOR_MAGO_IMAGE=IMAGE)
+                self.assertEqual(0, result.returncode, result.stderr)
+                call = self.docker_call()["args"]
+                self.assert_container(call[:call.index(IMAGE)], writable=True)
+                self.assertEqual(["mago", *arguments], call[call.index(IMAGE) + 1:])
+
+    def test_read_only_previews_are_forwarded_without_conflicting_check_flag(self):
+        for arguments in [
+            ("format", "--diff", "src/Example.php"),
+            ("twig:fmt", "--dry-run", "templates/example.html.twig"),
+            ("lint", "--fix", "--dry-run", "src/Example.php"),
+        ]:
+            with self.subTest(arguments=arguments):
+                result = self.invoke(*arguments, UXOR_MAGO_IMAGE=IMAGE)
+                self.assertEqual(0, result.returncode, result.stderr)
+                call = self.docker_call()["args"]
+                self.assert_container(call[:call.index(IMAGE)])
+                self.assertEqual(["mago", *arguments], call[call.index(IMAGE) + 1:])
+
+    def test_write_is_not_accepted_for_provider_management_or_read_only_aggregate(self):
+        for command in ("pull", "image", "version", "check", "cst"):
+            with self.subTest(command=command):
+                result = self.invoke("--write", command)
+                self.assertNotEqual(0, result.returncode)
+                self.assertFalse(self.log.exists())
+
+    def state_volume(self, call):
+        mounts = [next(csv.reader([value])) for option, value in zip(call, call[1:]) if option == "--mount"]
+        state = [fields for fields in mounts if "type=volume" in fields and "target=/state" in fields]
+        self.assertEqual(1, len(state), mounts)
+        name = next(field.split("=", 1)[1] for field in state[0] if field.startswith("source="))
+        self.assertRegex(name, r"^uxor-mago-serena-[0-9a-f]{64}$")
+        return name
+
+    def test_serena_reuses_state_for_canonical_root_and_separates_images_and_projects(self):
+        self.invoke("serena", UXOR_MAGO_IMAGE=IMAGE)
+        first = self.docker_call()["args"]
+        self.assertIn(DIGEST, first)
+        original = self.state_volume(first)
+        alias = self.directory / "same-project"
+        alias.symlink_to(self.project, target_is_directory=True)
+        self.invoke("--project-root", str(alias), "serena", UXOR_MAGO_IMAGE=IMAGE)
+        self.assertEqual(original, self.state_volume(self.docker_call()["args"]))
+        self.invoke("--project-root", str(self.project), "--write", "serena", UXOR_MAGO_IMAGE=IMAGE)
+        writable = self.docker_call()["args"]
+        self.assertEqual(original, self.state_volume(writable))
+        self.assert_container(writable[:writable.index(DIGEST)], writable=True)
+        self.assertEqual(["python", "/opt/provider/start.py", "--write"], writable[writable.index(DIGEST) + 1:])
+
+        changed_image = "sha256:" + "b" * 64
+        self.invoke("serena", UXOR_MAGO_IMAGE=IMAGE, DOCKER_IMAGE_ID=changed_image)
+        changed = self.docker_call()["args"]
+        self.assertIn(changed_image, changed)
+        self.assertNotEqual(original, self.state_volume(changed))
+        other = self.directory / "other-project"
+        other.mkdir()
+        (other / "composer.json").write_text("{}\n")
+        (other / "mago.toml").write_text((self.project / "mago.toml").read_text())
+        self.invoke("--project-root", str(other), "serena", UXOR_MAGO_IMAGE=IMAGE)
+        self.assertNotEqual(original, self.state_volume(self.docker_call()["args"]))
+
+    def test_serena_requires_a_real_prepared_image_identity_before_mounting_the_project(self):
+        for environment in [
+            {"DOCKER_INSPECT_STATUS": "1"}, {"DOCKER_IMAGE_ID": ""},
+            {"DOCKER_IMAGE_ID": "local/tag:latest"}, {"DOCKER_IMAGE_ID": "sha256:" + "z" * 64},
+            {"DOCKER_IMAGE_ID": "sha256:" + "a" * 63},
+        ]:
+            with self.subTest(environment=environment):
+                result = self.invoke("serena", **environment)
+                self.assertNotEqual(0, result.returncode)
+                calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+                self.assertEqual(1, len(calls))
+                self.assertEqual(["image", "inspect"], calls[0]["args"][:2])
+
+
     def check_repository_client(self, server):
         subprocess.run(["git", "init", "--quiet", str(self.project)], check=True)
         for relative in ("tools/mago", WRAPPER.relative_to(REPOSITORY)):
@@ -235,8 +339,8 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
                              UXOR_MAGO_IMAGE=IMAGE, stdin="MCP input")
         self.assertEqual(0, result.returncode, result.stderr)
         call = self.docker_call()
-        self.assert_container(call["args"][:call["args"].index(IMAGE)])
-        self.assertIn("serena start-mcp-server", " ".join(call["args"]))
+        self.assert_container(call["args"][:call["args"].index(DIGEST)])
+        self.assertEqual(["python", "/opt/provider/start.py"], call["args"][call["args"].index(DIGEST) + 1:])
         self.assertEqual("MCP input", call["stdin"])
 
     def test_claude_server_mounts_the_relocated_checkout_from_a_subdirectory(self):

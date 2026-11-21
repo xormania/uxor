@@ -8,6 +8,9 @@ namespace Xormania\UXor;
 final class Operations
 {
     private readonly BrowserDiagnostics $browserDiagnostics;
+    private readonly SymfonyPreparation $preparation;
+    private readonly EnvironmentSetup $environmentSetup;
+    private readonly EnvironmentStatus $environmentStatus;
 
     public function __construct(
         private readonly ReferenceBundle $references,
@@ -15,8 +18,14 @@ final class Operations
         private readonly ProjectDoctor $doctor,
         private readonly NativeTools $nativeTools,
         ?BrowserDiagnostics $browserDiagnostics = null,
+        ?SymfonyPreparation $preparation = null,
+        ?EnvironmentSetup $environmentSetup = null,
+        ?EnvironmentStatus $environmentStatus = null,
     ) {
         $this->browserDiagnostics = $browserDiagnostics ?? new BrowserDiagnostics($inspector);
+        $this->preparation = $preparation ?? new SymfonyPreparation($inspector);
+        $this->environmentSetup = $environmentSetup ?? new EnvironmentSetup($inspector, $this->preparation);
+        $this->environmentStatus = $environmentStatus ?? new EnvironmentStatus($inspector, $this->preparation, $nativeTools);
     }
 
     public static function create(): self
@@ -44,13 +53,18 @@ final class Operations
                 'workflow' => $this->references->workflow((string) ($arguments['name'] ?? ''),
                     (int) ($arguments['offset'] ?? 0), (int) ($arguments['limit'] ?? 12000)),
                 'inspect' => $this->inspector->inspect($root),
+                'setup' => $this->environmentSetup->setup($root, true === ($arguments['apply'] ?? false),
+                    true === ($arguments['install'] ?? false), true === ($arguments['trust_project_code'] ?? false), (string) ($arguments['client'] ?? 'none'), (string) ($arguments['host_project_root'] ?? '')),
+                'environment' => $this->environmentStatus->inspect($root, true === ($arguments['probe'] ?? false), true === ($arguments['trust_project_code'] ?? false)),
+                'prepare' => $this->preparation->prepare($root, true === ($arguments['trust_project_code'] ?? false)),
                 'doctor' => $this->diagnose($root, (string) ($arguments['component'] ?? ''), (string) ($arguments['asset_profile'] ?? 'auto')),
                 'tools' => $this->nativeTools->discover($root, (string) ($arguments['kind'] ?? 'maker'),
                     (string) ($arguments['name'] ?? ''), (int) ($arguments['limit'] ?? 20), true === ($arguments['trust_project_code'] ?? false)),
                 'browser-diagnostics' => $this->browserDiagnostics->read($root, (string) ($arguments['path'] ?? '')),
-                default => throw new \InvalidArgumentException('Unknown operation. Use catalog, component, reference, workflow, inspect, doctor, tools, or browser-diagnostics.'),
+                default => throw new \InvalidArgumentException('Unknown operation. Use catalog, component, reference, workflow, inspect, doctor, setup, environment, prepare, tools, or browser-diagnostics.'),
             };
             $result['status'] = $result['data']['status'] ?? 'completed';
+            $result['changes'] = $result['data']['changes'] ?? [];
             $result['summary'] = $result['data']['summary'] ?? match ($operation) {
                 'catalog' => sprintf('%d component references match.', $result['data']['total']),
                 'component' => 'UXor component reference loaded; inspect application-owned files before editing.',

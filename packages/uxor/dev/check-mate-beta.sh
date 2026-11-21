@@ -30,7 +30,7 @@ vendor/bin/mate discover --no-interaction
 tools_json=$(vendor/bin/mate tools:list --format=json)
 jq -e '
     [.tools | to_entries[] | select(.value.extension == "xormania/uxor") | .key] | sort ==
-    ["uxor_browser_diagnostics","uxor_catalog","uxor_component","uxor_doctor","uxor_project","uxor_reference","uxor_tools","uxor_workflow"]
+    ["uxor_browser_diagnostics","uxor_catalog","uxor_component","uxor_doctor","uxor_environment","uxor_prepare","uxor_project","uxor_reference","uxor_setup","uxor_tools","uxor_workflow"]
 ' <<< "$tools_json"
 for tool in $(jq -r '.tools | keys[] | select(startswith("uxor_"))' <<< "$tools_json"); do
     vendor/bin/mate tools:inspect "$tool" --format=json |
@@ -61,4 +61,4 @@ for skill in "${skill_names[@]}"; do
     vendor/bin/mate skills:validate "$skill" --format=json |
         jq -e --arg installed "mate-$skill" '.skills | length == 1 and .[0].name == $installed and .[0].status == "ok"'
 done
-echo 'Seven tool schemas, two reads, the trust check and three installed skills passed.'
+echo 'Eleven tool schemas, two reads, the trust check and three installed skills passed.'

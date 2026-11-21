@@ -8,6 +8,14 @@ on:
             - packages/uxor/resources/mago/**
             - packages/uxor/bin/uxor-mago
             - packages/uxor/dev/check-mago.py
+            - packages/uxor/dev/environment_acceptance.py
+            - packages/uxor/dev/tests/test_mago.py
+            - packages/uxor/dev/tests/test_serena_provider.py
+            - packages/uxor/src/**
+            - packages/uxor/tools/check-package.py
+            - packages/uxor/dev/app/**
+            - composer.json
+            - composer.lock
             - .github/workflows/mago-providers.yml
     push:
         branches: [dev, main]
@@ -15,6 +23,14 @@ on:
             - packages/uxor/resources/mago/**
             - packages/uxor/bin/uxor-mago
             - packages/uxor/dev/check-mago.py
+            - packages/uxor/dev/environment_acceptance.py
+            - packages/uxor/dev/tests/test_mago.py
+            - packages/uxor/dev/tests/test_serena_provider.py
+            - packages/uxor/src/**
+            - packages/uxor/tools/check-package.py
+            - packages/uxor/dev/app/**
+            - composer.json
+            - composer.lock
             - .github/workflows/mago-providers.yml
     workflow_dispatch:
 
@@ -30,6 +46,17 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: '8.4'
+                  extensions: intl, mbstring, pdo_sqlite, zip
+                  tools: composer:v2
+                  coverage: none
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
 
             - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
               with:
@@ -59,5 +86,5 @@ jobs:
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-main" \
                       packages/uxor/resources/mago/serena
 
-            - name: Check Mago diagnostics and navigation over MCP
-              run: uv run --script packages/uxor/dev/check-mago.py
+            - name: Check the installed archive through setup, Symfony semantics and source repair
+              run: python3 packages/uxor/tools/check-package.py --consumer --providers

@@ -8,6 +8,13 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ## [Unreleased]
 
+### Added
+
+- The Composer dev package adds setup planning and application-owned configuration for Mago, Serena, Maker and
+  Symfony diagnostics, with explicit dependency installation, environment checks and compiled Symfony preparation.
+  Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source
+  writes are opt-in, and existing application configuration is preserved.
+
 ## [0.3.5] - 2026-11-21
 
 ### Added
