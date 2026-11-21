@@ -45,6 +45,7 @@ shipped interfaces for compatibility, regardless of where their implementation b
 | `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | outbound GitHub text names no account or team the allowlist does not: the *Metadata* workflow on every pull request, the hook before each commit (*Commits and pull requests*) |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
+| `mago.toml`, `tools/mago`, `.codex/config.toml`, `.mcp.json` | no | local PHP checks and Serena navigation in the checkout ([Mago and Serena](#mago-and-serena)) |
 | `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/lane-evidence.mjs`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/background.mjs`, `tools/ci/wait-for-job.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s check and release jobs, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
@@ -148,6 +149,47 @@ controllers. Previewing untrusted code would need a separate origin and containe
 The public gallery is the static export. The dynamic application refuses to boot in production unless its operator
 explicitly opts in and supplies a non-default secret; that is an accident guard, not permission to expose its lab and
 trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md).
+
+### Mago and Serena
+
+Before running `tools/mago` or enabling the `uxor-mago` server in Codex or Claude Code, review the checkout's
+launcher and `mago.toml`, including any configuration it inherits through `extends`. Use a checkout only if you
+trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
+Mago can start worker programs declared under `[extension-hosts]` during analysis or language-server startup.
+Those workers can read files in the mounted checkout even though the mount is read-only and networking is disabled.
+[Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
+
+The checkout and Composer package share the same Mago 1.60.2 pins. The CLI uses the official release binary
+in the official PHP 8.4.28 runtime. A separate UXor image builds language-server support from the same Mago
+release and pins upstream Serena at `7f7d6245`. Both recipes ship with the Composer package. On Linux amd64, prepare each provider once per Docker host. `tools/mago pull` prepares both.
+`UXOR_MAGO_IMAGE` selects a compatible custom build. [Mago 1.60.2](https://github.com/carthage-software/mago/releases/tag/1.60.2)
+
+```bash
+tools/mago pull cli
+tools/mago version
+tools/mago pull serena
+tools/mago format
+tools/mago lint
+tools/mago analyze
+```
+
+Mago checks the package, recipe PHP and demo PHP, including their tests. The development consumer
+and test fixture apps have isolated `App\` namespaces and stay outside this shared scope. Run the
+demo's Composer install from the setup above before analysis and navigation so Mago can resolve dependency types
+from `demo/vendor/` for all three code areas. The checks run offline against a read-only checkout.
+`tools/mago format` checks formatting. `tools/mago check` runs the three checks in order and stops
+at the first failure. Run them individually to see every report while the existing diagnostics
+are being addressed. PHPStan and the checks below still apply.
+
+Codex loads the optional `uxor-mago` server from `.codex/config.toml` when you trust the checkout.
+Claude Code reads `.mcp.json` and prompts for project-server approval. Review the server command and
+the Mago configuration above before granting trust in Codex or approving the server in Claude Code.
+Open the chosen checkout or a directory inside it so the server resolves that worktree's Git root.
+For another MCP client, use the absolute path to the checkout's `tools/mago` as the command and
+`serena` as its only argument. The server uses stdio and provides read-only PHP navigation.
+
+To check the integration locally, run `uv run --script packages/uxor/dev/check-mago.py --repository`.
+It looks up package, recipe and demo symbols and compares the analyzer's diagnostics with Serena's.
 
 ## Checks
 
