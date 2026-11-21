@@ -455,10 +455,12 @@ jobs:
               run: php packages/uxor/tools/generate-reference.php --check
 
 
-            - name: The test inventory names existing tests
+            - name: Test inventory and lab coverage references
               id: tools-inventory
               if: ${{ !cancelled() }}
-              run: node tools/test-inventory.mjs
+              run: |
+                  set -o pipefail
+                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-tools-inventory.log"
 
 
             - name: The archive holds what the kit and the package declare
@@ -562,14 +564,6 @@ jobs:
               run: |
                   set -o pipefail
                   node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-fences.log"
-
-
-            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
-              id: contrast-inventory
-              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
-              run: |
-                  set -o pipefail
-                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-inventory.log"
 
 
             - name: Each recipe README renders its manifest's dependencies and writes no version table

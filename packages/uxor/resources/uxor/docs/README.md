@@ -61,7 +61,7 @@ branch. For an explicitly requested test of unreleased work, use a full commit S
 [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md) lists what each version changes.
 
 `ux:install` also installs the recipes a recipe depends on. Run the `composer require` and `importmap:require`
-commands it prints for the recipe's packages. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
+commands it prints for the recipe's packages. [Installing recipes](https://github.com/xormania/uxor/blob/0.3.5/docs/GUIDE.md#installing-recipes) says more.
 
 ### Icons
 
@@ -95,16 +95,16 @@ install it and integrate its package-managed consumer guidance while preserving 
 
 ## Documentation
 
-- [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
-- [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
+- [Recipes](https://github.com/xormania/uxor/blob/0.3.5/docs/RECIPES.md): every recipe, one line each, linked to its README.
+- [Guide](https://github.com/xormania/uxor/blob/0.3.5/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
 - [`INSTALL.md`](INSTALL.md): setting up the kit in a Symfony application.
-- Agent-assisted application work: [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.5/llms.txt).
-  Kit-only applications may adapt the short optional [`project snippet`](docs/PROJECT-AGENTS-SNIPPET.md);
+- Agent-assisted application work: [`FOR-AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.5/FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.5/llms.txt).
+  Kit-only applications may adapt the short optional [`project snippet`](https://github.com/xormania/uxor/blob/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md);
   applications using the helper can use its package-managed guidance without duplicating it.
-- [`docs/APPLICATION-TESTING.md`](docs/APPLICATION-TESTING.md): verify UXor's integration in your application.
+- [`docs/APPLICATION-TESTING.md`](https://github.com/xormania/uxor/blob/0.3.5/docs/APPLICATION-TESTING.md): verify UXor's integration in your application.
 - [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md): what each version changes.
 - Developing UXor: [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md) and [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.5/AGENTS.md) govern work on the kit,
-  package and repository fixtures; [`docs/TESTING.md`](docs/TESTING.md) describes their tests and CI.
+  package and repository fixtures; [`docs/TESTING.md`](https://github.com/xormania/uxor/blob/0.3.5/docs/TESTING.md) describes their tests and CI.
 
 ## License
 

@@ -9,7 +9,7 @@ These steps install the Toolkit kit into a consuming application, which owns the
 an optional [Composer development package, `xormania/uxor`](packages/uxor/README.md), for agent guidance, diagnostics
 and tools; it does not install recipes. Follow the application's own instructions, workflow and permissions, and
 preserve its existing configuration. Developing either deliverable or the repository's demo and test fixtures
-starts with [`CONTRIBUTING.md`](CONTRIBUTING.md).
+starts with [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md).
 
 The official Symfony UX `flowbite-4` kit was an initial reference only. The Toolkit installer, Flowbite stylesheet
 and icon set are current integrations, not a requirement to track that kit. These setup instructions describe the
@@ -70,7 +70,7 @@ See [Choosing a revision](#choosing-a-revision) for a new installation, an updat
 @import './uxor.css';
 ```
 
-3. Install the recipes you need. [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Run the printed
+3. Install the recipes you need. [`docs/RECIPES.md`](https://github.com/xormania/uxor/blob/main/docs/RECIPES.md) lists them. Run the printed
    `composer require` and `importmap:require` commands for the recipe's dependencies.
 
 ```
@@ -99,7 +99,7 @@ normal workflow; review the resulting diff and reconcile customizations.
 
 The optional [Composer development package](packages/uxor/README.md) supplies tools, documentation and
 package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
-the [project snippet](docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
+the [project snippet](https://github.com/xormania/uxor/blob/main/docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
 guidance is wanted, and avoid duplicating guidance already supplied by the helper.
 
-Verify the installed components in their application context using [application testing](docs/APPLICATION-TESTING.md).
+Verify the installed components in their application context using [application testing](https://github.com/xormania/uxor/blob/main/docs/APPLICATION-TESTING.md).

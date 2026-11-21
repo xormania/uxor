@@ -867,6 +867,7 @@ The demo has PHPUnit 13 and Symfony's test tools (what `symfony/test-pack` insta
 `Twig/`, `Functional/`). Run them from `demo/`:
 
 ```sh
+export CREATE_SNAPSHOTS=false
 bin/phpunit                                  # all of them
 bin/phpunit tests/Live                       # one folder
 bin/phpunit --filter testAPagePastTheEnd     # by name
@@ -903,7 +904,7 @@ recipes' `src/` directories in its own step, where no earlier step can change th
 locally, from the repository root:
 
 ```sh
-git ls-files -z '*.php' | xargs -0 -n1 php -l -f | grep -v '^No syntax errors'
+{ git ls-files -z '*.php'; git ls-files -z demo/bin/console demo/bin/phpunit packages/uxor/bin/uxor packages/uxor/dev/app/bin/console tools/sync-demo; } | xargs -0 -n1 php -l -f
 (cd demo && bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done))
 ```
 
@@ -956,9 +957,9 @@ $this->assertMatchesSnapshot($rendered->toString(), new Html5Driver());
 $html = self::getContainer()->get('twig')->createTemplate('<twig:Breadcrumb><twig:Breadcrumb:Item href="/">Home</twig:Breadcrumb:Item></twig:Breadcrumb>')->render();
 ```
 
-- Snapshots are written next to the test (`__snapshots__/`) the first time it runs, which marks it incomplete.
-  Rewrite changed ones with `UPDATE_SNAPSHOTS=true bin/phpunit`, and review them like code. CI runs with
-  `CREATE_SNAPSHOTS=false`, so a missing snapshot fails there instead of being written.
+- Run `CREATE_SNAPSHOTS=true bin/phpunit` to write missing snapshots next to the test (`__snapshots__/`). Rewrite
+  changed ones with `UPDATE_SNAPSHOTS=true bin/phpunit` and review the diff. The everyday command above and CI both
+  use `CREATE_SNAPSHOTS=false`, so a missing snapshot fails the check.
 - `Html5Driver` (in the tests) parses the HTML with PHP's HTML5 parser (`Dom\HTMLDocument`). The library's
   `assertMatchesHtmlSnapshot()` uses libxml's HTML 4 parser, which lower-cases SVG attributes (`viewBox`) and
   wraps the fragment in `<html><body>`: a change there would not show.
@@ -1034,9 +1035,9 @@ vendor/bin/mate tools:call symfony-profiler-get --token="$token" --format=json
 
 For an already running Docker demo, set `PROFILER_COLLECT=1` in `demo/.env.dev.local` before starting or restarting it,
 prefix the test command with `DEMO_URL=https://localhost`, and run Mate with `docker compose exec -T php vendor/bin/mate`
-from `demo/`. Use the Docker demo or a server that routes `/lab/...` to Symfony for the lab specs. PHP's built-in server
-can treat `/lab` as the static `demo/public/lab` directory. For the built-in server, choose a free `DEMO_PORT` if port
-8000 is occupied.
+from `demo/`. An already running native server needs the [Symfony router](../tools/plant-router.php),
+`PROFILER_COLLECT=1` at startup, and matching `DEMO_URL` and `PHP_BINARY` settings for the test command. Use
+a distinct `DEMO_PORT` when running managed native servers in parallel.
 
 An empty response list can mean the server has collection disabled or the browser received no profiled response.
 The `dropped` counts identify entries omitted from noisy captures. Use the Playwright trace for the action timeline.
@@ -1255,10 +1256,10 @@ without repairing, an index that names no commit). `packages/uxor/tools/check-pa
 `git archive HEAD` (what GitHub serves; committed files only) and checks it against its own lists, independent of
 `.gitattributes`: the archive holds the files the script lists and every path `composer.json` declares, and nothing
 else: no development file, nothing outside the kit's root files, its recipes and the package's entries. The lists are
-the oracle for the export rules. CI's *Package* job runs them, after
-`composer validate --strict` and `php packages/uxor/tools/generate-reference.php --check` (the bundled references are
-what the generator makes of this checkout: it regenerates them into a temporary directory, compares byte for byte and
-lists the stale files), and ends with `php packages/uxor/bin/uxor list` and `catalog` as a smoke test.
+the oracle for the export rules. CI's *Quick checks* runs archive verification and
+`php packages/uxor/tools/generate-reference.php --check`. The generator compares the bundled references byte for
+byte and lists stale files. *Package* also runs `composer validate --strict` and exercises
+`php packages/uxor/bin/uxor list` and `catalog`.
 
 The package is also tested from the side of an application that uses it, in `packages/uxor/dev/`
 ([its README](../packages/uxor/dev/README.md)). `check-package.py --consumer` installs the same archive as a Composer
@@ -1267,9 +1268,11 @@ package's tools, references and skills, a repeated initialization, an update to 
 consumer's own instructions and a custom component, then a production render without development dependencies. The
 Python tests in `packages/uxor/dev/tests/` check the development runner and the Serena harness against a mocked
 provider: that the repository, package and application roots agree, and that a wrong binding is never reported as
-success. *Package* runs both. The consumer's browser journey (`packages/uxor/dev/e2e/`, with recipes installed from
-the commit under test by `install-uxor.py`), the Docker stack and Serena run by hand for now
-([`TEST-INVENTORY.md`](TEST-INVENTORY.md), *The Composer package*).
+success. *Package* runs both. The [fixture checks](../packages/uxor/dev/README.md#checks) describe the locked
+Chromium journey and production `/customers` check with recipes installed from the tested revision. See the
+[Package workflow](../.github/workflows/ci.yml) for its hosted commands.
+[*Development images*](../.github/workflows/development-images.yml) checks Docker and Serena on matching pushes
+and manual runs.
 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
@@ -1437,8 +1440,7 @@ lab.editor, lab.markdown-editor, lab.popover and lab.tooltip, and release.timing
 implements differently), and a test that passes only there.
 
 Chromium runs every test; Firefox and WebKit run every behavior test, without the screenshot comparisons and without
-the broad axe scans of `a11y.spec.ts` (443 per engine, a third of the run's test time; a component's own scan in its
-spec still runs in every engine). Each
+the broad axe scans of `a11y.spec.ts`. Component-specific scans can still run in every engine. Each
 browser has two projects in `playwright.config.ts` (`browserProjects()`): `smoke` and `examples` for Chromium,
 `smoke-firefox` and `examples-firefox`, `smoke-webkit` and `examples-webkit` for the others. A test that compares
 pixels, with a baseline or two screenshots with each other, is tagged `@screenshot` (`screenshotAnnotation()` in
@@ -1468,9 +1470,8 @@ the browser tests. Firefox and WebKit run:
 - on every push to `main`;
 - in a manual run of CI with *engines* checked (with everything else), or *engines_only* (Firefox and WebKit alone), on
   any branch;
-- for the release pull request: *Release checks*, a required check on `main`, fails unless the head has an engines
-  pass, and when it has none it starts an engines-only run on the pull request's branch (re-run *Release checks* once
-  that run passes).
+- for the release pull request: *Release checks* requires verified engine evidence on the head. Its workflow
+  controls dispatch, waiting and the final evidence check.
 
 An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
 push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
@@ -1623,8 +1624,8 @@ README pairing reads the branch's history) and *Workflows* (`main` and its tags 
 
 **The 24-hour lanes.** The installs, Lint kit and Package resolve dependencies live: a fresh Symfony skeleton and
 Symfony Docker, the Toolkit and its packages, the consumer's packages from Packagist. Their evidence goes stale with
-time, not with the tree, so a pass counts for a day (`MAX_AGE_HOURS` in the tool, one table). `dev`'s daily run is the
-check of that drift: it never reuses them, and its pass serves the day's pushes. Within a day, a pass on the same tree
+time, not with the tree, so a pass counts for a day (`MAX_AGE_HOURS` in the tool, one table). `dev`'s daily run checks drift for
+fresh installs and Package without reusing their evidence. Lint kit runs when normal lane selection requests it. Within a day, a pass on the same tree
 says what a run minutes later would say. One thing a reused *Fresh install (Symfony Docker, from GitHub)* does not
 re-prove: it downloaded GitHub's archive of another commit with the same tree, which holds the same files, so the
 download of this commit's archive is not checked again within those 24 hours.
@@ -2013,19 +2014,20 @@ and [environment secret protection](https://docs.github.com/en/actions/how-tos/d
 
 ## Monthly job
 
-**Catches:** code no test runs and tests that run code without checking it, which no pull request measures: a
+**Catches:** code no test runs and tests that run code without checking it: a
 recipe's PHP line or method no PHPUnit test reaches, a mutant of it the tests let through, a controller method no
 browser test calls. Report-only: a low number fails nothing, it shows where a test is missing.
 
 [`.github/workflows/monthly.yml`](../.github/workflows/monthly.yml) runs on the 3rd of each month on `dev`, and by
 hand before a release. GitHub runs the schedule on `main`, the default branch; that run only starts the month's run
-on `dev`, so a failure shows on `dev`. Nothing of it runs on a push or a pull request: CI's jobs and test list stay as they are.
+on `dev`, so a failure shows on `dev`. The workflow also defines a ready-for-review trigger for selected release pull
+requests. It runs independently of push CI.
 
 | Job | What it measures | Where it reads |
 |---|---|---|
 | *PHP coverage and mutants* | The demo's PHPUnit tests with PCOV: lines and methods of the recipes' `src/`, per file and class, and the methods no test runs. Then [Infection](https://infection.github.io/) on the same directories and tests: the MSI and every surviving mutant (escaped, or on a line no test runs) with its diff | job summary; `php-coverage` artifact: `php-coverage.md`, `clover.xml`, `html/`, `infection.md`, `survivors.md`, Infection's own logs |
-| *Browsers (coverage-chromium-1–3)* | The whole browser suite in Chromium, sharded as in CI, with V8 coverage of the scripts under `/assets/controllers/` | each shard's Playwright summary; raw recordings, 7 days |
-| *Browsers (engines-firefox-1–3, engines-webkit-1–3)* | The whole suite in each engine, sharded as in CI: the behavior tests (a failure fails the shard), then every `@screenshot` test against the Chromium baselines (`PW_SCREENSHOTS=all`, no retries): each one matches, differs (with the ratio of different pixels Playwright gives) or fails another way | each shard's Playwright summary; `screenshots-<browser>-<shard>` (`tools/monthly/screenshots.mjs`) and, where some differ, `screenshot-diffs-<browser>-<shard>` (the expected, actual and diff images), 30 days |
+| *Browsers (coverage-chromium-1–3)* | The whole browser suite in Chromium, split into three shards, with V8 coverage of the scripts under `/assets/controllers/` | each shard's Playwright summary; raw recordings, 7 days |
+| *Browsers (engines-firefox-1–3, engines-webkit-1–3)* | The selected projects in each engine split across three shards: the behavior tests (a failure fails the shard), then every `@screenshot` test against the Chromium baselines (`PW_SCREENSHOTS=all`, no retries): each one matches, differs (with the ratio of different pixels Playwright gives) or fails another way | each shard's Playwright summary; `screenshots-<browser>-<shard>` (`tools/monthly/screenshots.mjs`) and, where some differ, `screenshot-diffs-<browser>-<shard>` (the expected, actual and diff images), 30 days |
 | *Browsers (timings-chromium-1)* | The interaction-count specs (`counts.spec.ts`), 5 runs one after another with `PW_TIMINGS` set: per counted step, the median, the spread (25th to 75th percentile), min and max of its time, from its action until the update it waits for has landed, Playwright's round trips included, and the median of its longest interaction (INP, Event Timing). A count that differs fails the job as in CI | job summary; `timings` artifact (`timings.json`, `timings.md`, `tools/monthly/timings.mjs`), 90 days |
 | *Monthly report* | The shards merged and mapped to `<recipe>/assets/controllers/*.js`: lines and functions run per controller, and **every controller method runs once**, the named methods no test ran; the screenshot shards merged per engine; then every number, the timings and the screenshots included, against the previous successful run | job summary; `js-coverage`, `screenshots` (`screenshots.json`, `screenshots.md`) and `monthly-trends` (`monthly.json`, `trends.md`) artifacts |
 
@@ -2066,10 +2068,10 @@ own update.
 workflow and its tools, so a change to them is tried by running it on its own branch. There is no input naming another
 ref: a run on one would execute that ref's code in the default branch's context, where it could poison the cache.
 
-**On a pull request directly from `dev`.** Marking a same-repository pull request from `dev` into `main` ready
-for review starts this workflow (`pull_request`, `ready_for_review`) on its proposed merge. Its coverage, mutants,
-other engines and timings sit beside the other checks, compared with the last successful run on `dev`.
-A release prepared on a separate branch skips these jobs; that branch can be checked with the manual run above.
+**On a release pull request.** When a same-repository pull request into `main` is marked ready for review, the
+Monthly workflow checks its [branch eligibility](../.github/workflows/monthly.yml), including `dev` and
+versioned release branch patterns. Eligible runs measure the proposed merge and compare it with the last
+successful run on `dev`. Use the manual run above for another branch.
 This reporting workflow is separate from the required *Release checks*.
 
 **Locally**, from the repository root, with the demo installed (*PHP tests*); the reports go to `coverage/`
@@ -2101,8 +2103,7 @@ Back, Forward and theme switches that throws or connects a controller twice, a s
 sanitized again, an overlay or an editor that breaks in the dark theme. Tier 3 of
 [`PLAN-test-tiers.md`](PLAN-test-tiers.md): Chromium only, and not on every push.
 
-[`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request
-(`dev` to `main`), once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
+[`.github/workflows/release-checks.yml`](../.github/workflows/release-checks.yml) runs on the release pull request targeting `main`, once a day on `dev` unless the release checks already passed on `dev`'s head, and by hand
 (Actions › *Release checks* › *Run workflow*). GitHub runs the schedule on the default branch, `main`; that run only
 starts the daily run on `dev` (a *Run workflow* with `daily`, by its *Start on dev* job), so the daily run is `dev`'s,
 with `dev`'s copy of the workflow, and its failures show on `dev`, never on `main`. A passing daily run uploads a
@@ -2115,17 +2116,18 @@ check* asks `tools/ci/lane-evidence.mjs require --lane engines` for a pass marke
 inputs, once the merge is shown to test the head's own tree; the pull request's own copy of the tool and of this
 workflow decide its gate, as the workflow file always did. With none, *Start the engines* (a job of its own, with no
 checkout, the only one that may start a workflow) starts an engines-only CI run on the pull request's branch, unless
-one for that head is already queued or running, and the verdict fails, saying so: re-run *Release checks* when that run
-passes: the verdict looks the evidence up again itself whenever What to check said missing, so *Re-run failed jobs* is
-enough (What to check, not re-run, keeps its old output). When main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
+one for that head is already queued or running. The verdict checks the engine result and marker itself. The
+[release workflow](../.github/workflows/release-checks.yml) defines the handoff and reports missing evidence. When
+main has commits the branch lacks, the merge tests another tree than the head and no run on the head can
 stand for it: nothing is started, and the verdict says to bring main into the branch. Marking the pull request ready
 for review runs this check too. Only the pull request publishes *Release checks*, the check main's ruleset requires:
 the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
 checks (manual)*.
 
 On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
-request in this repository merged with the same base, and every path changed since is one the suite never reads:
-`docs/`, `CHANGELOG.md`, `llms.txt`, `AGENTS.md` and `packages/uxor/`. A passing pull request run uploads a
+request in this repository merged with the same base and the workflow allows reuse for every changed path.
+The production image serves `docs/GUIDE.md` and `llms.txt`, so changes to them invalidate reuse. A passing pull
+request run uploads a
 `release-checks-pr-passed-v1-<base>-<head>` artifact named by the two parents of the merge commit it tested, read from
 that commit. The consumer downloads the marker as a bounded ZIP and reads its single `commit` entry without
 extracting files. It verifies the producing run's repository, workflow, event and successful conclusion through
@@ -2133,10 +2135,9 @@ GitHub, then looks up the recorded merge commit's two parents. The first must be
 be that producing run's immutable `head_sha` (Actions reports the PR head here, not the synthetic merge SHA).
 The artifact name must match those independently verified parents. A filename alone cannot claim a future head,
 and malformed, unavailable or mismatched evidence runs the suite again. Only then does the next run compare the
-verified head with its own. The release commit (the changelog's version
-heading, `llms.txt`'s links) then costs no second suite. Any other path, the workflow and its tools included, runs it;
-so does a moved base, an earlier run without a marker (one that skipped the suite itself), a fork's run, or a commit
-the checkout cannot find.
+verified head with its own. A changelog-only edit can reuse the suite. Editing the workflow or its tools runs
+its suite again. The suite also runs when the base moved, the earlier run produced no marker, the producer was
+a fork, or the checkout cannot find the commit.
 
 The workflow resolves the expected target once. Its checkout independently trusts only the immutable triggering
 event SHA (for the daily run, the `dev` commit it was started on); the resolver output cannot select another revision

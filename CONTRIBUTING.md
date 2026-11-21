@@ -144,8 +144,8 @@ release.
 
 Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
 `(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
-the demo with `php -S 127.0.0.1:8000 -t demo/public`. PHP's built-in server only serves the compiled CSS and
-JavaScript in `demo/public/assets/`, so compile again after each change.
+the demo with `php -S 127.0.0.1:8000 -t demo/public tools/plant-router.php`. The router forwards application
+and AssetMapper routes to Symfony and serves public files directly. Recompile when using compiled assets.
 
 For the repository's Node-based checks and Playwright runner, use Node.js (CI uses 22) and install the tooling
 from the checkout root:
@@ -260,7 +260,7 @@ input until the classifier and its tests say otherwise. A deletion counts as a c
 as a change to both paths.
 
 *Tool tests*, *Contrast* and *Workflows* below are checks, run as the steps of one job, *Quick checks*: Tool tests on
-every run, the other two when selected, each whatever another did. *Demo + Playwright* below means the Chromium shards on every push; Firefox and WebKit run on `dev`'s daily run, on
+every run, the other two when selected. *Demo + Playwright* below means the Chromium shards when the lane is selected and has no reusable result. Firefox and WebKit run on `dev`'s daily run, on
 `main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
 (`docs/TESTING.md`, *Browsers*).
 
@@ -268,7 +268,7 @@ every run, the other two when selected, each whatever another did. *Demo + Playw
 |---|---|
 | `.github/dependabot.yml` | nothing |
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them; *Production image*, which holds them |
-| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md`, the gallery's `/guide`, also *Kit PHP* (its page tests), *Static site* (it exports the page), *Demo + Playwright* (the browser tests load it) and *Production image* |
+| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/APPLICATION-TESTING.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md`, the gallery's `/guide`, also *Kit PHP* (its page tests), *Static site* (it exports the page), *Demo + Playwright* (the browser tests load it) and *Production image* |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) but *Kit PHP*, which renders only a recipe's |
 | a recipe's `templates/`, `assets/`, `src/`, `config/` (Contrast pairs its code with its `README.md`; the production image holds them and renders them without the development packages) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
@@ -283,7 +283,7 @@ every run, the other two when selected, each whatever another did. *Demo + Playw
 | `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures) | *Package*, *Demo + Playwright* |
 | `composer.lock`, any other file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
-| a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
+| a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Demo + Playwright* and *Contrast*. The inventory check runs in *Quick checks* on every CI run |
 | a release check's spec, `tests/e2e/release.*.spec.ts` (it runs in the release projects only) | *Contrast* |
 | `tests/e2e/leak-detector.mjs` (a release spec's; its cases run in *Tool tests*) | nothing else |
 | any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/playwright-image.mjs`, `tools/playwright-image.json`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
@@ -330,20 +330,15 @@ recipe; any other directory without one still fails, so a recipe missing its man
 placeholder `manifest.json` to `packages/`, nor leave the package out of the archive to make the lint pass. The *Fresh
 install* jobs install from the complete archive, `packages/` included.
 
-*Package* checks the Composer package: `composer validate --strict`, `composer install`, the syntax of its PHP,
-`php packages/uxor/tools/generate-reference.php --check` (the bundled references in `packages/uxor/resources/uxor/`
-are what the generator makes of the checkout's docs, recipe READMEs and manifests; it lists the stale files and never
-repairs them), `composer test` (PHPUnit, `packages/uxor/phpunit.xml.dist`), `python3 packages/uxor/tools/check-package.py` (the
-repository's archive, `git archive HEAD` as GitHub serves it, committed files only, holds the files the script lists
-and every path `composer.json` declares, and nothing else: no development file, nothing outside the kit's root files,
-its recipes and the package's entries; the script's own lists, not `.gitattributes`, are what the export rules must
-produce), the development harness of `packages/uxor/dev/` (its Python tests), `python3
-packages/uxor/tools/check-package.py --consumer` (that archive installed as a Composer dependency in a copy of the
-independent consumer: Mate's initialization and discovery, its tools, references and three skills, an update to a
-newer archive that keeps the consumer's own instructions and a custom component, then the application rendering in
-production without development dependencies) and a smoke run of `php packages/uxor/bin/uxor list` and `catalog`. The
-consumer's browser journey and its Docker and Serena checks are not in CI yet ([`packages/uxor/dev/README.md`](packages/uxor/dev/README.md),
-*Checks*).
+*Quick checks* verifies that the generated references match their inputs and that `git archive HEAD` includes the
+required kit and package payload. The archive checker reads the committed tree, so commit changes before using it.
+
+*Package* validates, installs, lints and tests the Composer package. Its archive consumer checks Mate
+initialization and discovery, an upgrade that preserves application-owned work, and rendering without dev
+dependencies. The independent [consumer fixture](packages/uxor/dev/README.md#checks) provides the locked
+Chromium journey and production `/customers` check. See the [Package job](.github/workflows/ci.yml) for its
+hosted entry points. [*Development images*](.github/workflows/development-images.yml) checks Docker and Serena
+on matching pushes and manual runs.
 
 *Workflows* runs [actionlint](https://github.com/rhysd/actionlint) with ShellCheck on every workflow: YAML, expressions,
 job graph, action and reusable workflow inputs, and the shell of each `run` step. Then it runs
@@ -375,13 +370,14 @@ node tools/security-policy.mjs                      # immutable Actions and read
 node --test tools/tests/*.test.mjs                  # the cases of the CI tools (tools/ci/: results summary, CI metrics, shard plan, Jev diagnosis, JUnit and step attempts), of tools/prepare-tests.mjs, of tools/icon-lint.mjs, of the README checks, of tools/recipe-imports.mjs and of tools/js-duplication.mjs, which also run them on the kit, and the repository security policy
 tools/tests/sync-demo.sh                            # tools/sync-demo copies what ux:install copies, on a test kit (needs demo/vendor)
 find ./*/src -name '*.php' -not -path './demo/*' -not -path './tools/*' -print0 | xargs -0 -n1 php -l   # the syntax of the recipes' PHP
-(cd demo && bin/phpunit)                            # the PHP tests (demo/tests/): the data tables' limits, Live and Twig components, snapshots, profiler counts
-phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php data-table/src data-table-live/src editor/src markdown-editor/src demo/src/Demo demo/tests   # PHPStan with its Symfony and PHPUnit extensions installed next to it (CI pins all three); run the tests first
+(cd demo && CREATE_SNAPSHOTS=false bin/phpunit)                            # the PHP tests (demo/tests/): the data tables' limits, Live and Twig components, snapshots, profiler counts
+dirs=(); for manifest in */manifest.json; do if [ -d "${manifest%/manifest.json}/src" ]; then dirs+=("${manifest%/manifest.json}/src"); fi; done
+phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php -- "${dirs[@]}" demo/src/Demo demo/tests   # use the locked tool with its Symfony and PHPUnit extensions
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below
 npx playwright test --project=smoke --project=examples   # Chromium only, the screenshots included: the quicker loop
-RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # the complete local release suite; hosted release checks use three isolated lanes (docs/TESTING.md)
+RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # the three release browser projects (docs/TESTING.md also lists PHP properties and the production image)
 node --test 'tools/monthly/*.test.mjs'              # the cases of the monthly job's report tools (tools/monthly/)
 php tools/monthly/php-scope.php coverage/php        # the monthly job's PHP scope: coverage/php/phpunit.xml and infection.json5 (the recipes' src/)
 (cd demo && bin/phpunit -c ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml) && node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml   # PHP coverage per recipe class (needs PCOV, or Xdebug with XDEBUG_MODE=coverage)
@@ -403,8 +399,8 @@ python3 packages/uxor/tools/check-package.py --consumer   # that archive install
 python3 packages/uxor/dev/run.py --native prepare && python3 packages/uxor/dev/run.py --native check   # the consumer's container, Twig and Mate (packages/uxor/dev/README.md)
 ```
 
-The PHP tests render the recipes as the demo has them, and the demo's pages with their CSS: run `tools/sync-demo` and
-`bin/console tailwind:build` first. A change in a component's markup changes its snapshot in
+Run `tools/sync-demo` and `bin/console tailwind:build` first so the PHP tests render the current recipes and CSS.
+Use `CREATE_SNAPSHOTS=true bin/phpunit` to create intentionally added snapshots. A change in a component's markup changes its snapshot in
 `demo/tests/Twig/__snapshots__/`: rewrite it with `UPDATE_SNAPSHOTS=true bin/phpunit` and review it like code. CI
 runs them with `CREATE_SNAPSHOTS=false`, so a missing snapshot fails there. The patterns are in
 [`docs/TESTING.md`](docs/TESTING.md) (*PHP tests*).
@@ -415,14 +411,14 @@ comparison: a test that compares pixels is tagged `@screenshot` and runs in Chro
 scans of `a11y.spec.ts`. Pick projects with
 `--project` (several allowed). See [`docs/TESTING.md`](docs/TESTING.md), *Browsers*.
 
-CI runs *Demo + Playwright* as four Chromium shards (Chromium also runs the screenshots) and three each for Firefox
-and WebKit, ten jobs side by side, each with its own demo and browser. Each shard retries a failed test once and ends with its summary: the counts, every failed test and every
+The [CI workflow](.github/workflows/ci.yml) sets the Chromium shard count. Firefox and WebKit each run in
+three shards. Each shard has its own demo and browser. Each shard retries a failed test once and ends with its summary: the counts, every failed test and every
 flaky one (passed only on its retry) with its error, on the run's *Summary* page, as annotations at the failing lines
 and as the last step of the job log; a shard whose tests did not run says which step failed. A flaky test keeps the run
 green but is reported as flaky, never as a clean pass. See [`docs/TESTING.md`](docs/TESTING.md), *Reading CI results*.
 
 The demo's importmap packages are downloaded once per run, by the *Importmap packages* job (three attempts against
-the CDN), and shared as the `importmap-packages` artifact with every job that installs the demo: the ten shards,
+the CDN), and shared as the `importmap-packages` artifact with the active browser shards,
 *Kit PHP* and *Static site*. AssetMapper skips a package that is already there, so their installs download nothing;
 each shard checks that its install left the packages as downloaded. The shards do not queue behind that job: they
 start beside it and wait for it by name just before they need its artifact ([`tools/ci/wait-for-job.mjs`](tools/ci/wait-for-job.mjs)),
@@ -468,8 +464,10 @@ the container (`tools/demo-php`). Two workers is what each CI shard runs, agains
 other ports or a project name (`docker compose -p <name>`) needs `COMPOSE_PROJECT_NAME`, `HTTP_PORT`, `HTTPS_PORT` and
 `HTTP3_PORT` exported in the shell for every command, because `tools/demo-php` finds the project only from the
 environment, and a later `docker compose up` (such as turning Xdebug on) without the ports recreates the demo on the
-default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). Without `DEMO_URL`, Playwright serves the demo itself with `php -S 127.0.0.1:8000`.
-Either way it starts the browser container, unless something already listens on port 3000; the browser reaches the demo through the test's process, which works under Docker Desktop too (CI, on a real host network, sets `PW_DIRECT_NETWORK=1` and starts the container there: `docs/TESTING.md`, *Browsers*). Before the tests, it
+default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). For a manually started native demo, pass its URL in `DEMO_URL` and route Symfony requests with the native setup command above.
+For an already running native server, also set `PHP_BINARY=php` or its PHP executable. Use distinct
+`DEMO_PORT` and `PW_BROWSER_PORT` values for managed servers in parallel worktrees. Select an already running
+browser server with `PW_BROWSER_WS_ENDPOINT`. Before the tests, Playwright
 builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
 kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it
 builds nothing. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
@@ -748,8 +746,9 @@ integration branch will make review easier. Ordinary contributions need no work 
 - An integration branch uses `work/<name>`, with jobs on `work/<name>--<job>`. These names avoid Git's conflict
   between a branch and a directory of the same name. Name new branches for the work they contain, without naming
   a model or assistant assigned to it. Existing integration branches can finish under their current names.
-- Before using an integration branch, a maintainer protects it with pull requests, *CI result*, *CodeQL* and
-  resolved conversations. Jobs merge by pull request; updates from `dev` also arrive through a job, such as
+- Before using an integration branch, a maintainer verifies its branch pattern is covered by a
+  [ruleset](https://github.com/xormania/uxor/rules) requiring pull requests, *CI result*, *CodeQL* and resolved
+  conversations. Jobs merge by pull request; updates from `dev` also arrive through a job, such as
   `work/<name>--sync`. Contributors should not push directly to the protected integration branch.
 - Its draft pull request into `dev` records the objective, completion criteria, links to the jobs and remaining
   work. Each job receives normal review and includes the documentation, changelog and test evidence its change needs.

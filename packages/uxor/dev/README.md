@@ -111,6 +111,14 @@ The browser check (`e2e/customer-workflow.spec.mjs`, `playwright.config.mjs`, `p
 consumer, separate from the kit's browser suite at the repository root. It loads the diagnostics fixture from the
 consumer's installed UXor package.
 
+To reproduce the hosted Package check, use a disposable checkout. The command prepares and installs the fixture,
+runs the four journeys, removes dev dependencies and checks the production `/customers` render:
+
+```sh
+(cd packages/uxor/dev && npm ci && npx playwright install chromium)
+bash packages/uxor/dev/check-workflow.sh
+```
+
 ### Browser diagnostics
 
 After preparing the customer workflow, run a targeted headless Chromium check from `packages/uxor/dev`:
@@ -192,7 +200,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 | The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
 | This commit's archive in an independent consumer: install, Mate, update, no-dev render | `python3 packages/uxor/tools/check-package.py --consumer` | *Package* |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
-| The customer workflow in a browser, then without development dependencies | *The customer workflow* above | not yet |
+| The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the locked Chromium setup | *Package* |
 | The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
 | The Docker stack and the editable Serena session | `run.py up`, `status`, `check`, `run.py serena --prepare`, then `check-serena.py --package` | *Development images* |
 
