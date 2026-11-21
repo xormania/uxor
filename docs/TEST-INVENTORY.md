@@ -668,7 +668,7 @@ classifier's cases.
 | The customer workflow with recipes installed from the commit under test: search, edit validation, saving through a stream and history in a browser, then the selected components without development dependencies | browser, process | gap: `packages/uxor/dev/e2e/customer-workflow.spec.mjs` and `check-workflow-runtime.php` exist, not in CI yet |
 | The xorder Docker stack, its support identity, and Serena's symbol lookup, session, partial-failure recovery and composition with the package | integration (real provider) | gap: `run.py up`, `check`, `check-serena.py --package` exist, not in CI yet |
 | The archive consumer installs Mate, its Symfony extension and its Composer plugin at 1.0.0-BETA1. An initialized 0.14 project keeps its stable Composer policy, project-authored AGENTS.md and CLAUDE.md content and active skill override when it installs UXor and upgrades Mate. | process integration | `packages/uxor/tools/check-package.py --consumer` (*Package*) |
-| Mate 1.0 beta discovers seven UXor tool schemas, returns component and paged workflow data, preserves the trust check and installs three valid skills | consumer integration | `packages/uxor/dev/check-mate-beta.sh` (isolated locked consumer) |
+| Mate 1.0 beta discovers eight UXor tool schemas, including browser diagnostics, returns component and paged workflow data, preserves the trust check and installs three valid skills | consumer integration | `packages/uxor/dev/check-mate-beta.sh` (isolated locked consumer) |
 | A link the references point at `main` exists there: a file added on `dev` is linked before it is released | | gap: links follow `source.ref`; a release can generate with `--ref=<tag>` (not done yet) |
 
 ## Pending: branches in flight
