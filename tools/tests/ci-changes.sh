@@ -68,7 +68,7 @@ check 'contrast'                  tools/icon-lint.mjs
 check ''                          tools/tests/icon-lint.test.mjs
 # What the lints read wherever it lies: a recipe's templates (icon-lint) and any markdown outside demo/ (docs-lint,
 # icon-lint); the demo's copies of the recipes are not read
-check "$kit_contrast prod-image"             input/templates/components/Input.html.twig
+check "$kit_contrast package prod-image"     input/templates/components/Input.html.twig
 check "$kit_contrast prod-image"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
 check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
@@ -238,8 +238,8 @@ check "$kit_contrast prod-image"             side-nav/assets/controllers/side_na
 check 'lint-kit php static-site contrast demo package prod-image' side-nav/README.md
 check "$kit_contrast prod-image"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
-check "$kit_contrast prod-image"             theme/assets/styles/uxor.css
-check "$kit_contrast prod-image"             button/templates/components/Button.html.twig
+check "$kit_contrast package prod-image"     theme/assets/styles/uxor.css
+check "$kit_contrast package prod-image"     button/templates/components/Button.html.twig
 check "$kit_contrast prod-image"             layouts/templates/layouts/app.html.twig
 # what both archives hold, the kit's and the Composer package's: the kit's jobs and Package
 check "$kit package"              .gitattributes
@@ -247,7 +247,7 @@ check "$kit package"              .gitattributes
 # its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too. Only the README and the
 # manifest are copied into the package's references (Package); a deeper README is not
 check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
-check "$kit_contrast prod-image"             data-table/src/Table/DataTable.php
+check "$kit_contrast package prod-image"     data-table/src/Table/DataTable.php
 check 'lint-kit php static-site contrast demo package prod-image' alert/README.md
 check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
