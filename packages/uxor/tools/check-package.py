@@ -35,6 +35,8 @@ CONSUMER_SKILL_NAMES = ("build", "setup", "verify")
 FIXTURE = PACKAGE / "dev/app"
 # What the fixture renders in production. Fixture data: keep in step with the fixture's controller and templates.
 FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development"}
+MATE_PACKAGES = ("symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension")
+MATE_BETA = "1.0.0-BETA1"
 
 # Development-only content: no exported path may be inside these directories or be one of these files.
 # Local tool output (vendor/, Playwright reports) is never committed, so `git archive` leaves it out; it is listed for
@@ -192,6 +194,17 @@ def execute(arguments: list[str], application: Path, *, capture: bool = False) -
     return result.stdout if capture else ""
 
 
+def check_mate_versions(application: Path, version: str) -> None:
+    installed = json.loads((application / "vendor/composer/installed.json").read_text())["packages"]
+    actual = {
+        package["name"]: package["version"].removeprefix("v")
+        for package in installed if package["name"] in MATE_PACKAGES
+    }
+    if actual != dict.fromkeys(MATE_PACKAGES, version):
+        raise RuntimeError(f"Expected Mate, its Composer plugin and Symfony extension at {version}, installed {actual}")
+    print(f"Composer installed Mate, its Composer plugin and Symfony extension at {version}.")
+
+
 def operation_result(payload, operation: str):
     """Find the public operation envelope inside Mate's transport encoding."""
     if isinstance(payload, str):
@@ -214,9 +227,9 @@ def operation_result(payload, operation: str):
     return None
 
 
-def consumer_instruction_parts(content: str) -> tuple[str, str]:
-    start = "<!-- BEGIN AI_MATE_INSTRUCTIONS -->"
-    end = "<!-- END AI_MATE_INSTRUCTIONS -->"
+def consumer_instruction_parts(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str]:
+    start = f"<!-- BEGIN {block} -->"
+    end = f"<!-- END {block} -->"
     if content.count(start) != 1 or content.count(end) != 1:
         raise RuntimeError("Initialization must produce exactly one managed instruction block")
     before, managed = content.split(start, 1)
@@ -327,6 +340,7 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
         raise RuntimeError("Installed package metadata does not identify the newer archive")
     if json.loads((installed / "composer.json").read_text()).get("version") != "0.0.1":
         raise RuntimeError("Updated package files do not match Composer's installed version")
+    check_mate_versions(application, MATE_BETA)
     # The supported lifecycle refreshes Mate explicitly after Composer updates.
     # Mate 0.14's plugin can resolve Composer's own root when Composer runs as a PHAR.
     php = os.environ.get("PHP_BIN", "php")
@@ -360,6 +374,8 @@ def check_consumer(archive: Path, temporary: Path) -> None:
     (application / "composer.lock").unlink(missing_ok=True)
     manifest_path = application / "composer.json"
     manifest = json.loads(manifest_path.read_text())
+    if manifest.get("minimum-stability", "stable") != "stable":
+        raise RuntimeError("The archive consumer must keep its stable Composer policy")
     first_archive = temporary / "uxor-0.0.0.tar"
     second_archive = temporary / "uxor-0.0.1.tar"
     old_marker = versioned_archive(archive, first_archive, "0.0.0")
@@ -384,6 +400,7 @@ return static function (ContainerConfigurator $container): void {
     installed = application / "vendor" / PACKAGE_NAME
     if installed.is_symlink() or not installed.is_dir():
         raise RuntimeError("Independent consumer must install the archive, not a source symlink")
+    check_mate_versions(application, MATE_BETA)
     php = os.environ.get("PHP_BIN", "php")
     mate = [php, "vendor/bin/mate"]
     execute([*mate, "init", "--no-interaction"], application)
@@ -443,6 +460,70 @@ $kernel->shutdown();
 echo "Production consumer boot and Twig render passed without development dependencies.\n";
 """
     execute([php, "-r", render, json.dumps(FIXTURE_PAGES)], application)
+    check_mate_upgrade(second_archive, temporary / "mate-upgrade")
+
+
+def check_mate_upgrade(archive: Path, application: Path) -> None:
+    """Install UXor into an initialized 0.14 project with an overridden skill."""
+    application.mkdir()
+    manifest = {
+        "name": "example/mate-upgrade",
+        "type": "project",
+        "require-dev": dict.fromkeys(MATE_PACKAGES, "0.14.0"),
+        "repositories": [archive_repository(archive)],
+        "config": {"allow-plugins": {"symfony/ai-mate-composer-plugin": True}},
+    }
+    manifest_path = application / "composer.json"
+    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
+    roots = {"AGENTS.md": "AI_MATE_INSTRUCTIONS", "CLAUDE.md": "AI_MATE_AGENTS_IMPORT"}
+    for name in roots:
+        (application / name).write_text(f"# Project rules for {name}\n")
+    composer = composer_command()
+    mate = [os.environ.get("PHP_BIN", "php"), "vendor/bin/mate"]
+    options = ["--prefer-dist", "--no-interaction", "--no-progress"]
+    execute([*composer, "install", *options], application)
+    check_mate_versions(application, "0.14.0")
+    execute([*mate, "init", "--no-interaction"], application)
+    execute([*composer, "dump-autoload", "--no-interaction"], application)
+    execute([*mate, "discover", "--no-interaction"], application)
+    execute([*mate, "skills:override", "system-information", "--no-interaction"], application)
+    override = application / "mate/skills/system-information/SKILL.md"
+    marker = b"\nUse this application's system checks.\n"
+    override.write_bytes(override.read_bytes() + marker)
+    execute([*mate, "discover", "--no-interaction"], application)
+    owned = {}
+    for name, block in roots.items():
+        path = application / name
+        content = path.read_text()
+        if not content.startswith(f"# Project rules for {name}\n"):
+            raise RuntimeError(f"Mate initialization replaced {name}")
+        path.write_text(content + f"\nTrailing project rules for {name}.\n")
+        owned[name] = consumer_instruction_parts(path.read_text(), block)
+    files = [override, *(application / target / "mate-system-information/SKILL.md"
+                         for target in (".agents/skills", ".claude/skills"))]
+    before = {path: path.read_bytes() for path in files}
+    if any(marker not in content for content in before.values()):
+        raise RuntimeError("The customized 0.14 skill was not installed before the upgrade")
+    execute([*composer, "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
+             *(f"{package}:{MATE_BETA}" for package in MATE_PACKAGES), *options], application)
+    check_mate_versions(application, MATE_BETA)
+    if json.loads(manifest_path.read_text()).get("minimum-stability", "stable") != "stable":
+        raise RuntimeError("The package-specific beta requirements changed the consumer's stable policy")
+    execute([*mate, "discover", "--no-interaction"], application)
+    for name, block in roots.items():
+        if consumer_instruction_parts((application / name).read_text(), block) != owned[name]:
+            raise RuntimeError(f"Mate upgrade changed project-owned content in {name}")
+    if not re.search(r"^@(?:\./)?AGENTS\.md$", (application / "CLAUDE.md").read_text(), re.MULTILINE):
+        raise RuntimeError("The upgraded Mate did not retain the CLAUDE.md import of the project's AGENTS.md")
+    if any(path.read_bytes() != content for path, content in before.items()):
+        raise RuntimeError("Mate upgrade changed the project's skill override or its installed copies")
+    skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))["skills"]
+    if not any(skill["package"] == "symfony/ai-mate" and skill["original_name"] == "system-information"
+               and skill["mode"] == "override" and skill["enabled"] and skill["status"] == "ok" for skill in skills):
+        raise RuntimeError("The upgraded Mate did not retain the active system-information override")
+    if "Building with UXor" not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
+        raise RuntimeError("The upgraded Mate did not publish the installed UXor guidance")
+    print("Mate upgrade verified: project instructions and the installed skill override survived beta discovery.")
 
 
 def main() -> None:
