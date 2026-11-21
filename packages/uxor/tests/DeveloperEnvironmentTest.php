@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Xormania\UXor\Tests;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\AI\Mate\Encoding\ResponseEncoder;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
 use Xormania\UXor\Console\Application;
 use Xormania\UXor\Operations;
+use Xormania\UXor\Mate\Capabilities;
 
 final class DeveloperEnvironmentTest extends TestCase
 {
@@ -99,7 +101,7 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertStringNotContainsString('[extension-hosts.', file_get_contents($this->project.'/.uxor/mago/config.toml'));
         $configuration = json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(['--project-root', $this->project, 'serena'], $configuration['mcpServers']['uxor-mago']['args']);
-        self::assertFalse($result['data']['mcp_binding']['requested_trust_project_code']);
+        self::assertFalse($result['data']['mcp_binding']['requested_saved_project_trust']);
         self::assertFalse($result['data']['mcp_binding']['verified']);
         self::assertFileDoesNotExist($this->project.'/config/packages/uxor.yaml');
         self::assertFileDoesNotExist($this->project.'/.mcp.json');
@@ -288,7 +290,7 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
-    public function testOnlyExplicitTrustIsSavedInNewBindingsWithoutExecutingTheApplication(): void
+    public function testOnlyExplicitSavedTrustIsWrittenWithoutExecutingTheApplication(): void
     {
         $host = '/host/projects/trusted consumer';
         $manifest = json_decode(file_get_contents($this->project.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
@@ -297,11 +299,11 @@ final class DeveloperEnvironmentTest extends TestCase
         $before = $this->snapshot($this->directory);
         foreach (['none', 'claude', 'codex'] as $client) {
             [$code, $result] = $this->invoke('setup', [
-                '--client' => $client, '--host-project-root' => $host, '--trust-project-code' => true,
+                '--client' => $client, '--host-project-root' => $host, '--save-project-trust' => true,
             ]);
             self::assertSame(0, $code, json_encode($result));
             self::assertSame('plan', $result['data']['mode']);
-            self::assertTrue($result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertTrue($result['data']['mcp_binding']['requested_saved_project_trust']);
             self::assertFalse($result['data']['mcp_binding']['verified']);
             self::assertSame([], $result['changes']);
             self::assertSame([], $result['data']['executions']);
@@ -310,11 +312,11 @@ final class DeveloperEnvironmentTest extends TestCase
         foreach (['none', 'claude', 'codex'] as $client) {
             [$code, $result] = $this->invoke('setup', [
                 '--apply' => true, '--client' => $client, '--host-project-root' => $host,
-                '--trust-project-code' => true,
+                '--save-project-trust' => true,
             ]);
             self::assertContains($code, [0, 2], json_encode($result));
             self::assertNotSame('failed', $result['status']);
-            self::assertTrue($result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertTrue($result['data']['mcp_binding']['requested_saved_project_trust']);
             self::assertFalse($result['data']['mcp_binding']['verified']);
             self::assertSame([], $result['data']['executions']);
         }
@@ -333,12 +335,12 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
-    public function testRequestingTrustPreservesPreviouslyUntrustedBindingsAndReportsReconciliation(): void
+    public function testRequestingSavedTrustPreservesPreviouslyUntrustedBindingsAndReportsReconciliation(): void
     {
         $this->assertPreservedTrustTransition(false);
     }
 
-    public function testOmittingTrustPreservesPreviouslyTrustedBindingsAndReportsReconciliation(): void
+    public function testOmittingSavedTrustPreservesPreviouslyTrustedBindingsAndReportsReconciliation(): void
     {
         $this->assertPreservedTrustTransition(true);
     }
@@ -359,18 +361,18 @@ final class DeveloperEnvironmentTest extends TestCase
         foreach (['claude', 'codex'] as $client) {
             $options = ['--apply' => true, '--client' => $client];
             if ($initialTrust) {
-                $options['--trust-project-code'] = true;
+                $options['--save-project-trust'] = true;
             }
             [$code, $result] = $this->invoke('setup', $options);
             self::assertSame(0, $code, json_encode($result));
             self::assertSame('completed', $result['status']);
-            self::assertSame($initialTrust, $result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertSame($initialTrust, $result['data']['mcp_binding']['requested_saved_project_trust']);
         }
         $before = $this->snapshot($this->directory);
         foreach (['claude', 'codex'] as $client) {
             $options = ['--apply' => true, '--client' => $client];
             if ($initialTrust) {
-                $options['--trust-project-code'] = true;
+                $options['--save-project-trust'] = true;
             }
             [$code, $result] = $this->invoke('setup', $options);
             self::assertSame(0, $code, json_encode($result));
@@ -380,18 +382,98 @@ final class DeveloperEnvironmentTest extends TestCase
         foreach (['claude', 'codex'] as $client) {
             $options = ['--apply' => true, '--client' => $client];
             if (!$initialTrust) {
-                $options['--trust-project-code'] = true;
+                $options['--save-project-trust'] = true;
             }
             [$code, $result] = $this->invoke('setup', $options);
             self::assertSame(2, $code, json_encode($result));
             self::assertSame('incomplete', $result['status']);
-            self::assertSame(!$initialTrust, $result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertSame(!$initialTrust, $result['data']['mcp_binding']['requested_saved_project_trust']);
             self::assertFalse($result['data']['mcp_binding']['verified']);
             self::assertSame([], $result['changes']);
             self::assertSame([], $result['data']['executions']);
-            self::assertMatchesRegularExpression('/preserved.*execution trust/i', implode("\n", $result['data']['next_steps']));
+            $nextSteps = implode("\n", $result['data']['next_steps']);
+            self::assertMatchesRegularExpression('/preserved.*execution permission/i', $nextSteps);
+            self::assertStringContainsString('--trust-project-code', $nextSteps);
+            self::assertMatchesRegularExpression('/remove.*flag/i', $nextSteps);
             self::assertSame($before, $this->snapshot($this->directory));
         }
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+    }
+
+    public function testOperationsOnlySavesTrustForTheLiteralBooleanTrue(): void
+    {
+        $operations = Operations::create();
+        foreach ([false, null, 0, 1, '', 'false', 'true', true] as $savedTrust) {
+            $result = $operations->run('setup', [
+                'project_root' => $this->project, 'apply' => true,
+                'trust_project_code' => true, 'save_project_trust' => $savedTrust,
+            ]);
+            self::assertNotSame('failed', $result['status'], json_encode($result));
+            self::assertSame(true === $savedTrust, $result['data']['mcp_binding']['requested_saved_project_trust']);
+            $configuration = json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR);
+            $arguments = $configuration['mcpServers']['uxor-mago']['args'];
+            self::assertSame(true === $savedTrust, in_array('--trust-project-code', $arguments, true));
+            self::assertNotContains('--write', $arguments);
+            self::assertSame([], $result['data']['executions']);
+            self::assertFileDoesNotExist($this->project.'/application-executed');
+            // Each case must create a new binding, not preserve an earlier choice.
+            unlink($this->project.'/.uxor/mcp.json');
+        }
+    }
+
+    public function testSavedTrustAndTruthyValuesDoNotAuthorizeNativeInstallation(): void
+    {
+        $before = $this->snapshot($this->directory);
+        $operations = Operations::create();
+        foreach ([false, null, 0, 1, '', 'false', 'true'] as $currentTrust) {
+            $result = $operations->run('setup', [
+                'project_root' => $this->project, 'apply' => true, 'install' => true,
+                'trust_project_code' => $currentTrust, 'save_project_trust' => true,
+            ]);
+            self::assertSame('incomplete', $result['status'], json_encode($result));
+            self::assertStringContainsString('--trust-project-code', $result['summary']);
+            self::assertSame([], $result['changes']);
+            self::assertSame($before, $this->snapshot($this->directory));
+            self::assertFileDoesNotExist($this->project.'/application-executed');
+        }
+    }
+
+    public function testMateSeparatesCurrentExecutionFromSavedProjectTrust(): void
+    {
+        $mate = new Capabilities(Operations::create(), $this->project);
+        $before = $this->snapshot($this->directory);
+        foreach ([
+            [[], false],
+            [['trustProjectCode' => true], false],
+            [['saveProjectTrust' => true], true],
+            [['trustProjectCode' => true, 'saveProjectTrust' => true], true],
+        ] as [$arguments, $savedTrust]) {
+            $result = ResponseEncoder::decode($mate->setup(...$arguments))['untrusted_data'];
+            self::assertSame('setup', $result['operation']);
+            self::assertSame('plan', $result['data']['mode']);
+            self::assertSame($savedTrust, $result['data']['mcp_binding']['requested_saved_project_trust']);
+            self::assertFalse($result['data']['mcp_binding']['verified']);
+            self::assertSame([], $result['changes']);
+            self::assertSame([], $result['data']['executions']);
+            self::assertSame($before, $this->snapshot($this->directory));
+        }
+        $blocked = ResponseEncoder::decode($mate->setup(apply: true, install: true, saveProjectTrust: true))['untrusted_data'];
+        self::assertSame('incomplete', $blocked['status']);
+        self::assertStringContainsString('--trust-project-code', $blocked['summary']);
+        self::assertSame($before, $this->snapshot($this->directory));
+
+        $result = ResponseEncoder::decode($mate->setup(apply: true, trustProjectCode: true))['untrusted_data'];
+        self::assertNotSame('failed', $result['status'], json_encode($result));
+        $configuration = json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertNotContains('--trust-project-code', $configuration['mcpServers']['uxor-mago']['args']);
+        self::assertSame([], $result['data']['executions']);
+        unlink($this->project.'/.uxor/mcp.json');
+
+        $result = ResponseEncoder::decode($mate->setup(apply: true, saveProjectTrust: true))['untrusted_data'];
+        self::assertNotSame('failed', $result['status'], json_encode($result));
+        $configuration = json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['--project-root', $this->project, '--trust-project-code', 'serena'], $configuration['mcpServers']['uxor-mago']['args']);
+        self::assertSame([], $result['data']['executions']);
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
@@ -400,6 +482,7 @@ final class DeveloperEnvironmentTest extends TestCase
         $before = $this->snapshot($this->directory);
         foreach ([
             ['setup', ['--apply' => true, '--install' => true]],
+            ['setup', ['--apply' => true, '--install' => true, '--save-project-trust' => true]],
             ['setup', ['--install' => true, '--trust-project-code' => true]],
             ['environment', ['--probe' => true]],
             ['prepare', []],

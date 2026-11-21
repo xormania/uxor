@@ -376,7 +376,21 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             target = self.project / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPOSITORY / relative, target)
+        self.assertNotIn("--trust-project-code", " ".join(server["args"]))
         result = self.invoke(*server["args"], executable=server["command"], cwd=self.project / "src",
+                             UXOR_MAGO_IMAGE=IMAGE, stdin="MCP input")
+        self.assertEqual(2, result.returncode, result.stderr)
+        self.assertIn("--trust-project-code", result.stderr)
+        self.assertFalse(self.log.exists())
+
+        # A user's explicitly authorized local binding still resolves this checkout.
+        # Change only this in-memory invocation; the committed binding stays untrusted.
+        authorized_args = list(server["args"])
+        self.assertEqual("sh", server["command"])
+        self.assertEqual("-c", authorized_args[0])
+        self.assertTrue(authorized_args[1].endswith(" serena"), authorized_args)
+        authorized_args[1] = authorized_args[1][:-len(" serena")] + " --trust-project-code serena"
+        result = self.invoke(*authorized_args, executable=server["command"], cwd=self.project / "src",
                              UXOR_MAGO_IMAGE=IMAGE, stdin="MCP input")
         self.assertEqual(0, result.returncode, result.stderr)
         call = self.docker_call()
@@ -384,12 +398,12 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertEqual(["python", "/opt/provider/start.py", "--trust-project-code"], call["args"][call["args"].index(DIGEST) + 1:])
         self.assertEqual("MCP input", call["stdin"])
 
-    def test_claude_server_mounts_the_relocated_checkout_from_a_subdirectory(self):
+    def test_claude_server_requires_local_trust_and_mounts_the_relocated_checkout(self):
         servers = json.loads((REPOSITORY / ".mcp.json").read_text())["mcpServers"]
         self.check_repository_client(servers["uxor-mago"])
 
     @unittest.skipIf(sys.version_info < (3, 11), "Reading the Codex TOML needs Python 3.11")
-    def test_codex_server_mounts_the_relocated_checkout_from_a_subdirectory(self):
+    def test_codex_server_requires_local_trust_and_mounts_the_relocated_checkout(self):
         import tomllib
         servers = tomllib.loads((REPOSITORY / ".codex/config.toml").read_text())["mcp_servers"]
         self.check_repository_client(servers["uxor-mago"])

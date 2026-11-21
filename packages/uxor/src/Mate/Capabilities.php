@@ -50,15 +50,16 @@ final class Capabilities
     /**
      * @param bool $apply Apply the proposed configuration, preserving application-owned files.
      * @param bool $install Use native Composer/Mate; requires apply and trustProjectCode.
-     * @param bool $trustProjectCode Acknowledge application execution and authorize project code on every connection through newly saved Serena MCP bindings.
+     * @param bool $trustProjectCode Acknowledge native application execution for this setup operation only; does not save future connection permission.
      * @param string $client none, claude, or codex; only Serena uses MCP, Mate Beta1 uses the application CLI.
      * @param string $hostProjectRoot Optional absolute checkout path on the MCP host when PHP uses a different path.
+     * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry. Does not authorize current installation.
      */
-    #[MateTool('uxor_setup', description: 'Plan or configure the bound application development environment with native Composer/Mate integration. Defaults to a read-only plan. Explicit trustProjectCode also saves recurring execution authorization in new Serena bindings.')]
-    public function setup(bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = ''): string
+    #[MateTool('uxor_setup', description: 'Plan or configure the bound application development environment with native Composer/Mate integration. Defaults to a read-only plan. trustProjectCode authorizes current native execution only; saveProjectTrust separately saves permission for future Serena connections, including later checkouts.')]
+    public function setup(bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): string
     {
         return ResponseEncoder::encodeUntrusted($this->operations->run('setup',
-            ['project_root' => $this->projectRoot, 'apply' => $apply, 'install' => $install, 'trust_project_code' => $trustProjectCode, 'client' => $client, 'host_project_root' => $hostProjectRoot]));
+            ['project_root' => $this->projectRoot, 'apply' => $apply, 'install' => $install, 'trust_project_code' => $trustProjectCode, 'client' => $client, 'host_project_root' => $hostProjectRoot, 'save_project_trust' => $saveProjectTrust]));
     }
 
     /** @param bool $trustProjectCode Acknowledge application PHP execution before enabling native probes. */

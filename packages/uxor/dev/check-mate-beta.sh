@@ -36,6 +36,18 @@ for tool in $(jq -r '.tools | keys[] | select(startswith("uxor_"))' <<< "$tools_
     vendor/bin/mate tools:inspect "$tool" --format=json |
         jq -e --arg tool "$tool" '.name == $tool and (.input_schema | type == "object")'
 done
+vendor/bin/mate tools:inspect uxor_setup --format=json |
+    jq -e '
+        .input_schema
+        | .properties.trustProjectCode.type == "boolean"
+          and .properties.saveProjectTrust.type == "boolean"
+          and ((.required // []) | index("trustProjectCode") == null)
+          and ((.required // []) | index("saveProjectTrust") == null)
+    '
+vendor/bin/mate tools:call uxor_setup --format=json |
+    jq -e '.untrusted_data | .operation == "setup" and .data.mode == "plan"
+        and .data.mcp_binding.requested_saved_project_trust == false
+        and .changes == [] and .data.executions == []'
 vendor/bin/mate tools:call uxor_component --name=button --format=json |
     jq -e '.status == "completed" and .data.reference_uri == "uxor://reference/button/README.md"'
 vendor/bin/mate tools:call uxor_workflow --name=customer-management --limit=64 --format=json |
@@ -61,4 +73,4 @@ for skill in "${skill_names[@]}"; do
     vendor/bin/mate skills:validate "$skill" --format=json |
         jq -e --arg installed "mate-$skill" '.skills | length == 1 and .[0].name == $installed and .[0].status == "ok"'
 done
-echo 'Eleven tool schemas, two reads, the trust check and three installed skills passed.'
+echo 'Eleven tool schemas, separate setup permissions, two reads, the trust check and three installed skills passed.'

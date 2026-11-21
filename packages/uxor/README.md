@@ -91,9 +91,16 @@ choice. An installation failure remains visible in setup's result.
 
 Choose `--client=claude` or `--client=codex` to plan the corresponding Serena MCP registration;
 `--client=none` leaves client configuration to the application. Existing client files are preserved.
-Supply `--trust-project-code` when authorizing the newly generated Serena binding to execute application code.
-The saved flag authorizes execution on every connection. Without it, a generated binding refuses to start;
-`--apply` alone does not grant execution trust. Review preserved bindings and reconcile the flag explicitly.
+`--trust-project-code` authorizes the current setup operation, including native Composer and Mate execution when
+`--install` is selected. It never saves permission for later Serena connections.
+
+Saving that permission is a separate choice: add `--save-project-trust` only when future connections are explicitly
+authorized. It inserts the launch flag into newly generated MCP bindings and authorizes code at that path on every
+connection, including after branch changes; it has no commit binding or expiry. It does not authorize installation
+or add `--write`. New bindings without this choice refuse to start until the MCP launch is explicitly authorized.
+Existing bindings are preserved: adding the saving option later does not update them, and omitting it does not
+revoke earlier permission. Reconcile existing bindings explicitly. To revoke recurring permission, stop the provider
+and remove `--trust-project-code` from each saved binding before another connection.
 
 When setup runs inside the application's PHP container, its application path and the host client's path can differ.
 Select the container path with `--project-root` and supply the absolute host checkout path separately:
@@ -105,8 +112,9 @@ vendor/bin/uxor setup --project-root=/app \
 ```
 
 The host path is used only for generated client commands, root arguments and working-directory settings. It is not
-checked from inside the PHP container. Prepare the providers on the Docker host as described below, then connect the
-client and resolve a known application symbol. A generated registration or successful setup does not establish a
+checked from inside the PHP container. This example installs tools without saving future execution permission;
+include `--save-project-trust` separately if that persistence is wanted. Prepare the providers on the Docker host,
+explicitly authorize the client launch and resolve a known application symbol. A generated registration or successful setup does not establish a
 working MCP connection. Mate 1.0.0-BETA1 exposes its tools through its application CLI; Serena is the MCP server.
 
 ### Upgrade from the old skill names
@@ -209,20 +217,23 @@ The launcher also forwards `guard`, `cst`, `twig:fmt` and `twig:lint` options to
 such as `--fix` require `--write`; native dry-run previews remain available. Explicit check, diff and stdin
 options keep their native meaning. Use each command's installed `--help` before selecting unfamiliar options.
 
-For manual MCP configuration, review the application before saving this execution-authorized binding, then
-substitute the absolute host application and executable paths. Its trust grant applies on every connection:
+For manual MCP configuration, substitute the absolute host application and executable paths. This definition
+carries no saved execution permission:
 
 ```json
 {
   "mcpServers": {
     "uxor-mago": {
       "command": "/path/to/app/vendor/bin/uxor-mago",
-      "args": ["--project-root", "/path/to/app", "--trust-project-code", "serena"]
+      "args": ["--project-root", "/path/to/app", "serena"]
     }
   }
 }
 ```
 
+To authorize a launch, supply `"--trust-project-code"` before `"serena"` after reviewing the selected application
+and launcher. Save that flag in client settings only when recurring permission is intended; it also applies to
+later code checked out at the same path. Keep this permission in local settings rather than shared configuration.
 Add `"--write"` before `"serena"` only when that session is authorized to edit the application. This enables
 Serena's source editing with a writable mount. Use project-relative paths for source queries.
 

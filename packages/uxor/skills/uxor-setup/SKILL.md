@@ -14,14 +14,18 @@ and customized components.
    commands in its actual runtime. Select `--project-root` explicitly across applications or worktrees.
 2. Read `uxor setup --format=json` and `uxor environment --format=json`. Setup defaults to a plan.
    Apply authorized changes with `setup --apply`; installing development dependencies additionally requires
-   `--install --trust-project-code`. Existing task/session authorization is sufficient for that flag.
+   `--install --trust-project-code`. Use existing task/session authorization when it covers native execution in
+   this application and runtime. A configuration-only request does not authorize native execution.
 3. Preserve existing files and integrate reported configuration. Composer uses available Flex recipes.
    Without Flex, register Debug/WebProfiler bundles and profiler routes using the application's conventions.
    Confirm a real dev response has a profile; config-file presence is insufficient.
 4. Prepare Mago/Serena providers on the Docker host. For generated client configuration use
    `--client=claude|codex` and, when setup runs in PHP Docker, the client's absolute `--host-project-root`.
-   Pass `--trust-project-code` only for an authorized application: setup saves it in new MCP bindings, granting
-   execution on every connection. Without it, Serena refuses to start. Reconcile preserved bindings explicitly.
+   Authorize the current MCP launch explicitly after reviewing the application and launcher. Setup's execution
+   flag never saves permission. Use `--save-project-trust` only when recurring execution is explicitly authorized;
+   it covers later code at that path too. Do not infer this choice from setup, installation or editing permission.
+   Setup preserves existing bindings; reconcile them explicitly if the intended permission changes. To revoke
+   recurring permission, stop the provider and remove its saved launch flag before reconnecting.
    Connect and query a known application symbol; the generated registration is unverified.
    Mate 1.0.0-BETA1 supplies application CLI tools; Serena supplies MCP.
 5. Run `uxor prepare --trust-project-code` in the application PHP runtime when compiled Symfony wiring is needed.

@@ -57,10 +57,18 @@ Build the providers on the Docker host, connect the client and query a known app
 connection. Preserve and integrate existing client configuration. Mate 1.0.0-BETA1 supplies a CLI, not a `serve`
 command or MCP server.
 
-Setup includes `--trust-project-code` in newly generated Serena bindings only when the caller supplies that flag.
-Saving it authorizes application-code execution on every connection. `--apply` alone produces a binding that
-refuses to start until execution trust is explicitly granted. Existing bindings are preserved; reconcile their
-paths and execution permission before connecting.
+Setup's `--trust-project-code` authorizes execution for the current operation and never persists that permission.
+Only the separate `--save-project-trust` option inserts the launch flag into newly generated Serena bindings.
+Saving it authorizes code at the selected path on every future connection, including after branch changes, with
+no commit binding or expiry. It does not authorize native installation or enable `--write`. Installation still
+requires `--apply --install --trust-project-code`; saving additionally requires its own explicit choice.
+
+New bindings without saved permission refuse to start until the client launch is explicitly authorized.
+Existing bindings are preserved: adding `--save-project-trust` later does not update them, and omitting it does not
+revoke earlier permission. Reconcile them explicitly. To revoke recurring permission, stop the provider and remove
+`--trust-project-code` from its saved arguments before another connection.
+`mcp_binding.requested_saved_project_trust` reports the requested configuration, not the contents of preserved
+files or a verified connection. The example above installs tools without saving permission for future connections.
 
 The corresponding Mate tools are `uxor_setup`, `uxor_environment` and `uxor_prepare`. Inspect their installed
 named inputs before calling them through the application's Mate CLI.

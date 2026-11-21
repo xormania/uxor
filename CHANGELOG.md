@@ -19,7 +19,8 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 - Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation
   worker, Composer autoloader or configured extensions. `--write` alone does not grant execution permission;
-  newly generated MCP bindings persist execution trust only when setup receives that explicit choice.
+  setup's execution flag does not authorize future connections. Saving that permission in new MCP bindings
+  requires the separate `--save-project-trust` option. Checked-in contributor bindings carry no saved execution permission.
 
 ## [0.3.5] - 2026-11-21
 

@@ -19,9 +19,12 @@ Start with `uxor setup` to inspect its plan and `uxor environment` to inspect re
 Apply an authorized plan with `setup --apply`; dependency installation additionally uses
 `--install --trust-project-code`. Execution probes and `prepare` also require that acknowledgement.
 `uxor-mago` application commands, including Serena startup, require `--trust-project-code` before the command.
-Setup saves that flag in new MCP bindings only when explicitly supplied; a saved grant applies on every connection.
-Review the application and effective Mago extensions before granting execution. `--write` separately authorizes
-checkout changes. Existing task/session authorization is sufficient; do not ask again merely to supply a flag.
+Setup's execution flag covers the current operation. Saving permission for future Serena connections separately
+requires `--save-project-trust` and authorization for that persistence; do not infer it from installation or editing.
+Saved permission also covers later code checked out at that path. Existing bindings may retain earlier permission;
+stop the provider and remove its saved launch flag before reconnecting to revoke it. Review the application and effective Mago extensions before
+execution. `--write` separately authorizes checkout changes. Existing task/session authorization is sufficient when
+it covers the selected application, runtime and operation; do not ask again for an already authorized action.
 Preserve application files and integrate missing bundle, route and client configuration.
 
 Mate 1.0.0-BETA1 exposes tools through its CLI; Serena exposes MCP. Use Mate's `tools:list`

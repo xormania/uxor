@@ -60,6 +60,11 @@ def setup(root: Path, php: str) -> dict:
                  "config/packages/dev/uxor.yaml", ".uxor/browser.mjs", ".uxor/mcp.json"):
         if not (root / name).is_file():
             raise RuntimeError("Installed setup omitted " + name)
+    binding = json.loads((root / ".uxor/mcp.json").read_text())["mcpServers"]["uxor-mago"]
+    if "--trust-project-code" in binding["args"] or "--write" in binding["args"]:
+        raise RuntimeError("Installation consent leaked into the saved Serena binding")
+    if installed["data"]["mcp_binding"]["requested_saved_project_trust"] is not False:
+        raise RuntimeError("Installation consent was reported as a saved execution choice")
     if b"[extension-hosts." in (root / ".uxor/mago/config.toml").read_bytes():
         raise RuntimeError("Setup activated Symfony enrichment before preparing its container reference")
     if not (root / "AGENTS.md").read_bytes().startswith(instructions):
@@ -86,7 +91,7 @@ def setup(root: Path, php: str) -> dict:
     repeated = operation(root, php, "setup", "--apply", allowed=(0, 2))
     if repeated["changes"] or snapshot(root) != current:
         raise RuntimeError("Repeated setup changed the configured consumer")
-    print("Installed setup: real Composer dev dependencies, native-safe configuration, project preservation and repetition passed.")
+    print("Installed setup: real Composer dev dependencies, separate saved execution permission, native-safe configuration, project preservation and repetition passed.")
     return manifest
 
 

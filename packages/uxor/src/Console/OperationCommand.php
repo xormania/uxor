@@ -38,15 +38,16 @@ final class OperationCommand extends Command
         }
         if (in_array($this->operation, ['setup', 'environment', 'prepare'], true)) {
             $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'setup' === $this->operation
-                ? 'Acknowledge application execution and authorize project code on every connection through new saved Serena MCP bindings'
+                ? 'Acknowledge native application execution for this setup operation; does not save permission for future connections'
                 : 'Acknowledge execution of this already trusted application and its native tools');
         }
         if ('setup' === $this->operation) {
             $this->addOption('apply', null, InputOption::VALUE_NONE, 'Apply the proposed project configuration')
                 ->addOption('install', null, InputOption::VALUE_NONE, 'Use native Composer and Mate to install and initialize the development tools; requires apply and trust-project-code')
+                ->addOption('save-project-trust', null, InputOption::VALUE_NONE, 'Save execution permission in new Serena bindings for future connections, including later checkouts; separate from current setup execution')
                 ->addOption('client', null, InputOption::VALUE_REQUIRED, 'none, claude, or codex; configure Serena MCP without replacing existing server entries', 'none')
                 ->addOption('host-project-root', null, InputOption::VALUE_REQUIRED, 'Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere', '');
-            $this->setHelp('Setup plans changes unless --apply is supplied. --trust-project-code adds explicit execution trust to new Serena MCP bindings: saving that flag authorizes application code on every connection, including configured Mago extensions and Composer autoloaders. Without it, generated bindings refuse to connect until trust is explicitly granted. --write is a separate editing permission and is not added by setup. Existing bindings are preserved; reconcile their application paths and execution trust before connecting.');
+            $this->setHelp('Setup plans changes unless --apply is supplied. --trust-project-code authorizes native commands for this setup operation only; it does not save future execution permission. The separate --save-project-trust option adds --trust-project-code to new Serena bindings when applied, authorizing application code on every future connection, including later code at that path, configured Mago extensions and Composer autoloaders. Saved permission has no commit restriction or expiry; remove the saved flag to revoke it. --save-project-trust alone does not authorize installation. Without launch authorization, Serena refuses to connect. --write separately allows editing and is not added by setup. Existing bindings are preserved and may retain earlier permission; reconcile their paths and remove --trust-project-code if recurring execution is no longer intended.');
         }
         if ('environment' === $this->operation) {
             $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes; requires trust-project-code');
@@ -88,7 +89,7 @@ final class OperationCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $arguments = [];
-        foreach (['project-root', 'query', 'category', 'limit', 'offset', 'kind', 'name', 'component', 'asset-profile', 'trust-project-code', 'apply', 'install', 'client', 'host-project-root', 'probe'] as $name) {
+        foreach (['project-root', 'query', 'category', 'limit', 'offset', 'kind', 'name', 'component', 'asset-profile', 'trust-project-code', 'save-project-trust', 'apply', 'install', 'client', 'host-project-root', 'probe'] as $name) {
             if ($this->getDefinition()->hasOption($name)) {
                 $arguments[str_replace('-', '_', $name)] = $input->getOption($name);
             }

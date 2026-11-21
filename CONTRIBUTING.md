@@ -229,11 +229,14 @@ are being addressed. PHPStan and the checks below still apply.
 Codex loads the optional `uxor-mago` server from `.codex/config.toml` when you trust the checkout.
 Claude Code reads `.mcp.json` and prompts for project-server approval. Review the server command and
 the Mago configuration above before granting trust in Codex or approving the server in Claude Code.
-The checked-in client bindings include `--trust-project-code`, granting execution on each connection after the
-client's project-server approval. Open the chosen checkout or a directory inside it so the server resolves that
-worktree's Git root.
-For another MCP client, use the absolute path to the checkout's `tools/mago` as the command and
-`["--trust-project-code", "serena"]` as its arguments. The server uses stdio and defaults to read-only PHP navigation.
+The checked-in client bindings omit execution permission, so Serena refuses to start through those definitions.
+For an authorized session, configure the MCP launch explicitly with the absolute path to the reviewed checkout's
+`tools/mago` and `["--trust-project-code", "serena"]` as its arguments. Use the client's local configuration when
+saving that choice; keep execution permission out of shared repository settings. A saved flag authorizes every
+later connection at that path, including after branch changes, until it is removed. It does not expire with a commit.
+To revoke it, stop the provider and remove that flag from the local client configuration before reconnecting.
+The checkout's launcher must itself be trusted before it runs. Open the chosen checkout or a directory inside it so
+the repository binding resolves that worktree's Git root. The server uses stdio and defaults to read-only PHP navigation.
 
 To check the integration locally, run `uv run --script packages/uxor/dev/check-mago.py --repository`.
 It looks up package, recipe and demo symbols and compares the analyzer's diagnostics with Serena's.
