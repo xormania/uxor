@@ -2,7 +2,7 @@
 # the npm packages of the Playwright tests, the Composer package's development lock file (composer.lock, which the
 # Package job installs; users resolve composer.json's ranges themselves), the demo's lock file (demo/composer.lock),
 # the consumer harness (Composer in packages/uxor/dev/app, npm browser checks in packages/uxor/dev)
-# and the demo's base images (demo/Dockerfile,
+# as well as the CI analyzers (Composer in tools/ci/phpstan) and the demo's base images (demo/Dockerfile,
 # pinned by digest: a new digest for the same tag, or a newer tag), against `dev` like any pull request. CI runs on
 # each; nothing merges on its own.
 # The browser image is not here: its tag follows @playwright/test (tools/playwright-image.json, docs/NOTES.md).
@@ -82,8 +82,19 @@ updates:
           consumer-composer:
               patterns: ['*']
 
+    - package-ecosystem: composer
+      directory: /tools/ci/phpstan
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: ci
+      groups:
+          phpstan:
+              patterns: ['*']
+
     - package-ecosystem: docker
-      directory: /demo
+      directories: [/demo, /packages/uxor/resources/mago, /packages/uxor/resources/mago/serena]
       target-branch: dev
       schedule:
           interval: weekly

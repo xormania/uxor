@@ -36,6 +36,9 @@ const transitions: { name: string; id: string; target: (page: Page) => Locator; 
     { name: 'tabs trigger', id: 'tabs/default', target: (page) => page.getByRole('tab', { name: 'Profile' }), animates: ['color', 'background-color', 'border-color'] },
     { name: 'tabs trigger (underline)', id: 'tabs/tabs-with-underline', target: (page) => page.getByRole('tab', { name: 'Profile' }), animates: ['color', 'background-color', 'border-color'] },
     { name: 'tabs trigger (pills)', id: 'tabs/pills-tabs', target: (page) => page.getByRole('tab', { name: 'Profile' }), animates: ['color', 'background-color', 'border-color'] },
+    { name: 'tabs panel', id: 'tabs/default', target: (page) => page.getByRole('tabpanel', { name: 'Profile' }), animates: ['opacity'] },
+    { name: 'drawer panel', id: 'drawer/default', target: (page) => page.getByRole('dialog', { name: 'Filters' }), animates: ['translate'] },
+    { name: 'drawer backdrop', id: 'drawer/default', target: (page) => page.getByRole('dialog', { name: 'Filters' }), pseudo: '::backdrop', animates: ['background-color'] },
     { name: 'toggle knob', id: 'toggle/default', target: (page) => page.locator('input.peer + div').first(), pseudo: '::after', animates: ['translate', 'border-color'] },
     { name: 'sidebar width', id: 'sidebar/default', target: (page) => page.locator('#sidebar-preview'), animates: ['width'] },
     { name: 'sidebar collapse chevron', id: 'sidebar/default', target: (page) => page.locator('#sidebar-preview [data-sidebar-target="toggle"] svg').first(), animates: ['transform', 'translate', 'scale', 'rotate'] },
@@ -71,6 +74,55 @@ test('a tabs trigger animates its colors only, no layout property, without a pre
     }
     expect(duration).not.toBe('0s');
 });
+
+for (const motion of ['reduce', 'no-preference'] as const) {
+    test(`a tab panel enters on selection with ${motion} motion and keeps its selection for Turbo`, async ({ page }) => {
+        await open(page, 'tabs/default', motion);
+        const profile = page.getByRole('tabpanel', { name: 'Profile' });
+        await expect(profile).toBeVisible();
+        await expect(profile).not.toHaveAttribute('data-tabs-enter');
+
+        const settings = page.getByRole('tab', { name: 'Settings' });
+        const state = await settings.evaluate(async (trigger: HTMLButtonElement) => {
+            trigger.click();
+            // Stimulus reflects its activeTab value in a MutationObserver microtask.
+            await Promise.resolve();
+            const panel = document.getElementById(trigger.getAttribute('aria-controls')!)!;
+            return {
+                selected: trigger.ariaSelected,
+                visible: panel.getClientRects().length > 0,
+                fading: panel.getAnimations().some((animation) => (animation as CSSTransition).transitionProperty === 'opacity'),
+                snapshotHasEntrance: (panel.cloneNode() as Element).hasAttribute('data-tabs-enter'),
+            };
+        });
+        expect(state).toEqual({ selected: 'true', visible: true, fading: motion === 'no-preference', snapshotHasEntrance: false });
+        await expect(profile).toBeHidden();
+        const panel = page.getByRole('tabpanel', { name: 'Settings' });
+        await page.evaluate(() => document.dispatchEvent(new Event('turbo:before-cache')));
+        await expect(panel).not.toHaveAttribute('data-tabs-enter');
+        await expect(panel).toBeVisible();
+    });
+
+    test(`a drawer opening with ${motion} motion takes focus immediately and can close in the same task`, async ({ page }) => {
+        await open(page, 'drawer/default', motion);
+        const dialog = page.getByRole('dialog', { name: 'Filters' });
+        await expect(dialog).toBeVisible();
+        await expect(dialog).not.toHaveAttribute('data-drawer-enter');
+        await dialog.getByRole('button', { name: 'Apply' }).click();
+        const trigger = page.getByRole('button', { name: 'Filters' });
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+        const state = await trigger.evaluate((button: HTMLButtonElement) => {
+            button.focus();
+            button.click();
+            const drawer = document.getElementById(button.getAttribute('aria-controls')!) as HTMLDialogElement;
+            const focusedInside = drawer.contains(document.activeElement);
+            const sliding = drawer.getAnimations().some((animation) => (animation as CSSTransition).transitionProperty === 'translate');
+            drawer.querySelector<HTMLButtonElement>('[data-action*="drawer#close"]')!.click();
+            return { focusedInside, sliding, closed: !drawer.open, focusReturned: document.activeElement === button };
+        });
+        expect(state).toEqual({ focusedInside: true, sliding: motion === 'no-preference', closed: true, focusReturned: true });
+    });
+}
 
 test('the spinner and the skeleton pulse run three times slower under reduced motion', async ({ page }) => {
     await open(page, 'spinner/default', 'no-preference');

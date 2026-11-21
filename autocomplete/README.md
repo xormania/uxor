@@ -29,13 +29,14 @@ Then:
    @import "./uxor-autocomplete.css";
    ```
 
-3. Turn off Tom Select's own stylesheet in `assets/controllers.json`: this recipe's replaces it.
+3. In `assets/controllers.json`, set `fetch` to `lazy` to download Tom Select when the first autocomplete field
+   appears. Turn off its bundled stylesheets so the field uses the recipe’s stylesheet.
 
    ```json
    "@symfony/ux-autocomplete": {
        "autocomplete": {
            "enabled": true,
-           "fetch": "eager",
+           "fetch": "lazy",
            "autoimport": {
                "tom-select/dist/css/tom-select.default.css": false,
                "tom-select/dist/css/tom-select.bootstrap4.css": false,

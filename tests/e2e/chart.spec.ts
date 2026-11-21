@@ -43,10 +43,56 @@ test('a role the data gives as var(--color-…) resolves in each theme; the desc
     await expect(swatch).toHaveCSS('background-color', await roleColor(page, 'fg-success'));
 });
 
+test('a translucent color is sampled on its own and an invalid color falls back to black', async ({ page }) => {
+    await page.goto('/preview/chart/default?theme=light');
+    await page.locator('#chart-revenue').evaluate((figure) => {
+        figure.style.setProperty('--color-chart-1', 'red');
+        figure.style.setProperty('--color-chart-2', 'rgb(0 0 255 / 80%)');
+    });
+    await toggleDark(page);
+    const colors = async () => (await chartState(page, 'chart-revenue'))?.colors;
+    await expect.poll(colors).toEqual(['rgb(255, 0, 0)', 'rgba(0, 0, 255, 0.8)']);
+
+    await page.locator('#chart-revenue').evaluate((figure) => figure.style.setProperty('--color-chart-2', 'invalid-color'));
+    await toggleDark(page);
+    await expect.poll(colors).toEqual(['rgb(255, 0, 0)', 'rgb(0, 0, 0)']);
+});
+
 test('under prefers-reduced-motion the chart does not animate', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/preview/chart/default?theme=light');
     await expect.poll(async () => (await chartState(page, 'chart-revenue'))?.animation).toBe(false);
+});
+
+test('the chart reads its animation duration from the theme, including a scoped duration of zero', async ({ page }) => {
+    await page.goto('/preview/chart/default?theme=light');
+    const animation = async () => (await chartState(page, 'chart-revenue'))?.animation;
+    await expect.poll(animation).toMatchObject({ duration: 150 });
+
+    const figure = page.locator('#chart-revenue');
+    for (const [cssTime, duration] of [['.24s', 240], ['0ms', 0]] as const) {
+        await figure.evaluate((element, value) => element.style.setProperty('--uxor-motion-duration-normal', value), cssTime);
+        await toggleDark(page);
+        await expect.poll(animation).toMatchObject({ duration });
+    }
+});
+
+test('an updated Chart.js animation option takes precedence over the theme', async ({ page }) => {
+    await page.goto('/preview/chart/default?theme=light');
+    const animation = async () => (await chartState(page, 'chart-revenue'))?.animation;
+    await expect.poll(animation).toMatchObject({ duration: 150 });
+
+    for (const value of [{ easing: 'linear', duration: 425 }, false]) {
+        await page.locator('#chart-revenue canvas').evaluate((canvas, option) => {
+            const attribute = 'data-symfony--ux-chartjs--chart-view-value';
+            const view = JSON.parse(canvas.getAttribute(attribute)!);
+            view.options = { ...view.options, animation: option };
+            canvas.setAttribute(attribute, JSON.stringify(view));
+        }, value);
+        await expect.poll(animation).toEqual(value);
+        await toggleDark(page);
+        await expect.poll(animation).toEqual(value);
+    }
 });
 
 test('a doughnut colors each slice; a table can be always visible', async ({ page }) => {

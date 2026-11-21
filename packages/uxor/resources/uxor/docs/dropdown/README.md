@@ -111,9 +111,9 @@ installs with it.
 
 ### Dropdown hover
 
-Use the `̀triggerType="{hover|click}"` prop options to set whether the dropdown should be shown when hovering or clicking on the trigger element (ie. button).
-
-There’s a 300ms default delay when showing or hiding the dropdown due to UI/UX reasons and how it may affect the interaction with other components on the page. Generally, we recommend using the `click` method.
+With `triggerType="hover"`, hovering over the trigger opens the menu after 300 ms by default.
+Moving away from both the trigger and the menu closes it after the same delay.
+Clicking or tapping the trigger toggles the menu immediately.
 
 ```twig {"preview":true}
 <div class="min-h-76">

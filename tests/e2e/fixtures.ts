@@ -8,8 +8,10 @@ const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', im
 
 type CollectedError = { message: string; httpStatus?: number; url?: string };
 
-/** A request a test cancels on purpose: its exact URL, method, `Turbo-Frame` header, and how many times at most. */
-export type CancelledRequest = { url: string; method: 'GET' | 'POST'; frame: string; count: number };
+/** A known frame visit or event stream that the app closes during the test. */
+export type CancelledRequest = { url: string; method: 'GET' | 'POST'; count: number } & (
+    { frame: string } | { accept: 'text/event-stream' }
+);
 
 type Guard = Awaited<ReturnType<typeof guardPage>>;
 
@@ -103,8 +105,8 @@ export function leavingTheDemo(baseURL: string | undefined): RegExp {
  *
  * `allowCancelledRequest({ url, method, frame, count })` accepts at most `count` requests that fail as cancelled
  * (CANCELLED: each engine's text) and match all of: this exact URL (same origin), this method, and the `Turbo-Frame`
- * header naming `frame`. Only for a test that interrupts that request on purpose (Back while a frame visit runs: Turbo cancels its
- * fetch); any other failed request, or one more than `count`, still fails the test.
+ * header naming `frame`. For a closed EventSource, `accept: 'text/event-stream'` matches the stream's Accept header.
+ * Any other failed request, or one more than `count`, still fails the test.
  */
 export async function guardPage(page: Page, baseURL: string | undefined) {
     const errors: CollectedError[] = [];
@@ -231,7 +233,7 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
                     allowance.count > 0 &&
                     allowance.url === request.url() &&
                     allowance.method === request.method() &&
-                    allowance.frame === request.headers()['turbo-frame'],
+                    ('frame' in allowance ? allowance.frame === request.headers()['turbo-frame'] : allowance.accept === request.headers().accept),
             );
         if (expected) {
             expected.count--;

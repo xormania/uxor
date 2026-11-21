@@ -7,6 +7,16 @@ const CARTESIAN = ['bar', 'line', 'scatter', 'bubble'];
 const RADIAL = ['radar', 'polarArea'];
 const SLICES = ['pie', 'doughnut', 'polarArea'];
 const VAR = /^var\(--[\w-]+\)$/;
+let colorContext;
+
+/** Chart.js takes milliseconds; the theme supplies a CSS time on the chart or an ancestor. */
+function motionDuration(style) {
+    const time = style.getPropertyValue('--uxor-motion-duration-normal').trim().match(/^(\d*\.?\d+)(ms|s)$/i);
+    if (!time) {
+        return 150;
+    }
+    return Number(time[1]) * ('s' === time[2].toLowerCase() ? 1000 : 1);
+}
 
 /**
  * Gives a UX Chart.js chart the theme's colors: the series take the `chart-1` … `chart-6` roles (`chart-other` from
@@ -94,7 +104,8 @@ export default class extends Controller {
 
     /** Applies the theme to `target` ({type?, data, options}) in place, writing only the paths `pristine` leaves unset. */
     #apply(target, pristine) {
-        const tokens = this.#tokens();
+        const style = getComputedStyle(this.element);
+        const tokens = this.#tokens(style);
         const type = pristine.type ?? target.type ?? 'bar';
         target.options ??= {};
         target.data ??= {};
@@ -113,9 +124,11 @@ export default class extends Controller {
 
         fill(options, 'color', tokens.body, fixed);
         fill(options, 'borderColor', tokens.default, fixed);
-        fill(options, 'font.family', getComputedStyle(this.element).fontFamily, fixed);
+        fill(options, 'font.family', style.fontFamily, fixed);
         if (this.#motion?.matches) {
             fill(options, 'animation', false, fixed);
+        } else if (false !== options.animation && null !== options.animation) {
+            fill(options, 'animation.duration', motionDuration(style), fixed);
         }
 
         const scales = new Set(Object.keys(fixed.scales ?? {}));
@@ -205,8 +218,7 @@ export default class extends Controller {
     }
 
     /** The roles as `rgb()`/`rgba()` strings, which Chart.js can mix (it cannot parse `oklch()`). */
-    #tokens() {
-        const style = getComputedStyle(this.element);
+    #tokens(style) {
         const tokens = {};
         for (const role of ROLES) {
             const value = style.getPropertyValue(`--color-${role}`).trim();
@@ -249,12 +261,17 @@ export default class extends Controller {
                 return undefined;
             }
         }
-        const context = document.createElement('canvas').getContext('2d', { willReadFrequently: true });
-        context.clearRect(0, 0, 1, 1);
-        context.fillStyle = '#000';
-        context.fillStyle = css;
-        context.fillRect(0, 0, 1, 1);
-        const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+        if (!colorContext) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            colorContext = canvas.getContext('2d', { willReadFrequently: true });
+        }
+        colorContext.clearRect(0, 0, 1, 1);
+        colorContext.fillStyle = '#000';
+        colorContext.fillStyle = css;
+        colorContext.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = colorContext.getImageData(0, 0, 1, 1).data;
         const color = 255 === a ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${Math.round((a / 255) * 1000) / 1000})`;
         this.#cache.set(key, color);
 

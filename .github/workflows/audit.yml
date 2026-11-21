@@ -1,7 +1,7 @@
 name: Audit
 
-# Known advisories in both npm projects (repository tests and consumer browser checks), all three Composer
-# projects (the package, demo and consumer harness) and the browser packages of the demo's and the consumer's
+# Known advisories in both npm projects (repository tests and consumer browser checks), all Composer
+# projects (the package, demo, consumer harness and CI analyzers) and the browser packages of the demo's and the consumer's
 # importmap.php, which no lock file lists: weekly, as advisories appear without any change
 # here, and on every pull request that changes a lockfile or an importmap. On a pull request each audit runs only when its own files
 # changed, so an advisory in one ecosystem does not fail a pull request that only touches the other. GitHub runs the
@@ -23,6 +23,8 @@ on:
             - demo/importmap.php
             - packages/uxor/dev/app/composer.json
             - packages/uxor/dev/app/composer.lock
+            - tools/ci/phpstan/composer.json
+            - tools/ci/phpstan/composer.lock
             - packages/uxor/dev/app/importmap.php
             - .github/workflows/audit.yml
     workflow_dispatch:
@@ -106,6 +108,8 @@ jobs:
                       directory: demo
                     - project: consumer
                       directory: packages/uxor/dev/app
+                    - project: phpstan
+                      directory: tools/ci/phpstan
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:

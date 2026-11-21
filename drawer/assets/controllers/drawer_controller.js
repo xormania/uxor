@@ -32,7 +32,7 @@ export default class extends Controller {
             this.closed();
         }
         if (this.#wasOpen ?? this.openValue) {
-            this.open();
+            this.#show(false);
         }
         document.addEventListener('turbo:before-cache', this.#closeBeforeCache);
     }
@@ -48,8 +48,18 @@ export default class extends Controller {
     }
 
     open() {
+        this.#show(true);
+    }
+
+    #show(animate) {
         if (!this.dialogTarget.open) {
+            this.dialogTarget.toggleAttribute('data-drawer-enter', animate);
             this.modalValue ? this.dialogTarget.showModal() : this.dialogTarget.show();
+            if (animate) {
+                // Resolve the open dialog's entrance position before removing it. WebKit can skip @starting-style on showModal().
+                getComputedStyle(this.dialogTarget).translate;
+                this.dialogTarget.removeAttribute('data-drawer-enter');
+            }
         }
         this.triggerTargets.forEach((trigger) => trigger.setAttribute('aria-expanded', 'true'));
     }

@@ -15,13 +15,20 @@ The recipe copies `assets/styles/uxor.css`, UXor's theme, which uses Flowbite's 
 
 /* AssetMapper: `php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"` downloads it to assets/vendor */
 @import "../vendor/flowbite/dist/flowbite.min.css";
-/* Webpack Encore: @import "flowbite/dist/flowbite.min.css"; */
 
 @import "./uxor.css";
 
 /* The templates of your app (Tailwind scans the project root by default; list them if you build from elsewhere) */
 @source "../../templates";
 ```
+
+### Motion
+
+Drawer entrances, chart animations and optional page entrances use
+`--uxor-motion-duration-normal` (150ms). Tab panels use `--uxor-motion-duration-fast` (100ms).
+The CSS entrances use `--uxor-motion-ease-out` (`ease-out`). Override these properties on
+`:root` or a section in your stylesheet. Use a duration such as `120ms`, `0.12s` or `0ms`.
+The recipes respect the operating system’s reduced-motion preference.
 
 ### Dark mode
 
