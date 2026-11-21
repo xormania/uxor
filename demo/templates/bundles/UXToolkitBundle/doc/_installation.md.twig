@@ -22,12 +22,10 @@ Install the following Composer dependencies:
 composer require {{ php_package_dependencies|join(' ') }}
 ```
 {% endif %}
-{% if npm_package_dependencies is not empty %}
-Install the following front-end dependencies:
+{% if importmap_package_dependencies is not empty %}
+Install the following AssetMapper dependencies:
 
 ```shell
-npm install {{ npm_package_dependencies|join(' ') }}
-# ...or with Symfony AssetMapper
 php bin/console importmap:require {{ importmap_package_dependencies|join(' ') }}
 ```
 {% endif %}

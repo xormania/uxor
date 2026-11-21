@@ -16,6 +16,8 @@ distributed as a Symfony UX Toolkit kit.
   `manifest.json`, `README.md`, `INSTALL.md`, `FOR-AGENTS.md`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`, `docs/RECIPES.md`,
   `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/TESTING.md`), run `php packages/uxor/tools/generate-reference.php` and commit
   the result with the change; `--check` (CI's *Package*) fails on a stale copy.
+- Keep Node.js out of the demo and the kit's install, build and runtime requirements. Use Symfony AssetMapper for
+  browser packages and TailwindBundle's standalone CLI for CSS. Playwright and repository checks run separately.
 - Behavior lives in Stimulus controllers only: no `import 'flowbite'`, no `initFlowbite()`.
 - Use the Mago CLI and Serena server only in a trusted checkout. Review the launcher, `mago.toml`, any
   inherited configuration and the extension-host programs they select. These programs can read the mounted checkout.

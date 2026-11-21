@@ -17,6 +17,7 @@ installation support, Flowbite CSS and the icon set are current implementation c
 ## Install
 
 Requires PHP 8.4 or later with the `zip` extension (the toolkit unpacks GitHub's archive of the kit).
+The standard setup uses AssetMapper and TailwindBundle and runs without Node.js.
 On a new project (`composer create-project symfony/skeleton`), run these once, in this order:
 
 ```bash
@@ -48,8 +49,8 @@ php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<vers
 Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
 that is not released yet. [`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
 
-`ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
-packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
+`ux:install` also installs the recipes a recipe depends on. Run the `composer require` and `importmap:require`
+commands it prints for the recipe's packages. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
 
 ### Icons
 
@@ -77,7 +78,7 @@ install it.
 | Symfony UX Toolkit | ^3.5 (blocks need 3.5) |
 | PHP | ≥ 8.4 (required by the toolkit), with the `zip` extension; `intl` for `calendar` and `date-picker` in any locale but `en` |
 | Symfony | 7.4 LTS and 8.1: CI installs the kit on both (8.1 in a fresh Symfony Docker project), and the demo and its browser tests run on 8.1 |
-| Assets | AssetMapper (`chart` also needs `chart.js` in the import map, which Flex adds; `editor` needs the Tiptap modules, which `ux:install` prints as `importmap:require` commands; `markdown-editor` needs `symfony/ux-live-component` for its preview). With Webpack Encore, override the layouts' `stylesheets` and `javascripts` blocks: they load the `app` importmap entrypoint |
+| Assets | The standard setup uses Symfony AssetMapper and StimulusBundle. `chart` needs `chart.js` in the import map (Flex adds it), and `editor` needs the Tiptap modules from the printed `importmap:require` command. `markdown-editor` needs `symfony/ux-live-component` for its preview |
 | Tailwind CSS | 4.x |
 | Flowbite | 4.x |
 
@@ -85,7 +86,7 @@ install it.
 
 - [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
 - [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
-- [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
+- [`INSTALL.md`](INSTALL.md): setting up the kit in a Symfony application.
 - Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](llms.txt), and paste
   [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
 - [`CHANGELOG.md`](CHANGELOG.md): what each version changes.

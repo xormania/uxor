@@ -7,8 +7,9 @@
     "authors": [{"name": "xormania"}],
     "require": {
         "php": ">=8.4",
-        "symfony/ai-mate": "^0.14",
-        "symfony/ai-symfony-mate-extension": "^0.14",
+        "symfony/ai-mate": ">=1.0.0-BETA1 <1.0.0-BETA2",
+        "symfony/ai-mate-composer-plugin": ">=1.0.0-BETA1 <1.0.0-BETA2",
+        "symfony/ai-symfony-mate-extension": ">=1.0.0-BETA1 <1.0.0-BETA2",
         "symfony/console": "^7.4 || ^8.0",
         "symfony/filesystem": "^7.4 || ^8.0",
         "symfony/process": "^7.4 || ^8.0"

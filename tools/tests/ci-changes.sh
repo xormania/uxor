@@ -267,7 +267,7 @@ check 'package'                   packages/uxor/tools/ReferenceGenerator.php pac
 check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md
 check 'package'                   packages/uxor/resources/uxor/index.json
 check 'package'                   packages/uxor/bin/uxor packages/uxor/tools/check-package.py
-check 'contrast package'          packages/uxor/skills/build/SKILL.md
+check 'contrast package'          packages/uxor/skills/uxor-build/SKILL.md
 check 'contrast package'          packages/uxor/INSTRUCTIONS.md
 # the independent consumer and its development environment (packages/uxor/dev/): Package runs its checks. Its own
 # package.json and browser check are not the kit's browser suite: they run neither Contrast nor the browser job
