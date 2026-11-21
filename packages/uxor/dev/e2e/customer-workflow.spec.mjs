@@ -1,6 +1,10 @@
 import { test as base, expect } from '@playwright/test';
+import { recordBrowserDiagnostics } from '../app/vendor/xormania/uxor/packages/uxor/resources/browser/diagnostics.mjs';
 
-const test = base.extend({
+const diagnosticTest = base.extend({
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
+});
+const test = diagnosticTest.extend({
     expectedHttpErrors: async ({}, use) => { await use(new Map()); },
     page: async ({ page, expectedHttpErrors }, use) => {
         const failures = [];
@@ -40,34 +44,59 @@ async function openCustomerEditor(page, name) {
     return dialog;
 }
 
-// Frame completion is the rendered DOM plus URL; a stream completion is its resulting DOM.
-// Ordinary frame/stream updates deliberately do not wait for turbo:load.
+async function visitCustomerList(page, action, promotedFrame = true) {
+    // Install the barrier before the action. URL and rows can change before an advancing frame's Drive visit ends.
+    await page.evaluate((promotedFrame) => {
+        let frameLoaded = !promotedFrame;
+        window.__customerVisitUrl = null;
+
+        function recordFrame(event) {
+            if (event.target.id === 'customers') frameLoaded = true;
+        }
+
+        function recordVisit(event) {
+            if (!frameLoaded) return;
+            window.__customerVisitUrl = event.detail.url;
+            document.removeEventListener('turbo:frame-load', recordFrame);
+            document.removeEventListener('turbo:load', recordVisit);
+        }
+
+        document.addEventListener('turbo:frame-load', recordFrame);
+        document.addEventListener('turbo:load', recordVisit);
+    }, promotedFrame);
+    await action();
+    await expect.poll(
+        () => page.evaluate(() => window.__customerVisitUrl === window.location.href),
+        { message: 'the customer list Turbo visit completed at the current URL' },
+    ).toBe(true);
+}
+
 test('search, edit validation, save streams and history work in one application', async ({ page, expectedHttpErrors }) => {
     const response = await page.goto('/customers');
     expect(response.headers()['content-security-policy']).toContain("'strict-dynamic'");
     await expect(page.getByRole('heading', { name: 'Customers', exact: true })).toBeVisible();
     await expect(page.locator('#customers-row-1')).toContainText('Ada Lovelace');
     await page.evaluate(() => { window.__documentIdentity = 'original'; });
-    await page.getByRole('link', { name: 'Name', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Name', exact: true }).click());
     await expect(page).toHaveURL(/dir=desc/);
     await expect(page.locator('#customers-row-4')).toBeVisible();
-    await page.getByRole('link', { name: 'Name', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Name', exact: true }).click());
     await expect(page).not.toHaveURL(/dir=desc/);
     await expect(page.locator('#customers-row-1')).toBeVisible();
 
-    await page.getByRole('link', { name: 'Page 2', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Page 2', exact: true }).click());
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator('#customers-row-3')).toContainText('Katherine Johnson');
-    await page.goBack();
+    await visitCustomerList(page, () => page.goBack(), false);
     await expect(page).not.toHaveURL(/page=2/);
     await expect(page.locator('#customers-row-1')).toBeVisible();
-    await page.goForward();
+    await visitCustomerList(page, () => page.goForward(), false);
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator('#customers-row-3')).toBeVisible();
     expect(await page.evaluate(() => window.__documentIdentity)).toBe('original');
 
     await page.getByRole('searchbox', { name: 'Search', exact: true }).fill('Ada');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('button', { name: 'Apply', exact: true }).click());
     await expect(page).toHaveURL(/q=Ada/);
     await expect(page.locator('#customers-row-1')).toBeVisible();
     await expect(page.locator('#customers-row-3')).toHaveCount(0);
@@ -94,11 +123,11 @@ test('search, edit validation, save streams and history work in one application'
     await expect(page.getByRole('link', { name: 'Edit Ada Lovelace', exact: true })).toBeFocused();
     await expect(page).toHaveURL(listUrl);
 
-    await page.goBack();
+    await visitCustomerList(page, () => page.goBack(), false);
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator('#customers-row-3')).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    await page.goForward();
+    await visitCustomerList(page, () => page.goForward(), false);
     await expect(page).toHaveURL(listUrl);
     await expect(page.getByRole('searchbox', { name: 'Search', exact: true })).toHaveValue('Ada');
     await expect(page.locator('#customers-row-1')).toContainText('ada.updated@example.test');
@@ -107,20 +136,23 @@ test('search, edit validation, save streams and history work in one application'
     await expect(page.locator('#customers-row-1')).toContainText('ada.updated@example.test');
 });
 
-test('ordinary browser submission has server validation and a redirect after saving', async ({ browser }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
-    const page = await context.newPage();
+// This scenario verifies the server fallback with JavaScript deliberately unavailable.
+const noJsTest = diagnosticTest.extend({ javaScriptEnabled: false });
+noJsTest('ordinary browser submission has server validation and a redirect after saving', async ({ page }) => {
     await page.goto('/customers/1/edit');
     await page.getByRole('textbox', { name: 'Email', exact: true }).fill('invalid');
+    const editUrl = new URL(await page.locator('form').getAttribute('action'), page.url()).href;
+    const submitted = (response) => response.url() === editUrl && response.request().method() === 'POST';
+    const invalid = page.waitForResponse(submitted);
     await page.getByRole('button', { name: 'Save customer' }).click();
+    expect((await invalid).status()).toBe(422);
     await expect(page.getByRole('textbox', { name: 'Email', exact: true })).toHaveAttribute('aria-invalid', 'true');
     await page.getByRole('textbox', { name: 'Email', exact: true }).fill('ada.plain@example.test');
-    const saved = page.waitForResponse((response) => response.url().includes('/customers/1/edit') && response.request().method() === 'POST');
+    const saved = page.waitForResponse(submitted);
     await page.getByRole('button', { name: 'Save customer' }).click();
     expect((await saved).status()).toBe(303);
     await expect(page).toHaveURL(/\/customers$/);
     await expect(page.locator('#customers-row-1')).toContainText('ada.plain@example.test');
-    await context.close();
 });
 
 test('email sorting retains the current search, pagination and Turbo history', async ({ page }) => {
@@ -134,13 +166,11 @@ test('email sorting retains the current search, pagination and Turbo history', a
 
     // Three records match: pagination is exercised while Margaret stays excluded.
     await page.getByRole('searchbox', { name: 'Search', exact: true }).fill('er');
-    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('button', { name: 'Apply', exact: true }).click());
     await expect(page).toHaveURL(/q=er/);
-    await page.getByRole('link', { name: 'Page 2', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Page 2', exact: true }).click());
     await expect(page).toHaveURL(/page=2/);
     await expect(page.locator('#customers tbody tr')).toHaveAttribute('id', 'customers-row-3');
-    await page.locator('#customers').evaluate((frame) => frame.loaded);
-    await expect(page.locator('html')).not.toHaveAttribute('aria-busy', 'true');
     await page.evaluate(() => { window.__emailSortDocument = 'original'; });
 
     const assertEmailState = async (direction, pageNumber, ids) => {
@@ -154,25 +184,22 @@ test('email sorting retains the current search, pagination and Turbo history', a
         await expect(page.getByRole('columnheader', { name: 'Email', exact: true })).toHaveAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
         await expect.poll(() => page.locator('#customers tbody tr').evaluateAll((rows) => rows.map((row) => row.id))).toEqual(ids);
         await expect(page.locator('#customers-row-4')).toHaveCount(0);
-        // DOM/URL can update before Turbo finishes promoting a frame visit to history.
-        await page.locator('#customers').evaluate((frame) => frame.loaded);
-        await expect(page.locator('html')).not.toHaveAttribute('aria-busy', 'true');
         expect(await page.evaluate(() => window.__emailSortDocument)).toBe('original');
     };
 
-    await page.getByRole('link', { name: 'Email', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Email', exact: true }).click());
     await assertEmailState('asc', 1, ['customers-row-2', 'customers-row-3']);
-    await page.getByRole('link', { name: 'Email', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Email', exact: true }).click());
     await assertEmailState('desc', 1, ['customers-row-1', 'customers-row-3']);
-    await page.getByRole('link', { name: 'Page 2', exact: true }).click();
+    await visitCustomerList(page, () => page.getByRole('link', { name: 'Page 2', exact: true }).click());
     await assertEmailState('desc', 2, ['customers-row-2']);
-    await page.goBack();
+    await visitCustomerList(page, () => page.goBack(), false);
     await assertEmailState('desc', 1, ['customers-row-1', 'customers-row-3']);
-    await page.goBack();
+    await visitCustomerList(page, () => page.goBack(), false);
     await assertEmailState('asc', 1, ['customers-row-2', 'customers-row-3']);
-    await page.goForward();
+    await visitCustomerList(page, () => page.goForward(), false);
     await assertEmailState('desc', 1, ['customers-row-1', 'customers-row-3']);
-    await page.goForward();
+    await visitCustomerList(page, () => page.goForward(), false);
     await assertEmailState('desc', 2, ['customers-row-2']);
 
     // A save on an email-sorted page keeps that context when the row moves away.

@@ -8,9 +8,8 @@
  * - the page checks are the smoke project's (tests/e2e/fixtures.ts guardPage()): a Content Security Policy
  *   violation (the demo enforces a strict policy) and a failed local request fail the test too.
  */
-import { expect, test as base, type Page } from '@playwright/test';
-import { startJsCoverage } from '../coverage';
-import { guardPage } from '../fixtures';
+import { expect, type Page } from '@playwright/test';
+import { guardedTest } from '../fixtures';
 import { previewUrl } from '../inventory';
 
 export type Theme = 'light' | 'dark';
@@ -24,9 +23,6 @@ type GotoExampleOptions = {
 
 type Fixtures = {
     gotoExample: (path: string, options?: GotoExampleOptions) => Promise<void>;
-    failOnPageErrors: void;
-    /** The status the page's own document is expected to answer with (e.g. 404 for an error page). */
-    documentStatus: number;
 };
 
 type StateOptions = {
@@ -53,23 +49,7 @@ const recipeAndExample = (path: string): [string, string] => {
 /** '<kit>/<recipe>' or '<recipe>' => '<recipe>' */
 const recipeName = (recipe: string): string => recipe.split('/').pop() as string;
 
-export const test = base.extend<Fixtures>({
-    documentStatus: [200, { option: true }],
-
-    // tests/e2e/fixtures.ts guardPage(): remote requests blocked (remote images change and load at their own pace:
-    // screenshots show a local placeholder), and the same failures as the smoke project
-    failOnPageErrors: [
-        async ({ page, baseURL, documentStatus }, use, testInfo) => {
-            const guard = await guardPage(page, baseURL);
-            guard.allowHttpError('document', documentStatus);
-            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
-            await use();
-            await stopCoverage();
-            guard.check();
-        },
-        { auto: true },
-    ],
-
+export const test = guardedTest.extend<Fixtures>({
     gotoExample: async ({ page }, use) => {
         await use(async (path, { theme = 'light', timers = 'real' } = {}) => {
             const [recipe, example] = recipeAndExample(path);

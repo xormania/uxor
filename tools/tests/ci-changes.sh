@@ -51,6 +51,7 @@ check 'contrast'                  CHANGELOG.md .github/pull_request_template.md
 check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs/NOTES.md
 # the inputs of the Composer package's generated references: Package checks their copies are up to date
 check 'contrast package'          docs/TESTING.md
+check 'contrast package'          docs/APPLICATION-TESTING.md
 check 'contrast package'          FOR-AGENTS.md
 check 'contrast package'          docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
 # docs/GUIDE.md is also the gallery's /guide (demo/src/Kit/GuideDocs.php): its PHP tests, its static export, the browser
@@ -67,7 +68,7 @@ check 'contrast'                  tools/icon-lint.mjs
 check ''                          tools/tests/icon-lint.test.mjs
 # What the lints read wherever it lies: a recipe's templates (icon-lint) and any markdown outside demo/ (docs-lint,
 # icon-lint); the demo's copies of the recipes are not read
-check "$kit_contrast prod-image"             input/templates/components/Input.html.twig
+check "$kit_contrast package prod-image"     input/templates/components/Input.html.twig
 check "$kit_contrast prod-image"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
 check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
@@ -104,7 +105,7 @@ check ''                          tools/tests/release-timings.test.mjs
 check 'contrast'                  tests/e2e/release.fuzz.spec.ts tests/e2e/release.long-session.spec.ts
 check ''                          tests/e2e/leak-detector.mjs tools/tests/leak-detector.test.mjs
 # jev.yml and metadata.yml run on their own events: actionlint; CODEOWNERS and the mentions' allowlist: Tool tests
-check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml
+check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml .github/workflows/php-analysis-comparison.yml
 check ''                          .github/CODEOWNERS .github/mention-allowlist
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
 check 'demo'                      tests/e2e/coverage.ts
@@ -182,7 +183,9 @@ check 'php static-site contrast demo prod-image' demo/src/Controller/LabControll
 check 'contrast demo'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
 check 'php static-site demo prod-image' demo/src/Demo/DataTableCollector.php
-check 'php'                       tools/phpstan.neon
+check 'php'                       tools/phpstan.neon tools/ci/phpstan/composer.json tools/ci/phpstan/composer.lock
+check ''                          tools/ci/php-analysis-comparison.py tools/ci/php-analysis-eval.py tools/ci/php-analysis-export.py
+check ''                          tools/ci/jev-php-analysis.mjs tools/tests/test_php_analysis_eval.py tools/tests/fixtures/php-analysis/return_type/bad.php
 check 'fresh-install'             tools/tests/fresh-install.sh
 check 'fresh-install'             tools/tests/install-scenario.sh
 check 'fresh-install'             tools/tests/live-action.php
@@ -235,8 +238,8 @@ check "$kit_contrast prod-image"             side-nav/assets/controllers/side_na
 check 'lint-kit php static-site contrast demo package prod-image' side-nav/README.md
 check "$kit_contrast prod-image"             kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
-check "$kit_contrast prod-image"             theme/assets/styles/uxor.css
-check "$kit_contrast prod-image"             button/templates/components/Button.html.twig
+check "$kit_contrast package prod-image"     theme/assets/styles/uxor.css
+check "$kit_contrast package prod-image"     button/templates/components/Button.html.twig
 check "$kit_contrast prod-image"             layouts/templates/layouts/app.html.twig
 # what both archives hold, the kit's and the Composer package's: the kit's jobs and Package
 check "$kit package"              .gitattributes
@@ -244,7 +247,7 @@ check "$kit package"              .gitattributes
 # its manifest: any file of a recipe runs Contrast, a README alone and a manifest alone too. Only the README and the
 # manifest are copied into the package's references (Package); a deeper README is not
 check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
-check "$kit_contrast prod-image"             data-table/src/Table/DataTable.php
+check "$kit_contrast package prod-image"     data-table/src/Table/DataTable.php
 check 'lint-kit php static-site contrast demo package prod-image' alert/README.md
 check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
@@ -262,12 +265,14 @@ check "$kit_contrast prod-image"             docs/NOTES.md kit.css
 check 'package'                   composer.json
 check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
+check 'demo package'              packages/uxor/resources/browser/diagnostics.mjs
+check 'demo package'              packages/uxor/resources/browser/diagnostics.d.mts
 check 'package'                   packages/uxor/tests/OperationsTest.php
 check 'package'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
 check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md
 check 'package'                   packages/uxor/resources/uxor/index.json
 check 'package'                   packages/uxor/bin/uxor packages/uxor/tools/check-package.py
-check 'contrast package'          packages/uxor/skills/build/SKILL.md
+check 'contrast package'          packages/uxor/skills/uxor-build/SKILL.md
 check 'contrast package'          packages/uxor/INSTRUCTIONS.md
 # the independent consumer and its development environment (packages/uxor/dev/): Package runs its checks. Its own
 # package.json and browser check are not the kit's browser suite: they run neither Contrast nor the browser job

@@ -90,12 +90,13 @@ const lines = [
     '',
     '## Start here',
     '',
-    `- [For agents](${raw}/FOR-AGENTS.md): what the kit gives you, how to set a project up, which recipe to install for what, and the rules to follow`,
-    `- [Project agents snippet](${raw}/docs/PROJECT-AGENTS-SNIPPET.md): the block to paste into a project's AGENTS.md or CLAUDE.md`,
-    `- [Install](${raw}/INSTALL.md): each setup step explained, AssetMapper or Webpack Encore`,
+    `- [For agents](${raw}/FOR-AGENTS.md): using UXor in your Symfony application: setup, recipe selection and optional development tools`,
+    `- [Project agents snippet](${raw}/docs/PROJECT-AGENTS-SNIPPET.md): optional application guidance when existing project or package-managed instructions need a short UXor entry`,
+    `- [Install](${raw}/INSTALL.md): install the kit in a Symfony application`,
     `- [README](${raw}/README.md): what the kit is, how to install it, requirements`,
     `- [Recipes](${raw}/docs/RECIPES.md): every recipe, one line each`,
     `- [Guide](${raw}/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning`,
+    `- [Application testing](${raw}/docs/APPLICATION-TESTING.md): verify your application's integration and user journeys using its own runtime and tests`,
     '',
 ];
 for (const group of groups) {
@@ -110,8 +111,8 @@ lines.push(
     '',
     `- [Changelog](${raw}/CHANGELOG.md): what each version changes`,
     `- [Security](${raw}/SECURITY.md): reporting a vulnerability`,
-    `- [Testing patterns](${raw}/docs/TESTING.md): how this repository tests Turbo, Live Components, the CSP and request limits, to reuse in an app`,
-    `- [Contributing](${raw}/CONTRIBUTING.md): changing the kit itself: layout, conventions, checks`,
+    `- [Testing patterns](${raw}/docs/TESTING.md): UXor contributor reference; adapt selected reusable patterns to an application`,
+    `- [Contributing](${raw}/CONTRIBUTING.md): developing the kit and Composer package: project boundaries, conventions and checks`,
     '',
 );
 const llms = released ?? lines.join('\n');

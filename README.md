@@ -8,15 +8,25 @@ recipe into your project, where you own it. Every behavior is a Stimulus control
 Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
 
+UXor provides two deliverables for a consuming application:
+
+- The **Toolkit kit** installs application-owned recipes through `ux:install`.
+- The optional **Composer development package**, [`xormania/uxor`](packages/uxor/README.md), provides agent guidance,
+  diagnostics and tools for using the kit; it installs no recipes.
+
+The application's own instructions, workflow and permissions govern work in it. Developing either UXor deliverable
+or the repository's demo and test fixtures follows the [contributor guide](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md).
+
 The official Symfony UX `flowbite-4` kit was an initial reference only. UXor follows its own requirements and
 compatibility commitments, with no requirement to track that kit's names, markup, behavior or tests. Toolkit
 installation support, Flowbite CSS and the icon set are current implementation choices that can evolve with UXor.
 
-![The dashboard block in the dark theme](docs/images/dashboard-dark.png)
+![The dashboard block in the dark theme](https://raw.githubusercontent.com/xormania/uxor/main/docs/images/dashboard-dark.png)
 
 ## Install
 
 Requires PHP 8.4 or later with the `zip` extension (the toolkit unpacks GitHub's archive of the kit).
+The standard setup uses AssetMapper and TailwindBundle and runs without Node.js.
 On a new project (`composer create-project symfony/skeleton`), run these once, in this order:
 
 ```bash
@@ -45,11 +55,13 @@ sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
 
-Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
-that is not released yet. [`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
+Use an explicit tagged release by default: without a revision, `ux:install` downloads the repository's default
+branch. For an explicitly requested test of unreleased work, use a full commit SHA and record it with the results.
+[Choosing a revision](INSTALL.md#choosing-a-revision) covers existing installations and updates;
+[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/main/CHANGELOG.md) lists what each version changes.
 
-`ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
-packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
+`ux:install` also installs the recipes a recipe depends on. Run the `composer require` and `importmap:require`
+commands it prints for the recipe's packages. [Installing recipes](https://github.com/xormania/uxor/blob/main/docs/GUIDE.md#installing-recipes) says more.
 
 ### Icons
 
@@ -61,14 +73,14 @@ this command and commit them; run it again when your templates use new icons:
 php bin/console ux:icons:lock
 ```
 
-## Agent tooling
+## Optional Composer development package
 
 The repository is also a Composer package, `xormania/uxor`, for the coding agent working on your project: three
 [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
 and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
 setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
 recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](packages/uxor/README.md) says how to
-install it.
+install it and integrate its package-managed consumer guidance while preserving your application's own instructions.
 
 ## Requirements
 
@@ -77,20 +89,22 @@ install it.
 | Symfony UX Toolkit | ^3.5 (blocks need 3.5) |
 | PHP | ≥ 8.4 (required by the toolkit), with the `zip` extension; `intl` for `calendar` and `date-picker` in any locale but `en` |
 | Symfony | 7.4 LTS and 8.1: CI installs the kit on both (8.1 in a fresh Symfony Docker project), and the demo and its browser tests run on 8.1 |
-| Assets | AssetMapper (`chart` also needs `chart.js` in the import map, which Flex adds; `editor` needs the Tiptap modules, which `ux:install` prints as `importmap:require` commands; `markdown-editor` needs `symfony/ux-live-component` for its preview). With Webpack Encore, override the layouts' `stylesheets` and `javascripts` blocks: they load the `app` importmap entrypoint |
+| Assets | The standard setup uses Symfony AssetMapper and StimulusBundle. `chart` needs `chart.js` in the import map (Flex adds it), and `editor` needs the Tiptap modules from the printed `importmap:require` command. `markdown-editor` needs `symfony/ux-live-component` for its preview |
 | Tailwind CSS | 4.x |
 | Flowbite | 4.x |
 
 ## Documentation
 
-- [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
-- [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
-- [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
-- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](llms.txt), and paste
-  [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
-- [`CHANGELOG.md`](CHANGELOG.md): what each version changes.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): the repository layout, the checks and the conventions.
-- [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
+- [Recipes](https://github.com/xormania/uxor/blob/main/docs/RECIPES.md): every recipe, one line each, linked to its README.
+- [Guide](https://github.com/xormania/uxor/blob/main/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
+- [`INSTALL.md`](INSTALL.md): setting up the kit in a Symfony application.
+- Agent-assisted application work: [`FOR-AGENTS.md`](https://github.com/xormania/uxor/blob/main/FOR-AGENTS.md) and [`llms.txt`](https://github.com/xormania/uxor/blob/main/llms.txt).
+  Kit-only applications may adapt the short optional [`project snippet`](https://github.com/xormania/uxor/blob/main/docs/PROJECT-AGENTS-SNIPPET.md);
+  applications using the helper can use its package-managed guidance without duplicating it.
+- [`docs/APPLICATION-TESTING.md`](https://github.com/xormania/uxor/blob/main/docs/APPLICATION-TESTING.md): verify UXor's integration in your application.
+- [`CHANGELOG.md`](https://github.com/xormania/uxor/blob/main/CHANGELOG.md): what each version changes.
+- Developing UXor: [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md) and [`AGENTS.md`](https://github.com/xormania/uxor/blob/main/AGENTS.md) govern work on the kit,
+  package and repository fixtures; [`docs/TESTING.md`](https://github.com/xormania/uxor/blob/main/docs/TESTING.md) describes their tests and CI.
 
 ## License
 

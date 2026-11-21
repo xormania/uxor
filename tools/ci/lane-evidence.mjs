@@ -12,7 +12,7 @@
  * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
  *   fingerprint --sha <rev>
- *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch|engines]
+ *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|pull_request|daily|dispatch|engines]
  *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
  *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--summary <f>] [--github-output <f>]
@@ -169,15 +169,16 @@ function api(ctx) {
             // answered already by the plan's concurrent prefetch
             if (ctx.cache?.has(path)) return ctx.cache.get(path);
             for (let attempt = 0; ; attempt++) {
-                if (Date.now() > ctx.deadline) throw new Refused('lookup_error', 'the lookup ran out of time');
+                const remaining = ctx.deadline - Date.now();
+                if (remaining <= 0) throw new Refused('lookup_error', 'the lookup ran out of time');
                 ctx.calls++;
-                const result = spawnSync(ctx.gh, ['api', path], { encoding: 'buffer', maxBuffer: 1 << 26, timeout: 20000 });
+                const result = spawnSync(ctx.gh, ['api', path], { encoding: 'buffer', maxBuffer: 1 << 26, timeout: Math.min(20000, remaining) });
                 if (result.status === 0) return result.stdout;
                 const error = (result.stderr ?? '').toString().trim() || 'failed';
                 const status = Number(error.match(/HTTP (\d{3})/)?.[1]);
                 const permanent = status >= 400 && status < 500 && status !== 429;
                 if (permanent || attempt >= ctx.retries) throw new Refused('lookup_error', `gh api ${path}: ${error}`);
-                sleep(ctx.retryDelay * 2 ** attempt);
+                sleep(Math.max(0, Math.min(ctx.retryDelay * 2 ** attempt, ctx.deadline - Date.now())));
             }
         },
         object(path) {
@@ -538,7 +539,7 @@ async function planCommand(opts) {
     const ctx = context(opts, 0);
     const client = api(ctx);
     const event = opts.event ?? 'push';
-    if (!['push', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, daily, dispatch or engines');
+    if (!['push', 'pull_request', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, pull_request, daily, dispatch or engines');
     const enginesOn = opts['engines-on'] ?? 'daily';
     if (!['daily', 'every-push'].includes(enginesOn)) usage('--engines-on is daily or every-push');
     const selected = Object.fromEntries(readFileSync(opts.selection, 'utf8').split('\n').filter(Boolean).map((line) => {
@@ -622,8 +623,8 @@ async function planCommand(opts) {
  * Release checks' requirement. With --sha: exit 0 when the lane has a pass at this commit that verifies, 1 otherwise.
  * With --merge (a pull request's merge commit) and --github-output: the head is the merge's second parent; a merge that
  * tests another tree than its head gets `<lane>=tree: …` (no pass on the head can stand for it), else `<lane>=pass` or
- * `<lane>=missing: …`, and the exit status is 0. What to check and the verdict both run it, so one rule decides, and a
- * re-run of the verdict alone ("Re-run failed jobs") sees evidence that arrived since What to check ran.
+ * `<lane>=missing: …`, and the exit status is 0. The release verdict can wait for an engines-only dispatch on the
+ * event's head. A workflow run can report why the wait failed, but only the verified marker can supply a pass.
  */
 function requireCommand(opts) {
     need(opts, 'lane', 'repo');
@@ -648,13 +649,21 @@ function requireMerge(opts) {
     const out = (value) => writeOutputs(opts['github-output'], { [opts.lane]: value.replace(/[\r\n]+/g, ' ') });
     const parents = git(dir, ['rev-list', '--parents', '-n', '1', opts.merge]).stdout.toString().trim().split(' ').slice(1);
     const head = parents.length === 2 ? parents[1] : null;
-    const tree = (rev) => git(dir, ['rev-parse', `${rev}^{tree}`]).stdout.toString().trim();
-    if (!head || tree(opts.merge) !== tree(head)) {
+    const tree = (rev) => git(dir, ['rev-parse', '--verify', `${rev}^{tree}`]).stdout.toString().trim();
+    if (opts.head !== undefined && head !== opts.head) {
+        const line = `the merge's head ${head ?? 'unknown'} differs from the pull request event's head ${opts.head}`;
+        console.log(`${opts.lane}: ${line}`);
+        out(`tree: ${line}`);
+        return;
+    }
+    const mergeTree = tree(opts.merge);
+    if (!head || !mergeTree || mergeTree !== tree(head)) {
         const line = `the merge tests another tree than the head ${head ?? 'unknown'} (main has commits the branch lacks)`;
         console.log(`${opts.lane}: ${line}`);
         out(`tree: ${line}`);
         return;
     }
+    if (opts['wait-seconds'] !== undefined) return waitForEngines(opts, head, out);
     const ctx = context(opts, 2);
     const client = api(ctx);
     try {
@@ -667,6 +676,81 @@ function requireMerge(opts) {
         console.log(line);
         out(`missing: ${line}`);
     }
+}
+
+function engineDispatch(client, ctx, opts, head) {
+    const root = `repos/${ctx.repo}/actions`;
+    const requested = Number(opts['run-id']);
+    const matches = (run) => isObject(run) && Number.isSafeInteger(run.id) && (!requested || run.id === requested)
+        && run.head_sha === head && run.head_branch === opts.branch && run.path === WORKFLOW
+        && run.event === 'workflow_dispatch' && run.display_title === 'CI: Firefox and WebKit only'
+        && run.repository?.full_name === ctx.repo && run.head_repository?.full_name === ctx.repo;
+    if (requested) {
+        const run = client.object(`${root}/runs/${requested}`);
+        if (!matches(run)) return { detail: `run ${requested} does not belong to the release's engine dispatch` };
+        return { run };
+    }
+    const listing = client.object(`${root}/workflows/ci.yml/runs?branch=${encodeURIComponent(opts.branch)}&event=workflow_dispatch&head_sha=${head}&per_page=20`);
+    if (!Array.isArray(listing.workflow_runs)) throw new Refused('lookup_error', 'the dispatch listing has no workflow runs');
+    const since = time(opts.since);
+    const run = listing.workflow_runs.filter((item) => matches(item) && time(item.created_at) >= since)
+        .sort((a, b) => time(b.created_at) - time(a.created_at) || b.id - a.id)[0];
+    return { run };
+}
+
+function waitForEngines(opts, head, out) {
+    const seconds = Number(opts['wait-seconds']);
+    const poll = Number(opts['wait-poll-ms'] ?? 10000);
+    if (opts.lane !== 'engines' || opts.head !== head || !opts.branch
+        || !Number.isInteger(seconds) || seconds < 1 || seconds > 1200
+        || !Number.isInteger(poll) || poll < 1 || poll > 30000
+        || (opts['run-id'] === undefined ? Number.isNaN(time(opts.since)) : opts.since !== undefined || !/^[1-9]\d*$/.test(opts['run-id']) || !Number.isSafeInteger(Number(opts['run-id'])))) {
+        usage('waiting requires --lane engines, the PR --head, --branch, --wait-seconds 1..1200 and a --run-id or --since');
+    }
+    const deadline = Date.now() + seconds * 1000;
+    const fp = fingerprints(opts['git-dir'] ?? '.', head).engines;
+    let detail = 'the engine dispatch is not visible yet';
+    let observed = '';
+    while (Date.now() < deadline) {
+        const ctx = context(opts, 0);
+        ctx.deadline = Math.min(ctx.deadline, deadline);
+        const client = api(ctx);
+        try {
+            const evidence = qualify(client, ctx, 'engines', fp);
+            console.log(`engines: passed by run ${evidence.run_id} attempt ${evidence.run_attempt} on ${evidence.head_sha} ${evidence.url}`);
+            out('pass');
+            return;
+        } catch (error) {
+            const refused = refusal(error);
+            detail = `${refused.reason}: ${refused.message}`;
+        }
+        try {
+            const dispatch = engineDispatch(client, ctx, opts, head);
+            if (dispatch.detail) {
+                out(`incomplete: ${dispatch.detail}`);
+                return;
+            }
+            const run = dispatch.run;
+            if (run?.status === 'completed' && run.conclusion && run.conclusion !== 'success') {
+                const jobs = laneJobs('engines', runJobs(client, ctx, run));
+                // Another lane can fail the workflow even when engines passed and recorded a marker that is not visible yet.
+                if (jobs.length !== expected('engines', ctx.chromiumShards) || jobs.some((job) => job.conclusion !== 'success')) {
+                    const failed = jobs.some((job) => Array.isArray(job.steps) && job.steps.some((step) => String(step?.name).startsWith(TESTS_STEP)
+                        && ['failure', 'timed_out'].includes(step.conclusion)));
+                    const url = `https://github.com/${opts.repo}/actions/runs/${run.id}`;
+                    out(failed ? `failed: Firefox or WebKit tests failed in ${url}` : `incomplete: ${url} ended with ${run.conclusion} before producing a verified engine pass`);
+                    return;
+                }
+            }
+            const status = run ? `engine dispatch ${run.id}: ${run.conclusion ?? run.status}` : 'the engine dispatch is not visible yet';
+            if (observed !== status) console.log(`engines: ${status}`);
+            observed = status;
+        } catch (error) {
+            detail = refusal(error).message;
+        }
+        sleep(Math.max(0, Math.min(poll, deadline - Date.now())));
+    }
+    out(`timed_out: after waiting ${seconds} seconds for verified engine evidence (${observed || 'dispatch not observed'}; ${detail})`);
 }
 
 /** the browser shards' counts, from the results.json of each shard artifact of those browsers (playwright-results-<browser>-<n>) */

@@ -4,7 +4,8 @@
 # `<job>=true|false` line per job of .github/workflows/ci.yml, for $GITHUB_OUTPUT. A job is skipped only when none of
 # the paths could change what it checks. A path not listed counts as part of the kit, which runs every job but
 # Contrast, Workflows and Package (a recipe's templates and markdown run Contrast too, its README.md and manifest.json
-# Package too: the package's generated references copy them). A workflow runs Workflows
+# Package too: the package's generated references copy them). Recipe inputs of the customer workflow also select
+# Package. A workflow runs Workflows
 # (actionlint) and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed
 # runs everything. Tool tests runs on every push, so a file only it reads selects no job; it also checks the package's
 # references, its archive and the test inventory, which a renamed or added file anywhere can break.
@@ -21,6 +22,43 @@ for job in "${jobs[@]}"; do run[$job]=false; done
 all() { for job in "${jobs[@]}"; do run[$job]=true; done; }
 on() { for job in "$@"; do run[$job]=true; done; }
 
+consumer_recipe_inputs() {
+    local roots manifest entries recipe kind value index
+    local -a queue
+    local -A seen=()
+    roots=packages/uxor/dev/workflow-recipes.json
+    [ -f "$roots" ] && [ ! -L "$roots" ] || return 1
+    entries=$(jq -er '.[]' "$roots") || return 1
+    mapfile -t queue <<< "$entries"
+    for ((index=0; index<${#queue[@]}; index++)); do
+        recipe=${queue[index]}
+        [[ $recipe =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || return 1
+        [ -z "${seen[$recipe]:-}" ] || continue
+        seen[$recipe]=1
+        manifest=$recipe/manifest.json
+        [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
+        entries=$(jq -r '
+            def canonical_source:
+                if length == 0 or startswith("/") or contains("\\") or test("(^|/)\\.\\.(/|$)|^[A-Za-z]:")
+                then error("invalid copy-files source")
+                else split("/") | map(select(. != "" and . != ".")) | join("/") end;
+            (."copy-files" // {} | keys[] | ["source", canonical_source] | @tsv),
+            (.dependencies.recipe // [] | .[] | ["dependency", .] | @tsv)
+        ' "$manifest") || return 1
+        while IFS=$'\t' read -r kind value; do
+            case "$kind" in
+                source)
+                    [[ $value != *\\* ]] || return 1
+                    if [ -z "$value" ]; then printf '%s\n' "$recipe"
+                    else printf '%s/%s\n' "$recipe" "$value"; fi
+                    ;;
+                dependency) queue+=("$value") ;;
+            esac
+        done <<< "$entries"
+    done
+}
+
+consumer_inputs=
 while IFS= read -r path; do
     [ -n "$path" ] || continue
     case "$path" in
@@ -35,7 +73,7 @@ while IFS= read -r path; do
         # render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production image
         # serves its own copy
         docs/GUIDE.md) on php static-site demo contrast package prod-image ;;
-        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
+        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | docs/APPLICATION-TESTING.md | FOR-AGENTS.md) on contrast package ;;
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
 
@@ -62,7 +100,7 @@ while IFS= read -r path; do
         .github/workflows/release-checks.yml) on workflows ;;
         # jev.yml and metadata.yml run on their own events, never in CI: actionlint only. CODEOWNERS and the mentions'
         # allowlist are read by Tool tests (the security policy, the mention check's cases), on every run
-        .github/workflows/jev.yml | .github/workflows/metadata.yml) on workflows ;;
+        .github/workflows/jev.yml | .github/workflows/metadata.yml | .github/workflows/php-analysis-comparison.yml) on workflows ;;
         .github/CODEOWNERS | .github/mention-allowlist) ;;
         .github/*) all ;;
 
@@ -72,6 +110,8 @@ while IFS= read -r path; do
         # file is export-ignored and only the package installs from it. .gitattributes decides what both archives hold.
         # The package's markdown runs Contrast too (the markdown rule below); .gitattributes, another directory under
         # packages/ and the references' inputs in the kit are below, with the kit.
+        # The demo's Playwright fixtures also import the browser recorder shipped by the package.
+        packages/uxor/resources/browser/*) on package demo ;;
         composer.json) on package ;;
         composer.lock | packages/uxor/*) on package ;;
 
@@ -106,7 +146,9 @@ while IFS= read -r path; do
         tools/tests/install-scenario.sh) on fresh-install ;;
         tools/tests/live-action.php | tools/tests/fixtures/fresh-app/*) on fresh-install ;;
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
-        tools/phpstan.neon) on php ;;
+        tools/phpstan.neon | tools/ci/phpstan/composer.json | tools/ci/phpstan/composer.lock) on php ;;
+        # The separate PHP analysis comparison workflow exercises its collector, fixtures and exporter.
+        tools/ci/php-analysis-*.py | tools/ci/jev-php-analysis.mjs | tools/tests/test_php_analysis*.py | tools/tests/fixtures/php-analysis/*) ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
         # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
         # every run, also runs ci-metrics.mjs and the shard plan's timings
@@ -215,6 +257,20 @@ while IFS= read -r path; do
                 .gitattributes | packages/* | manifest.json) on package ;;
             esac
             if [[ $path =~ ^[^/]+/manifest\.json$ ]]; then on package; fi
+            if [[ $path == */* && -f "${path%%/*}/manifest.json" && ${run[package]} == false ]]; then
+                if [ -z "$consumer_inputs" ]; then
+                    consumer_inputs=$(consumer_recipe_inputs 2>/dev/null) || consumer_inputs='*'
+                fi
+                # The base's classifier treats the candidate manifests as data. If it cannot read the recipe graph,
+                # run Package for recipe changes instead of guessing which payload the consumer may install.
+                if [ "$consumer_inputs" = '*' ]; then
+                    on package
+                else
+                    while IFS= read -r source; do
+                        if [[ $path == "$source" || $path == "$source/"* ]]; then on package; break; fi
+                    done <<< "$consumer_inputs"
+                fi
+            fi
             ;;
     esac
 

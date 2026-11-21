@@ -158,8 +158,8 @@ toolbar and the pager wrap, and a table wider than the screen scrolls sideways i
 The search, filters and page size apply when the form is submitted (the Apply button, or Enter in the search field).
 After Back or Forward, the form shows the state of the URL on screen, never an edit made before leaving: its
 `data-table` controller resets the fields to the values the server rendered when a copy Turbo restores connects.
-Back pressed while a change is still loading drops the change: the URL, the rows and the controls stay those of the
-entry Back went to.
+Back or Forward cancels a pending change when history navigation starts. Even if a page link has already changed
+the URL and its frame is still rendering, the rows and controls match the history entry you chose.
 
 Changing the search, a filter, the sort or the page size goes back to the first page.
 

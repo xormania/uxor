@@ -1,9 +1,16 @@
 # UXor package: development consumer and environment
 
-`packages/uxor/dev/` is where UXor's Composer package, `xormania/uxor`, is developed and checked from the side of
-an application that uses it. It is not part of the archive that Composer and `ux:install` download
-(`.gitattributes`). [CONTRIBUTING](../../../CONTRIBUTING.md) describes branches, reviews and checks. The
-[package README](../README.md) describes the package.
+`packages/uxor/dev/` is a repository-only test harness for UXor's Composer package, `xormania/uxor`, exercised
+through an independent consuming application in `app/`. It is separate from the recipe demo in `demo/` and is
+excluded from the archive that Composer and `ux:install` download (`.gitattributes`).
+[Project boundaries](../../../CONTRIBUTING.md#project-boundaries) explains the contributor and consumer contexts;
+[local agent guidance](AGENTS.md) applies while working on this fixture. The [package README](../README.md)
+describes the product consumers install.
+
+This fixture follows UXor's contribution policies because it is part of UXor's development repository. Its installed
+package guidance describes application integration; it does not impose UXor's contribution, publication or release
+policies on real consuming projects. Use this harness's runner and application runtime, not the demo's dependencies,
+cache or Mate profiles.
 
 ## Three roots
 
@@ -20,9 +27,10 @@ matching `require-dev` constraint together. The installed package is a symbolic 
 `vendor/xormania/uxor` inside the consumer leads back to the checkout: tools that follow links must not walk into
 `packages/uxor/dev/app/vendor/`.
 
-The consumer has no database and no paths into the kit's recipes. It starts on Symfony 7.4 and Symfony UX 3.5.1
-with PHP 8.4 or later (its `config.platform.php` is 8.4.1); the Docker environment runs PHP 8.5. A version is
-supported once CI runs it, not because an environment defines it.
+The consumer has no database and no direct source-path wiring to the kit's recipes. The customer workflow below
+installs recipe copies through Toolkit. Its lock installs Symfony FrameworkBundle 8.1.11
+and Symfony UX Toolkit 3.7.1. It requires PHP 8.4 or later (`config.platform.php` is 8.4.1), and the Docker
+environment runs PHP 8.5. CI's *Fresh install* job exercises the kit on Symfony 7.4 with Toolkit 3.5.1.
 
 The runner, `run.py`, receives the three roots from its own location: the repository root is what Docker mounts at
 `/workspace` and what Serena binds; commands run in `/workspace/packages/uxor/dev/app`.
@@ -49,11 +57,11 @@ are paths, not shell commands. `prepare --no-assets` skips the importmap downloa
 a private development secret), warms the container, runs Mate's `init` and then `discover`. Repeating `init` keeps
 its existing configuration. Commit intentional lock file changes with the change that needs them.
 
-## Docker development (xorder images)
+## Docker development
 
-Requires Python 3.9 or later, Git, a working Docker engine with Compose v2, and access to the registry and to
-Composer's sources. The images are `linux/amd64` xorder images pinned by digest in `xorder-support.lock.json` (PHP
-and FrankenPHP) and `serena-support.lock.json` (Serena).
+The Docker runner uses Python, Git and Docker with Compose v2. UXor builds the PHP and editor images locally
+from [the FrankenPHP recipe](images/php/Dockerfile) and [the Serena recipe](images/serena/Dockerfile). Preparing a new environment downloads the pinned upstream inputs and the
+application's Composer dependencies.
 
 ```sh
 python3 packages/uxor/dev/run.py up
@@ -64,24 +72,10 @@ python3 packages/uxor/dev/run.py exec vendor/bin/mate tools:list --format=json
 python3 packages/uxor/dev/run.py down
 ```
 
-The first use fetches the reviewed xorder revision named in `run.py` (`XORDER_REVISION`) into the ignored
-`packages/uxor/dev/.tools/xorder`; `XORDER_DIR` can select an existing clean checkout at that revision instead. The
-runner uses xorder's support checker and Serena launcher as they are: no provider code is copied here.
-
-Before a pull, the support checker fetches the current release policy; before project commands, it checks the image
-identities Docker reports, and commands against a running stack check the running containers too.
-`XORDER_SUPPORT_POLICY_FILE` can select a recently fetched receipt under xorder's
-[freshness rules](https://github.com/xormania/xorder/blob/97cb40b083f4ccf16148355c4e785ed0c6e4b00a/docs/downstream-support.md).
-Online checks run the provider's policy fetch first and then check the completed receipt: the pinned provider's
-direct online loader rejects a receipt it has just fetched. Each check writes its receipt to a private temporary file
-and removes it. Update the release group and the image selections together; a cached image does not extend support.
-
-The stack serves FrankenPHP with this directory's `Caddyfile`, on a loopback port, with a Compose project and volumes
-per worktree. It mounts the whole repository (`../../..`) at `/workspace`, so the consumer's path repository reaches
-the package's root inside the container too. Composer's downloads persist in the stack's home volume; installed
-dependencies and the compiled container belong to the checkout, so never share another worktree's `vendor/`. The
-runner does not start Docker, provide registry credentials or relay a host-only proxy, and mounts neither a home
-directory nor the Docker socket. `down` and `status` keep working when a support group expires.
+The stack serves FrankenPHP with this directory's `Caddyfile` on a loopback port. Each worktree has its own
+Compose project, port and cache. The repository mounts at `/workspace` so the consumer's Composer path repository
+can resolve UXor. Installed dependencies and compiled application files belong to the checkout user. Run
+`down` from the same checkout to stop its stack.
 
 ## Commands in the consumer
 
@@ -114,7 +108,50 @@ cd packages/uxor/dev && npm ci && npx playwright install chromium && npm run tes
 ```
 
 The browser check (`e2e/customer-workflow.spec.mjs`, `playwright.config.mjs`, `package.json`) belongs to the
-consumer, separate from the kit's browser suite at the repository root. Then, without development dependencies:
+consumer, separate from the kit's browser suite at the repository root. It loads the diagnostics fixture from the
+consumer's installed UXor package.
+
+To reproduce the customer workflow check in the [Package job](../../../.github/workflows/ci.yml), run from the root
+of a disposable Ubuntu worktree with Node.js 22. The runner installs the fixture and recipes, runs the customer
+browser suite, then removes the fixture's dev dependencies and checks that `/customers` still renders in production.
+
+```sh
+(cd packages/uxor/dev && npm ci && npx playwright install --with-deps chromium) &&
+    bash packages/uxor/dev/check-workflow.sh
+```
+
+### Browser diagnostics
+
+After preparing the customer workflow, run a targeted headless Chromium check from `packages/uxor/dev`:
+
+```sh
+npm run test:workflow:diagnostics -- -g 'a saved row leaving the active search'
+```
+
+The diagnostic run retains `trace.zip` and `browser-diagnostics.json` for each test under `app/var/browser-diagnostics`,
+including passes. Read the selected manifest through the installed UXor tools. Pass the path relative to `app/`:
+
+```sh
+artifact=var/browser-diagnostics/TEST_OUTPUT_DIRECTORY/browser-diagnostics.json
+python3 run.py --native exec vendor/bin/mate tools:call uxor_browser_diagnostics --path="$artifact" --format=json
+python3 run.py --native exec php vendor/bin/uxor browser-diagnostics "$artifact" --format=json
+```
+
+Read an exact response's Symfony profile through the same PHP runtime that served the application:
+
+```sh
+token=TOKEN_FROM_BROWSER_DIAGNOSTICS
+python3 run.py --native exec vendor/bin/mate tools:call symfony-profiler-get --token="$token" --format=json
+```
+
+The diagnostic command starts its own profiled PHP server by default. To use an existing server, start it with
+`PROFILER_COLLECT=1` on `run.py --native serve` or `run.py up` and set `UXOR_DEV_BASE_URL` to the URL reported by
+`run.py status` in the same mode. Omit `--native` from the Mate command for the Docker stack. Profile collection is
+off by default in the app and the ordinary browser check.
+
+### Verify without development dependencies
+
+From the repository root:
 
 ```sh
 composer install --working-dir=packages/uxor/dev/app --no-dev --prefer-dist --no-interaction
@@ -132,7 +169,9 @@ python3 /absolute/path/to/uxor/packages/uxor/dev/run.py serena --write
 ```
 
 Omit `--write` to inspect only. Starting MCP pulls no image. Each worktree has its own index and project binding:
-Serena binds the repository root, so the kit, the package and the consumer are one project, and the consumer is at
+Serena can read the entire checkout, including ignored files. With `--write` it can edit the entire checkout.
+PHPactor indexes PHP, and the optional editor image supplies Node.js for TypeScript and JavaScript navigation.
+The kit, package and consumer share one project, and the consumer is at
 `packages/uxor/dev/app`. Install the dependencies before indexing.
 
 `python3 packages/uxor/dev/check-serena.py` collects real provider evidence after `prepare`: PHP symbol lookup,
@@ -162,14 +201,9 @@ Stimulus names need a text search too, so an empty references result does not pr
 | The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
 | This commit's archive in an independent consumer: install, Mate, update, no-dev render | `python3 packages/uxor/tools/check-package.py --consumer` | *Package* |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
-| The customer workflow in a browser, then without development dependencies | *The customer workflow* above | not yet |
-| The Docker stack, its support identity and Serena | `run.py up`, `status`, `check`, then `check-serena.py --package` | not yet |
+| The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the [browser setup](#the-customer-workflow) | *Package* |
+| The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
+| The Docker stack and the editable Serena session | `run.py up`, `status`, `check`, `run.py serena --prepare`, then `check-serena.py --package` | *Development images* |
 
 `check` lints the container and the Twig templates, lists Mate's tools and asks Mate about the compiled controller
 service; `status` gets a real health response. Neither one replaces the browser journey or the archive install.
-
-The environment builds on [xorder](https://github.com/xormania/xorder/blob/97cb40b083f4ccf16148355c4e785ed0c6e4b00a/README.md)'s
-resource selection, prepared images and support checks, and on its
-[Serena notes](https://github.com/xormania/xorder/blob/97cb40b083f4ccf16148355c4e785ed0c6e4b00a/docs/serena.md). It
-came from the former companion repository, `xormania/uxorscient` at `614aa28` (history only: that name is no longer
-used).

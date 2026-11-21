@@ -1,15 +1,17 @@
 # Guide
 
 How to install, update and use the kit's recipes once your project is set up as the [README](../README.md#install)
-says.
+says. This guide is for the consuming application: use its instructions, runtime and existing configuration.
+Its installed recipe files belong to the application. Contributing changes to UXor itself follows
+[CONTRIBUTING.md](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md#project-boundaries).
 
 ## Installing recipes
 
-`ux:install` also installs the recipes a recipe depends on. It then prints the commands that install the
-packages they need: run the `composer require` one. The `importmap:require` and `npm install` lines are for
-Flowbite's stylesheet, already installed if you followed [`INSTALL.md`](../INSTALL.md). `ux:install dashboard-home`,
-for instance, brings the layouts and every component the dashboard uses, but not the `theme`. Its README shows the
-controller and template that render it.
+`ux:install` also installs the recipes a recipe depends on. Run the printed `composer require` and
+`importmap:require` commands for the recipe's packages. If the importmap command repeats the Flowbite stylesheet
+from [setup](../INSTALL.md), run it for any additional packages it lists, such as the editor's Tiptap modules.
+`ux:install dashboard-home` brings the layouts and every component the dashboard uses.
+Install the `theme` during setup and use the dashboard recipe's README for the controller and template.
 
 With [Symfony Docker](https://github.com/dunglas/symfony-docker), run every `composer` and `php bin/console`
 command of the [README](../README.md#install) and of [`INSTALL.md`](../INSTALL.md) inside the container, from the
@@ -18,8 +20,8 @@ has the `zip` extension. CI installs the kit this way, in a fresh Symfony Docker
 
 ## Updating
 
-Recipes are copies you own, so an update is a change you review like any other. Commit first, then reinstall
-the recipe from the newer version with `--force`:
+Recipes are copies you own, so an update is a change you review like any other. Preserve local changes using
+the application's normal workflow, then reinstall the recipe from the newer version with `--force`:
 
 ```bash
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
@@ -113,12 +115,21 @@ unchecked. On top of escaping, the components check what shapes their markup:
 
 `tests/e2e/hostile-props.spec.ts` renders each of these props with hostile values and checks what the browser parses.
 The kit's demo enforces a strict Content Security Policy, and every browser test fails on a violation. Report a
-vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/0.3.2/SECURITY.md).
+vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/0.3.5/SECURITY.md).
+
+## Verification
+
+Check the application's actual integration and changed user journey with
+[Testing an application using UXor](APPLICATION-TESTING.md). The demo is UXor's fixture; its setup and test commands
+are examples for contributors, not the consuming application's environment.
 
 ## Versioning
 
-Versions are git tags `X.Y.Z`, without a `v`: GitHub names the archive of a `v1.2.3` tag `uxor-1.2.3`,
-which the toolkit then cannot find. Install one with `--kit=https://github.com/xormania/uxor:<version>`, the latest
-release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
+Versions are git tags `X.Y.Z`, without a `v`, for compatibility with supported Toolkit versions.
+The maintainer chooses each release number and may skip unused numbers. UXor's `0.x` interfaces are still in
+development; read the release notes for changes and migration needs. Install with
+`--kit=https://github.com/xormania/uxor:<version>`, choosing the latest release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
 default branch, which can hold work that is not released yet.
-[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.2/CHANGELOG.md) lists what each version changes.
+For explicitly requested testing of unreleased work, select the intended source revision deliberately and record
+its resolved commit; do not treat it as a published release or rely on an unrecorded moving default.
+[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md) lists what each version changes.

@@ -289,11 +289,52 @@ test('requires SECURITY to support the latest released series', () => {
     assert.match(supportProblems(changelog, '| 0.1.x | yes |\n').join('\n'), /0\.2\.x/);
 });
 
-test('requires xormania to own the repository and every security-policy path', () => {
-    const all = ['*', '/.github/', '/AGENTS.md', '/SECURITY.md', '/tools/security-policy.mjs', '/tools/security-sinks.json', '/tools/tests/security-policy.test.mjs'];
-    assert.deepEqual(codeownerProblems(all.map((path) => `${path} @xormania`).join('\n')), []);
-    assert.match(codeownerProblems('* @someone-else\n').join('\n'), /must require review from @xormania/);
-    assert.match(codeownerProblems(`${all.map((path) => `${path} @xormania`).join('\n')}\n** @someone-else\n`).join('\n'), /override ownership/);
+test('component ownership may differ while the final trust-control block retains the root maintainers', () => {
+    const protectedPaths = [
+        '/.github/',
+        '/AGENTS.md',
+        '/SECURITY.md',
+        '/tools/security-policy.mjs',
+        '/tools/security-sinks.json',
+        '/tools/tests/security-policy.test.mjs',
+    ];
+    const policy = (maintainers, components = []) => [
+        `* ${maintainers}`,
+        ...components,
+        ...protectedPaths.map((path) => `${path} ${maintainers}`),
+    ].join('\n');
+
+    assert.deepEqual(codeownerProblems(policy('@xormania')), []);
+    assert.deepEqual(codeownerProblems(policy('@example/maintainers', [
+        '/button/ @example/components',
+        '/docs/ @documentation-owner',
+    ])), []);
+    assert.deepEqual(codeownerProblems(policy('@maintainer-one @maintainer-two', [
+        '*.twig @template-owner',
+    ])), []);
+
+    assert.deepEqual(codeownerProblems(policy('@maintainer-one @maintainer-two')
+        .replace('/AGENTS.md @maintainer-one @maintainer-two', '/AGENTS.md @maintainer-two @maintainer-one')), [],
+    'the protected owner set is independent of ordering');
+
+    const valid = policy('@example/maintainers', ['/button/ @example/components']);
+    const cases = [
+        ['missing root rule', valid.replace(/^\* .*?\n/, ''), /root \*/],
+        ['duplicate root rule', `${valid}\n* @another-owner\n`, /exactly one root/],
+        ['root rule after a component rule', `/calendar/ @calendar-owner\n${valid}`, /first rule/],
+        ['empty component ownership', policy('@example/maintainers', ['/button/']), /must have owners/],
+        ['missing protected rule', valid.replace('/AGENTS.md @example/maintainers\n', ''), /protected ownership rule for \/AGENTS\.md/],
+        ['duplicate protected rule', `${valid}\n/AGENTS.md @example/maintainers\n`, /exactly one protected/],
+        ['protected rule adds a non-maintainer', valid.replace('/AGENTS.md @example/maintainers', '/AGENTS.md @example/maintainers @component-owner'), /only by the root maintainers/],
+        ['protected rule drops a maintainer', valid.replace('/AGENTS.md @example/maintainers', '/AGENTS.md @component-owner'), /retain the root maintainer/],
+        ['one of two maintainers is dropped', policy('@maintainer-one @maintainer-two')
+            .replace('/AGENTS.md @maintainer-one @maintainer-two', '/AGENTS.md @maintainer-one'), /retain the root maintainer/],
+        ['later broad override', `${valid}\n** @another-owner\n`, /final block/],
+        ['later workflow override', `${valid}\n/.github/workflows/ @another-owner\n`, /final block/],
+    ];
+    for (const [name, source, expected] of cases) {
+        assert.match(codeownerProblems(source).join('\n'), expected, name);
+    }
 });
 
 test('keeps prompt-injection, credential and policy-check instructions in AGENTS', () => {

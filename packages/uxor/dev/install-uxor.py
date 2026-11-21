@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[3]
 APP = Path(__file__).resolve().parent / 'app'
 KIT_NAME = 'uxor-candidate'
 KITS = APP / 'vendor/symfony/ux-toolkit/kits'
-RECIPES = ('theme', 'data-table', 'modal', 'toast', 'form-theme')
+RECIPES = json.loads(Path(__file__).with_name('workflow-recipes.json').read_text())
 MARKER = APP / 'var/workflow-uxor.json'
 
 
@@ -57,7 +57,7 @@ def installed_files() -> dict[str, str]:
 
 def main() -> None:
     revision = candidate_revision()
-    expected = {'repository': 'https://github.com/xormania/uxor', 'revision': revision, 'recipes': list(RECIPES)}
+    expected = {'repository': 'https://github.com/xormania/uxor', 'revision': revision, 'recipes': RECIPES}
     if MARKER.exists():
         recorded = json.loads(MARKER.read_text())
         if any(recorded.get(key) != value for key, value in expected.items()):

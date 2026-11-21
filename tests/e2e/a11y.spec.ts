@@ -1,5 +1,5 @@
 import { test, expect, expectA11y, controllersConnected, stubPreviewFrames } from './fixtures';
-import { examples, recipes } from './inventory';
+import { demoRoutePaths, examples, recipes } from './inventory';
 import { lowContrastText } from './contrast';
 
 // Every page of the demo: the shell pages, every lab scenario, and every README example in both themes.
@@ -11,14 +11,7 @@ const pages = [
     '/guide',
     '/forms',
     '/forms/parity',
-    '/demo',
-    '/demo/login',
-    '/demo/signup',
-    '/demo/forgot-password',
-    '/demo/settings/profile',
-    '/demo/settings/notifications',
-    '/demo/settings/billing',
-    '/demo/blank',
+    ...demoRoutePaths.filter((path) => path !== '/demo/not-found'), // demo-app.spec.ts checks the 404 page with axe
     '/lab',
     ...labPages.map((name) => `/lab/${name}`),
     ...recipes.map((recipe) => `/r/${recipe}`),

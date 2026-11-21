@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Demo instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+@../AGENTS.md
 
 <!-- BEGIN AI_MATE_AGENTS_IMPORT -->
 @AGENTS.md

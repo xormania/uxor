@@ -239,6 +239,7 @@ else
             check runtime "PHP extension $ext" grep -qx "$ext\|zend $ext" <<<"$modules"
         done
         check runtime 'no Xdebug' bash -c '! grep -qx xdebug <<<"$1"' _ "$modules"
+        check runtime 'no Node.js or npm executable' docker exec "$container" sh -c '! command -v node && ! command -v npm'
         check runtime 'frankenphp runs' docker exec "$container" frankenphp version
         dev_packages="$(php -r 'echo implode(" ", array_keys(json_decode(file_get_contents($argv[1]), true)["require-dev"] ?? []));' "$root/demo/composer.json" 2>/dev/null \
             || jq -r '."require-dev" // {} | keys | join(" ")' "$root/demo/composer.json")"

@@ -30,6 +30,7 @@ final class ReferenceBundleTest extends TestCase
             'docs/GUIDE.md' => "# Guide\n\n[Component](../button/README.md)\n",
             'docs/RECIPES.md' => "# Recipes\n\n## Basic components\n\n| Install | Description |\n|---|---|\n| [`button`](../button/README.md) | A useful button. |\n",
             'docs/PROJECT-AGENTS-SNIPPET.md' => "# Project guidance\n",
+            'docs/APPLICATION-TESTING.md' => "# Application tests\n\n[Patterns](TESTING.md)\n",
             'docs/TESTING.md' => "# Tests\n",
             'LICENSE' => "MIT fixture license\n",
             'NOTICE' => "Fixture notice\n",
@@ -81,10 +82,12 @@ final class ReferenceBundleTest extends TestCase
         // The inputs' digest is sha256sum's lines for the sorted input paths, hashed again
         $lines = '';
         foreach (['FOR-AGENTS.md', 'INSTALL.md', 'LICENSE', 'NOTICE', 'README.md', 'button/README.md', 'button/manifest.json',
-            'docs/GUIDE.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'docs/RECIPES.md', 'docs/TESTING.md', 'manifest.json'] as $path) {
+            'docs/APPLICATION-TESTING.md', 'docs/GUIDE.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'docs/RECIPES.md', 'docs/TESTING.md', 'manifest.json'] as $path) {
             $lines .= hash_file('sha256', $this->source.'/'.$path).'  '.$path."\n";
         }
         self::assertSame(hash('sha256', $lines), $index['source']['inputs_sha256']);
+
+        self::assertSame("# Application tests\n\n[Patterns](TESTING.md)\n", $files['docs/docs/APPLICATION-TESTING.md']);
 
         // A copied document stays a relative link; any other file of the repository is linked at the ref
         self::assertStringContainsString('[Local](button/README.md)', $files['docs/README.md']);
@@ -140,10 +143,10 @@ final class ReferenceBundleTest extends TestCase
 
         [$status, $output] = $this->script([]);
         self::assertSame(0, $status, $output);
-        self::assertStringStartsWith('Wrote 11 generated reference files', $output);
+        self::assertStringStartsWith('Wrote 12 generated reference files', $output);
         [$status, $output] = $this->script(['--check']);
         self::assertSame(0, $status);
-        self::assertStringStartsWith('Verified 11 generated reference files', $output);
+        self::assertStringStartsWith('Verified 12 generated reference files', $output);
 
         $index = file_get_contents($this->output.'/index.json');
         file_put_contents($this->source.'/button/README.md', "# Button, changed\n");
@@ -251,7 +254,7 @@ final class ReferenceBundleTest extends TestCase
 
     public function testCopiedSkillsCanUseResourcesWithoutEscapingTheirDirectories(): void
     {
-        foreach (['setup', 'build', 'verify'] as $name) {
+        foreach (['uxor-setup', 'uxor-build', 'uxor-verify'] as $name) {
             $content = file_get_contents(dirname(__DIR__).'/skills/'.$name.'/SKILL.md');
             self::assertStringStartsWith("---\nname: ".$name."\n", $content);
             self::assertStringContainsString('uxor://reference/', $content);

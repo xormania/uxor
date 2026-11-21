@@ -2,7 +2,7 @@
 
 This workflow, written for the UXor package, connects normally installed UXor components to application business code. It demonstrates a searchable, sortable, paginated list; a modal editor; server validation; successful-save updates; feedback; focus; and browser history. Adapt the domain, persistence and access control to the consuming application.
 
-**Reference context:** the example fixture installs UXor `40d957cd1ea7766ac0dee742816948ce5ae05bc3` and runs Symfony 7.4. The corresponding UXor component contracts are in the packaged `uxor://reference/<recipe>/README.md` resources. This workflow is maintained with the UXor package, separately from that generated reference snapshot. Inspect installed application files and the project's dependency locks before applying it.
+**Reference context:** the historical fixture used UXor `40d957cd1ea7766ac0dee742816948ce5ae05bc3` and Symfony 7.4. The current [repository fixture](https://github.com/xormania/uxor/tree/main/packages/uxor/dev) installs the candidate kit into its independently locked Symfony application. The corresponding UXor component contracts are in the packaged `uxor://reference/<recipe>/README.md` resources. This workflow is maintained with the UXor package, separately from that generated reference snapshot. Inspect installed application files and the project's dependency locks before applying it.
 
 Read this guide through `uxor://workflow/customer-management` or the bounded `uxor_workflow` tool. The same file ships in the Composer package at `packages/uxor/resources/workflows/customer-management.md`, which is `vendor/xormania/uxor/packages/uxor/resources/workflows/customer-management.md` in an application.
 

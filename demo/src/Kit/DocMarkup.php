@@ -22,16 +22,20 @@ final class DocMarkup
 
     /**
      * Each relative link of rendered HTML (`<a href="../spinner/README.md#usage">`), resolved from the repository's
-     * root by $url: absolute paths, fragments and URLs with a scheme stay as they are.
+     * root by $url. A supplied repository link prefix also identifies paths from the repository root.
      *
      * @param string                  $dir the directory of the documentation's file in the repository ('' for its root)
      * @param \Closure(string): string $url the URL of a file, given its path from the repository's root
      */
-    public static function resolveHtmlLinks(string $html, string $dir, \Closure $url): string
+    public static function resolveHtmlLinks(string $html, string $dir, \Closure $url, ?string $repositoryPrefix = null): string
     {
         return preg_replace_callback(
-            '#<a href="(?![a-z][a-z0-9+.-]*:|/|\#)([^"\#]*)(\#[^"]*)?"#i',
-            static fn (array $match): string => \sprintf('<a href="%s%s"', htmlspecialchars($url(self::repositoryPath($dir, html_entity_decode($match[1]))), \ENT_QUOTES), $match[2] ?? ''),
+            '#<a href="([^"\#]+)(\#[^"]*)?"#i',
+            static function (array $match) use ($dir, $url, $repositoryPrefix): string {
+                $path = self::linkPath(html_entity_decode($match[1]), $dir, $repositoryPrefix);
+
+                return null === $path ? $match[0] : \sprintf('<a href="%s%s"', htmlspecialchars($url($path), \ENT_QUOTES), $match[2] ?? '');
+            },
             $html,
         ) ?? $html;
     }
@@ -41,7 +45,7 @@ final class DocMarkup
      *
      * @param \Closure(string): string $url
      */
-    public static function resolveMarkdownLinks(string $markdown, string $dir, \Closure $url): string
+    public static function resolveMarkdownLinks(string $markdown, string $dir, \Closure $url, ?string $repositoryPrefix = null): string
     {
         $fence = null;
         $lines = [];
@@ -54,8 +58,12 @@ final class DocMarkup
                 }
             } elseif (null === $fence) {
                 $line = preg_replace_callback(
-                    '/\]\((?![a-z][a-z0-9+.-]*:|\/|#)([^)\s#]*)(#[^)\s]*)?\)/i',
-                    static fn (array $match): string => ']('.$url(self::repositoryPath($dir, $match[1])).($match[2] ?? '').')',
+                    '/\]\(([^)\s#]+)(#[^)\s]*)?\)/',
+                    static function (array $match) use ($dir, $url, $repositoryPrefix): string {
+                        $path = self::linkPath($match[1], $dir, $repositoryPrefix);
+
+                        return null === $path ? $match[0] : ']('.$url($path).($match[2] ?? '').')';
+                    },
                     $line,
                 ) ?? $line;
             }
@@ -63,6 +71,15 @@ final class DocMarkup
         }
 
         return implode("\n", $lines);
+    }
+
+    private static function linkPath(string $target, string $dir, ?string $repositoryPrefix): ?string
+    {
+        if (null !== $repositoryPrefix && str_starts_with($target, $repositoryPrefix)) {
+            return self::repositoryPath('', substr($target, \strlen($repositoryPrefix)));
+        }
+
+        return preg_match('#^(?:[a-z][a-z0-9+.-]*:|/)#i', $target) ? null : self::repositoryPath($dir, $target);
     }
 
     /**

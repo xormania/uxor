@@ -1,14 +1,17 @@
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Frame, type Locator, type Page, type Request } from '@playwright/test';
+import { recordBrowserDiagnostics } from '../../packages/uxor/resources/browser/diagnostics.mjs';
 import { startJsCoverage } from './coverage';
 
 const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
 
 type CollectedError = { message: string; httpStatus?: number; url?: string };
 
-/** A request a test cancels on purpose: its exact URL, method, `Turbo-Frame` header, and how many times at most. */
-export type CancelledRequest = { url: string; method: 'GET' | 'POST'; frame: string; count: number };
+/** A known frame visit or event stream that the app closes during the test. */
+export type CancelledRequest = { url: string; method: 'GET' | 'POST'; count: number } & (
+    { frame: string } | { accept: 'text/event-stream' }
+);
 
 type Guard = Awaited<ReturnType<typeof guardPage>>;
 
@@ -102,8 +105,8 @@ export function leavingTheDemo(baseURL: string | undefined): RegExp {
  *
  * `allowCancelledRequest({ url, method, frame, count })` accepts at most `count` requests that fail as cancelled
  * (CANCELLED: each engine's text) and match all of: this exact URL (same origin), this method, and the `Turbo-Frame`
- * header naming `frame`. Only for a test that interrupts that request on purpose (Back while a frame visit runs: Turbo cancels its
- * fetch); any other failed request, or one more than `count`, still fails the test.
+ * header naming `frame`. For a closed EventSource, `accept: 'text/event-stream'` matches the stream's Accept header.
+ * Any other failed request, or one more than `count`, still fails the test.
  */
 export async function guardPage(page: Page, baseURL: string | undefined) {
     const errors: CollectedError[] = [];
@@ -230,7 +233,7 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
                     allowance.count > 0 &&
                     allowance.url === request.url() &&
                     allowance.method === request.method() &&
-                    allowance.frame === request.headers()['turbo-frame'],
+                    ('frame' in allowance ? allowance.frame === request.headers()['turbo-frame'] : allowance.accept === request.headers().accept),
             );
         if (expected) {
             expected.count--;
@@ -278,10 +281,32 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
  * The checks of guardPage() on every test; a test expecting an HTTP error allows it with `allowHttpError`, a test
  * interrupting a frame visit on purpose allows its cancelled request with `allowCancelledRequest`.
  */
-export const test = base.extend<{
+export const guardedTest = base.extend<{
     pageGuard: Guard;
     allowHttpError: (url: RegExp, status: number) => void;
     allowCancelledRequest: (allowance: CancelledRequest) => void;
+    /** Status expected specifically from a main-frame document, such as the rendered 404 page. */
+    documentStatus: number | undefined;
+    browserDiagnostics: void;
+}>({
+    documentStatus: [undefined, { option: true }],
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
+    pageGuard: [
+        async ({ page, baseURL, documentStatus }, use, testInfo) => {
+            const guard = await guardPage(page, baseURL);
+            if (documentStatus !== undefined) guard.allowHttpError('document', documentStatus);
+            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
+            await use(guard);
+            await stopCoverage();
+            guard.check();
+        },
+        { auto: true },
+    ],
+    allowHttpError: async ({ pageGuard }, use) => use(pageGuard.allowHttpError),
+    allowCancelledRequest: async ({ pageGuard }, use) => use(pageGuard.allowCancelledRequest),
+});
+
+export const test = guardedTest.extend<{
     harshConditions: boolean;
     harsh: void;
     fileChoosers: void;
@@ -319,18 +344,6 @@ export const test = base.extend<{
         },
         { auto: true },
     ],
-    pageGuard: [
-        async ({ page, baseURL }, use, testInfo) => {
-            const guard = await guardPage(page, baseURL);
-            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
-            await use(guard);
-            await stopCoverage();
-            guard.check();
-        },
-        { auto: true },
-    ],
-    allowHttpError: async ({ pageGuard }, use) => use(pageGuard.allowHttpError),
-    allowCancelledRequest: async ({ pageGuard }, use) => use(pageGuard.allowCancelledRequest),
 });
 
 export { expect };

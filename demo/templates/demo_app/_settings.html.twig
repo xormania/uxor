@@ -1,6 +1,7 @@
 {#- The demo's settings pages: the settings layout with one section per page. -#}
 {% extends 'layouts/settings.html.twig' %}
 
+{% block body_class %}{{ parent() }} uxor-page-transition{% endblock %}
 {% block head %}<link rel="icon" href="data:,">{% endblock %}
 
 {% block title %}Settings — xor{% endblock %}

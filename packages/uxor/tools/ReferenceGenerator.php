@@ -30,6 +30,7 @@ final class ReferenceGenerator
         'FOR-AGENTS.md',
         'INSTALL.md',
         'docs/GUIDE.md',
+        'docs/APPLICATION-TESTING.md',
         'docs/RECIPES.md',
         'docs/PROJECT-AGENTS-SNIPPET.md',
         'docs/TESTING.md',

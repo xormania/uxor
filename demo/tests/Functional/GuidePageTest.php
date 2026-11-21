@@ -74,7 +74,10 @@ final class GuidePageTest extends WebTestCase
         self::assertStringContainsString('<a href="/r/dropzone#in-a-live-component">', $guide, "a recipe's README is its page");
         self::assertStringContainsString('id="in-a-live-component"', (string) self::get('/r/dropzone')->getContent(), 'at a heading that exists there');
         self::assertStringContainsString('<a href="https://github.com/xormania/uxor/blob/0.4.0/CHANGELOG.md">', $guide, 'any other file, on GitHub at the release');
-        self::assertStringContainsString('<a href="/#recipes">', (string) self::get('/install')->getContent(), 'the recipe list is the gallery');
+        $install = (string) self::get('/install')->getContent();
+        self::assertStringContainsString('<a href="/#recipes">', $install, 'the recipe list is the gallery');
+        self::assertStringContainsString('<a href="https://github.com/xormania/uxor/blob/0.4.0/docs/APPLICATION-TESTING.md">', $install);
+        self::assertStringContainsString('<a href="https://github.com/xormania/uxor/releases">', $install, 'the release listing stays a moving index');
     }
 
     public function testEachGuideIsPortableMarkdownBesideTheRecipes(): void
@@ -88,5 +91,11 @@ final class GuidePageTest extends WebTestCase
         self::assertStringContainsString('](r/dropzone.md#in-a-live-component)', $markdown);
         self::assertStringContainsString('](https://github.com/xormania/uxor/blob/0.4.0/CHANGELOG.md)', $markdown);
         self::assertDoesNotMatchRegularExpression('#\]\((?!https?:|mailto:|/|\#|install\.md|guide\.md|r/[a-z0-9-]+\.md)#', $markdown, 'no link relative to the repository');
+
+        $install = (string) self::get('/install.md')->getContent();
+        foreach (['docs/RECIPES.md', 'docs/APPLICATION-TESTING.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'CONTRIBUTING.md'] as $document) {
+            self::assertStringContainsString('](https://github.com/xormania/uxor/blob/0.4.0/'.$document.')', $install);
+        }
+        self::assertStringContainsString('](https://github.com/xormania/uxor/releases)', $install);
     }
 }

@@ -55,8 +55,12 @@ if (process.env.FAKE_GH_DELAY_MS) {
     fs.appendFileSync(process.env.FAKE_GH_TIMES, start + ' ' + Date.now() + ' ' + path + '\\n');
 }
 const routes = JSON.parse(fs.readFileSync(process.env.FAKE_GH_ROUTES, 'utf8'));
-const route = routes[path] ?? (path.includes('/actions/artifacts?name=') ? { json: { total_count: 0, artifacts: [] } } : undefined);
+let route = routes[path] ?? (path.includes('/actions/artifacts?name=') ? { json: { total_count: 0, artifacts: [] } } : undefined);
 if (!route) { process.stderr.write('gh: Not Found (HTTP 404)\\n'); process.exit(1); }
+if (route.sequence) {
+    const calls = fs.readFileSync(process.env.FAKE_GH_LOG, 'utf8').split('\\n').filter((call) => call === path).length;
+    route = route.sequence[Math.min(calls - 1, route.sequence.length - 1)];
+}
 if (route.fail) {
     const counter = process.env.FAKE_GH_LOG + '.' + Buffer.from(path).toString('hex').slice(0, 100);
     const seen = fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) : 0;
@@ -495,6 +499,86 @@ test('Release checks can require an engines pass for a commit: the require comma
     assert.equal(run(fx, ['require', '--lane', 'contrast', '--repo', REPO, '--sha', fx.head()]).status, 2, 'only a reusable lane');
 });
 
+test('release engine handoff waits for an exact dispatch receipt and rejects unrelated terminal runs', (t) => {
+    const fx = scratch(t);
+    const base = fx.head();
+    const branch = 'release/0.3.5';
+    fx.git('checkout', '-qb', branch);
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '--detach', base);
+    fx.git('merge', '-q', '--no-ff', '--no-edit', branch);
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const output = join(fx.dir, 'engine-require-output');
+    const common = ['require', '--lane', 'engines', '--repo', REPO, '--merge', merge, '--head', head, '--github-output', output, '--branch', branch];
+    const expectOutput = (args, routes, expected) => {
+        writeFileSync(output, '');
+        const checked = run(fx, [...common, ...args], routes);
+        assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+        assert.match(readFileSync(output, 'utf8'), expected, checked.stdout + checked.stderr);
+        return checked;
+    };
+    const metadata = {
+        id: 75, path: '.github/workflows/ci.yml', event: 'workflow_dispatch', display_title: 'CI: Firefox and WebKit only',
+        head_sha: head, head_branch: branch, run_attempt: 1, created_at: '2026-11-16T11:58:00Z', status: 'in_progress',
+        repository: { id: 10, full_name: REPO }, head_repository: { id: 10, full_name: REPO },
+    };
+    const runPath = `repos/${REPO}/actions/runs/75`;
+    const listing = `repos/${REPO}/actions/workflows/ci.yml/runs?branch=${encodeURIComponent(branch)}&event=workflow_dispatch&head_sha=${head}&per_page=20`;
+    const markerPath = `repos/${REPO}/actions/artifacts?name=ci-pass-v1-engines-${fp}&per_page=100`;
+    const jobsPath = `${runPath}/jobs?filter=latest&per_page=100`;
+    const waiting = ['--wait-seconds', '10', '--wait-poll-ms', '1'];
+
+    const eventual = engineRoutes(fx, head, fp, { run: metadata });
+    eventual[markerPath] = { sequence: [{ json: { total_count: 0, artifacts: [] } }, eventual[markerPath]] };
+    const passed = expectOutput([...waiting, '--run-id', '75'], eventual, /^engines=pass$/m);
+    assert.ok(passed.calls.filter((call) => call === markerPath).length >= 2, 'evidence was absent initially and found on a later poll');
+
+    const failedRun = { ...metadata, status: 'completed', conclusion: 'failure' };
+    const failedShard = { ...engineJobs()[0], conclusion: 'failure', steps: [{ name: 'Playwright (smoke + every README example + UXor recipe specs)', conclusion: 'failure' }] };
+    const failedRoutes = { [runPath]: { json: failedRun }, [jobsPath]: { json: { total_count: 1, jobs: [failedShard] } } };
+    expectOutput([...waiting, '--run-id', '75'], failedRoutes, /^engines=failed:/m);
+    expectOutput([...waiting, '--run-id', '75'], { ...failedRoutes, [jobsPath]: { json: { total_count: 0, jobs: [] } } }, /^engines=incomplete:/m);
+
+    const unrelated = [
+        { ...failedRun, id: 76, head_sha: base },
+        { ...failedRun, id: 77, head_repository: { id: 11, full_name: 'fork/project' } },
+        { ...failedRun, id: 78, created_at: '2026-11-16T11:56:00Z' },
+        { ...failedRun, id: 79, display_title: 'CI: full run' },
+    ];
+    const timeout = expectOutput(['--wait-seconds', '1', '--wait-poll-ms', '1', '--since', '2026-11-16T11:57:00Z'], {
+        [listing]: { json: { total_count: unrelated.length, workflow_runs: unrelated } },
+    }, /^engines=timed_out:/m);
+    assert.ok(timeout.calls.includes(listing), 'dispatch lookup is restricted to the exact head and branch');
+    assert.ok(!timeout.calls.some((call) => /\/runs\/7[6-9](?:\/|$)/.test(call)), 'unrelated runs were never evidence');
+    const changed = expectOutput(['--head', base], eventual, /^engines=tree:/m);
+    assert.equal(changed.calls.length, 0, 'a merge that disagrees with the event head is rejected before any evidence lookup');
+});
+
+test('release engine handoff waits for a passing engine lane receipt from an otherwise red dispatch', (t) => {
+    const fx = scratch(t);
+    const branch = 'release/0.3.5';
+    const base = fx.head();
+    fx.git('checkout', '-qb', branch);
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '--detach', base);
+    fx.git('merge', '-q', '--no-ff', '--no-edit', branch);
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const routes = engineRoutes(fx, head, fp, { run: {
+        event: 'workflow_dispatch', display_title: 'CI: Firefox and WebKit only',
+        head_branch: branch, status: 'completed', conclusion: 'failure',
+    } });
+    const markerPath = `repos/${REPO}/actions/artifacts?name=ci-pass-v1-engines-${fp}&per_page=100`;
+    routes[markerPath] = { sequence: [{ json: { total_count: 0, artifacts: [] } }, routes[markerPath]] };
+    const output = join(fx.dir, 'engine-require-output');
+    const checked = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--merge', merge, '--head', head,
+        '--github-output', output, '--branch', branch, '--run-id', '75', '--wait-seconds', '10', '--wait-poll-ms', '1'], routes);
+    assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+    assert.match(readFileSync(output, 'utf8'), /^engines=pass$/m, checked.stdout);
+    assert.ok(checked.calls.filter((call) => call === markerPath).length >= 2, 'the passing lane receipt was verified when it became visible');
+});
+
 // record -------------------------------------------------------------------------------------------------------------------
 
 function recorded(fx, planLanes, jobs, { needs, reuse = true, attempt = '1' } = {}) {
@@ -797,7 +881,7 @@ test('Release checks requires an engines pass for the release head, and starts o
     assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref "\$BRANCH" -f engines_only=true/);
     assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
     const verdict = job('verdict');
-    assert.match(verdict.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
+    assert.match(verdict.text, /ENGINES: .*steps\.recheck\.outputs\.engines/);
     assert.match(verdict.needs, /start-engines/);
     assert.match(verdict.text, /no Firefox\/WebKit pass for/);
     assert.match(verdict.text, /re-run Release checks when it passes/);
@@ -808,7 +892,7 @@ test('Release checks requires an engines pass for the release head, and starts o
 // the scalar/boolean subset of GitHub expressions these workflows use; unknown syntax fails closed
 function evaluate(expression, context) {
     const body = expression.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
-        .replace(/\b(github|inputs|needs|vars)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''))
+        .replace(/\b(github|inputs|needs|steps|vars)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''))
         .replace(/\bstartsWith\(([^,]+),\s*('[^']*')\)/g, '(String($1).startsWith($2))')
         .replace(/\bformat\('([^']*)',\s*([^)]+)\)/g, (_, template, arg) => `(${JSON.stringify(template)}.replace('{0}', ${arg}))`);
     const operators = body.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+|String|startsWith|replace)\b/g, '');
@@ -821,7 +905,7 @@ const daily = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev'
 const enginesOnly = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: { engines_only: true } };
 const manual = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} };
 
-test("only a push or a full manual run publishes CI result; the daily and an engines-only run publish under their own names", () => {
+test('full CI results and partial or skipped runs cannot substitute for one another', () => {
     const { workflow, job } = workflowJobs('ci.yml');
     const name = job('result').name;
     assert.equal(evaluate(name, push), 'CI result');
@@ -829,6 +913,19 @@ test("only a push or a full manual run publishes CI result; the daily and an eng
     assert.equal(evaluate(name, daily), 'CI result (daily)', 'the daily run checks the installs and engines only');
     assert.equal(evaluate(name, { ...daily, github: { ...daily.github, ref: 'refs/heads/feature' } }), 'CI result', 'daily off dev runs everything');
     assert.equal(evaluate(name, enginesOnly), 'CI result (engines only)');
+    const pullRequest = (headRepository) => ({
+        github: {
+            event_name: 'pull_request',
+            ref: 'refs/pull/42/merge',
+            repository: REPO,
+            event: { pull_request: { head: { repo: { full_name: headRepository } } } },
+        },
+        inputs: {},
+    });
+    assert.equal(evaluate(name, pullRequest('contributor/project')), 'CI result',
+        'a fork gets the required result without a copied branch');
+    assert.equal(evaluate(name, pullRequest(REPO)), 'CI result (push runs separately)',
+        'a skipped same-repository PR cannot satisfy the required push result');
     // an engines-only run: its own concurrency group, never cancelling (nor cancelled by) a push run, and a name to find it by
     const group = workflow.match(/^concurrency:\n(?: {4}#.*\n)* {4}group: (.+)\n {4}cancel-in-progress: (.+)$/m);
     assert.ok(group, 'the workflow concurrency');
@@ -838,6 +935,160 @@ test("only a push or a full manual run publishes CI result; the daily and an eng
     assert.equal(evaluate(group[2], enginesOnly), false);
     assert.equal(evaluate(key(workflow, 'run-name'), enginesOnly), 'CI: Firefox and WebKit only');
     assert.match(workflow, /^ {12}engines_only:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m);
+});
+
+test("fork PRs enter read-only CI while same-repository PRs leave the required result to their push", () => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    assert.match(workflow, /^ {4}pull_request:\n {8}types: \[opened, edited, synchronize, reopened, ready_for_review\]$/m);
+
+    const context = (headRepository) => ({
+        github: {
+            event_name: 'pull_request',
+            ref: 'refs/pull/42/merge',
+            repository: REPO,
+            event: { pull_request: { head: { repo: { full_name: headRepository } } } },
+        },
+        inputs: {},
+        vars: {},
+        needs: {
+            changes: {
+                result: 'success',
+                outputs: { demo: 'run', 'mago-serena-cache': 'run' },
+            },
+            result: { outputs: { 'engines-status': 'failed' } },
+        },
+    });
+    const fork = context('contributor/project');
+    const sameRepository = context(REPO);
+    const condition = (id, ctx) => Boolean(evaluate(job(id).if.replace(/\balways\(\)/g, 'true'), ctx));
+
+    for (const id of ['changes', 'quick', 'result', 'metrics']) {
+        assert.equal(condition(id, fork), true, `${id}: the fork runs`);
+        assert.equal(condition(id, sameRepository), false, `${id}: the push owns same-repository CI`);
+        assert.equal(condition(id, { ...fork, github: { ...fork.github, event_name: 'schedule' } }), false,
+            `${id}: the schedule only starts its daily workflow`);
+    }
+
+    assert.equal(condition('cache', fork), false, 'a fork cannot enter the registry-writing job');
+    assert.equal(condition('start', fork), false, 'a fork cannot dispatch the daily workflow');
+    assert.equal(condition('engines-issue', fork), false, 'a fork cannot post daily issue updates');
+
+    const reuse = key(job('changes').text, 'REUSE');
+    const event = key(job('changes').text, 'PLAN_EVENT');
+    assert.equal(evaluate(reuse, fork), 'off', 'the new fork route runs selected lanes fresh');
+    assert.equal(evaluate(event, fork), 'pull_request', 'the plan records the actual event');
+    assert.equal(evaluate(reuse, { ...push, vars: {} }), 'on', 'ordinary push reuse is unchanged');
+    assert.equal(evaluate(event, push), 'push');
+
+    const diagnosis = workflowJobs('jev.yml').job('diagnose');
+    assert.equal(Boolean(evaluate(diagnosis.if, {
+        github: {
+            repository: REPO,
+            event: {
+                workflow_run: {
+                    head_repository: { full_name: 'contributor/project' },
+                    head_branch: 'dev',
+                    name: 'CI',
+                    path: '.github/workflows/ci.yml',
+                },
+            },
+        },
+    })), false, 'even a fork branch named dev cannot enter the secret-bearing diagnosis consumer');
+});
+
+test("a PR uses the target base classifier and refuses an invalid or unrelated base", (t) => {
+    const fx = scratch(t);
+    const trusted = `#!/usr/bin/env bash
+printf 'base\\n' > "$RUNNER_TEMP/classifier-origin"
+cat > "$RUNNER_TEMP/classified-paths"
+for lane in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+    printf '%s=true\\n' "$lane"
+done
+`;
+    const base = fx.commit('tools/ci-changes.sh', trusted);
+    const head = fx.commit('tools/ci-changes.sh', `#!/usr/bin/env bash
+printf 'incoming\\n' > "$RUNNER_TEMP/classifier-origin"
+printf 'php=false\\n'
+`);
+    fx.git('checkout', '--detach', base);
+    fx.git('merge', '--no-ff', '-m', 'prospective PR merge', head);
+    const merge = fx.head();
+
+    // A valid existing commit is still not a permissible base unless it is in the tested merge's ancestry.
+    fx.git('checkout', '--detach', base);
+    const unrelated = fx.commit('later-target.txt', 'another target commit\n');
+    fx.git('checkout', '--detach', merge);
+
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    assert.ok(step?.run);
+    const temp = join(fx.dir, 'pr-selection');
+    mkdirSync(temp);
+    const output = join(fx.dir, 'pr-selection-output');
+
+    for (const [name, supplied, expected] of [
+        ['target base', base, 0],
+        ['missing base', '', 1],
+        ['branch name instead of immutable base', 'dev', 1],
+        ['unknown commit', 'f'.repeat(40), 1],
+        ['existing unrelated commit', unrelated, 1],
+    ]) {
+        writeFileSync(output, '');
+        rmSync(join(temp, 'classifier-origin'), { force: true });
+        rmSync(join(temp, 'classified-paths'), { force: true });
+        // The real step tees to /dev/stderr; use a file, as in the work-order fixture, instead of Node's socket.
+        const errFile = join(temp, 'stderr');
+        const err = openSync(errFile, 'w');
+        const actual = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run], {
+            cwd: fx.repo,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', err],
+            env: {
+                PATH: process.env.PATH,
+                RUNNER_TEMP: temp,
+                GITHUB_OUTPUT: output,
+                EVENT: 'pull_request',
+                REF: 'refs/pull/42/merge',
+                PR_BASE_SHA: supplied,
+                DAILY: 'false',
+                ENGINES_ONLY: 'false',
+                REPO,
+            },
+        });
+        closeSync(err);
+        const stderr = readFileSync(errFile, 'utf8');
+        assert.equal(actual.status, expected, `${name}: ${actual.stdout}${stderr}`);
+        if (expected === 0) {
+            const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+            assert.equal(values.base, base);
+            assert.equal(values['comparison-base'], base);
+            assert.equal(readFileSync(join(temp, 'classifier-origin'), 'utf8'), 'base\n',
+                'the contributor cannot run its changed classifier to skip its own checks');
+            assert.match(readFileSync(join(temp, 'classified-paths'), 'utf8'), /^tools\/ci-changes\.sh$/m);
+            const selected = Object.fromEntries(readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').map((line) => line.split('=')));
+            assert.equal(selected.php, 'true');
+        } else {
+            assert.match(actual.stdout + stderr, /pull request base is missing, invalid or not an ancestor/);
+            assert.equal(existsSync(join(temp, 'classifier-origin')), false, 'invalid provenance runs no classifier');
+        }
+    }
+});
+
+test("PR planning is recorded without becoming a trusted reusable producer", (t) => {
+    const fx = scratch(t);
+    const result = plan(fx, {}, ['demo'], ['--event', 'pull_request', '--reuse', 'off'], 'refs/pull/42/merge');
+    assert.equal(result.plan.event, 'pull_request');
+    assert.equal(result.plan.reuse, false);
+    assert.equal(result.outputs.demo, 'run');
+    assert.deepEqual(result.calls, [], 'fresh PR planning requires no reusable-evidence lookups');
+
+    // Existing rejection cases separately prove that pull_request runs and foreign head repositories cannot
+    // supply branch-reuse evidence. The reporting event above must not broaden PRODUCER_EVENTS.
+    const fp = fingerprints(fx, fx.head()).lanes.demo;
+    const forged = producer(fx, fx.head(), fp, { run: { event: 'pull_request' } });
+    const later = plan(fx, forged);
+    assert.equal(later.outputs.demo, 'run');
+    assert.equal(later.plan.lanes.demo.reason, 'wrong_producer');
 });
 
 test('an engines-only run selects the engines lane alone', (t) => {
@@ -982,21 +1233,33 @@ test('Start the engines dispatches an engines-only run on the head branch, unles
     const fx = scratch(t);
     const { workflow } = workflowJobs('release-checks.yml');
     const step = stepIn(workflow, 'start-engines', 'start');
-    const env = (bin) => ({ PATH: `${bin}:${process.env.PATH}`, REPO, BRANCH: 'release-0.4', HEAD: 'd'.repeat(40), GITHUB_OUTPUT: join(fx.dir, 'start-out') });
-    for (const [queued, dispatched] of [['0', true], ['1', false]]) {
+    const env = (bin) => ({ PATH: `${bin}:${process.env.PATH}`, REPO, BRANCH: 'release/0.3.5', HEAD: 'd'.repeat(40), GITHUB_OUTPUT: join(fx.dir, 'start-out') });
+    for (const [queued, moved, status] of [['', false, 'dispatched'], ['75', false, 'running'], ['', true, '']]) {
         writeFileSync(join(fx.dir, 'start-out'), '');
-        const bin = stubGh(fx, `case "$1 $2" in "api "*) echo ${queued} ;; esac`);
+        const bin = stubGh(fx, `case "$1 $2" in
+            "api "*/workflows/ci.yml/runs\\?*) printf '%s' '${queued}' ;;
+            "api "*/git/ref/heads/*) printf '%s' '${(moved ? 'a' : 'd').repeat(40)}' ;;
+        esac`);
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: env(bin) });
-        assert.equal(out.status, 0, out.stderr);
+        assert.equal(out.status, moved ? 1 : 0, out.stdout + out.stderr);
         const calls = ghCalls(fx);
-        assert.match(calls, new RegExp(`head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
-        assert.equal(/^workflow run ci\.yml --repo example\/project --ref release-0\.4 -f engines_only=true$/m.test(calls), dispatched, calls);
-        assert.match(readFileSync(join(fx.dir, 'start-out'), 'utf8'), dispatched ? /^started=dispatched$/m : /^started=running$/m);
+        assert.match(calls, new RegExp(`branch=release%2F0[.]3[.]5.*head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
+        assert.equal(/^workflow run ci\.yml --repo example\/project --ref release\/0\.3\.5 -f engines_only=true$/m.test(calls), status === 'dispatched', calls);
+        const output = readFileSync(join(fx.dir, 'start-out'), 'utf8');
+        if (status === 'dispatched') {
+            assert.match(output, /^started=dispatched\nsince=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\n$/);
+        } else if (status === 'running') {
+            assert.match(output, /^started=running\nrun-id=75\n$/);
+        } else {
+            assert.match(out.stdout, /release branch moved/);
+            assert.equal(output, '');
+        }
     }
     const { job } = workflowJobs('release-checks.yml');
     const condition = job('start-engines').if;
-    for (const [engines, runs] of [['pass', false], ['tree: the merge tests another tree', false], ['missing: engines: no_evidence', true]]) {
-        assert.equal(Boolean(evaluate(condition, { github: { event_name: 'pull_request' }, needs: { changed: { result: 'success', outputs: { engines } } } })), runs, engines);
+    for (const [engines, repo, runs] of [['pass', REPO, false], ['tree: the merge tests another tree', REPO, false], ['missing: engines: no_evidence', REPO, true], ['missing: engines: no_evidence', 'fork/project', false]]) {
+        const github = { event_name: 'pull_request', repository: REPO, event: { pull_request: { head: { repo: { full_name: repo } } } } };
+        assert.equal(Boolean(evaluate(condition, { github, needs: { changed: { result: 'success', outputs: { engines } } } })), runs, `${engines}/${repo}`);
     }
     assert.match(job('start-engines').text, /BRANCH: \$\{\{ github\.head_ref \}\}/);
     assert.match(job('start-engines').text, /HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
@@ -1017,25 +1280,25 @@ test("What to check's engines step: pass, missing or another tree, from the merg
     fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
     const merge = fx.head();
     const fp = fingerprints(fx, head).lanes.engines;
-    const runStep = (sha, routes) => {
+    const runStep = (sha, head, routes) => {
         writeFileSync(join(fx.dir, 'routes.json'), JSON.stringify(routes));
         writeFileSync(join(fx.dir, 'gh-api.log'), '');
         const output = join(fx.dir, 'changed-out');
         writeFileSync(output, '');
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
-            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, PR_HEAD: head, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
         assert.equal(out.status, 0, out.stderr);
         return readFileSync(output, 'utf8');
     };
-    assert.match(runStep(merge, {}), /^engines=missing: engines: no_evidence/m);
-    assert.match(runStep(merge, engineRoutes(fx, head, fp)), /^engines=pass$/m);
+    assert.match(runStep(merge, head, {}), /^engines=missing: engines: no_evidence/m);
+    assert.match(runStep(merge, head, engineRoutes(fx, head, fp)), /^engines=pass$/m);
     assert.doesNotMatch(readFileSync(join(fx.dir, 'gh-api.log'), 'utf8'), /workflow/, 'this step never starts a workflow');
     // main moved on: the merge tests another tree than the head, which no pass on the head can stand for
     fx.git('checkout', '-q', base);
     fx.git('checkout', '-qb', 'main2');
     fx.commit('README.md', 'main moved\n');
     fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
-    assert.match(runStep(fx.head(), engineRoutes(fx, head, fp)), /^engines=tree: /m);
+    assert.match(runStep(fx.head(), head, engineRoutes(fx, head, fp)), /^engines=tree: /m);
 });
 
 test('only the release pull request publishes Release checks, and its verdict says what to do', (t) => {
@@ -1450,10 +1713,24 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
     assert.match(checkout, /sparse-checkout: \|?\s*\n?\s*tools\/ci/);
     const recheck = stepIn(workflow, 'verdict', 'recheck');
     assert.ok(recheck, 'a recheck step');
-    assert.match(verdictJob.text, /id: recheck\n {14}if: .*startsWith\(needs\.changed\.outputs\.engines, 'missing'\)/);
-    assert.match(verdictJob.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
-    // the same command, one rule, in What to check and in the verdict
-    for (const step of [stepIn(workflow, 'changed', 'engines'), recheck]) assert.match(step.run, /lane-evidence\.mjs"? require --lane engines --repo "\$REPO" --merge "\$GITHUB_SHA" --github-output "\$GITHUB_OUTPUT"/);
+    const recheckIf = verdictJob.text.match(/id: recheck\n {14}if: (.*)$/m)[1];
+    const reported = key(verdictJob.text, 'ENGINES');
+    for (const [early, fresh, shouldRun, expected] of [
+        ['missing: no_evidence', 'pass', true, 'pass'],
+        ['pass', 'missing: expired', true, 'missing: expired'],
+        ['pass', 'missing: later_failure', true, 'missing: later_failure'],
+        ['pass', '', true, ''],
+        ['tree: wrong head', '', false, 'tree: wrong head'],
+    ]) {
+        const ctx = { github: { event_name: 'pull_request' }, needs: { changed: { result: 'success', outputs: { engines: early } } }, steps: { recheck: { outputs: { engines: fresh } } } };
+        assert.equal(Boolean(evaluate(recheckIf, ctx)), shouldRun, early);
+        assert.equal(evaluate(reported, ctx), expected, `${early}/${fresh}`);
+    }
+    // The same command and event identity in What to check and the verdict.
+    for (const step of [stepIn(workflow, 'changed', 'engines'), recheck]) {
+        assert.match(step.run, /lane-evidence\.mjs"? require/);
+        assert.match(step.run, /--lane engines --repo "\$REPO" --merge "\$GITHUB_SHA" --head "\$PR_HEAD" --github-output "\$GITHUB_OUTPUT"/);
+    }
 
     // a release pull request: its head, and GitHub's merge of it into main
     mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
@@ -1473,7 +1750,7 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
         const output = join(fx.dir, 'verdict-out');
         writeFileSync(output, '');
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', s.run], { cwd: fx.repo, encoding: 'utf8',
-            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, PR_HEAD: head, HEAVY_READY: 'false', GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
         assert.equal(out.status, 0, out.stderr);
         return readFileSync(output, 'utf8').match(/^engines=(.*)$/m)?.[1];
     };
@@ -1497,6 +1774,39 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
     const tree = step(recheck, fx.head(), engineRoutes(fx, head, fp));
     assert.match(tree, /^tree: /);
     assert.match(decide(tree).stdout + decide(tree).stderr, /[Bb]ring main into release/);
+});
+
+test('the release verdict hands off a bounded wait only when heavy checks passed or were reused', (t) => {
+    const fx = scratch(t);
+    const { workflow, job } = workflowJobs('release-checks.yml');
+    const verdict = job('verdict');
+    assert.match(verdict.text, /PR_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+    assert.match(verdict.text, /START_RUN: \$\{\{ needs\.start-engines\.outputs\.run-id \}\}/);
+    assert.match(verdict.text, /START_SINCE: \$\{\{ needs\.start-engines\.outputs\.since \}\}/);
+    const eligibility = key(verdict.text, 'HEAVY_READY');
+    assert.equal(evaluate(eligibility, { needs: { changed: { outputs: { run: 'false' } } } }), true, 'reused heavy suite');
+    for (const failure of [null, 'checks', 'complete', 'prod-image']) {
+        const needs = { changed: { outputs: { run: 'true' } }, checks: { result: 'success' }, complete: { result: 'success' }, 'prod-image': { result: 'success' } };
+        if (failure) needs[failure].result = 'failure';
+        assert.equal(evaluate(eligibility, { needs }), !failure, failure ?? 'fresh heavy suite');
+    }
+    const node = join(fx.bin, 'node');
+    writeFileSync(node, '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n');
+    chmodSync(node, 0o755);
+    const step = stepIn(workflow, 'verdict', 'recheck');
+    for (const [heavy, start, id, since, expected] of [
+        ['true', 'running', '75', '', ['--wait-seconds', '1200', '--branch', 'release/0.3.5', '--run-id', '75']],
+        ['true', 'dispatched', '', NOW, ['--wait-seconds', '1200', '--branch', 'release/0.3.5', '--since', NOW]],
+        ['false', 'running', '75', '', []], ['true', 'running', '', '', []], ['true', 'dispatched', '', '', []],
+    ]) {
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: {
+            PATH: `${fx.bin}:${process.env.PATH}`, REPO, BRANCH: 'release/0.3.5', GITHUB_SHA: 'a'.repeat(40), PR_HEAD: 'b'.repeat(40),
+            GITHUB_OUTPUT: 'release-output', HEAVY_READY: heavy, START: start, START_RUN: id, START_SINCE: since,
+        } });
+        assert.equal(out.status, 0, out.stderr);
+        const args = out.stdout.trim().split('\n');
+        assert.deepEqual(args.slice(args.indexOf('release-output') + 1), expected, `${heavy}/${start}/${id}/${since}`);
+    }
 });
 
 test('without the job list, a failed shared browser job makes the engines failure marker due, and its loss an error (Codex, #220)', (t) => {

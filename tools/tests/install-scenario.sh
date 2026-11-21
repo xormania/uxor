@@ -43,11 +43,33 @@ install_kit_recipes() {
     for recipe in "${install_recipes[@]}"; do
         app_console ux:install "$recipe" --kit="$kit" --no-interaction > "$logs/install-$recipe.log" 2>&1 \
             || { cat "$logs/install-$recipe.log"; echo "FAIL: ux:install $recipe"; exit 1; }
+        if grep -E '^ *\$ npm install( |$)' "$logs/install-$recipe.log"; then
+            echo "FAIL: ux:install $recipe suggests an npm install"
+            return 1
+        fi
         grep -h '^ *\$ composer require ' "$logs/install-$recipe.log" | sed 's/^ *\$ composer //' | while IFS= read -r arguments; do
             echo "ux:install $recipe suggested: composer $arguments"
             app sh -c "$app_composer $arguments --no-interaction --no-progress" < /dev/null
         done
     done
+
+    # Register the kit stylesheet and Chart's browser dependency using the arguments printed by the installer.
+    local -a packages
+    read -ra packages <<< "$(sed -n 's/^ *\$ php bin\/console importmap:require //p' "$logs/install-chart.log")"
+    local package stylesheet='' chart=''
+    for package in "${packages[@]}"; do
+        case "${package%%@*}" in
+            flowbite/dist/flowbite.min.css) stylesheet="$package" ;;
+            chart.js) chart="$package" ;;
+        esac
+    done
+    if [ -z "$stylesheet" ] || [ -z "$chart" ]; then
+        echo "FAIL: ux:install chart must suggest registering the Flowbite stylesheet and chart.js with AssetMapper"
+        return 1
+    fi
+    app_console importmap:require -- "$stylesheet" "$chart"
+    # shellcheck disable=SC2016 # PHP reads the application's import map.
+    app "${php:-php}" -r '$map = require "importmap.php"; exit(($map["flowbite/dist/flowbite.min.css"]["type"] ?? null) === "css" && isset($map["chart.js"]) ? 0 : 1);'
 }
 
 # The app a user writes: a dashboard page and a registration page (tools/tests/fixtures/fresh-app), then a cache built

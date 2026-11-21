@@ -53,7 +53,9 @@ UXor at `40d957c` and the companion at `614aa28`._
    `manifest.json` in `packages/`, and no `export-ignore` of the whole package to make the lint pass. The *Fresh
    install* jobs install from the complete archive, `packages/uxor/` included.
 5. **One version sequence.** The kit and the package share the tags `X.Y.Z` and one `CHANGELOG.md`. A change to either
-   part can make a new version of both; a breaking change in either sets the version. `composer.json` has no
+   part can make a new version of both. The maintainer chooses the number under the current
+   [release policy](../CONTRIBUTING.md#releases); changelog categories do not choose it. Changes to either part,
+   including breaking changes and migration steps, remain explicit in the release notes. `composer.json` has no
    `version` field: Composer and Packagist read the tags. Older tags stay as they are: the first version with
    `composer.json` is the first one Composer can install.
 6. **CI groups.** The existing coordinator and the one *CI result* check stay. A new *Package* job runs
@@ -97,8 +99,8 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
   kit's `manifest.json`, `README.md`, `INSTALL.md`, `FOR-AGENTS.md`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`,
   `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/TESTING.md`, and each recipe's `README.md` and
   `manifest.json`. A doc can be edited, regenerated and committed once; a dirty or untracked file is read as it is.
-- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the branch or
-  tag its repository links use: `main` unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
+- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the version
+  from the latest release heading in `CHANGELOG.md`, unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
   lines for the sorted input paths: recomputable from the index's own hashes or from a checkout), the kit manifest's
   SHA-256 and the license. A change to a file that is no input changes no byte of the output.
 - **Links.** A link to another copied document stays relative and resolves inside the bundle. A relative link to any
@@ -110,11 +112,9 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
 
 ## Deferred, and why
 
-- **The consumer's browser journey and the prepared environment in CI.** The former companion ran them in two
-  workflows (a browser journey followed by a no-dev runtime check; `run.py up`, `check` and
-  `check-serena.py` in the xorder images). They need their own job, with Playwright's browsers, the xorder images and
-  their support policy, and a classifier output; the commands are in `packages/uxor/dev/README.md`, and the
-  harness tests in *Package* do not establish the provider's behavior (audit, `UXOR-AUD-PKG-006`).
+- **The consumer's browser journey.** The browser journey and the subsequent no-dev runtime check remain deferred.
+  The *Development images* workflow now builds the consumer and Serena from the repository recipes and runs
+  `check-serena.py --package`. See [the development consumer](../packages/uxor/dev/README.md).
 - **Publication.** Registering `xormania/uxor` on Packagist and holding its token are owner actions, not authorized
   by this plan. Until then, the package installs from the repository as a VCS dependency.
 - **The companion's consumers and retirement.** Moving an installed `xormania/uxorscient` to `xormania/uxor` is a

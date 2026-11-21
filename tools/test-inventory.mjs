@@ -5,7 +5,7 @@
 //   inventory's matrix (its first column, `sidebar, navbar` naming two);
 // - a test the inventory names does not exist: a spec named in a matrix cell or anywhere as `lab.<name>`
 //   (`tests/e2e/<name>.spec.ts`), `recipe:<name>` (a spec in `<name>/tests/`), `shot:<recipe>` (a recipe), a PHPUnit
-//   class (`FooTest`, `FooTest::testBar`, in `demo/tests/`), a spec, test file or `tools/` script path in inline code. Struck text
+//   class (`FooTest`, `FooTest::testBar`, in `demo/tests/`), a spec, test file, `tools/` script or consumer check path. Struck text
 //   (`~~…~~`) is history and is not read;
 // - a page of the demo's LabController is not in `labPages` of tests/e2e/a11y.spec.ts, or `labPages` names a page
 //   it has not. A route without GET is not a page: it is listed below with its reason, so none is left out silently.
@@ -110,7 +110,7 @@ for (const [, test, method] of inventory.matchAll(/`([A-Z]\w*Test)(?:::(test\w+)
         errors.push(`docs/TEST-INVENTORY.md: ${test} has no ${method}()`);
     }
 }
-for (const [, path] of inventory.matchAll(/`([\w./-]+(?:\.spec\.ts|Test\.php)|tools\/[\w./-]+\.(?:mjs|sh))`/g)) {
+for (const [, path] of inventory.matchAll(/`([\w./-]+(?:\.spec\.ts|Test\.php)|tools\/[\w./-]+\.(?:mjs|sh)|packages\/uxor\/dev\/[\w./-]+\.(?:mjs|php|py|sh))`/g)) {
     if (!existsSync(join(root, path))) {
         errors.push(`docs/TEST-INVENTORY.md: ${path} does not exist`);
     }
