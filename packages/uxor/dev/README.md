@@ -151,6 +151,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 | This commit's archive in an independent consumer: install, Mate, update, no-dev render | `python3 packages/uxor/tools/check-package.py --consumer` | *Package* |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
 | The customer workflow in a browser, then without development dependencies | *The customer workflow* above | not yet |
+| The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
 | The Docker stack and the editable Serena session | `run.py up`, `status`, `check`, `run.py serena --prepare`, then `check-serena.py --package` | *Development images* |
 
 `check` lints the container and the Twig templates, lists Mate's tools and asks Mate about the compiled controller

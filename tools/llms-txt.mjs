@@ -92,7 +92,7 @@ const lines = [
     '',
     `- [For agents](${raw}/FOR-AGENTS.md): what the kit gives you, how to set a project up, which recipe to install for what, and the rules to follow`,
     `- [Project agents snippet](${raw}/docs/PROJECT-AGENTS-SNIPPET.md): the block to paste into a project's AGENTS.md or CLAUDE.md`,
-    `- [Install](${raw}/INSTALL.md): each setup step explained, AssetMapper or Webpack Encore`,
+    `- [Install](${raw}/INSTALL.md): install the kit in a Symfony application`,
     `- [README](${raw}/README.md): what the kit is, how to install it, requirements`,
     `- [Recipes](${raw}/docs/RECIPES.md): every recipe, one line each`,
     `- [Guide](${raw}/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning`,

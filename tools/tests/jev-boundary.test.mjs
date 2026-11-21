@@ -27,7 +27,7 @@ function script(name) {
 }
 
 test('the independent trusted workflow reads the source run and attempt outside its checkout', () => {
-    assert.match(workflow, /on:\n    workflow_run:\n        workflows: \[CI, Monthly, Pages, Release, Release checks(?:, Audit, Metadata)?\]\n        types: \[completed\]/);
+    assert.match(workflow, /on:\n    workflow_run:\n        workflows: \[CI, Monthly, Pages, Release, Release checks, Audit, Metadata, PHP analysis comparison\]\n        types: \[completed\]/);
     assert.doesNotMatch(workflow, /workflow_call:|workflow_dispatch:|pull_request:|\binputs\./);
     assert.match(workflow, /actions: read/);
     assert.match(workflow, /if: github\.event\.workflow_run\.head_repository\.full_name == github\.repository/);

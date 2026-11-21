@@ -45,13 +45,14 @@ shipped interfaces for compatibility, regardless of where their implementation b
 | `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | outbound GitHub text names no account or team the allowlist does not: the *Metadata* workflow on every pull request, the hook before each commit (*Commits and pull requests*) |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
+| `mago.toml`, `tools/mago`, `.codex/config.toml`, `.mcp.json` | no | local PHP checks and Serena navigation in the checkout ([Mago and Serena](#mago-and-serena)) |
 | `tools/tests/` | no | the cases of `tools/ci-changes.sh`, `tools/ci/lane-evidence.mjs`, `tools/ci/playwright-summary.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/shard-plan.mjs`, `tools/ci/background.mjs`, `tools/ci/wait-for-job.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/junit-attempts.mjs`, `tools/ci/step-attempts.mjs`, `tools/ci/release-timings.mjs`, `tools/ci/release-evidence.mjs`, `tools/prepare-tests.mjs`, `tools/icon-lint.mjs`, `tools/readme-versions.mjs`, `tools/readme-pairing.mjs`, `tools/recipe-imports.mjs` and `tools/js-duplication.mjs` (both also on the kit itself), `tools/security-policy.mjs`, `tools/check-github-mentions.mjs` and `tools/release-plan.sh`; `release.yml`'s check and release jobs, with `gh`, `git push` and the install check stubbed; that every workflow reads only build caches some build writes; `sync-demo` parity with `ux:install`; install of the kit on a fresh Symfony skeleton (exported kit, Symfony 7.4) and in a fresh Symfony Docker project (GitHub's archive, Symfony 8.1) |
 | `tests/e2e/`, `playwright.config.ts`, `<recipe>/tests/` | no | Playwright tests against the demo; screenshot baselines |
 | `tests/perf/baseline.json` | no | the release checks' timing baseline: per step and metric, the median and spread, with the commit and date ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/build-static.sh` | no | builds and checks the gallery as a static site, for CI's *Static site* job and `pages.yml` (*Releases*) |
 | `tools/prepare-tests.mjs` | no | what the browser tests need, safe with several Playwright processes in one checkout: the recipe specs' runnable copies and the demo's CSS (*Checks*) |
 | `FOR-AGENTS.md`, `llms.txt` | no | the page for coding agents given the repository's URL, and the list of every page for them ([llms.txt](https://llmstxt.org/)) |
-| `docs/`, `.github/` | no | notes on the toolkit and platform behavior this repository works around ([`docs/NOTES.md`](docs/NOTES.md)), the demo's deployment boundary and route inventory ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)), agent assurance and adversarial evaluations ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)), a snippet that projects using the kit paste into their own `AGENTS.md` ([`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md)), the testing patterns ([`docs/TESTING.md`](docs/TESTING.md)), CODEOWNERS, CI, the gallery on GitHub Pages (`pages.yml`), CodeQL code scanning, the weekly npm, Composer and importmap dependency audits (`audit.yml`; both npm and all three Composer lockfiles and the demo's and the consumer's `importmap.php`, also on relevant pull requests), the monthly coverage, mutation, cross-browser and timings reports (`monthly.yml`), the release checks (`release-checks.yml`: on the release pull request, daily on `dev` and by hand), Dependabot's update pull requests, the pull request template |
+| `docs/`, `.github/` | no | notes on the toolkit and platform behavior this repository works around ([`docs/NOTES.md`](docs/NOTES.md)), the demo's deployment boundary and route inventory ([`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md)), agent assurance and adversarial evaluations ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)), a snippet that projects using the kit paste into their own `AGENTS.md` ([`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md)), the testing patterns ([`docs/TESTING.md`](docs/TESTING.md)), CODEOWNERS, CI, the gallery on GitHub Pages (`pages.yml`), CodeQL code scanning, the weekly npm, Composer and importmap dependency audits (`audit.yml`; all tracked npm and Composer lockfiles and the demo's and the consumer's `importmap.php`, also on relevant pull requests), the monthly coverage, mutation, cross-browser and timings reports (`monthly.yml`), the release checks (`release-checks.yml`: on the release pull request, daily on `dev` and by hand), Dependabot's update pull requests, the pull request template |
 
 `ux:install` downloads GitHub's archive of the whole repository; `export-ignore` in `.gitattributes` keeps
 everything else out of it (the demo, tests, tools, and repository files such as this one, `AGENTS.md`,
@@ -61,20 +62,21 @@ same way unless users of the kit or of the package need it.
 
 ## Setup
 
-The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker): FrankenPHP in worker mode, PHP 8.5,
-HTTPS. You need Docker and Node.js (CI uses 22); no PHP on your machine. Playwright's browser also runs in Docker,
-in the `mcr.microsoft.com/playwright` image pinned for UXor by digest in
-`tools/playwright-image.json`, so screenshots match the committed baselines. After bumping `@playwright/test`, run
-`node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
+The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker) with FrankenPHP in worker mode,
+PHP 8.5 and HTTPS. Docker is enough to serve it locally. Symfony AssetMapper fetches browser packages and
+TailwindBundle builds CSS with the standalone Tailwind binary.
 
 ```bash
-cd demo
-docker compose up --wait                            # builds the image the first time, then installs the Composer packages
-docker compose exec php php ../tools/sync-demo      # copy every recipe into demo/ (safe to re-run; deletes nothing)
-docker compose exec php bin/console tailwind:build  # add --watch to rebuild the CSS as you edit
-cd .. && npm ci
-cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it: refuse a commit message that names a GitHub account
+(
+    cd demo
+    docker compose up --wait
+    docker compose exec php php ../tools/sync-demo
+    docker compose exec php bin/console tailwind:build
+)
 ```
+
+The first startup builds the image and installs the Composer packages. Add `--watch` to the Tailwind command to
+rebuild CSS as you edit.
 
 The demo starts with Xdebug off. To debug with it, set a mode on the `up` command, from `demo/`:
 `XDEBUG_MODE=debug docker compose up --wait` (or `develop`); Compose recreates the container with the new setting.
@@ -112,6 +114,18 @@ Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
 the demo with `php -S 127.0.0.1:8000 -t demo/public`. PHP's built-in server only serves the compiled CSS and
 JavaScript in `demo/public/assets/`, so compile again after each change.
 
+For the repository's Node-based checks and Playwright runner, use Node.js (CI uses 22) and install the tooling
+from the checkout root:
+
+```bash
+npm ci
+cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it
+```
+
+Playwright's browser runs in Docker in the `mcr.microsoft.com/playwright` image pinned by digest in
+`tools/playwright-image.json` so screenshots match the committed baselines. After bumping `@playwright/test`, run
+`node tools/playwright-image.mjs --refresh` and commit the new pin ([`docs/NOTES.md`](docs/NOTES.md), *Screenshots*).
+
 The Composer package is developed at the repository root, with PHP 8.4 or later and Composer, apart from the demo:
 `composer install` (the root `vendor/`, from `composer.lock`), then `composer test`, and `php packages/uxor/bin/uxor list`
 to run its CLI (Composer links `vendor/bin/uxor` in the applications that install the package, not in its own
@@ -135,6 +149,51 @@ controllers. Previewing untrusted code would need a separate origin and containe
 The public gallery is the static export. The dynamic application refuses to boot in production unless its operator
 explicitly opts in and supplies a non-default secret; that is an accident guard, not permission to expose its lab and
 trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md).
+
+### Mago and Serena
+
+The *PHP analysis comparison* workflow runs the existing PHPStan configuration and the pinned Mago analyzer on the
+same PHP sources. It also runs labeled controls and publishes machine-readable results for GitHub API clients.
+[Reports, evaluation and export](docs/TESTING.md#php-analysis-comparison)
+
+Before running `tools/mago` or enabling the `uxor-mago` server in Codex or Claude Code, review the checkout's
+launcher and `mago.toml`, including any configuration it inherits through `extends`. Use a checkout only if you
+trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
+Mago can start worker programs declared under `[extension-hosts]` during analysis or language-server startup.
+Those workers can read files in the mounted checkout even though the mount is read-only and networking is disabled.
+[Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
+
+The checkout and Composer package share the same Mago 1.60.2 pins. The CLI uses the official release binary
+in the official PHP 8.4.28 runtime. A separate UXor image builds language-server support from the same Mago
+release and pins upstream Serena at `7f7d6245`. Both recipes ship with the Composer package. On Linux amd64, prepare each provider once per Docker host. `tools/mago pull` prepares both.
+`UXOR_MAGO_IMAGE` selects a compatible custom build. [Mago 1.60.2](https://github.com/carthage-software/mago/releases/tag/1.60.2)
+
+```bash
+tools/mago pull cli
+tools/mago version
+tools/mago pull serena
+tools/mago format
+tools/mago lint
+tools/mago analyze
+```
+
+Mago checks the package, recipe PHP and demo PHP, including their tests. The development consumer
+and test fixture apps have isolated `App\` namespaces and stay outside this shared scope. Run the
+demo's Composer install from the setup above before analysis and navigation so Mago can resolve dependency types
+from `demo/vendor/` for all three code areas. The checks run offline against a read-only checkout.
+`tools/mago format` checks formatting. `tools/mago check` runs the three checks in order and stops
+at the first failure. Run them individually to see every report while the existing diagnostics
+are being addressed. PHPStan and the checks below still apply.
+
+Codex loads the optional `uxor-mago` server from `.codex/config.toml` when you trust the checkout.
+Claude Code reads `.mcp.json` and prompts for project-server approval. Review the server command and
+the Mago configuration above before granting trust in Codex or approving the server in Claude Code.
+Open the chosen checkout or a directory inside it so the server resolves that worktree's Git root.
+For another MCP client, use the absolute path to the checkout's `tools/mago` as the command and
+`serena` as its only argument. The server uses stdio and provides read-only PHP navigation.
+
+To check the integration locally, run `uv run --script packages/uxor/dev/check-mago.py --repository`.
+It looks up package, recipe and demo symbols and compares the analyzer's diagnostics with Serena's.
 
 ## Checks
 
@@ -193,7 +252,7 @@ every run, the other two when selected, each whatever another did. *Demo + Playw
 | `tools/readme-versions.mjs`, `tools/readme-pairing.mjs` | *Contrast* |
 | `tools/fence-coverage.mjs` | *Contrast*, *Static site* |
 | `tools/build-static.sh` | *Static site* |
-| `tools/phpstan.neon` | *Kit PHP* |
+| `tools/phpstan.neon`, `tools/ci/phpstan/composer.json` and its lock file | *Kit PHP* and the separate *PHP analysis comparison* workflow |
 | `tools/release-plan.sh`, `tools/tests/release-plan.sh` | *Workflows* |
 | `tools/security-policy.mjs`, `tools/security-sinks.json`, `tools/check-github-mentions.mjs`, `tools/hooks/`, `tools/js-duplication.mjs`, `tools/recipe-imports.mjs`, `tools/kit-former-names.json`, `tools/tests/fixtures/release-checks/` | nothing else: *Tool tests* runs them against the real kit or their own config |
 | `tools/demo-php` (the browser tests' PHP against a Docker demo) | *Demo + Playwright* |
@@ -435,7 +494,10 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
   motion with `motion-reduce:transition-none!` (important, because of the CSS order above). An animation that is the
   content (a spinner, a skeleton's pulse) runs three times slower there instead. A controller that waits for a fade
   before hiding or removing an element does it at once under `prefers-reduced-motion`; never wait for a
-  `transitionend` that may not come. `tests/e2e/motion.spec.ts` checks each moving recipe.
+  `transitionend` that may not come. Use the theme's `--uxor-motion-duration-fast` (100ms) for short feedback and
+  `--uxor-motion-duration-normal` (150ms) for drawer and chart entrances. CSS entrances share
+  `--uxor-motion-ease-out`. Update focus and selection as soon as the user acts. `tests/e2e/motion.spec.ts`
+  checks each moving recipe.
 - **Twig inside components.** In a component's content (`<twig:X>…</twig:X>`), `block('name')` and `{% block %}`
   belong to the component: reach the surrounding template's blocks with `block(outerBlocks.name)`.
 - **Turbo forms.** A submitted form answers with a redirect (303) when it succeeds and 422 when it shows errors;

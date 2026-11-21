@@ -791,10 +791,6 @@ jobs:
         if: needs.changes.outputs.php == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        env:
-            PHPSTAN_VERSION: '2.3.0'
-            PHPSTAN_SYMFONY_VERSION: '2.1.0'
-            PHPSTAN_PHPUNIT_VERSION: '2.1.1'
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -842,6 +838,16 @@ jobs:
               run: |
                   php tools/sync-demo
                   (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+
+            - name: Check the demo's Mate guidance
+              if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
+              working-directory: demo
+              run: |
+                  php vendor/bin/mate discover --no-interaction
+                  git diff --exit-code HEAD -- AGENTS.md CLAUDE.md mate/AGENT_INSTRUCTIONS.md
+                  test -f ../AGENTS.md
+                  grep -Fqx '@../AGENTS.md' CLAUDE.md
+                  grep -Eq '^@([.]/)?AGENTS[.]md$' CLAUDE.md
 
             # Every template the demo compiles, its own and the recipes' (as tools/sync-demo copied them; the paths below are
             # the recipes' originals, which give the error its source file), through the demo's Twig and its extensions:
@@ -891,11 +897,11 @@ jobs:
             - name: Install PHPStan
               id: phpstan-install
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
-              working-directory: ${{ runner.temp }}
               run: |
-                  mkdir phpstan && cd phpstan
-                  composer require --no-interaction --no-progress "phpstan/phpstan:${PHPSTAN_VERSION}" \
-                      "phpstan/phpstan-symfony:${PHPSTAN_SYMFONY_VERSION}" "phpstan/phpstan-phpunit:${PHPSTAN_PHPUNIT_VERSION}"
+                  mkdir -p "$RUNNER_TEMP/phpstan"
+                  git show "$GITHUB_SHA:tools/ci/phpstan/composer.json" > "$RUNNER_TEMP/phpstan/composer.json"
+                  git show "$GITHUB_SHA:tools/ci/phpstan/composer.lock" > "$RUNNER_TEMP/phpstan/composer.lock"
+                  composer install --working-dir="$RUNNER_TEMP/phpstan" --no-interaction --no-progress --no-plugins --no-scripts
 
             # The demo's autoloader maps App\UXor\… to the recipes' own src/ (demo/composer.json).
             - name: PHPStan

@@ -1,0 +1,33 @@
+version = "1.60.2"
+php-version = "8.4"
+
+[source]
+paths = [
+    "packages/uxor/bin/uxor",
+    "packages/uxor/config",
+    "packages/uxor/src",
+    "packages/uxor/tests",
+    "packages/uxor/tools",
+    "data-table/src",
+    "data-table-live/src",
+    "dropzone/src",
+    "editor/src",
+    "markdown-editor/src",
+    "oauth/src",
+    "demo/bin/console",
+    "demo/config",
+    "demo/importmap.php",
+    "demo/mate/config.php",
+    "demo/public/index.php",
+    "demo/src",
+    "demo/tests",
+]
+# The demo's dependencies supply type information for the package and recipes too.
+# Use one dependency tree so shared Composer packages have a single definition.
+includes = ["demo/vendor"]
+excludes = [
+    "demo/config/reference.php",
+    "demo/config/secrets/**",
+    "demo/src/UXor/**",
+    "demo/vendor/composer/**",
+]

@@ -25,6 +25,7 @@ import { isKeptOnCache } from '../lib/uxor-turbo.js';
  */
 export default class extends Controller {
     #reopen = false;
+    #hoverTimer;
 
     static targets = ['trigger', 'content'];
     static values = {
@@ -41,7 +42,6 @@ export default class extends Controller {
         this.#reopen = false;
         this.visible = false;
         this.#closeMarkup();
-        this.timeouts = new Set();
         this.listeners = [];
 
         const on = (target, type, handler, options) => {
@@ -49,15 +49,21 @@ export default class extends Controller {
             this.listeners.push(() => target.removeEventListener(type, handler, options));
         };
 
+        if ('none' !== this.triggerTypeValue) {
+            on(this.triggerTarget, 'click', () => this.toggle());
+        }
         if ('hover' === this.triggerTypeValue) {
-            on(this.triggerTarget, 'click', () => this.toggle());
-            on(this.triggerTarget, 'mouseenter', () => this.later(() => this.show()));
-            on(this.contentTarget, 'mouseenter', () => this.show());
-            const hideUnlessHovered = () => this.later(() => this.contentTarget.matches(':hover') || this.hide());
-            on(this.triggerTarget, 'mouseleave', hideUnlessHovered);
-            on(this.contentTarget, 'mouseleave', hideUnlessHovered);
-        } else if ('none' !== this.triggerTypeValue) {
-            on(this.triggerTarget, 'click', () => this.toggle());
+            // Touch generates pointerenter and pointerleave as part of a tap. Its click toggles the menu.
+            const onHover = (target, type, handler) => on(target, type, (event) => {
+                if ('touch' !== event.pointerType) {
+                    handler();
+                }
+            });
+            onHover(this.triggerTarget, 'pointerenter', () => this.later(() => this.show()));
+            onHover(this.contentTarget, 'pointerenter', () => this.show());
+            const leave = () => this.later(() => this.hide());
+            onHover(this.triggerTarget, 'pointerleave', leave);
+            onHover(this.contentTarget, 'pointerleave', leave);
         }
         on(this.triggerTarget, 'keydown', (event) => this.handleTriggerKeydown(event));
         on(this.contentTarget, 'keydown', (event) => this.handleContentKeydown(event));
@@ -75,15 +81,11 @@ export default class extends Controller {
         this.#reopen = this.visible;
         this.hide({ restoreFocus: false, silent: true });
         this.listeners.forEach((remove) => remove());
-        this.timeouts.forEach((id) => clearTimeout(id));
     }
 
     later(callback) {
-        const id = setTimeout(() => {
-            this.timeouts.delete(id);
-            callback();
-        }, this.delayValue);
-        this.timeouts.add(id);
+        clearTimeout(this.#hoverTimer);
+        this.#hoverTimer = setTimeout(callback, this.delayValue);
     }
 
     toggle() {
@@ -91,6 +93,7 @@ export default class extends Controller {
     }
 
     show() {
+        clearTimeout(this.#hoverTimer);
         if (this.visible) {
             return;
         }
@@ -112,6 +115,7 @@ export default class extends Controller {
     }
 
     hide({ restoreFocus = false, silent = false } = {}) {
+        clearTimeout(this.#hoverTimer);
         if (!this.visible && !silent) {
             return;
         }
