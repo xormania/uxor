@@ -821,7 +821,7 @@ const daily = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev'
 const enginesOnly = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: { engines_only: true } };
 const manual = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} };
 
-test("only a push or a full manual run publishes CI result; the daily and an engines-only run publish under their own names", () => {
+test('full CI results and partial or skipped runs cannot substitute for one another', () => {
     const { workflow, job } = workflowJobs('ci.yml');
     const name = job('result').name;
     assert.equal(evaluate(name, push), 'CI result');
@@ -829,6 +829,19 @@ test("only a push or a full manual run publishes CI result; the daily and an eng
     assert.equal(evaluate(name, daily), 'CI result (daily)', 'the daily run checks the installs and engines only');
     assert.equal(evaluate(name, { ...daily, github: { ...daily.github, ref: 'refs/heads/feature' } }), 'CI result', 'daily off dev runs everything');
     assert.equal(evaluate(name, enginesOnly), 'CI result (engines only)');
+    const pullRequest = (headRepository) => ({
+        github: {
+            event_name: 'pull_request',
+            ref: 'refs/pull/42/merge',
+            repository: REPO,
+            event: { pull_request: { head: { repo: { full_name: headRepository } } } },
+        },
+        inputs: {},
+    });
+    assert.equal(evaluate(name, pullRequest('contributor/project')), 'CI result',
+        'a fork gets the required result without a copied branch');
+    assert.equal(evaluate(name, pullRequest(REPO)), 'CI result (push runs separately)',
+        'a skipped same-repository PR cannot satisfy the required push result');
     // an engines-only run: its own concurrency group, never cancelling (nor cancelled by) a push run, and a name to find it by
     const group = workflow.match(/^concurrency:\n(?: {4}#.*\n)* {4}group: (.+)\n {4}cancel-in-progress: (.+)$/m);
     assert.ok(group, 'the workflow concurrency');
@@ -838,6 +851,154 @@ test("only a push or a full manual run publishes CI result; the daily and an eng
     assert.equal(evaluate(group[2], enginesOnly), false);
     assert.equal(evaluate(key(workflow, 'run-name'), enginesOnly), 'CI: Firefox and WebKit only');
     assert.match(workflow, /^ {12}engines_only:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m);
+});
+
+test("fork PRs enter read-only CI while same-repository PRs leave the required result to their push", () => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    assert.match(workflow, /^ {4}pull_request:\n {8}types: \[opened, edited, synchronize, reopened, ready_for_review\]$/m);
+
+    const context = (headRepository) => ({
+        github: {
+            event_name: 'pull_request',
+            ref: 'refs/pull/42/merge',
+            repository: REPO,
+            event: { pull_request: { head: { repo: { full_name: headRepository } } } },
+        },
+        inputs: {},
+        vars: {},
+        needs: {
+            changes: {
+                result: 'success',
+                outputs: { demo: 'run', 'mago-serena-cache': 'run' },
+            },
+            result: { outputs: { 'engines-status': 'failed' } },
+        },
+    });
+    const fork = context('contributor/project');
+    const sameRepository = context(REPO);
+    const condition = (id, ctx) => Boolean(evaluate(job(id).if.replace(/\balways\(\)/g, 'true'), ctx));
+
+    for (const id of ['changes', 'quick', 'result', 'metrics']) {
+        assert.equal(condition(id, fork), true, `${id}: the fork runs`);
+        assert.equal(condition(id, sameRepository), false, `${id}: the push owns same-repository CI`);
+        assert.equal(condition(id, { ...fork, github: { ...fork.github, event_name: 'schedule' } }), false,
+            `${id}: the schedule only starts its daily workflow`);
+    }
+
+    assert.equal(condition('cache', fork), false, 'a fork cannot enter the registry-writing job');
+    assert.equal(condition('start', fork), false, 'a fork cannot dispatch the daily workflow');
+    assert.equal(condition('engines-issue', fork), false, 'a fork cannot post daily issue updates');
+
+    const reuse = key(job('changes').text, 'REUSE');
+    const event = key(job('changes').text, 'PLAN_EVENT');
+    assert.equal(evaluate(reuse, fork), 'off', 'the new fork route runs selected lanes fresh');
+    assert.equal(evaluate(event, fork), 'pull_request', 'the plan records the actual event');
+    assert.equal(evaluate(reuse, { ...push, vars: {} }), 'on', 'ordinary push reuse is unchanged');
+    assert.equal(evaluate(event, push), 'push');
+
+    const diagnosis = workflowJobs('jev.yml').job('diagnose');
+    assert.equal(Boolean(evaluate(diagnosis.if, {
+        github: {
+            repository: REPO,
+            event: {
+                workflow_run: {
+                    head_repository: { full_name: 'contributor/project' },
+                    head_branch: 'dev',
+                    name: 'CI',
+                    path: '.github/workflows/ci.yml',
+                },
+            },
+        },
+    })), false, 'even a fork branch named dev cannot enter the secret-bearing diagnosis consumer');
+});
+
+test("a PR uses the target base classifier and refuses an invalid or unrelated base", (t) => {
+    const fx = scratch(t);
+    const trusted = `#!/usr/bin/env bash
+printf 'base\\n' > "$RUNNER_TEMP/classifier-origin"
+cat > "$RUNNER_TEMP/classified-paths"
+for lane in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+    printf '%s=true\\n' "$lane"
+done
+`;
+    const base = fx.commit('tools/ci-changes.sh', trusted);
+    const head = fx.commit('tools/ci-changes.sh', `#!/usr/bin/env bash
+printf 'incoming\\n' > "$RUNNER_TEMP/classifier-origin"
+printf 'php=false\\n'
+`);
+    fx.git('checkout', '--detach', base);
+    fx.git('merge', '--no-ff', '-m', 'prospective PR merge', head);
+    const merge = fx.head();
+
+    // A valid existing commit is still not a permissible base unless it is in the tested merge's ancestry.
+    fx.git('checkout', '--detach', base);
+    const unrelated = fx.commit('later-target.txt', 'another target commit\n');
+    fx.git('checkout', '--detach', merge);
+
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    assert.ok(step?.run);
+    const temp = join(fx.dir, 'pr-selection');
+    mkdirSync(temp);
+    const output = join(fx.dir, 'pr-selection-output');
+
+    for (const [name, supplied, expected] of [
+        ['target base', base, 0],
+        ['missing base', '', 1],
+        ['branch name instead of immutable base', 'dev', 1],
+        ['unknown commit', 'f'.repeat(40), 1],
+        ['existing unrelated commit', unrelated, 1],
+    ]) {
+        writeFileSync(output, '');
+        rmSync(join(temp, 'classifier-origin'), { force: true });
+        rmSync(join(temp, 'classified-paths'), { force: true });
+        const actual = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run], {
+            cwd: fx.repo,
+            encoding: 'utf8',
+            env: {
+                PATH: process.env.PATH,
+                RUNNER_TEMP: temp,
+                GITHUB_OUTPUT: output,
+                EVENT: 'pull_request',
+                REF: 'refs/pull/42/merge',
+                PR_BASE_SHA: supplied,
+                DAILY: 'false',
+                ENGINES_ONLY: 'false',
+                REPO,
+            },
+        });
+        assert.equal(actual.status, expected, `${name}: ${actual.stdout}${actual.stderr}`);
+        if (expected === 0) {
+            const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+            assert.equal(values.base, base);
+            assert.equal(values['comparison-base'], base);
+            assert.equal(readFileSync(join(temp, 'classifier-origin'), 'utf8'), 'base\n',
+                'the contributor cannot run its changed classifier to skip its own checks');
+            assert.match(readFileSync(join(temp, 'classified-paths'), 'utf8'), /^tools\/ci-changes\.sh$/m);
+            const selected = Object.fromEntries(readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').map((line) => line.split('=')));
+            assert.equal(selected.php, 'true');
+        } else {
+            assert.match(actual.stdout + actual.stderr, /pull request base is missing, invalid or not an ancestor/);
+            assert.equal(existsSync(join(temp, 'classifier-origin')), false, 'invalid provenance runs no classifier');
+        }
+    }
+});
+
+test("PR planning is recorded without becoming a trusted reusable producer", (t) => {
+    const fx = scratch(t);
+    const result = plan(fx, {}, ['demo'], ['--event', 'pull_request', '--reuse', 'off'], 'refs/pull/42/merge');
+    assert.equal(result.plan.event, 'pull_request');
+    assert.equal(result.plan.reuse, false);
+    assert.equal(result.outputs.demo, 'run');
+    assert.deepEqual(result.calls, [], 'fresh PR planning requires no reusable-evidence lookups');
+
+    // Existing rejection cases separately prove that pull_request runs and foreign head repositories cannot
+    // supply branch-reuse evidence. The reporting event above must not broaden PRODUCER_EVENTS.
+    const fp = fingerprints(fx, fx.head()).lanes.demo;
+    const forged = producer(fx, fx.head(), fp, { run: { event: 'pull_request' } });
+    const later = plan(fx, forged);
+    assert.equal(later.outputs.demo, 'run');
+    assert.equal(later.plan.lanes.demo.reason, 'wrong_producer');
 });
 
 test('an engines-only run selects the engines lane alone', (t) => {

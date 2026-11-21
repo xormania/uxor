@@ -1,12 +1,10 @@
 #!/usr/bin/env node
-// Fails when outbound GitHub text (a pull request's title or description, a commit message) holds a token GitHub can
-// read as an account or team reference: an at-sign followed by a login, alone or as org/team, case-insensitive. Such
-// a token notifies or links whoever holds that name, now or after they register it, so none is allowed unless it is
-// named, for this repository, in .github/mention-allowlist (or with --allow). The check is offline and deny by
-// default: it never asks GitHub whether a name exists, and it stays strict inside Markdown code spans and fences,
-// which a later copy (a pull request description becoming a merge commit) need not keep. E-mail-like text and a token
-// glued to a word (an address, a package path) are not references and pass. CONTRIBUTING.md, *Commits and pull
-// requests*; .github/workflows/metadata.yml runs it on every pull request, tools/hooks/commit-msg before a commit.
+// Optional strict filter for callers that choose to restrict account/team references in outbound text.
+// It is not a repository contribution requirement: relevant mentions, package syntax and test tags are welcome.
+// This offline filter treats an at-sign followed by a login or org/team as a reference, including in code spans;
+// --allow or --allow-file permits chosen names. E-mail-like text and tokens glued to a word pass.
+// tools/hooks/commit-msg is an optional, self-contained hook with the same pattern. CONTRIBUTING.md describes
+// ordinary collaboration; no pull request check invokes this filter.
 //
 // Usage: node tools/check-github-mentions.mjs [--allow NAME] [--allow-file FILE] [--surface NAME] [--json] [--redact] [file ...]
 // Exit status 0 when nothing undeclared is found, 1 naming each finding, 2 on bad usage.

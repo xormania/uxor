@@ -1,12 +1,11 @@
 #!/bin/sh
-# Refuses a commit message that names a GitHub account or team not in .github/mention-allowlist (CONTRIBUTING.md,
-# *Commits and pull requests*). Install a copy once per clone, after reading it:
+# Optional strict account/team-reference filter, not a repository contribution requirement.
+# Install a copy only if this restriction suits your local workflow, after reading it:
 #   cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"
-# The copy is self-contained: it runs no tracked code, so a branch checked out later cannot change what it executes
-# (the pull request check, .github/workflows/metadata.yml, runs tools/check-github-mentions.mjs; the pattern below is
-# the same, tools/tests/check-github-mentions.test.mjs). The whole message is checked, comment lines included: git
-# keeps a line starting with # when the message is not edited (git commit -m). Only the diff of git commit -v, below
-# the scissors line, is left out: git always drops it.
+# The copy is self-contained: it runs no tracked code, so a branch checked out later cannot change what it executes.
+# Its pattern matches tools/check-github-mentions.mjs (tools/tests/check-github-mentions.test.mjs).
+# The whole message is checked, comment lines included: git keeps a line starting with # when the message is not
+# edited (git commit -m). Only the diff of git commit -v, below the scissors line, is left out: git always drops it.
 allow="$(git rev-parse --show-toplevel 2>/dev/null)/.github/mention-allowlist"
 exec node -e '
 const fs = require("node:fs");

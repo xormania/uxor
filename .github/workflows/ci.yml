@@ -3,17 +3,20 @@ name: CI
 # queued or running for a head; every other run keeps GitHub's own name (the commit's title, or the workflow's)
 run-name: "${{ github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI: Firefox and WebKit only' || '' }}"
 
-# Every push to a branch runs CI, so a branch is green before its PR opens; there is no pull_request trigger, whose
-# runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
-# push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
-# release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml). Once a day the install jobs that resolve consumer dependencies afresh run alone, on dev
-# (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
-# no install may no longer run. GitHub runs a schedule on the default branch, main: that run only starts the daily run
-# on dev (the Start on dev job), so a failure shows on dev, where its fix lands, and main changes only by a release.
+# Every push to a branch runs CI, so a same-repository branch is green before its PR opens. Fork pull requests run
+# this workflow against their prospective merge without requiring the maintainer to copy the branch here.
+# A same-repository pull_request run skips the work and uses a different result name: its skipped check must never
+# satisfy CI result while the branch's push run is still running. Tag pushes do not run CI: release.yml checks a
+# release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates.
+# Once a day the install jobs that resolve consumer dependencies afresh run alone, on dev (the Changes job): a new
+# Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches no install
+# may no longer run. The schedule on main only starts the daily run on dev, so a failure shows on dev.
+
 on:
     push:
         branches: ['**']
+    pull_request:
+        types: [opened, edited, synchronize, reopened, ready_for_review]
     schedule:
         - cron: '29 5 * * *'
     workflow_dispatch:
@@ -84,7 +87,7 @@ jobs:
     # *Work orders*).
     changes:
         name: Changes
-        if: github.event_name != 'schedule'
+        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
@@ -132,13 +135,20 @@ jobs:
                   DAILY: ${{ inputs.daily }}
                   ENGINES_ONLY: ${{ inputs.engines_only }}
                   REF: ${{ github.ref }}
+                  PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
               run: |
-                  # Where the branch left dev; none for main, dev or a run by hand. Computed here, in the workflow, not by a
-                  # script in the tree: a branch cannot choose the range it is checked against. Contrast reads the same
-                  # range (tools/readme-pairing.mjs --base).
-                  if [ "$EVENT" = push ] && [ "$REF" != refs/heads/main ] && [ "$REF" != refs/heads/dev ]; then
+                  # A pull request is checked out at its prospective merge. GitHub supplies the target base, which
+                  # must be a full commit ID in that merge's history. Other branches compare with where they left
+                  # dev; main, dev and manual runs retain their existing selection. Contrast reads this same base.
+                  if [ "$EVENT" = pull_request ]; then
+                      if ! [[ "${PR_BASE_SHA:-}" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$PR_BASE_SHA" HEAD 2>/dev/null; then
+                          echo "::error::The pull request base is missing, invalid or not an ancestor of the tested merge"
+                          exit 1
+                      fi
+                      base=$PR_BASE_SHA
+                  elif [ "$EVENT" = push ] && [ "$REF" != refs/heads/main ] && [ "$REF" != refs/heads/dev ]; then
                       base=$(git merge-base HEAD origin/dev 2>/dev/null || true)
                   else
                       base=
@@ -216,6 +226,8 @@ jobs:
             # selector decides from the diff what a change can affect, so a branch could skip its own checks by editing
             # it. The tool and ci.yml are inside every fingerprint, so a branch's own copy can only match a pass recorded
             # by that same copy and workflow, and a push already runs the branch's own ci.yml.
+            # Fork PRs run selected lanes fresh. Their results remain useful to reviewers but are not trusted
+            # producers for later branch reuse: lane-evidence.mjs still accepts only same-repository push/manual runs.
             - name: Plan the lanes
               id: plan
               env:
@@ -223,10 +235,10 @@ jobs:
                   REPO: ${{ github.repository }}
                   SHA: ${{ github.sha }}
                   REF: ${{ github.ref }}
-                  REUSE: ${{ (vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
+                  REUSE: ${{ (github.event_name == 'pull_request' || vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
                   ARTIFACT: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
                   ENGINES: ${{ inputs.engines && 'true' || 'false' }}
-                  PLAN_EVENT: ${{ github.event_name == 'workflow_dispatch' && (inputs.engines_only && 'engines' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
+                  PLAN_EVENT: ${{ github.event_name == 'pull_request' && 'pull_request' || github.event_name == 'workflow_dispatch' && (inputs.engines_only && 'engines' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
               run: |
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
@@ -325,7 +337,7 @@ jobs:
     quick:
         name: Quick checks
         needs: changes
-        if: github.event_name != 'schedule'
+        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 15 # the three checks' 5, 10 and 5 in a row, plus 3 for the advisory Jev steps
         env:
@@ -1640,10 +1652,10 @@ jobs:
     # still holds (requalified here), or was skipped as unaffected; and records the lanes that ran fresh, for later runs
     # (tools/ci/lane-evidence.mjs, docs/TESTING.md, *Reused lanes*).
     result:
-        # The required check is the push's (and a full manual run's): the daily run and an engines-only run test part of a
-        # head and publish under names of their own, so a later green one can never stand in for a red CI result
-        name: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
-        if: ${{ always() && github.event_name != 'schedule' }}
+        # Pushes, full manual runs and fork PRs publish the required check. A same-repository PR's skipped job has a
+        # different name, so it cannot satisfy CI result before the push run. Partial manual runs keep their own names.
+        name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && 'CI result (push runs separately)' || github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
+        if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
         needs: [changes, quick, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, demo, prod-image]
         runs-on: ubuntu-latest
         # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
@@ -1854,7 +1866,7 @@ jobs:
     metrics:
         name: CI metrics
         needs: [changes, demo, result]
-        if: ${{ always() && github.event_name != 'schedule' }}
+        if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         continue-on-error: true

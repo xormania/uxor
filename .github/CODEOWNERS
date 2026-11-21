@@ -1,7 +1,10 @@
-# Code ownership becomes an enforcement boundary when the dev and main rulesets require a code-owner review and
-# prevent authors, automation and administrators from bypassing it. The broad rule keeps agent-authored changes under
-# human ownership; the explicit rules make changes to the trust controls conspicuous in review.
+# The default owners are the current maintainers. Contributors keep their own commit identities.
+# Add component owners between the default rule and the protected policy block below.
+# GitHub requires owner approval only where the target branch ruleset enables it.
 * @xormania
+
+# Keep this protected block last: CODEOWNERS uses the last matching rule. These paths retain
+# the default maintainers even when component ownership is delegated above.
 /.github/ @xormania
 /AGENTS.md @xormania
 /SECURITY.md @xormania

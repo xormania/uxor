@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { findDisallowedMentions } from '../check-github-mentions.mjs';
 
-// The at-sign is built here, never written next to a name: this file must not itself hold a reference.
+// Build reference-shaped fixture tokens consistently for the optional strict filter.
 const AT = String.fromCharCode(0x40);
 
 test('rejects an undeclared account mention with its location', () => {
