@@ -763,29 +763,47 @@ under `### Added`, `### Changed`, `### Fixed` or `### Removed`, as Keep a Change
 
 ## Releases
 
-Versions are git tags `X.Y.Z` ([Semantic Versioning](https://semver.org/)) without a `v`: the toolkit cannot
-install a `v` tag (see [`docs/NOTES.md`](docs/NOTES.md)). The version is declared in one place: a
-`## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field: Composer reads
-the version from the tag.
+Versions are git tags `X.Y.Z` without a `v`, for compatibility with supported Toolkit versions
+(see [`docs/NOTES.md`](docs/NOTES.md)). The version is declared in one place: a
+`## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field:
+Composer reads the version from the tag. The kit and the Composer development package share this version sequence.
 
-A release is a pull request from `dev` to `main`, opened as a draft when the maintainer decides to release. Its own
-commit moves the entries under `## [Unreleased]` to the new `## [X.Y.Z] - YYYY-MM-DD` section and updates the compare
-links at the bottom. It also runs `node tools/llms-txt.mjs`, which writes `llms.txt` for the new version with its links at the new tag (*Docs*), and `php packages/uxor/tools/generate-reference.php`, which points the package's bundled references at it: both take the version from the new `## [X.Y.Z]` heading, so the commit release.yml tags already holds them. Until a version is tagged, `llms.txt` and the references keep describing the last release. Pick the version from the entries: only *Fixed* is a patch, *Added* or *Changed* a minor
-version, *Removed* or anything that breaks an installed recipe, or the Composer package's commands, Mate tools,
-`uxor://` resources or skills, a major version (a minor one while the version is `0.x`). CI runs on this pull request
-like on any other, and so do the release checks (`release-checks.yml`: timings, harsh
-conditions, long sessions, wide matrices, fuzzing and properties; [`docs/TESTING.md`](docs/TESTING.md), *Release
-checks*). Their timings are reported against the baseline and fail nothing until their tolerances are set; everything else in
-them can fail. `main`'s ruleset requires the *Release checks* check beside *CI result* from 0.2.0
-(`docs/PLAN-test-tiers.md`, decision 4), so a release merges only with both green. Merging it is the release.
+The maintainer chooses each release number and may skip unused numbers. An agent preparing a release uses the
+number the maintainer supplied; changelog categories do not select it. UXor is in the initial `0.x` development
+stage described by [Semantic Versioning](https://semver.org/): its public interfaces are not yet stable.
+The changelog and release notes describe changes and migration needs, including anything that breaks installed
+recipes or the package's commands, Mate tools, `uxor://` resources or skills.
 
-A fix that cannot wait for the next release goes to `main` in its own pull request with its version heading (a
-patch), and `main` is then merged into `dev`.
+The current release tools publish plain `X.Y.Z` versions. Prereleases such as `0.3.5-rc.1` need support in
+version parsing, generated references and release publication before this workflow can publish them correctly.
+The public gallery currently follows the latest non-prerelease.
 
-After each release, merge `main` back into `dev` in a pull request of its own (`git checkout -b sync/X.Y.Z origin/dev &&
-git merge --no-ff origin/main`, with nothing else in it). The tag `X.Y.Z` is on the release pull request's merge
-commit, which only `main` holds: until `dev` contains it, `git describe` on `dev` (`tools/build-static.sh` reads it) still
-names the previous release, and the next release pull request may need `main` merged into it before it can merge.
+When the maintainer decides to release, create a short-lived release branch from `dev` and open its pull request
+to `main` as a draft. Its release commit moves the entries under `## [Unreleased]` to the chosen version's dated
+section, leaves an empty `## [Unreleased]` section, and updates the compare links at the bottom. Compare with the
+previous actual release: a release of `0.3.5` after `0.3.2` links `0.3.2...0.3.5`; skipped numbers need no headings
+or tags. Use the release date in the new heading.
+
+Run `node tools/llms-txt.mjs` and `php packages/uxor/tools/generate-reference.php` in that commit. Both take the
+version from the new changelog heading, so the commit that release.yml tags already contains references linking
+the chosen tag. During ordinary development, the generated references keep the last release's version.
+
+CI runs on the release pull request, as do the release checks (`release-checks.yml`: timings, harsh conditions,
+long sessions, wide matrices, fuzzing and properties; [`docs/TESTING.md`](docs/TESTING.md), *Release checks*).
+Their timings report against the baseline and fail nothing until their tolerances are set; the other checks can
+fail. The release pull request must satisfy all checks required by
+[`main`'s ruleset](https://github.com/xormania/uxor/rules), including *CI result* and *Release checks*.
+Merging it starts publication after CI passes on `main`.
+
+A fix that cannot wait for the next development release starts from `main` on a short-lived branch and goes to
+`main` in its own pull request. The maintainer chooses its version too; prepare its changelog heading, references
+and checks as above. This keeps unrelated work on `dev` out of the urgent release.
+
+After each release, including an urgent fix, merge `main` back into `dev` in a pull request of its own
+(`git checkout -b sync/X.Y.Z origin/dev && git merge --no-ff origin/main`, with nothing else in it).
+The tag `X.Y.Z` is on the release pull request's merge commit, which only `main` holds: until `dev` contains it,
+`git describe` on `dev` (`tools/build-static.sh` reads it) still names the previous release, and the next release
+pull request may need `main` merged into it before it can merge.
 
 Once the release pull request is merged and CI has passed on `main`, `.github/workflows/release.yml` does the rest: its
 *Check the new version's install* job, with a read-only token, checks that the merge commit installs from GitHub in a

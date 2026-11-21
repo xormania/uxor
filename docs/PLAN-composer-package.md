@@ -53,7 +53,9 @@ UXor at `40d957c` and the companion at `614aa28`._
    `manifest.json` in `packages/`, and no `export-ignore` of the whole package to make the lint pass. The *Fresh
    install* jobs install from the complete archive, `packages/uxor/` included.
 5. **One version sequence.** The kit and the package share the tags `X.Y.Z` and one `CHANGELOG.md`. A change to either
-   part can make a new version of both; a breaking change in either sets the version. `composer.json` has no
+   part can make a new version of both. The maintainer chooses the number under the current
+   [release policy](../CONTRIBUTING.md#releases); changelog categories do not choose it. Changes to either part,
+   including breaking changes and migration steps, remain explicit in the release notes. `composer.json` has no
    `version` field: Composer and Packagist read the tags. Older tags stay as they are: the first version with
    `composer.json` is the first one Composer can install.
 6. **CI groups.** The existing coordinator and the one *CI result* check stay. A new *Package* job runs
@@ -97,8 +99,8 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
   kit's `manifest.json`, `README.md`, `INSTALL.md`, `FOR-AGENTS.md`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`,
   `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/TESTING.md`, and each recipe's `README.md` and
   `manifest.json`. A doc can be edited, regenerated and committed once; a dirty or untracked file is read as it is.
-- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the branch or
-  tag its repository links use: `main` unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
+- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the version
+  from the latest release heading in `CHANGELOG.md`, unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
   lines for the sorted input paths: recomputable from the index's own hashes or from a checkout), the kit manifest's
   SHA-256 and the license. A change to a file that is no input changes no byte of the output.
 - **Links.** A link to another copied document stays relative and resolves inside the bundle. A relative link to any
