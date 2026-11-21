@@ -30,7 +30,7 @@ vendor/bin/mate discover --no-interaction
 tools_json=$(vendor/bin/mate tools:list --format=json)
 jq -e '
     [.tools | to_entries[] | select(.value.extension == "xormania/uxor") | .key] | sort ==
-    ["uxor_catalog","uxor_component","uxor_doctor","uxor_project","uxor_reference","uxor_tools","uxor_workflow"]
+    ["uxor_browser_diagnostics","uxor_catalog","uxor_component","uxor_doctor","uxor_project","uxor_reference","uxor_tools","uxor_workflow"]
 ' <<< "$tools_json"
 for tool in $(jq -r '.tools | keys[] | select(startswith("uxor_"))' <<< "$tools_json"); do
     vendor/bin/mate tools:inspect "$tool" --format=json |

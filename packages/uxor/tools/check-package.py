@@ -30,6 +30,7 @@ ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "packages/uxor"
 PACKAGE_PATH = PACKAGE.relative_to(ROOT).as_posix()
 PACKAGE_NAME = "xormania/uxor"
+BROWSER_DIAGNOSTICS_MODULE = f"{PACKAGE_PATH}/resources/browser/diagnostics.mjs"
 CONSUMER_SKILL_NAMES = ("build", "setup", "verify")
 # The independent consumer application (a Symfony project that installs the archive as a dependency).
 FIXTURE = PACKAGE / "dev/app"
@@ -56,6 +57,7 @@ PACKAGE_DIRECTORIES = ("bin", "config", "resources", "skills", "src")
 REQUIRED_FILES = (
     "composer.json", "LICENSE", "README.md", "manifest.json",
     f"{PACKAGE_PATH}/INSTRUCTIONS.md", f"{PACKAGE_PATH}/OPERATIONS.md", f"{PACKAGE_PATH}/README.md",
+    BROWSER_DIAGNOSTICS_MODULE,
 )
 # Everything else is refused: a new development file is caught even when nobody thought to list it. An exported
 # file is a root file below, a file of a recipe (a top-level directory whose manifest.json is exported) or one of
@@ -360,6 +362,70 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
     print("Composer update and native Mate refresh verified: newer archive installed; guidance and skills replaced; consumer instructions and custom component preserved.")
 
 
+def check_browser_diagnostics(application: Path, installed: Path, php: str, mate: list[str]) -> None:
+    recorder = installed / BROWSER_DIAGNOSTICS_MODULE
+    path = "var/browser-diagnostics/customer-workflow/browser-diagnostics.json"
+    artifact = application / path
+    artifact.parent.mkdir(parents=True, exist_ok=True)
+    url = "http://127.0.0.1:8765/customers?q=Ada"
+    responses = [
+        {"requestId": 1, "token": "a1b2c3", "method": "GET", "url": url, "status": 200, "turboFrame": "customers"},
+        {"requestId": 2, "token": "d4e5f6", "method": "GET", "url": url, "status": 200, "turboFrame": None},
+    ]
+    request_failures = [
+        {"requestId": 2, "method": "GET", "url": url, "turboFrame": None, "error": "net::ERR_ABORTED"},
+    ]
+    page_errors = [{"name": "AbortError", "message": "signal is aborted without reason", "stack": None}]
+    capture = """
+import { EventEmitter } from 'node:events';
+import { pathToFileURL } from 'node:url';
+const [recorder, path, scenario] = process.argv.slice(1);
+const { recordBrowserDiagnostics } = await import(pathToFileURL(recorder).href);
+const { responses, requestFailures, pageErrors } = JSON.parse(scenario);
+const context = new EventEmitter();
+const requests = new Map();
+process.env.PROFILER_COLLECT = '1';
+await recordBrowserDiagnostics({ context, baseURL: 'http://127.0.0.1:8765' }, async () => {
+    for (const response of responses) {
+        const request = {
+            method: () => response.method,
+            url: () => response.url,
+            headers: () => ({ 'turbo-frame': response.turboFrame }),
+            failure: () => ({ errorText: requestFailures.find(({ requestId }) => requestId === response.requestId)?.error }),
+        };
+        requests.set(response.requestId, request);
+        context.emit('response', {
+            headers: () => ({ 'x-debug-token': response.token }),
+            url: request.url,
+            request: () => request,
+            status: () => response.status,
+        });
+    }
+    for (const failure of requestFailures) context.emit('requestfailed', requests.get(failure.requestId));
+    context.emit('weberror', { error: () => ({ name: 'Error', message: 'a'.repeat(1024 * 1024) }) });
+    for (const error of pageErrors) context.emit('weberror', { error: () => error });
+}, { outputPath: () => path, attach: async () => {} });
+"""
+    scenario = json.dumps({"responses": responses, "requestFailures": request_failures, "pageErrors": page_errors})
+    execute(["node", "--input-type=module", "-e", capture, str(recorder), str(artifact), scenario], application)
+    cli = json.loads(execute([php, "vendor/bin/uxor", "browser-diagnostics", path, "--format=json"],
+                             application, capture=True))
+    expected_responses = [response | {"profileUri": f"symfony-profiler://profile/{response['token']}"}
+                          for response in responses]
+    data = cli.get("data", {})
+    if (cli.get("operation") != "browser-diagnostics" or cli.get("status") != "completed"
+            or data.get("artifact") != path or data.get("version") != 1
+            or data.get("responses") != expected_responses or data.get("requestFailures") != request_failures
+            or data.get("pageErrors") != page_errors
+            or data.get("dropped") != {"responses": 0, "requestFailures": 0, "pageErrors": 1}):
+        raise RuntimeError("The installed CLI did not correlate the captured requests and report the dropped oversized error")
+    payload = json.loads(execute([*mate, "tools:call", "uxor_browser_diagnostics", f"--path={path}", "--format=json"],
+                                 application, capture=True))
+    if payload.get("untrusted_data") != cli:
+        raise RuntimeError("The installed Mate tool did not return the CLI's browser diagnostics as untrusted data")
+    print("Verified the installed browser recorder import and request correlation through CLI and Mate.")
+
+
 def check_consumer(archive: Path, temporary: Path) -> None:
     application = temporary / "consumer"
     tracked = execute(["git", "ls-files", "-z", "--", FIXTURE.relative_to(ROOT).as_posix()], ROOT, capture=True)
@@ -417,8 +483,9 @@ return static function (ContainerConfigurator $container): void {
         raise RuntimeError("Repeated initialization changed consumer-owned instructions")
 
     tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))
-    if "uxor_catalog" not in tools.get("tools", {}):
-        raise RuntimeError("The installed package's catalog tool was not discovered")
+    for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
+        if tool not in tools.get("tools", {}):
+            raise RuntimeError(f"The installed tool was not discovered: {tool}")
     catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=modal",
                                        "--limit=1", "--format=json"], application, capture=True), "catalog")
     expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
@@ -430,6 +497,7 @@ return static function (ContainerConfigurator $container): void {
                                          "--format=json"], application, capture=True), "reference")
     if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
         raise RuntimeError("The installed reference resource could not be read through Mate")
+    check_browser_diagnostics(application, installed, php, mate)
     check_skills(application, php, consumer_sources, old_marker)
     # Mate nests the package's headings, so look for the heading text of the packaged INSTRUCTIONS.md.
     if not re.search(r"Building with UXor\b", (application / "mate/AGENT_INSTRUCTIONS.md").read_text()):

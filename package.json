@@ -5,7 +5,8 @@
     "description": "Playwright tests of the UXor demo app (not part of the kit).",
     "license": "MIT",
     "scripts": {
-        "test:e2e": "playwright test"
+        "test:e2e": "playwright test",
+        "test:e2e:diagnostics": "PROFILER_COLLECT=1 playwright test --project=smoke --workers=1 --trace=on --output=playwright-results/diagnostics"
     },
     "devDependencies": {
         "@axe-core/playwright": "^4.14.0",

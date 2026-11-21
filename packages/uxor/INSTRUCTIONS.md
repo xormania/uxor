@@ -14,6 +14,11 @@ guidance and the application's installed code, rather than imposing parity with 
 Run `tools:list` with the application's configured Mate invocation and inspect tool
 inputs before calling them. The UXor package provides component search/detail, bounded documentation reads,
 bound-project inspection, first-setup findings and native Maker/Mate metadata.
+For a browser failure, use the application's Playwright diagnostic run with the
+package recorder. Read the resulting browser-diagnostics.json with
+uxor_browser_diagnostics using the application-relative path, and open the
+exact Symfony request through the returned profileUri in Mate. The installed
+packages/uxor/OPERATIONS.md explains how to enable recording in a consumer app.
 Native metadata discovery executes the selected project's PHP/autoload code.
 It defaults to blocked. For a checkout already trusted and authorized for
 execution, pass trustProjectCode=true to uxor_tools or --trust-project-code

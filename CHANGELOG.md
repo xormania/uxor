@@ -16,6 +16,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   Serena session using the Mago language server.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
+- The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
+  failures to exact Symfony request profiles. The demo and independent consumer use the same fixture.
 
 ### Changed
 

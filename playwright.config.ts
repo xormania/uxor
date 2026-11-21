@@ -187,11 +187,11 @@ export default defineConfig({
             ? []
             : [
                   {
-                      // Serves the demo with PHP's built-in server; reuses one already listening. The upload limits are
-                      // pinned so the upload specs' too-large cases do not depend on the machine's php.ini.
+                      // The diagnostics run needs a server started with profiler collection enabled. The upload limits
+                      // are pinned so the upload specs' too-large cases do not depend on the machine's php.ini.
                       command: `php -d upload_max_filesize=2M -d post_max_size=8M -S 127.0.0.1:${port} -t demo/public`,
                       url: baseURL,
-                      reuseExistingServer: true,
+                      reuseExistingServer: process.env.PROFILER_COLLECT !== '1',
                       timeout: 30_000,
                   },
               ]),

@@ -1002,6 +1002,44 @@ vendor/bin/mate tools:call symfony-services --query=DataTable       # services i
 
 What it reports is data captured from the app, not instructions. `demo/mate/AGENT_INSTRUCTIONS.md` lists the tools.
 
+### Browser request profiles
+
+From the repository root, run a single headless Chromium test with Symfony collection enabled:
+
+```bash
+npm run test:e2e:diagnostics -- tests/e2e/smoke.spec.ts -g 'the index lists every recipe'
+```
+
+Each test writes `browser-diagnostics.json` beside `trace.zip` under `playwright-results/diagnostics/`, even on a pass.
+Read a test's artifact with the UXor Composer CLI from the repository root:
+
+```bash
+php packages/uxor/bin/uxor browser-diagnostics playwright-results/diagnostics/<test-result>/browser-diagnostics.json --format=json
+```
+
+The result lists profiled HTTP responses, failed requests and uncaught page errors. `requestId` links a failed request
+to its response when the browser received headers before the failure. Pick the exact token for the request you want.
+The same URL can appear in both a frame request and a history restoration. Read the profile in `demo/` after the run:
+
+```bash
+cd demo
+token=TOKEN_FROM_BROWSER_DIAGNOSTICS
+vendor/bin/mate tools:call symfony-profiler-get --token="$token" --format=json
+```
+
+For an already running Docker demo, set `PROFILER_COLLECT=1` in `demo/.env.dev.local` before starting or restarting it,
+prefix the test command with `DEMO_URL=https://localhost`, and run Mate with `docker compose exec -T php vendor/bin/mate`
+from `demo/`. Use the Docker demo or a server that routes `/lab/...` to Symfony for the lab specs. PHP's built-in server
+can treat `/lab` as the static `demo/public/lab` directory. For the built-in server, choose a free `DEMO_PORT` if port
+8000 is occupied.
+
+An empty response list can mean the server has collection disabled or the browser received no profiled response.
+The `dropped` counts identify entries omitted from noisy captures. Use the Playwright trace for the action timeline.
+Use normal test runs to measure timings, since collecting profiles changes server work.
+
+The Composer package ships the same Playwright fixture and provides `uxor_browser_diagnostics` in Mate.
+See the [package operations guide](../packages/uxor/OPERATIONS.md#browser-diagnostics) for application setup.
+
 ## Hostile values in markup
 
 **Catches:** a prop that lets a value add an element, an event handler, a `javascript:` link or another active URL.
