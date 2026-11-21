@@ -1,8 +1,16 @@
 name: Mago providers
 
 on:
+    # Compare pull requests with their base so merging dev into a feature branch
+    # does not rerun the provider checks for changes that already landed there.
+    pull_request:
+        paths:
+            - packages/uxor/resources/mago/**
+            - packages/uxor/bin/uxor-mago
+            - packages/uxor/dev/check-mago.py
+            - .github/workflows/mago-providers.yml
     push:
-        branches: ['**']
+        branches: [dev, main]
         paths:
             - packages/uxor/resources/mago/**
             - packages/uxor/bin/uxor-mago
