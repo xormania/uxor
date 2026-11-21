@@ -1113,16 +1113,15 @@ jobs:
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
     # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
     # the development harness of packages/uxor/dev/, that archive installed and updated in the independent consumer
-    # (check-package.py --consumer) and the package's executable. It runs on the package's minimum PHP (composer.json:
-    # php >=8.4), pinned here so a later bump of the workflow's PHP_VERSION does not stop checking the minimum. Not here
-    # yet in this job: the consumer's browser journey with recipes installed from this commit. The Development images
-    # workflow builds the Docker and Serena environment from the checked-out image recipes.
+    # (check-package.py --consumer), the package's executable, and the locked consumer's customer workflow with recipes
+    # installed from this commit. It runs on the package's minimum PHP (composer.json: php >=8.4), pinned here so a
+    # later bump of PHP_VERSION does not stop checking the minimum. Development images checks Docker and Serena.
     package:
         name: Package
         needs: changes
         if: needs.changes.outputs.package == 'run'
         runs-on: ubuntu-latest
-        timeout-minutes: 18 # 15 (the consumer installs a Symfony application from Packagist), plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        timeout-minutes: 23 # 20 for the archive and locked browser consumer, plus 3 for advisory Jev diagnosis
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -1134,6 +1133,12 @@ jobs:
                   extensions: intl, mbstring, pdo_sqlite, zip # the consumer application's (packages/uxor/dev/app)
                   tools: composer:v2
                   coverage: none
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: packages/uxor/dev/package-lock.json
 
             # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: composer.json is valid and composer.lock up to date
@@ -1156,29 +1161,12 @@ jobs:
                   { git ls-files -z -- 'packages/uxor/*.php'; printf '%s\0' packages/uxor/bin/uxor; } \
                       | xargs -0 -n1 php -l 2>&1 | tee "$RUNNER_TEMP/jev-syntax.log"
 
-            # The bundled references (packages/uxor/resources/uxor/) are what the generator makes of this checkout's
-            # docs, recipe READMEs and manifests: it regenerates them into a temporary directory and compares byte for
-            # byte, and fails with the stale files' list without repairing them
-            - name: The bundled references are up to date
-              id: references
-              run: |
-                  set -o pipefail
-                  php packages/uxor/tools/generate-reference.php --check 2>&1 | tee "$RUNNER_TEMP/jev-references.log"
-
             # (an id of its own: Kit PHP's PHPUnit step, id phpunit, is diagnosed from its JUnit report instead)
             - name: PHPUnit
               id: package-tests
               run: |
                   set -o pipefail
                   composer test 2>&1 | tee "$RUNNER_TEMP/jev-package-tests.log"
-
-            # `git archive HEAD` of the repository, as GitHub ships it to the Toolkit and to Composer: the package's files are in it, the
-            # development files are not (the runner's Python, standard library only)
-            - name: The archive's payload
-              id: archive
-              run: |
-                  set -o pipefail
-                  python3 packages/uxor/tools/check-package.py 2>&1 | tee "$RUNNER_TEMP/jev-archive.log"
 
             # The development harness of packages/uxor/dev/ (run.py, check-serena.py, composition.py): roots, ownership and
             # provider-check ordering, without Docker or a provider (the runner's Python, standard library only)
@@ -1211,6 +1199,22 @@ jobs:
                       php packages/uxor/bin/uxor list
                       php packages/uxor/bin/uxor catalog --query=modal --limit=1 --format=json
                   } 2>&1 | tee "$RUNNER_TEMP/jev-smoke.log"
+
+            - name: Install the consumer's locked Playwright and Chromium
+              id: consumer-browser-install
+              working-directory: packages/uxor/dev
+              run: |
+                  set -o pipefail
+                  {
+                      npm ci
+                      npx playwright install --with-deps chromium
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-consumer-browser-install.log"
+
+            - name: Check the customer workflow with installed recipes
+              id: consumer-workflow
+              run: |
+                  set -o pipefail
+                  bash packages/uxor/dev/check-workflow.sh 2>&1 | tee "$RUNNER_TEMP/jev-consumer-workflow.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)

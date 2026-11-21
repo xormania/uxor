@@ -95,13 +95,39 @@ def development_only(path: str) -> bool:
     return len(parts) >= 2 and parts[1] == "tests"
 
 
-def source_files(*pathspecs: str) -> list[str]:
+def source_files() -> list[str]:
     """Files HEAD's tree holds: the archive is `git archive HEAD`, so an uncommitted file is not expected in it."""
-    listed = subprocess.run(["git", "ls-tree", "-r", "-z", "--name-only", "HEAD"],
-                            cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE).stdout
-    # a pathspec is a glob (fnmatch: `*` crosses directories) or a directory whose files are all listed
-    return sorted({name for name in listed.split("\0") if name and any(
-        fnmatch.fnmatch(name, spec) or name.startswith(spec.rstrip("/") + "/") for spec in pathspecs)})
+    listed = subprocess.check_output(["git", "ls-tree", "-r", "-z", "--name-only", "HEAD"], cwd=ROOT)
+    return [os.fsdecode(path) for path in listed.split(b"\0") if path]
+
+
+def recipe_payload_files(manifests: list[str], tracked: list[str]) -> list[str]:
+    expected: set[str] = set()
+    for manifest in manifests:
+        source = subprocess.check_output(["git", "show", f"HEAD:{manifest}"], cwd=ROOT)
+        try:
+            contents = json.loads(source)
+        except (UnicodeError, json.JSONDecodeError) as error:
+            raise RuntimeError(f"Invalid JSON in {manifest}: {error}") from error
+        copy_files = contents.get("copy-files", {}) if isinstance(contents, dict) else None
+        if not isinstance(copy_files, dict):
+            raise RuntimeError(f"{manifest}: copy-files must be an object")
+
+        recipe = PurePosixPath(manifest).parent
+        recipe_files = [file for file in tracked if file.startswith(f"{recipe}/")]
+        for declared in copy_files:
+            relative = PurePosixPath(declared)
+            if (not declared or relative.is_absolute() or ".." in relative.parts
+                    or "\\" in declared or re.match(r"^[A-Za-z]:", declared)):
+                raise RuntimeError(f"{manifest}: invalid copy-files source {declared!r}")
+            prefix = (recipe / relative).as_posix() + "/"
+            # The Toolkit's Finder omits hidden entries when walking a directory.
+            matches = [file for file in recipe_files if file.startswith(prefix)
+                       and all(not part.startswith(".") for part in file[len(prefix):].split("/"))]
+            if not matches:
+                raise RuntimeError(f"{manifest}: copy-files source is not a tracked directory with payload: {declared}")
+            expected.update(matches)
+    return sorted(expected)
 
 
 def as_list(value) -> list[str]:
@@ -147,11 +173,13 @@ def check_archive(archive: Path) -> int:
             prefix = name.rstrip("/") + "/"
             return any(path.startswith(prefix) and entry.isfile() for path, entry in paths.items())
 
-        recipe_manifests = [name for name in source_files("*/manifest.json") if len(PurePosixPath(name).parts) == 2]
+        tracked = source_files()
+        recipe_manifests = [name for name in tracked if name.endswith("/manifest.json") and name.count("/") == 1]
         if not recipe_manifests:
             raise RuntimeError("No recipe manifests found in the source tree")
-        package_files = source_files(*(f"{PACKAGE_PATH}/{directory}" for directory in PACKAGE_DIRECTORIES))
-        for required in (*REQUIRED_FILES, *recipe_manifests, *package_files):
+        package_prefixes = tuple(f"{PACKAGE_PATH}/{directory}/" for directory in PACKAGE_DIRECTORIES)
+        package_files = [name for name in tracked if name.startswith(package_prefixes)]
+        for required in (*REQUIRED_FILES, *recipe_manifests, *recipe_payload_files(recipe_manifests, tracked), *package_files):
             if not exported_file(required):
                 raise RuntimeError(f"Required file missing from the archive: {required}")
 
