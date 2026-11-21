@@ -1,8 +1,11 @@
 name: Metadata
 
-# Compatibility while the main and dev rulesets still require Mentions. Relevant account/team mentions and
-# package syntax are permitted. This job processes no contributor text and may be removed once that required
-# status is removed from the rulesets. The optional strict checker remains available for callers that choose it.
+# Outbound text on GitHub names no account or team unless .github/mention-allowlist does (CONTRIBUTING.md, *Commits and
+# pull requests*; tools/check-github-mentions.mjs): a pull request's title, its description and every commit message it
+# brings. GitHub copies the title and the description into the merge commit, so checking them here checks the merge
+# commit before it exists. Dependabot's pull requests are left out: GitHub writes their text, and it names the npm
+# packages it updates (a scope reads like an account). When a later release brings those messages again, GitHub's
+# merged pull request metadata proves which merge commits and bot-authored commits have that same exemption.
 on:
     pull_request:
         types: [opened, edited, reopened, synchronize]
@@ -13,9 +16,85 @@ permissions:
 jobs:
     mentions:
         name: Mentions
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         runs-on: ubuntu-latest
-        timeout-minutes: 1
+        timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
+        permissions:
+            contents: read
+            pull-requests: read # verify inherited dependency-update commits through their merged pull requests
         steps:
-            - name: Retired notification restriction
-              id: retired
-              run: echo 'The mandatory mention restriction is retired. This compatibility check preserves existing required-status settings.'
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  fetch-depth: 0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+            # The text reaches the script through the environment, never through the command line. Diagnostics redact
+            # rejected account tokens before tee captures them, so Jev cannot publish those references again.
+            - name: Title and description
+              id: title
+              env:
+                  TITLE: ${{ github.event.pull_request.title }}
+                  BODY: ${{ github.event.pull_request.body }}
+              run: |
+                  set -o pipefail
+                  {
+                      status=0
+                      printf '%s\n' "$TITLE" | node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface pull-request-title || status=1
+                      printf '%s\n' "$BODY" | node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface pull-request-description || status=1
+                      exit $status
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-title.log"
+            - name: Commit messages
+              id: commits
+              env:
+                  BASE: ${{ github.event.pull_request.base.sha }}
+                  HEAD: ${{ github.event.pull_request.head.sha }}
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+              run: |
+                  set -o pipefail
+                  {
+                      # Commit subjects and author strings alone prove nothing. Only a merged Dependabot PR in this
+                      # repository can exempt its merge commit or a bot-authored commit in its actual commit list.
+                      dependency_update() {
+                          local sha=$1 updates number merged supplied
+                          updates=$(gh api --paginate "repos/$REPO/commits/$sha/pulls?per_page=100" \
+                              --jq '.[] | select(.user.id == 49699333 and .user.login == "dependabot[bot]" and .user.type == "Bot" and .merged_at != null and .base.repo.full_name == env.REPO) | [.number, .merge_commit_sha] | join(" ")' 2>/dev/null) || return 1
+                          while read -r number merged; do
+                              [ -n "$number" ] || continue
+                              [ "$merged" != "$sha" ] || return 0
+                              supplied=$(METADATA_COMMIT="$sha" gh api --paginate "repos/$REPO/pulls/$number/commits?per_page=100" \
+                                  --jq '.[] | select(.sha == env.METADATA_COMMIT and .author.id == 49699333 and .author.login == "dependabot[bot]" and .author.type == "Bot") | .sha' 2>/dev/null) || return 1
+                              [ "$supplied" != "$sha" ] || return 0
+                          done <<< "$updates"
+                          return 1
+                      }
+                      status=0
+                      commits=$(git rev-list "$BASE..$HEAD") || exit 1
+                      for commit in $commits; do
+                          git log -1 --format=%B "$commit" > "$RUNNER_TEMP/metadata-message" || exit 1
+                          checked=0
+                          node tools/check-github-mentions.mjs --redact --allow-file .github/mention-allowlist --surface "commit $commit" \
+                              "$RUNNER_TEMP/metadata-message" > "$RUNNER_TEMP/metadata-diagnostics" 2>&1 || checked=$?
+                          [ "$checked" != 0 ] || continue
+                          if [ "$checked" = 1 ] && dependency_update "$commit"; then
+                              echo "Commit $commit belongs to a merged dependency update: the existing bot exemption applies"
+                          else
+                              cat "$RUNNER_TEMP/metadata-diagnostics"
+                              status=1
+                          fi
+                      done
+                      exit $status
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-commits.log"
+
+            # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Mentions
+                  artifact: jev-input-metadata-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}

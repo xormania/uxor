@@ -1,3 +1,3 @@
-# Optional strict-filter allowlist, read only when tools/check-github-mentions.mjs or the opt-in commit hook is used.
-# One GitHub account or team per line, without the at-sign; case does not matter.
-# Ordinary pull requests do not use this list and may include relevant account/team mentions.
+# GitHub accounts and teams that outbound text (pull request titles and descriptions, commit messages) may name,
+# one per line, without the at-sign; case does not matter. Read by tools/check-github-mentions.mjs (--allow-file).
+# Empty by default: name an account here only when a pull request is meant to notify it.

@@ -1937,16 +1937,17 @@ The attempts come from one of three places:
 | *Demo + Playwright*, monthly *Browsers*, *Release checks* | each failed attempt, retry-recovered ones included (`playwright-summary.mjs`) | `docker compose logs --timestamps php` | `jev-input-ci-<browser>-<shard>-…`, `jev-input-monthly-<kind>-<browser>-<shard>-…`, `jev-input-release-checks-<lane>-chromium-…` |
 | *Kit PHP* | each failed PHPUnit test, from its JUnit report ([`junit-attempts.mjs`](../tools/ci/junit-attempts.mjs)) | `demo/var/log/test.log` | `jev-input-ci-phpunit-…` |
 | *Tool tests* | each failed case, from Node's JUnit report (`--test-reporter=junit` beside the console's TAP): file and line from the failure's stack, a case named with its `describe()` and `t.test()` suites | none | `jev-input-ci-tools-…` |
-| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit*, *composer audit* and *importmap audit*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
+| *Changes*, *Lint kit*, *Importmap packages*, *Static site*, *Fresh install*, *Fresh install (Symfony Docker, from GitHub)*, *Contrast*, *Workflows*, *Package*; monthly *PHP coverage and mutants*; `audit.yml`'s *npm audit*, *composer audit* and *importmap audit*; `metadata.yml`'s *Mentions*; `release.yml`'s install check, tag and release; `pages.yml`'s build | the step that failed the job, one attempt ([`step-attempts.mjs`](../tools/ci/step-attempts.mjs)): its name and command, read from the workflow, and the lines of its log that the policy's `error_pattern` selects, with the last 5, numbered, within the policy's 16 KiB error budget | none | `jev-input-<workflow>-<job id>-…` |
 
 A step whose log Jev reads captures it one way, which the tool's cases check in every workflow: it has an `id`, its
 `run` starts with `set -o pipefail`, and its command's output goes through `2>&1 | tee "$RUNNER_TEMP/jev-<id>.log"`.
 What the command does is unchanged; its exit status is still the step's. A job that failed in a step without a captured
 log (a checkout, a tool's download) gets no diagnosis: the step uploads nothing, and the consumer finds nothing.
 
-The *Changes*, audit and monthly PHP jobs reserve three minutes beyond their original job limits for the collector
-and its upload. The optional strict mention checker retains a `--redact` option for callers that restrict account
-references. Ordinary pull requests allow relevant mentions; the retired metadata restriction produces no Jev input.
+The newly collecting *Changes*, audit, *Mentions* and monthly PHP jobs reserve three minutes beyond their original
+job limits for the collector and its upload. *Mentions* also uses the checker's `--redact` option before capturing
+its output: rejected account tokens become a neutral marker, while the source, line, column, destination and failure
+status remain. The captured attempts and any Jev excerpts therefore cannot publish those rejected references again.
 
 - **Where:** a warning per assessed attempt at the line that failed (the category, its confidence, and where the
   selected excerpt comes from: `test error lines a-b` or `server log lines a-b`, with its text); a *Jev diagnosis*
@@ -2180,9 +2181,10 @@ coverage overlap, CI timing observations and the remaining acceptance matrix.
 | Fuzzing | [`release.fuzz.spec.ts`](../tests/e2e/release.fuzz.spec.ts) | Seeded, 30 s per target (`FUZZ_BUDGET_MS`). Random query strings on the data table pages and random values for the Live data table's writable props, sent as the live controller sends them; random form posts on `/forms` and the lab's POST forms (long strings, unicode, markup, arrays where a value is expected, fields left out; the CSRF field kept, and one post in three through the page's own form in the browser): no 5xx, no slow answer, no injected element or handler, no CSP violation or console error. UI runs on the lab pages: random clicks (on controls and links that stay in the lab), keys, Back, Forward, the theme toggle and the system theme, each followed by a wait for the page to settle: no console or page error, and one Stimulus controller per element and identifier |
 | Properties | [`demo/tests/Property/`](../demo/tests/Property/) (`--group property`) | `TableQuery::fromValues()` on any values and any table: the offset stays below `maxRows()`; the editor's HTML policy and the Markdown renderer on random hostile markup: no `<script>`, `on*` attribute or unsafe link, and the output is stable when sanitized again. CI runs them with a fixed seed and 300 runs; the release checks with a random seed and 2000 |
 
-The release checks are selected by file and project. No release project compares screenshots: the baselines are
-the light theme's, at desktop and example sizes. The monthly job's coverage run, like CI, has no release project
-to run. Test tags and package names may be quoted accurately in contributor discussions.
+The release checks are selected by file and project, never by a Playwright tag: a tag starts with an at-sign, and
+that text, copied into a commit message or a pull request, reads as a GitHub account reference (`CONTRIBUTING.md`,
+*Commits and pull requests*). No release project compares screenshots: the baselines are the light theme's, at desktop
+and example sizes. The monthly job's coverage run, like CI, has no release project to run.
 
 **Report only, for now.** The timings never fail a run: each timed step's metrics are printed against
 [`tests/perf/baseline.json`](../tests/perf/baseline.json) in the job summary

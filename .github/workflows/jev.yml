@@ -9,7 +9,7 @@ name: Jev diagnosis
 # restricted to the protected default branch is the separate enforcement boundary (docs/TESTING.md).
 on:
     workflow_run:
-        workflows: [CI, Monthly, Pages, Release, Release checks, Audit, PHP analysis comparison]
+        workflows: [CI, Monthly, Pages, Release, Release checks, Audit, Metadata, PHP analysis comparison]
         types: [completed]
 
 permissions:

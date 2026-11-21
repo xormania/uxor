@@ -43,11 +43,19 @@ distributed as a Symfony UX Toolkit kit.
 - Commits and pull requests: plain words, the `type(scope): what changes` format and a concise description using
   the pull request template. Name the behavior checked and report failures or checks that were not run.
 - Use the Git identity authorized by the contributor for this checkout, and preserve other contributors'
-  authorship. Do not impersonate the maintainer or rewrite everyone as the repository owner. Accurate co-author
-  credits and brief AI-assistance disclosures are welcome; a generated attribution footer is not required.
-- Mention GitHub accounts or teams when relevant to the discussion, credit or a review request; avoid unrelated
-  or repeated notifications. Code, package names and test tags may be written accurately. The strict
-  `tools/check-github-mentions.mjs` filter is optional for tasks that explicitly choose restricted mentions.
+  human authorship. Do not impersonate the maintainer or rewrite everyone as the repository owner. Accurate human
+  co-author credit is welcome; preserve required legal attribution.
+- Public project material must not identify which AI model, assistant, provider or version performed, reviewed or
+  routed work. This includes commit metadata and messages, branch names, pull requests, issues, reviews, comments,
+  files and published reports or artifacts. Do not add AI co-author trailers or generated attribution footers, or
+  publish identifying task-routing records, session traces or links to them.
+- Technical documentation may name tools, dependencies and supported integrations when explaining product behavior,
+  configuration or compatibility. That does not permit identifying which AI system carried out a project task.
+- Never name a GitHub account or team in text written to GitHub unless the maintainer explicitly requests that
+  reference and the repository's mention allowlist permits it. The required `Mentions` check covers pull request
+  titles, descriptions and commit messages; check other outgoing text too with
+  `node tools/check-github-mentions.mjs --allow-file .github/mention-allowlist`.
+  This check detects account-reference syntax; it does not establish that text is free of AI execution attribution.
 - Contributors may use any editor or coding assistant. The repository's architecture, security boundaries and
   applicable checks still apply. Maintainers control merges and releases; use the optional work-order process only
   when they arrange it for a larger change.

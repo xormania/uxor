@@ -49,7 +49,7 @@ Use the checks relevant to your change, and describe any environment limitation 
 | `tools/ci/release-evidence.mjs` | no | the release checks' structural evidence: each release project ran a test, each release spec ran and skipped none ([`docs/TESTING.md`](docs/TESTING.md), *Release checks*) |
 | `tools/release-plan.sh` | no | what `release.yml` tags and publishes for each version: the commit, the tag's state, the notes; refuses a tag on another commit (*Releases*) |
 | `tools/monthly/` | no | the monthly job's scope and reports: PHP coverage of the recipes' `src/` and Infection's surviving mutants, the controllers' JS coverage, the Firefox and WebKit screenshots against the Chromium baselines, the interaction timings, and the trends against the previous run ([`docs/TESTING.md`](docs/TESTING.md), *Monthly job*) |
-| `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | optional strict mention filtering for automated tasks that explicitly choose it; not a contribution requirement (*Commits and pull requests*) |
+| `tools/check-github-mentions.mjs`, `tools/hooks/commit-msg`, `.github/mention-allowlist` | no | the required account-reference check on pull request metadata and commit messages, plus a self-contained local hook (*Commits and pull requests*); this is not a complete public-attribution check |
 | `tools/security-policy.mjs`, `tools/security-sinks.json` | no | the repository trust gate: immutable Actions, read-only workflow defaults, reviewed executable rendering sinks, no tracked generated output, current release support and protected agent instructions ([`docs/AGENT-ASSURANCE.md`](docs/AGENT-ASSURANCE.md)) |
 | `tools/phpstan.neon` | no | PHPStan's level and extensions (Symfony, PHPUnit) for the recipes' PHP and the demo's tables and tests |
 | `mago.toml`, `tools/mago`, `.codex/config.toml`, `.mcp.json` | no | local PHP checks and Serena navigation in the checkout ([Mago and Serena](#mago-and-serena)) |
@@ -126,6 +126,7 @@ from the checkout root:
 
 ```bash
 npm ci
+cp tools/hooks/commit-msg "$(git rev-parse --git-path hooks)/commit-msg"   # once per clone, after reading it
 ```
 
 Playwright's browser runs in Docker in the `mcr.microsoft.com/playwright` image pinned by digest in
@@ -405,7 +406,7 @@ shard: a warning per attempt and the `jev-run-<source run>-<source attempt>` art
 fail the job, and the attempt's sanitized error and server log excerpts are sent to TypeSafe. Every other job that can
 fail does the same on a failure: *Kit PHP* (each failed PHPUnit test), *Tool tests* (each failed case, from Node's
 JUnit report), and, from the failed step's captured log, *Lint kit*, *Importmap packages*, *Static site*, both *Fresh
-install* jobs, *Contrast*, *Workflows*, *Changes*, *Package*, the monthly PHP job, both audits, the
+install* jobs, *Contrast*, *Workflows*, *Changes*, *Package*, the monthly PHP job, both audits, *Mentions*, the
 release's install check, tag and release, and the gallery's build (collected by `pages.yml`'s own *Jev diagnosis* job from the build's log, since the build job checks out a release and runs no local action). The
 failed job collects its attempts with one composite action, [`.github/actions/jev-diagnosis`](.github/actions/jev-diagnosis/action.yml),
 without the key; the independent *Jev diagnosis* workflow ([`.github/workflows/jev.yml`](.github/workflows/jev.yml))
@@ -718,8 +719,8 @@ since the last release, and a full 40-character commit SHA takes one commit (a b
 integration branch will make review easier. Ordinary contributions need no work order or particular agent.
 
 - An integration branch uses `work/<name>`, with jobs on `work/<name>--<job>`. These names avoid Git's conflict
-  between a branch and a directory of the same name. Existing `claude/wo-*` branches may finish under their current
-  names; that legacy prefix does not require Claude or any other tool.
+  between a branch and a directory of the same name. Name new branches for the work they contain, without naming
+  a model or assistant assigned to it. Existing integration branches can finish under their current names.
 - Before using an integration branch, a maintainer protects it with pull requests, *CI result*, *CodeQL* and
   resolved conversations. Jobs merge by pull request; updates from `dev` also arrive through a job, such as
   `work/<name>--sync`. Contributors should not push directly to the protected integration branch.
@@ -740,18 +741,34 @@ when it makes a larger change easier to review. Update [`docs/TEST-INVENTORY.md`
 coverage map changes. Documentation-only changes can simply say that no runtime behavior changed. Report checks
 as passed, failed or not run, and give the relevant CI result for the current commit before merge.
 
-**Authorship and credit:** commit under your own chosen Git identity and preserve other contributors' authorship.
-Accurate co-author trailers and acknowledgements are welcome. AI assistance may be disclosed briefly when useful;
-no particular assistant, account, paid service or generated attribution footer is required. You remain responsible
-for reviewing the code, its provenance and the evidence you submit.
+**Authorship and credit:** commit under your own chosen Git identity and preserve other contributors' human
+authorship. Accurate human co-author trailers and acknowledgements are welcome. Preserve required legal attribution.
+You remain responsible for reviewing the code, its provenance and the evidence you submit.
 
-**Mentions:** mention an account or team when it is relevant to the discussion, credit or a review request.
-Avoid repeated or unrelated notifications. Package names, test tags and other literal code may be written accurately.
-No repository allowlist change is required to participate. The strict
-[`tools/check-github-mentions.mjs`](tools/check-github-mentions.mjs) filter and its hook are optional utilities for
-automated tasks that explicitly choose restricted mentions; they are not contribution requirements. If an older
-checkout installed the strict hook, review that local `commit-msg` file before disabling it, so unrelated local
-checks are preserved. Do not point `core.hooksPath` at unreviewed tracked code.
+**Public work attribution:** do not publish which AI model, assistant, provider or version performed, reviewed or
+routed project work. This applies to commit metadata and messages, branch names, pull requests, issues, reviews,
+comments, repository files and published reports or artifacts. Omit AI co-author trailers, generated attribution
+footers, identifying delegation or task-routing records, and session traces or links that disclose those assignments.
+
+Technical documentation may identify a tool, dependency or supported integration to explain product behavior,
+configuration or compatibility. It must not use that documentation to identify the AI system behind a project task.
+
+**Account references:** the existing mention restriction remains in force. Pull request titles, descriptions and
+commit messages must not contain an at-sign directly followed by an account or team name, including in code spans,
+unless [`.github/mention-allowlist`](.github/mention-allowlist) permits it. Apply the same rule to comments and review
+replies. Describe test tags, package scopes and bot commands in words in these public messages; a required account
+reference needs the maintainer's agreement and an allowlist entry.
+
+The *Metadata* workflow checks titles, descriptions and commit messages with
+[`tools/check-github-mentions.mjs`](tools/check-github-mentions.mjs). Dependabot's own pull requests are exempt.
+When a release carries dependency-update commits, an exemption requires GitHub evidence of a merged Dependabot
+pull request in this repository; a human commit in it is still checked, and unavailable evidence grants no exemption.
+The release's own title and description are always checked.
+
+For a local preflight, install the reviewed, self-contained `tools/hooks/commit-msg` copy described in *Setup*.
+Do not point `core.hooksPath` at unreviewed tracked code. The mention check covers account-reference syntax.
+Review public text and attachments for AI execution attribution separately; passing that check does not prove
+compliance with the public work attribution rule.
 
 Use plain words throughout. Pull requests are merged with a merge commit (no squash, no rebase), preserving the
 branch's commits and their authorship.

@@ -1,5 +1,9 @@
 <!-- Title: type(scope): what changes, in plain words (see CONTRIBUTING.md).
-     Keep the description proportionate to the change and remove prompts that do not apply. -->
+     Keep the description proportionate to the change and remove prompts that do not apply.
+     Preserve human credit and required legal attribution. Do not identify which model, assistant, provider or
+     version performed or reviewed the work, or include AI co-author trailers, generated attribution footers or
+     identifying task-routing/session traces or links. Technical tool names needed to explain the change are permitted.
+     Follow the required account-reference policy; its checker is not a complete attribution check. -->
 
 ## What
 
