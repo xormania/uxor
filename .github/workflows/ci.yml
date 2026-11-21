@@ -113,7 +113,7 @@ jobs:
             lane-plan-id: ${{ steps.plan-upload.outputs.artifact-id }}
             lane-plan-sha256: ${{ steps.plan.outputs.sha256 }}
             base: ${{ steps.jobs.outputs.base }}
-            mago-serena-cache: ${{ steps.serena-cache.outputs.refresh }}
+            mago-serena-cache: ${{ steps.serena-cache.outputs.decision }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -199,7 +199,7 @@ jobs:
                   context=packages/uxor/resources/mago/serena
                   if [ -f "$context/Dockerfile" ] && { [ -z "$BASE" ] || ! git diff --quiet "$BASE" HEAD -- \
                       "$context" .github/workflows/ci.yml .github/workflows/mago-providers.yml; }; then
-                      echo 'refresh=true' >> "$GITHUB_OUTPUT"
+                      echo 'decision=run' >> "$GITHUB_OUTPUT"
                   fi
 
             # The browser tests are two lanes of one job: the Chromium shards (demo) and Firefox and WebKit (engines), which
@@ -1218,9 +1218,7 @@ jobs:
         name: Build cache
         needs: changes
         # A reused browser lane builds no image, so write its cache all the same. Serena has its own build inputs.
-        if: >-
-            (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') &&
-            (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.mago-serena-cache == 'true')
+        if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.mago-serena-cache == 'run')
         runs-on: ubuntu-latest
         timeout-minutes: 30
         # a cache that cannot be written fails no run: the run's conclusion, which release.yml waits for on main, stays
@@ -1271,7 +1269,7 @@ jobs:
                       *.cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true
 
             - name: Build the Mago Serena image into the cache
-              if: ${{ !cancelled() && steps.registry.outcome == 'success' && needs.changes.outputs.mago-serena-cache == 'true' }}
+              if: ${{ !cancelled() && steps.registry.outcome == 'success' && needs.changes.outputs.mago-serena-cache == 'run' }}
               run: |
                   docker buildx build --output=type=cacheonly \
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-dev" \
