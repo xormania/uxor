@@ -9,8 +9,8 @@ import { isPromotedFrameCache } from '../lib/uxor-turbo.js';
  *   each field's `value` and `selected` attributes). A copy Turbo restores keeps the fields as the user left them, and
  *   a frame visit promoted to history takes its copy once the form is submitted, edits made. The form is left alone
  *   while the focus is inside it, so text typed before the page's scripts ran is kept.
- * - Before Turbo caches the page it leaves, a change still loading is cancelled: the form's submission (Turbo 8 lets
- *   its response push its URL over the page Back restored) and a frame load started by a link (Turbo 8 caches the
+ * - On Back or Forward, or before Turbo caches a page it leaves, a change still loading is cancelled: the form's
+ *   submission (Turbo 8 lets its response push its URL over the page Back restored) and a link's load (Turbo 8 caches the
  *   frame with its pending `src`, which Forward then loads at the wrong URL). A frame visit promoted to history
  *   dispatches `turbo:before-cache` too, with the page still on screen: nothing is cancelled then.
  * - When the frame connects with no load of its own pending, it drops `busy` and `aria-busy`: a frame visit promoted
@@ -22,7 +22,7 @@ import { isPromotedFrameCache } from '../lib/uxor-turbo.js';
  * The submission is tracked from `turbo:submit-start` until its response arrives or it ends.
  *
  * @target form             The search form.
- * @action cancelLoading    On `turbo:before-cache`: cancels the change still loading, unless the page stays on screen.
+ * @action cancelLoading    On `popstate` or `turbo:before-cache`: cancels the outgoing change before restoration.
  * @action submitStarted    On `turbo:submit-start`: tracks the form's submission.
  * @action responseReceived On `turbo:before-fetch-response`: stops tracking the submission once its response is in.
  * @action submitEnded      On `turbo:submit-end`: stops tracking the submission.
@@ -53,8 +53,9 @@ export default class extends Controller {
         }
     }
 
-    cancelLoading() {
-        if (isPromotedFrameCache()) {
+    cancelLoading({ type }) {
+        // A promoted frame caches the current page in place. A history traversal leaves it.
+        if (type === 'turbo:before-cache' && isPromotedFrameCache()) {
             return;
         }
         this.#stopSubmission();

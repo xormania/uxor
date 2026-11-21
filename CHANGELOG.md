@@ -38,6 +38,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 - `dropdown` keeps a hover menu closed after a second tap or an explicit dismissal.
 - `pagination` wraps its links when the container is too narrow for one row.
+- `data-table` cancels a pending page link as Back or Forward starts, so Turbo can restore the previous rows
+  without an uncaught browser error.
 
 ## [0.3.2] - 2026-11-16
 
