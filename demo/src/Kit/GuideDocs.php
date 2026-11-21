@@ -22,6 +22,8 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
  */
 final class GuideDocs
 {
+    private const REPOSITORY_DOC_PREFIX = 'https://github.com/xormania/uxor/blob/main/';
+
     /** the guides, by name: their file in the repository, their title and description in the gallery */
     public const GUIDES = [
         'install' => ['file' => 'INSTALL.md', 'title' => 'Getting started', 'description' => 'Set a Symfony project up for the UXor kit: requirements, Tailwind CSS and Flowbite CSS, the theme, then installing recipes with ux:install.'],
@@ -53,7 +55,7 @@ final class GuideDocs
             null !== $guide = self::guide($path) => $this->urls->generate('app_guide', ['name' => $guide]),
             'docs/RECIPES.md' === $path => $this->urls->generate('app_index').'#recipes',
             default => $this->recipes->repositoryUrl($path, $ref),
-        });
+        }, self::REPOSITORY_DOC_PREFIX);
     }
 
     /**
@@ -65,7 +67,7 @@ final class GuideDocs
             null !== $recipe = $this->recipes->readmeRecipe($path) => 'r/'.$recipe.'.md',
             null !== $guide = self::guide($path) => $guide.'.md',
             default => $this->recipes->repositoryUrl($path, $ref),
-        });
+        }, self::REPOSITORY_DOC_PREFIX);
     }
 
     /**

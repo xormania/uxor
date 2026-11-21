@@ -70,7 +70,7 @@ See [Choosing a revision](#choosing-a-revision) for a new installation, an updat
 @import './uxor.css';
 ```
 
-3. Install the recipes you need. [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Run the printed
+3. Install the recipes you need. [`docs/RECIPES.md`](https://github.com/xormania/uxor/blob/0.3.5/docs/RECIPES.md) lists them. Run the printed
    `composer require` and `importmap:require` commands for the recipe's dependencies.
 
 ```
@@ -99,7 +99,7 @@ normal workflow; review the resulting diff and reconcile customizations.
 
 The optional [Composer development package](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md) supplies tools, documentation and
 package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
-the [project snippet](docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
+the [project snippet](https://github.com/xormania/uxor/blob/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
 guidance is wanted, and avoid duplicating guidance already supplied by the helper.
 
-Verify the installed components in their application context using [application testing](docs/APPLICATION-TESTING.md).
+Verify the installed components in their application context using [application testing](https://github.com/xormania/uxor/blob/0.3.5/docs/APPLICATION-TESTING.md).
