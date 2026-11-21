@@ -136,7 +136,10 @@ final class UxorAcceptanceController
     environment = dict(os.environ, APP_ENV="dev", APP_DEBUG="1")
     log_path = root.parent / "consumer-profile-server.log"
     with log_path.open("w") as log:
-        server = subprocess.Popen([php, "-S", f"127.0.0.1:{port}", "-t", "public", "public/index.php"],
+        # This owned development server must execute the just-edited source on every request.
+        # CLI-server is an OPcache-supported SAPI independently of opcache.enable_cli.
+        server = subprocess.Popen([php, "-d", "opcache.enable=0", "-d", "opcache.enable_cli=0",
+                                   "-S", f"127.0.0.1:{port}", "-t", "public", "public/index.php"],
                                   cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 30
@@ -214,9 +217,14 @@ final class UxorAcceptanceController
                 raise RuntimeError("Changed source reused the previous preparation identity")
             final = request("repaired-" + secrets.token_hex(6))
             profile(final)
-            if final["body"] != {"marker": final["url"].rsplit("/", 1)[1], "value": "fixed",
-                                 "custom": "keep-application-value"}:
-                raise RuntimeError("The repaired feature did not execute with its customization preserved")
+            expected = {"marker": final["url"].rsplit("/", 1)[1], "value": "fixed",
+                        "custom": "keep-application-value"}
+            if final["body"] != expected:
+                observed = {key: final["body"].get(key) for key in expected} if isinstance(final["body"], dict) else {
+                    "type": type(final["body"]).__name__}
+                raise RuntimeError("The repaired feature did not execute with its customization preserved: "
+                                   + json.dumps({"status": final["status"], "expected": expected,
+                                                 "observed": observed}, ensure_ascii=True)[:2000])
             if (root / ".env.local").read_bytes() != secret_before:
                 raise RuntimeError("Development preparation changed application environment values")
         finally:
