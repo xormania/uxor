@@ -100,7 +100,41 @@ cd packages/uxor/dev && npm ci && npx playwright install chromium && npm run tes
 ```
 
 The browser check (`e2e/customer-workflow.spec.mjs`, `playwright.config.mjs`, `package.json`) belongs to the
-consumer, separate from the kit's browser suite at the repository root. Then, without development dependencies:
+consumer, separate from the kit's browser suite at the repository root. It loads the diagnostics fixture from the
+consumer's installed UXor package.
+
+### Browser diagnostics
+
+After preparing the customer workflow, run a targeted headless Chromium check from `packages/uxor/dev`:
+
+```sh
+npm run test:workflow:diagnostics -- -g 'a saved row leaving the active search'
+```
+
+The diagnostic run retains `trace.zip` and `browser-diagnostics.json` for each test under `app/var/browser-diagnostics`,
+including passes. Read the selected manifest through the installed UXor tools. Pass the path relative to `app/`:
+
+```sh
+artifact=var/browser-diagnostics/TEST_OUTPUT_DIRECTORY/browser-diagnostics.json
+python3 run.py --native exec vendor/bin/mate tools:call uxor_browser_diagnostics --path="$artifact" --format=json
+python3 run.py --native exec php vendor/bin/uxor browser-diagnostics "$artifact" --format=json
+```
+
+Read an exact response's Symfony profile through the same PHP runtime that served the application:
+
+```sh
+token=TOKEN_FROM_BROWSER_DIAGNOSTICS
+python3 run.py --native exec vendor/bin/mate tools:call symfony-profiler-get --token="$token" --format=json
+```
+
+The diagnostic command starts its own profiled PHP server by default. To use an existing server, start it with
+`PROFILER_COLLECT=1` on `run.py --native serve` or `run.py up` and set `UXOR_DEV_BASE_URL` to the URL reported by
+`run.py status` in the same mode. Omit `--native` from the Mate command for the Docker stack. Profile collection is
+off by default in the app and the ordinary browser check.
+
+### Verify without development dependencies
+
+From the repository root:
 
 ```sh
 composer install --working-dir=packages/uxor/dev/app --no-dev --prefer-dist --no-interaction

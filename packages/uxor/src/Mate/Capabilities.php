@@ -47,6 +47,13 @@ final class Capabilities
             ['project_root' => $this->projectRoot, 'component' => $component, 'asset_profile' => $assetProfile]));
     }
 
+    /** @param string $path Path to browser-diagnostics.json relative to the bound project. */
+    #[MateTool('uxor_browser_diagnostics', description: 'Read a local Playwright capture with browser errors, failed requests, and exact Symfony profile URIs.')]
+    public function browserDiagnostics(string $path): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('browser-diagnostics', ['project_root' => $this->projectRoot, 'path' => $path]));
+    }
+
     /**
      * @param string $kind maker or mate
      * @param string $name Empty lists capabilities; an exact name returns native parameter definitions.

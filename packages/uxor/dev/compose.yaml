@@ -13,6 +13,7 @@ services:
       HOME: /home/dev
       APP_ENV: dev
       APP_DEBUG: "1"
+      PROFILER_COLLECT: "${PROFILER_COLLECT:-0}"
       XDEBUG_MODE: "off"
       COMPOSER_CACHE_DIR: /home/dev/.cache/composer
     volumes:

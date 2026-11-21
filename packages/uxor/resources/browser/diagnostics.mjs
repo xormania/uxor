@@ -1,0 +1,78 @@
+import { writeFile } from 'node:fs/promises';
+
+// Bound the compact JSON for each section independently. Three sections plus metadata fit the PHP reader's 1 MiB limit.
+const SECTION_BYTE_LIMIT = 256 * 1024;
+
+/** Opt-in Playwright fixture for correlating browser failures with Symfony Profiler responses. */
+export async function recordBrowserDiagnostics({ context, baseURL }, use, testInfo) {
+    if (process.env.PROFILER_COLLECT !== '1' || !baseURL) {
+        await use();
+        return;
+    }
+
+    const origin = new URL(baseURL).origin;
+    const evidence = { version: 1, responses: [], requestFailures: [], pageErrors: [] };
+    const capturedBytes = { responses: 0, requestFailures: 0, pageErrors: 0 };
+    const dropped = { responses: 0, requestFailures: 0, pageErrors: 0 };
+    const requests = new WeakMap();
+    let nextRequestId = 1;
+
+    const record = (section, entry) => {
+        // Avoid copying a giant message or stack into a new JSON string just to discard it.
+        if (Object.values(entry).some((value) => typeof value === 'string' && value.length > SECTION_BYTE_LIMIT)) {
+            dropped[section]++;
+            return;
+        }
+        const bytes = Buffer.byteLength(JSON.stringify(entry)) + 1;
+        if (capturedBytes[section] + bytes > SECTION_BYTE_LIMIT) {
+            dropped[section]++;
+            return;
+        }
+        capturedBytes[section] += bytes;
+        evidence[section].push(entry);
+    };
+
+    const identify = (request) => {
+        const existing = requests.get(request);
+        if (existing) return existing;
+        const identity = {
+            requestId: nextRequestId++,
+            method: request.method(),
+            url: request.url(),
+            turboFrame: request.headers()['turbo-frame'] ?? null,
+        };
+        requests.set(request, identity);
+        return identity;
+    };
+    const recordResponse = (response) => {
+        const token = response.headers()['x-debug-token'];
+        if (token && new URL(response.url()).origin === origin) {
+            record('responses', { ...identify(response.request()), token, status: response.status() });
+        }
+    };
+    const recordRequestFailure = (request) => {
+        if (new URL(request.url()).origin === origin) {
+            record('requestFailures', { ...identify(request), error: request.failure()?.errorText ?? '' });
+        }
+    };
+    const recordPageError = (webError) => {
+        const { name, message, stack } = webError.error();
+        record('pageErrors', { name, message, stack: stack ?? null });
+    };
+
+    context.on('response', recordResponse);
+    context.on('requestfailed', recordRequestFailure);
+    context.on('weberror', recordPageError);
+    try {
+        await use();
+    } finally {
+        context.off('weberror', recordPageError);
+        context.off('requestfailed', recordRequestFailure);
+        context.off('response', recordResponse);
+
+        const path = testInfo.outputPath('browser-diagnostics.json');
+        if (Object.values(dropped).some((count) => count > 0)) evidence.dropped = dropped;
+        await writeFile(path, `${JSON.stringify(evidence)}\n`);
+        await testInfo.attach('Browser diagnostics', { path, contentType: 'application/json' });
+    }
+}

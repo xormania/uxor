@@ -25,7 +25,10 @@ The standalone CLI defaults project operations to the current directory. It requ
 
 `workflow customer-management` reads the UXor-authored guide for a searchable customer list, edit dialog, validation, successful save, feedback and Turbo history. It uses the same bounded UTF-8 pagination and directory checks as references. The result identifies the UXor package (`xormania/uxor`) as its source and returns the observed file checksum; that checksum identifies the returned guide and is not an independent signature. This guide lives outside the generated UXor reference bundle. Mate exposes it through `uxor://workflow/customer-management` and `uxor_workflow`; use the tool or CLI `--offset` to continue a truncated page.
 
-Mate exposes seven tools: `uxor_catalog`, `uxor_component`, `uxor_reference`, `uxor_workflow`, `uxor_project`, `uxor_doctor` and `uxor_tools`. The fixed `uxor://catalog` resource supplies the initial catalog page. Read an indexed document through `uxor://reference/INSTALL.md` or `uxor://reference/modal/README.md`; use the reference tool for pagination. See `vendor/bin/mate tools:inspect <name> --format=json` for actual named inputs.
+Mate exposes `uxor_catalog`, `uxor_component`, `uxor_reference`, `uxor_workflow`, `uxor_project`, `uxor_doctor`,
+`uxor_tools` and `uxor_browser_diagnostics`. The fixed `uxor://catalog` resource supplies the initial catalog page.
+Read an indexed document through `uxor://reference/INSTALL.md` or `uxor://reference/modal/README.md`. Use the reference
+tool for pagination. See `vendor/bin/mate tools:inspect <name> --format=json` for actual named inputs.
 
 ```sh
 vendor/bin/mate tools:call uxor_workflow --name=customer-management --limit=12000 --format=json
@@ -41,6 +44,54 @@ vendor/bin/mate resources:read uxor://workflow/customer-management --format=json
 Use `doctor --component=<catalog-name>` for selected-component static wiring checks. The pinned manifest supplies importmap package keys. The editor and dropzone READMEs supply required stylesheet imports; dropzone also requires its native controller enabled and upstream stylesheet autoimport disabled. For modal, data-table, editor and dropzone, the check looks for the controller copied into the documented `assets/controllers/` layout. Findings link the pinned reference and identify their static scope. Importmap PHP is tokenized as text and never executed; comments do not count as keys. Literal-key presence does not establish the resolved asset or runtime registration.
 
 `--asset-profile=auto` applies the conventional layout when the project declares or installs AssetMapper and has an importmap file. `--asset-profile=assetmapper` selects that layout explicitly. Use `--asset-profile=custom` for relocated/replaced application-owned assets or another pipeline; those checks remain unknown pending project-specific verification. The Mate doctor's corresponding named inputs are `component` and `assetProfile`. Static successes still leave runtime verification unknown: inspect controller connection, computed styles, PHP wiring and the requested interaction in the running application.
+
+## Browser diagnostics
+
+Register the package's recorder as an automatic fixture in the application's existing Playwright test setup. This
+example is for a fixture at `tests/fixtures.mjs` and the default Composer vendor location:
+
+```js
+import { test as base } from '@playwright/test';
+import { recordBrowserDiagnostics } from '../vendor/xormania/uxor/packages/uxor/resources/browser/diagnostics.mjs';
+
+export const test = base.extend({
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
+});
+```
+
+Set Playwright's `baseURL` to the app. Enable Symfony FrameworkBundle's profiler collection in the local `dev`
+environment for this run. Apps can set `PROFILER_COLLECT=0` in `.env` and configure dev collection as follows:
+
+```yaml
+when@dev:
+    framework:
+        profiler:
+            collect: '%env(bool:PROFILER_COLLECT)%'
+```
+
+Start the local Symfony server with `PROFILER_COLLECT=1`. If Playwright starts the server, it can inherit the same
+flag from the test command. Keep the output in the selected application so Mate and the CLI can read it:
+
+```bash
+PROFILER_COLLECT=1 npx playwright test tests/customer.spec.mjs --workers=1 --trace=on --output=var/browser-diagnostics
+```
+
+From the application root, use the relative path to the selected test's `browser-diagnostics.json`:
+
+```bash
+artifact=var/browser-diagnostics/customer-edit/browser-diagnostics.json
+vendor/bin/uxor browser-diagnostics "$artifact" --format=json
+vendor/bin/mate tools:call uxor_browser_diagnostics --path="$artifact" --format=json
+```
+
+The operation reads one bounded artifact. It reports page errors, failed requests and profiled responses. A shared
+`requestId` connects a failed request to a response whose headers arrived before cancellation. Open the returned
+`profileUri` with Mate's Symfony profiler resource in the environment that served the request. If there is no
+response token, inspect the trace to see where the request stopped. The original test determines pass or fail.
+
+The recorder observes Playwright's `context` fixture and correlates HTTP responses and failures on the `baseURL`
+origin. Tests that create a separate context need to register the recorder against that context. When a capture
+reaches a section's size limit, `dropped` counts the omitted entries so the rest of the evidence stays readable.
 
 ## Native capability metadata
 

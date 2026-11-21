@@ -19,6 +19,9 @@ distributed as a Symfony UX Toolkit kit.
 - Keep Node.js out of the demo and the kit's install, build and runtime requirements. Use Symfony AssetMapper for
   browser packages and TailwindBundle's standalone CLI for CSS. Playwright and repository checks run separately.
 - Behavior lives in Stimulus controllers only: no `import 'flowbite'`, no `initFlowbite()`.
+- When diagnosing a browser test, use `npm run test:e2e:diagnostics -- <spec> -g '<test>'`. Read the result with
+  `php packages/uxor/bin/uxor browser-diagnostics <artifact> --format=json` and use the recorded Symfony token in Mate.
+  [`Browser request profiles`](docs/TESTING.md#browser-request-profiles) covers the demo server and artifact paths.
 - Use the Mago CLI and Serena server only in a trusted checkout. Review the launcher, `mago.toml`, any
   inherited configuration and the extension-host programs they select. These programs can read the mounted checkout.
   For local PHP checks from the checkout root, prepare the pinned CLI and language server with `tools/mago pull` and run
