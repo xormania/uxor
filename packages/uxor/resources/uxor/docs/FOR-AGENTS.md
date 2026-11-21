@@ -29,8 +29,9 @@ UXor's requirements and compatibility commitments.
 ## Set your human's project up
 
 Run these on a Symfony project (`composer create-project symfony/skeleton`), once, in this order. PHP 8.4 or later
-with the `zip` extension is required. With Symfony Docker, run each command in the container
-(`docker compose exec php composer …`, `docker compose exec php bin/console …`).
+with the `zip` extension is required. AssetMapper and TailwindBundle handle the asset setup without Node.js.
+With Symfony Docker, run each command in the container (`docker compose exec php composer …`,
+`docker compose exec php bin/console …`).
 
 ```bash
 composer config extra.symfony.allow-contrib true
@@ -52,14 +53,14 @@ Then make `assets/styles/app.css` start with these imports, in this order:
 ```
 
 Keep `php bin/console tailwind:build --watch` running while you work, or run `tailwind:build` after each change.
-[`INSTALL.md`](INSTALL.md) explains each step, and Webpack Encore.
+[`INSTALL.md`](INSTALL.md) explains each step.
 
 ## Your first moves
 
 1. Paste the block in [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into the project's
    `AGENTS.md` or `CLAUDE.md`, so every later session follows the same rules.
-2. Install the recipes the task needs. `ux:install` brings the recipes a recipe depends on, then prints a
-   `composer require` command: run it.
+2. Install the recipes the task needs. `ux:install` brings the recipes a recipe depends on. Run the printed
+   `composer require` and `importmap:require` commands for the recipe's packages.
 
    ```bash
    php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>

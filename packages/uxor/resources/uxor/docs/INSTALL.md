@@ -11,7 +11,9 @@ current release; UXor's requirements and compatibility commitments govern how it
 
 ## Requirements
 
-The kit needs PHP 8.4 or later with the `zip` extension, Tailwind CSS v4 and Flowbite v4's stylesheet. On a new Symfony project (`composer create-project symfony/skeleton`), do the *Symfony* steps first, in this order:
+The kit needs PHP 8.4 or later with the `zip` extension, Tailwind CSS v4 and Flowbite v4's stylesheet.
+The standard setup uses Symfony AssetMapper and TailwindBundle's standalone binary and runs without Node.js.
+On a new Symfony project (`composer create-project symfony/skeleton`), follow the *Symfony* steps first.
 
 ### Symfony
 
@@ -22,19 +24,23 @@ The kit needs PHP 8.4 or later with the `zip` extension, Tailwind CSS v4 and Flo
 
 ### Tailwind CSS
 
-- With AssetMapper, install Tailwind CSS with the [TailwindBundle](https://symfony.com/bundles/TailwindBundle/current/index.html). Keep the default major version, `4`, when `php bin/console tailwind:init` asks for it, and keep `php bin/console tailwind:build --watch` running while you work.
-- With Webpack Encore, follow the [Tailwind CSS installation guide for Symfony](https://tailwindcss.com/docs/installation/framework-guides/symfony).
+Install [TailwindBundle](https://symfony.com/bundles/TailwindBundle/current/index.html), which downloads the
+standalone Tailwind CSS binary. Keep major version `4` when `tailwind:init` prompts you.
+
+```bash
+composer require symfonycasts/tailwind-bundle
+php bin/console tailwind:init
+```
+
+Keep `php bin/console tailwind:build --watch` running while you work.
 
 ## Installation
 
-1. Install Flowbite's stylesheet (base styles of the form controls), either with `importmap:require` for AssetMapper, or `npm` for Webpack Encore. The kit uses no Flowbite JavaScript: every behavior lives in the recipes' Stimulus controllers.
+1. Install Flowbite's stylesheet (base styles of the form controls) with AssetMapper. The recipes' Stimulus
+   controllers provide the browser behavior.
 
-```
-# With AssetMapper
+```bash
 php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
-
-# With npm
-npm install "flowbite@^4.0.2"
 ```
 
 The kit is tested with Flowbite 4. `importmap:update` ignores the version constraint and would install Flowbite's latest version, even a new major: to update the stylesheet, run the `importmap:require` command above again.
@@ -50,16 +56,15 @@ php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version
 ```css
 @import 'tailwindcss';
 
-/* With AssetMapper (downloaded by importmap:require)... */
+/* Downloaded by importmap:require */
 @import '../vendor/flowbite/dist/flowbite.min.css';
-/* ... or with Webpack Encore */
-/* @import 'flowbite/dist/flowbite.min.css'; */
 
 /* UXor's color roles, light and dark, from the `theme` recipe */
 @import './uxor.css';
 ```
 
-3. Install the recipes you need; [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Each `ux:install` prints a `composer require` command for the packages the recipe needs: run it.
+3. Install the recipes you need. [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Run the printed
+   `composer require` and `importmap:require` commands for the recipe's dependencies.
 
 ```
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
