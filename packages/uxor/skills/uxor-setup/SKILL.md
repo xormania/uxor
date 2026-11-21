@@ -20,6 +20,8 @@ and customized components.
    Confirm a real dev response has a profile; config-file presence is insufficient.
 4. Prepare Mago/Serena providers on the Docker host. For generated client configuration use
    `--client=claude|codex` and, when setup runs in PHP Docker, the client's absolute `--host-project-root`.
+   Pass `--trust-project-code` only for an authorized application: setup saves it in new MCP bindings, granting
+   execution on every connection. Without it, Serena refuses to start. Reconcile preserved bindings explicitly.
    Connect and query a known application symbol; the generated registration is unverified.
    Mate 1.0.0-BETA1 supplies application CLI tools; Serena supplies MCP.
 5. Run `uxor prepare --trust-project-code` in the application PHP runtime when compiled Symfony wiring is needed.

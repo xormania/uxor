@@ -17,7 +17,9 @@ Follow the consuming application's instructions and authorized task. Use its act
 3. If no token exists, use available logs, request evidence or browser traces. An early boot failure can precede
    profiling. Preserve historical profiles/logs before a cache reset; current source changes do not invalidate
    their value as historical observations.
-4. Trace the defect with Serena/Mago and current compiled bindings when available. Add or select a regression
+4. Trace the defect with Serena/Mago and current compiled bindings when available. Their application commands
+   require `--trust-project-code` before the command; `--write` is a separate grant for an authorized repair.
+   Add or select a regression
    that fails on the defect, repair it and verify it passes. Keep existing test coverage and inspect diagnostic
    changes; equal finding counts alone do not establish an unchanged report.
 5. Verify a fresh request after repair and exercise the relevant browser journey: validation, submission, content,

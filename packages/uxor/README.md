@@ -91,6 +91,9 @@ choice. An installation failure remains visible in setup's result.
 
 Choose `--client=claude` or `--client=codex` to plan the corresponding Serena MCP registration;
 `--client=none` leaves client configuration to the application. Existing client files are preserved.
+Supply `--trust-project-code` when authorizing the newly generated Serena binding to execute application code.
+The saved flag authorizes execution on every connection. Without it, a generated binding refuses to start;
+`--apply` alone does not grant execution trust. Review preserved bindings and reconcile the flag explicitly.
 
 When setup runs inside the application's PHP container, its application path and the host client's path can differ.
 Select the container path with `--project-root` and supply the absolute host checkout path separately:
@@ -136,9 +139,12 @@ The Composer package installs `vendor/bin/uxor-mago`. Its CLI uses the official 
 PHP and Twig checks. Serena uses a separate language-server build based on that release for semantic source work,
 diagnostics and the compiled Symfony dependency graph. Run the application's own runtime tests separately.
 
-Use these tools in a trusted checkout. Review the effective `mago.toml`, inherited files and
-`[extension-hosts]` programs: Mago can execute those programs inside the offline provider, and they can read the
-mounted application. [Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
+Every application command requires `--trust-project-code` before the command. Review the selected checkout,
+its effective `mago.toml`, inherited configuration, extension-host programs and Composer autoloader before
+supplying it. Mago can execute configured extensions, and Serena's graph checks execute the application's
+preparation worker. This applies to read-only queries as well as edits. Provider preparation, image/version
+queries and top-level help do not require application trust.
+[Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
 ### Prepare the providers on the Docker host
 
@@ -180,35 +186,38 @@ The default application mount is read-only. Formatting commands check without wr
 Mago's exit status. `check` verifies nonempty source scopes, then runs formatting, lint and analysis in order.
 
 ```sh
-vendor/bin/uxor-mago check
-vendor/bin/uxor-mago analyze --reporting-format json
-vendor/bin/uxor-mago lint --reporting-format json src/
-vendor/bin/uxor-mago twig:lint templates/
-vendor/bin/uxor-mago cst --help
-vendor/bin/uxor-mago guard --help
+vendor/bin/uxor-mago --trust-project-code check
+vendor/bin/uxor-mago --trust-project-code analyze --reporting-format json
+vendor/bin/uxor-mago --trust-project-code lint --reporting-format json src/
+vendor/bin/uxor-mago --trust-project-code twig:lint templates/
+vendor/bin/uxor-mago --trust-project-code cst --help
+vendor/bin/uxor-mago --trust-project-code guard --help
 ```
 
-Use `--write` before the command when source changes are authorized. The native `fix` command uses its safe
+`--trust-project-code` authorizes execution; add `--write` before the command when checkout changes are also
+authorized. Writable access includes repository metadata; the offline provider is not a safe execution environment
+for untrusted application code. The native `fix` command uses its safe
 default; inspect the resulting diff and run the relevant application tests.
 
 ```sh
-vendor/bin/uxor-mago --write format src/
-vendor/bin/uxor-mago --write fix src/
-vendor/bin/uxor-mago --write twig:fmt templates/
+vendor/bin/uxor-mago --trust-project-code --write format src/
+vendor/bin/uxor-mago --trust-project-code --write fix src/
+vendor/bin/uxor-mago --trust-project-code --write twig:fmt templates/
 ```
 
 The launcher also forwards `guard`, `cst`, `twig:fmt` and `twig:lint` options to Mago. Mutation options
 such as `--fix` require `--write`; native dry-run previews remain available. Explicit check, diff and stdin
 options keep their native meaning. Use each command's installed `--help` before selecting unfamiliar options.
 
-For manual MCP configuration, substitute the absolute host application and executable paths:
+For manual MCP configuration, review the application before saving this execution-authorized binding, then
+substitute the absolute host application and executable paths. Its trust grant applies on every connection:
 
 ```json
 {
   "mcpServers": {
     "uxor-mago": {
       "command": "/path/to/app/vendor/bin/uxor-mago",
-      "args": ["--project-root", "/path/to/app", "serena"]
+      "args": ["--project-root", "/path/to/app", "--trust-project-code", "serena"]
     }
   }
 }

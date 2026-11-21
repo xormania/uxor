@@ -97,7 +97,10 @@ final class DeveloperEnvironmentTest extends TestCase
         }
         self::assertStringContainsString('.uxor/mago/config.toml', file_get_contents($this->project.'/mago.toml'));
         self::assertStringNotContainsString('[extension-hosts.', file_get_contents($this->project.'/.uxor/mago/config.toml'));
-        self::assertIsArray(json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR));
+        $configuration = json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['--project-root', $this->project, 'serena'], $configuration['mcpServers']['uxor-mago']['args']);
+        self::assertFalse($result['data']['mcp_binding']['requested_trust_project_code']);
+        self::assertFalse($result['data']['mcp_binding']['verified']);
         self::assertFileDoesNotExist($this->project.'/config/packages/uxor.yaml');
         self::assertFileDoesNotExist($this->project.'/.mcp.json');
         self::assertFileDoesNotExist($this->project.'/.codex/config.toml');
@@ -129,6 +132,7 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertSame($server, $client['mcpServers']['existing']);
         self::assertArrayNotHasKey('uxor-mate', $client['mcpServers']);
         self::assertArrayHasKey('uxor-mago', $client['mcpServers']);
+        self::assertSame(['--project-root', $this->project, 'serena'], $client['mcpServers']['uxor-mago']['args']);
         $before = $this->snapshot($this->directory);
         $this->invoke('setup', ['--apply' => true, '--client' => 'claude']);
         self::assertSame($before, $this->snapshot($this->directory));
@@ -156,6 +160,8 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertStringStartsWith($custom, $configured);
         self::assertSame(0, substr_count($configured, '[mcp_servers.uxor-mate]'));
         self::assertSame(1, substr_count($configured, '[mcp_servers.uxor-mago]'));
+        self::assertStringNotContainsString('--trust-project-code', $configured);
+        self::assertStringNotContainsString('--write', $configured);
         $this->invoke('setup', ['--apply' => true, '--client' => 'codex']);
         self::assertSame($configured, file_get_contents($this->project.'/.codex/config.toml'));
     }
@@ -252,6 +258,114 @@ final class DeveloperEnvironmentTest extends TestCase
         $mago = file_get_contents($this->project.'/mago.toml');
         self::assertMatchesRegularExpression('/php-version\s*=\s*["\']8\.5["\']/', $mago);
         self::assertMatchesRegularExpression('/["\']templates["\']/', $mago);
+    }
+
+
+    public function testOnlyExplicitTrustIsSavedInNewBindingsWithoutExecutingTheApplication(): void
+    {
+        $host = '/host/projects/trusted consumer';
+        $manifest = json_decode(file_get_contents($this->project.'/composer.json'), true, 512, JSON_THROW_ON_ERROR);
+        $manifest['config']['bin-dir'] = 'tools/bin';
+        file_put_contents($this->project.'/composer.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        $before = $this->snapshot($this->directory);
+        foreach (['none', 'claude', 'codex'] as $client) {
+            [$code, $result] = $this->invoke('setup', [
+                '--client' => $client, '--host-project-root' => $host, '--trust-project-code' => true,
+            ]);
+            self::assertSame(0, $code, json_encode($result));
+            self::assertSame('plan', $result['data']['mode']);
+            self::assertTrue($result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertFalse($result['data']['mcp_binding']['verified']);
+            self::assertSame([], $result['changes']);
+            self::assertSame([], $result['data']['executions']);
+            self::assertSame($before, $this->snapshot($this->directory));
+        }
+        foreach (['none', 'claude', 'codex'] as $client) {
+            [$code, $result] = $this->invoke('setup', [
+                '--apply' => true, '--client' => $client, '--host-project-root' => $host,
+                '--trust-project-code' => true,
+            ]);
+            self::assertContains($code, [0, 2], json_encode($result));
+            self::assertNotSame('failed', $result['status']);
+            self::assertTrue($result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertFalse($result['data']['mcp_binding']['verified']);
+            self::assertSame([], $result['data']['executions']);
+        }
+        foreach (['.uxor/mcp.json', '.mcp.json'] as $path) {
+            $configuration = json_decode(file_get_contents($this->project.'/'.$path), true, 512, JSON_THROW_ON_ERROR);
+            $server = $configuration['mcpServers']['uxor-mago'];
+            self::assertSame($host.'/tools/bin/uxor-mago', $server['command']);
+            self::assertSame(['--project-root', $host, '--trust-project-code', 'serena'], $server['args']);
+        }
+        $codex = file_get_contents($this->project.'/.codex/config.toml');
+        self::assertStringContainsString('command = "'.$host.'/tools/bin/uxor-mago"', $codex);
+        self::assertStringContainsString('args = ["--project-root","'.$host.'","--trust-project-code","serena"]', $codex);
+        self::assertStringContainsString('cwd = "'.$host.'"', $codex);
+        self::assertStringNotContainsString('--write', $codex);
+        self::assertSame(1, substr_count($codex, '--trust-project-code'));
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+    }
+
+    public function testRequestingTrustPreservesPreviouslyUntrustedBindingsAndReportsReconciliation(): void
+    {
+        $this->assertPreservedTrustTransition(false);
+    }
+
+    public function testOmittingTrustPreservesPreviouslyTrustedBindingsAndReportsReconciliation(): void
+    {
+        $this->assertPreservedTrustTransition(true);
+    }
+
+    private function assertPreservedTrustTransition(bool $initialTrust): void
+    {
+        // Satisfy static dependency metadata so only a binding conflict can
+        // change a matching completed setup into an incomplete result.
+        file_put_contents($this->project.'/vendor/composer/installed.json', json_encode([
+            'packages' => [
+                ['name' => 'symfony/framework-bundle', 'version' => 'v8.1.0'],
+                ['name' => 'symfony/profiler-pack', 'version' => 'v1.0.0'],
+                ['name' => 'symfony/maker-bundle', 'version' => 'v1.0.0'],
+                ['name' => 'carthage-software/mago', 'version' => '1.60.2'],
+                ['name' => 'byte-kitsune/mago-symfony-wiring', 'version' => '1.3.0'],
+            ],
+        ], JSON_THROW_ON_ERROR));
+        foreach (['claude', 'codex'] as $client) {
+            $options = ['--apply' => true, '--client' => $client];
+            if ($initialTrust) {
+                $options['--trust-project-code'] = true;
+            }
+            [$code, $result] = $this->invoke('setup', $options);
+            self::assertSame(0, $code, json_encode($result));
+            self::assertSame('completed', $result['status']);
+            self::assertSame($initialTrust, $result['data']['mcp_binding']['requested_trust_project_code']);
+        }
+        $before = $this->snapshot($this->directory);
+        foreach (['claude', 'codex'] as $client) {
+            $options = ['--apply' => true, '--client' => $client];
+            if ($initialTrust) {
+                $options['--trust-project-code'] = true;
+            }
+            [$code, $result] = $this->invoke('setup', $options);
+            self::assertSame(0, $code, json_encode($result));
+            self::assertSame([], $result['changes']);
+            self::assertSame($before, $this->snapshot($this->directory));
+        }
+        foreach (['claude', 'codex'] as $client) {
+            $options = ['--apply' => true, '--client' => $client];
+            if (!$initialTrust) {
+                $options['--trust-project-code'] = true;
+            }
+            [$code, $result] = $this->invoke('setup', $options);
+            self::assertSame(2, $code, json_encode($result));
+            self::assertSame('incomplete', $result['status']);
+            self::assertSame(!$initialTrust, $result['data']['mcp_binding']['requested_trust_project_code']);
+            self::assertFalse($result['data']['mcp_binding']['verified']);
+            self::assertSame([], $result['changes']);
+            self::assertSame([], $result['data']['executions']);
+            self::assertMatchesRegularExpression('/preserved.*execution trust/i', implode("\n", $result['data']['next_steps']));
+            self::assertSame($before, $this->snapshot($this->directory));
+        }
+        self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
     public function testInstallationAndRuntimePreparationRequireExplicitExecutionConsent(): void

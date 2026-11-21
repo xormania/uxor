@@ -22,7 +22,7 @@ REPOSITORY = LAUNCHER.parents[3]
 
 
 def analyze(launcher: Path, cwd: Path, *sources: str) -> tuple[int, dict[str, set[tuple[str, int]]]]:
-    report = subprocess.run([launcher, "analyze", "--reporting-format", "json", *sources], cwd=cwd,
+    report = subprocess.run([launcher, "--trust-project-code", "analyze", "--reporting-format", "json", *sources], cwd=cwd,
                             capture_output=True, text=True, timeout=90)
     assert report.returncode in (0, 1), (report.returncode, report.stderr)
     diagnostics = {}
@@ -36,7 +36,7 @@ def analyze(launcher: Path, cwd: Path, *sources: str) -> tuple[int, dict[str, se
 
 async def check_language_server(launcher: Path, cwd: Path, symbols: list[tuple[str, str, str]], source: str,
                                 expected: set[tuple[str, int]]) -> None:
-    params = StdioServerParameters(command=str(launcher), args=["serena"], cwd=cwd,
+    params = StdioServerParameters(command=str(launcher), args=["--trust-project-code", "serena"], cwd=cwd,
                                   env={k: os.environ[k] for k in ("UXOR_MAGO_IMAGE", "DOCKER_HOST", "DOCKER_CONTEXT") if k in os.environ})
     async with stdio_client(params) as streams, ClientSession(*streams) as client:
         await client.initialize()
@@ -72,10 +72,10 @@ async def check_consumer(launcher: Path = LAUNCHER):
         root = Path(directory)
         (root / "composer.json").write_text("{}\n")
         (root / "src").mkdir()
-        missing = subprocess.run([launcher, "check"], cwd=root, capture_output=True, text=True, timeout=60)
+        missing = subprocess.run([launcher, "--trust-project-code", "check"], cwd=root, capture_output=True, text=True, timeout=60)
         assert missing.returncode != 0 and "mago.toml" in missing.stderr, missing
         (root / "mago.toml").write_text('version = "1.60.2"\nphp-version = "8.4"\n[source]\npaths = ["src"]\n')
-        empty = subprocess.run([launcher, "check"], cwd=root, capture_output=True, text=True, timeout=60)
+        empty = subprocess.run([launcher, "--trust-project-code", "check"], cwd=root, capture_output=True, text=True, timeout=60)
         assert empty.returncode != 0 and "no files" in empty.stderr, empty
         (root / "src/Receipt.php").write_text(
             "<?php\n\ndeclare(strict_types=1);\n\nnamespace Demo;\n\nfinal class Receipt\n{\n"
@@ -84,25 +84,25 @@ async def check_consumer(launcher: Path = LAUNCHER):
         settings = root / ".serena/project.yml"
         existing = "project_name: consumer\nlanguage_servers: [php]\n"
         settings.write_text(existing)
-        subprocess.run([launcher, "check"], cwd=root, check=True, timeout=60)
+        subprocess.run([launcher, "--trust-project-code", "check"], cwd=root, check=True, timeout=60)
         unformatted = root / "src/FormattingProbe.php"
         unformatted.write_text("<?php\nnamespace Demo;final class FormattingProbe{public function value():int{return 7;}}\n")
         before_format = unformatted.read_bytes()
-        preview = subprocess.run([launcher, "format", "src/FormattingProbe.php"], cwd=root,
+        preview = subprocess.run([launcher, "--trust-project-code", "format", "src/FormattingProbe.php"], cwd=root,
                                  capture_output=True, text=True, timeout=60)
         assert preview.returncode == 1 and unformatted.read_bytes() == before_format, preview
-        subprocess.run([launcher, "--write", "format", "src/FormattingProbe.php"], cwd=root, check=True, timeout=60)
+        subprocess.run([launcher, "--trust-project-code", "--write", "format", "src/FormattingProbe.php"], cwd=root, check=True, timeout=60)
         assert unformatted.read_bytes() != before_format, "Explicit formatting did not change the unformatted source"
-        subprocess.run([launcher, "format", "src/FormattingProbe.php"], cwd=root, check=True, timeout=60)
+        subprocess.run([launcher, "--trust-project-code", "format", "src/FormattingProbe.php"], cwd=root, check=True, timeout=60)
         templates = root / "templates"
         templates.mkdir()
         twig = templates / "acceptance.html.twig"
         twig.write_text("{% if %}invalid{% endif %}\n")
-        invalid_twig = subprocess.run([launcher, "twig:lint", str(twig.relative_to(root))], cwd=root,
+        invalid_twig = subprocess.run([launcher, "--trust-project-code", "twig:lint", str(twig.relative_to(root))], cwd=root,
                                      capture_output=True, text=True, timeout=60)
         assert invalid_twig.returncode == 1, (invalid_twig.returncode, invalid_twig.stdout, invalid_twig.stderr)
         twig.write_text("<span>{{ 'ready' }}</span>\n")
-        subprocess.run([launcher, "twig:lint", str(twig.relative_to(root))], cwd=root, check=True, timeout=60)
+        subprocess.run([launcher, "--trust-project-code", "twig:lint", str(twig.relative_to(root))], cwd=root, check=True, timeout=60)
         (root / "src/Broken.php").write_text('<?php\nfunction broken(): int { return "wrong"; }\n')
         status, by_file = analyze(launcher, root, "src/Broken.php")
         errors = by_file.get("src/Broken.php", set())
@@ -157,7 +157,7 @@ async def check_repository():
 
 @asynccontextmanager
 async def provider_session(launcher: Path, root: Path, *, write: bool = False):
-    params = StdioServerParameters(command=str(launcher), args=[*(["--write"] if write else []), "serena"],
+    params = StdioServerParameters(command=str(launcher), args=["--trust-project-code", *(["--write"] if write else []), "serena"],
                                   cwd=root, env={name: os.environ[name] for name in
                                   ("UXOR_MAGO_IMAGE", "DOCKER_HOST", "DOCKER_CONTEXT") if name in os.environ})
     async with stdio_client(params) as streams, ClientSession(*streams) as client:
@@ -199,6 +199,11 @@ def references(graph: dict, owner: str, member: str) -> dict[str, set[str]]:
 async def check_installed(launcher: Path, root: Path) -> None:
     """Qualify the installed archive, real Symfony wiring and writable Serena together."""
     php = os.environ.get("PHP_BIN", "php")
+    for arguments in (["analyze", "src/Controller/UxorAcceptanceController.php"],
+                      ["--write", "analyze", "src/Controller/UxorAcceptanceController.php"],
+                      ["--write", "serena"]):
+        refused = subprocess.run([launcher, *arguments], cwd=root, capture_output=True, text=True, timeout=30)
+        assert refused.returncode == 2 and "--trust-project-code" in refused.stderr, (refused.returncode, refused.stderr)
     directory = root / "src/UxorProviderAcceptance"
     if directory.exists():
         raise RuntimeError("The provider acceptance directory already belongs to the application")

@@ -37,13 +37,16 @@ final class OperationCommand extends Command
             $this->addOption('project-root', null, InputOption::VALUE_REQUIRED, 'Explicit application directory; defaults to current directory', getcwd());
         }
         if (in_array($this->operation, ['setup', 'environment', 'prepare'], true)) {
-            $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'Acknowledge execution of this already trusted application and its native tools');
+            $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'setup' === $this->operation
+                ? 'Acknowledge application execution and authorize project code on every connection through new saved Serena MCP bindings'
+                : 'Acknowledge execution of this already trusted application and its native tools');
         }
         if ('setup' === $this->operation) {
             $this->addOption('apply', null, InputOption::VALUE_NONE, 'Apply the proposed project configuration')
                 ->addOption('install', null, InputOption::VALUE_NONE, 'Use native Composer and Mate to install and initialize the development tools; requires apply and trust-project-code')
                 ->addOption('client', null, InputOption::VALUE_REQUIRED, 'none, claude, or codex; configure Serena MCP without replacing existing server entries', 'none')
                 ->addOption('host-project-root', null, InputOption::VALUE_REQUIRED, 'Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere', '');
+            $this->setHelp('Setup plans changes unless --apply is supplied. --trust-project-code adds explicit execution trust to new Serena MCP bindings: saving that flag authorizes application code on every connection, including configured Mago extensions and Composer autoloaders. Without it, generated bindings refuse to connect until trust is explicitly granted. --write is a separate editing permission and is not added by setup. Existing bindings are preserved; reconcile their application paths and execution trust before connecting.');
         }
         if ('environment' === $this->operation) {
             $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes; requires trust-project-code');

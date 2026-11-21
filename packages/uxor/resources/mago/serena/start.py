@@ -13,10 +13,20 @@ from typing import Any
 
 PROJECT = Path("/app")
 STATE = Path("/state")
+TRUST_REQUIRED = (
+    "This command can execute application code. Review the selected application "
+    "and pass --trust-project-code before starting Serena."
+)
 
 
-def preparation_generation(project=PROJECT):
-    """Read the owned preparation contract without compiling or refreshing the app."""
+def require_project_trust(trust_project_code):
+    if trust_project_code is not True:
+        raise RuntimeError(TRUST_REQUIRED)
+
+
+def preparation_generation(project=PROJECT, *, trust_project_code=False):
+    """Check preparation through application PHP after explicit execution trust."""
+    require_project_trust(trust_project_code)
     worker = project / ".uxor/mago/worker.php"
     if not worker.is_file():
         configuration = project / ".uxor/mago/config.toml"
@@ -24,7 +34,7 @@ def preparation_generation(project=PROJECT):
             line.strip() == "[extension-hosts.uxor-symfony]"
             for line in configuration.read_text().splitlines()
         ):
-            raise RuntimeError("Symfony graph preparation is incomplete. Run vendor/bin/uxor prepare in the application's PHP runtime.")
+            raise RuntimeError("Symfony graph preparation is incomplete. Run vendor/bin/uxor prepare --trust-project-code in the application's PHP runtime.")
         return None
     try:
         result = subprocess.run(
@@ -34,7 +44,7 @@ def preparation_generation(project=PROJECT):
     except (OSError, subprocess.TimeoutExpired):
         raise RuntimeError("Cannot verify Symfony graph preparation. Run vendor/bin/uxor environment in the application's PHP runtime.") from None
     if result.returncode != 0:
-        raise RuntimeError("Symfony graph preparation is stale or unavailable. Run vendor/bin/uxor prepare in the application's PHP runtime.")
+        raise RuntimeError("Symfony graph preparation is stale or unavailable. Run vendor/bin/uxor prepare --trust-project-code in the application's PHP runtime.")
     try:
         if len(result.stdout) > 4096:
             raise ValueError("Oversized preparation response")
@@ -51,22 +61,23 @@ def preparation_generation(project=PROJECT):
         raise RuntimeError("The Symfony preparation check returned an invalid state. Run vendor/bin/uxor environment in the application's PHP runtime.") from None
 
 
-def install_graph_guard():
+def install_graph_guard(*, trust_project_code=False):
     """Preserve the patched graph API while rejecting stale compiled facts."""
+    require_project_trust(trust_project_code)
     from serena.repl.api.lsp_api import LspApi
 
     original = LspApi.get_symbol_references
 
     @wraps(original)
     def get_symbol_references(self, relative_path: str, symbol: str, member: str = "") -> dict[str, Any]:
-        generation = preparation_generation()
+        generation = preparation_generation(trust_project_code=trust_project_code)
         if getattr(self, "_uxor_preparation_generation", None) != generation:
             # Workers cache the exported reference. A fresh preparation must
             # reach a new language-server generation before graph inspection.
             self.restart_language_server()
             self._uxor_preparation_generation = generation
         result = original(self, relative_path, symbol, member)
-        if preparation_generation() != generation:
+        if preparation_generation(trust_project_code=trust_project_code) != generation:
             raise RuntimeError("Symfony preparation changed during graph inspection. Repeat the query after preparation completes.")
         return result
 
@@ -80,9 +91,12 @@ def write_json(path, value):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--write", action="store_true")
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
+    parser.add_argument("--write", action="store_true", help="Allow editing application files.")
+    parser.add_argument("--trust-project-code", action="store_true", help="Acknowledge execution of application code and configured extensions.")
     args = parser.parse_args()
+    if not args.trust_project_code:
+        parser.error(TRUST_REQUIRED)
     os.umask(0o077)
     home = Path(os.environ["SERENA_HOME"])
     project = STATE / "project"
@@ -116,7 +130,7 @@ def main():
                 "lsp.get_symbol_references",
             ],
         })
-        install_graph_guard()
+        install_graph_guard(trust_project_code=args.trust_project_code)
         from serena.cli import top_level
 
         top_level(args=[

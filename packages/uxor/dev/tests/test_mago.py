@@ -104,6 +104,47 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
                     return
         self.fail(f"No correctly scoped application mount at /app in {args}")
 
+
+    def test_project_commands_require_execution_trust_before_any_docker_invocation(self):
+        commands = ("check", "format", "lint", "analyze", "guard", "cst", "fix", "twig:fmt", "twig:lint", "serena")
+        for command in commands:
+            with self.subTest(command=command):
+                result = self.invoke(command)
+                self.assertEqual(2, result.returncode, result.stderr)
+                self.assertIn("--trust-project-code", result.stderr)
+                self.assertFalse(self.log.exists())
+
+    def test_write_and_indirect_configuration_do_not_grant_execution_trust(self):
+        inherited = self.project / "inherited.toml"
+        inherited.write_text('[extension-hosts.project]\ncommand = ["php", "worker.php"]\n')
+        for configuration in (
+            'version = "1.60.2"\n[extension-hosts.project]\ncommand = ["php", "worker.php"]\n',
+            'version = "1.60.2"\nextends = "inherited.toml"\n',
+        ):
+            (self.project / "mago.toml").write_text(configuration)
+            for arguments in (
+                ("analyze",), ("analyze", "--config", "inherited.toml"),
+                ("--write", "analyze"), ("--write", "serena"),
+                ("serena", "--trust-project-code"), ("analyze", "--trust-project-code"),
+                ("--trust-project", "serena"), ("--trust-project-code=true", "analyze"),
+            ):
+                with self.subTest(configuration=configuration, arguments=arguments):
+                    result = self.invoke(*arguments)
+                    self.assertEqual(2, result.returncode, result.stderr)
+                    self.assertFalse(self.log.exists())
+
+    def test_explicit_trust_does_not_grant_source_write_access(self):
+        for arguments in (("analyze", "src/Example.php"), ("serena",)):
+            with self.subTest(arguments=arguments):
+                result = self.invoke("--trust-project-code", *arguments, UXOR_MAGO_IMAGE=IMAGE)
+                self.assertEqual(0, result.returncode, result.stderr)
+                call = self.docker_call()["args"]
+                selected = DIGEST if arguments[0] == "serena" else IMAGE
+                self.assert_container(call[:call.index(selected)])
+                if arguments[0] == "serena":
+                    self.assertEqual(["python", "/opt/provider/start.py", "--trust-project-code"],
+                                     call[call.index(selected) + 1:])
+
     def test_default_cli_uses_the_release_image_and_reports_the_installed_version(self):
         selected = self.invoke("image", cwd=self.directory)
         self.assertEqual(0, selected.returncode, selected.stderr)
@@ -148,7 +189,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
                 native = ["test files/example.php"]
                 if command in ("lint", "analyze"):
                     native = ["--reporting-format", "json", *native]
-                result = self.invoke("--project-root", self.project.name, command, *native,
+                result = self.invoke("--trust-project-code", "--project-root", self.project.name, command, *native,
                                      cwd=self.directory, UXOR_MAGO_IMAGE=IMAGE)
                 self.assertEqual(0, result.returncode, result.stderr)
                 args = self.docker_call()["args"]
@@ -160,7 +201,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
 
     def aggregate(self, **env):
         self.native_calls.unlink(missing_ok=True)
-        result = self.invoke("check", UXOR_MAGO_IMAGE=IMAGE, NATIVE_CALLS=str(self.native_calls), **env)
+        result = self.invoke("--trust-project-code", "check", UXOR_MAGO_IMAGE=IMAGE, NATIVE_CALLS=str(self.native_calls), **env)
         calls = [json.loads(line) for line in self.native_calls.read_text().splitlines()]
         scopes = [args[2] for args in calls if args[0] == "list-files"]
         checks = [args for args in calls if args[0] != "list-files"]
@@ -192,20 +233,20 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
 
     def test_serena_keeps_standard_input_and_propagates_the_container_status(self):
         message = '{"jsonrpc":"2.0","method":"initialize","id":1}\n'
-        result = self.invoke("serena", stdin=message, DOCKER_STATUS="37")
+        result = self.invoke("--trust-project-code", "serena", stdin=message, DOCKER_STATUS="37")
         self.assertEqual(37, result.returncode, result.stderr)
         call = self.docker_call()
         self.assertEqual(message, call["stdin"])
         self.assertTrue(any(arg in ("-i", "--interactive") for arg in call["args"]), call)
         self.assert_container(call["args"])
         self.assertIn(DIGEST, call["args"])
-        self.assertEqual(["python", "/opt/provider/start.py"], call["args"][call["args"].index(DIGEST) + 1:])
+        self.assertEqual(["python", "/opt/provider/start.py", "--trust-project-code"], call["args"][call["args"].index(DIGEST) + 1:])
 
     def test_each_command_requires_the_project_configuration_before_docker(self):
         (self.project / "mago.toml").unlink()
         for command in ("check", "format", "lint", "analyze", "serena"):
             with self.subTest(command=command):
-                result = self.invoke(command)
+                result = self.invoke("--trust-project-code", command)
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn("mago.toml", result.stderr)
                 self.assertFalse(self.log.exists())
@@ -221,7 +262,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             (["check"], self.directory),
         ]:
             with self.subTest(arguments=arguments, cwd=cwd):
-                result = self.invoke(*arguments, cwd=cwd)
+                result = self.invoke("--trust-project-code", *arguments, cwd=cwd)
                 self.assertNotEqual(0, result.returncode)
                 self.assertTrue((result.stdout + result.stderr).strip())
                 self.assertFalse(self.log.exists())
@@ -241,7 +282,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             ("analyze", "--backup-baseline"), ("format", "--staged"), ("twig:lint", "--fix"),
         ]:
             with self.subTest(arguments=arguments):
-                result = self.invoke(*arguments)
+                result = self.invoke("--trust-project-code", *arguments)
                 self.assertNotEqual(0, result.returncode)
                 self.assertIn("--write", result.stderr)
                 self.assertFalse(self.log.exists())
@@ -254,7 +295,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             ("twig:lint", "--fix", "templates/example.html.twig"),
         ]:
             with self.subTest(arguments=arguments):
-                result = self.invoke("--write", "--project-root", str(self.project), *arguments, UXOR_MAGO_IMAGE=IMAGE)
+                result = self.invoke("--trust-project-code", "--write", "--project-root", str(self.project), *arguments, UXOR_MAGO_IMAGE=IMAGE)
                 self.assertEqual(0, result.returncode, result.stderr)
                 call = self.docker_call()["args"]
                 self.assert_container(call[:call.index(IMAGE)], writable=True)
@@ -267,7 +308,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             ("lint", "--fix", "--dry-run", "src/Example.php"),
         ]:
             with self.subTest(arguments=arguments):
-                result = self.invoke(*arguments, UXOR_MAGO_IMAGE=IMAGE)
+                result = self.invoke("--trust-project-code", *arguments, UXOR_MAGO_IMAGE=IMAGE)
                 self.assertEqual(0, result.returncode, result.stderr)
                 call = self.docker_call()["args"]
                 self.assert_container(call[:call.index(IMAGE)])
@@ -276,7 +317,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
     def test_write_is_not_accepted_for_provider_management_or_read_only_aggregate(self):
         for command in ("pull", "image", "version", "check", "cst"):
             with self.subTest(command=command):
-                result = self.invoke("--write", command)
+                result = self.invoke("--trust-project-code", "--write", command)
                 self.assertNotEqual(0, result.returncode)
                 self.assertFalse(self.log.exists())
 
@@ -289,22 +330,22 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         return name
 
     def test_serena_reuses_state_for_canonical_root_and_separates_images_and_projects(self):
-        self.invoke("serena", UXOR_MAGO_IMAGE=IMAGE)
+        self.invoke("--trust-project-code", "serena", UXOR_MAGO_IMAGE=IMAGE)
         first = self.docker_call()["args"]
         self.assertIn(DIGEST, first)
         original = self.state_volume(first)
         alias = self.directory / "same-project"
         alias.symlink_to(self.project, target_is_directory=True)
-        self.invoke("--project-root", str(alias), "serena", UXOR_MAGO_IMAGE=IMAGE)
+        self.invoke("--trust-project-code", "--project-root", str(alias), "serena", UXOR_MAGO_IMAGE=IMAGE)
         self.assertEqual(original, self.state_volume(self.docker_call()["args"]))
-        self.invoke("--project-root", str(self.project), "--write", "serena", UXOR_MAGO_IMAGE=IMAGE)
+        self.invoke("--trust-project-code", "--project-root", str(self.project), "--write", "serena", UXOR_MAGO_IMAGE=IMAGE)
         writable = self.docker_call()["args"]
         self.assertEqual(original, self.state_volume(writable))
         self.assert_container(writable[:writable.index(DIGEST)], writable=True)
-        self.assertEqual(["python", "/opt/provider/start.py", "--write"], writable[writable.index(DIGEST) + 1:])
+        self.assertEqual(["python", "/opt/provider/start.py", "--trust-project-code", "--write"], writable[writable.index(DIGEST) + 1:])
 
         changed_image = "sha256:" + "b" * 64
-        self.invoke("serena", UXOR_MAGO_IMAGE=IMAGE, DOCKER_IMAGE_ID=changed_image)
+        self.invoke("--trust-project-code", "serena", UXOR_MAGO_IMAGE=IMAGE, DOCKER_IMAGE_ID=changed_image)
         changed = self.docker_call()["args"]
         self.assertIn(changed_image, changed)
         self.assertNotEqual(original, self.state_volume(changed))
@@ -312,7 +353,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         other.mkdir()
         (other / "composer.json").write_text("{}\n")
         (other / "mago.toml").write_text((self.project / "mago.toml").read_text())
-        self.invoke("--project-root", str(other), "serena", UXOR_MAGO_IMAGE=IMAGE)
+        self.invoke("--trust-project-code", "--project-root", str(other), "serena", UXOR_MAGO_IMAGE=IMAGE)
         self.assertNotEqual(original, self.state_volume(self.docker_call()["args"]))
 
     def test_serena_requires_a_real_prepared_image_identity_before_mounting_the_project(self):
@@ -322,7 +363,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
             {"DOCKER_IMAGE_ID": "sha256:" + "a" * 63},
         ]:
             with self.subTest(environment=environment):
-                result = self.invoke("serena", **environment)
+                result = self.invoke("--trust-project-code", "serena", **environment)
                 self.assertNotEqual(0, result.returncode)
                 calls = [json.loads(line) for line in self.log.read_text().splitlines()]
                 self.assertEqual(1, len(calls))
@@ -340,7 +381,7 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertEqual(0, result.returncode, result.stderr)
         call = self.docker_call()
         self.assert_container(call["args"][:call["args"].index(DIGEST)])
-        self.assertEqual(["python", "/opt/provider/start.py"], call["args"][call["args"].index(DIGEST) + 1:])
+        self.assertEqual(["python", "/opt/provider/start.py", "--trust-project-code"], call["args"][call["args"].index(DIGEST) + 1:])
         self.assertEqual("MCP input", call["stdin"])
 
     def test_claude_server_mounts_the_relocated_checkout_from_a_subdirectory(self):

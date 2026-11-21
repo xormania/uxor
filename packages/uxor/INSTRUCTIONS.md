@@ -18,7 +18,10 @@ A client registration is unverified until the client connects and queries a real
 Start with `uxor setup` to inspect its plan and `uxor environment` to inspect readiness.
 Apply an authorized plan with `setup --apply`; dependency installation additionally uses
 `--install --trust-project-code`. Execution probes and `prepare` also require that acknowledgement.
-Existing task/session authorization is sufficient; do not ask again merely to supply the flag.
+`uxor-mago` application commands, including Serena startup, require `--trust-project-code` before the command.
+Setup saves that flag in new MCP bindings only when explicitly supplied; a saved grant applies on every connection.
+Review the application and effective Mago extensions before granting execution. `--write` separately authorizes
+checkout changes. Existing task/session authorization is sufficient; do not ask again merely to supply a flag.
 Preserve application files and integrate missing bundle, route and client configuration.
 
 Mate 1.0.0-BETA1 exposes tools through its CLI; Serena exposes MCP. Use Mate's `tools:list`

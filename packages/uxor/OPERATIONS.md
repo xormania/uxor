@@ -57,6 +57,11 @@ Build the providers on the Docker host, connect the client and query a known app
 connection. Preserve and integrate existing client configuration. Mate 1.0.0-BETA1 supplies a CLI, not a `serve`
 command or MCP server.
 
+Setup includes `--trust-project-code` in newly generated Serena bindings only when the caller supplies that flag.
+Saving it authorizes application-code execution on every connection. `--apply` alone produces a binding that
+refuses to start until execution trust is explicitly granted. Existing bindings are preserved; reconcile their
+paths and execution permission before connecting.
+
 The corresponding Mate tools are `uxor_setup`, `uxor_environment` and `uxor_prepare`. Inspect their installed
 named inputs before calling them through the application's Mate CLI.
 
@@ -110,19 +115,24 @@ Discover Maker commands and exact arguments using `tools` or the native Console 
 application's conventions and existing components. Missing UXor components still install through Toolkit's
 `ux:install`; setup configures development tools and does not replace recipe installation.
 
-The default Mago/Serena mount is read-only. Select `--write` before the launcher command for an authorized change:
+Every application command requires `--trust-project-code` before the launcher command because configured
+extensions and Serena's preparation checks can execute application PHP and the Composer autoloader. Review the
+checkout and effective configuration first. Provider preparation, image/version queries and top-level help are
+exempt. The default application mount is read-only; `--write` separately permits checkout changes, including
+repository metadata:
 
 ```sh
-vendor/bin/uxor-mago format src/
-vendor/bin/uxor-mago --write format src/
-vendor/bin/uxor-mago --write fix src/
-vendor/bin/uxor-mago analyze --reporting-format json
-vendor/bin/uxor-mago twig:lint templates/
+vendor/bin/uxor-mago --trust-project-code format src/
+vendor/bin/uxor-mago --trust-project-code --write format src/
+vendor/bin/uxor-mago --trust-project-code --write fix src/
+vendor/bin/uxor-mago --trust-project-code analyze --reporting-format json
+vendor/bin/uxor-mago --trust-project-code twig:lint templates/
 ```
 
 `format` and `twig:fmt` check by default. `fix` and mutating native options need `--write`; native dry-run previews
 remain available. `guard`, `cst`, `twig:fmt` and `twig:lint` accept their installed native options. Use `--help` when
-choosing a command. `--write serena` enables semantic editing for that session.
+choosing a command. `--trust-project-code --write serena` enables semantic editing for that trusted session.
+Neither a read-only mount nor disabled networking establishes that application code is safe to execute.
 
 Inspect the resulting diff, retain native findings and run tests that exercise the changed behavior. Refresh
 compiled facts when required before interpreting framework graph results. The [provider setup](README.md#mago-and-serena)

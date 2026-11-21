@@ -11,14 +11,17 @@ Follow the application's instructions and authorized task. Preserve its customiz
 
 1. Define the requested journey: initial/loading/empty states, inputs, validation, successful action, updated
    content, feedback, focus and Back/Forward behavior. Select the relevant Turbo or Live transitions.
-2. Inspect the application with its existing tools. Use Serena for symbols, bodies, definitions and references.
+2. Inspect the application with its existing tools. Mago/Serena application commands require explicit
+   `--trust-project-code` before the command; review effective extensions and the application first. Use Serena
+   for symbols, bodies, definitions and references.
    Use Mate for compiled service detail and a fresh prepared graph for concrete wiring when useful.
    Analysis dependencies do not establish measured calls or a complete application graph.
 3. Search the UXor catalog and inspect installed/customized components. Use `mate-uxor-setup` for missing
    tools, components or dependencies. Discover installed Maker options before generation.
 4. Implement application-owned classes and wiring with Symfony Forms, validation and routing.
    Use semantic edits when appropriate; the default provider is read-only, so enable `--write` before
-   `serena` or a Mago mutation only for an authorized edit. Re-query after edits instead of applying stale ranges.
+   `serena` or a Mago mutation only for an authorized edit, in addition to execution trust. Writable access includes
+   repository metadata. Re-query after edits instead of applying stale ranges.
 5. Follow the selected component contracts for identifiers, Stimulus cleanup, theme roles, icons and CSP.
    Complete validation responses, redirects, feedback and the intended Turbo/Live update behavior.
 6. Use native Mago PHP/Twig formatting, lint, analysis and supported fixes. Inspect the diff and native findings.

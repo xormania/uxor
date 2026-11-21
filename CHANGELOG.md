@@ -13,7 +13,13 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 - The Composer dev package adds setup planning and application-owned configuration for Mago, Serena, Maker and
   Symfony diagnostics, with explicit dependency installation, environment checks and compiled Symfony preparation.
   Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source
-  writes are opt-in, and existing application configuration is preserved.
+  writes and project-code execution require separate explicit grants, and existing application configuration is preserved.
+
+### Fixed
+
+- Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation
+  worker, Composer autoloader or configured extensions. `--write` alone does not grant execution permission;
+  newly generated MCP bindings persist execution trust only when setup receives that explicit choice.
 
 ## [0.3.5] - 2026-11-21
 

@@ -197,7 +197,11 @@ Before running `tools/mago` or enabling the `uxor-mago` server in Codex or Claud
 launcher and `mago.toml`, including any configuration it inherits through `extends`. Use a checkout only if you
 trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
 Mago can start worker programs declared under `[extension-hosts]` during analysis or language-server startup.
-Those workers can read files in the mounted checkout even though the mount is read-only and networking is disabled.
+Application commands require `--trust-project-code` before the command because configured workers and Serena's
+preparation checks can execute application PHP and its Composer autoloader. The default mount is read-only;
+`--write` separately permits checkout changes, including repository metadata. Offline execution does not make
+untrusted project code safe to run. Provider preparation, image/version queries and top-level help do not require
+application trust.
 [Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
 The checkout and Composer package share the same Mago 1.60.2 pins. The CLI uses the official release binary
@@ -209,25 +213,27 @@ release and pins upstream Serena at `7f7d6245`. Both recipes ship with the Compo
 tools/mago pull cli
 tools/mago version
 tools/mago pull serena
-tools/mago format
-tools/mago lint
-tools/mago analyze
+tools/mago --trust-project-code format
+tools/mago --trust-project-code lint
+tools/mago --trust-project-code analyze
 ```
 
 Mago checks the package, recipe PHP and demo PHP, including their tests. The development consumer
 and test fixture apps have isolated `App\` namespaces and stay outside this shared scope. Run the
 demo's Composer install from the setup above before analysis and navigation so Mago can resolve dependency types
 from `demo/vendor/` for all three code areas. The checks run offline against a read-only checkout.
-`tools/mago format` checks formatting. `tools/mago check` runs the three checks in order and stops
+`tools/mago --trust-project-code format` checks formatting. `tools/mago --trust-project-code check` runs the three checks in order and stops
 at the first failure. Run them individually to see every report while the existing diagnostics
 are being addressed. PHPStan and the checks below still apply.
 
 Codex loads the optional `uxor-mago` server from `.codex/config.toml` when you trust the checkout.
 Claude Code reads `.mcp.json` and prompts for project-server approval. Review the server command and
 the Mago configuration above before granting trust in Codex or approving the server in Claude Code.
-Open the chosen checkout or a directory inside it so the server resolves that worktree's Git root.
+The checked-in client bindings include `--trust-project-code`, granting execution on each connection after the
+client's project-server approval. Open the chosen checkout or a directory inside it so the server resolves that
+worktree's Git root.
 For another MCP client, use the absolute path to the checkout's `tools/mago` as the command and
-`serena` as its only argument. The server uses stdio and provides read-only PHP navigation.
+`["--trust-project-code", "serena"]` as its arguments. The server uses stdio and defaults to read-only PHP navigation.
 
 To check the integration locally, run `uv run --script packages/uxor/dev/check-mago.py --repository`.
 It looks up package, recipe and demo symbols and compares the analyzer's diagnostics with Serena's.

@@ -75,11 +75,55 @@ class SerenaProviderStateTest(unittest.TestCase):
         self.assertIsNotNone(refused, "Untrusted preparation must require explicit execution consent")
         self.assertIn("--trust-project-code", refused)
 
+
+    def test_explicit_trust_allows_the_real_worker_and_autoload_canary(self):
+        self.assertIsNotNone(shutil.which("php"), "The execution canary requires the Package job's PHP runtime")
+        directory = self.worker()
+        vendor = self.project / "vendor"
+        vendor.mkdir()
+        (vendor / "autoload.php").write_text(
+            "<?php file_put_contents(dirname(__DIR__).'/autoload-canary', 'executed');\n")
+        (directory / "worker.php").write_text(
+            "<?php\n"
+            "require dirname(__DIR__, 2).'/vendor/autoload.php';\n"
+            "file_put_contents(dirname(__DIR__, 2).'/worker-canary', 'executed');\n"
+            "echo json_encode(['enabled' => false]);\n")
+        self.assertIsNone(self.helper.preparation_generation(self.project, trust_project_code=True))
+        for name in ("autoload-canary", "worker-canary"):
+            self.assertEqual("executed", (self.project / name).read_text())
+
+    def test_graph_guard_requires_execution_trust_before_installation(self):
+        modules, api_type = self.lsp_modules()
+        original = api_type.get_symbol_references
+        with patch.dict(sys.modules, modules):
+            with self.assertRaisesRegex(RuntimeError, "--trust-project-code"):
+                self.helper.install_graph_guard()
+        self.assertIs(original, api_type.get_symbol_references)
+
+    def test_direct_startup_without_trust_or_with_only_write_does_not_create_state_or_start_serena(self):
+        home = self.state / "serena"
+        cli = types.ModuleType("serena.cli")
+        started = []
+        cli.top_level = lambda **kwargs: started.append(kwargs)
+        for arguments in ([], ["--write"], ["--trust-project"], ["--trust-project-code=true"]):
+            with self.subTest(arguments=arguments):
+                with patch.object(self.helper, "STATE", self.state), patch.object(self.helper, "PROJECT", self.project), \
+                     patch.dict(os.environ, {"SERENA_HOME": str(home)}), patch.object(sys, "argv", ["start.py", *arguments]), \
+                     patch.object(self.helper, "install_graph_guard") as install, \
+                     patch.dict(sys.modules, {"serena.cli": cli}), redirect_stderr(io.StringIO()) as stderr:
+                    with self.assertRaises(SystemExit) as stopped:
+                        self.helper.main()
+                self.assertEqual(2, stopped.exception.code)
+                self.assertIn("--trust-project-code", stderr.getvalue())
+                install.assert_not_called()
+                self.assertEqual([], started)
+                self.assertEqual([], list(self.state.iterdir()))
+
     def test_native_graph_is_available_without_a_prepared_extension(self):
-        self.assertIsNone(self.helper.preparation_generation(self.project))
+        self.assertIsNone(self.helper.preparation_generation(self.project, trust_project_code=True))
         self.worker()
         with patch.object(self.helper.subprocess, "run", return_value=self.response({"enabled": False})) as run:
-            self.assertIsNone(self.helper.preparation_generation(self.project))
+            self.assertIsNone(self.helper.preparation_generation(self.project, trust_project_code=True))
         self.assertEqual(["php", str(self.project / ".uxor/mago/worker.php"), "--check"], run.call_args.args[0])
         self.assertEqual(self.project, run.call_args.kwargs["cwd"])
 
@@ -88,7 +132,7 @@ class SerenaProviderStateTest(unittest.TestCase):
         directory.mkdir(parents=True)
         (directory / "config.toml").write_text("[extension-hosts.uxor-symfony]\n")
         with self.assertRaisesRegex(RuntimeError, "preparation"):
-            self.helper.preparation_generation(self.project)
+            self.helper.preparation_generation(self.project, trust_project_code=True)
 
     def test_fresh_preparation_has_a_bounded_valid_identity(self):
         self.worker()
@@ -96,7 +140,7 @@ class SerenaProviderStateTest(unittest.TestCase):
         with patch.object(self.helper.subprocess, "run", return_value=self.response({
             "enabled": True, "fresh": True, "preparationId": generation,
         })):
-            self.assertEqual(generation, self.helper.preparation_generation(self.project))
+            self.assertEqual(generation, self.helper.preparation_generation(self.project, trust_project_code=True))
         for document in [
             None, [], {}, {"enabled": "yes"},
             {"enabled": True, "fresh": False, "preparationId": generation},
@@ -107,11 +151,11 @@ class SerenaProviderStateTest(unittest.TestCase):
             with self.subTest(document=document):
                 with patch.object(self.helper.subprocess, "run", return_value=self.response(document)):
                     with self.assertRaises(RuntimeError):
-                        self.helper.preparation_generation(self.project)
+                        self.helper.preparation_generation(self.project, trust_project_code=True)
         for stdout in ("{broken", " " * 4097):
             with patch.object(self.helper.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout, "")):
                 with self.assertRaises(RuntimeError):
-                    self.helper.preparation_generation(self.project)
+                    self.helper.preparation_generation(self.project, trust_project_code=True)
 
     def test_failed_or_unavailable_preparation_check_never_returns_a_generation(self):
         self.worker()
@@ -119,12 +163,12 @@ class SerenaProviderStateTest(unittest.TestCase):
             with self.subTest(failure=type(failure).__name__):
                 with patch.object(self.helper.subprocess, "run", side_effect=failure):
                     with self.assertRaises(RuntimeError):
-                        self.helper.preparation_generation(self.project)
+                        self.helper.preparation_generation(self.project, trust_project_code=True)
         with patch.object(self.helper.subprocess, "run", return_value=self.response({
             "enabled": True, "fresh": True, "preparationId": "a" * 32,
         }, status=3)):
             with self.assertRaisesRegex(RuntimeError, "stale|unavailable"):
-                self.helper.preparation_generation(self.project)
+                self.helper.preparation_generation(self.project, trust_project_code=True)
 
     def lsp_modules(self):
         class LspApi:
@@ -149,7 +193,7 @@ class SerenaProviderStateTest(unittest.TestCase):
     def test_graph_restarts_once_per_changed_preparation_and_forwards_the_exact_query(self):
         modules, api_type = self.lsp_modules()
         with patch.dict(sys.modules, modules):
-            self.helper.install_graph_guard()
+            self.helper.install_graph_guard(trust_project_code=True)
         api = api_type()
         first, second = "a" * 32, "b" * 32
         with patch.object(self.helper, "preparation_generation", side_effect=[first, first, first, first, second, second]):
@@ -162,7 +206,7 @@ class SerenaProviderStateTest(unittest.TestCase):
     def test_stale_preparation_stops_before_query_and_mid_query_change_rejects_result(self):
         modules, api_type = self.lsp_modules()
         with patch.dict(sys.modules, modules):
-            self.helper.install_graph_guard()
+            self.helper.install_graph_guard(trust_project_code=True)
         api = api_type()
         with patch.object(self.helper, "preparation_generation", side_effect=RuntimeError("stale")):
             with self.assertRaisesRegex(RuntimeError, "stale"):
@@ -181,7 +225,7 @@ class SerenaProviderStateTest(unittest.TestCase):
         with (self.state / "session.lock").open("a") as owner:
             fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
             with patch.object(self.helper, "STATE", self.state), patch.object(self.helper, "PROJECT", self.project), \
-                 patch.dict(os.environ, {"SERENA_HOME": str(home)}), patch.object(sys, "argv", ["start.py"]), \
+                 patch.dict(os.environ, {"SERENA_HOME": str(home)}), patch.object(sys, "argv", ["start.py", "--trust-project-code"]), \
                  patch.object(self.helper, "install_graph_guard") as install, redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit) as stopped:
                     self.helper.main()
@@ -200,7 +244,7 @@ class SerenaProviderStateTest(unittest.TestCase):
         for arguments, expected in (([], True), (["--write"], False), ([], True)):
             with self.subTest(arguments=arguments):
                 with patch.object(self.helper, "STATE", self.state), patch.object(self.helper, "PROJECT", self.project), \
-                     patch.dict(os.environ, {"SERENA_HOME": str(home)}), patch.object(sys, "argv", ["start.py", *arguments]), \
+                     patch.dict(os.environ, {"SERENA_HOME": str(home)}), patch.object(sys, "argv", ["start.py", "--trust-project-code", *arguments]), \
                      patch.object(self.helper, "install_graph_guard"), patch.dict(sys.modules, {"serena.cli": cli}):
                     previous_mask = os.umask(0o077)
                     try:
