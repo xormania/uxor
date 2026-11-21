@@ -178,6 +178,7 @@ navigation's scroll; the current item.
 | Scroll and current item across visits | E2E lab | same test |
 | Navbar button opens it over the page, Escape and a visit close it | E2E lab | lab.turbo-nav "on a small screen the navbar button opens the sidebar over the page" |
 | The app layout at phone width: the sidebar hidden, its navigation in the MobileNav drawer, focused on the current page in its open branch (the drawer's own behavior: mobile-nav below) | E2E demo | demo-app "on a phone the drawer holds the sidebar navigation, then the navbar menu" (R4) |
+| A data table on a middle page keeps its Previous and Next links inside a 320px viewport | E2E demo | `tests/e2e/examples/fit.spec.ts` "the data table pager fits with both Previous and Next" |
 | The navbar at 320px: no part outside the bar, no sideways scroll, the search on a row of its own wide enough to type in | E2E demo | `tests/e2e/examples/fit.spec.ts` "the navbar keeps its brand, search and actions inside the bar" (found a bug, fixed: the search crushed, the actions past the bar) |
 | Collapsed side-nav moves the Tab stop | E2E demo | lab.side-nav "collapsing the demo's sidebar moves the Tab stop off a hidden current item to its shown branch" |
 | Current item after Back and Forward, one controller | E2E lab | lab.turbo-nav "Back and Forward mark the current item of the page shown in the permanent sidebar" (failed with the marking skipped on a restoration visit) |
@@ -291,6 +292,7 @@ drawer closed, open as a modal, open on load, static backdrop, drawer non-modal;
 | dropdown | Hover opens | screenshot | shot:dropdown "opens on hover" |
 | dropdown | Click outside closes | E2E lab | lab.turbo-restore "a dropdown menu whose item steps a frame promoted to history…" (last steps) |
 | dropdown | Home, End, the arrows wrapping, ArrowUp on the trigger | E2E demo | dropdown "Home and End move to the first and last item…" (failed with Home removed) |
+| dropdown | Two taps on a hover trigger leave the menu closed. Escape during a pending hover also keeps it closed after the delay. | E2E demo | dropdown "two taps on a hover dropdown…", "a pending mouse hover…" |
 | dropdown | Tab and Shift+Tab close the menu and move on from the trigger | E2E demo | dropdown "Tab and Shift+Tab from an item close the menu…" (failed with the Tab case removed) |
 | dropdown | Submenus: ArrowRight and Enter open one on its first item, its arrows and End stay in it, ArrowLeft and Escape close it only, back on its item; ArrowRight on one already open by a click moves into it | E2E demo | dropdown "a submenu opens with ArrowRight on its item…", "ArrowRight on the item of a submenu already open by a click…" (found a bug, fixed: ArrowRight left the focus on the item, and closed a submenu already open; the ArrowLeft part failed with it removed) |
 | dropdown | Flip when it does not fit; shift back into the viewport along the trigger, at either edge; following the trigger in a scrolling box | E2E demo | dropdown "the menu flips above its trigger…", "a menu wider than the room beside its trigger is shifted…", "the menu follows its trigger when a scrolling box around them scrolls" (each failed with the flip, the shift or the scroll listener removed; a scroll of the window moves the menu with the page on its own, so the box is what tells) |
@@ -380,7 +382,11 @@ States: series colors per theme, server colors kept, data, the data table, reduc
 
 | Transition | Scope | Covered by |
 |---|---|---|
+| The dashboard renders the requested revenue tab for week, year and all time. It defaults to this year and returns HTTP 400 for invalid periods. | functional | `DashboardRevenueTest` |
+| A native revenue request redirects to the matching dashboard period or returns a 422 explanation. A stream for the same request carries the period between matching start and finish events, or ends with a run error. | functional | `RevenueAssistantTest` |
+| After an unknown request, a retry for weekly revenue keeps the document and shows the weekly chart and its accessible data table. Malformed JSON, a partial stream and mismatched run IDs leave the form available. | E2E demo | demo-app "a revenue request can be retried and opens its chart and data table through Turbo", "a revenue request stays on the form after…" |
 | Named image with its data table, roles per theme, `var(--color-…)`, reduced motion, doughnut, visible table | E2E demo | chart (5 tests) |
+| Translucent and invalid theme colors resolve independently when charts share a color-sampling canvas | E2E demo | chart "a translucent color is sampled on its own and an invalid color falls back to black" |
 | Back, N visits, theme switch redraws once, permanent follows the theme, server color through switches, frame ×3, Stream, Live data | E2E lab | lab.chart (7 tests) |
 | Value blocks, point data | E2E lab | lab.chart (2 tests) |
 | Beside a frame visit promoted to history, the theme switched on the new entry: Back and Forward draw one chart per canvas, none left, each with the data of its copy (the framed one its load's) in the current theme, the server's color kept; a switch then redraws each once (failed with the chart's `configure` broken: light colors) | E2E lab | lab.chart "beside a frame visit promoted to history…" |
@@ -448,6 +454,8 @@ States: chosen values (one, several, remote, created), the Tom Select instance, 
 
 | Transition | Scope | Covered by |
 |---|---|---|
+| A cold dashboard skips Tom Select and a subsequent Turbo visit to a Live autocomplete field loads and enhances it | E2E demo | demo-app "the dashboard defers autocomplete until a Turbo visit adds a field" |
+| A native selection made while Tom Select downloads survives enhancement | E2E lab | lab.autocomplete "the first native selection survives a delayed autocomplete download" |
 | Form submit, invalid submit enhanced once, created value | E2E lab | lab.autocomplete (3 tests) |
 | Visits away and Back leave one Tom Select per field | E2E lab | lab.autocomplete "Turbo visits away and Back leave one working Tom Select per field" |
 | The quick-choice fix on every Tom Select a field gets: the one UX Autocomplete builds when the options change, and the ones a Turbo visit and Back set up again (Enter right after typing, Tab: the list stays closed, the focus not taken back) | E2E lab | lab.autocomplete "a quick choice stays closed after Tab on the Tom Select UX Autocomplete builds…", "…after a Turbo visit and Back" |
@@ -531,6 +539,8 @@ reduced motion; an animation that is the content runs three times slower there.
 | Recipe | State or transition | Scope | Covered by |
 |---|---|---|---|
 | tabs, toggle, sidebar, nav-menu, side-nav, table, toast, modal | Without a preference: the computed `transition-property` holds what the part animates (tabs: colors; toggle knob `::after`: `translate`, `border-color`; sidebar: `width`; chevrons: transforms; table rows: colors; toast: `opacity`; modal `::backdrop`: colors) and no other layout property; under reduced motion it is `none` (failed before the change for each, the sidebar's and the chevrons' under reduce only) | E2E demo | motion "…: animates only what it names, and nothing under reduced motion" (11) |
+| layouts | Dashboard and settings enter on load and forward visits, fade at the restored position on Back, and skip motion for cached previews and reduced motion | E2E demo | demo-app "dashboard and settings enter on load, a forward visit and Back…", "a cached settings preview stays still and the fresh response enters" |
+| drawer, tabs, chart | Recipe entrances use the theme’s motion settings, and chart options can override the default duration | E2E demo | motion, chart |
 | tabs | No `all`, no layout property, a non-zero duration (the `transition-all` axe raced: `expectA11y` waits for running finite animations) | E2E demo | motion "a tabs trigger animates its colors only…" |
 | spinner, skeleton | `animation-duration` 1 s and 2 s, 3 s and 6 s under reduced motion; every animated element of their previews, a README example's own `animate-*` class included | E2E demo | motion "the spinner and the skeleton pulse run three times slower under reduced motion", "every animation in … is slowed under reduced motion" (5 previews) |
 | alert, toast, modal | Hide, removal and `aria-*` updates complete under reduced motion | E2E demo | motion (rows of alert, toast, modal above) |

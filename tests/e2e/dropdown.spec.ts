@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect } from './fixtures';
+import { test, expect, pauseClock } from './fixtures';
 import { previewUrl } from './inventory';
 
 /*
@@ -11,6 +11,39 @@ import { previewUrl } from './inventory';
 const trigger = (page: Page) => page.getByRole('button', { name: 'Dropdown button' });
 const menu = (page: Page) => page.getByRole('menu', { name: 'Dropdown button' });
 const item = (page: Page, name: string) => page.getByRole('menuitem', { name, exact: true });
+
+test('a pending mouse hover does not reopen a menu closed with Escape', async ({ page }) => {
+    await page.clock.install();
+    await page.goto(previewUrl('dropdown', 'dropdown-hover'));
+    await pauseClock(page);
+
+    await trigger(page).hover();
+    await trigger(page).press('ArrowDown');
+    await page.clock.runFor(32);
+    await expect(item(page, 'Dashboard')).toBeFocused();
+    await page.keyboard.press('Escape');
+    await page.clock.runFor(350);
+    await expect(menu(page)).toBeHidden();
+    await expect(trigger(page)).toBeFocused();
+});
+
+test.describe('touch', () => {
+    test.use({ hasTouch: true });
+
+    test('two taps on a hover dropdown leave it closed after the hover delay', async ({ page }) => {
+        await page.clock.install();
+        await page.goto(previewUrl('dropdown', 'dropdown-hover'));
+        await pauseClock(page);
+
+        await trigger(page).tap();
+        await expect(menu(page)).toBeVisible();
+        await trigger(page).tap();
+        await expect(menu(page)).toBeHidden();
+        await page.clock.runFor(350);
+        await expect(trigger(page)).toHaveAttribute('aria-expanded', 'false');
+        await expect(menu(page)).toBeHidden();
+    });
+});
 
 /** Closes the menu the preview renders open, then opens it from the keyboard: the first item focused. */
 async function openWithKeyboard(page: Page): Promise<void> {

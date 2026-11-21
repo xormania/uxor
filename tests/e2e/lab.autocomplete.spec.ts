@@ -558,9 +558,29 @@ for (const bare of [false, true]) {
     });
 }
 
+test('the first native selection survives a delayed autocomplete download', async ({ page }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/vendor/tom-select/*.js', async (route) => {
+        await gate;
+        await route.continue();
+    });
+    try {
+        await page.goto('/lab/autocomplete', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('#fruit + .ts-wrapper')).toHaveCount(0);
+        await page.locator('#fruit').selectOption('banana');
+    } finally {
+        release();
+    }
+
+    await expect(page.locator('#fruit + .ts-wrapper .item[data-value="banana"]')).toHaveText('Banana');
+    await expect(page.locator('#fruit')).toHaveValue('banana');
+});
+
 test('a reset syncs the current Tom Select once, after the controller reconnects and after UX Autocomplete rebuilds Tom Select', async ({ page }) => {
     await page.goto('/lab/autocomplete?defaults=1');
     const pet = resetFields.find((field) => 'pet' === field.id)!;
+    await expect(page.locator('#pet + .ts-wrapper')).toBeVisible();
     // counts the calls of sync() on the Tom Select the field has now
     const spySync = () =>
         page.evaluate(() => {
