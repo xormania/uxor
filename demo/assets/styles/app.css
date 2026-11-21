@@ -4,6 +4,8 @@
  */
 @import "tailwindcss";
 @import "../vendor/flowbite/dist/flowbite.min.css";
+/* Include Live loading indicators in the main stylesheet for the first paint. */
+@import "../../vendor/symfony/ux-live-component/assets/dist/live.min.css";
 @import "../../../kit.css";
 @import "../../../autocomplete/assets/styles/uxor-autocomplete.css";
 @import "../../../dropzone/assets/styles/uxor-dropzone.css";

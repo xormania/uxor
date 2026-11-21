@@ -7,11 +7,20 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
+
+- `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
+  first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
+  on interaction and respect reduced motion.
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
   Serena session using the Mago language server.
 
 ### Changed
 
+- The demo loads Symfony Autocomplete and Tom Select when an autocomplete field appears and includes Live
+  Component’s loading indicators in its main stylesheet.
+- `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
+  Charts share one 1×1 canvas to resolve theme colors on load and when switching themes.
 - The Composer development package uses Symfony AI Mate `1.0.0-BETA1`. Consuming applications opt into the three
   Mate prereleases in their own Composer dev dependencies. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
 - The Composer package names its Mate skills `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify` so
@@ -20,6 +29,11 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - Kit installation uses the documented Symfony AssetMapper and TailwindBundle setup without requiring Node.js.
   The installer drops the Flowbite npm suggestion, and the demo's Manual tab now shows the AssetMapper command
   for recipes with importmap dependencies.
+
+### Fixed
+
+- `dropdown` keeps a hover menu closed after a second tap or an explicit dismissal.
+- `pagination` wraps its links when the container is too narrow for one row.
 
 ## [0.3.2] - 2026-11-16
 

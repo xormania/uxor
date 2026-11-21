@@ -68,6 +68,7 @@ demo/assets/controllers/**
 !demo/assets/controllers/csrf_protection_controller.js
 !demo/assets/controllers/preview_frame_controller.js
 !demo/assets/controllers/dropzone_echo_controller.js
+!demo/assets/controllers/revenue_assistant_controller.js
 demo/assets/styles/uxor*.css
 demo/assets/lib/uxor-*.js
 demo/assets/images/uxor-oauth-*
