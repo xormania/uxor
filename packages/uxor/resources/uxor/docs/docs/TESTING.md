@@ -1264,7 +1264,8 @@ the commit under test by `install-uxor.py`), the Docker stack and Serena run by 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
 SHA-256 of each input and of all of them (`source.inputs_sha256`, `sha256sum`'s lines for the sorted input paths,
-hashed again), and the ref their repository links use (`source.ref`, `main` unless `--ref` says otherwise).
+hashed again), and the ref their repository links use (`source.ref`, the latest version heading in `CHANGELOG.md`
+unless `--ref` explicitly selects another ref).
 
 Here: [`packages/uxor/tests/`](https://github.com/xormania/uxor/tree/0.3.5/packages/uxor/tests),
 [`check-package.py`](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/tools/check-package.py),

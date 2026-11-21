@@ -313,6 +313,10 @@ test('component ownership may differ while the final trust-control block retains
         '*.twig @template-owner',
     ])), []);
 
+    assert.deepEqual(codeownerProblems(policy('@maintainer-one @maintainer-two')
+        .replace('/AGENTS.md @maintainer-one @maintainer-two', '/AGENTS.md @maintainer-two @maintainer-one')), [],
+    'the protected owner set is independent of ordering');
+
     const valid = policy('@example/maintainers', ['/button/ @example/components']);
     const cases = [
         ['missing root rule', valid.replace(/^\* .*?\n/, ''), /root \*/],
@@ -321,6 +325,7 @@ test('component ownership may differ while the final trust-control block retains
         ['empty component ownership', policy('@example/maintainers', ['/button/']), /must have owners/],
         ['missing protected rule', valid.replace('/AGENTS.md @example/maintainers\n', ''), /protected ownership rule for \/AGENTS\.md/],
         ['duplicate protected rule', `${valid}\n/AGENTS.md @example/maintainers\n`, /exactly one protected/],
+        ['protected rule adds a non-maintainer', valid.replace('/AGENTS.md @example/maintainers', '/AGENTS.md @example/maintainers @component-owner'), /only by the root maintainers/],
         ['protected rule drops a maintainer', valid.replace('/AGENTS.md @example/maintainers', '/AGENTS.md @component-owner'), /retain the root maintainer/],
         ['one of two maintainers is dropped', policy('@maintainer-one @maintainer-two')
             .replace('/AGENTS.md @maintainer-one @maintainer-two', '/AGENTS.md @maintainer-one'), /retain the root maintainer/],

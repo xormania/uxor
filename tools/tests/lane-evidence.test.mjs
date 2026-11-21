@@ -952,9 +952,13 @@ printf 'php=false\\n'
         writeFileSync(output, '');
         rmSync(join(temp, 'classifier-origin'), { force: true });
         rmSync(join(temp, 'classified-paths'), { force: true });
+        // The real step tees to /dev/stderr; use a file, as in the work-order fixture, instead of Node's socket.
+        const errFile = join(temp, 'stderr');
+        const err = openSync(errFile, 'w');
         const actual = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run], {
             cwd: fx.repo,
             encoding: 'utf8',
+            stdio: ['ignore', 'pipe', err],
             env: {
                 PATH: process.env.PATH,
                 RUNNER_TEMP: temp,
@@ -967,7 +971,9 @@ printf 'php=false\\n'
                 REPO,
             },
         });
-        assert.equal(actual.status, expected, `${name}: ${actual.stdout}${actual.stderr}`);
+        closeSync(err);
+        const stderr = readFileSync(errFile, 'utf8');
+        assert.equal(actual.status, expected, `${name}: ${actual.stdout}${stderr}`);
         if (expected === 0) {
             const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
             assert.equal(values.base, base);
@@ -978,7 +984,7 @@ printf 'php=false\\n'
             const selected = Object.fromEntries(readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').map((line) => line.split('=')));
             assert.equal(selected.php, 'true');
         } else {
-            assert.match(actual.stdout + actual.stderr, /pull request base is missing, invalid or not an ancestor/);
+            assert.match(actual.stdout + stderr, /pull request base is missing, invalid or not an ancestor/);
             assert.equal(existsSync(join(temp, 'classifier-origin')), false, 'invalid provenance runs no classifier');
         }
     }

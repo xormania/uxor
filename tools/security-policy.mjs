@@ -428,6 +428,10 @@ export function codeownerProblems(source) {
             problems.push(`.github/CODEOWNERS: declare exactly one protected ownership rule for ${pattern}`);
             continue;
         }
+        const additional = matches[0].names.filter((name) => !maintainers.includes(name));
+        if (additional.length) {
+            problems.push(`.github/CODEOWNERS: ${pattern} must be owned only by the root maintainers: ${additional.join(', ')}`);
+        }
         const missing = maintainers.filter((name) => !matches[0].names.includes(name));
         if (missing.length) {
             problems.push(`.github/CODEOWNERS: ${pattern} must retain the root maintainer owners: ${missing.join(', ')}`);
