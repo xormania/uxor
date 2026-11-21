@@ -261,6 +261,33 @@ final class DeveloperEnvironmentTest extends TestCase
     }
 
 
+    public function testCurrentExecutionTrustIsNotSavedForFutureConnections(): void
+    {
+        foreach (['none', 'claude', 'codex'] as $client) {
+            [$code, $result] = $this->invoke('setup', [
+                '--apply' => true, '--client' => $client, '--trust-project-code' => true,
+            ]);
+            self::assertContains($code, [0, 2], json_encode($result));
+            self::assertNotSame('failed', $result['status']);
+        }
+
+        $savedBindings = [];
+        foreach (['.uxor/mcp.json', '.mcp.json'] as $path) {
+            $configuration = json_decode(file_get_contents($this->project.'/'.$path), true, 512, JSON_THROW_ON_ERROR);
+            if (in_array('--trust-project-code', $configuration['mcpServers']['uxor-mago']['args'], true)) {
+                $savedBindings[] = $path;
+            }
+        }
+        $codex = file_get_contents($this->project.'/.codex/config.toml');
+        self::assertSame(1, preg_match('/^args\s*=\s*(\[.*\])\s*$/m', $codex, $match));
+        $arguments = json_decode($match[1], true, 512, JSON_THROW_ON_ERROR);
+        if (in_array('--trust-project-code', $arguments, true)) {
+            $savedBindings[] = '.codex/config.toml';
+        }
+        self::assertSame([], $savedBindings, 'CURRENT_EXECUTION_TRUST_WAS_SAVED: '.implode(', ', $savedBindings));
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+    }
+
     public function testOnlyExplicitTrustIsSavedInNewBindingsWithoutExecutingTheApplication(): void
     {
         $host = '/host/projects/trusted consumer';
