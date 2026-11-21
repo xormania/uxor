@@ -1,0 +1,8 @@
+{
+  "name": "uxor-editor-language-server",
+  "private": true,
+  "dependencies": {
+    "typescript": "5.9.3",
+    "typescript-language-server": "5.1.3"
+  }
+}

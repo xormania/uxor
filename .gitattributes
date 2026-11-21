@@ -5,8 +5,6 @@
 /docs export-ignore
 /tests export-ignore
 /tools export-ignore
-# xorder test runner config (named planted faults), repository tooling
-/.xorder export-ignore
 # PHP development tools and project MCP configuration
 /.codex export-ignore
 /.mcp.json export-ignore
