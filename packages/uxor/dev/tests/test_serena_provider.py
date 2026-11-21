@@ -76,6 +76,29 @@ class SerenaProviderStateTest(unittest.TestCase):
         self.assertIn("--trust-project-code", refused)
 
 
+    def test_fabricated_worker_freshness_cannot_replace_missing_preparation_artifacts(self):
+        self.assertIsNotNone(shutil.which("php"), "The freshness canary requires the Package job's PHP runtime")
+        directory = self.worker()
+        (directory / "config.toml").write_text("[extension-hosts.uxor-symfony]\n")
+        (directory / "worker.php").write_text(
+            "<?php\n"
+            "file_put_contents(dirname(__DIR__, 2).'/freshness-canary', 'executed');\n"
+            "echo json_encode(['enabled' => true, 'fresh' => true, 'preparationId' => str_repeat('a', 32)]);\n")
+        self.assertFalse((directory / "preparation.json").exists())
+        self.assertFalse((directory / "container-reference.dev.json").exists())
+        refused = None
+        generation = None
+        try:
+            # Existing API with explicit execution permission: the defect is
+            # trusting project stdout as independent freshness evidence.
+            generation = self.helper.preparation_generation(self.project, trust_project_code=True)
+        except RuntimeError as error:
+            refused = str(error)
+        self.assertIsNotNone(refused, "FABRICATED_PREPARATION_ACCEPTED_WITHOUT_ARTIFACTS: " + str(generation))
+        self.assertFalse((self.project / "freshness-canary").exists(),
+                         "FRESHNESS_CHECK_EXECUTED_APPLICATION_CODE")
+
+
     def test_explicit_trust_allows_the_real_worker_and_autoload_canary(self):
         self.assertIsNotNone(shutil.which("php"), "The execution canary requires the Package job's PHP runtime")
         directory = self.worker()
