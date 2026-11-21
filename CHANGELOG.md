@@ -7,6 +7,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 
 ### Added
 
+- The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
+
 - `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
