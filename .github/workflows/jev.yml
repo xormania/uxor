@@ -9,7 +9,7 @@ name: Jev diagnosis
 # restricted to the protected default branch is the separate enforcement boundary (docs/TESTING.md).
 on:
     workflow_run:
-        workflows: [CI, Monthly, Pages, Release, Release checks, Audit, Metadata]
+        workflows: [CI, Monthly, Pages, Release, Release checks, Audit, Metadata, PHP analysis comparison]
         types: [completed]
 
 permissions:
@@ -24,13 +24,14 @@ jobs:
     diagnose:
         name: Jev diagnosis (advisory)
         # Match existing same-repository diagnostics; fork runs are not consumers of this credential.
-        if: github.event.workflow_run.head_repository.full_name == github.repository
+        if: github.event.workflow_run.head_repository.full_name == github.repository && (github.event.workflow_run.name != 'PHP analysis comparison' || github.event.workflow_run.path == '.github/workflows/php-analysis-comparison.yml')
         runs-on: ubuntu-latest
         timeout-minutes: 15
         steps:
             # All producer keys in this source attempt: Release can also contain Pages' collected build input.
             - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
               id: inputs
+              if: github.event.workflow_run.name != 'PHP analysis comparison'
               continue-on-error: true
               with:
                   pattern: jev-input-*-*-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
@@ -40,6 +41,7 @@ jobs:
 
             - name: Anything to diagnose
               id: found
+              if: github.event.workflow_run.name != 'PHP analysis comparison'
               continue-on-error: true
               env:
                   INPUTS: ${{ runner.temp }}/jev-inputs
@@ -53,7 +55,7 @@ jobs:
 
             - name: The trusted branch
               id: trusted
-              if: steps.found.outputs.any == 'true'
+              if: steps.found.outputs.any == 'true' || github.event.workflow_run.name == 'PHP analysis comparison'
               continue-on-error: true
               env:
                   HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
@@ -91,7 +93,7 @@ jobs:
             # one diagnosis per collected job, 110 s each at most (the script's own budget is 90 s), as the jobs ran it
             - name: Jev diagnosis
               id: jev
-              if: steps.trusted.outputs.ref != ''
+              if: steps.trusted.outputs.ref != '' && steps.found.outputs.any == 'true'
               continue-on-error: true
               timeout-minutes: 11
               env:
@@ -132,3 +134,36 @@ jobs:
                   path: ${{ runner.temp }}/jev/
                   if-no-files-found: warn
                   retention-days: 30
+
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              if: github.event.workflow_run.name == 'PHP analysis comparison'
+              continue-on-error: true
+              with:
+                  name: php-analysis-comparison-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+                  path: ${{ runner.temp }}/php-analysis-input
+                  run-id: ${{ github.event.workflow_run.id }}
+                  github-token: ${{ github.token }}
+
+            # The trusted script selects only known fixture outcomes and verifies their counts before contacting Jev.
+            - name: Evaluate PHP analyzer calibration
+              id: php-eval
+              if: github.event.workflow_run.name == 'PHP analysis comparison' && steps.trusted.outputs.ref != ''
+              continue-on-error: true
+              timeout-minutes: 2
+              env:
+                  TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+                  SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+                  SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+                  SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+              run: |
+                  node trusted/tools/ci/jev-php-analysis.mjs "$RUNNER_TEMP/php-analysis-input/evaluation.json" "$RUNNER_TEMP/php-analysis-jev/assessment.json"
+
+            - if: ${{ always() && steps.php-eval.outcome == 'success' }}
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              continue-on-error: true
+              with:
+                  name: php-analysis-jev-${{ github.event.workflow_run.id }}-${{ github.event.workflow_run.run_attempt }}
+                  path: ${{ runner.temp }}/php-analysis-jev/assessment.json
+                  if-no-files-found: error
+                  retention-days: 90
+                  overwrite: true
