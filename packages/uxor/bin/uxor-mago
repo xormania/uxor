@@ -22,8 +22,10 @@ Usage: uxor-mago [--project-root DIR] [--trust-project-code] [--write] <command>
 Run from the Composer application root or select it with --project-root.
 Options for UXor go before the command; native Mago arguments go after it.
 Configure source paths in the application's mago.toml. Run pull once to prepare providers.
-Application commands require --trust-project-code: Mago extensions and Serena's
-preparation checks can execute application code, including its Composer autoloader.
+Application commands require --trust-project-code: configured Mago extensions,
+including the Symfony wiring worker, can execute application PHP and its Composer
+autoloader. Serena verifies preparation with provider-owned code that loads no
+application PHP.
 Review the selected application and its configuration before granting this trust.
 --write separately grants the selected command write access to this application.
 Serena reuses private state for this application, user and prepared image.
@@ -56,7 +58,7 @@ if [ "$write" = true ]; then
 fi
 
 cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2-php8.4.28}
-serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-3}
+serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-4}
 case "$command" in
     pull)
         case "$#:${2-}" in 1:|2:cli|2:serena) ;; *) usage >&2; exit 2 ;; esac

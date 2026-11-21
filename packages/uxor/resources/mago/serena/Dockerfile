@@ -122,7 +122,7 @@ ln -s /opt/mago-serena-provider/identity.json /opt/toolchain-runtime.json
 install -d -m1777 /state
 SH
 
-COPY start.py /opt/provider/start.py
+COPY start.py verify-preparation.php /opt/provider/
 
 ENV PATH=/opt/venv/bin:$PATH HOME=/state SERENA_HOME=/state/serena \
     MAGO_EXPERIMENTAL_SERVER=1 PYTHONUNBUFFERED=1

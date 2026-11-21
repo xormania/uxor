@@ -149,9 +149,10 @@ diagnostics and the compiled Symfony dependency graph. Run the application's own
 
 Every application command requires `--trust-project-code` before the command. Review the selected checkout,
 its effective `mago.toml`, inherited configuration, extension-host programs and Composer autoloader before
-supplying it. Mago can execute configured extensions, and Serena's graph checks execute the application's
-preparation worker. This applies to read-only queries as well as edits. Provider preparation, image/version
-queries and top-level help do not require application trust.
+supplying it. Mago can execute configured extensions, including the prepared Symfony wiring worker.
+This applies to read-only queries as well as edits. Serena's preparation verifier is bundled in the provider
+image and loads no application PHP. Provider preparation, image/version queries and top-level help do not
+require application trust.
 [Mago extension hosts](https://mago.carthage.software/1.60.2/en/extensions/configuration/)
 
 ### Prepare the providers on the Docker host
@@ -259,11 +260,15 @@ It retains service IDs, classes, alias targets and service references through th
 Raw debug views are private temporary files; the published reference and freshness manifest live under
 `.uxor/mago/`. Preparation does not clear the application's caches, profiles or logs.
 
-Serena's graph interface checks tracked prepared inputs on each query and restarts its language server when the
-preparation generation changes. Native source operations remain available independently. Refresh after changes to
+Serena's graph interface verifies the actual preparation manifest, reference hash and tracked input hashes before
+and after each query. The verifier runs from the provider image without loading the application's worker or
+Composer autoloader. Its generation includes the verified content, so reusing a preparation ID cannot keep older
+compiled facts in the language server. Changed generations restart the server. Active wiring with missing,
+incomplete or stale preparation refuses the graph query. Native source operations remain available independently. Refresh after changes to
 application source, service configuration or dependencies. Environment-variable values, `.env` files, Symfony's
 secrets directory and configuration imported from outside the tracked paths are not fingerprinted; explicitly
 prepare again after those changes. [Preparation scope](OPERATIONS.md#prepare-compiled-symfony-facts) lists the inputs.
+These checks establish consistency with the recorded snapshot, not authenticity of application-authored artifacts.
 Dependency edges describe compiled bindings and analysis relationships, not observed runtime calls.
 
 The worker runs under the provider's PHP 8.4.28 and loads the application's dependencies. An application requiring

@@ -13,6 +13,8 @@ from typing import Any
 
 PROJECT = Path("/app")
 STATE = Path("/state")
+PHP_BINARY = "/usr/local/bin/php"
+PREPARATION_VERIFIER = Path(__file__).resolve().with_name("verify-preparation.php")
 TRUST_REQUIRED = (
     "This command can execute application code. Review the selected application "
     "and pass --trust-project-code before starting Serena."
@@ -25,20 +27,11 @@ def require_project_trust(trust_project_code):
 
 
 def preparation_generation(project=PROJECT, *, trust_project_code=False):
-    """Check preparation through application PHP after explicit execution trust."""
+    """Verify prepared artifacts using provider-owned code without loading application PHP."""
     require_project_trust(trust_project_code)
-    worker = project / ".uxor/mago/worker.php"
-    if not worker.is_file():
-        configuration = project / ".uxor/mago/config.toml"
-        if configuration.is_file() and any(
-            line.strip() == "[extension-hosts.uxor-symfony]"
-            for line in configuration.read_text().splitlines()
-        ):
-            raise RuntimeError("Symfony graph preparation is incomplete. Run vendor/bin/uxor prepare --trust-project-code in the application's PHP runtime.")
-        return None
     try:
         result = subprocess.run(
-            ["php", str(worker), "--check"], cwd=project,
+            [PHP_BINARY, "-n", str(PREPARATION_VERIFIER), str(project)], cwd=project,
             capture_output=True, text=True, timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
@@ -52,13 +45,15 @@ def preparation_generation(project=PROJECT, *, trust_project_code=False):
         if not isinstance(status, dict) or not isinstance(status.get("enabled"), bool):
             raise ValueError("Missing preparation state")
         if not status["enabled"]:
+            if status.get("fresh") is not False or status.get("generation") is not None:
+                raise ValueError("Invalid native preparation state")
             return None
-        generation = status.get("preparationId")
-        if status.get("fresh") is not True or not isinstance(generation, str) or not re.fullmatch(r"[0-9a-f]{32}", generation):
-            raise ValueError("Missing fresh preparation identity")
+        generation = status.get("generation")
+        if status.get("fresh") is not True or not isinstance(generation, str) or not re.fullmatch(r"[0-9a-f]{64}", generation):
+            raise ValueError("Missing verified preparation identity")
         return generation
     except (ValueError, TypeError):
-        raise RuntimeError("The Symfony preparation check returned an invalid state. Run vendor/bin/uxor environment in the application's PHP runtime.") from None
+        raise RuntimeError("The provider preparation verifier returned an invalid state. Run vendor/bin/uxor environment in the application's PHP runtime.") from None
 
 
 def install_graph_guard(*, trust_project_code=False):
@@ -67,13 +62,22 @@ def install_graph_guard(*, trust_project_code=False):
     from serena.repl.api.lsp_api import LspApi
 
     original = LspApi.get_symbol_references
+    original_restart = LspApi.restart_language_server
+
+    @wraps(original_restart)
+    def restart_language_server(self, *args, **kwargs):
+        # Verification belongs to the language-server lifetime that served the query.
+        # Explicit restarts, including failed ones, must invalidate that association.
+        if hasattr(self, "_uxor_preparation_generation"):
+            del self._uxor_preparation_generation
+        return original_restart(self, *args, **kwargs)
 
     @wraps(original)
     def get_symbol_references(self, relative_path: str, symbol: str, member: str = "") -> dict[str, Any]:
         generation = preparation_generation(trust_project_code=trust_project_code)
-        if getattr(self, "_uxor_preparation_generation", None) != generation:
-            # Workers cache the exported reference. A fresh preparation must
-            # reach a new language-server generation before graph inspection.
+        if not hasattr(self, "_uxor_preparation_generation") or self._uxor_preparation_generation != generation:
+            # Establish a verified generation on the first query, including native mode.
+            # Workers may have loaded compiled state before that first inspection.
             self.restart_language_server()
             self._uxor_preparation_generation = generation
         result = original(self, relative_path, symbol, member)
@@ -81,6 +85,7 @@ def install_graph_guard(*, trust_project_code=False):
             raise RuntimeError("Symfony preparation changed during graph inspection. Repeat the query after preparation completes.")
         return result
 
+    LspApi.restart_language_server = restart_language_server
     LspApi.get_symbol_references = get_symbol_references
 
 

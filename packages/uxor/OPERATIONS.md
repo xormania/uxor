@@ -103,8 +103,14 @@ after changes to them. Installed package metadata does not attest that every ven
 Preparation does not clear caches, profiles or logs. Symfony's dev container machinery refreshes its compiled facts.
 A failed preparation stays incomplete; existing runtime observations can still help diagnose the failure.
 
-The packaged Serena graph operation checks freshness before and after a query. A new preparation generation
-restarts its language server before forwarding the graph request. Native source operations remain independent.
+The packaged Serena graph operation checks freshness before and after a query using a verifier bundled in the
+provider image. It runs the image's PHP with configuration loading disabled and never includes the application's
+worker or Composer autoloader. It validates the manifest and hashes the reference and tracked inputs itself;
+application-produced freshness output is not used. Incomplete, changed or unavailable preparation fails the query.
+The verifier honors preparation's lock and rechecks the published files after fingerprinting. The verified
+manifest, reference and input digest determine the language-server generation, so changed content restarts the
+server even when a preparation ID is reused. These checks establish snapshot consistency, not authenticated
+provenance of application-authored artifacts. Native source operations remain independent.
 For another client, reload or restart after exporting a new reference. Graph edges have no source spans and
 describe analysis dependencies or compiled bindings; they do not establish that a runtime call occurred.
 
@@ -124,7 +130,7 @@ application's conventions and existing components. Missing UXor components still
 `ux:install`; setup configures development tools and does not replace recipe installation.
 
 Every application command requires `--trust-project-code` before the launcher command because configured
-extensions and Serena's preparation checks can execute application PHP and the Composer autoloader. Review the
+extensions, including the prepared Symfony wiring worker, can execute application PHP and its Composer autoloader. Review the
 checkout and effective configuration first. Provider preparation, image/version queries and top-level help are
 exempt. The default application mount is read-only; `--write` separately permits checkout changes, including
 repository metadata:

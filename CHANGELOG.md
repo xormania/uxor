@@ -22,6 +22,10 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   setup's execution flag does not authorize future connections. Saving that permission in new MCP bindings
   requires the separate `--save-project-trust` option. Checked-in contributor bindings carry no saved execution permission.
 
+- Serena verifies Symfony preparation using provider-owned code without loading application PHP. It checks the
+  manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
+  freshness output, and refreshes its language server when verified content changes even if a preparation ID is reused.
+
 ## [0.3.5] - 2026-11-21
 
 ### Added
