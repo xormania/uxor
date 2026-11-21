@@ -11,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\EventDispatcher\Attribute\AsEventListener;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 use Symfony\Component\Security\Http\Event\LogoutEvent;
@@ -23,9 +24,14 @@ use Symfony\Component\Security\Http\Event\LogoutEvent;
 final class DemoAppController extends AbstractController
 {
     #[Route('', name: 'app_demo', methods: ['GET'])]
-    public function dashboard(): Response
+    public function dashboard(Request $request): Response
     {
-        return $this->render('demo_app/dashboard.html.twig');
+        $period = $request->query->get('revenue', 'year');
+        if (!\in_array($period, ['week', 'year', 'all'], true)) {
+            throw new BadRequestHttpException('Choose week, year or all for revenue.');
+        }
+
+        return $this->render('demo_app/dashboard.html.twig', ['revenuePeriod' => $period]);
     }
 
     #[Route('/login', name: 'app_demo_login', methods: ['GET', 'POST'], options: ['uxor_csrf' => 'firewall-form'])]

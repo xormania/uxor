@@ -1251,7 +1251,7 @@ Here: [`security-policy.mjs`](https://github.com/xormania/uxor/blob/0.3.2/tools/
 
 ### Locked and moving lanes
 
-The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm lockfiles with
+The dependency-advisory workflow (`.github/workflows/audit.yml`) checks each npm lockfile with
 `npm audit --package-lock-only` and each Composer lockfile with `composer audit --locked`. The browser packages an
 `importmap.php` selects are in no lockfile, so a third job audits those with `bin/console importmap:audit`:
 
@@ -1259,9 +1259,11 @@ The dependency-advisory workflow (`.github/workflows/audit.yml`) checks both npm
 |---|---|
 | Repository browser tests | `package-lock.json` |
 | Consumer browser checks | `packages/uxor/dev/package-lock.json` |
+| Serena TypeScript navigation | `packages/uxor/dev/images/serena/package-lock.json` |
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |
+| CI PHPStan and its extensions | `tools/ci/phpstan/composer.lock` |
 | Demo's browser packages | `demo/importmap.php` |
 | Consumer harness's browser packages | `packages/uxor/dev/app/importmap.php` |
 
@@ -1269,7 +1271,7 @@ It runs weekly on `dev` (started by the scheduled workflow on `main`), by hand o
 requests that change an audited manifest, lockfile or the workflow. On a pull request only the affected project's
 audit runs; a workflow change runs them all. The lockfile audits read the lockfiles without installing
 dependencies or executing project scripts; the importmap audits install dependencies but run no scripts. Each project reports its own result; captured failures have separate advisory-diagnostic
-artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for all five locks
+artifacts, and one failed audit does not cancel the others. Dependabot proposes weekly updates for each audited lockfile
 against `dev`. The repository's Playwright version follows its pinned Docker browser image and is updated manually;
 the consumer browser checks install Chromium for their own Playwright version.
 `tools/tests/dependency-audit.test.mjs` checks the tracked-lockfile coverage and exercises the actual change-selection
@@ -1337,20 +1339,25 @@ with [`recipe-imports.mjs`](https://github.com/xormania/uxor/blob/0.3.2/tools/re
 stops a test from failing: green before and after proves nothing about what the tests still detect.
 
 A cleanup is accepted when the same planted faults fail the same tests, by title, before and after it, and no test
-fails without them. The faults are named in [`.xorder/testing.json`](https://github.com/xormania/uxor/blob/0.3.2/.xorder/testing.json): each one a source edit
-in the kit (or the demo's layout), the page or served asset that shows it took effect, and what it tests. xorder's plant
-helper applies one, syncs the demo, confirms it is served, runs the specs and restores the source and the synced
-copies, even when the run fails or is interrupted:
+fails without them. [The fault catalog](https://github.com/xormania/uxor/blob/0.3.2/tools/planted-faults.json) records each edit and the marker to look for
+in a rendered page or its imported controller. Add `--baseline` to run the same specs on the unmodified revision and confirm the marker is absent.
+
+From a UXor checkout, select a committed revision with `--ref` (default `HEAD`). The runner prepares a temporary
+clone with the demo's Composer dependencies, syncs the recipes and starts a PHP server on its own loopback port.
+It checks the served marker before starting the selected Playwright tests. The test command returns Playwright's
+exit status and prints the failing titles. The original checkout and its running demo stay available throughout.
+The temporary clone is removed after success, failure or Ctrl-C.
 
 ```sh
-python3 scripts/xr.py ~/uxor plant calendar-select-nothing -- tests/e2e/calendar.spec.ts tests/e2e/lab.calendar.spec.ts --project=smoke --retries=0
-python3 scripts/xr.py ~/uxor plant --restore    # after an interrupted run; `sync --check` then shows no planted copy left in demo/
+python3 tools/plant-fault.py --list
+python3 tools/plant-fault.py calendar-silent-removal --confirm-only
+python3 tools/plant-fault.py calendar-silent-removal --ref HEAD -- tests/e2e/calendar.spec.ts --project=smoke --retries=0
 ```
 
 The last cleanup, the duplicated helpers of [`TEST-INVENTORY.md`](https://github.com/xormania/uxor/blob/0.3.2/docs/TEST-INVENTORY.md) moved into shared modules, in
 Chromium: the tests failing on each fault, the same before (the specs of `dev`) and after, title for title.
 
-| Fault (`.xorder/testing.json`) | Helpers it proves | Failing, before and after |
+| Fault | Helpers it proves | Failing, before and after |
 |---|---|---|
 | `calendar-select-nothing`: a day takes no pick | `day`, `dayCell`, `reloadFrames` | 51 of 260: calendar 6, date-picker 3, lab.calendar 4, lab.date-picker 6 (the frame reloaded three times among them), forms 1, lab.form-back 1, counts 1, lab.value-matrix 29 |
 | `calendar-change-twice`: a pick dispatches two change events | `countEvents` | 6 of 23: calendar 1, lab.calendar 3, lab.date-picker 2 |
@@ -1697,6 +1704,64 @@ worker's start (Playwright's report does not split it; idle worker time is the b
 moves, and the *CI metrics* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
 
+### PHP analysis comparison
+
+The *PHP analysis comparison* workflow runs on pushes that change PHP, the demo dependencies, the analyzer
+configuration or the comparison itself. It can also be dispatched for a selected branch. The existing *Kit PHP*
+job still enforces PHPStan level 8 with the Symfony and PHPUnit extensions. Both workflows install PHPStan from
+the same Composer lock. The comparison prepares the CLI with `tools/mago pull cli` and verifies that
+`tools/mago version` reports `mago 1.60.2` before measuring Mago. If preparation fails, the artifact records
+the failed setup and preserves available PHPStan results. Serena uses its own provider for navigation.
+
+In `summary.json`, `versions.mago` records the version reported by the CLI launcher. The `mago_image` object
+records its selected `reference` and local image `id`. A locally built image can have a null distribution
+`digest`. Its `upstream_reference` and `upstream_digest` identify the official Mago release image used to supply
+the CLI binary. Use the upstream digest when comparing local builds of the same release.
+
+Both analyzers receive the same explicit PHP files under the recipes’ source directories, `demo/src/Demo` and
+`demo/tests`. PHPStan uses the demo’s compiled Symfony test container. The fingerprint in `scope.sha256` describes
+the sorted path list, and the commit identifies the source contents. Evaluate the results at the same commit and
+scope. The analyzer overlap counts distinct matching **file and line positions at error severity**. A shared
+position can represent two different diagnoses. Mago lint and format are reported separately. Each duration
+covers that tool invocation, including its launcher overhead.
+
+Four paired controls exercise return types, nullable method calls, a Symfony service argument and PHPUnit
+assertion narrowing. On the bad variant the expected error identifier must appear at the marked line. On the
+good variant an error on that line counts as a false positive. Warnings and other observations stay in the data.
+The runtime witnesses run separately. Misses and false positives are measured outcomes. A missing tool,
+malformed report or failed runtime witness marks collection incomplete. The comparison workflow reports such
+failures independently of the normal CI gate.
+
+The results are GitHub Actions artifacts retained for 90 days. The REST API lists them by run with
+`GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts` and downloads by artifact ID. The
+`php-analysis-comparison-<run>-<attempt>` artifact contains:
+
+| File | Data |
+| --- | --- |
+| `run.json` | Source repository, ref, commit, run ID, attempt and producer step outcomes, including setup failures |
+| `summary.json` | Actual tool versions and image, shared file count and fingerprint, times, exits, severity and rule counts, format count and error-location overlap |
+| `findings.jsonl` | One diagnostic per row with analyzer, repository-relative path, one-based line when available, rule, severity and message |
+| `evaluation.json` | Expected and observed results per fixture, per-tool totals, runtime witness outcome and completeness |
+
+Use the GitHub CLI with access to this repository’s Actions artifacts. The exporter prints one JSON line per
+source run attempt and preserves unavailable, expired and incomplete measurements. Download or archive the
+export before retention expires for longer trend analysis.
+
+```bash
+python3 tools/ci/php-analysis-export.py --branch dev --limit 20 --with-jev > php-analysis.jsonl
+python3 tools/ci/php-analysis-export.py --run "$RUN_ID" --with-jev | jq '.evaluation.totals, .jev'
+gh run download "$RUN_ID" --name "php-analysis-comparison-$RUN_ID-$ATTEMPT" --dir php-analysis
+```
+
+After the source workflow completes, the existing trusted *Jev diagnosis* workflow can publish
+`php-analysis-jev-<source run>-<source attempt>/assessment.json` in its own run. The exporter joins it using
+the source IDs and SHA. Jev receives only the fixed fixture IDs, statuses and verified counts. The assessment
+records the model, rubric version, confidence and suggested next area to examine. Inspection of raw diagnostics
+and source stays with the maintainer. The model’s advice has no effect on fixture scores or CI. Missing Jev
+output and an unavailable provider are distinguishable in the export. GitHub starts this consumer after the
+updated workflow reaches the default branch and its trusted evaluator is present on the selected `dev` or `main`
+branch. Changing a feature branch alone cannot activate it.
+
 ### Shard balance
 
 **Catches:** one shard holding the slow tests (the axe scans, the value matrix, the heavy recipes) and setting CI's
@@ -1869,8 +1934,9 @@ status remain. The captured attempts and any Jev excerpts therefore cannot publi
   strings, and JSON fields named like credentials, passwords or tokens are replaced with `[REDACTED]`. The filter
   cannot find every secret in arbitrary text, so a test must not print one.
 
-The `TYPESAFE_API_KEY` secret is read by `jev.yml`'s diagnosis step alone. Producers neither read it nor forward it;
-`tools/security-policy.mjs` checks that boundary. Without a configured key, every collected attempt is *unavailable
+Only the failure-diagnosis and PHP comparison assessment steps in the trusted `jev.yml` workflow receive
+`TYPESAFE_API_KEY`. The repository security policy limits secret use to that workflow, and the Jev workflow
+tests check the two specific steps. Without a configured key, every collected attempt is *unavailable
 (missing_credential)*. The policy's rubric and questions are written for a browser test: for the other jobs Jev reads
 them as they are. Turn the step off with `"enabled": false` in the policy. Its cases run with the summarizer's, against a local stand-in for the provider:
 `node --test tools/tests/*.test.mjs`. They check what is sent and accepted, not how good the diagnosis is.

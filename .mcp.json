@@ -1,0 +1,9 @@
+{
+    "mcpServers": {
+        "uxor-mago": {
+            "type": "stdio",
+            "command": "sh",
+            "args": ["-c", "root=$(git rev-parse --show-toplevel) || exit; exec \"$root/tools/mago\" serena"]
+        }
+    }
+}

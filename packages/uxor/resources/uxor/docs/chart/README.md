@@ -26,7 +26,8 @@ and adds `chart.js` to the import map. If `importmap.php` has no `chart.js` entr
 ## Usage
 
 Give the data, never colors: the series take the theme's chart roles in order, and the axes, legend and tooltip its
-text and border roles. They follow light and dark as the theme switches.
+text and border roles. They follow light and dark as the theme switches. Charts on the same page share one pixel
+to convert CSS colors for Chart.js, and each chart caches the colors resolved from its own theme.
 
 ```twig
 <twig:Chart
@@ -172,7 +173,9 @@ Register Chart.js plugins as UX Chart.js documents, on its `chartjs:init` event,
 - The data table gives every value in text, for keyboard and screen reader users who cannot read the canvas; the
   legend and the table name each series, so no information depends on color alone.
 - Every series color reaches 3:1 against the page and cards in both themes.
-- Under `prefers-reduced-motion`, the chart does not animate.
+- Chart animations use the theme’s `--uxor-motion-duration-normal` (150ms by default). Override it on the chart or
+  an ancestor in milliseconds or seconds. Chart.js keeps an explicit `options.animation.duration` or `animation: false`.
+- Under `prefers-reduced-motion`, the chart disables animation by default. An explicit `options.animation` takes precedence.
 
 ## Security
 

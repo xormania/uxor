@@ -2,7 +2,7 @@
 // compiles) run before PHPUnit and report on their own, and neither PHPUnit nor PHPStan hides the other's failure.
 // Run: node --test tools/tests/*.test.mjs
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,16 @@ const named = (name) => {
     assert.ok(index >= 0, `Kit PHP has a step named ${name}`);
     return { index, text: steps[index], if: steps[index].match(/^ {14}if: (.+)$/m)?.[1] ?? '' };
 };
+
+test('Kit PHP and the comparison install the same analyzer and extensions from the committed lock', () => {
+    const comparison = readFileSync(new URL('../../.github/workflows/php-analysis-comparison.yml', import.meta.url), 'utf8');
+    for (const source of [named('Install PHPStan').text, comparison]) {
+        for (const extension of ['json', 'lock']) {
+            assert.ok(source.includes(`git show "$GITHUB_SHA:tools/ci/phpstan/composer.${extension}" > "$RUNNER_TEMP/phpstan/composer.${extension}"`));
+        }
+        assert.ok(source.includes('composer install --working-dir="$RUNNER_TEMP/phpstan"'));
+    }
+});
 
 test('Kit PHP checks the syntax of every tracked PHP file, and the PHP scripts without an extension, before PHPUnit', () => {
     const syntax = named('Syntax');
@@ -135,5 +145,29 @@ test('PHPStan is given a recipe directory whose name starts with a dash as a pat
     const paths = args.filter((arg, index) => (end >= 0 && index > end) || (!arg.startsWith('-') && (end < 0 || index < end))).map((arg) => arg.replace(/^\.\//, ''));
     for (const path of ['-l/src', 'ok/src', 'demo/src/Demo', 'demo/tests']) {
         assert.ok(paths.includes(path), `${path} is a path PHPStan analyses: ${JSON.stringify(args)}`);
+    }
+});
+
+test('the comparison prepares the CLI and rejects a stale binary before it can produce findings', (t) => {
+    const comparison = readFileSync(new URL('../../.github/workflows/php-analysis-comparison.yml', import.meta.url), 'utf8');
+    const steps = comparison.split(/\n(?= {12}- )/);
+    const step = steps.find((text) => text.includes('id: mago\n'));
+    const script = step.split(/\n {14}run: /)[1].replace(/^\|\n/, '').trimEnd();
+    const temp = mkdtempSync(join(tmpdir(), 'uxor-pinned-mago-'));
+    t.after(() => rmSync(temp, { recursive: true, force: true }));
+    mkdirSync(join(temp, 'tools'));
+    writeFileSync(join(temp, 'tools/mago'), `#!/bin/sh
+printf '%s\n' "$*" >> calls
+if [ "$1" = version ]; then printf '%s\n' "$REPORTED_VERSION"; fi
+`, { mode: 0o755 });
+    for (const [reportedVersion, shouldPass] of [['mago 1.58.2', false], ['mago 1.60.20', false], ['mago 1.60.2', true]]) {
+        writeFileSync(join(temp, 'calls'), '');
+        const run = spawnSync('bash', ['-e', '-c', script], { cwd: temp, encoding: 'utf8', env: { ...process.env, REPORTED_VERSION: reportedVersion } });
+        assert.equal(run.status === 0, shouldPass, reportedVersion);
+        assert.equal(readFileSync(join(temp, 'calls'), 'utf8'), 'pull cli\nversion\n');
+    }
+    for (const name of ['comparison', 'evaluation']) {
+        const step = steps.find((text) => text.includes(`id: ${name}\n`));
+        assert.match(step, /MAGO_SETUP: \$\{\{ steps\.mago\.outcome \}\}/);
     }
 });

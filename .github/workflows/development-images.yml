@@ -1,0 +1,46 @@
+name: Development images
+
+on:
+    push:
+        branches: ['**']
+        paths:
+            - packages/uxor/dev/images/**
+            - packages/uxor/dev/*.py
+            - packages/uxor/dev/tests/test_*.py
+            - packages/uxor/dev/compose.yaml
+            - packages/uxor/dev/Caddyfile
+            - packages/uxor/dev/app/composer.json
+            - packages/uxor/dev/app/composer.lock
+            - composer.lock
+            - .github/workflows/development-images.yml
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    consumer:
+        name: Symfony consumer and Serena
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - name: Build and serve the consumer
+              run: python3 packages/uxor/dev/run.py up
+
+            - name: Check Symfony, Twig and Mate
+              run: |
+                  python3 packages/uxor/dev/run.py status
+                  python3 packages/uxor/dev/run.py check
+
+            - name: Exercise Serena with the installed package
+              run: |
+                  python3 packages/uxor/dev/run.py serena --prepare
+                  python3 packages/uxor/dev/check-serena.py --package
+
+            - name: Stop the consumer
+              if: always()
+              run: python3 packages/uxor/dev/run.py down

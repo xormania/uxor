@@ -1,11 +1,16 @@
 services:
   php:
-    image: ${UXOR_DEV_PHP_IMAGE:?use packages/uxor/dev/run.py to select the locked image}
-    platform: linux/amd64
+    image: ${UXOR_DEV_PHP_IMAGE:?use packages/uxor/dev/run.py to select the local image}
+    build:
+      context: ./images/php
+      args:
+        UXOR_DEV_UID: ${UXOR_DEV_UID:-1000}
+        UXOR_DEV_GID: ${UXOR_DEV_GID:-1000}
+    pull_policy: never
+    user: "${UXOR_DEV_UID:-1000}:${UXOR_DEV_GID:-1000}"
     working_dir: /workspace/packages/uxor/dev/app
     environment:
-      PUID: ${UXOR_DEV_UID:-1000}
-      PGID: ${UXOR_DEV_GID:-1000}
+      HOME: /home/dev
       APP_ENV: dev
       APP_DEBUG: "1"
       XDEBUG_MODE: "off"

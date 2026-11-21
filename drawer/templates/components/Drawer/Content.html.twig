@@ -3,13 +3,13 @@
     showCloseButton = true
 -%}
 {%- set style = html_cva(
-    base: 'fixed z-50 m-0 overflow-y-auto bg-neutral-primary-soft p-4 text-body shadow-lg border-default backdrop:bg-dark-backdrop/70',
+    base: 'fixed z-50 m-0 overflow-y-auto bg-neutral-primary-soft p-4 text-body shadow-lg border-default transition-[translate] duration-[var(--uxor-motion-duration-normal,150ms)] ease-[var(--uxor-motion-ease-out,ease-out)] motion-reduce:transition-none! backdrop:bg-dark-backdrop/70 backdrop:transition-[background-color] backdrop:duration-[var(--uxor-motion-duration-normal,150ms)] backdrop:ease-[var(--uxor-motion-ease-out,ease-out)] motion-reduce:backdrop:transition-none! data-drawer-enter:open:backdrop:bg-transparent',
     variants: {
         placement: {
-            left: 'inset-y-0 left-0 right-auto h-full max-h-none w-80 max-w-[calc(100%-3rem)] border-e',
-            right: 'inset-y-0 right-0 left-auto h-full max-h-none w-80 max-w-[calc(100%-3rem)] border-s',
-            top: 'inset-x-0 top-0 bottom-auto w-full max-w-none border-b',
-            bottom: 'inset-x-0 bottom-0 top-auto w-full max-w-none border-t',
+            left: 'inset-y-0 left-0 right-auto h-full max-h-none w-80 max-w-[calc(100%-3rem)] border-e data-drawer-enter:open:-translate-x-4',
+            right: 'inset-y-0 right-0 left-auto h-full max-h-none w-80 max-w-[calc(100%-3rem)] border-s data-drawer-enter:open:translate-x-4',
+            top: 'inset-x-0 top-0 bottom-auto w-full max-w-none border-b data-drawer-enter:open:-translate-y-4',
+            bottom: 'inset-x-0 bottom-0 top-auto w-full max-w-none border-t data-drawer-enter:open:translate-y-4',
         },
     },
 ) -%}

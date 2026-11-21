@@ -1,5 +1,5 @@
 ---
-name: setup
+name: uxor-setup
 description: Set up UXor in a Symfony application, or diagnose an incomplete installation, using the project's actual runtime and the packaged UXor reference.
 ---
 
@@ -20,20 +20,20 @@ The same files are available under `vendor/xormania/uxor/packages/uxor/resources
 
 For bounded sections of long documents, inspect and use the installed `uxor_reference` tool rather than loading every reference page.
 
-After updating xormania/uxor with Composer, run `vendor/bin/mate discover` in the
-application to refresh its instructions and skills. Existing project instructions
+After updating xormania/uxor with Composer, run `discover` with the application's
+configured Mate invocation to refresh its instructions and skills. Existing project instructions
 outside Mate's managed block and application-owned component files remain intact.
 
 ## Procedure
 
 1. Identify the application root, its project instructions and its PHP/Composer invocation. Use its existing Docker or native runtime consistently. Inspect `composer.json`, `composer.lock`, bundle configuration, importmap/assets and existing component files before changing setup.
 2. Read the installation reference. Reuse working project configuration. Establish the required PHP extensions, regular runtime dependencies, Toolkit development dependencies, Stimulus discovery, styling and theme. Keep packages needed by installed PHP, Twig or browser components in the application's regular dependencies.
-3. Select components from `uxor://catalog`, then read only their `uxor://reference/<recipe>/README.md` resources. Choose an explicit UXor release or revision compatible with the application and record it. The package version describes the supplied guidance; it does not establish the origin of existing customized files.
+3. Find components with `uxor_catalog` using `query`. To browse more results, pass a returned `data.next_offset` as `offset`. The `uxor://catalog` resource shows the first page. Read only the selected components' `uxor://reference/<recipe>/README.md` resources. Choose an explicit UXor release or revision compatible with the application and record it. The package version describes the supplied guidance; it does not establish the origin of existing customized files.
 4. Use Symfony UX Toolkit's supported `ux:install` command. Follow its output and the component README through Composer dependencies, importmap requirements, CSS imports and controller configuration. Copied files alone do not establish completed integration. Existing application files and customizations need inspection before replacement.
-5. Render a small page using the selected component and exercise its behavior through the served application. Confirm controller loading and inspect request, console and CSP failures. Complete the `verify` skill for the actual interaction.
+5. Render a small page using the selected component and exercise its behavior through the served application. Confirm controller loading and inspect request, console and CSP failures. Complete the `mate-uxor-verify` skill for the actual interaction.
 
 ## Deliver useful completion evidence
 
 Report the selected application/runtime, installed components and source selection, files/configuration changed, checks actually run and remaining work. Record unknown installed provenance as unknown. Repeating setup should preserve existing project instructions and working configuration.
 
-For available project diagnostics, discover Mate tools with `vendor/bin/mate tools:list`, then inspect a relevant tool's inputs with `tools:inspect` before calling it. An unavailable diagnostic is a specific remaining check, not evidence that setup passed.
+For available project diagnostics, run `tools:list` with the configured Mate invocation, then inspect a relevant tool's inputs with `tools:inspect` before calling it. An unavailable diagnostic is a specific remaining check, not evidence that setup passed.
