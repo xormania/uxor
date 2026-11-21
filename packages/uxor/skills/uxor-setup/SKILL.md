@@ -43,3 +43,7 @@ Detailed provider, host-path, preparation and dependency instructions are in the
 Use the application's actual Composer vendor directory.
 
 Report the selected application/runtime, changes, checks actually run and unresolved integration steps.
+
+If Mate resources are unavailable, read bundled guides under
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` and append the indexed reference path.
+Replace `vendor` with the application's configured Composer vendor directory.

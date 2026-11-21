@@ -40,3 +40,7 @@ default vendor directory. Its `OPERATIONS.md` explains source operations, prepar
 Use the application's actual vendor directory and inspect its installed source before relying on references.
 
 Report delivered behavior, reused components, checks performed and specific remaining failures or unknowns.
+
+If Mate resources are unavailable, read bundled guides under
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` and append the indexed reference path.
+Replace `vendor` with the application's configured Composer vendor directory.

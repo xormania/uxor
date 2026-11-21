@@ -42,3 +42,7 @@ Use the application's Mate CLI's `resources:read` and installed `tools:inspect`.
 support continuation offsets. Detailed preparation limits, the request-diagnosis sequence and optional recorder
 setup are in `vendor/xormania/uxor/packages/uxor/OPERATIONS.md`; use the actual vendor directory.
 Compiled graph facts, historical profiles and a fresh successful request establish different things.
+
+If Mate resources are unavailable, read bundled guides under
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` and append the indexed reference path.
+Replace `vendor` with the application's configured Composer vendor directory.
