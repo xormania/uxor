@@ -152,6 +152,9 @@ trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md
 
 ### Mago and Serena
 
+The *Mago providers* workflow checks provider changes in pull requests against their base and on pushes to `dev`
+and `main`.
+
 The *PHP analysis comparison* workflow runs the existing PHPStan configuration and the pinned Mago analyzer on the
 same PHP sources. It also runs labeled controls and publishes machine-readable results for GitHub API clients.
 [Reports, evaluation and export](docs/TESTING.md#php-analysis-comparison)
