@@ -20,6 +20,32 @@ The [commit and pull request guide](#commits-and-pull-requests) explains the rev
 You do not need an AI assistant, a particular editor or access to the maintainer's services to contribute.
 Use the checks relevant to your change, and describe any environment limitation in the pull request.
 
+## Project boundaries
+
+UXor has two deliverables: the Toolkit kit of UI recipes and the Composer development package `xormania/uxor`,
+which supplies guidance and tools to applications using the kit. Each has its own development and verification work.
+
+This guide governs contributions to UXor and publication of UXor project work. It is not a policy for applications
+that install UXor: those applications keep their own instructions, ownership, review and release decisions.
+
+| Context | Source or application root | Guidance and runtime |
+|---|---|---|
+| Toolkit contribution | Root `manifest.json` and top-level recipe directories | This guide and [root agent guidance](AGENTS.md); edit recipe sources here |
+| Composer dev package development | Root `composer.json`; implementation in `packages/uxor/` | Root Composer dependencies and tests; packaged instructions and skills are product content for consuming applications |
+| Demo and gallery | `demo/` | [Demo agent guidance](demo/AGENTS.md) and [Setup](#setup); its own Composer dependencies, cache and serving runtime; recipe copies come from `tools/sync-demo` |
+| Package consumer fixture | `packages/uxor/dev/app/` | [Fixture guide](packages/uxor/dev/README.md); independent Composer application, runner and browser suite; installs the package and recipes through consumer workflows |
+| Application using UXor | The application's own root | [FOR-AGENTS.md](FOR-AGENTS.md) for kit use; the installed package's instructions and skills for its tools; the application owner's governance and runtime |
+
+Editing a packaged instruction or skill here is a contribution to UXor. Using that guidance in an installed
+application is an application task; it must not import this repository's branch, publication or release policies.
+The demo and package consumer fixture are separate test applications, not interchangeable environments. Diagnose
+each application through the PHP runtime, dependencies, cache and Mate installation that actually serve it.
+
+Read task-specific contributor procedures when needed: [Setup](#setup), [Checks](#checks), [Docs](#docs),
+[Mago and Serena](#mago-and-serena) and [Releases](#releases). Keep personal preferences and work assignments in
+local, ignored settings rather than tracked project guidance. The ignore rules cover `CLAUDE.local.md` and
+`.claude/settings.local.json`; use equivalent private configuration for other clients.
+
 ## Repository layout
 
 | Path | In the `ux:install` download | What it is |
@@ -142,10 +168,11 @@ it from an application, `python3 packages/uxor/dev/run.py --native prepare` inst
 runner builds the development images from this repository and starts Serena ([`packages/uxor/dev/README.md`](packages/uxor/dev/README.md)).
 
 To inspect the running demo from the command line (the profile of a request, the container's services), the demo
-ships [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) as a dev dependency: set
-`PROFILER_COLLECT=1` in `demo/.env.dev.local`, then run `vendor/bin/mate tools:list` in `demo/`
-([`docs/TESTING.md`](docs/TESTING.md), *Counts from the profiler*). Coding agents read `demo/AGENTS.md`, which Mate
-generates.
+ships [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) as a dev dependency. Set
+`PROFILER_COLLECT=1` in `demo/.env.dev.local` and use the runtime serving the demo: from `demo/`, run
+`docker compose exec php vendor/bin/mate tools:list` for the Compose stack, or `vendor/bin/mate tools:list` for a
+native setup ([`docs/TESTING.md`](docs/TESTING.md), *Counts from the profiler*). Coding agents read
+`demo/AGENTS.md`; Mate maintains the marked block, while repository guidance lives outside it.
 
 The demo trusts the repository it serves. It compiles every `{"preview":true}` README example as a Twig template and
 runs it with the app's services, and shows the result in its own origin, where the previews' frames share the

@@ -25,6 +25,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Changed
 
+- Agent guidance separates UXor contributor work, the demo and independent package-consumer fixtures, and
+  applications using the kit. The Composer helper supplies application-scoped skills and testing guidance;
+  the optional project snippet is shorter and preserves the application's own instructions.
 - The demo loads Symfony Autocomplete and Tom Select when an autocomplete field appears and includes Live
   Component’s loading indicators in its main stylesheet.
 - `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.

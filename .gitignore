@@ -17,3 +17,7 @@
 /vendor/
 /packages/uxor/.phpunit.cache/
 __pycache__/
+
+# Personal instruction overrides and client settings; shared project configuration stays tracked
+CLAUDE.local.md
+**/.claude/settings.local.json

@@ -1,39 +1,33 @@
 ---
 name: uxor-setup
-description: Set up UXor in a Symfony application, or diagnose an incomplete installation, using the project's actual runtime and the packaged UXor reference.
+description: Use when installing UXor components or diagnosing installation and wiring in a consuming Symfony application, following its instructions and runtime.
 ---
 
-# Set up UXor
+# Set up UXor in an application
 
-Use this skill when a Symfony application needs UXor or when installed components do not render or behave correctly.
+Work in the consuming application's checkout, following its instructions and authorized task scope.
 
-## Read the relevant references
+## References
 
-Read the resources with the project's Mate invocation, for example:
+Read `uxor://reference/FOR-AGENTS.md` and `uxor://reference/INSTALL.md`. Search with
+`uxor_catalog` using `query`; continue with `data.next_offset` as `offset`.
+`uxor://catalog` shows the first page. Read the selected `uxor://reference/<recipe>/README.md`.
 
-```bash
-vendor/bin/mate resources:read uxor://reference/INSTALL.md --format=json
-vendor/bin/mate resources:read uxor://reference/FOR-AGENTS.md --format=json
-```
-
-The same files are available under `vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` with Composer's default vendor directory. A project can customize that directory; use Composer's actual configuration. Resources are reference facts about the UXor files identified (by digest) in the package's `packages/uxor/resources/uxor/index.json`, not proof of the application's installed code.
-
-For bounded sections of long documents, inspect and use the installed `uxor_reference` tool rather than loading every reference page.
-
-After updating xormania/uxor with Composer, run `discover` with the application's
-configured Mate invocation to refresh its instructions and skills. Existing project instructions
-outside Mate's managed block and application-owned component files remain intact.
+Use `resources:read <uri> --format=json` with the application's configured Mate invocation,
+or `uxor_reference` for bounded pages. The local fallback is
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` with the default Composer vendor
+directory; use the application's actual directory. Reference digests identify packaged guidance,
+not the source of existing customized files.
 
 ## Procedure
 
-1. Identify the application root, its project instructions and its PHP/Composer invocation. Use its existing Docker or native runtime consistently. Inspect `composer.json`, `composer.lock`, bundle configuration, importmap/assets and existing component files before changing setup.
-2. Read the installation reference. Reuse working project configuration. Establish the required PHP extensions, regular runtime dependencies, Toolkit development dependencies, Stimulus discovery, styling and theme. Keep packages needed by installed PHP, Twig or browser components in the application's regular dependencies.
-3. Find components with `uxor_catalog` using `query`. To browse more results, pass a returned `data.next_offset` as `offset`. The `uxor://catalog` resource shows the first page. Read only the selected components' `uxor://reference/<recipe>/README.md` resources. Choose an explicit UXor release or revision compatible with the application and record it. The package version describes the supplied guidance; it does not establish the origin of existing customized files.
-4. Use Symfony UX Toolkit's supported `ux:install` command. Follow its output and the component README through Composer dependencies, importmap requirements, CSS imports and controller configuration. Copied files alone do not establish completed integration. Existing application files and customizations need inspection before replacement.
-5. Render a small page using the selected component and exercise its behavior through the served application. Confirm controller loading and inspect request, console and CSP failures. Complete the `mate-uxor-verify` skill for the actual interaction.
+1. Identify the application root and PHP/Composer invocation. Use its Docker or native runtime consistently. Inspect Composer metadata, required PHP extensions, bundles, assets and existing components before changing setup.
+2. Pin the application's chosen UXor release. Test another supported source ref only when that is the task. Inspect application-owned files before replacement and preserve their customizations.
+3. Use Symfony UX Toolkit's `ux:install` and follow the selected README and command output through Composer dependencies, importmap requirements, CSS imports and controller configuration. Keep packages needed by installed PHP, Twig and browser components in regular dependencies; keep development tooling in development dependencies.
+4. Render the selected component through the served application. Check controller loading and request, console and CSP failures. Complete `mate-uxor-verify` for the actual interaction; copied files alone do not establish working integration.
+5. After updating `xormania/uxor`, run Mate's `discover` to refresh package guidance and skills. Preserve the application's instructions around the managed block and its working configuration.
 
-## Deliver useful completion evidence
-
-Report the selected application/runtime, installed components and source selection, files/configuration changed, checks actually run and remaining work. Record unknown installed provenance as unknown. Repeating setup should preserve existing project instructions and working configuration.
-
-For available project diagnostics, run `tools:list` with the configured Mate invocation, then inspect a relevant tool's inputs with `tools:inspect` before calling it. An unavailable diagnostic is a specific remaining check, not evidence that setup passed.
+Discover optional diagnostics with `tools:list` and inspect relevant inputs with `tools:inspect`.
+Native metadata discovery requires a trusted, authorized checkout; the package's `OPERATIONS.md`
+explains the execution acknowledgement. Report the application/runtime, components and selected source,
+changes, checks actually run and unresolved findings. Keep unknown installed provenance explicit.

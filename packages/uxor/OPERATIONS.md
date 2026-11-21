@@ -1,6 +1,6 @@
-# UXor package operations
+# UXor operations in a consuming application
 
-Run these commands with the consuming application's PHP runtime. In a containerized project, invoke them inside the PHP container so installed extensions, paths and generated Symfony artifacts match the application.
+Use these tools in the consuming application's checkout, under its instructions and authorized task scope. Run commands with its configured PHP runtime; in a containerized project, use the PHP container so installed extensions, paths and generated Symfony artifacts match the application. Application-owned components and configuration remain the application's responsibility.
 
 ```bash
 vendor/bin/uxor catalog --query=dialog --format=json
@@ -15,7 +15,7 @@ vendor/bin/uxor tools --project-root=/app --trust-project-code --kind=maker --na
 vendor/bin/uxor tools --project-root=/app --trust-project-code --kind=mate --format=json
 ```
 
-The standalone CLI defaults project operations to the current directory. It requires a real `composer.json` and never searches parent directories. Select the intended application explicitly when working across a package, fixture or multiple worktrees. Mate binds the same operations to its `%mate.root_dir%`.
+The standalone CLI defaults project operations to the current directory. It requires a real `composer.json` and never searches parent directories. Select the intended application explicitly when working across applications or worktrees. Mate binds the same operations to its `%mate.root_dir%`.
 
 ## Discovery and detail
 
@@ -47,8 +47,9 @@ Use `doctor --component=<catalog-name>` for selected-component static wiring che
 
 ## Browser diagnostics
 
-Register the package's recorder as an automatic fixture in the application's existing Playwright test setup. This
-example is for a fixture at `tests/fixtures.mjs` and the default Composer vendor location:
+The recorder is optional. Use the application's existing diagnostics; when Playwright and local Symfony profiler
+collection are appropriate, register this recorder in its existing test setup. This example uses
+`tests/fixtures.mjs` and the default Composer vendor location:
 
 ```js
 import { test as base } from '@playwright/test';
@@ -85,13 +86,18 @@ vendor/bin/mate tools:call uxor_browser_diagnostics --path="$artifact" --format=
 ```
 
 The operation reads one bounded artifact. It reports page errors, failed requests and profiled responses. A shared
-`requestId` connects a failed request to a response whose headers arrived before cancellation. Open the returned
-`profileUri` with Mate's Symfony profiler resource in the environment that served the request. If there is no
-response token, inspect the trace to see where the request stopped. The original test determines pass or fail.
+`requestId` connects a failed request to a response whose headers arrived before cancellation. When a `profileUri`
+is returned, open it with Mate's Symfony profiler resource in the environment that served the request. Without a
+response token, use an available trace or the application's network evidence to find where the request stopped.
+An absent recorder or profile is a limit on the available evidence. The original test determines pass or fail.
 
 The recorder observes Playwright's `context` fixture and correlates HTTP responses and failures on the `baseURL`
 origin. Tests that create a separate context need to register the recorder against that context. When a capture
 reaches a section's size limit, `dropped` counts the omitted entries so the rest of the evidence stays readable.
+
+Captures and browser traces can contain request URLs, application data and error details. Review and redact
+sensitive content before sharing them, following the application's access rules. Output bounds and path checks
+do not redact secrets or establish that an artifact is safe to publish.
 
 ## Native capability metadata
 

@@ -1,3 +1,19 @@
+# Demo contributor guidance
+
+This application is UXor's recipe showcase, browser-test target and static-gallery source. Follow the
+[root contributor guidance](../AGENTS.md) and [project boundaries](../CONTRIBUTING.md#project-boundaries).
+
+- The application root is `demo/`, with its own Composer dependencies, cache and PHP runtime.
+- Author recipes in the repository's top-level recipe directories. `tools/sync-demo` copies them into this app;
+  [.gitignore](.gitignore) lists the copied paths. Edit the sources, then sync and rebuild using
+  [Setup](../CONTRIBUTING.md#setup).
+- Run diagnostics in the runtime serving this application. From `demo/`, use
+  `docker compose exec php vendor/bin/mate tools:list` for the Compose stack, or `vendor/bin/mate tools:list` for
+  native PHP. The generated instructions below assume this application's working directory and runtime.
+- The independent package consumer fixture uses `packages/uxor/dev/app/` and its own
+  [runner](../packages/uxor/dev/README.md); its dependencies and profiles do not describe this demo.
+- Keep repository guidance outside the Mate-managed block.
+
 <!-- BEGIN AI_MATE_INSTRUCTIONS -->
 AI Mate: project diagnostic tools, exposed through the `vendor/bin/mate` CLI.
 

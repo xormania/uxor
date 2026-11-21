@@ -7,6 +7,11 @@
 /tools export-ignore
 # PHP development tools and project MCP configuration
 /.codex export-ignore
+/.claude export-ignore
+/.agents export-ignore
+# Personal instructions and local client settings stay out of working-tree archives too
+CLAUDE.local.md export-ignore
+**/.claude/settings.local.json export-ignore
 /.mcp.json export-ignore
 /mago.toml export-ignore
 # Recipe tests and screenshot baselines are not installed by ux:install

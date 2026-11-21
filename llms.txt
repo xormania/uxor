@@ -8,12 +8,13 @@ The links below point at release `0.3.5`, the version this file was written for:
 
 ## Start here
 
-- [For agents](https://raw.githubusercontent.com/xormania/uxor/0.3.5/FOR-AGENTS.md): what the kit gives you, how to set a project up, which recipe to install for what, and the rules to follow
-- [Project agents snippet](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md): the block to paste into a project's AGENTS.md or CLAUDE.md
+- [For agents](https://raw.githubusercontent.com/xormania/uxor/0.3.5/FOR-AGENTS.md): using UXor in your Symfony application: setup, recipe selection and optional development tools
+- [Project agents snippet](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md): optional application guidance when existing project or package-managed instructions need a short UXor entry
 - [Install](https://raw.githubusercontent.com/xormania/uxor/0.3.5/INSTALL.md): install the kit in a Symfony application
 - [README](https://raw.githubusercontent.com/xormania/uxor/0.3.5/README.md): what the kit is, how to install it, requirements
 - [Recipes](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/RECIPES.md): every recipe, one line each
 - [Guide](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning
+- [Application testing](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/APPLICATION-TESTING.md): verify your application's integration and user journeys using its own runtime and tests
 
 ## Theme
 
@@ -107,5 +108,5 @@ The links below point at release `0.3.5`, the version this file was written for:
 
 - [Changelog](https://raw.githubusercontent.com/xormania/uxor/0.3.5/CHANGELOG.md): what each version changes
 - [Security](https://raw.githubusercontent.com/xormania/uxor/0.3.5/SECURITY.md): reporting a vulnerability
-- [Testing patterns](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/TESTING.md): how this repository tests Turbo, Live Components, the CSP and request limits, to reuse in an app
-- [Contributing](https://raw.githubusercontent.com/xormania/uxor/0.3.5/CONTRIBUTING.md): changing the kit itself: layout, conventions, checks
+- [Testing patterns](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/TESTING.md): UXor contributor reference; adapt selected reusable patterns to an application
+- [Contributing](https://raw.githubusercontent.com/xormania/uxor/0.3.5/CONTRIBUTING.md): developing the kit and Composer package: project boundaries, conventions and checks

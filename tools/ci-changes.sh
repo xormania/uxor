@@ -35,7 +35,7 @@ while IFS= read -r path; do
         # render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production image
         # serves its own copy
         docs/GUIDE.md) on php static-site demo contrast package prod-image ;;
-        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
+        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | docs/APPLICATION-TESTING.md | FOR-AGENTS.md) on contrast package ;;
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
 

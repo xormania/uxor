@@ -8,6 +8,15 @@ recipe into your project, where you own it. Every behavior is a Stimulus control
 Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
 dark, with its code.
 
+UXor provides two deliverables for a consuming application:
+
+- The **Toolkit kit** installs application-owned recipes through `ux:install`.
+- The optional **Composer development package**, [`xormania/uxor`](packages/uxor/README.md), provides agent guidance,
+  diagnostics and tools for using the kit; it installs no recipes.
+
+The application's own instructions, workflow and permissions govern work in it. Developing either UXor deliverable
+or the repository's demo and test fixtures follows the [contributor guide](CONTRIBUTING.md).
+
 The official Symfony UX `flowbite-4` kit was an initial reference only. UXor follows its own requirements and
 compatibility commitments, with no requirement to track that kit's names, markup, behavior or tests. Toolkit
 installation support, Flowbite CSS and the icon set are current implementation choices that can evolve with UXor.
@@ -46,8 +55,10 @@ sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
 
-Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
-that is not released yet. [`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
+Use an explicit tagged release by default: without a revision, `ux:install` downloads the repository's default
+branch. For an explicitly requested test of unreleased work, use a full commit SHA and record it with the results.
+[Choosing a revision](INSTALL.md#choosing-a-revision) covers existing installations and updates;
+[`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
 
 `ux:install` also installs the recipes a recipe depends on. Run the `composer require` and `importmap:require`
 commands it prints for the recipe's packages. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
@@ -62,14 +73,14 @@ this command and commit them; run it again when your templates use new icons:
 php bin/console ux:icons:lock
 ```
 
-## Agent tooling
+## Optional Composer development package
 
 The repository is also a Composer package, `xormania/uxor`, for the coding agent working on your project: three
 [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
 and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
 setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
 recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](packages/uxor/README.md) says how to
-install it.
+install it and integrate its package-managed consumer guidance while preserving your application's own instructions.
 
 ## Requirements
 
@@ -87,11 +98,13 @@ install it.
 - [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
 - [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
 - [`INSTALL.md`](INSTALL.md): setting up the kit in a Symfony application.
-- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](llms.txt), and paste
-  [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
+- Agent-assisted application work: [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](llms.txt).
+  Kit-only applications may adapt the short optional [`project snippet`](docs/PROJECT-AGENTS-SNIPPET.md);
+  applications using the helper can use its package-managed guidance without duplicating it.
+- [`docs/APPLICATION-TESTING.md`](docs/APPLICATION-TESTING.md): verify UXor's integration in your application.
 - [`CHANGELOG.md`](CHANGELOG.md): what each version changes.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): the repository layout, the checks and the conventions.
-- [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
+- Developing UXor: [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`AGENTS.md`](AGENTS.md) govern work on the kit,
+  package and repository fixtures; [`docs/TESTING.md`](docs/TESTING.md) describes their tests and CI.
 
 ## License
 

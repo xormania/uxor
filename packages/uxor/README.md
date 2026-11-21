@@ -1,17 +1,15 @@
-# UXor package
+# UXor package for Symfony applications
 
-Agent guidance and development tools for building Symfony applications with [UXor](https://github.com/xormania/uxor).
+`xormania/uxor` is a Composer development dependency that helps developers and agents use [UXor](https://github.com/xormania/uxor)'s
+Symfony UX Toolkit kit in their own Symfony applications.
+Its skills and tools follow the consuming application's instructions, authorized task scope and configured runtime.
+Start with the [application guide](resources/uxor/docs/FOR-AGENTS.md) for component selection and setup.
 
-UXor is independently maintained; the official Symfony UX `flowbite-4` kit was an initial reference only. This
-package documents UXor's behavior and current integrations, which evolve under UXor's requirements and compatibility
-commitments rather than a requirement to match the reference kit.
-
-`xormania/uxor` is UXor's Composer package, a development dependency of a Symfony application. It brings UXor's
-references, task guidance and project diagnostics into an agent's workflow, through
-[Symfony AI Mate](https://github.com/symfony/ai-mate) and a command line:
+The package brings UXor's references, task guidance and project diagnostics into the application's workflow,
+through [Symfony AI Mate](https://github.com/symfony/ai-mate) and a command line:
 
 - three Mate skills: `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify`;
-- references for the kit's 64 recipes, with its install guide and docs, as Mate resources (`uxor://catalog`,
+- references for the kit's recipes, with its install guide and docs, as Mate resources (`uxor://catalog`,
   `uxor://reference/…`) and as files in the package;
 - operations through `vendor/bin/uxor` and Mate for catalog search, component detail, bounded document reads,
   application workflows, project inspection, first-setup checks, installed Maker/Mate discovery and browser diagnostics.
@@ -51,7 +49,8 @@ composer config repositories.uxor vcs https://github.com/xormania/uxor
 ```
 
 Composer installs the repository's archive (the kit and this package, without the development files), so the
-package's files are under `vendor/xormania/uxor/packages/uxor/`.
+package's files are under `vendor/xormania/uxor/packages/uxor/` with Composer's default vendor directory.
+Use the application's configured vendor directory if it differs.
 
 Run the Mate commands below with the application's configured invocation. For a new Mate setup:
 
@@ -192,10 +191,14 @@ Complete setup with `ux:install` and the selected component's integration guide.
 establish runtime behavior. [Operations](OPERATIONS.md) covers result limits, unknowns, exit statuses and installed
 Maker/Mate discovery.
 
-For a local browser failure, capture the affected test with the package's Playwright fixture, then read its evidence
-with `vendor/bin/uxor browser-diagnostics` or `uxor_browser_diagnostics` in Mate. The
-[browser diagnostics setup](OPERATIONS.md#browser-diagnostics) shows how to register the fixture and open the exact
-Symfony profile.
+Use the application's own tests and runtime to check its integration; the
+[application testing guide](resources/uxor/docs/docs/APPLICATION-TESTING.md) describes relevant checks.
+
+For a local browser failure, use the application's existing diagnostics. If the optional package Playwright
+recorder is configured, read its capture with `vendor/bin/uxor browser-diagnostics` or
+`uxor_browser_diagnostics` in Mate. Open a Symfony profile when its URI is returned. The
+[browser diagnostics setup](OPERATIONS.md#browser-diagnostics) explains configuration and evidence limits.
+Review diagnostic output and traces for sensitive content before sharing.
 
 The customer-management workflow connects a searchable list, modal form, validation, successful-save feedback and
 Turbo history. It is written for this package, beside the component references generated from the kit's READMEs,
@@ -204,10 +207,13 @@ and each reference result names the digest of the UXor files its documentation i
 Composer updates the package's code and references; Mate discovery refreshes the installed agent guidance and skills.
 Installed application components remain owned by the consuming project.
 
-## Development
+## Developing this package
 
-The package is developed in the UXor repository, under `packages/uxor/`. Read its
-[CONTRIBUTING.md](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md) for setup, checks and pull requests,
-and report vulnerabilities as its [SECURITY.md](https://github.com/xormania/uxor/blob/main/SECURITY.md) says.
+When changing the package's source in the UXor repository, follow that repository's
+[AGENTS.md](https://github.com/xormania/uxor/blob/main/AGENTS.md) and
+[CONTRIBUTING.md](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md) for development and review.
+The repository demo and package-development consumer are test environments; installed skills operate in
+the consuming application. Report package vulnerabilities as UXor's
+[SECURITY.md](https://github.com/xormania/uxor/blob/main/SECURITY.md) describes.
 
 MIT licensed.
