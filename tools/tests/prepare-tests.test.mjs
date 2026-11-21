@@ -1,7 +1,7 @@
 // The cases of tools/prepare-tests.mjs, on scratch checkouts: the recipe specs' copies, the CSS record and the locks,
 // with several processes at once. Run: node --test tools/tests/*.test.mjs
 import { execFileSync, spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -117,7 +117,7 @@ test('a process reading the copies while others rewrite them sees every file, wh
         assert.equal(code, 0, output);
     }
     assert.equal(read.code, 0, read.output);
-    assert.match(read.output, /^[1-9]\d* reads/);
+    assert.match(read.output, /^[1-9]\d* reads$/m);
 });
 
 test('the CSS builds when its sources changed, once for processes that ask together', async () => {
@@ -170,4 +170,63 @@ test('a lock held by a running process is waited for; one left by a process that
     writeFileSync(join(dir, 'tests/.prepare/css.lock/owner'), `${hostname()} ${gone.pid}\n`);
     assert.equal(withLock(dir, 'css', () => 'ran', { timeoutMs: 300 }), 'ran');
     assert.deepEqual(readdirSync(join(dir, 'tests/.prepare')), []);
+});
+
+test('stale lock recovery preserves a replacement lock held by a live contender', async (t) => {
+    const dir = mkdtempSync(join(tmpdir(), 'prepare-tests-recovery-'));
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    const lock = join(dir, 'tests/.prepare/css.lock');
+    mkdirSync(lock, { recursive: true });
+    const gone = spawn(process.execPath, ['-e', '']);
+    await new Promise((resolve) => gone.on('close', resolve));
+    writeFileSync(join(lock, 'owner'), `${hostname()} ${gone.pid}\n`);
+
+    const owner = `${hostname()} ${process.pid}\n`;
+    const result = await inProcess(`
+        import assert from 'node:assert/strict';
+        import fs from 'node:fs';
+        import { syncBuiltinESMExports } from 'node:module';
+        import { join } from 'node:path';
+
+        const lock = ${JSON.stringify(lock)};
+        const owner = ${JSON.stringify(owner)};
+        const originalRename = fs.renameSync;
+        const originalUnlink = fs.unlinkSync;
+        const replacement = join(lock, 'owner-test-contender');
+        let exchanged = false;
+
+        function replaceObservedLock() {
+            if (exchanged) return;
+            exchanged = true;
+            originalRename(lock, lock + '.original');
+            fs.mkdirSync(lock);
+            fs.writeFileSync(replacement, owner);
+        }
+
+        // Advance a competing process through acquisition between observing the dead owner
+        // and removing its generation. Both the old directory path and the new marker can
+        // serve as the boundary for this schedule.
+        fs.renameSync = (from, to) => {
+            if (from === lock) replaceObservedLock();
+            return originalRename(from, to);
+        };
+        fs.unlinkSync = (path) => {
+            if (path === join(lock, 'owner')) replaceObservedLock();
+            return originalUnlink(path);
+        };
+        syncBuiltinESMExports();
+
+        let entered = false;
+        let error;
+        try {
+            p.withLock(${JSON.stringify(dir)}, 'css', () => { entered = true; }, { timeoutMs: 300 });
+        } catch (caught) {
+            error = caught;
+        }
+        assert.ok(exchanged, 'the replacement was installed at the reclamation boundary');
+        assert.equal(entered, false, 'critical section entered while the replacement owner was still alive');
+        assert.match(error?.message ?? '', /css\\.lock is held by .* for more than 0\\.3s/);
+        assert.equal(fs.readFileSync(replacement, 'utf8'), owner);
+    `);
+    assert.equal(result.code, 0, result.output);
 });
