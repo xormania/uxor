@@ -13,17 +13,20 @@ import time
 from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
+from lifecycle_events import operation as observe
 
-def run(arguments: list[str], root: Path, *, timeout: float = 120, allowed=(0,)) -> subprocess.CompletedProcess:
-    result = subprocess.run(arguments, cwd=root, text=True, capture_output=True, timeout=timeout)
-    if result.returncode not in allowed:
-        raise RuntimeError(f"Consumer command failed ({result.returncode}): {arguments[:4]!r}\n"
-                           + result.stderr[-4000:] + result.stdout[-4000:])
-    return result
+
+def run(event: str, arguments: list[str], root: Path, *, timeout: float = 120, allowed=(0,)) -> subprocess.CompletedProcess:
+    with observe(event):
+        result = subprocess.run(arguments, cwd=root, text=True, capture_output=True, timeout=timeout)
+        if result.returncode not in allowed:
+            raise RuntimeError(f"Consumer command failed ({result.returncode}): {arguments[:4]!r}\n"
+                               + result.stderr[-4000:] + result.stdout[-4000:])
+        return result
 
 
 def operation(root: Path, php: str, name: str, *arguments: str, allowed=(0,), timeout=120) -> dict:
-    result = run([php, "vendor/bin/uxor", name, "--project-root=.", "--format=json", *arguments],
+    result = run("uxor." + name, [php, "vendor/bin/uxor", name, "--project-root=.", "--format=json", *arguments],
                  root, timeout=timeout, allowed=allowed)
     document = json.loads(result.stdout)
     if document.get("operation") != name or document.get("status") == "failed":
@@ -44,6 +47,7 @@ def snapshot(root: Path) -> dict[str, str]:
     return result
 
 
+@observe("consumer.setup")
 def setup(root: Path, php: str) -> None:
     """Install through the public command, preserving application decisions."""
     before = snapshot(root)
@@ -90,6 +94,7 @@ def setup(root: Path, php: str) -> None:
     print("Installed setup: real Composer dev dependencies, first Mate initialization, separate saved execution permission and application instructions verified.")
 
 
+@observe("consumer.repeat-setup")
 def repeat_setup(root: Path, php: str) -> None:
     """An already initialized application can run setup again with its own Mate configuration."""
     config = root / "mate/config.php"
@@ -113,9 +118,10 @@ def verify_profile(response: dict, profile: dict) -> None:
         raise AssertionError(f"The profile does not identify the exact request: {actual!r} != {expected!r}")
 
 
+@observe("consumer.diagnose-and-repair")
 def exercise(root: Path, php: str) -> None:
     """Build a consumer feature, preserve recorded evidence, diagnose and repair it."""
-    run([php, "bin/console", "make:controller", "UxorAcceptanceController", "--no-interaction"], root)
+    run("symfony.make-controller", [php, "bin/console", "make:controller", "UxorAcceptanceController", "--no-interaction"], root)
     controller = root / "src/Controller/UxorAcceptanceController.php"
     if not controller.is_file() or "UxorAcceptanceController" not in controller.read_text():
         raise RuntimeError("The application's native Maker did not generate the requested controller")
@@ -138,9 +144,9 @@ final class UxorAcceptanceController
 }
 """)
     secret_before = (root / ".env.local").read_bytes()
-    run([php, "bin/console", "cache:warmup", "--env=dev", "--no-interaction"], root)
-    run([php, "vendor/bin/mate", "discover", "--no-interaction"], root)
-    service = json.loads(run([php, "vendor/bin/mate", "tools:call", "symfony-service-detail",
+    run("symfony.warm-dev-cache", [php, "bin/console", "cache:warmup", "--env=dev", "--no-interaction"], root)
+    run("mate.discover", [php, "vendor/bin/mate", "discover", "--no-interaction"], root)
+    service = json.loads(run("mate.service-detail", [php, "vendor/bin/mate", "tools:call", "symfony-service-detail",
                               "--id=App\\Controller\\UxorAcceptanceController", "--format=json"], root).stdout)["untrusted_data"]
     if service.get("class") != "App\\Controller\\UxorAcceptanceController":
         raise RuntimeError("Mate did not observe the real compiled generated controller")
@@ -171,6 +177,7 @@ final class UxorAcceptanceController
                     raise RuntimeError("The consumer HTTP server did not become ready")
                 time.sleep(0.1)
 
+            @observe("symfony.request")
             def request(marker: str) -> dict:
                 url = base + "/_uxor_probe/" + marker
                 try:
@@ -185,7 +192,7 @@ final class UxorAcceptanceController
                 return result
 
             def profile(response: dict) -> dict:
-                data = json.loads(run([php, "vendor/bin/mate", "tools:call", "symfony-profiler-get",
+                data = json.loads(run("mate.read-profile", [php, "vendor/bin/mate", "tools:call", "symfony-profiler-get",
                                        "--token=" + response["token"], "--format=json"], root).stdout)["untrusted_data"]
                 verify_profile(response, data)
                 return data
@@ -217,12 +224,12 @@ final class UxorAcceptanceController
                     raise RuntimeError("Preparation deleted or changed recorded request-profile evidence")
             if profile(first) != first_profile:
                 raise RuntimeError("Preparation changed the exact recorded request's profile")
-            worker = run([php, ".uxor/mago/worker.php", "--check"], root)
+            worker = run("mago.check-preparation", [php, ".uxor/mago/worker.php", "--check"], root)
             if not json.loads(worker.stdout).get("fresh"):
                 raise RuntimeError("The installed preparation worker did not recognize current inputs")
 
             controller.write_text(controller.read_text().replace("'value' => 'broken'", "'value' => 'fixed'", 1))
-            stale = run([php, ".uxor/mago/worker.php", "--check"], root, allowed=(3,))
+            stale = run("mago.check-preparation", [php, ".uxor/mago/worker.php", "--check"], root, allowed=(3,))
             if json.loads(stale.stdout).get("fresh") is not False:
                 raise RuntimeError("The changed source was not reported stale before analysis")
             repaired = operation(root, php, "prepare", "--trust-project-code")

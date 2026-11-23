@@ -14,6 +14,8 @@ import sys
 import tempfile
 import time
 
+from lifecycle_events import progress
+
 ROOT = Path(__file__).resolve().parents[3]
 SUITE = ROOT / "packages/uxor/tools/check-package.py"
 
@@ -23,8 +25,15 @@ def tmux(run: Path, *arguments: str) -> list[str]:
 
 
 def finish(run: Path, state: str, code: int) -> None:
+    result = {"state": state, "exit_code": code, "finished": None}
+    if state == "interrupted":  # Another process discovered the loss. The worker's actual end time is unknown.
+        result["observed_at"] = time.time()
+    else:
+        result.update(finished=time.time(), finished_monotonic=time.monotonic())
+    result.update(progress(run / "events.jsonl", terminal_state=state, finished=result["finished"],
+                           finished_monotonic=result.get("finished_monotonic"), timeline=True))
     temporary = run / "result.tmp"
-    temporary.write_text(json.dumps({"state": state, "exit_code": code, "finished": time.time()}) + "\n")
+    temporary.write_text(json.dumps(result) + "\n")
     temporary.replace(run / "result.json")
 
 
@@ -44,9 +53,13 @@ def start(story: str, target: str | None, timeout: int, revision: str | None = N
               "timeout_seconds": timeout, "started": time.time()}
     (run / "run.json").write_text(json.dumps(record, indent=2) + "\n")
     (run / "output.log").touch(mode=0o600)
+    (run / "events.jsonl").touch(mode=0o600)
     # Multiple command arguments make tmux exec argv directly, including in a checkout with spaces.
     result = subprocess.run(tmux(run, "new-session", "-d", "-s", "lifecycle", "-c", str(ROOT),
-                                 sys.executable, "-u", str(Path(__file__).resolve()), "_run", str(run)))
+                                 sys.executable, "-u", str(Path(__file__).resolve()), "_run", str(run),
+                                 ";", "set-option", "status-right-length", "100",
+                                 ";", "set-option", "status-interval", "1",
+                                 ";", "set-option", "status-right", "#{pane_title}"))
     print(run)
     if result.returncode:
         finish(run, "launch_failed", 125)
@@ -70,6 +83,23 @@ def interrupt_group(process: subprocess.Popen) -> None:
     process.wait()
 
 
+def update_pane_title(journal: Path) -> None:
+    operations = progress(journal)
+    current = operations["current_operation"]
+    if current is not None:
+        title = f"{current['name']} ({int(current['elapsed_seconds'])}s)"
+        parents = [row["name"] for row in operations["active_operations"][:-1]]
+        if parents:
+            title += " | " + " / ".join(parents)
+    elif operations["last_successful_operation"] is not None:
+        title = f"Completed {operations['last_successful_operation']['name']}"
+    else:
+        title = "Waiting for lifecycle operation"
+    # Write the tmux pane title to its terminal only. Watchers and output.log keep the exact suite transcript.
+    sys.stdout.write("\033]2;" + title + "\007")
+    sys.stdout.flush()
+
+
 def worker(run: Path, record: dict) -> int:
     interrupted = False
 
@@ -85,6 +115,7 @@ def worker(run: Path, record: dict) -> int:
             "--target-version", record["target_version"]]
     state, code = "failed", 1
     process = None
+    journal = run / "events.jsonl"
     with (run / "run.json").open() as owner, (run / "output.log").open("ab", buffering=0) as log, \
             (run / "output.log").open("rb") as view:
         fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -92,8 +123,10 @@ def worker(run: Path, record: dict) -> int:
             raise ValueError("This run has finished. Use repeat to start a fresh run.")
         try:
             deadline = time.monotonic() + record["timeout_seconds"]
+            next_title = 0 if sys.stdout.isatty() else float("inf")
             process = subprocess.Popen(args, cwd=ROOT, start_new_session=True, stdout=log, stderr=subprocess.STDOUT,
-                                       env=dict(os.environ, TMPDIR=str(run), PYTHONUNBUFFERED="1"))
+                                       env=dict(os.environ, TMPDIR=str(run), PYTHONUNBUFFERED="1",
+                                                UXOR_LIFECYCLE_EVENTS=str(journal)))
             while process.poll() is None:
                 chunk = view.read(65536)
                 if chunk:
@@ -102,9 +135,13 @@ def worker(run: Path, record: dict) -> int:
                 if interrupted or (run / "stop-requested").exists():
                     state, code = "stopped", 130
                     break
-                if time.monotonic() >= deadline:
+                now = time.monotonic()
+                if now >= deadline:
                     state, code = "timed_out", 124
                     break
+                if now >= next_title:
+                    update_pane_title(journal)
+                    next_title = now + 1
                 if not chunk:
                     time.sleep(0.1)
             else:
@@ -141,6 +178,26 @@ def status(run: Path) -> dict:
     return {"state": "running", "exit_code": None}
 
 
+def print_summary(result: dict) -> None:
+    timeline = result.get("timeline", [])
+    if timeline:
+        parts = [f"{len(timeline)} lifecycle operations recorded"]
+        last = result["last_successful_operation"]
+        if last:
+            parts.append(f"last success: {last['name']}")
+        if result["exit_code"]:
+            operation = result["current_operation"] or next(
+                (row for row in reversed(timeline) if row["state"] == "failed"), None)
+            if operation:
+                elapsed = operation["elapsed_seconds"]
+                duration = (f"{elapsed:.1f}s" if elapsed is not None
+                            else f"at least {operation['elapsed_at_least_seconds']:.1f}s")
+                parts.append(f"{operation['state']}: {operation['name']} ({duration})")
+        print(", ".join(parts), file=sys.stderr)
+    if result.get("telemetry_error"):
+        print(result["telemetry_error"], file=sys.stderr)
+
+
 def wait(run: Path, *, watch: bool = False) -> int:
     with (run / "output.log").open("rb") as log:
         while True:
@@ -149,6 +206,8 @@ def wait(run: Path, *, watch: bool = False) -> int:
                 shutil.copyfileobj(log, sys.stdout.buffer)
                 sys.stdout.buffer.flush()
             if result["exit_code"] is not None:
+                if watch:
+                    print_summary(result)
                 print(f'{result["state"]} (exit {result["exit_code"]}) — {run}', file=sys.stderr)
                 return result["exit_code"]
             time.sleep(0.5)
@@ -167,9 +226,9 @@ def main() -> int:
         ("attach", "Attach to the live terminal (detach with Ctrl-b d)"),
         ("watch", "Follow the full log and return the suite exit code"),
         ("wait", "Wait and return the suite exit code"),
-        ("status", "Report run state and exit code as JSON"),
+        ("status", "Report state, current operation, elapsed time and latest success as JSON"),
         ("stop", "Stop this run and wait for its children"),
-        ("collect", "Report the checkout, verdict and retained log as JSON"),
+        ("collect", "Report the checkout, verdict, operation timeline and evidence paths as JSON"),
         ("repeat", "Start a fresh run of the recorded commit with the same options"),
     ):
         commands.add_parser(name, help=description).add_argument("directory", type=Path)
@@ -197,8 +256,15 @@ def main() -> int:
             (run / "stop-requested").touch(mode=0o600)
             return wait(run)
         return result["exit_code"]
+    journal = run / "events.jsonl"
+    if "timeline" not in result:  # Running now, or a receipt written by an earlier harness.
+        result.update(progress(journal, terminal_state=result["state"], finished=result.get("finished"),
+                               finished_monotonic=result.get("finished_monotonic"), timeline=args.command == "collect"))
     if args.command == "collect":
-        result = {**record, **result, "directory": str(run), "log": str(run / "output.log")}
+        result = {**record, **result, "directory": str(run), "log": str(run / "output.log"),
+                  "events": str(journal) if journal.exists() else None}
+    else:
+        result.pop("timeline", None)
     print(json.dumps(result))
     return 0
 
