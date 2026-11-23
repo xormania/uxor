@@ -37,8 +37,13 @@ CONSUMER_SKILL_NAMES = ("build", "setup", "verify")
 FIXTURE = PACKAGE / "dev/app"
 # What the fixture renders in production. Fixture data: keep in step with the fixture's controller and templates.
 FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development", "/_uxor_probe/production": '"value":"fixed"'}
+SHORTCUT_PAGE = {"/panel": 'data-shortcut-owner="consumer"'}
 MATE_PACKAGES = ("symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension")
 MATE_BETA = "1.0.0-BETA1"
+BASELINE_RELEASE = "0.3.2"
+LAST_BASELINE_TARGET = "0.9.9"
+RELEASE_NUMBER = r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}"
+UPSTREAM = "https://github.com/xormania/uxor.git"
 
 # Development-only content: no exported path may be inside these directories or be one of these files.
 # Local tool output (vendor/, Playwright reports) is never committed, so `git archive` leaves it out; it is listed for
@@ -96,16 +101,16 @@ def development_only(path: str) -> bool:
     return len(parts) >= 2 and parts[1] == "tests"
 
 
-def source_files() -> list[str]:
-    """Files HEAD's tree holds: the archive is `git archive HEAD`, so an uncommitted file is not expected in it."""
-    listed = subprocess.check_output(["git", "ls-tree", "-r", "-z", "--name-only", "HEAD"], cwd=ROOT)
+def source_files(revision: str) -> list[str]:
+    """The committed source files corresponding to this archive."""
+    listed = subprocess.check_output(["git", "ls-tree", "-r", "-z", "--name-only", revision], cwd=ROOT)
     return [os.fsdecode(path) for path in listed.split(b"\0") if path]
 
 
-def recipe_payload_files(manifests: list[str], tracked: list[str]) -> list[str]:
+def recipe_payload_files(manifests: list[str], tracked: list[str], revision: str) -> list[str]:
     expected: set[str] = set()
     for manifest in manifests:
-        source = subprocess.check_output(["git", "show", f"HEAD:{manifest}"], cwd=ROOT)
+        source = subprocess.check_output(["git", "show", f"{revision}:{manifest}"], cwd=ROOT)
         try:
             contents = json.loads(source)
         except (UnicodeError, json.JSONDecodeError) as error:
@@ -137,7 +142,7 @@ def as_list(value) -> list[str]:
     return [value] if isinstance(value, str) else list(value)
 
 
-def check_archive(archive: Path) -> int:
+def check_archive(archive: Path, revision: str) -> int:
     with tarfile.open(archive, mode="r:") as package:
         paths: dict[str, tarfile.TarInfo] = {}
         for member in package.getmembers():
@@ -174,13 +179,13 @@ def check_archive(archive: Path) -> int:
             prefix = name.rstrip("/") + "/"
             return any(path.startswith(prefix) and entry.isfile() for path, entry in paths.items())
 
-        tracked = source_files()
+        tracked = source_files(revision)
         recipe_manifests = [name for name in tracked if name.endswith("/manifest.json") and name.count("/") == 1]
         if not recipe_manifests:
             raise RuntimeError("No recipe manifests found in the source tree")
         package_prefixes = tuple(f"{PACKAGE_PATH}/{directory}/" for directory in PACKAGE_DIRECTORIES)
         package_files = [name for name in tracked if name.startswith(package_prefixes)]
-        for required in (*REQUIRED_FILES, *recipe_manifests, *recipe_payload_files(recipe_manifests, tracked), *package_files):
+        for required in (*REQUIRED_FILES, *recipe_manifests, *recipe_payload_files(recipe_manifests, tracked, revision), *package_files):
             if not exported_file(required):
                 raise RuntimeError(f"Required file missing from the archive: {required}")
 
@@ -258,13 +263,18 @@ def operation_result(payload, operation: str):
     return None
 
 
-def consumer_instruction_parts(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str]:
+def instruction_sections(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str, str]:
     start = f"<!-- BEGIN {block} -->"
     end = f"<!-- END {block} -->"
     if content.count(start) != 1 or content.count(end) != 1:
         raise RuntimeError("Initialization must produce exactly one managed instruction block")
-    before, managed = content.split(start, 1)
-    _, after = managed.split(end, 1)
+    before, rest = content.split(start, 1)
+    managed, after = rest.split(end, 1)
+    return before, managed, after
+
+
+def consumer_instruction_parts(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str]:
+    before, _, after = instruction_sections(content, block)
     return before, after
 
 
@@ -291,15 +301,71 @@ def versioned_archive(source: Path, destination: Path, version: str) -> str:
     return marker
 
 
-def archive_repository(archive: Path) -> dict:
+def published_commit(version: str) -> str | None:
+    """Resolve a lightweight or annotated release tag, also in a shallow checkout with no tags."""
+    ref = f"refs/tags/{version}"
+    local = subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref + "^{commit}"], cwd=ROOT,
+                           text=True, stdout=subprocess.PIPE, check=False)
+    if local.returncode == 0:
+        return local.stdout.strip()
+    lookup = subprocess.run(["git", "ls-remote", "--tags", UPSTREAM, ref, ref + "^{}"], cwd=ROOT,
+                            text=True, stdout=subprocess.PIPE, check=False)
+    if lookup.returncode:
+        raise RuntimeError(f"Cannot check whether {version} was released. Fetch the release tag or supply --target-version.")
+    refs = {name: sha for sha, name in (line.split() for line in lookup.stdout.splitlines())}
+    return refs.get(ref + "^{}", refs.get(ref))
+
+
+def release_target(changelog: str, revision: str, requested: str | None) -> tuple[str, bool]:
+    """Choose the Composer identity for the archived commit and the historical upgrade window."""
+    heading = re.search(rf"^## \[({RELEASE_NUMBER})\] - \d{{4}}-\d{{2}}-\d{{2}}$", changelog, re.MULTILINE)
+    if not heading:
+        raise RuntimeError("The candidate's CHANGELOG.md has no dated X.Y.Z release heading")
+    declared = heading[1]
+    if requested is None:
+        # A release train may already have more Unreleased changes on top of its unshipped heading.
+        released = published_commit(declared)
+        target = declared if released is None or released == revision else "dev-candidate"
+    else:
+        target = requested
+        if target != "dev-candidate" and not re.fullmatch(RELEASE_NUMBER, target):
+            raise RuntimeError("--target-version must be a release number X.Y.Z or dev-candidate")
+    version = tuple(map(int, (declared if target == "dev-candidate" else target).split(".")))
+    if target != "dev-candidate" and version <= tuple(map(int, BASELINE_RELEASE.split("."))):
+        raise RuntimeError(f"The upgrade target {target} must follow its baseline {BASELINE_RELEASE}")
+    if requested and version < tuple(map(int, declared.split("."))):
+        raise RuntimeError(f"--target-version precedes the checkout's declared version {declared}")
+    last_target = tuple(map(int, LAST_BASELINE_TARGET.split(".")))
+    # Unnumbered work after the endpoint is already beyond the historical window.
+    in_window = version < last_target if target == "dev-candidate" else version <= last_target
+    return target, in_window
+
+
+def archive_repository(archive: Path, *, version: str | None = None) -> dict:
     with tarfile.open(archive, mode="r:") as package:
         exported = package.extractfile("composer.json")
         if exported is None:
             raise RuntimeError("Archive Composer metadata cannot be read")
         dependency = json.load(exported)
+    if version is not None:
+        dependency["version"] = version  # VCS provides this identity for a normal Composer release.
     dependency["dist"] = {"type": "tar", "url": archive.as_uri(),
                           "shasum": hashlib.sha1(archive.read_bytes(), usedforsecurity=False).hexdigest()}
     return {"type": "package", "package": dependency}
+
+
+def released_repository(temporary: Path) -> dict:
+    """Use the original exported 0.3.2 files and Composer manifest, including in a shallow CI checkout."""
+    revision = "8bea08b6e8d42a27df79b2cbbb41e9fb23729abb"  # commit tagged 0.3.2
+    repository = ROOT
+    if subprocess.run(["git", "cat-file", "-e", revision + "^{commit}"], cwd=repository,
+                      stderr=subprocess.DEVNULL).returncode:
+        repository = temporary / "release.git"
+        execute(["git", "init", "--quiet", "--bare", str(repository)], temporary)
+        execute(["git", "fetch", "--quiet", "--depth=1", "--no-tags", UPSTREAM, revision], repository)
+    archive = temporary / "uxor-0.3.2.tar"
+    execute(["git", "archive", "--format=tar", f"--output={archive}", revision], repository)
+    return archive_repository(archive, version=BASELINE_RELEASE)
 
 
 def write_consumer_skills(application: Path) -> dict[str, bytes]:
@@ -313,9 +379,9 @@ def write_consumer_skills(application: Path) -> dict[str, bytes]:
     return sources
 
 
-def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes], marker: str) -> None:
+def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes], marker: str | None = None) -> None:
     listed = json.loads(execute([php, "vendor/bin/mate", "skills:list", "--format=json"], application, capture=True))
-    expected = {("_custom", name) for name in consumer_sources} | {(PACKAGE_NAME, f"uxor-{name}") for name in consumer_sources}
+    expected = {("_custom", name) for name in consumer_sources} | {(PACKAGE_NAME, f"uxor-{name}") for name in CONSUMER_SKILL_NAMES}
     skills = [skill for skill in listed["skills"] if skill["package"] in ("_custom", PACKAGE_NAME)]
     if {(skill["package"], skill["original_name"]) for skill in skills} != expected:
         raise RuntimeError("Mate must list the three application skills and the three UXor skills under their respective owners")
@@ -330,7 +396,7 @@ def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes]
                 raise RuntimeError(f"Mate changed the application's {name} source")
         else:
             source = (application / "vendor" / PACKAGE_NAME / PACKAGE_PATH / "skills" / name / "SKILL.md").read_bytes()
-            if marker.encode() not in source:
+            if marker is not None and marker.encode() not in source:
                 raise RuntimeError(f"Packaged {name} has the wrong archive version")
         # Mate rewrites the frontmatter name in its installed copies.
         content = source.replace(f"\nname: {name}\n".encode(), f"\nname: {installed}\n".encode(), 1)
@@ -350,14 +416,62 @@ def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes]
             raise RuntimeError(f"{installed} refers to {sorted(references)}; expected {sorted(targets)}")
 
 
-def check_update(application: Path, manifest: dict, archive: Path, old_marker: str,
-                 new_marker: str, consumer_sources: dict[str, bytes]) -> None:
+def check_install_handoff(application: Path, php: str, consumer_sources: dict[str, bytes], marker: str) -> None:
+    """Read what a new agent sees without running init or discovery to repair the installation."""
+    installed = application / "vendor" / PACKAGE_NAME
+    mate = [php, "vendor/bin/mate"]
+    instructions = (application / "AGENTS.md").read_text()
+    _, managed, _ = instruction_sections(instructions)
+    if "mate/AGENT_INSTRUCTIONS.md" not in managed or PACKAGE_NAME not in managed:
+        raise RuntimeError("The project's agent instructions do not lead to the installed UXor extension")
+    guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
+    if "Building with UXor" not in guidance or marker not in guidance:
+        raise RuntimeError("Public setup did not publish this archive's UXor instructions")
+    tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))
+    for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
+        if tool not in tools["tools"]:
+            raise RuntimeError(f"The installed tool was not discovered: {tool}")
+    catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=modal",
+                                        "--limit=1", "--format=json"], application, capture=True), "catalog")
+    expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
+    if catalog is None or catalog.get("status") != "completed" or not catalog.get("data", {}).get("items"):
+        raise RuntimeError("The discovered catalog tool could not read its exported references")
+    if catalog.get("reference", {}).get("uxor", {}).get("inputs_sha256") != expected_inputs:
+        raise RuntimeError("Catalog results do not identify the packaged UXor references by their inputs' digest")
+    reference = operation_result(execute([*mate, "resources:read", "uxor://reference/FOR-AGENTS.md",
+                                          "--format=json"], application, capture=True), "reference")
+    if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
+        raise RuntimeError("The installed reference resource could not be read through Mate")
+    check_skills(application, php, consumer_sources, marker)
+    print("Install: the project instructions lead to working UXor tools, references and three skills after public setup.")
+
+
+def install_customized_shortcut(application: Path, php: str) -> Path:
+    """Install a real recipe from the same dist through Toolkit, then use and customize the application's copy."""
+    kit = application / "vendor/symfony/ux-toolkit/kits/uxor-lifecycle"
+    shutil.copytree(application / "vendor" / PACKAGE_NAME, kit)
+    try:
+        execute([php, "bin/console", "ux:install", "kbd", f"--kit={kit.name}", "--no-interaction"], application)
+    finally:
+        shutil.rmtree(kit)
+    component = application / "templates/components/Kbd.html.twig"
+    source, count = re.subn(r"<kbd(?=[\s>])", '<kbd data-shortcut-owner="consumer"', component.read_text(), count=1)
+    if not count:
+        raise RuntimeError("The installed Kbd recipe has no keyboard-key element to customize")
+    component.write_text(source)
+    panel = application / "templates/panel.html.twig"
+    panel.write_text(panel.read_text().replace("{% block body %}", "{% block body %}\n    <twig:Kbd>Ctrl</twig:Kbd>", 1))
+    execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
+    render_pages(application, php, "dev", SHORTCUT_PAGE)
+    return component
+
+
+def check_update(application: Path, archive: Path, old_marker: str,
+                 new_marker: str, consumer_sources: dict[str, bytes], component: Path) -> None:
     instructions = application / "AGENTS.md"
     custom_instructions = consumer_instruction_parts(instructions.read_text())
-    component = application / "templates/components/ConsumerOwned.html.twig"
-    component.parent.mkdir(parents=True, exist_ok=True)
-    component.write_text('{# Application-owned custom component. #}\n<span class="consumer-custom">Keep this behavior.</span>\n')
     component_content = component.read_bytes()
+    manifest = json.loads((application / "composer.json").read_text())
     manifest["repositories"] = [archive_repository(archive)]
     (application / "composer.json").write_text(json.dumps(manifest, indent=4) + "\n")
     execute([*composer_command(), "update", PACKAGE_NAME, "--prefer-dist",
@@ -372,10 +486,8 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
     if json.loads((installed / "composer.json").read_text()).get("version") != "0.0.1":
         raise RuntimeError("Updated package files do not match Composer's installed version")
     check_mate_versions(application, MATE_BETA)
-    # The supported lifecycle refreshes Mate explicitly after Composer updates.
-    # Mate 0.14's plugin can resolve Composer's own root when Composer runs as a PHAR.
+    # The approved Beta1 plugin refreshes an initialized application's extensions on Composer update.
     php = os.environ.get("PHP_BIN", "php")
-    execute([php, "vendor/bin/mate", "discover", "--no-interaction"], application)
     check_skills(application, php, consumer_sources, new_marker)
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
     if new_marker not in guidance or old_marker in guidance:
@@ -388,7 +500,8 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
                                        "--query=modal", "--limit=1", "--format=json"], application, capture=True), "catalog")
     if catalog is None or catalog.get("status") != "completed" or catalog.get("reference", {}).get("version") != "0.0.1":
         raise RuntimeError("The updated Mate tool does not report the newly installed package version")
-    print("Composer update and native Mate refresh verified: newer archive installed; guidance and skills replaced; consumer instructions and custom component preserved.")
+    render_pages(application, php, "dev", SHORTCUT_PAGE)
+    print("Update: Composer refreshed Mate guidance, skills and catalog version; the customized component still renders.")
 
 
 def check_browser_diagnostics(application: Path, installed: Path, php: str, mate: list[str]) -> None:
@@ -455,43 +568,51 @@ await recordBrowserDiagnostics({ context, baseURL: 'http://127.0.0.1:8765' }, as
     print("Verified the installed browser recorder import and request correlation through CLI and Mate.")
 
 
-def check_consumer(archive: Path, temporary: Path, *, providers: bool = False) -> None:
-    application = temporary / "consumer"
-    tracked = execute(["git", "ls-files", "-z", "--", FIXTURE.relative_to(ROOT).as_posix()], ROOT, capture=True)
+def create_consumer_fixture(application: Path, revision: str) -> dict:
+    """Export the committed Symfony application with no installed dependencies or initialized Mate."""
+    fixture = FIXTURE.relative_to(ROOT)
+    tracked = execute(["git", "ls-tree", "-rz", revision, "--", fixture.as_posix()], ROOT, capture=True)
     fixture_files = list(filter(None, tracked.split("\0")))
     if not fixture_files:
-        raise RuntimeError(f"The consumer fixture has no tracked files: {FIXTURE.relative_to(ROOT)}")
-    for filename in fixture_files:
-        source = ROOT / filename
-        destination = application / source.relative_to(FIXTURE)
+        raise RuntimeError(f"No consumer fixture found at {revision}:{fixture}")
+    for entry in fixture_files:
+        metadata, filename = entry.split("\t", 1)
+        mode, _, blob = metadata.split()
+        source = Path(filename).relative_to(fixture)
+        if source in (Path("mate/config.php"), Path("composer.lock")):
+            continue
+        destination = application / source
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, destination)
-    (application / "composer.lock").unlink(missing_ok=True)
-    manifest_path = application / "composer.json"
-    manifest = json.loads(manifest_path.read_text())
+        destination.write_bytes(subprocess.check_output(["git", "cat-file", "blob", blob], cwd=ROOT))
+        if mode == "100755":
+            destination.chmod(0o755)
+    (application / ".env.local").write_text("APP_SECRET=" + secrets.token_hex(32) + "\n")
+    manifest = json.loads((application / "composer.json").read_text())
     if manifest.get("minimum-stability", "stable") != "stable":
         raise RuntimeError("The archive consumer must keep its stable Composer policy")
+    return manifest
+
+
+def check_consumer(archive: Path, temporary: Path, revision: str, *, providers: bool = False) -> None:
+    application = temporary / "consumer"
+    manifest = create_consumer_fixture(application, revision)
+    manifest_path = application / "composer.json"
     first_archive = temporary / "uxor-0.0.0.tar"
     second_archive = temporary / "uxor-0.0.1.tar"
     old_marker = versioned_archive(archive, first_archive, "0.0.0")
     new_marker = versioned_archive(archive, second_archive, "0.0.1")
     manifest["repositories"] = [archive_repository(first_archive)]
-    manifest.setdefault("require-dev", {})[PACKAGE_NAME] = "0.0.*"
+    for name in (PACKAGE_NAME, *MATE_PACKAGES):
+        del manifest["require-dev"][name]
     manifest["extra"]["ai-mate"]["skills"] = ["project-skills"]
     consumer_sources = write_consumer_skills(application)
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
-    (application / ".env.local").write_text("APP_SECRET=" + secrets.token_hex(32) + "\n")
-    # The fixture's repository wrapper is replaced by the independent application's invocation.
-    (application / "mate/config.php").write_text("""<?php
-use Symfony\\Component\\DependencyInjection\\Loader\\Configurator\\ContainerConfigurator;
-return static function (ContainerConfigurator $container): void {
-    $container->parameters()->set('mate.invocation', 'vendor/bin/mate');
-};
-""")
-    custom_instructions = "# Consumer instructions\n\nKeep application decisions here.\n"
+    custom_instructions = "# Consumer instructions\n\nThe adoption history for xormania/uxor belongs to this application.\n"
     instructions_path = application / "AGENTS.md"
     instructions_path.write_text(custom_instructions)
-    execute([*composer_command(), "install", "--prefer-dist", "--no-interaction", "--no-progress"], application)
+    (application / "CLAUDE.md").write_text("# Application conventions\n\nKeep the project's keyboard shortcut.\n")
+    execute([*composer_command(), "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
+             *(f"{name}:{MATE_BETA}" for name in MATE_PACKAGES), "--prefer-dist", "--no-interaction", "--no-progress"], application)
     installed = application / "vendor" / PACKAGE_NAME
     if installed.is_symlink() or not installed.is_dir():
         raise RuntimeError("Independent consumer must install the archive, not a source symlink")
@@ -504,84 +625,148 @@ return static function (ContainerConfigurator $container): void {
     spec.loader.exec_module(environment)
     # Exercise the public installed setup before manual initialization. Keep its
     # added dev dependencies in the update manifest instead of undoing setup.
-    manifest = environment.setup(application, php)
+    environment.setup(application, php)
     check_mate_versions(application, MATE_BETA)
-    execute([*mate, "init", "--no-interaction"], application)
-    execute([*composer_command(), "dump-autoload", "--no-interaction"], application)
-    execute([*mate, "discover", "--no-interaction"], application)
+    check_install_handoff(application, php, consumer_sources, old_marker)
     first_instructions = instructions_path.read_text()
     if not first_instructions.startswith(custom_instructions):
         raise RuntimeError("Mate initialization replaced the consumer's existing instructions")
     expected_instructions = first_instructions + "\nConsumer-owned trailing instructions.\n"
     instructions_path.write_text(expected_instructions)
+    environment.repeat_setup(application, php)
     execute([*mate, "init", "--no-interaction"], application)
     if consumer_instruction_parts(instructions_path.read_text()) != consumer_instruction_parts(expected_instructions):
         raise RuntimeError("Repeated initialization changed consumer-owned instructions")
 
-    tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))
-    for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
-        if tool not in tools.get("tools", {}):
-            raise RuntimeError(f"The installed tool was not discovered: {tool}")
-    catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=modal",
-                                       "--limit=1", "--format=json"], application, capture=True), "catalog")
-    expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
-    if catalog is None or catalog.get("status") != "completed" or not catalog.get("data", {}).get("items"):
-        raise RuntimeError("The discovered catalog tool could not read its exported references")
-    if catalog.get("reference", {}).get("uxor", {}).get("inputs_sha256") != expected_inputs:
-        raise RuntimeError("Catalog results do not identify the packaged UXor references by their inputs' digest")
-    reference = operation_result(execute([*mate, "resources:read", "uxor://reference/FOR-AGENTS.md",
-                                         "--format=json"], application, capture=True), "reference")
-    if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
-        raise RuntimeError("The installed reference resource could not be read through Mate")
     check_browser_diagnostics(application, installed, php, mate)
-    check_skills(application, php, consumer_sources, old_marker)
-    # Mate nests the package's headings, so look for the heading text of the packaged INSTRUCTIONS.md.
-    if not re.search(r"Building with UXor\b", (application / "mate/AGENT_INSTRUCTIONS.md").read_text()):
-        raise RuntimeError("Packaged UXor instructions were not materialized for agents")
-    if old_marker not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
-        raise RuntimeError("The first archive's agent instructions were not installed before the update")
-    print("Independent archive consumer: Mate operation, reference, provenance, six skills and repeated initialization verified.")
-    check_update(application, manifest, second_archive, old_marker, new_marker, consumer_sources)
+    component = install_customized_shortcut(application, php)
+    check_update(application, second_archive, old_marker, new_marker, consumer_sources, component)
     environment.exercise(application, php)
     if providers:
         execute(["uv", "run", "--script", str(PACKAGE / "dev/check-mago.py"),
                  "--application", str(application), "--launcher", str(application / "vendor/bin/uxor-mago")], ROOT)
 
-    execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
     execute([*composer_command(), "install", "--no-dev", "--prefer-dist", "--no-interaction", "--no-progress"], application)
     if installed.exists():
         raise RuntimeError("The development-only package remains installed after --no-dev")
     execute([php, "bin/console", "cache:clear", "--env=prod", "--no-debug", "--no-interaction"], application)
+    render_pages(application, php, "prod", FIXTURE_PAGES | SHORTCUT_PAGE)
+    print("Production: the deployed application renders its customized component with development dependencies omitted.")
+
+    # Restore the dev installation from its lock before testing permanent removal.
+    execute([*composer_command(), "install", "--prefer-dist", "--no-interaction", "--no-progress"], application)
+    check_removal(application, php, component, consumer_sources, new_marker)
+
+
+def render_pages(application: Path, php: str, environment: str, pages: dict[str, str]) -> None:
     render = r"""
 require 'vendor/autoload.php';
 (new Symfony\Component\Dotenv\Dotenv())->bootEnv('.env');
-$kernel = new App\Kernel('prod', false);
-foreach (json_decode($argv[1], true, flags: JSON_THROW_ON_ERROR) as $path => $marker) {
+$kernel = new App\Kernel($argv[1], false);
+foreach (json_decode($argv[2], true, flags: JSON_THROW_ON_ERROR) as $path => $marker) {
     $request = Symfony\Component\HttpFoundation\Request::create($path);
     $response = $kernel->handle($request);
     if (200 !== $response->getStatusCode() || !str_contains($response->getContent(), $marker)) {
-        fwrite(STDERR, 'Production consumer did not render '.$path.PHP_EOL);
+        fwrite(STDERR, $argv[1].' consumer did not render '.$path.' with '.$marker.PHP_EOL);
         exit(1);
     }
     $kernel->terminate($request, $response);
 }
 $kernel->shutdown();
-echo "Production consumer boot and Twig render passed without development dependencies.\n";
 """
-    execute([php, "-r", render, json.dumps(FIXTURE_PAGES)], application)
-    check_mate_upgrade(second_archive, temporary / "mate-upgrade")
+    execute([php, "-r", render, environment, json.dumps(pages)], application)
 
 
-def check_mate_upgrade(archive: Path, application: Path) -> None:
-    """Install UXor into an initialized 0.14 project with an overridden skill."""
-    application.mkdir()
-    manifest = {
-        "name": "example/mate-upgrade",
-        "type": "project",
-        "require-dev": dict.fromkeys(MATE_PACKAGES, "0.14.0"),
-        "repositories": [archive_repository(archive)],
-        "config": {"allow-plugins": {"symfony/ai-mate-composer-plugin": True}},
-    }
+def check_removal(application: Path, php: str, component: Path, consumer_sources: dict[str, bytes], marker: str) -> None:
+    """Remove UXor from a working dev project whose own Composer requirements include Mate."""
+    mate = [php, "vendor/bin/mate"]
+    # Establish that the preceding no-dev deployment was restored before testing removal.
+    catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=kbd", "--format=json"],
+                                       application, capture=True), "catalog")
+    if not catalog or catalog.get("reference", {}).get("version") != "0.0.1" or not catalog["data"]["items"]:
+        raise RuntimeError("Removal must start with a working, updated UXor installation")
+    check_skills(application, php, consumer_sources, marker)
+    manifest_path = application / "composer.json"
+    manifest = json.loads(manifest_path.read_text())
+    expected_dev = manifest["require-dev"].copy()
+    del expected_dev[PACKAGE_NAME]
+    agent_files = {"AGENTS.md": "AI_MATE_INSTRUCTIONS", "CLAUDE.md": "AI_MATE_AGENTS_IMPORT"}
+    owned_text = {name: consumer_instruction_parts((application / name).read_text(), block)
+                  for name, block in agent_files.items()}
+    retained = [component, application / "templates/panel.html.twig", application / "mate/config.php"]
+    mirrors = [application / ".agents/skills", application / ".claude/skills"]
+    for name in consumer_sources:
+        retained.append(application / "project-skills" / name / "SKILL.md")
+        retained.extend(directory / f"mate-{name}/SKILL.md" for directory in mirrors)
+    before = {path: path.read_bytes() for path in retained}
+
+    execute([*composer_command(), "remove", "--dev", PACKAGE_NAME, "--no-interaction", "--no-progress"], application)
+
+    remaining = json.loads(manifest_path.read_text())
+    if remaining["require"] != manifest["require"] or remaining["require-dev"] != expected_dev:
+        raise RuntimeError("Removal changed unrelated application dependencies or retained UXor")
+    lock = json.loads((application / "composer.lock").read_text())
+    installed = json.loads((application / "vendor/composer/installed.json").read_text())
+    for packages in (lock["packages"], lock["packages-dev"], installed["packages"]):
+        if any(package["name"] == PACKAGE_NAME for package in packages):
+            raise RuntimeError("Composer still records UXor after removal")
+    for name in (f"vendor/{PACKAGE_NAME}", "vendor/bin/uxor", "vendor/bin/uxor-mago"):
+        if os.path.lexists(application / name):
+            raise RuntimeError(f"Removal left a package entry at {name}")
+
+    tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))["tools"]
+    if "symfony-service-detail" not in tools or any(name.startswith("uxor_") for name in tools):
+        raise RuntimeError("The remaining Mate installation lost Symfony tools or still advertises UXor tools")
+    skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))["skills"]
+    if any(skill["package"] == PACKAGE_NAME for skill in skills):
+        raise RuntimeError("Mate still advertises skills owned by the removed extension")
+    for directory in mirrors:
+        for name in CONSUMER_SKILL_NAMES:
+            if os.path.lexists(directory / f"mate-uxor-{name}"):
+                raise RuntimeError(f"Removal left a generated UXor skill in {directory.name}: {name}")
+    _, managed, _ = instruction_sections((application / "AGENTS.md").read_text())
+    if marker in (application / "mate/AGENT_INSTRUCTIONS.md").read_text() or PACKAGE_NAME in managed:
+        raise RuntimeError("Agent instructions still advertise the removed archive")
+    for name, block in agent_files.items():
+        if consumer_instruction_parts((application / name).read_text(), block) != owned_text[name]:
+            raise RuntimeError(f"Removing UXor changed application-owned instructions in {name}")
+    for path, content in before.items():
+        if path.read_bytes() != content:
+            raise RuntimeError(f"Removing UXor changed application-owned content: {path.relative_to(application)}")
+    render_pages(application, php, "dev", SHORTCUT_PAGE)
+    print("Removal: the package, binaries and Mate integration are gone; application skills, instructions and the rendered recipe are preserved.")
+
+
+def check_consumer_version(application: Path, repository: dict, php: str) -> None:
+    """Prove which dev dependency Composer locked and which installed archive the public CLI is running."""
+    expected = repository["package"]
+    locked = json.loads((application / "composer.lock").read_text())["packages-dev"]
+    package = next((item for item in locked if item["name"] == PACKAGE_NAME), {})
+    if package.get("version") != expected["version"] or package.get("dist") != expected["dist"]:
+        raise RuntimeError(f"The lock does not identify the expected {PACKAGE_NAME} {expected['version']} archive")
+    catalog = json.loads(execute([php, "vendor/bin/uxor", "catalog", "--query=modal", "--format=json"],
+                                 application, capture=True))
+    if catalog.get("status") != "completed" or catalog.get("reference", {}).get("version") != expected["version"]:
+        raise RuntimeError(f"The installed UXor catalog did not identify itself as {expected['version']}")
+    print(f"Confirmed {PACKAGE_NAME} {expected['version']} in composer.lock and the installed UXor CLI.", flush=True)
+
+
+def check_mate_upgrade(candidate: dict, application: Path, revision: str, previous_release: dict | None = None) -> None:
+    """Use an initialized Mate 0.14 project, both with and without an existing UXor release."""
+    if previous_release:
+        manifest = create_consumer_fixture(application, revision)
+        manifest["require-dev"][PACKAGE_NAME] = BASELINE_RELEASE
+        manifest["repositories"] = [previous_release]
+    else:
+        application.mkdir()
+        manifest = {
+            "name": "example/mate-upgrade",
+            "type": "project",
+            "require-dev": {},
+            "repositories": [candidate],
+            "config": {"allow-plugins": {"symfony/ai-mate-composer-plugin": True}},
+        }
+    manifest["require-dev"].update(dict.fromkeys(MATE_PACKAGES, "0.14.0"))
     manifest_path = application / "composer.json"
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     roots = {"AGENTS.md": "AI_MATE_INSTRUCTIONS", "CLAUDE.md": "AI_MATE_AGENTS_IMPORT"}
@@ -591,14 +776,25 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
     mate = [os.environ.get("PHP_BIN", "php"), "vendor/bin/mate"]
     options = ["--prefer-dist", "--no-interaction", "--no-progress"]
     execute([*composer, "install", *options], application)
+    if previous_release:
+        check_consumer_version(application, previous_release, mate[0])
     check_mate_versions(application, "0.14.0")
     execute([*mate, "init", "--no-interaction"], application)
     execute([*composer, "dump-autoload", "--no-interaction"], application)
     execute([*mate, "discover", "--no-interaction"], application)
+    old_skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))["skills"]
+    released = [skill for skill in old_skills if skill["package"] == PACKAGE_NAME]
+    expected_names = set(CONSUMER_SKILL_NAMES) if previous_release else set()
+    if {skill["original_name"] for skill in released} != expected_names:
+        raise RuntimeError("The starting Mate project has the wrong set of UXor skills")
+    old_targets = [application / target / skill["installed_name"] for target in (".agents/skills", ".claude/skills")
+                   for skill in released]
+    if not all((path / "SKILL.md").is_file() for path in old_targets):
+        raise RuntimeError("The real 0.3.2 skill installation must exist before testing its upgrade")
     execute([*mate, "skills:override", "system-information", "--no-interaction"], application)
     override = application / "mate/skills/system-information/SKILL.md"
-    marker = b"\nUse this application's system checks.\n"
-    override.write_bytes(override.read_bytes() + marker)
+    override_marker = b"\nUse this application's system checks.\n"
+    override.write_bytes(override.read_bytes() + override_marker)
     execute([*mate, "discover", "--no-interaction"], application)
     owned = {}
     for name, block in roots.items():
@@ -611,14 +807,26 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
     files = [override, *(application / target / "mate-system-information/SKILL.md"
                          for target in (".agents/skills", ".claude/skills"))]
     before = {path: path.read_bytes() for path in files}
-    if any(marker not in content for content in before.values()):
+    if any(override_marker not in content for content in before.values()):
         raise RuntimeError("The customized 0.14 skill was not installed before the upgrade")
-    execute([*composer, "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
+    if previous_release:
+        shortcut = install_customized_shortcut(application, mate[0])
+        shortcut_content = shortcut.read_bytes()
+        print(f"Symfony consumer rendered its customized {BASELINE_RELEASE} Kbd component on /panel.", flush=True)
+    manifest = json.loads(manifest_path.read_text())
+    target = candidate["package"]["version"]
+    manifest["repositories"] = [candidate]
+    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
+    execute([*composer, "require", "--dev", f"{PACKAGE_NAME}:{target}",
              *(f"{package}:{MATE_BETA}" for package in MATE_PACKAGES), *options], application)
     check_mate_versions(application, MATE_BETA)
+    check_consumer_version(application, candidate, mate[0])
     if json.loads(manifest_path.read_text()).get("minimum-stability", "stable") != "stable":
         raise RuntimeError("The package-specific beta requirements changed the consumer's stable policy")
     execute([*mate, "discover", "--no-interaction"], application)
+    check_skills(application, mate[0], {})
+    if any(os.path.lexists(path) for path in old_targets):
+        raise RuntimeError("The upgrade left generated copies of the retired UXor skills")
     for name, block in roots.items():
         if consumer_instruction_parts((application / name).read_text(), block) != owned[name]:
             raise RuntimeError(f"Mate upgrade changed project-owned content in {name}")
@@ -630,33 +838,70 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
     if not any(skill["package"] == "symfony/ai-mate" and skill["original_name"] == "system-information"
                and skill["mode"] == "override" and skill["enabled"] and skill["status"] == "ok" for skill in skills):
         raise RuntimeError("The upgraded Mate did not retain the active system-information override")
-    if "Building with UXor" not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
+    source = (application / "vendor" / PACKAGE_NAME / PACKAGE_PATH / "INSTRUCTIONS.md").read_text().strip()
+    published = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
+    # Mate nests the package's Markdown headings one level deeper in its generated instructions.
+    if re.sub(r"^#{1,6} ", "", source, flags=re.MULTILINE) not in re.sub(r"^#{1,6} ", "", published, flags=re.MULTILINE):
         raise RuntimeError("The upgraded Mate did not publish the installed UXor guidance")
-    print("Mate upgrade verified: project instructions and the installed skill override survived beta discovery.")
+    if previous_release:
+        if shortcut.read_bytes() != shortcut_content:
+            raise RuntimeError("The release upgrade changed the application's customized Kbd component")
+        render_pages(application, mate[0], "dev", SHORTCUT_PAGE)
+        print(f"Release upgrade: UXor {BASELINE_RELEASE} with Mate 0.14 upgraded to {target}. "
+              "The customized Kbd component still renders on /panel. Mate replaced the retired skills "
+              "and preserved project instructions and the override.")
+    else:
+        print("Existing Mate: installing UXor upgraded Mate while preserving project instructions and the skill override.")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--consumer", action="store_true", help="Install the archive in an independent Symfony application and verify Mate and no-dev runtime")
+    scenario = parser.add_mutually_exclusive_group()
+    scenario.add_argument("--consumer", action="store_true", help="Verify installation, update, no-dev deployment and removal in an independent Symfony application")
+    scenario.add_argument("--release-upgrade", action="store_true", help="Run only the historical upgrade from the installed 0.3.2 release to this checkout")
+    parser.add_argument("--print-target", action="store_true", help="Resolve and print the candidate's Composer version for a reproducible run")
     parser.add_argument("--providers", action="store_true", help="Exercise the installed Mago and Serena providers inside the archive consumer (requires --consumer)")
+    parser.add_argument("--target-version", metavar="VERSION", help="Use the maintainer's release number or replay a resolved candidate identity (X.Y.Z or dev-candidate)")
+    parser.add_argument("--revision", metavar="SHA", help="Archive this full commit SHA (defaults to the current HEAD)")
     arguments = parser.parse_args()
     if arguments.providers and not arguments.consumer:
         parser.error("--providers requires --consumer")
-    if arguments.consumer and not FIXTURE.is_dir():
-        raise RuntimeError(f"--consumer needs the independent consumer fixture at {FIXTURE.relative_to(ROOT)}, "
-                           "which arrives with the later dev job")
+    run_upgrades = arguments.consumer or arguments.release_upgrade
+    if arguments.target_version is not None and not (run_upgrades or arguments.print_target):
+        parser.error("--target-version requires --consumer, --release-upgrade or --print-target")
+    if arguments.revision is not None and not re.fullmatch(r"[0-9a-f]{40}", arguments.revision):
+        parser.error("--revision requires a full Git commit SHA")
+    revision = execute(["git", "rev-parse", "--verify", (arguments.revision or "HEAD") + "^{commit}"], ROOT, capture=True).strip()
+    if run_upgrades or arguments.print_target:
+        changelog = execute(["git", "show", f"{revision}:CHANGELOG.md"], ROOT, capture=True)
+        target, test_baseline = release_target(changelog, revision, arguments.target_version)
+        if arguments.print_target:
+            print(target)
+            return
+        print(f"Testing UXor {target} from commit {revision}.", flush=True)
+        if not test_baseline:
+            print(f"SKIP: Historical upgrade from {BASELINE_RELEASE} ends at {LAST_BASELINE_TARGET}; this checkout is beyond that window.", flush=True)
+            if arguments.release_upgrade:
+                sys.exit(77)
     temporary = Path(tempfile.mkdtemp(prefix="uxor-package-"))
     try:
         subprocess.run(
-            ["git", "archive", "--format=tar", f"--output={temporary / 'uxor.tar'}", "HEAD"],
+            ["git", "archive", "--format=tar", f"--output={temporary / 'uxor.tar'}", revision],
             cwd=ROOT,
             check=True,
         )
         archive = temporary / "uxor.tar"
-        count = check_archive(archive)
+        count = check_archive(archive, revision)
         print(f"Repository archive verified for the kit and {PACKAGE_NAME}: {count} regular files; development files excluded.")
         if arguments.consumer:
-            check_consumer(archive, temporary, providers=arguments.providers)
+            check_consumer(archive, temporary, revision, providers=arguments.providers)
+        if run_upgrades:
+            candidate = archive_repository(archive, version=target)
+            if arguments.consumer:
+                check_mate_upgrade(candidate, temporary / "mate-upgrade", revision)
+            if test_baseline:
+                print(f"Testing the installed {BASELINE_RELEASE} release upgrading to {target} ({revision}).", flush=True)
+                check_mate_upgrade(candidate, temporary / "release-upgrade", revision, released_repository(temporary))
     except BaseException:
         print(f"Failed package check retained for inspection: {temporary}", file=sys.stderr)
         raise

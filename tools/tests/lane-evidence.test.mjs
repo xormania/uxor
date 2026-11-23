@@ -184,7 +184,7 @@ function plan(fx, routes, lanes = ['demo'], extra = [], ref = 'refs/heads/featur
 
 // fingerprints -------------------------------------------------------------------------------------------------------------
 
-test('a fingerprint ignores the excluded files\' content, not their path or mode, and changes with anything else', (t) => {
+test('administrative exclusions retain paths and modes, and every lane fingerprints shared and unknown inputs', (t) => {
     const fx = scratch(t);
     const base = fingerprints(fx, fx.head());
     assert.deepEqual(Object.keys(base.lanes).sort(), [...REUSABLE].sort());
@@ -223,6 +223,57 @@ test('a fingerprint ignores the excluded files\' content, not their path or mode
     fx.git('mv', 'button/README.md', 'button/READ.md');
     fx.git('commit', '-qm', 'rename');
     changed('a rename');
+});
+
+test('browser fingerprints omit package-only regular files but include shared files and unusual Git entries', (t) => {
+    const fx = scratch(t);
+    const browserLanes = ['demo', 'engines'];
+    let previous = fingerprints(fx, fx.head()).lanes;
+    const check = (what, browserInput) => {
+        const current = fingerprints(fx, fx.head()).lanes;
+        for (const lane of browserLanes) {
+            assert.equal(current[lane] !== previous[lane], browserInput, `${what}: ${lane}`);
+        }
+        assert.notEqual(current.package, previous.package, `${what}: Package must check the changed input`);
+        previous = current;
+    };
+    const consumer = 'packages/uxor/dev/lifecycle-tmux.py';
+    const shared = 'packages/uxor/resources/browser/diagnostics.mjs';
+    fx.commit('composer.json', '{}\n');
+    check('adding the package manifest at the repository root', false);
+    fx.commit('composer.lock', '{}\n');
+    check('adding the package lock at the repository root', false);
+    for (const path of ['packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes']) {
+        fx.commit(path, '*.mjs text eol=lf\n');
+        check(`adding ${path} governing the shared recorder`, true);
+    }
+    fx.commit(consumer, 'first\n');
+    check('adding the consumer runner', false);
+    fx.commit(consumer, 'second\n');
+    check('editing the consumer runner', false);
+    fx.git('mv', consumer, 'packages/uxor/dev/test-runner.py');
+    fx.git('commit', '-qm', 'rename consumer runner');
+    check('renaming inside the consumer', false);
+    fx.commit('packages/uxor/dev/test-runner.py', null);
+    check('deleting the consumer runner', false);
+    fx.commit(shared, 'recorder\n');
+    check('adding the shared recorder', true);
+    fx.commit(shared, 'new recorder\n');
+    check('editing the shared recorder', true);
+    fx.git('mv', shared, consumer);
+    fx.git('commit', '-qm', 'move recorder out of browser inputs');
+    check('moving a shared file into the consumer', true);
+    fx.git('mv', consumer, shared);
+    fx.git('commit', '-qm', 'move recorder back into browser inputs');
+    check('moving a consumer file into shared browser inputs', true);
+    symlinkSync('../../../kit.css', join(fx.repo, consumer));
+    fx.git('add', consumer);
+    fx.git('commit', '-qm', 'add a package symlink');
+    check('adding a package symlink', true);
+    const gitlink = 'packages/uxor/dev/submodule';
+    fx.git('update-index', '--add', '--cacheinfo', `160000,${fx.head()},${gitlink}`);
+    fx.git('commit', '-qm', 'add a package gitlink');
+    check('adding a package gitlink', true);
 });
 
 // plan ---------------------------------------------------------------------------------------------------------------------
@@ -420,6 +471,31 @@ function enginesPlan(fx, routes = {}, { event = 'push', ref = 'refs/heads/featur
 }
 
 const engineRoutes = (fx, sha, fp, options = {}) => routesFor('engines', fp, [marker(fx, { lane: 'engines', sha, fp, jobs: engineJobs(), artifactId: 9501, runId: 75, ...options })]);
+
+test('a stacked package change reuses eight green Chromium shards until a shared browser input changes', (t) => {
+    const fx = scratch(t);
+    const sha = fx.commit('playwright.config.ts', '// inherited browser change\n');
+    const pass = fingerprints(fx, sha).lanes;
+    const routes = {
+        ...producer(fx, sha, pass.demo, { jobs: demoJobs(500, 1, 8) }),
+        ...producer(fx, sha, pass.package, { lane: 'package', jobs: packageJobs(), artifactId: 9002, runId: 72 }),
+    };
+    // A feature push compares with dev. Its inherited browser change still selects Demo.
+    const options = { lanes: ['demo', 'package'], shards: '8' };
+    fx.commit('packages/uxor/dev/tests/test_lifecycle_tmux.py', '# check consumer restart\n');
+    const sameDemo = enginesPlan(fx, routes, options);
+    assert.equal(sameDemo.outputs.demo, 'reuse', sameDemo.plan.lanes.demo.detail);
+    assert.equal(sameDemo.plan.lanes.demo.evidence.head_sha, sha);
+    assert.equal(sameDemo.outputs.package, 'run', 'the package evidence belongs to the old consumer');
+    assert.deepEqual(sameDemo.matrix.include, []);
+
+    fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed shared recorder\n');
+    const changedDemo = enginesPlan(fx, routes, options);
+    assert.equal(changedDemo.outputs.demo, 'run');
+    assert.equal(changedDemo.outputs.package, 'run');
+    assert.deepEqual(changedDemo.matrix.include.map(({ browser, shard, shards }) => `${browser} ${shard}/${shards}`),
+        Array.from({ length: 8 }, (_, index) => `chromium ${index + 1}/8`));
+});
 
 test('on a branch push the engines lane is deferred, never reported as not applicable, unless a pass on its inputs exists', (t) => {
     const fx = scratch(t);
@@ -793,6 +869,31 @@ function workflowJobs(file) {
     }));
     return { workflow, jobs, job: (id) => jobs.find((j) => j.id === id) };
 }
+
+test('the CI browser checkout physically excludes the independent package and keeps shared browser inputs', (t) => {
+    const { job } = workflowJobs('ci.yml');
+    const checkout = job('demo').text.split(/\n(?= {12}- )/).find((step) => step.includes('uses: actions/checkout@'));
+    assert.match(checkout, /sparse-checkout-cone-mode: false/);
+    const patterns = checkout.match(/^ {18}sparse-checkout: \|\n((?: {22}\S.*\n)+)/m);
+    assert.ok(patterns, 'the browser checkout declares its input patterns');
+    const fx = scratch(t);
+    const omitted = ['composer.json', 'composer.lock', 'packages/uxor/dev/lifecycle-tmux.py',
+        'packages/uxor/src/Command.php', 'packages/uxor/resources/browser-extra/example.mjs'];
+    const present = ['demo/composer.lock', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
+        'packages/uxor/resources/browser/diagnostics.mjs',
+        'packages/uxor/resources/browser/nested/recorder.mjs', 'packages/another-package/manifest.json',
+        'new-recipe/templates/components/Example.html.twig', 'tests/e2e/demo-app.spec.ts'];
+    for (const path of [...omitted, ...present]) {
+        mkdirSync(join(fx.repo, path, '..'), { recursive: true });
+        writeFileSync(join(fx.repo, path), 'fixture\n');
+    }
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'add browser and package files');
+    fx.git('sparse-checkout', 'set', '--no-cone', '--', ...patterns[1].trim().split('\n').map((line) => line.trim()));
+    for (const path of omitted) assert.equal(existsSync(join(fx.repo, path)), false, path);
+    for (const path of present) assert.equal(existsSync(join(fx.repo, path)), true, path);
+    assert.equal(fx.git('status', '--porcelain'), '');
+});
 
 test("ci.yml runs each lane on the plan's decision, from one browser job whose matrix the plan computes", async () => {
     const { REUSABLE: rules, LANES: lanes } = await import('../ci/lane-evidence.mjs');

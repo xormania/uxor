@@ -44,20 +44,22 @@ def snapshot(root: Path) -> dict[str, str]:
     return result
 
 
-def setup(root: Path, php: str) -> dict:
+def setup(root: Path, php: str) -> None:
     """Install through the public command, preserving application decisions."""
     before = snapshot(root)
     planned = operation(root, php, "setup", allowed=(0, 2))
     if planned["changes"] or snapshot(root) != before:
         raise RuntimeError("Setup planning changed the independent consumer")
     instructions = (root / "AGENTS.md").read_bytes()
-    invocation = (root / "mate/config.php").read_bytes()
+    if (root / "mate/config.php").exists() or (root / "mate/extensions.php").exists():
+        raise RuntimeError("The first installation needs a consumer where Mate has never been initialized")
     installed = operation(root, php, "setup", "--apply", "--install", "--trust-project-code",
                           allowed=(0, 2), timeout=900)
     if not installed["changes"]:
         raise RuntimeError("Fresh consumer setup reported no application configuration changes")
     for name in ("mago.toml", ".uxor/mago/config.toml", ".uxor/mago/worker.php",
-                 "config/packages/dev/uxor.yaml", ".uxor/browser.mjs", ".uxor/mcp.json"):
+                 "config/packages/dev/uxor.yaml", ".uxor/browser.mjs", ".uxor/mcp.json",
+                 "mate/config.php", "mate/extensions.php"):
         if not (root / name).is_file():
             raise RuntimeError("Installed setup omitted " + name)
     binding = json.loads((root / ".uxor/mcp.json").read_text())["mcpServers"]["uxor-mago"]
@@ -69,8 +71,6 @@ def setup(root: Path, php: str) -> dict:
         raise RuntimeError("Setup activated Symfony enrichment before preparing its container reference")
     if not (root / "AGENTS.md").read_bytes().startswith(instructions):
         raise RuntimeError("Setup replaced existing application instructions")
-    if (root / "mate/config.php").read_bytes() != invocation:
-        raise RuntimeError("Setup replaced application-owned Mate configuration")
     if (root / ".mcp.json").exists() or (root / ".codex/config.toml").exists():
         raise RuntimeError("Setup selected a client when none was requested")
     packages = {item["name"]: item["version"].removeprefix("v")
@@ -87,12 +87,22 @@ def setup(root: Path, php: str) -> dict:
     for name in ("carthage-software/mago", "byte-kitsune/mago-symfony-wiring"):
         if name not in manifest.get("require-dev", {}) or name in manifest.get("require", {}):
             raise RuntimeError("Setup did not keep development tools in require-dev: " + name)
+    print("Installed setup: real Composer dev dependencies, first Mate initialization, separate saved execution permission and application instructions verified.")
+
+
+def repeat_setup(root: Path, php: str) -> None:
+    """An already initialized application can run setup again with its own Mate configuration."""
+    config = root / "mate/config.php"
+    with config.open("a") as stream:
+        stream.write("\n// Application-owned Mate configuration.\n")
+    expected_config = config.read_bytes()
     current = snapshot(root)
     repeated = operation(root, php, "setup", "--apply", allowed=(0, 2))
     if repeated["changes"] or snapshot(root) != current:
         raise RuntimeError("Repeated setup changed the configured consumer")
-    print("Installed setup: real Composer dev dependencies, separate saved execution permission, native-safe configuration, project preservation and repetition passed.")
-    return manifest
+    native = operation(root, php, "setup", "--apply", "--install", "--trust-project-code", allowed=(0, 2))
+    if native["data"].get("mode") != "apply" or config.read_bytes() != expected_config:
+        raise RuntimeError("Repeated native setup did not retain the application's Mate configuration")
 
 
 def verify_profile(response: dict, profile: dict) -> None:

@@ -277,10 +277,12 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 |---|---|
 | `.github/dependabot.yml` | nothing |
 | `LICENSE`, `NOTICE` | *Package*: the package's generated references copy them; *Production image*, which holds them |
-| `docs/`, `CHANGELOG.md`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/APPLICATION-TESTING.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md`, the gallery's `/guide`, also *Kit PHP* (its page tests), *Static site* (it exports the page), *Demo + Playwright* (the browser tests load it) and *Production image* |
+| `CHANGELOG.md` | *Contrast* and *Package*. The consumer upgrade uses the numbered release heading. |
+| `docs/`, `CONTRIBUTING.md`, `AGENTS.md`, `FOR-AGENTS.md`, `SECURITY.md`, `.github/pull_request_template.md` | *Contrast*, which checks the docs (*Docs*); `FOR-AGENTS.md`, `docs/GUIDE.md`, `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/APPLICATION-TESTING.md` and `docs/TESTING.md` also *Package*: the references copy them; `docs/GUIDE.md`, the gallery's `/guide`, also *Kit PHP* (its page tests), *Static site* (it exports the page), *Demo + Playwright* (the browser tests load it) and *Production image* |
 | `kit.js`, `icon.svg`, `.gitattributes`, `.gitignore`, `.editorconfig` | *Lint kit*, *Kit PHP*, *Static site*, both *Fresh install* jobs, *Demo + Playwright* |
 | any other root file no row names (a new one), a top-level directory without a `manifest.json` (a new one, or one deleted) | the jobs of `kit.js` (above), *Production image* (the image's allow-list may have to name it), and *Contrast* for a directory; a `README.md` in such a directory runs the jobs of a recipe's `README.md` (below) but *Kit PHP*, which renders only a recipe's |
 | a recipe's `templates/`, `assets/`, `src/`, `config/` (Contrast pairs its code with its `README.md`; the production image holds them and renders them without the development packages) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
+| `kbd/templates/components/Kbd.html.twig` | also *Package*. The lifecycle consumer installs, customizes and renders this component. |
 | any other file of a recipe but `tests/` (one the production image does not hold) | the jobs of `kit.js` (above) and *Contrast* |
 | `kit.css` (the production image holds it) | the jobs of `kit.js` (above), *Contrast*, *Production image* |
 | `manifest.json` (`llms.txt` holds its name, homepage and description), a recipe's `manifest.json` (the generated references copy them; a new copy-files directory changes what the production image needs) | the jobs of `kit.js` (above), *Contrast*, *Package*, *Production image* |
@@ -289,7 +291,7 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 | `INSTALL.md` (the gallery's install guide, `/install`: its page tests, its static export, the browser tests that load it) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
-| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures) | *Package*, *Demo + Playwright* |
+| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures), `packages/uxor/.gitattributes`, `packages/uxor/resources/.gitattributes` | *Package*, *Demo + Playwright* |
 | `composer.lock`, any other file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Demo + Playwright* and *Contrast*. The inventory check runs in *Quick checks* on every CI run |
