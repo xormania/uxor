@@ -57,6 +57,53 @@ are paths, not shell commands. `prepare --no-assets` skips the importmap downloa
 a private development secret), warms the container, runs Mate's `init` and then `discover`. Repeating `init` keeps
 its existing configuration. Commit intentional lock file changes with the change that needs them.
 
+## Live Composer lifecycle in tmux
+
+From the repository root, use Python 3, tmux, Git, Composer 2, PHP 8.4+ with the consumer's extensions, and
+Node.js (CI uses 22). Composer and Symfony need network access to fetch uncached dependencies and assets.
+The harness creates its own disposable application. You can start it from an ordinary shell or inside tmux.
+
+```sh
+harness=packages/uxor/dev/lifecycle-tmux.py
+run=$(python3 "$harness" start)
+printf '%s\n' "$run"
+python3 "$harness" attach "$run"
+```
+
+Detach with **Ctrl-b d**. When nested under another default tmux session, use **Ctrl-b Ctrl-b d** to detach the
+inner session. Give the printed run directory to another person or agent on the same host and account
+to follow the same run. CI's *Package* job uses `start` and `watch` for the full lifecycle. It exercises install,
+first agent handoff, update, production without dev dependencies, restore, removal and the historical upgrade.
+
+| Command | Result |
+|---|---|
+| `python3 "$harness" watch "$run"` | Read the log from the beginning, follow output to completion and return the suite's exit code. |
+| `python3 "$harness" status "$run"` | Read the current state as JSON. |
+| `python3 "$harness" wait "$run"` | Wait quietly and return the suite's exit code. |
+| `python3 "$harness" collect "$run"` | Print the pinned revision, options, verdict and retained log path as JSON, including after the session closes. |
+| `python3 "$harness" stop "$run"` | Stop the selected run and its child processes. Other sessions keep running. |
+| `python3 "$harness" repeat "$run"` | Run the same story, revision, target and timeout in a fresh directory. |
+
+To run only the real release upgrade, select its story. To test a numbered upcoming release on an unreleased
+checkout, add `--target-version X.Y.Z` with the maintainer's chosen number.
+
+```sh
+upgrade=$(python3 "$harness" start --story release-upgrade)
+python3 "$harness" watch "$upgrade"
+```
+
+The starting package is the commit tagged `0.3.2` with Mate 0.14. A shallow checkout fetches that exact commit.
+The candidate is the unmodified distribution from the selected commit. An upcoming release with a dated
+changelog heading uses that number, including when the tag has yet to be published. Development after a
+published release can use `dev-candidate` until the maintainer chooses the next number.
+The test verifies the before and after versions in the consumer's Composer lock and through its installed UXor CLI.
+The baseline applies through **0.9.9 inclusive**. The other install, update and removal checks continue beyond it.
+
+Each run has a private temporary directory with `run.json`, `output.log` and a final `result.json`.
+An ordinary package-check failure also retains the disposable application for inspection. `--timeout SECONDS`
+sets a run's time limit (default 1200). Local evidence remains available after detach, failure or repeat.
+CI retains the transcript and run records for a failed lifecycle step for seven days.
+
 ## Docker development
 
 The Docker runner uses Python, Git and Docker with Compose v2. UXor builds the PHP and editor images locally
@@ -199,7 +246,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 | Check | Command | In CI |
 |---|---|---|
 | The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
-| Install the archive with Composer, use its Mate tools and skills, update, deploy with `--no-dev`, restore development dependencies and remove UXor. A customized Kbd recipe renders across the lifecycle. | `python3 packages/uxor/tools/check-package.py --consumer` | *Package* |
+| Install, update and remove the archive with Composer, use its Mate tools and skills and render the customized Kbd recipe across dev and production installs. | [Live Composer lifecycle in tmux](#live-composer-lifecycle-in-tmux) or `python3 packages/uxor/tools/check-package.py --consumer` | *Package* through tmux |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
 | The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the [browser setup](#the-customer-workflow) | *Package* |
 | The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
@@ -208,6 +255,6 @@ Stimulus names need a text search too, so an empty references result does not pr
 `check` lints the container and the Twig templates, lists Mate's tools and asks Mate about the compiled controller
 service; `status` gets a real health response. Neither one replaces the browser journey or the archive install.
 
-The archive consumer also upgrades an initialized Mate 0.14 project with UXor 0.3.2 installed. It uses the
-commit tagged 0.3.2 from local Git history or fetches that commit into a temporary bare repository in a shallow
-checkout. The candidate has a test-only version so Composer takes the upgrade path.
+Two separately marked archives exercise Composer's automatic update hooks. The historical upgrade
+uses the actual released and candidate distributions and can also run directly with
+`python3 packages/uxor/tools/check-package.py --release-upgrade`.

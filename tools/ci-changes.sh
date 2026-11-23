@@ -4,8 +4,8 @@
 # `<job>=true|false` line per job of .github/workflows/ci.yml, for $GITHUB_OUTPUT. A job is skipped only when none of
 # the paths could change what it checks. A path not listed counts as part of the kit, which runs every job but
 # Contrast, Workflows and Package (a recipe's templates and markdown run Contrast too, its README.md and manifest.json
-# Package too: the package's generated references copy them). Recipe inputs of the customer workflow also select
-# Package. A workflow runs Workflows
+# Package too: the package's generated references copy them). Recipe inputs of the customer workflow and lifecycle
+# tests also select Package. A workflow runs Workflows
 # (actionlint) and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed
 # runs everything. Tool tests runs on every push, so a file only it reads selects no job; it also checks the package's
 # references, its archive and the test inventory, which a renamed or added file anywhere can break.
@@ -30,6 +30,8 @@ consumer_recipe_inputs() {
     [ -f "$roots" ] && [ ! -L "$roots" ] || return 1
     entries=$(jq -er '.[]' "$roots") || return 1
     mapfile -t queue <<< "$entries"
+    # check-package.py's upgrade scenario installs and customizes Kbd in the consumer application.
+    queue+=(kbd)
     for ((index=0; index<${#queue[@]}; index++)); do
         recipe=${queue[index]}
         [[ $recipe =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || return 1
@@ -77,9 +79,10 @@ while IFS= read -r path; do
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
 
-        # Read by people and agents: Contrast checks the generated lists, the plans' status (tools/llms-txt.mjs
-        # reads CHANGELOG.md for the links' ref) and what the markdown teaches (tools/docs-lint.mjs)
-        docs/* | CHANGELOG.md | CONTRIBUTING.md | AGENTS.md | SECURITY.md) on contrast ;;
+        # The latest numeric heading supplies the release for the consumer upgrade and the generated reference links.
+        CHANGELOG.md) on contrast package ;;
+        # Read by people and agents: Contrast checks the generated lists, the plans' status and what the markdown teaches.
+        docs/* | CONTRIBUTING.md | AGENTS.md | SECURITY.md) on contrast ;;
         .github/pull_request_template.md) on contrast ;;
         .github/dependabot.yml) ;;
 
