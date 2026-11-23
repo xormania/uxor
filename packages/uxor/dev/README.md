@@ -104,6 +104,14 @@ An ordinary package-check failure also retains the disposable application for in
 sets a run's time limit (default 1200). Local evidence remains available after detach, failure or repeat.
 CI retains the transcript and run records for a failed lifecycle step for seven days.
 
+For a CI failure, open **Package → Composer package lifecycle in a live Symfony consumer**. The transcript names
+the installed baseline and candidate. The failed-run artifact contains the harness records and console output.
+For the Symfony application files and profiler data available at the point of failure, inspect a failed local run.
+
+The consumer's own browser workflow also runs in *Package*. The demo's separate Chromium shards can reuse a
+verified pass when only the Composer package or this fixture changes. Editing the diagnostics recorder shared
+with the demo triggers its browser tests too. See [Reused lanes](../../../docs/TESTING.md#reused-lanes).
+
 ## Docker development
 
 The Docker runner uses Python, Git and Docker with Compose v2. UXor builds the PHP and editor images locally
