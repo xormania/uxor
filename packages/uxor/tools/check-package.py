@@ -37,6 +37,7 @@ CONSUMER_SKILL_NAMES = ("build", "setup", "verify")
 FIXTURE = PACKAGE / "dev/app"
 # What the fixture renders in production. Fixture data: keep in step with the fixture's controller and templates.
 FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development", "/_uxor_probe/production": '"value":"fixed"'}
+SHORTCUT_PAGE = {"/panel": 'data-shortcut-owner="consumer"'}
 MATE_PACKAGES = ("symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension")
 MATE_BETA = "1.0.0-BETA1"
 
@@ -350,14 +351,60 @@ def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes]
             raise RuntimeError(f"{installed} refers to {sorted(references)}; expected {sorted(targets)}")
 
 
-def check_update(application: Path, manifest: dict, archive: Path, old_marker: str,
-                 new_marker: str, consumer_sources: dict[str, bytes]) -> None:
+def check_install_handoff(application: Path, php: str, consumer_sources: dict[str, bytes], marker: str) -> None:
+    """Read what a new agent sees without running init or discovery to repair the installation."""
+    installed = application / "vendor" / PACKAGE_NAME
+    mate = [php, "vendor/bin/mate"]
+    instructions = (application / "AGENTS.md").read_text()
+    consumer_instruction_parts(instructions)
+    if "mate/AGENT_INSTRUCTIONS.md" not in instructions or PACKAGE_NAME not in instructions:
+        raise RuntimeError("The project's agent instructions do not lead to the installed UXor extension")
+    guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
+    if "Building with UXor" not in guidance or marker not in guidance:
+        raise RuntimeError("Public setup did not publish this archive's UXor instructions")
+    tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))
+    for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
+        if tool not in tools["tools"]:
+            raise RuntimeError(f"The installed tool was not discovered: {tool}")
+    catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=modal",
+                                        "--limit=1", "--format=json"], application, capture=True), "catalog")
+    expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
+    if catalog is None or catalog.get("status") != "completed" or not catalog.get("data", {}).get("items"):
+        raise RuntimeError("The discovered catalog tool could not read its exported references")
+    if catalog.get("reference", {}).get("uxor", {}).get("inputs_sha256") != expected_inputs:
+        raise RuntimeError("Catalog results do not identify the packaged UXor references by their inputs' digest")
+    reference = operation_result(execute([*mate, "resources:read", "uxor://reference/FOR-AGENTS.md",
+                                          "--format=json"], application, capture=True), "reference")
+    if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
+        raise RuntimeError("The installed reference resource could not be read through Mate")
+    check_skills(application, php, consumer_sources, marker)
+    print("Install: the project instructions lead to working UXor tools, references and three skills after public setup.")
+
+
+def install_customized_shortcut(application: Path, php: str) -> Path:
+    """Install a real recipe from the same dist through Toolkit, then use and customize the application's copy."""
+    kit = application / "vendor/symfony/ux-toolkit/kits/uxor-lifecycle"
+    shutil.copytree(application / "vendor" / PACKAGE_NAME, kit)
+    try:
+        execute([php, "bin/console", "ux:install", "kbd", f"--kit={kit.name}", "--no-interaction"], application)
+    finally:
+        shutil.rmtree(kit)
+    component = application / "templates/components/Kbd.html.twig"
+    source, count = re.subn(r"<kbd(?=[\s>])", '<kbd data-shortcut-owner="consumer"', component.read_text(), count=1)
+    if not count:
+        raise RuntimeError("The installed Kbd recipe has no keyboard-key element to customize")
+    component.write_text(source)
+    panel = application / "templates/panel.html.twig"
+    panel.write_text(panel.read_text().replace("{% block body %}", "{% block body %}\n    <twig:Kbd>Ctrl</twig:Kbd>", 1))
+    return component
+
+
+def check_update(application: Path, archive: Path, old_marker: str,
+                 new_marker: str, consumer_sources: dict[str, bytes], component: Path) -> None:
     instructions = application / "AGENTS.md"
     custom_instructions = consumer_instruction_parts(instructions.read_text())
-    component = application / "templates/components/ConsumerOwned.html.twig"
-    component.parent.mkdir(parents=True, exist_ok=True)
-    component.write_text('{# Application-owned custom component. #}\n<span class="consumer-custom">Keep this behavior.</span>\n')
     component_content = component.read_bytes()
+    manifest = json.loads((application / "composer.json").read_text())
     manifest["repositories"] = [archive_repository(archive)]
     (application / "composer.json").write_text(json.dumps(manifest, indent=4) + "\n")
     execute([*composer_command(), "update", PACKAGE_NAME, "--prefer-dist",
@@ -372,10 +419,8 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
     if json.loads((installed / "composer.json").read_text()).get("version") != "0.0.1":
         raise RuntimeError("Updated package files do not match Composer's installed version")
     check_mate_versions(application, MATE_BETA)
-    # The supported lifecycle refreshes Mate explicitly after Composer updates.
-    # Mate 0.14's plugin can resolve Composer's own root when Composer runs as a PHAR.
+    # The approved Beta1 plugin refreshes an initialized application's extensions on Composer update.
     php = os.environ.get("PHP_BIN", "php")
-    execute([php, "vendor/bin/mate", "discover", "--no-interaction"], application)
     check_skills(application, php, consumer_sources, new_marker)
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
     if new_marker not in guidance or old_marker in guidance:
@@ -388,7 +433,8 @@ def check_update(application: Path, manifest: dict, archive: Path, old_marker: s
                                        "--query=modal", "--limit=1", "--format=json"], application, capture=True), "catalog")
     if catalog is None or catalog.get("status") != "completed" or catalog.get("reference", {}).get("version") != "0.0.1":
         raise RuntimeError("The updated Mate tool does not report the newly installed package version")
-    print("Composer update and native Mate refresh verified: newer archive installed; guidance and skills replaced; consumer instructions and custom component preserved.")
+    render_pages(application, php, "dev", SHORTCUT_PAGE)
+    print("Update: Composer refreshed Mate guidance, skills and catalog version; the customized component still renders.")
 
 
 def check_browser_diagnostics(application: Path, installed: Path, php: str, mate: list[str]) -> None:
@@ -463,6 +509,9 @@ def check_consumer(archive: Path, temporary: Path, *, providers: bool = False) -
         raise RuntimeError(f"The consumer fixture has no tracked files: {FIXTURE.relative_to(ROOT)}")
     for filename in fixture_files:
         source = ROOT / filename
+        if source == FIXTURE / "mate/config.php":
+            # The repository fixture uses its own runner. This application has never initialized Mate.
+            continue
         destination = application / source.relative_to(FIXTURE)
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, destination)
@@ -476,22 +525,17 @@ def check_consumer(archive: Path, temporary: Path, *, providers: bool = False) -
     old_marker = versioned_archive(archive, first_archive, "0.0.0")
     new_marker = versioned_archive(archive, second_archive, "0.0.1")
     manifest["repositories"] = [archive_repository(first_archive)]
-    manifest.setdefault("require-dev", {})[PACKAGE_NAME] = "0.0.*"
+    for name in (PACKAGE_NAME, *MATE_PACKAGES):
+        del manifest["require-dev"][name]
     manifest["extra"]["ai-mate"]["skills"] = ["project-skills"]
     consumer_sources = write_consumer_skills(application)
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     (application / ".env.local").write_text("APP_SECRET=" + secrets.token_hex(32) + "\n")
-    # The fixture's repository wrapper is replaced by the independent application's invocation.
-    (application / "mate/config.php").write_text("""<?php
-use Symfony\\Component\\DependencyInjection\\Loader\\Configurator\\ContainerConfigurator;
-return static function (ContainerConfigurator $container): void {
-    $container->parameters()->set('mate.invocation', 'vendor/bin/mate');
-};
-""")
     custom_instructions = "# Consumer instructions\n\nKeep application decisions here.\n"
     instructions_path = application / "AGENTS.md"
     instructions_path.write_text(custom_instructions)
-    execute([*composer_command(), "install", "--prefer-dist", "--no-interaction", "--no-progress"], application)
+    execute([*composer_command(), "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
+             *(f"{name}:{MATE_BETA}" for name in MATE_PACKAGES), "--prefer-dist", "--no-interaction", "--no-progress"], application)
     installed = application / "vendor" / PACKAGE_NAME
     if installed.is_symlink() or not installed.is_dir():
         raise RuntimeError("Independent consumer must install the archive, not a source symlink")
@@ -504,72 +548,118 @@ return static function (ContainerConfigurator $container): void {
     spec.loader.exec_module(environment)
     # Exercise the public installed setup before manual initialization. Keep its
     # added dev dependencies in the update manifest instead of undoing setup.
-    manifest = environment.setup(application, php)
+    environment.setup(application, php)
     check_mate_versions(application, MATE_BETA)
-    execute([*mate, "init", "--no-interaction"], application)
-    execute([*composer_command(), "dump-autoload", "--no-interaction"], application)
-    execute([*mate, "discover", "--no-interaction"], application)
+    check_install_handoff(application, php, consumer_sources, old_marker)
     first_instructions = instructions_path.read_text()
     if not first_instructions.startswith(custom_instructions):
         raise RuntimeError("Mate initialization replaced the consumer's existing instructions")
     expected_instructions = first_instructions + "\nConsumer-owned trailing instructions.\n"
     instructions_path.write_text(expected_instructions)
+    environment.repeat_setup(application, php)
     execute([*mate, "init", "--no-interaction"], application)
     if consumer_instruction_parts(instructions_path.read_text()) != consumer_instruction_parts(expected_instructions):
         raise RuntimeError("Repeated initialization changed consumer-owned instructions")
 
-    tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))
-    for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
-        if tool not in tools.get("tools", {}):
-            raise RuntimeError(f"The installed tool was not discovered: {tool}")
-    catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=modal",
-                                       "--limit=1", "--format=json"], application, capture=True), "catalog")
-    expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
-    if catalog is None or catalog.get("status") != "completed" or not catalog.get("data", {}).get("items"):
-        raise RuntimeError("The discovered catalog tool could not read its exported references")
-    if catalog.get("reference", {}).get("uxor", {}).get("inputs_sha256") != expected_inputs:
-        raise RuntimeError("Catalog results do not identify the packaged UXor references by their inputs' digest")
-    reference = operation_result(execute([*mate, "resources:read", "uxor://reference/FOR-AGENTS.md",
-                                         "--format=json"], application, capture=True), "reference")
-    if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
-        raise RuntimeError("The installed reference resource could not be read through Mate")
     check_browser_diagnostics(application, installed, php, mate)
-    check_skills(application, php, consumer_sources, old_marker)
-    # Mate nests the package's headings, so look for the heading text of the packaged INSTRUCTIONS.md.
-    if not re.search(r"Building with UXor\b", (application / "mate/AGENT_INSTRUCTIONS.md").read_text()):
-        raise RuntimeError("Packaged UXor instructions were not materialized for agents")
-    if old_marker not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
-        raise RuntimeError("The first archive's agent instructions were not installed before the update")
-    print("Independent archive consumer: Mate operation, reference, provenance, six skills and repeated initialization verified.")
-    check_update(application, manifest, second_archive, old_marker, new_marker, consumer_sources)
+    component = install_customized_shortcut(application, php)
+    execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
+    render_pages(application, php, "dev", SHORTCUT_PAGE)
+    check_update(application, second_archive, old_marker, new_marker, consumer_sources, component)
     environment.exercise(application, php)
     if providers:
         execute(["uv", "run", "--script", str(PACKAGE / "dev/check-mago.py"),
                  "--application", str(application), "--launcher", str(application / "vendor/bin/uxor-mago")], ROOT)
 
-    execute([php, "bin/console", "importmap:install", "--no-interaction"], application)
     execute([*composer_command(), "install", "--no-dev", "--prefer-dist", "--no-interaction", "--no-progress"], application)
     if installed.exists():
         raise RuntimeError("The development-only package remains installed after --no-dev")
     execute([php, "bin/console", "cache:clear", "--env=prod", "--no-debug", "--no-interaction"], application)
+    render_pages(application, php, "prod", FIXTURE_PAGES | SHORTCUT_PAGE)
+    print("Production: the deployed application renders its customized component with development dependencies omitted.")
+
+    # Restore the dev installation from its lock before testing permanent removal.
+    execute([*composer_command(), "install", "--prefer-dist", "--no-interaction", "--no-progress"], application)
+    check_removal(application, php, component, consumer_sources, new_marker)
+    check_mate_upgrade(second_archive, temporary / "mate-upgrade")
+
+
+def render_pages(application: Path, php: str, environment: str, pages: dict[str, str]) -> None:
     render = r"""
 require 'vendor/autoload.php';
 (new Symfony\Component\Dotenv\Dotenv())->bootEnv('.env');
-$kernel = new App\Kernel('prod', false);
-foreach (json_decode($argv[1], true, flags: JSON_THROW_ON_ERROR) as $path => $marker) {
+$kernel = new App\Kernel($argv[1], false);
+foreach (json_decode($argv[2], true, flags: JSON_THROW_ON_ERROR) as $path => $marker) {
     $request = Symfony\Component\HttpFoundation\Request::create($path);
     $response = $kernel->handle($request);
     if (200 !== $response->getStatusCode() || !str_contains($response->getContent(), $marker)) {
-        fwrite(STDERR, 'Production consumer did not render '.$path.PHP_EOL);
+        fwrite(STDERR, $argv[1].' consumer did not render '.$path.' with '.$marker.PHP_EOL);
         exit(1);
     }
     $kernel->terminate($request, $response);
 }
 $kernel->shutdown();
-echo "Production consumer boot and Twig render passed without development dependencies.\n";
 """
-    execute([php, "-r", render, json.dumps(FIXTURE_PAGES)], application)
-    check_mate_upgrade(second_archive, temporary / "mate-upgrade")
+    execute([php, "-r", render, environment, json.dumps(pages)], application)
+
+
+def check_removal(application: Path, php: str, component: Path, consumer_sources: dict[str, bytes], marker: str) -> None:
+    """Remove UXor from a working dev project whose own Composer requirements include Mate."""
+    mate = [php, "vendor/bin/mate"]
+    # Establish that the preceding no-dev deployment was restored before testing removal.
+    catalog = operation_result(execute([*mate, "tools:call", "uxor_catalog", "--query=kbd", "--format=json"],
+                                       application, capture=True), "catalog")
+    if not catalog or catalog.get("reference", {}).get("version") != "0.0.1" or not catalog["data"]["items"]:
+        raise RuntimeError("Removal must start with a working, updated UXor installation")
+    check_skills(application, php, consumer_sources, marker)
+    manifest_path = application / "composer.json"
+    manifest = json.loads(manifest_path.read_text())
+    expected_dev = manifest["require-dev"].copy()
+    del expected_dev[PACKAGE_NAME]
+    agent_files = {"AGENTS.md": "AI_MATE_INSTRUCTIONS", "CLAUDE.md": "AI_MATE_AGENTS_IMPORT"}
+    owned_text = {name: consumer_instruction_parts((application / name).read_text(), block)
+                  for name, block in agent_files.items()}
+    retained = [component, application / "templates/panel.html.twig", application / "mate/config.php"]
+    mirrors = [application / ".agents/skills", application / ".claude/skills"]
+    for name in consumer_sources:
+        retained.append(application / "project-skills" / name / "SKILL.md")
+        retained.extend(directory / f"mate-{name}/SKILL.md" for directory in mirrors)
+    before = {path: path.read_bytes() for path in retained}
+
+    execute([*composer_command(), "remove", "--dev", PACKAGE_NAME, "--no-interaction", "--no-progress"], application)
+
+    remaining = json.loads(manifest_path.read_text())
+    if remaining["require"] != manifest["require"] or remaining["require-dev"] != expected_dev:
+        raise RuntimeError("Removal changed unrelated application dependencies or retained UXor")
+    lock = json.loads((application / "composer.lock").read_text())
+    installed = json.loads((application / "vendor/composer/installed.json").read_text())
+    for packages in (lock["packages"], lock["packages-dev"], installed["packages"]):
+        if any(package["name"] == PACKAGE_NAME for package in packages):
+            raise RuntimeError("Composer still records UXor after removal")
+    for name in (f"vendor/{PACKAGE_NAME}", "vendor/bin/uxor", "vendor/bin/uxor-mago"):
+        if os.path.lexists(application / name):
+            raise RuntimeError(f"Removal left a package entry at {name}")
+
+    tools = json.loads(execute([*mate, "tools:list", "--format=json"], application, capture=True))["tools"]
+    if "symfony-service-detail" not in tools or any(name.startswith("uxor_") for name in tools):
+        raise RuntimeError("The remaining Mate installation lost Symfony tools or still advertises UXor tools")
+    skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))["skills"]
+    if any(skill["package"] == PACKAGE_NAME for skill in skills):
+        raise RuntimeError("Mate still advertises skills owned by the removed extension")
+    for directory in mirrors:
+        for name in CONSUMER_SKILL_NAMES:
+            if os.path.lexists(directory / f"mate-uxor-{name}"):
+                raise RuntimeError(f"Removal left a generated UXor skill in {directory.name}: {name}")
+    if marker in (application / "mate/AGENT_INSTRUCTIONS.md").read_text() or PACKAGE_NAME in (application / "AGENTS.md").read_text():
+        raise RuntimeError("Agent instructions still advertise the removed archive")
+    for name, block in agent_files.items():
+        if consumer_instruction_parts((application / name).read_text(), block) != owned_text[name]:
+            raise RuntimeError(f"Removing UXor changed application-owned instructions in {name}")
+    for path, content in before.items():
+        if path.read_bytes() != content:
+            raise RuntimeError(f"Removing UXor changed application-owned content: {path.relative_to(application)}")
+    render_pages(application, php, "dev", SHORTCUT_PAGE)
+    print("Removal: the package, binaries and Mate integration are gone; application skills, instructions and the rendered recipe are preserved.")
 
 
 def check_mate_upgrade(archive: Path, application: Path) -> None:
@@ -637,7 +727,7 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--consumer", action="store_true", help="Install the archive in an independent Symfony application and verify Mate and no-dev runtime")
+    parser.add_argument("--consumer", action="store_true", help="Verify installation, update, no-dev deployment and removal in an independent Symfony application")
     parser.add_argument("--providers", action="store_true", help="Exercise the installed Mago and Serena providers inside the archive consumer (requires --consumer)")
     arguments = parser.parse_args()
     if arguments.providers and not arguments.consumer:

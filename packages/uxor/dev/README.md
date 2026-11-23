@@ -199,7 +199,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 | Check | Command | In CI |
 |---|---|---|
 | The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
-| This commit's archive in an independent consumer: install, Mate, update, no-dev render | `python3 packages/uxor/tools/check-package.py --consumer` | *Package* |
+| Install the archive with Composer, use its Mate tools and skills, update, deploy with `--no-dev`, restore development dependencies and remove UXor. A customized Kbd recipe renders across the lifecycle. | `python3 packages/uxor/tools/check-package.py --consumer` | *Package* |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
 | The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the [browser setup](#the-customer-workflow) | *Package* |
 | The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
