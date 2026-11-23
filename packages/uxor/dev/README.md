@@ -71,16 +71,17 @@ python3 "$harness" attach "$run"
 ```
 
 Detach with **Ctrl-b d**. When nested under another default tmux session, use **Ctrl-b Ctrl-b d** to detach the
-inner session. Give the printed run directory to another person or agent on the same host and account
-to follow the same run. CI's *Package* job uses `start` and `watch` for the full lifecycle. It exercises install,
-first agent handoff, update, production without dev dependencies, restore, removal and the historical upgrade.
+inner session. The attached status bar shows the current phase, command and elapsed seconds during quiet commands.
+Give the printed run directory to another person or agent on the same host and account to follow the same run.
+CI's *Package* job runs the full lifecycle once through `start` and `watch`. It exercises install, first agent
+handoff, update, production without dev dependencies, restore, removal and the historical upgrade.
 
 | Command | Result |
 |---|---|
 | `python3 "$harness" watch "$run"` | Read the log from the beginning, follow output to completion and return the suite's exit code. |
-| `python3 "$harness" status "$run"` | Read the current state as JSON. |
+| `python3 "$harness" status "$run"` | Read the active phase and command, its elapsed seconds and the last successful operation as JSON. |
 | `python3 "$harness" wait "$run"` | Wait quietly and return the suite's exit code. |
-| `python3 "$harness" collect "$run"` | Print the pinned revision, options, verdict and retained log path as JSON, including after the session closes. |
+| `python3 "$harness" collect "$run"` | Read the pinned revision, options, verdict, operation timeline and evidence paths, including after the session closes. |
 | `python3 "$harness" stop "$run"` | Stop the selected run and its child processes. Other sessions keep running. |
 | `python3 "$harness" repeat "$run"` | Run the same story, revision, target and timeout in a fresh directory. |
 
@@ -99,7 +100,12 @@ published release can use `dev-candidate` until the maintainer chooses the next 
 The test verifies the before and after versions in the consumer's Composer lock and through its installed UXor CLI.
 The baseline applies through **0.9.9 inclusive**. The other install, update and removal checks continue beyond it.
 
-Each run has a private temporary directory with `run.json`, `output.log` and a final `result.json`.
+Each run has a private temporary directory with `run.json`, `output.log`, an operation journal in
+`events.jsonl` and a final `result.json`. Operations have stable names and IDs. Parent IDs associate commands
+such as `composer.require` with their phase, such as `release-upgrade`. The transcript holds command output.
+The journal records start, outcome and timing. The final result preserves the timeline for the CI failure artifact.
+If an observer discovers that the worker vanished, the last recorded event provides a lower bound on elapsed
+time. The end time is unknown. A damaged journal reports a telemetry error alongside the suite's own verdict.
 An ordinary package-check failure also retains the disposable application for inspection. `--timeout SECONDS`
 sets a run's time limit (default 1200). Local evidence remains available after detach, failure or repeat.
 CI retains the transcript and run records for a failed lifecycle step for seven days.
@@ -111,6 +117,31 @@ For the Symfony application files and profiler data available at the point of fa
 The consumer's own browser workflow also runs in *Package*. The demo's separate Chromium shards can reuse a
 verified pass when only the Composer package or this fixture changes. Editing the diagnostics recorder shared
 with the demo triggers its browser tests too. See [Reused lanes](../../../docs/TESTING.md#reused-lanes).
+
+When adding a lifecycle case, *Package* already discovers `test_*.py` in `packages/uxor/dev/tests/`.
+To check whether a committed change affects demo reuse, compare the `lanes.demo` values printed by
+`node tools/ci/lane-evidence.mjs fingerprint --sha <base-commit>` and the same command with `--sha HEAD`.
+Matching fingerprints make an earlier verified Chromium pass eligible for reuse.
+
+### Observe a real run from a local agent session
+
+From the repository root, run the observer test on a host with the native dependencies listed above.
+
+```sh
+UXOR_TEST_LIVE_CONSUMER=1 python3 packages/uxor/dev/tests/test_live_consumer.py -v
+```
+
+The test prints a run directory once it has resolved the candidate and started the private tmux session.
+It observes an operation during the real 0.3.2 upgrade, then finds that same operation in the completed timeline
+and checks the installed versions. In CI, `UXOR_TEST_TMUX=1` enables this focused upgrade during *Package*'s
+development harness tests. Running discovery locally with that flag also requires the native Composer, PHP and
+tmux environment listed above. To watch as well, attach from your own terminal. Keep your local coding agent
+in its usual session on the same host and give it the checkout and the printed run directory.
+
+Ask the agent to run `status` while the test is running and report the current operation's ID, name, elapsed
+seconds and last success. After it finishes, have the agent use `collect` to find that ID and report its outcome
+and the suite's exit code. A fast run may finish before the agent connects. `repeat` starts a fresh run with the
+same inputs when you need another live observation. The agent session stays open after the lifecycle worker exits.
 
 ## Docker development
 
@@ -255,6 +286,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 |---|---|---|
 | The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
 | Install, update and remove the archive with Composer, use its Mate tools and skills and render the customized Kbd recipe across dev and production installs. | [Live Composer lifecycle in tmux](#live-composer-lifecycle-in-tmux) or `python3 packages/uxor/tools/check-package.py --consumer` | *Package* through tmux |
+| Observe a quiet command from a live terminal and match its operation ID to the final timeline. | [Run the local observer](#observe-a-real-run-from-a-local-agent-session). For controller and journal cases, run `UXOR_TEST_TMUX=1 python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_lifecycle_*.py'`. | *Package* exercises real attach/detach and observes the focused release upgrade. |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
 | The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the [browser setup](#the-customer-workflow) | *Package* |
 | The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
