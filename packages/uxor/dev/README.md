@@ -207,3 +207,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 
 `check` lints the container and the Twig templates, lists Mate's tools and asks Mate about the compiled controller
 service; `status` gets a real health response. Neither one replaces the browser journey or the archive install.
+
+The archive consumer also upgrades an initialized Mate 0.14 project with UXor 0.3.2 installed. It uses the
+commit tagged 0.3.2 from local Git history or fetches that commit into a temporary bare repository in a shallow
+checkout. The candidate has a test-only version so Composer takes the upgrade path.

@@ -259,13 +259,18 @@ def operation_result(payload, operation: str):
     return None
 
 
-def consumer_instruction_parts(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str]:
+def instruction_sections(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str, str]:
     start = f"<!-- BEGIN {block} -->"
     end = f"<!-- END {block} -->"
     if content.count(start) != 1 or content.count(end) != 1:
         raise RuntimeError("Initialization must produce exactly one managed instruction block")
-    before, managed = content.split(start, 1)
-    _, after = managed.split(end, 1)
+    before, rest = content.split(start, 1)
+    managed, after = rest.split(end, 1)
+    return before, managed, after
+
+
+def consumer_instruction_parts(content: str, block: str = "AI_MATE_INSTRUCTIONS") -> tuple[str, str]:
+    before, _, after = instruction_sections(content, block)
     return before, after
 
 
@@ -303,6 +308,22 @@ def archive_repository(archive: Path) -> dict:
     return {"type": "package", "package": dependency}
 
 
+def released_repository(temporary: Path) -> dict:
+    """Use the original exported 0.3.2 files and Composer manifest, including in a shallow CI checkout."""
+    revision = "8bea08b6e8d42a27df79b2cbbb41e9fb23729abb"  # commit tagged 0.3.2
+    repository = ROOT
+    if subprocess.run(["git", "cat-file", "-e", revision + "^{commit}"], cwd=repository,
+                      stderr=subprocess.DEVNULL).returncode:
+        repository = temporary / "release.git"
+        execute(["git", "init", "--quiet", "--bare", str(repository)], temporary)
+        execute(["git", "fetch", "--quiet", "--depth=1", "--no-tags", "https://github.com/xormania/uxor.git", revision], repository)
+    archive = temporary / "uxor-0.3.2.tar"
+    execute(["git", "archive", "--format=tar", f"--output={archive}", revision], repository)
+    result = archive_repository(archive)
+    result["package"]["version"] = "0.3.2"  # With a VCS repository Composer derives this from the tag.
+    return result
+
+
 def write_consumer_skills(application: Path) -> dict[str, bytes]:
     sources = {}
     for name in CONSUMER_SKILL_NAMES:
@@ -316,7 +337,7 @@ def write_consumer_skills(application: Path) -> dict[str, bytes]:
 
 def check_skills(application: Path, php: str, consumer_sources: dict[str, bytes], marker: str) -> None:
     listed = json.loads(execute([php, "vendor/bin/mate", "skills:list", "--format=json"], application, capture=True))
-    expected = {("_custom", name) for name in consumer_sources} | {(PACKAGE_NAME, f"uxor-{name}") for name in consumer_sources}
+    expected = {("_custom", name) for name in consumer_sources} | {(PACKAGE_NAME, f"uxor-{name}") for name in CONSUMER_SKILL_NAMES}
     skills = [skill for skill in listed["skills"] if skill["package"] in ("_custom", PACKAGE_NAME)]
     if {(skill["package"], skill["original_name"]) for skill in skills} != expected:
         raise RuntimeError("Mate must list the three application skills and the three UXor skills under their respective owners")
@@ -356,8 +377,8 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
     installed = application / "vendor" / PACKAGE_NAME
     mate = [php, "vendor/bin/mate"]
     instructions = (application / "AGENTS.md").read_text()
-    consumer_instruction_parts(instructions)
-    if "mate/AGENT_INSTRUCTIONS.md" not in instructions or PACKAGE_NAME not in instructions:
+    _, managed, _ = instruction_sections(instructions)
+    if "mate/AGENT_INSTRUCTIONS.md" not in managed or PACKAGE_NAME not in managed:
         raise RuntimeError("The project's agent instructions do not lead to the installed UXor extension")
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
     if "Building with UXor" not in guidance or marker not in guidance:
@@ -531,9 +552,10 @@ def check_consumer(archive: Path, temporary: Path, *, providers: bool = False) -
     consumer_sources = write_consumer_skills(application)
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     (application / ".env.local").write_text("APP_SECRET=" + secrets.token_hex(32) + "\n")
-    custom_instructions = "# Consumer instructions\n\nKeep application decisions here.\n"
+    custom_instructions = "# Consumer instructions\n\nThe adoption history for xormania/uxor belongs to this application.\n"
     instructions_path = application / "AGENTS.md"
     instructions_path.write_text(custom_instructions)
+    (application / "CLAUDE.md").write_text("# Application conventions\n\nKeep the project's keyboard shortcut.\n")
     execute([*composer_command(), "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
              *(f"{name}:{MATE_BETA}" for name in MATE_PACKAGES), "--prefer-dist", "--no-interaction", "--no-progress"], application)
     installed = application / "vendor" / PACKAGE_NAME
@@ -581,7 +603,11 @@ def check_consumer(archive: Path, temporary: Path, *, providers: bool = False) -
     # Restore the dev installation from its lock before testing permanent removal.
     execute([*composer_command(), "install", "--prefer-dist", "--no-interaction", "--no-progress"], application)
     check_removal(application, php, component, consumer_sources, new_marker)
-    check_mate_upgrade(second_archive, temporary / "mate-upgrade")
+    candidate = temporary / "uxor-upgrade-candidate.tar"
+    # A test-only version higher than 0.3.2 makes Composer perform an actual upgrade.
+    candidate_marker = versioned_archive(archive, candidate, "999.0.0")
+    check_mate_upgrade(candidate, temporary / "mate-upgrade", candidate_marker)
+    check_mate_upgrade(candidate, temporary / "release-upgrade", candidate_marker, released_repository(temporary))
 
 
 def render_pages(application: Path, php: str, environment: str, pages: dict[str, str]) -> None:
@@ -650,7 +676,8 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
         for name in CONSUMER_SKILL_NAMES:
             if os.path.lexists(directory / f"mate-uxor-{name}"):
                 raise RuntimeError(f"Removal left a generated UXor skill in {directory.name}: {name}")
-    if marker in (application / "mate/AGENT_INSTRUCTIONS.md").read_text() or PACKAGE_NAME in (application / "AGENTS.md").read_text():
+    _, managed, _ = instruction_sections((application / "AGENTS.md").read_text())
+    if marker in (application / "mate/AGENT_INSTRUCTIONS.md").read_text() or PACKAGE_NAME in managed:
         raise RuntimeError("Agent instructions still advertise the removed archive")
     for name, block in agent_files.items():
         if consumer_instruction_parts((application / name).read_text(), block) != owned_text[name]:
@@ -662,16 +689,19 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
     print("Removal: the package, binaries and Mate integration are gone; application skills, instructions and the rendered recipe are preserved.")
 
 
-def check_mate_upgrade(archive: Path, application: Path) -> None:
-    """Install UXor into an initialized 0.14 project with an overridden skill."""
+def check_mate_upgrade(candidate: Path, application: Path, marker: str, previous_release: dict | None = None) -> None:
+    """Use an initialized Mate 0.14 project, both with and without an existing UXor release."""
     application.mkdir()
     manifest = {
         "name": "example/mate-upgrade",
         "type": "project",
         "require-dev": dict.fromkeys(MATE_PACKAGES, "0.14.0"),
-        "repositories": [archive_repository(archive)],
+        "repositories": [archive_repository(candidate)],
         "config": {"allow-plugins": {"symfony/ai-mate-composer-plugin": True}},
     }
+    if previous_release:
+        manifest["require-dev"][PACKAGE_NAME] = "0.3.2"
+        manifest["repositories"] = [previous_release]
     manifest_path = application / "composer.json"
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     roots = {"AGENTS.md": "AI_MATE_INSTRUCTIONS", "CLAUDE.md": "AI_MATE_AGENTS_IMPORT"}
@@ -685,10 +715,19 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
     execute([*mate, "init", "--no-interaction"], application)
     execute([*composer, "dump-autoload", "--no-interaction"], application)
     execute([*mate, "discover", "--no-interaction"], application)
+    old_skills = json.loads(execute([*mate, "skills:list", "--format=json"], application, capture=True))["skills"]
+    released = [skill for skill in old_skills if skill["package"] == PACKAGE_NAME]
+    expected_names = set(CONSUMER_SKILL_NAMES) if previous_release else set()
+    if {skill["original_name"] for skill in released} != expected_names:
+        raise RuntimeError("The starting Mate project has the wrong set of UXor skills")
+    old_targets = [application / target / skill["installed_name"] for target in (".agents/skills", ".claude/skills")
+                   for skill in released]
+    if not all((path / "SKILL.md").is_file() for path in old_targets):
+        raise RuntimeError("The real 0.3.2 skill installation must exist before testing its upgrade")
     execute([*mate, "skills:override", "system-information", "--no-interaction"], application)
     override = application / "mate/skills/system-information/SKILL.md"
-    marker = b"\nUse this application's system checks.\n"
-    override.write_bytes(override.read_bytes() + marker)
+    override_marker = b"\nUse this application's system checks.\n"
+    override.write_bytes(override.read_bytes() + override_marker)
     execute([*mate, "discover", "--no-interaction"], application)
     owned = {}
     for name, block in roots.items():
@@ -701,14 +740,20 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
     files = [override, *(application / target / "mate-system-information/SKILL.md"
                          for target in (".agents/skills", ".claude/skills"))]
     before = {path: path.read_bytes() for path in files}
-    if any(marker not in content for content in before.values()):
+    if any(override_marker not in content for content in before.values()):
         raise RuntimeError("The customized 0.14 skill was not installed before the upgrade")
-    execute([*composer, "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
+    manifest = json.loads(manifest_path.read_text())
+    manifest["repositories"] = [archive_repository(candidate)]
+    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
+    execute([*composer, "require", "--dev", f"{PACKAGE_NAME}:999.0.0",
              *(f"{package}:{MATE_BETA}" for package in MATE_PACKAGES), *options], application)
     check_mate_versions(application, MATE_BETA)
     if json.loads(manifest_path.read_text()).get("minimum-stability", "stable") != "stable":
         raise RuntimeError("The package-specific beta requirements changed the consumer's stable policy")
     execute([*mate, "discover", "--no-interaction"], application)
+    check_skills(application, mate[0], {}, marker)
+    if any(os.path.lexists(path) for path in old_targets):
+        raise RuntimeError("The upgrade left generated copies of the retired UXor skills")
     for name, block in roots.items():
         if consumer_instruction_parts((application / name).read_text(), block) != owned[name]:
             raise RuntimeError(f"Mate upgrade changed project-owned content in {name}")
@@ -720,9 +765,12 @@ def check_mate_upgrade(archive: Path, application: Path) -> None:
     if not any(skill["package"] == "symfony/ai-mate" and skill["original_name"] == "system-information"
                and skill["mode"] == "override" and skill["enabled"] and skill["status"] == "ok" for skill in skills):
         raise RuntimeError("The upgraded Mate did not retain the active system-information override")
-    if "Building with UXor" not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
+    if marker not in (application / "mate/AGENT_INSTRUCTIONS.md").read_text():
         raise RuntimeError("The upgraded Mate did not publish the installed UXor guidance")
-    print("Mate upgrade verified: project instructions and the installed skill override survived beta discovery.")
+    if previous_release:
+        print("Release upgrade: UXor 0.3.2 with Mate 0.14 upgraded to the candidate; retired generated skills were replaced, and project instructions and the override survived.")
+    else:
+        print("Existing Mate: installing UXor upgraded Mate while preserving project instructions and the skill override.")
 
 
 def main() -> None:
