@@ -33,6 +33,17 @@ UXOR_MAGO_IMAGE selects a compatible custom image for both CLI and Serena.
 HELP
 }
 
+sha256_stdin() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256
+    else
+        echo 'Starting Serena requires sha256sum or shasum on the Docker host.' >&2
+        return 1
+    fi
+}
+
 root=.
 write=false
 trust_project_code=false
@@ -184,7 +195,7 @@ if [ "$write" = false ]; then mount="$mount,readonly"; fi
 primary_group=$(id -g)
 set -- -- "$image" "$@"
 if [ "$command" = serena ]; then
-    state=$(printf '%s\0' "$root" "$(id -u):$primary_group" "$image" | sha256sum)
+    state=$(printf '%s\0' "$root" "$(id -u):$primary_group" "$image" | sha256_stdin)
     state="uxor-mago-serena-${state%% *}"
     set -- --mount "type=volume,source=$state,target=/state" "$@"
 else

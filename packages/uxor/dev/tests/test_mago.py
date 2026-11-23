@@ -1,5 +1,6 @@
 """Exercise the installed Mago command with a recording Docker executable."""
 import csv
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -328,6 +329,26 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         name = next(field.split("=", 1)[1] for field in state[0] if field.startswith("source="))
         self.assertRegex(name, r"^uxor-mago-serena-[0-9a-f]{64}$")
         return name
+
+    def test_serena_reuses_existing_volume_with_only_shasum_on_path(self):
+        for command in ("id", "sed"):
+            (self.directory / command).symlink_to(shutil.which(command))
+        shasum = self.directory / "shasum"
+        shasum.write_text(f"#!{sys.executable}\n" + """
+import argparse, hashlib, sys
+parser = argparse.ArgumentParser()
+parser.add_argument("-a", "--algorithm", default="1")
+algorithm = parser.parse_args().algorithm
+print(hashlib.new("sha" + algorithm, sys.stdin.buffer.read()).hexdigest(), " -")
+""")
+        shasum.chmod(0o755)
+
+        result = self.invoke("--trust-project-code", "serena", PATH=str(self.directory))
+        self.assertEqual(0, result.returncode, result.stderr)
+        identity = b"\0".join((os.fsencode(self.project), f"{os.getuid()}:{os.getgid()}".encode(),
+                               DIGEST.encode(), b""))
+        expected = "uxor-mago-serena-" + hashlib.sha256(identity).hexdigest()
+        self.assertEqual(expected, self.state_volume(self.docker_call()["args"]))
 
     def test_serena_reuses_state_for_canonical_root_and_separates_images_and_projects(self):
         self.invoke("--trust-project-code", "serena", UXOR_MAGO_IMAGE=IMAGE)

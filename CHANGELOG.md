@@ -26,6 +26,8 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
   freshness output, and refreshes its language server when verified content changes even if a preparation ID is reused.
 
+- Serena can start on macOS using the system `shasum` and selects the same state volume as `sha256sum`.
+
 ## [0.3.5] - 2026-11-21
 
 ### Added
