@@ -9,7 +9,7 @@
  *   no recipe has any more is deleted: a process listing the tests meanwhile sees every file whole, old or new, and
  *   nothing is written when nothing changed.
  * - The demo's Tailwind CSS, rebuilt unless it was built from the same sources: those it scans
- *   (demo/assets/styles/app.css: `@source "../../.."`, the repository minus what git ignores), identified by a SHA-256
+ *   (demo/assets/styles/app.css declares the demo's scan and exclusions), identified by a SHA-256
  *   of their paths and content hashes (`git hash-object`), recorded next to the build. So no screenshot is taken
  *   against stale CSS, whoever runs the tests, and nothing is rebuilt when nothing changed. The record is read and
  *   written by PHP_BINARY's PHP: in the Docker demo, demo/var/ lives in the container.
@@ -79,9 +79,12 @@ export function syncRecipeSpecs(root = repository) {
     });
 }
 
-/** SHA-256 of the paths and content hashes of every file git does not ignore: what the demo's Tailwind build scans. */
+/** Hash the demo's CSS sources. Keep the exclusions in sync with demo/assets/styles/app.css. */
 export function cssSourcesDigest(root = repository) {
-    const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8' })
+    const excluded = ['packages/uxor', 'composer.json', 'composer.lock', 'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md',
+        'SECURITY.md', '.github/pull_request_template.md'];
+    const paths = ['.', ...excluded.map((path) => `:(exclude)${path}`)];
+    const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...paths], { cwd: root, encoding: 'utf8' })
         .split('\0')
         .filter((file) => file && existsSync(join(root, file)));
     const hashes = execFileSync('git', ['hash-object', '--stdin-paths'], { cwd: root, encoding: 'utf8', input: files.join('\n'), maxBuffer: 64 * 1024 * 1024 })

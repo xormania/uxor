@@ -270,6 +270,8 @@ check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
 check 'demo package'              packages/uxor/resources/browser/diagnostics.mjs
 check 'demo package'              packages/uxor/resources/browser/diagnostics.d.mts
+check 'demo package'              packages/uxor/.gitattributes
+check 'demo package'              packages/uxor/resources/.gitattributes
 check 'package'                   packages/uxor/tests/OperationsTest.php
 check 'package'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
 check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md

@@ -291,7 +291,7 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 | `INSTALL.md` (the gallery's install guide, `/install`: its page tests, its static export, the browser tests that load it) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
-| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures) | *Package*, *Demo + Playwright* |
+| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures), `packages/uxor/.gitattributes`, `packages/uxor/resources/.gitattributes` | *Package*, *Demo + Playwright* |
 | `composer.lock`, any other file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Demo + Playwright* and *Contrast*. The inventory check runs in *Quick checks* on every CI run |

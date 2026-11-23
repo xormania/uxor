@@ -2,10 +2,10 @@
 /**
  * Reuse of an earlier pass of a CI lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*).
  *
- * A lane's inputs are the whole tree but the content of a few administrative files no reusable lane reads (EXCLUDED):
- * its fingerprint hashes `git ls-tree -r` of the commit, those files kept by path and mode only, so a change to anything
- * else, ci.yml, this tool and the pinned versions included, gives every lane a new fingerprint. CI result records a
- * marker artifact for each lane that ran: `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
+ * Each fingerprint hashes the committed tree, with selected administrative files kept by path and mode only.
+ * The browser lanes also omit regular Composer files absent from their sparse checkout. The CI workflow, this tool,
+ * and the pinned versions are inputs. CI result records a marker artifact for each lane that ran:
+ * `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
  * `ci-fail-v1-...` when one failed. A later run with the same fingerprint takes the markers newest first: a failure from
  * a verified producer stops the search, and the first pass that verifies is reused (at most its MAX_AGE_HOURS old, from a push
  * or manual run of ci.yml in this repository whose lane jobs all passed in their latest attempt, the fingerprint
@@ -130,19 +130,29 @@ function git(dir, args) {
     return spawnSync('git', ['-C', dir, ...args], { encoding: 'buffer', maxBuffer: 1 << 28 });
 }
 
+// The demo job's sparse checkout in ci.yml. Keep the shared recorder and the attributes that govern its checkout.
+function packageOnlyFile(path) {
+    if (path === 'composer.json' || path === 'composer.lock') return true;
+    return path.startsWith('packages/uxor/') && !path.startsWith('packages/uxor/resources/browser/')
+        && path !== 'packages/uxor/.gitattributes' && path !== 'packages/uxor/resources/.gitattributes';
+}
+
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
-    // a file excluded for a lane counts by its path and mode, not its content: deleting it or making it a link still counts
     const all = tree.stdout.toString('utf8').split('\0').filter(Boolean);
     return Object.fromEntries(Object.keys(REUSABLE).map((lane) => {
         const excluded = excludedFor(lane);
+        const browser = BROWSER_LANES.includes(lane);
         const body = all.map((entry) => {
             const tab = entry.indexOf('\t');
-            if (!excluded.includes(entry.slice(tab + 1))) return entry;
+            const path = entry.slice(tab + 1);
+            // Git regular files (100xxx) can be absent from the sparse checkout. Preserve links and submodules.
+            if (browser && entry.startsWith('100') && packageOnlyFile(path)) return '';
+            if (!excluded.includes(path)) return entry + '\0';
             const [mode, type] = entry.slice(0, tab).split(' ');
-            return `${mode} ${type} -${entry.slice(tab)}`;
-        }).map((entry) => `${entry}\0`).join('');
+            return `${mode} ${type} -${entry.slice(tab)}\0`;
+        }).join('');
         return [lane, createHash('sha256').update(`uxor-lane-evidence/3\0${lane}\0`).update(body).digest('hex')];
     }));
 }
