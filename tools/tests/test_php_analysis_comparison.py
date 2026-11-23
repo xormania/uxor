@@ -155,7 +155,7 @@ class ComparisonTest(unittest.TestCase):
         self.assertEqual(2, processes.call_count)
         phpstan, mago = [process.args[0] for process in processes.call_args_list]
         self.assertEqual([str(self.root / "phpstan"), "analyse"], phpstan[:2])
-        self.assertEqual(["tools/mago", "analyze"], mago[:2])
+        self.assertEqual(["tools/mago", "--trust-project-code", "analyze"], mago[:3])
         for command in (phpstan, mago):
             self.assertEqual(expected, command[command.index("--") + 1:])
 

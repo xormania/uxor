@@ -15,7 +15,7 @@ final class Application extends BaseApplication
     {
         parent::__construct('UXor');
         $operations ??= Operations::create();
-        foreach (['catalog', 'component', 'reference', 'workflow', 'inspect', 'doctor', 'tools', 'browser-diagnostics'] as $name) {
+        foreach (['catalog', 'component', 'reference', 'workflow', 'inspect', 'doctor', 'setup', 'environment', 'prepare', 'tools', 'browser-diagnostics'] as $name) {
             $this->addCommand(new OperationCommand($operations, $name));
         }
     }

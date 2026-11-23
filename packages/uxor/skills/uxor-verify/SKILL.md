@@ -1,37 +1,50 @@
 ---
 name: uxor-verify
-description: Use after UXor setup, feature changes or component updates to verify behavior in the consuming Symfony application's runtime and tests.
+description: Use to diagnose a failed Symfony request or verify UXor setup, feature changes and component updates using the consuming application's runtime, profiles, logs and tests.
 ---
 
-# Verify UXor in an application
+# Diagnose and verify application behavior
 
-Follow the consuming application's instructions and authorized task scope. Verify its actual
-installed/customized code using its runtime and existing tests.
-
-## References
-
-Read the selected `uxor://reference/<recipe>/README.md` and
-`uxor://reference/docs/APPLICATION-TESTING.md`. Consult relevant
-`uxor://reference/docs/GUIDE.md` sections for behavior and security contracts.
-For a matching list/edit/save journey, use `uxor://workflow/customer-management` or
-the bounded `uxor_workflow` tool. Its local file is
-`vendor/xormania/uxor/packages/uxor/resources/workflows/customer-management.md`.
-
-Use `resources:read <uri> --format=json` with the application's configured Mate invocation,
-or `uxor_reference` for bounded pages. The local fallback is
-`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` with the default Composer vendor
-directory; use the application's actual directory. Reference digests identify packaged guidance,
-not the installed application's source or behavior.
+Follow the consuming application's instructions and authorized task. Use its actual code, runtime and tests.
 
 ## Procedure
 
-1. Identify the application root, PHP invocation, served URL and expected changed behavior. Select checks that exercise this change; record unavailable checks and their concrete cause.
-2. Check runtime dependencies, Twig/PHP services, assets/controllers and CSS. Confirm a real application request succeeds. Inspect diagnostic inputs and artifact freshness before interpreting results.
-3. Exercise the changed browser journey: applicable validation errors, successful submission, refreshed content, feedback, keyboard/focus behavior and intended Back/Forward state. Cover the Turbo/Live transitions, return visits and repeated mounting relevant to this page.
-4. Wait for the transition's completion evidence: Drive, Frame, Stream and Live updates differ. Use application helpers or observable final state. A generic `turbo:load` wait, arbitrary delay or running container does not establish completion.
-5. Capture console, request and CSP failures with the application's diagnostics. If the package recorder is configured, read its `browser-diagnostics.json` through `uxor_browser_diagnostics` and open a returned `profileUri` when available. Use an available browser trace for timing; the package's `OPERATIONS.md` explains optional setup.
-6. Inspect the final diff and actual state before retrying an interrupted mutation. Report findings separately from command execution success, including failed or skipped checks and remaining unknowns. Review diagnostic output, traces and attachments for sensitive content before sharing.
+1. Identify the application root, PHP invocation, served URL and changed behavior. Inspect `uxor environment`;
+   use authorized execution probes when needed. Configuration presence does not prove runtime readiness.
+2. Reproduce the request or interaction. Record its URL, time, response status and `X-Debug-Token` when present.
+   Read that exact profile with the configured Mate CLI and inspect relevant exception, database, request and
+   logger collectors. Discover installed schemas before calling tools. Do not assume the newest profile is yours.
+3. If no token exists, use available logs, request evidence or browser traces. An early boot failure can precede
+   profiling. Preserve historical profiles/logs before a cache reset; current source changes do not invalidate
+   their value as historical observations.
+4. Trace the defect with Serena/Mago and current compiled bindings when available. Their application commands
+   require `--trust-project-code` before the command; `--write` is a separate grant for an authorized repair.
+   Add or select a regression
+   that fails on the defect, repair it and verify it passes. Keep existing test coverage and inspect diagnostic
+   changes; equal finding counts alone do not establish an unchanged report.
+5. Verify a fresh request after repair and exercise the relevant browser journey: validation, submission, content,
+   feedback, keyboard/focus behavior, history, return visits and repeated mounting.
+6. Wait for the observable final state appropriate to Drive, Frames, Streams or Live updates. A generic
+   `turbo:load` wait, arbitrary delay or running container does not prove completion.
+7. Capture console, request and CSP failures. When configured, `uxor_browser_diagnostics` reads the package
+   Playwright recorder and returns available profile URIs. Read the profile in the environment that served it.
+8. Inspect the final diff and actual state. Report checks, failures, skipped checks and concrete limits separately.
+   Review diagnostic output and traces for sensitive application data before sharing them.
 
-For initial installation or runtime-dependency changes, also verify boot and selected-component rendering
-with development dependencies omitted in an isolated install. Report the journey tested, application/runtime,
-source/package revisions and results. Scale checks to the change; UXor's full component suite is maintained in UXor.
+For initial installation or runtime-dependency changes, check boot and selected-component rendering with
+development dependencies omitted in an isolated install. Scale verification to the change and the application's tests.
+
+## References
+
+Read the selected `uxor://reference/<recipe>/README.md`,
+`uxor://reference/docs/APPLICATION-TESTING.md` and relevant `uxor://reference/docs/GUIDE.md` sections.
+Use `uxor://workflow/customer-management` for a matching list/edit/save journey.
+
+Use the application's Mate CLI's `resources:read` and installed `tools:inspect`. Bounded reference tools
+support continuation offsets. Detailed preparation limits, the request-diagnosis sequence and optional recorder
+setup are in `vendor/xormania/uxor/packages/uxor/OPERATIONS.md`; use the actual vendor directory.
+Compiled graph facts, historical profiles and a fresh successful request establish different things.
+
+If Mate resources are unavailable, read bundled guides under
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` and append the indexed reference path.
+Replace `vendor` with the application's configured Composer vendor directory.

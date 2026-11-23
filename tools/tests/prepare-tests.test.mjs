@@ -148,6 +148,18 @@ esac
     assert.equal(together.filter(({ output }) => output.includes('built=true')).length, 1);
 
     assert.match((await build()).output, /built=false/);
+    // Package-only and administrative inputs must be excluded by the real CSS scan and its build record.
+    const appCss = readFileSync(join(root, 'demo/assets/styles/app.css'), 'utf8');
+    const excludedFiles = ['composer.json', 'composer.lock', 'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md',
+        'SECURITY.md', '.github/pull_request_template.md'];
+    for (const path of ['packages/uxor', ...excludedFiles]) {
+        assert.ok(appCss.includes(`@source not "../../../${path}";`), `the demo must exclude ${path} from Tailwind candidates`);
+    }
+    mkdirSync(join(dir, 'packages/uxor/dev/app/templates'), { recursive: true });
+    writeFileSync(join(dir, 'packages/uxor/dev/app/templates/panel.html.twig'), '<kbd class="m-72">');
+    mkdirSync(join(dir, '.github'));
+    for (const path of excludedFiles) writeFileSync(join(dir, path), 'mt-80');
+    assert.match((await build()).output, /built=false/, 'excluded inputs keep the demo CSS record current');
     writeFileSync(join(dir, 'kit.css'), '.new { color: red }');
     assert.match((await build()).output, /built=true/);
     assert.equal(builds(), 2);

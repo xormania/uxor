@@ -1,35 +1,49 @@
 ---
 name: uxor-build
-description: Use when building a page or interaction in a consuming Symfony application with UXor components, Symfony Forms, Stimulus and Turbo, following that application's conventions.
+description: Use to understand, build or refactor a consuming Symfony application's feature with UXor components, Serena/Mago source tools, native Makers, Forms, Stimulus and Turbo.
 ---
 
-# Build an application feature with UXor
+# Understand and build an application feature
 
-Work in the consuming application's checkout, following its instructions and authorized task scope.
-Preserve its customized components and business code.
-
-## References
-
-Search `uxor_catalog` using `query`; continue with `data.next_offset` as `offset`.
-Read the selected `uxor://reference/<recipe>/README.md` and relevant
-`uxor://reference/docs/GUIDE.md` sections for component, Turbo/Live and security contracts.
-For a matching list/edit/save journey, use `uxor://workflow/customer-management` or the bounded
-`uxor_workflow` tool. Its local file is
-`vendor/xormania/uxor/packages/uxor/resources/workflows/customer-management.md`.
-
-Use `resources:read <uri> --format=json` with the application's configured Mate invocation,
-or `uxor_reference` for bounded pages. Reference files are also under
-`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` with the default Composer vendor
-directory; use the application's actual directory. Packaged source digests identify guidance;
-inspect the application's installed copies before relying on it.
+Follow the application's instructions and authorized task. Preserve its customized components and business code.
 
 ## Procedure
 
-1. Define the requested journey: initial, loading and empty states, inputs, validation, successful action, updated content, feedback, focus and Back/Forward behavior. Choose the relevant Turbo Drive, Frames, Streams or Live Component transitions.
-2. Inspect the application and reuse suitable UXor components or blocks. Use `mate-uxor-setup` for missing components and their dependencies.
-3. Reuse Symfony Forms, validation, routing and installed Makers for application wiring. Put business code in the application's classes. Inspect its actual autoloading and service configuration; installed UXor PHP commonly lives under `App\UXor\`.
-4. Follow the selected version's contracts for stable identifiers, Stimulus behavior and cleanup, theme roles, icons and CSP. In the documented profile, Flowbite supplies CSS and Stimulus supplies behavior; avoid a second initialization system.
-5. Complete validation responses, successful redirects and feedback across updates. Use the documented toast stream mechanism, including permanent regions. Match table history/update behavior to the journey, and follow upload/editor integration when used.
-6. Run `mate-uxor-verify` against the served interaction and inspect the final change. After an interrupted edit, inspect the existing state before retrying.
+1. Define the requested journey: initial/loading/empty states, inputs, validation, successful action, updated
+   content, feedback, focus and Back/Forward behavior. Select the relevant Turbo or Live transitions.
+2. Inspect the application with its existing tools. Mago/Serena application commands require explicit
+   `--trust-project-code` before the command; review effective extensions and the application first. Use Serena
+   for symbols, bodies, definitions and references.
+   Use Mate for compiled service detail and a fresh prepared graph for concrete wiring when useful.
+   Analysis dependencies do not establish measured calls or a complete application graph.
+3. Search the UXor catalog and inspect installed/customized components. Use `mate-uxor-setup` for missing
+   tools, components or dependencies. Discover installed Maker options before generation.
+4. Implement application-owned classes and wiring with Symfony Forms, validation and routing.
+   Use semantic edits when appropriate; the default provider is read-only, so enable `--write` before
+   `serena` or a Mago mutation only for an authorized edit, in addition to execution trust. Writable access includes
+   repository metadata. Re-query after edits instead of applying stale ranges.
+5. Follow the selected component contracts for identifiers, Stimulus cleanup, theme roles, icons and CSP.
+   Complete validation responses, redirects, feedback and the intended Turbo/Live update behavior.
+6. Use native Mago PHP/Twig formatting, lint, analysis and supported fixes. Inspect the diff and native findings.
+   Run focused application tests. Refresh with `uxor prepare --trust-project-code` before relying on stale
+   compiled facts; environment changes and untracked imported configuration require an explicit refresh too.
+7. Use `mate-uxor-verify` for the served interaction. After an interrupted mutation, inspect the actual state
+   before retrying.
 
-Report the behavior delivered, components reused, checks performed and specific remaining failures or unknowns.
+## References
+
+Search `uxor_catalog`, continue with `data.next_offset` and read the selected
+`uxor://reference/<recipe>/README.md`. Consult `uxor://reference/docs/GUIDE.md` for component,
+Turbo/Live and security contracts. For a matching list/edit/save journey, read
+`uxor://workflow/customer-management` or use bounded `uxor_workflow`.
+
+Use the application's configured Mate CLI for `resources:read` and `tools:inspect`; use `uxor_reference`
+for bounded pages. Packaged guidance is also under `vendor/xormania/uxor/packages/uxor/` with the
+default vendor directory. Its `OPERATIONS.md` explains source operations, preparation scope and diagnosis.
+Use the application's actual vendor directory and inspect its installed source before relying on references.
+
+Report delivered behavior, reused components, checks performed and specific remaining failures or unknowns.
+
+If Mate resources are unavailable, read bundled guides under
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` and append the indexed reference path.
+Replace `vendor` with the application's configured Composer vendor directory.

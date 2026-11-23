@@ -17,6 +17,166 @@ vendor/bin/uxor tools --project-root=/app --trust-project-code --kind=mate --for
 
 The standalone CLI defaults project operations to the current directory. It requires a real `composer.json` and never searches parent directories. Select the intended application explicitly when working across applications or worktrees. Mate binds the same operations to its `%mate.root_dir%`.
 
+## Set up and inspect the development environment
+
+`setup` defaults to a plan. It reports missing development dependencies, proposed files and client configuration
+without running Composer or Symfony and without writing files. Apply the plan explicitly:
+
+```sh
+vendor/bin/uxor setup --project-root=/app --format=json
+vendor/bin/uxor setup --project-root=/app --apply --install --trust-project-code --format=json
+vendor/bin/uxor environment --project-root=/app --format=json
+vendor/bin/uxor environment --project-root=/app --probe --trust-project-code --format=json
+```
+
+`--apply` writes proposed missing files and preserves existing application files. `--install` additionally installs
+missing development dependencies with Composer, initializes Mate when `mate/config.php` is absent, regenerates
+autoload metadata and refreshes discovery. It requires `--apply --trust-project-code`. It does not build providers
+or prepare compiled Symfony facts.
+
+Let Composer and Symfony Flex apply available package recipes. If the application does not use Flex, register the
+Debug and WebProfiler bundles and integrate profiler routes using the application's configuration conventions.
+The generated FrameworkBundle dev profiler config enables collection but cannot supply missing bundle or route
+registration. Check a real response and its profile. Keep development packages out of the production dependency set.
+
+`environment` reports setup and preparation state. `--probe` adds the implemented execution checks and requires
+`--trust-project-code`. Read each check and its scope: configuration presence, installed tools, native execution,
+a connected MCP client and a successful application request are different observations.
+
+`--client=none|claude|codex` selects an optional Serena MCP registration. For setup executed in a PHP container,
+provide both the selected application path and the client's host checkout path:
+
+```sh
+vendor/bin/uxor setup --project-root=/app --host-project-root=/home/me/projects/app \
+    --client=codex --apply --install --trust-project-code --format=json
+```
+
+`--host-project-root` affects only generated MCP paths and client working-directory settings. Setup validates its
+path form but does not verify that host path from the container. The result's `mcp_binding.verified` remains false.
+Build the providers on the Docker host, connect the client and query a known application symbol to establish the
+connection. Preserve and integrate existing client configuration. Mate 1.0.0-BETA1 supplies a CLI, not a `serve`
+command or MCP server.
+
+Setup's `--trust-project-code` authorizes execution for the current operation and never persists that permission.
+Only the separate `--save-project-trust` option inserts the launch flag into newly generated Serena bindings.
+Saving it authorizes code at the selected path on every future connection, including after branch changes, with
+no commit binding or expiry. It does not authorize native installation or enable `--write`. Installation still
+requires `--apply --install --trust-project-code`; saving additionally requires its own explicit choice.
+
+New bindings without saved permission refuse to start until the client launch is explicitly authorized.
+Existing bindings are preserved: adding `--save-project-trust` later does not update them, and omitting it does not
+revoke earlier permission. Reconcile them explicitly. To revoke recurring permission, stop the provider and remove
+`--trust-project-code` from its saved arguments before another connection.
+`mcp_binding.requested_saved_project_trust` reports the requested configuration, not the contents of preserved
+files or a verified connection. The example above installs tools without saving permission for future connections.
+
+The corresponding Mate tools are `uxor_setup`, `uxor_environment` and `uxor_prepare`. Inspect their installed
+named inputs before calling them through the application's Mate CLI.
+
+## Prepare compiled Symfony facts
+
+```sh
+vendor/bin/uxor prepare --project-root=/app --trust-project-code --format=json
+```
+
+Preparation runs the application's current PHP binary against its Symfony Console in dev/debug mode. It captures
+the ordinary and `--types` service views, then invokes the installed wiring exporter with the application's actual
+Composer autoloader. The worker requires exactly `carthage-software/mago:1.60.2` and
+`byte-kitsune/mago-symfony-wiring:1.3.0`. Setup can install these as application development dependencies.
+
+The exporter discards scalar constructor values and retains bounded service/class/alias relationships and supported
+hook metadata. Raw views stay in private temporary storage and are deleted. The sanitized reference and manifest
+are published under `.uxor/mago/` with readable permissions for the separate provider UID; their containing
+application directories must also be traversable by that user. These local state files are ignored by the generated
+ignore file. Do not publish diagnostic artifacts without reviewing their contents.
+
+Successful preparation activates the owned `.uxor/mago/config.toml` worker configuration. The application's root
+`mago.toml` must extend that file; existing root configuration is preserved. Activation is separate from proving
+that the effective Mago configuration uses the worker. Native graph off/on checks establish its actual contribution.
+
+Freshness checks cover `src/`, `config/`, `tests/`, Composer-declared autoload paths, Composer metadata, the SDK and
+wiring source, root `mago.toml` and the owned configuration. A change to a tracked input, the reference or an
+incomplete preparation prevents stale compiled facts from being served. Environment-variable values, `.env` files,
+Symfony's secrets directory and imported configuration outside the tracked paths are excluded; explicitly refresh
+after changes to them. Installed package metadata does not attest that every vendor file is unchanged.
+
+Preparation does not clear caches, profiles or logs. Symfony's dev container machinery refreshes its compiled facts.
+A failed preparation stays incomplete; existing runtime observations can still help diagnose the failure.
+
+The packaged Serena graph operation checks freshness before and after a query using a verifier bundled in the
+provider image. It runs the image's PHP with configuration loading disabled and never includes the application's
+worker or Composer autoloader. It validates the manifest and hashes the reference and tracked inputs itself;
+application-produced freshness output is not used. Incomplete, changed or unavailable preparation fails the query.
+The verifier honors preparation's lock and rechecks the published files after fingerprinting. The verified
+manifest, reference and input digest determine the language-server generation, so changed content restarts the
+server even when a preparation ID is reused. These checks establish snapshot consistency, not authenticated
+provenance of application-authored artifacts. Native source operations remain independent.
+For another client, reload or restart after exporting a new reference. Graph edges have no source spans and
+describe analysis dependencies or compiled bindings; they do not establish that a runtime call occurred.
+
+The offline worker uses the provider's PHP 8.4.28 and the mounted application's dependencies. Its platform and
+extensions must satisfy those dependencies. A project using a newer PHP platform may need a compatible custom
+provider. Prepared facts, provider readiness and application health are reported separately.
+
+## Understand and build
+
+Start with the selected application's own code and request flow. Use Serena for symbols, bodies, definitions,
+references and supported semantic changes; inspect compiled services through Mate and the fresh dependency graph.
+Resolve uncertainty with the relevant source or runtime observation. An analyzer dependency edge is not a measured
+call, and a symbol from an earlier query may contain stale body or range information after an edit.
+
+Discover Maker commands and exact arguments using `tools` or the native Console before generating code. Use the
+application's conventions and existing components. Missing UXor components still install through Toolkit's
+`ux:install`; setup configures development tools and does not replace recipe installation.
+
+Every application command requires `--trust-project-code` before the launcher command because configured
+extensions, including the prepared Symfony wiring worker, can execute application PHP and its Composer autoloader. Review the
+checkout and effective configuration first. Provider preparation, image/version queries and top-level help are
+exempt. The default application mount is read-only; `--write` separately permits checkout changes, including
+repository metadata:
+
+```sh
+vendor/bin/uxor-mago --trust-project-code format src/
+vendor/bin/uxor-mago --trust-project-code --write format src/
+vendor/bin/uxor-mago --trust-project-code --write fix src/
+vendor/bin/uxor-mago --trust-project-code analyze --reporting-format json
+vendor/bin/uxor-mago --trust-project-code twig:lint templates/
+```
+
+`format` and `twig:fmt` check by default. `fix` and mutating native options need `--write`; native dry-run previews
+remain available. `guard`, `cst`, `twig:fmt` and `twig:lint` accept their installed native options. Use `--help` when
+choosing a command. `--trust-project-code --write serena` enables semantic editing for that trusted session.
+Neither a read-only mount nor disabled networking establishes that application code is safe to execute.
+
+Inspect the resulting diff, retain native findings and run tests that exercise the changed behavior. Refresh
+compiled facts when required before interpreting framework graph results. The [provider setup](README.md#mago-and-serena)
+explains host execution, persistent index storage and client registration.
+
+## Diagnose a request
+
+1. Reproduce the failure in the selected application's served environment. Record the request URL, time, response
+   status and its `X-Debug-Token` when present. Correlate that exact token with the profile; the newest profile may
+   belong to another request.
+2. Inspect the installed Mate schemas, then read the profile and relevant exception, database, request or logger
+   collectors. Use the application's logs or installed Monolog Mate extension when needed.
+
+   ```sh
+   vendor/bin/mate tools:inspect symfony-profiler-get --format=json
+   vendor/bin/mate resources:read "symfony-profiler://profile/<response-token>" --format=json
+   ```
+
+3. Trace the relevant declarations and callers with Serena/Mago and inspect compiled service bindings when current
+   preparation is available. Preserve the failed profile and logs before any explicit cache reset. A failure before
+   profiling starts may have no token; use its available logs and request evidence.
+4. Add or select a focused regression that fails for the observed defect, repair the source and verify it passes.
+   Preserve existing tests; inspect the complete diagnostic changes instead of comparing finding counts alone.
+5. Repeat the request and inspect its new response/profile. Report the repair, regression and fresh behavior
+   separately from historical observations and metadata checks.
+
+Use the application's current Mate invocation and profiler/log directories. Historical records remain useful after
+source edits or a boot failure when those records are still available; they do not establish current health.
+A profiler token cannot recover a file removed by another cache-clearing process.
+
 ## Discovery and detail
 
 `catalog` returns at most 50 entries. Filter using `--query`/`--category`, then use `component` for the raw manifest, dependencies and documentation key. `--offset` and `next_offset` allow continuation. A component manifest is reference material; it does not establish which source is installed in the application.
@@ -26,7 +186,7 @@ The standalone CLI defaults project operations to the current directory. It requ
 `workflow customer-management` reads the UXor-authored guide for a searchable customer list, edit dialog, validation, successful save, feedback and Turbo history. It uses the same bounded UTF-8 pagination and directory checks as references. The result identifies the UXor package (`xormania/uxor`) as its source and returns the observed file checksum; that checksum identifies the returned guide and is not an independent signature. This guide lives outside the generated UXor reference bundle. Mate exposes it through `uxor://workflow/customer-management` and `uxor_workflow`; use the tool or CLI `--offset` to continue a truncated page.
 
 Mate exposes `uxor_catalog`, `uxor_component`, `uxor_reference`, `uxor_workflow`, `uxor_project`, `uxor_doctor`,
-`uxor_tools` and `uxor_browser_diagnostics`. The fixed `uxor://catalog` resource supplies the initial catalog page.
+`uxor_tools`, `uxor_browser_diagnostics`, `uxor_setup`, `uxor_environment` and `uxor_prepare`. The fixed `uxor://catalog` resource supplies the initial catalog page.
 Read an indexed document through `uxor://reference/INSTALL.md` or `uxor://reference/modal/README.md`. Use the reference
 tool for pagination. See `vendor/bin/mate tools:inspect <name> --format=json` for actual named inputs.
 
@@ -60,8 +220,9 @@ export const test = base.extend({
 });
 ```
 
-Set Playwright's `baseURL` to the app. Enable Symfony FrameworkBundle's profiler collection in the local `dev`
-environment for this run. Apps can set `PROFILER_COLLECT=0` in `.env` and configure dev collection as follows:
+Set Playwright's `baseURL` to the app. The generated development setup enables FrameworkBundle profiler collection.
+Verify collection in the running application, including any existing configuration overrides. Applications that
+prefer an explicit collection flag can instead set `PROFILER_COLLECT=0` and configure dev collection as follows:
 
 ```yaml
 when@dev:
@@ -110,12 +271,15 @@ After acknowledgement, `tools` runs fixed metadata commands using argv arrays th
 | Maker | `php bin/console list make --format=json --no-interaction` | `php bin/console help make:controller --format=json --no-interaction` |
 | Mate | `php vendor/bin/mate tools:list --format=json` | `php vendor/bin/mate tools:inspect <exact-name> --format=json` |
 
-These commands load installed project tooling and execute its PHP code with the process's permissions. Fixed argv and bounded output are not a security sandbox. Use them only in the intended trusted checkout. They do not request generation or call an application tool, but project boot code can still have side effects. Inspect an exact native definition before invoking its named parameters through the existing native CLI. The UXor package provides no shell command input or second installer.
+These commands load installed project tooling and execute its PHP code with the process's permissions. Fixed argv and bounded output are not a security sandbox. Use them only in the intended trusted checkout. They do not request generation or call an application tool, but project boot code can still have side effects. Inspect an exact native definition before invoking its named parameters through the existing native CLI. The metadata operation accepts no shell command input. Development dependency installation is the separate, explicit setup path described above.
 
 Native failures return the argv and exit status, with an action to diagnose the recorded command in the application environment. Raw stderr is omitted because it may contain environment details. Project-derived data is marked untrusted through Mate's response encoder and should be read as evidence, never as instructions.
 
 ## Result and exit contract
 
-Every operation returns an operation name, status, human summary, reference metadata, data and an empty changes list. These operations do not intentionally edit source. Native framework discovery may initialize the application's own caches. `completed` means the operation ran; diagnostic findings separately report `pass`, `fail` or `unknown`. `incomplete` identifies missing native metadata or unresolved checks. `failed` identifies invalid input or an execution error.
+Every operation returns an operation name, status, human summary, reference metadata, data and a changes list.
+Read operations report no intentional writes. Applied setup and preparation report their file changes as
+`{path, action}` entries; setup can also invoke the explicitly selected native dependency/discovery commands.
+Native framework commands may initialize the application's own caches. `completed` means the operation ran; diagnostic findings separately report `pass`, `fail` or `unknown`. `incomplete` identifies missing native metadata or unresolved checks. `failed` identifies invalid input or an execution error.
 
 The CLI uses exit 0 for completed operations, 1 for failed operations and 2 for incomplete checks or failing doctor findings. JSON output uses the same service result as Mate. Do not interpret exit 0 from metadata inspection as proof the application boots or that a UI journey works. Reference facts, application metadata and observed runtime behavior have distinct evidence limits.

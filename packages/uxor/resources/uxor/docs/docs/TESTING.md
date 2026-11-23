@@ -1635,9 +1635,15 @@ download of this commit's archive is not checked again within those 24 hours.
   that never read their content (they are export-ignored, the production image does not hold them, and the demo only
   links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
   `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
-  fingerprints, deleting it or making it a link does not. Any other change,
-  `ci.yml`, the tool, a pinned version, a rename or a deleted file included, gives every lane a new fingerprint. The
-  runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
+  fingerprints. Deleting it or changing its Git mode changes the fingerprint.
+- **Composer and the demo browsers.** The Chromium, Firefox and WebKit jobs check out the kit and demo, including
+  `packages/uxor/resources/browser/`, which the Playwright fixtures import. Their checkout omits the root Composer
+  manifest and lock and the rest of the independent package, apart from Git attributes governing the recorder.
+  The demo also excludes package files from its Tailwind scan. An edit confined to the independent consumer,
+  such as adding a lifecycle test, therefore keeps a verified browser pass eligible even on a stacked branch.
+  *Package* still checks that edit. Changes to the recorder, the demo's own lock, recipes, Playwright tests,
+  CI workflow or verifier require fresh browser evidence. Unusual Git entries such as symlinks remain fingerprinted.
+- **Age.** The runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
   its lane jobs' completion (the oldest job's, as GitHub's job list reports it and as the marker must say), never from
   its marker's creation.
 - **Evidence:** CI result records one artifact per lane that ran in its run, reuse on or off:

@@ -213,7 +213,7 @@ def run_analysis(tool: str, paths: list[str | Path], phpstan: str | Path, *, roo
             command = [str(root / phpstan), "analyse", "--no-progress", "--no-ansi", "--error-format=json",
                        "--configuration=tools/phpstan.neon", f"--autoload-file={DEMO_AUTOLOAD}"]
         else:
-            command = ["tools/mago", tool.removeprefix("mago-")]
+            command = ["tools/mago", "--trust-project-code", tool.removeprefix("mago-")]
             if tool != "mago-format":
                 command.extend(["--reporting-format", "json", "--reporting-target", "stdout"])
         process = run([*command, "--", *sorted(scope)], root)

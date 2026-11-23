@@ -47,8 +47,10 @@ kit_contrast='lint-kit php static-site fresh-install contrast demo'
 check ''                          .github/dependabot.yml
 
 # Read by people and agents: Contrast checks the generated lists, the plans and what the markdown teaches
-check 'contrast'                  CHANGELOG.md .github/pull_request_template.md
+check 'contrast'                  .github/pull_request_template.md
 check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs/NOTES.md
+# The current release heading sets the upgrade target and the references' links.
+check 'contrast package'          CHANGELOG.md
 # the inputs of the Composer package's generated references: Package checks their copies are up to date
 check 'contrast package'          docs/TESTING.md
 check 'contrast package'          docs/APPLICATION-TESTING.md
@@ -69,6 +71,7 @@ check ''                          tools/tests/icon-lint.test.mjs
 # What the lints read wherever it lies: a recipe's templates (icon-lint) and any markdown outside demo/ (docs-lint,
 # icon-lint); the demo's copies of the recipes are not read
 check "$kit_contrast package prod-image"     input/templates/components/Input.html.twig
+check "$kit_contrast package prod-image"     kbd/templates/components/Kbd.html.twig
 check "$kit_contrast prod-image"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
 check 'contrast demo'             tests/e2e/NOTES.md
 check 'php static-site contrast demo' tools/NOTES.md
@@ -267,6 +270,8 @@ check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
 check 'demo package'              packages/uxor/resources/browser/diagnostics.mjs
 check 'demo package'              packages/uxor/resources/browser/diagnostics.d.mts
+check 'demo package'              packages/uxor/.gitattributes
+check 'demo package'              packages/uxor/resources/.gitattributes
 check 'package'                   packages/uxor/tests/OperationsTest.php
 check 'package'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
 check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md

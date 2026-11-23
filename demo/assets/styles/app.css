@@ -1,6 +1,6 @@
 /*
  * UXor demo styles: Tailwind CSS, Flowbite CSS, the kit's theme and recipe styles,
- * and the demo's branding and documentation styles. Sources cover this repository.
+ * and the demo's branding and documentation styles.
  */
 @import "tailwindcss";
 @import "../vendor/flowbite/dist/flowbite.min.css";
@@ -13,3 +13,13 @@
 @import "./xor.css";
 @import "./recipe-doc.css";
 @source "../../..";
+/* The Composer dev package and its consumer have a separate asset pipeline. */
+@source not "../../../packages/uxor";
+@source not "../../../composer.json";
+@source not "../../../composer.lock";
+/* Administrative instructions and records do not supply demo utilities. */
+@source not "../../../CHANGELOG.md";
+@source not "../../../CONTRIBUTING.md";
+@source not "../../../AGENTS.md";
+@source not "../../../SECURITY.md";
+@source not "../../../.github/pull_request_template.md";
