@@ -184,15 +184,15 @@ def print_summary(result: dict) -> None:
         parts = [f"{len(timeline)} lifecycle operations recorded"]
         last = result["last_successful_operation"]
         if last:
-            parts.append(f"last success: {last['name']}")
-        if result["exit_code"]:
-            operation = result["current_operation"] or next(
-                (row for row in reversed(timeline) if row["state"] == "failed"), None)
-            if operation:
-                elapsed = operation["elapsed_seconds"]
-                duration = (f"{elapsed:.1f}s" if elapsed is not None
-                            else f"at least {operation['elapsed_at_least_seconds']:.1f}s")
-                parts.append(f"{operation['state']}: {operation['name']} ({duration})")
+            parts.append(f"last success: {last['name']} [operation {last['operation_id']}]")
+        operation = result["current_operation"]
+        if operation is None and result["exit_code"]:
+            operation = next((row for row in reversed(timeline) if row["state"] == "failed"), None)
+        if operation:
+            elapsed = operation["elapsed_seconds"]
+            duration = (f"{elapsed:.1f}s" if elapsed is not None
+                        else f"at least {operation['elapsed_at_least_seconds']:.1f}s")
+            parts.append(f"{operation['state']}: {operation['name']} [operation {operation['operation_id']}] ({duration})")
         print(", ".join(parts), file=sys.stderr)
     if result.get("telemetry_error"):
         print(result["telemetry_error"], file=sys.stderr)

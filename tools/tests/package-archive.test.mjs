@@ -25,8 +25,6 @@ function fixture(t) {
     git('checkout', '--quiet', '--detach', head);
     mkdirSync(dirname(join(checkout, checker)), { recursive: true });
     cpSync(join(root, checker), join(checkout, checker));
-    const journal = 'packages/uxor/dev/lifecycle_events.py';
-    cpSync(join(root, journal), join(checkout, journal));
 
     function commit(...paths) {
         git('add', '--', ...paths);

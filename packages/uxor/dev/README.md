@@ -72,9 +72,9 @@ python3 "$harness" attach "$run"
 
 Detach with **Ctrl-b d**. When nested under another default tmux session, use **Ctrl-b Ctrl-b d** to detach the
 inner session. The attached status bar shows the current phase, command and elapsed seconds during quiet commands.
-Give the printed run directory to another person or agent on the same host and account
-to follow the same run. CI's *Package* job starts one full lifecycle and observes it from a second process. It exercises install,
-first agent handoff, update, production without dev dependencies, restore, removal and the historical upgrade.
+Give the printed run directory to another person or agent on the same host and account to follow the same run.
+CI's *Package* job runs the full lifecycle once through `start` and `watch`. It exercises install, first agent
+handoff, update, production without dev dependencies, restore, removal and the historical upgrade.
 
 | Command | Result |
 |---|---|
@@ -118,6 +118,11 @@ The consumer's own browser workflow also runs in *Package*. The demo's separate 
 verified pass when only the Composer package or this fixture changes. Editing the diagnostics recorder shared
 with the demo triggers its browser tests too. See [Reused lanes](../../../docs/TESTING.md#reused-lanes).
 
+When adding a lifecycle case, *Package* already discovers `test_*.py` in `packages/uxor/dev/tests/`.
+To check whether a committed change affects demo reuse, compare the `lanes.demo` values printed by
+`node tools/ci/lane-evidence.mjs fingerprint --sha <base-commit>` and the same command with `--sha HEAD`.
+Matching fingerprints make an earlier verified Chromium pass eligible for reuse.
+
 ### Observe a real run from a local agent session
 
 From the repository root, run the observer test on a host with the native dependencies listed above.
@@ -128,7 +133,9 @@ UXOR_TEST_LIVE_CONSUMER=1 python3 packages/uxor/dev/tests/test_live_consumer.py 
 
 The test prints a run directory once it has resolved the candidate and started the private tmux session.
 It observes an operation during the real 0.3.2 upgrade, then finds that same operation in the completed timeline
-and checks the installed versions. To watch as well, attach from your own terminal. Keep your local coding agent
+and checks the installed versions. In CI, `UXOR_TEST_TMUX=1` enables this focused upgrade during *Package*'s
+development harness tests. Running discovery locally with that flag also requires the native Composer, PHP and
+tmux environment listed above. To watch as well, attach from your own terminal. Keep your local coding agent
 in its usual session on the same host and give it the checkout and the printed run directory.
 
 Ask the agent to run `status` while the test is running and report the current operation's ID, name, elapsed
@@ -279,6 +286,7 @@ Stimulus names need a text search too, so an empty references result does not pr
 |---|---|---|
 | The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
 | Install, update and remove the archive with Composer, use its Mate tools and skills and render the customized Kbd recipe across dev and production installs. | [Live Composer lifecycle in tmux](#live-composer-lifecycle-in-tmux) or `python3 packages/uxor/tools/check-package.py --consumer` | *Package* through tmux |
+| Observe a quiet command from a live terminal and match its operation ID to the final timeline. | [Run the local observer](#observe-a-real-run-from-a-local-agent-session). For controller and journal cases, run `UXOR_TEST_TMUX=1 python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_lifecycle_*.py'`. | *Package* exercises real attach/detach and observes the focused release upgrade. |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
 | The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the [browser setup](#the-customer-workflow) | *Package* |
 | The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |

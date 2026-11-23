@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+from contextlib import contextmanager
 import fnmatch
 import hashlib
 import io
@@ -29,7 +30,6 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[3]
 PACKAGE = ROOT / "packages/uxor"
 sys.path.insert(0, str(PACKAGE / "dev"))
-from lifecycle_events import operation
 
 PACKAGE_PATH = PACKAGE.relative_to(ROOT).as_posix()
 PACKAGE_NAME = "xormania/uxor"
@@ -73,6 +73,17 @@ REQUIRED_FILES = (
 ROOT_FILES = {"INSTALL.md", "LICENSE", "NOTICE", "README.md", "composer.json", "icon.svg", "kit.css", "kit.js",
               "manifest.json"}
 PACKAGE_ENTRIES = {"INSTRUCTIONS.md", "OPERATIONS.md", "README.md", *PACKAGE_DIRECTORIES}
+
+
+@contextmanager
+def operation(name: str):
+    """Load the live journal only when requested so archive verification also works standalone."""
+    if not os.environ.get("UXOR_LIFECYCLE_EVENTS"):
+        yield
+        return
+    from lifecycle_events import operation as record
+    with record(name):
+        yield
 
 
 def composer_command() -> list[str]:

@@ -134,10 +134,12 @@ class ObserverContractTest(unittest.TestCase):
         verify(receipt | {"target_version": "0.10.0"}, observed)
 
 
-@unittest.skipUnless(os.environ.get("UXOR_TEST_LIVE_CONSUMER") == "1", "Set UXOR_TEST_LIVE_CONSUMER=1 for a real tmux release upgrade")
+@unittest.skipUnless(os.environ.get("UXOR_TEST_TMUX") == "1" or os.environ.get("UXOR_TEST_LIVE_CONSUMER") == "1",
+                     "Set UXOR_TEST_LIVE_CONSUMER=1 to observe a real Composer upgrade through tmux")
 class LiveConsumerTest(unittest.TestCase):
     def test_observe_real_release_upgrade(self):
-        start = control("start", "--story", "release-upgrade", "--timeout", RUN_TIMEOUT, timeout=RUN_TIMEOUT + 15)
+        upgrade_timeout = 300
+        start = control("start", "--story", "release-upgrade", "--timeout", upgrade_timeout, timeout=upgrade_timeout + 15)
         self.assertEqual(start.returncode, 0, start.stdout)
         run = Path(start.stdout.strip())
         try:

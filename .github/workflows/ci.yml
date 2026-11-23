@@ -1191,7 +1191,7 @@ jobs:
                       run_dir=$(python3 "$harness" start) || launch_status=$?
                       echo "run_dir=$run_dir" >> "$GITHUB_OUTPUT"
                       if (( launch_status )); then exit "$launch_status"; fi
-                      python3 packages/uxor/dev/tests/test_live_consumer.py --observe "$run_dir"
+                      python3 "$harness" watch "$run_dir"
                   ) 2>&1 | tee "$RUNNER_TEMP/jev-consumer.log"
 
             - name: Retain the failed lifecycle run
