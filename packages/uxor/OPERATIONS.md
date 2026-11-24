@@ -340,7 +340,7 @@ vendor/bin/uxor browser-diagnostics var/uxor/browser-diagnostics.json --format=j
 vendor/bin/mate tools:call uxor_browser_diagnostics --path=var/uxor/browser-diagnostics.json --format=json
 ```
 
-The launcher uses Node.js 18 or later and npm to prepare a private Playwright runtime and Chromium on first use. It reuses
+The launcher uses Node.js 20 or later and npm to prepare a private Playwright runtime and Chromium on first use. It reuses
 that runtime on subsequent checks and leaves the application’s Composer and npm dependencies alone. Add
 `--wait-for '[data-page-ready]'` for a page that finishes rendering after load. It prints the saved artifact
 path even when the check finds a page error, failed request or HTTP error. The exit code is 0 for a clean visit,
