@@ -192,10 +192,6 @@ trusted-code preview routes. See [`docs/DEMO-SECURITY.md`](docs/DEMO-SECURITY.md
 The *Mago providers* workflow checks provider changes in pull requests against their base and on pushes to `dev`
 and `main`.
 
-The *PHP analysis comparison* workflow runs the existing PHPStan configuration and the pinned Mago analyzer on the
-same PHP sources. It also runs labeled controls and publishes machine-readable results for GitHub API clients.
-[Reports, evaluation and export](docs/TESTING.md#php-analysis-comparison)
-
 Before running `tools/mago` or enabling the `uxor-mago` server in Codex or Claude Code, review the checkout's
 launcher and `mago.toml`, including any configuration it inherits through `extends`. Use a checkout only if you
 trust those files and the programs they select. The launcher runs on your host. Inside the provider container,
@@ -569,8 +565,8 @@ are on the default branch.
 
 ### CI and test names
 
-- **Workflows** use short sentence-case names for their responsibility, such as *Release checks* or *PHP analysis
-  comparison*.
+- **Workflows** use short sentence-case names for their responsibility, such as *Release checks* or *Refresh image
+  pins*.
 - **Jobs** use short sentence-case names that identify what they validate or produce, such as *Browser checks* or
   *Lint kit*. Use a literal display name for a job that can be skipped before matrix expansion. GitHub shows
   that name as written when the job is skipped. Keep the condition at job level so a skip uses no runner.

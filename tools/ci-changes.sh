@@ -151,7 +151,7 @@ while IFS= read -r path; do
         .github/workflows/release-checks.yml) on workflows ;;
         # jev.yml and metadata.yml run on their own events, never in CI: actionlint only. CODEOWNERS and the mentions'
         # allowlist are read by Tool tests (the security policy, the mention check's cases), on every run
-        .github/workflows/jev.yml | .github/workflows/metadata.yml | .github/workflows/php-analysis-comparison.yml) on workflows ;;
+        .github/workflows/jev.yml | .github/workflows/metadata.yml) on workflows ;;
         .github/CODEOWNERS | .github/mention-allowlist) ;;
         .github/*) all ;;
 
@@ -210,8 +210,6 @@ while IFS= read -r path; do
         tools/tests/live-action.php | tools/tests/fixtures/fresh-app/*) on fresh-install ;;
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon | tools/ci/phpstan/composer.json | tools/ci/phpstan/composer.lock) on php ;;
-        # The separate PHP analysis comparison workflow exercises its collector, fixtures and exporter.
-        tools/ci/php-analysis-*.py | tools/ci/jev-php-analysis.mjs | tools/tests/test_php_analysis*.py | tools/tests/fixtures/php-analysis/*) ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
         # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
         # every run, also runs ci-metrics.mjs and the shard plan's timings
