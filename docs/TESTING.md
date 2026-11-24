@@ -1183,11 +1183,13 @@ another file the allow-list leaves out, the browser specs in `tests/`, the docs 
 two above, the rest of `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
 it: most pull requests run the lane beside *Kit PHP*, *Static site* and *Toolkit browser verification*, about 2 minutes 15 seconds
 on its own runner, in parallel, so it adds runner time but not the time to a verdict, which *Toolkit browser verification* sets.
-The release checks reuse an earlier pass only when nothing the suite reads changed; `docs/GUIDE.md` and `llms.txt`,
-pages of the image, count as read, the rest of `docs/` does not. In the release checks, the required *Release checks*
-verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip skips both), and
-the daily issue stays open, with a comment naming it, while the image fails. It is a plain build, sharing no cache with
-the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
+When the release suite runs, its production-image job can reuse the normal CI push's successful build and smoke test
+for the exact same tree. The workflow checks the producing repository, branch, head, CI workflow and attempt and
+verifies that both steps passed within a day. Reuse also requires both production job definitions and their
+workflow-level defaults to match the implementations checked for equivalence. If the matching push is active, the
+job waits briefly for its image result while the release browser tests run. Missing or failed evidence, manual runs
+and daily runs perform their own build and smoke test. The required *Release checks* verdict still waits for the
+image job, and a daily image failure keeps its issue open. The fallback is a plain build without the dev-image cache.
 [`tools/tests/prod-image-workflow.test.mjs`](../tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
 build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a
 recipe's tests, the docs or the tools, and that the dev image's bake steps read the compose files from the root.
@@ -2159,20 +2161,19 @@ for review runs this check too. Only the pull request publishes *Release checks*
 the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
 checks (manual)*.
 
-On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
-request in this repository merged with the same base and the workflow allows reuse for every changed path.
-The production image serves `docs/GUIDE.md` and `llms.txt`, so changes to them invalidate reuse. A passing pull
-request run uploads a
+On the release pull request, the suite can reuse a verified pass from the last 14 days against the same base when
+its runtime inputs are unchanged. A passing pull request run uploads a
 `release-checks-pr-passed-v1-<base>-<head>` artifact named by the two parents of the merge commit it tested, read from
 that commit. The consumer downloads the marker as a bounded ZIP and reads its single `commit` entry without
 extracting files. It verifies the producing run's repository, workflow, event and successful conclusion through
 GitHub, then looks up the recorded merge commit's two parents. The first must be the current base; the second must
 be that producing run's immutable `head_sha` (Actions reports the PR head here, not the synthetic merge SHA).
-The artifact name must match those independently verified parents. A filename alone cannot claim a future head,
-and malformed, unavailable or mismatched evidence runs the suite again. Only then does the next run compare the
-verified head with its own. A changelog-only edit can reuse the suite. Editing the workflow or its tools runs
-its suite again. The suite also runs when the base moved, the earlier run produced no marker, the producer was
-a fork, or the checkout cannot find the commit.
+The artifact name must match those independently verified parents. The recorded merge's tree must match its
+producer head's tree. The next run compares that tree with its prospective merge. Changes limited to the website,
+documentation, packaged references, or the root Composer `docs:check` and `docs:generate` scripts can reuse the
+pass. Changes to a runtime input, including the package browser recorder, the release workflow and its tools,
+require a fresh run. A moved base, a fork producer, stale or missing evidence, or a tree whose inputs cannot be
+compared also requires a fresh run.
 
 The workflow resolves the expected target once. Its checkout independently trusts only the immutable triggering
 event SHA (for the daily run, the `dev` commit it was started on); the resolver output cannot select another revision
