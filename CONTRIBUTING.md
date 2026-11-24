@@ -473,8 +473,7 @@ preceding heading, with `default` under the recipe title and `-2`, `-3` and so o
 ### Image pins
 
 Hosted browser CI uses the Microsoft Playwright image pinned in
-[`tools/playwright-image.json`](tools/playwright-image.json). Xorder provides independent development images that can
-be used for local diagnostics.
+[`tools/playwright-image.json`](tools/playwright-image.json).
 
 The [Refresh images workflow](.github/workflows/refresh-images.yml) checks the Playwright image and the packaged
 browser pins daily. It proposes pin updates through ordinary PR checks. Set the repository variable `UXOR_IMAGE_REFRESH_APP_CLIENT_ID`
