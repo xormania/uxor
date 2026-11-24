@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
 import { test } from 'node:test';
@@ -37,6 +37,29 @@ test('the test inventory diagnoses a missing consumer browser or runtime check',
     assert.notEqual(absent.status, 0, 'inventory verification rejects missing consumer checks');
     for (const path of checks) {
         assert.ok(absent.stderr.includes(path), `the diagnostic names ${path}:\n${absent.stderr}`);
+    }
+});
+
+test('the test inventory names a browser spec or a demo PHPUnit class it does not cite', (t) => {
+    const scratch = mkdtempSync(join(tmpdir(), 'uxor-inventory-test-'));
+    t.after(() => rmSync(scratch, { recursive: true, force: true }));
+    const checkout = join(scratch, 'checkout');
+    execFileSync('git', ['clone', '--quiet', '--shared', root, checkout]);
+    for (const path of ['tools/test-inventory.mjs', 'docs/TEST-INVENTORY.md']) {
+        cpSync(join(root, path), join(checkout, path));
+    }
+    const verify = () => spawnSync(process.execPath, ['tools/test-inventory.mjs'], { cwd: checkout, encoding: 'utf8', timeout: 15_000 });
+    assert.equal(verify().status, 0, 'the inventory cites every test of the checkout');
+
+    // a lab spec, a spec whose name is a word of the inventory's prose, and a demo test class, none of them cited
+    writeFileSync(join(checkout, 'tests/e2e/lab.uncited.spec.ts'), '');
+    writeFileSync(join(checkout, 'tests/e2e/states.spec.ts'), '');
+    mkdirSync(join(checkout, 'demo/tests/Uncited'), { recursive: true });
+    writeFileSync(join(checkout, 'demo/tests/Uncited/UncitedTest.php'), '<?php\n');
+    const result = verify();
+    assert.notEqual(result.status, 0, 'an uncited test fails the inventory');
+    for (const path of ['tests/e2e/lab.uncited.spec.ts', 'tests/e2e/states.spec.ts', 'demo/tests/Uncited/UncitedTest.php']) {
+        assert.ok(result.stderr.includes(`${path} is cited nowhere`), `the diagnostic names ${path}:\n${result.stderr}`);
     }
 });
 

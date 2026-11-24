@@ -7,6 +7,9 @@
 //   (`tests/e2e/<name>.spec.ts`), `recipe:<name>` (a spec in `<name>/tests/`), `shot:<recipe>` (a recipe), a PHPUnit
 //   class (`FooTest`, `FooTest::testBar`, in `demo/tests/` or `website/tests/`), a spec, test file, `tools/` script or consumer check path. Struck text
 //   (`~~…~~`) is history and is not read;
+// - a test the inventory does not name: every `tests/e2e/*.spec.ts` must be cited (as `tests/e2e/<name>.spec.ts`,
+//   `` `<name>` ``, a `lab.<name>` anywhere, a matrix cell, or a name in a table row's last cell, its tests column)
+//   and every PHPUnit class in `demo/tests/` as `` `FooTest` ``;
 // - a rule of FOR-AGENTS.md's "Working well" (a bullet's bold lead-in) has no row in the inventory's "Rules and their
 //   tests" (its first column, the lead-in as written), a row names a rule that is gone, or a row names no test and is
 //   not marked `advice` or `gap`.
@@ -84,6 +87,7 @@ for (const [, name] of inventory.matchAll(/\bshot:([a-z0-9-]+)/g)) {
     }
 }
 const phpTests = new Map();
+const demoPhpTests = [];
 const walk = (dir) => {
     for (const entry of readdirSync(join(root, dir), { withFileTypes: true })) {
         const path = `${dir}/${entry.name}`;
@@ -91,12 +95,17 @@ const walk = (dir) => {
             walk(path);
         } else if (entry.name.endsWith('Test.php')) {
             phpTests.set(entry.name.slice(0, -4), read(path));
+            if (path.startsWith('demo/')) {
+                demoPhpTests.push(path);
+            }
         }
     }
 };
 walk('demo/tests');
 walk('website/tests');
+const citedPhpTests = new Set();
 for (const [, test, method] of inventory.matchAll(/`([A-Z]\w*Test)(?:::(test\w+))?`/g)) {
+    citedPhpTests.add(test);
     const source = phpTests.get(test);
     if (undefined === source) {
         errors.push(`docs/TEST-INVENTORY.md: ${test} is not a test class in demo/tests/ or website/tests/`);
@@ -110,7 +119,30 @@ for (const [, path] of inventory.matchAll(/`([\w./-]+(?:\.spec\.ts|Test\.php)|to
     }
 }
 
-// 3. Every rule of FOR-AGENTS.md's "Working well" has a row naming its tests (checked above), or `advice` or `gap`
+// 3. Every browser spec and every demo PHPUnit class is cited
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const testsColumns = [
+    ...matrix.flatMap(([, ...cells]) => cells),
+    ...inventory.split('\n').filter((line) => line.startsWith('|') && !/^\|[-| ]+\|$/.test(line)).map((line) => line.slice(1, -1).split('|').at(-1)),
+].join('\n');
+const specFiles = readdirSync(join(root, 'tests/e2e')).filter((name) => name.endsWith('.spec.ts')).sort();
+for (const file of specFiles) {
+    const name = escape(file.slice(0, -'.spec.ts'.length));
+    const cited = new RegExp(`tests/e2e/${name}\\.spec\\.ts|\`${name}\``).test(inventory)
+        || (file.startsWith('lab.') && new RegExp(`(?<![\\w.-])${name}(?![\\w-])`).test(inventory))
+        || new RegExp(`(?<![\\w./:-])${name}(?![\\w-]|\\.\\w)`).test(testsColumns);
+    if (!cited) {
+        errors.push(`docs/TEST-INVENTORY.md: tests/e2e/${file} is cited nowhere: add a row naming what it covers`);
+    }
+}
+for (const path of demoPhpTests.sort()) {
+    const test = path.split('/').at(-1).slice(0, -4);
+    if (!citedPhpTests.has(test)) {
+        errors.push(`docs/TEST-INVENTORY.md: ${path} is cited nowhere: add a row naming \`${test}\``);
+    }
+}
+
+// 4. Every rule of FOR-AGENTS.md's "Working well" has a row naming its tests (checked above), or `advice` or `gap`
 const rules = [...section(read('FOR-AGENTS.md'), 'FOR-AGENTS.md', 'Working well').matchAll(/^- \*\*(.+?)\*\*/gm)].map(([, rule]) => rule);
 const ruleRows = table(section(inventory, 'docs/TEST-INVENTORY.md', 'Rules and their tests'));
 for (const rule of rules) {
@@ -135,4 +167,4 @@ if (errors.length > 0) {
     console.error([...new Set(errors)].join('\n'));
     process.exit(1);
 }
-console.log(`test-inventory: ${rows.size} matrix rows, ${rules.length} rules, ${phpTests.size} PHPUnit classes checked`);
+console.log(`test-inventory: ${rows.size} matrix rows, ${rules.length} rules, ${phpTests.size} PHPUnit classes checked; ${specFiles.length} specs and ${demoPhpTests.length} demo PHPUnit classes cited`);

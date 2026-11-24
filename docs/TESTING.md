@@ -1546,9 +1546,11 @@ What differs between the engines, met so far, and how the kit and the suite stay
   (a 204) ends that window. Anywhere else they fail the test: `smoke.spec.ts` ("the page guard") plants them during a
   full load, outside one and after a 204, in every engine.
 - **A same-document navigation of a frame, under request interception:** Firefox cancels the frame's subresources still
-  loading (`NS_BINDING_ABORTED`) and requests them again, which load. The gallery's preview frames do it as they start
-  (Turbo's `history.replaceState`), and `demo-app.spec.ts`'s 320px tests of `/r/social-login` and
-  `/r/oauth-provider-button` failed on the cancelled first attempts of the Google logos (17 of 40 runs locally). It
+  loading (`NS_BINDING_ABORTED`) and requests them again, which load. The gallery's preview frames did it as they
+  started (Turbo's `history.replaceState`): while the demo served the gallery, its 320px tests of `/r/social-login` and
+  `/r/oauth-provider-button` failed on the cancelled first attempts of the Google logos (17 of 40 runs locally). Those
+  pages are now the static website's, whose browser tests (`website/tests/browser/website.spec.ts`) put a stand-in in
+  each preview frame; `smoke.spec.ts` ("the page guard › a cancelled local subresource") plants the case. It
   happens only because the guard's route turns on interception for every request, in Firefox: without it, nothing is
   cancelled. `guardPage()` excuses such a cancelled image only once the same URL, from the same frame and document, was
   requested again after it and received (*Every test: fail on what the user would not see*).
