@@ -507,6 +507,27 @@ export async function recordDropzoneEvents(
     return () => page.evaluate((id) => [...(window as any).__dropzoneEvents[id]] as string[], id);
 }
 
+/** The UX Dropzone events of an add, in the order 3.8 dispatches them: files left out, the files offered, the change. */
+export const dropzoneAddEvents = ['dropzone:reject', 'dropzone:pre-add', 'dropzone:change'] as const;
+
+/** The Dropzone (its `dropzone-assist` wrapper) around the file input `#id`. */
+export const zoneOf = (page: Page, id: string) => page.locator(`[data-controller~="dropzone-assist"]:has(#${id})`);
+
+/** The names of the files the input holds. */
+export const fileNames = (target: Locator) => target.evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name));
+
+/** Drops files on the input as the browser does: the drop event, then the files set on the input and its change event. */
+export const dropFiles = (target: Locator, files: { name: string; type: string }[]) =>
+    target.evaluate((element: HTMLInputElement, files) => {
+        const dataTransfer = new DataTransfer();
+        for (const { name, type } of files) {
+            dataTransfer.items.add(new File([name], name, { type }));
+        }
+        element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+        element.files = dataTransfer.files;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+    }, files);
+
 /** Whether the `<dialog>` is open, and shown modal (`:modal`: the page behind it inert, the dialog in the top layer). */
 export function dialogState(dialog: Locator): Promise<{ open: boolean; modal: boolean }> {
     return dialog.evaluate((element: HTMLDialogElement) => ({ open: element.open, modal: element.matches(':modal') }));

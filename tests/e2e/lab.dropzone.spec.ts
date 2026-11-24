@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, turboVisitDone, countEvents } from './fixtures';
+import { test, expect, turboVisitDone, countEvents, zoneOf } from './fixtures';
 import { png, text } from './files';
 import { advanceFrame, back, forward, reloadFrames, sendStream, turboOperation, visit } from './transitions';
 
@@ -10,7 +10,6 @@ import { advanceFrame, back, forward, reloadFrames, sendStream, turboOperation, 
  * included, and its Remove button after it: lab.value-matrix (`a dropzone in a POST form`).
  */
 
-const zoneOf = (page: Page, id: string) => page.locator(`[data-controller~="dropzone-assist"]:has(#${id})`);
 const fileCount = (input: Locator) => input.evaluate((element: HTMLInputElement) => element.files?.length ?? 0);
 
 /** Counts the `dropzone:change`, `dropzone:clear` and `dropzone:remove` events from now on, by type. */
