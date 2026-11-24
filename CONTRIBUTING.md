@@ -357,6 +357,7 @@ dirs=(); for manifest in */manifest.json; do if [ -d "${manifest%/manifest.json}
 phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php -- "${dirs[@]}" demo/src/Demo demo/tests   # use the locked tool with its Symfony and PHPUnit extensions
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
+KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh --smoke   # Docker CI: representative installed pages, assets and a Live action over HTTPS
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below
 npx playwright test --project=smoke --project=examples   # Toolkit on Chromium, including screenshots
 npx playwright test --project=demo-app                   # example app on Chromium, including layout screenshots

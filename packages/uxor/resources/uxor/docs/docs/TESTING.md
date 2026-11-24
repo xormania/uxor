@@ -1235,10 +1235,11 @@ and lab.nav-menu.
 **Catches:** what only a new project shows: a missing dependency, a Flex recipe that changes a file, PHP copied into
 `src/` that does not boot.
 
-A script creates a new Symfony app, installs the kit as users do, and fetches its pages and a Live action with
-`curl`, without a browser. Two scripts do it: on a Symfony skeleton with the kit from the last commit, and in a Symfony
-Docker project with the kit from GitHub. They share the steps a user takes (the packages, the recipes in order, the app
-they write); each keeps where the app runs, where the kit comes from and how the app is served.
+The host check creates a fresh Symfony 7.4 app, installs the kit from the last commit's archive, and runs the full
+HTTP scenario. The CI Docker check starts a fresh Symfony Docker project on Symfony 8.1, downloads the kit from
+GitHub, and exercises the installed dashboard, its JavaScript assets, the signup form, and a Live action over HTTPS
+after restarting the workers. Both follow the installer's Composer and Chart AssetMapper instructions. Run the Docker
+script without `--smoke` for the full HTTP scenario, as the release publication workflow does before tagging.
 
 Here: [`fresh-install.sh`](https://github.com/xormania/uxor/blob/0.3.5/tools/tests/fresh-install.sh), [`docker-install.sh`](https://github.com/xormania/uxor/blob/0.3.5/tools/tests/docker-install.sh),
 their shared steps [`install-scenario.sh`](https://github.com/xormania/uxor/blob/0.3.5/tools/tests/install-scenario.sh),

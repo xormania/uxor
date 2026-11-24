@@ -1142,8 +1142,8 @@ jobs:
               with:
                   persist-credentials: false
 
-            # the kit as users get it: GitHub's archive of this commit, installed in a fresh Symfony Docker project on
-            # the latest Symfony (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
+            # the kit as users get it: GitHub's archive of this commit, installed and exercised over HTTPS in a new
+            # Symfony Docker project. The host job runs the full scenario (the log also goes to Jev).
             - name: ux:install from GitHub in a fresh Symfony Docker project
               id: install
               env:
@@ -1152,7 +1152,7 @@ jobs:
                   UX_TOOLKIT_VERSION: ${{ env.UX_TOOLKIT_MINIMUM_VERSION }}
               run: |
                   set -o pipefail
-                  tools/tests/docker-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+                  tools/tests/docker-install.sh --smoke 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)

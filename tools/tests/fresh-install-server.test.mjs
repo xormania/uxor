@@ -129,3 +129,54 @@ test('HTTP checks bound connection and response time while forwarding caller opt
     }
     assert.ok(options.includes('--insecure'));
 });
+
+test('the Docker smoke assertions exercise the installed pages, a controller asset and a Live request', async (t) => {
+    const requests = [];
+    let actionStatus = 200;
+    const pages = new Map([
+        ['GET /', '<h1>Dashboard</h1>Recent orders<aside id="sidebar" data-turbo-permanent><div id="toasts"></div>'
+            + '<script type="importmap">{"imports":{"fixture":"/assets/controllers/fixture.js"}}</script>'],
+        ['GET /register', '<input id="form_email" class="rounded-base"><label for="form_email" class="text-heading">Email</label>'
+            + '<p id="form_plainPassword_help">At least 12 characters</p>'],
+        ['GET /live-orders', '<div data-live-name-value="LiveOrders" data-live-props-value="{}"></div>'],
+    ]);
+    const server = createServer((request, response) => {
+        const endpoint = `${request.method} ${request.url}`;
+        requests.push(endpoint);
+        if (pages.has(endpoint)) response.end(pages.get(endpoint));
+        else if (endpoint === 'GET /assets/controllers/fixture.js') {
+            response.writeHead(200, { 'Content-Type': 'text/javascript' }).end('export {};');
+        } else if (endpoint === 'POST /_components/LiveOrders/goTo') {
+            response.writeHead(actionStatus).end('Showing <span>11–20</span> of <span>25</span>');
+        } else response.writeHead(404).end();
+    });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+
+    const checker = join(root, 'tools/tests/check-fresh-app.sh');
+    const base = `http://127.0.0.1:${server.address().port}`;
+    async function check(...options) {
+        const child = spawn('bash', [checker, ...options, base, '--noproxy', '*'], { timeout: 5000 });
+        let output = '';
+        child.stdout.on('data', (data) => { output += data; });
+        child.stderr.on('data', (data) => { output += data; });
+        const [status, signal] = await once(child, 'close');
+        assert.equal(signal, null, output);
+        return { status, output };
+    }
+
+    const smoke = await check('--smoke');
+    assert.equal(smoke.status, 0, smoke.output);
+    assert.deepEqual(requests, ['GET /', 'GET /assets/controllers/fixture.js', 'GET /register', 'GET /live-orders',
+        'POST /_components/LiveOrders/goTo']);
+
+    const full = await check();
+    assert.notEqual(full.status, 0, full.output);
+    assert.match(full.output, /\/orders\?.* answered 404/);
+
+    actionStatus = 500;
+    const broken = await check('--smoke');
+    assert.notEqual(broken.status, 0, broken.output);
+    assert.match(broken.output, /goTo action answered 500/);
+});

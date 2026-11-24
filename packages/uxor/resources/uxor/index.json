@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "98fbdaf0d54543dd7a5a83f59bcb879798606757a5edc37a2e0d97e7e9855fc2",
+        "inputs_sha256": "278fbc76379927cfc6d152c4b6322000dec000c5f676c673f5baf943e8708439",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "guide_catalog_sha256": "a87ef98172b494cacf5929a32f0a967a54e41c3842a534f8e9468d015dd52a5f",
         "license": "MIT"
@@ -1836,8 +1836,8 @@
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "1af3c490f83f870c0e4eaa81989d855e9c5ae796e557acb0c46aedd3c7da850f",
-            "source_sha256": "db7c7b76323603893b9a1da92aa0298dba89d02b158eaf92df81844550a677ba",
+            "sha256": "aa7390bf5ec7d67bf05f3b1b70f7666cfb019d8e6cae47c01fd767c1b3c60daa",
+            "source_sha256": "e0190c62147e801b489bca4d02198e1849d14cf3e657b23873b256f6f7d0fb09",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/TESTING.md"
         },
         "drawer/README.md": {
