@@ -11,6 +11,8 @@ import { crc32, deflateRawSync } from 'node:zlib';
 import { stepIn } from '../ci/step-attempts.mjs';
 
 const tool = fileURLToPath(new URL('../ci/lane-evidence.mjs', import.meta.url));
+const browserPolicy = 'tools/ci/browser-checkout.patterns';
+const browserPatterns = () => readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8');
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
 const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
@@ -38,6 +40,7 @@ function scratch(t) {
     for (const [path, content] of Object.entries({ '.github/workflows/ci.yml': 'name: CI\n', 'CHANGELOG.md': '# Changelog\n', 'AGENTS.md': 'agents\n', 'button/README.md': '# Button\n', 'kit.css': '' })) {
         write(path, content);
     }
+    write(browserPolicy, browserPatterns());
     git('add', '-A');
     git('commit', '-qm', 'base');
     // the stub gh: `gh api <path>` answers the route's JSON, text or file; `fail: 'HTTP 502'` fails `failTimes` times
@@ -270,10 +273,43 @@ test('browser fingerprints omit package-only regular files but include shared fi
     fx.git('add', consumer);
     fx.git('commit', '-qm', 'add a package symlink');
     check('adding a package symlink', true);
+    fx.commit('README.md', 'edit with a symlink in the tree\n');
+    check('a tree with a link conservatively keeps all regular files', true);
     const gitlink = 'packages/uxor/dev/submodule';
     fx.git('update-index', '--add', '--cacheinfo', `160000,${fx.head()},${gitlink}`);
     fx.git('commit', '-qm', 'add a package gitlink');
     check('adding a package gitlink', true);
+});
+
+test('only browser lanes read the contents of Playwright specs in the suite and in a recipe', (t) => {
+    const fx = scratch(t);
+    fx.commit('button/manifest.json', '{"name":"button"}\n');
+    const browser = ['demo', 'engines'];
+    for (const [path, consumers] of [
+        ['tests/e2e/example.spec.ts', browser],
+        ['button/tests/example.spec.ts', browser],
+        ['unclassified/tests/example.spec.ts', REUSABLE],
+        ['tests/e2e/fixtures.ts', REUSABLE],
+        ['.gitattributes', REUSABLE],
+    ]) {
+        const first = fingerprints(fx, fx.commit(path, 'first\n')).lanes;
+        const second = fingerprints(fx, fx.commit(path, 'second\n')).lanes;
+        for (const lane of REUSABLE) {
+            assert.equal(first[lane] !== second[lane], consumers.includes(lane), `${lane} after editing ${path}`);
+        }
+    }
+});
+
+test('replacing a browser spec with a link invalidates every lane', (t) => {
+    const fx = scratch(t);
+    const path = 'tests/e2e/example.spec.ts';
+    const regular = fingerprints(fx, fx.commit(path, 'initial\n')).lanes;
+    rmSync(join(fx.repo, path));
+    symlinkSync('../../kit.css', join(fx.repo, path));
+    fx.git('add', path);
+    fx.git('commit', '-qm', 'replace browser spec with a link');
+    const linked = fingerprints(fx, fx.head()).lanes;
+    for (const lane of REUSABLE) assert.notEqual(linked[lane], regular[lane], lane);
 });
 
 // plan ---------------------------------------------------------------------------------------------------------------------
@@ -870,26 +906,52 @@ function workflowJobs(file) {
     return { workflow, jobs, job: (id) => jobs.find((j) => j.id === id) };
 }
 
-test('the CI browser checkout physically excludes the independent package and keeps shared browser inputs', (t) => {
+test('an absent or different checkout policy at a producer revision cannot hide a browser input', (t) => {
+    for (const rules of [null, '/*\n']) {
+        const fx = scratch(t);
+        const sha = fx.commit(browserPolicy, rules);
+        const previous = fingerprints(fx, sha).lanes;
+        const edited = fingerprints(fx, fx.commit('docs/PLAN-history.md', 'would be present under the old rules\n')).lanes;
+        for (const lane of ['demo', 'engines']) assert.notEqual(edited[lane], previous[lane], lane);
+        assert.equal(plan(fx, producer(fx, sha, previous.demo)).outputs.demo, 'run');
+    }
+});
+
+test('the browser checkout and evidence agree on absent and present inputs', (t) => {
     const { job } = workflowJobs('ci.yml');
-    const checkout = job('demo').text.split(/\n(?= {12}- )/).find((step) => step.includes('uses: actions/checkout@'));
-    assert.match(checkout, /sparse-checkout-cone-mode: false/);
-    const patterns = checkout.match(/^ {18}sparse-checkout: \|\n((?: {22}\S.*\n)+)/m);
-    assert.ok(patterns, 'the browser checkout declares its input patterns');
+    const demo = job('demo').text;
+    assert.match(demo, /git sparse-checkout set --no-cone --stdin < ["']?tools\/ci\/browser-checkout[.]patterns/,
+        'the browser job must apply the tested policy before it reads project inputs');
+    const omitted = [
+        'composer.json', 'composer.lock', 'packages/uxor/dev/lifecycle-tmux.py',
+        'packages/uxor/src/Command.php', 'packages/uxor/resources/browser-extra/example.mjs',
+        'README.md', 'docs/PLAN-a-feature.md', 'docs/ci/issue/example.json', '.github/workflows/release.yml',
+        '.github/CODEOWNERS', '.github/dependabot.yml', '.github/mention-allowlist', '.github/ISSUE_TEMPLATE/bug.yml',
+        'tests/e2e/release.fuzz.spec.ts', 'tests/e2e/release.long-session.spec.ts', 'tests/e2e/leak-detector.mjs',
+        'tools/monthly/trends.mjs', 'tools/contrast/pairs.json', 'tools/tests/prepare-tests.test.mjs',
+    ];
+    const present = [
+        'demo/composer.lock', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
+        'packages/uxor/resources/browser/diagnostics.mjs', 'packages/uxor/resources/browser/nested/recorder.mjs',
+        'packages/another-package/manifest.json', 'new-recipe/templates/components/Example.html.twig',
+        'tests/e2e/demo-app.spec.ts', 'tools/tests/sync-demo.sh', 'tools/tests/fixtures/sync-kit/widget/manifest.json',
+        'docs/GUIDE.md', 'INSTALL.md', 'button/README.md', '.github/workflows/ci.yml', 'tools/ci-changes.sh',
+        '.github/actions/jev-diagnosis/action.yml', 'tests/e2e/examples/release.widget.spec.ts', browserPolicy, 'new-input/unknown.txt',
+    ];
     const fx = scratch(t);
-    const omitted = ['composer.json', 'composer.lock', 'packages/uxor/dev/lifecycle-tmux.py',
-        'packages/uxor/src/Command.php', 'packages/uxor/resources/browser-extra/example.mjs'];
-    const present = ['demo/composer.lock', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
-        'packages/uxor/resources/browser/diagnostics.mjs',
-        'packages/uxor/resources/browser/nested/recorder.mjs', 'packages/another-package/manifest.json',
-        'new-recipe/templates/components/Example.html.twig', 'tests/e2e/demo-app.spec.ts'];
     for (const path of [...omitted, ...present]) {
         mkdirSync(join(fx.repo, path, '..'), { recursive: true });
-        writeFileSync(join(fx.repo, path), 'fixture\n');
+        writeFileSync(join(fx.repo, path), path === browserPolicy ? browserPatterns() : 'fixture\n');
     }
     fx.git('add', '-A');
-    fx.git('commit', '-qm', 'add browser and package files');
-    fx.git('sparse-checkout', 'set', '--no-cone', '--', ...patterns[1].trim().split('\n').map((line) => line.trim()));
+    fx.git('commit', '-qm', 'add browser and repository files');
+    const base = fingerprints(fx, fx.head()).lanes;
+    for (const path of omitted) writeFileSync(join(fx.repo, path), 'changed\n');
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'edit repository-only inputs');
+    const edited = fingerprints(fx, fx.head()).lanes;
+    for (const lane of ['demo', 'engines']) assert.equal(edited[lane], base[lane], lane);
+    fx.git('sparse-checkout', 'set', '--no-cone', '--', ...browserPatterns().trim().split('\n'));
     for (const path of omitted) assert.equal(existsSync(join(fx.repo, path)), false, path);
     for (const path of present) assert.equal(existsSync(join(fx.repo, path)), true, path);
     assert.equal(fx.git('status', '--porcelain'), '');
@@ -1372,6 +1434,7 @@ test("What to check's engines step: pass, missing or another tree, from the merg
     const step = stepIn(workflow, 'changed', 'engines');
     mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
     writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    writeFileSync(join(fx.repo, browserPolicy), browserPatterns());
     fx.git('add', '-A');
     fx.git('commit', '-qm', 'the tool');
     const base = fx.head();
@@ -1836,6 +1899,7 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
     // a release pull request: its head, and GitHub's merge of it into main
     mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
     writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    writeFileSync(join(fx.repo, browserPolicy), browserPatterns());
     fx.git('add', '-A');
     fx.git('commit', '-qm', 'the tool');
     const base = fx.head();

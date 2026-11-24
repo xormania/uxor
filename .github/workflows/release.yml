@@ -76,7 +76,7 @@ jobs:
                   echo "To release: ${versions:- none}"
 
             # before any install check: a tag that points at another commit than the one that adds its heading fails
-            # the run here (move or delete the tag by hand, CONTRIBUTING.md, Releases)
+            # the run here. See CONTRIBUTING.md, Releases, for checking a tag conflict against Packagist.
             - name: Plan the tags
               id: plan
               if: steps.versions.outputs.versions != ''

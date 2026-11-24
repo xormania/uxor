@@ -8,9 +8,6 @@
 // result's step: record, then verdict). The markers `finish` writes are what later runs find, zipped as GitHub serves
 // an artifact. No marker is written by hand, except where a row is about a forged or damaged one.
 //
-// A row the tool does not satisfy as written stays a test, marked `todo` with the word FINDING and why: it runs and is
-// reported as failing ("not ok ... # TODO"), without failing the suite while the fix is open.
-//
 // Run: node --test tools/tests/lane-evidence.acceptance.test.mjs
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -35,6 +32,7 @@ const ALL = Object.fromEntries(SELECTOR_LANES.map((lane) => [lane, true]));
 const REUSABLE = ['php', 'demo', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const DAY_LANES = ['fresh-install', 'lint-kit', 'package'];
 const CHROMIUM_SHARDS = 6;
+const chromiumJobs = (count) => Array.from({ length: count }, (_, i) => `Demo + Playwright (chromium ${i + 1}/${count})`);
 
 // ci.yml's job names, per lane
 const LANE_JOBS = {
@@ -44,7 +42,7 @@ const LANE_JOBS = {
     package: ['Package'],
     'fresh-install': ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'],
     'lint-kit': ['Lint kit (locked toolkit)', 'Lint kit (minimum toolkit)'],
-    demo: Array.from({ length: CHROMIUM_SHARDS }, (_, i) => `Demo + Playwright (chromium ${i + 1}/${CHROMIUM_SHARDS})`),
+    demo: chromiumJobs(CHROMIUM_SHARDS),
     engines: ['firefox', 'webkit'].flatMap((b) => [1, 2, 3].map((s) => `Demo + Playwright (${b} ${s}/3)`)),
 };
 // CI result's `needs` names for the lanes that are jobs of their own
@@ -71,7 +69,8 @@ function zip(name, data) {
  * A repository shaped like UXor's (the files the rows name) and a simulated GitHub holding its CI runs, their jobs and
  * their artifacts. `gh api <path>` is a stub answering from that state.
  */
-function world(t) {
+function world(t, chromiumShards = CHROMIUM_SHARDS) {
+    const laneJobs = { ...LANE_JOBS, demo: chromiumJobs(chromiumShards) };
     const dir = mkdtempSync(join(tmpdir(), 'lane-acceptance-'));
     t.after(() => rmSync(dir, { recursive: true, force: true }));
     const repo = join(dir, 'repo');
@@ -106,6 +105,7 @@ function world(t) {
         'demo/composer.lock': '{"packages": []}\n',
         'demo/Dockerfile': 'FROM dunglas/frankenphp:1-php8.5@sha256:aaaa\n',
         'tools/ci-changes.sh': '#!/bin/sh\necho selector\n',
+        'tools/ci/browser-checkout.patterns': readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8'),
         'tools/playwright-image.json': '{"image": "mcr.microsoft.com/playwright:v1.58.2-noble@sha256:bbbb"}\n',
         'packages/uxor/resources/uxor/index.json': '{"links": "0.3.1"}\n',
     };
@@ -195,7 +195,7 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
                 result: 'success',
                 outputs: { tools: 'success', contrast: plan.lanes.contrast?.decision === 'run' ? 'success' : 'skipped', workflows: plan.lanes.workflows?.decision === 'run' ? 'success' : 'skipped' },
             },
-            demo: { result: conclusionOf([...LANE_JOBS.demo, ...LANE_JOBS.engines]) },
+            demo: { result: conclusionOf([...laneJobs.demo, ...laneJobs.engines]) },
         };
         for (const [lane, names] of Object.entries(NEEDS_OF)) {
             names.forEach((need, i) => {
@@ -247,12 +247,12 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
         const selection = join(dir, `selection-${id}`);
         writeFileSync(selection, SELECTOR_LANES.map((lane) => `${lane}=${!!selected[lane]}`).join('\n') + '\n');
         const planned = cli(['plan', '--repo', REPO, '--sha', sha, '--ref', ref, '--event', event, '--selection', selection, '--out', planFile,
-            '--github-output', outputsFile, ...(reuse ? ['--reuse', reuse] : []), ...extra], { now: when });
+            '--github-output', outputsFile, '--chromium-shards', String(chromiumShards), ...(reuse ? ['--reuse', reuse] : []), ...extra], { now: when });
         assert.equal(planned.status, 0, `plan: ${planned.stderr}`);
         const plan = JSON.parse(readFileSync(planFile, 'utf8'));
         const outputs = Object.fromEntries(readFileSync(outputsFile, 'utf8').trim().split('\n').filter(Boolean).map((l) => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
         const jobs = [];
-        for (const [lane, names] of Object.entries(LANE_JOBS)) {
+        for (const [lane, names] of Object.entries(laneJobs)) {
             if (plan.lanes[lane]?.decision !== 'run') continue;
             for (const name of names) if (!missing.includes(name)) jobs.push(job(name, name in conclusions ? conclusions[name] : 'success', 1, when));
         }
@@ -280,7 +280,7 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
         return finish(run, ran.planFile, ran.plan, when);
     };
 
-    return { dir, repo, git, commit, head, read, cli, ciRun, rerunFailed, state, routes };
+    return { dir, repo, git, write, commit, head, read, cli, ciRun, rerunFailed, state, routes };
 }
 
 const decisions = (plan) => Object.fromEntries(Object.entries(plan.lanes).map(([lane, e]) => [lane, e.decision]));
@@ -337,6 +337,62 @@ test('green code, then a CHANGELOG prose correction: no browser or expensive lan
     assert.ok(docs.result.recorded.every((name) => name.includes('-package-')), 'a reused lane records nothing: the evidence keeps naming the run that executed it');
 });
 
+// First push of a branch off a release that already changed the CI workflow. No PR metadata exists yet.
+// The cumulative diff really does select Chromium; the producer must prove whether its work still applies.
+test('docs on a green release branch reuse its browsers on the first push and still validate the changed package', (t) => {
+    const w = world(t, 8);
+    const selector = fileURLToPath(new URL('../ci-changes.sh', import.meta.url));
+    const docs = [
+        '.github/workflows/release.yml', 'CONTRIBUTING.md', 'README.md', 'docs/PLAN-composer-package.md',
+        'packages/uxor/README.md', 'packages/uxor/resources/uxor/docs/README.md', 'packages/uxor/resources/uxor/index.json',
+    ];
+    for (const path of docs) {
+        if (!existsSync(join(w.repo, path))) w.write(path, path.endsWith('.yml') ? 'name: Release\n' : '# Package guide\n');
+    }
+    w.commit('tools/ci-changes.sh', readFileSync(selector, 'utf8'));
+    w.git('switch', '-qc', 'release/0.3.5');
+    w.commit('.github/workflows/ci.yml', w.read('.github/workflows/ci.yml') + '# release check\n');
+    const producer = allPassedRun(w, { ref: 'refs/heads/release/0.3.5', hoursAgo: 3, extra: ['--engines', 'true'] });
+
+    w.git('switch', '-qc', 'docs/package');
+    for (const path of docs) {
+        if (path.endsWith('.json')) w.write(path, '{"links": "0.3.5"}\n');
+        else w.write(path, w.read(path) + (path.endsWith('.yml') ? '# Packagist indexes tags.\n' : '\nInstall from Packagist.\n'));
+    }
+    w.git('add', '-A');
+    w.git('commit', '-qm', 'document package publication');
+    const classifyFrom = (base) => {
+        const paths = w.git('diff', '--name-only', '--no-renames', base, 'HEAD');
+        const result = spawnSync('bash', ['-c', w.git('show', `${base}:tools/ci-changes.sh`)], {
+            cwd: w.repo, input: paths + '\n', encoding: 'utf8',
+        });
+        assert.equal(result.status, 0, result.stderr);
+        return Object.fromEntries(result.stdout.trim().split('\n').map((line) => {
+            const [lane, value] = line.split('=');
+            return [lane, value === 'true'];
+        }));
+    };
+    assert.equal(classifyFrom(producer.sha).demo, false, 'the child itself changes no browser inputs');
+    const selected = classifyFrom(w.git('merge-base', 'dev', 'HEAD'));
+    assert.equal(selected.demo, true, 'the inherited workflow selected the browser lane');
+    const child = allPassedRun(w, { ref: 'refs/heads/docs/package', selected, hoursAgo: 2 });
+    assert.deepEqual(matrix(child), [], 'no Chromium, Firefox or WebKit shards run');
+    for (const lane of ['demo', 'engines']) {
+        assert.equal(child.plan.lanes[lane].decision, 'reuse', lane);
+        assert.equal(child.plan.lanes[lane].evidence.run_id, producer.id);
+        assert.equal(child.plan.lanes[lane].evidence.head_sha, producer.sha);
+    }
+    assert.equal(child.result.verdict.lanes.package.status, 'fresh');
+    assert.equal(child.plan.lanes.contrast.decision, 'run');
+    assert.equal(child.plan.lanes.workflows.decision, 'run');
+
+    // Same stack, same producer, but now the rendered guide changes. Run all eight Chromium shards.
+    w.commit('docs/GUIDE.md', w.read('docs/GUIDE.md') + 'A new example.\n');
+    const guide = allPassedRun(w, { ref: 'refs/heads/docs/package', selected, hoursAgo: 1 });
+    assert.equal(guide.plan.lanes.demo.decision, 'run');
+    assert.equal(matrix(guide).filter((shard) => shard.browser === 'chromium').length, 8);
+});
+
 // ---------------------------------------------------------------------------------------------------------------------
 // Row: CHANGELOG release-heading or generated-reference change
 // Output/reference effects detected; affected artifact/package checks run; unrelated proof can remain usable
@@ -378,7 +434,6 @@ test('a generated-reference change: its effect is detected and the Package check
 // ---------------------------------------------------------------------------------------------------------------------
 for (const [path, edit] of [
     ['button/README.md', (text) => text.replace('Save', 'Save changes')],
-    ['README.md', (text) => text.replace('Save', 'Send')],
     ['INSTALL.md', (text) => text.replace('button', 'button alert')],
     ['docs/GUIDE.md', (text) => `${text}\nA new section.\n`],
 ]) {
@@ -463,18 +518,18 @@ test('a predecessor whose re-run is still going: its earlier pass is not reused 
 // Row: Partial change to a previously green candidate
 // Changed lanes execute; eligible unchanged lanes retain attributable proof
 // ---------------------------------------------------------------------------------------------------------------------
-test('a partial change to a green candidate: the lanes it changes run, and a lane it cannot affect keeps its attributable proof', {
-    todo: "FINDING: a lane's fingerprint is the whole tree (all but five administrative files), so a change read by one lane only (a browser spec, read by the browser tests) gives every lane a new fingerprint: Kit PHP, Package and the production image run again with nothing of theirs changed. The per-lane excluded files in progress (stack-review) are the place for it.",
-}, (t) => {
+test('a partial change to a green candidate: a browser spec reruns Chromium while unrelated lanes reuse their evidence', (t) => {
     const w = world(t);
     const green = allPassedRun(w, { hoursAgo: 3 });
     w.commit('tests/e2e/button.spec.ts', "test('button', () => { expect(1).toBe(1); });\n");
     const partial = w.ciRun({ hoursAgo: 1, selected: { ...ALL } });
     assert.equal(partial.plan.lanes.demo.decision, 'run', 'the browser tests, which read the spec, run');
-    for (const lane of ['php', 'package', 'prod-image']) {
+    assert.equal(matrix(partial).filter((entry) => entry.browser === 'chromium').length, CHROMIUM_SHARDS);
+    for (const lane of ['php', 'package', 'prod-image', 'lint-kit', 'fresh-install']) {
         assert.equal(partial.plan.lanes[lane].decision, 'reuse', `${lane}: ${partial.plan.lanes[lane].reason}`);
         assert.equal(partial.plan.lanes[lane].evidence.run_id, green.id);
     }
+    assert.ok(partial.result.verdict.ok);
 });
 
 test('a partial result on a candidate: the lanes that passed keep their proof, the lane that failed runs again', (t) => {

@@ -10,7 +10,7 @@
  *   nothing is written when nothing changed.
  * - The demo's Tailwind CSS, rebuilt unless it was built from the same sources: those it scans
  *   (demo/assets/styles/app.css declares the demo's scan and exclusions), identified by a SHA-256
- *   of their paths and content hashes (`git hash-object`), recorded next to the build. So no screenshot is taken
+ *   of their paths and file contents, recorded next to the build. So no screenshot is taken
  *   against stale CSS, whoever runs the tests, and nothing is rebuilt when nothing changed. The record is read and
  *   written by PHP_BINARY's PHP: in the Docker demo, demo/var/ lives in the container.
  *
@@ -79,20 +79,39 @@ export function syncRecipeSpecs(root = repository) {
     });
 }
 
-/** Hash the demo's CSS sources. Keep the exclusions in sync with demo/assets/styles/app.css. */
+/** Bound Git's search to the same UI source directories as app.css, including local untracked UI edits. */
 export function cssSourcesDigest(root = repository) {
-    const excluded = ['packages/uxor', 'composer.json', 'composer.lock', 'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md',
-        'SECURITY.md', '.github/pull_request_template.md'];
-    const paths = ['.', ...excluded.map((path) => `:(exclude)${path}`)];
-    const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...paths], { cwd: root, encoding: 'utf8' })
-        .split('\0')
-        .filter((file) => file && existsSync(join(root, file)));
-    const hashes = execFileSync('git', ['hash-object', '--stdin-paths'], { cwd: root, encoding: 'utf8', input: files.join('\n'), maxBuffer: 64 * 1024 * 1024 })
-        .trim()
-        .split('\n');
-    return createHash('sha256')
-        .update(files.map((file, index) => `${hashes[index]} ${file}`).join('\n'))
-        .digest('hex');
+    const candidates = ['templates', 'assets', 'src', 'config', 'README.md', 'manifest.json'];
+    const controls = ['.gitignore', '.gitattributes', '.ignore'];
+    const paths = [
+        ...controls, 'kit.css', 'kit.js', 'INSTALL.md', 'docs/GUIDE.md', 'tools/sync-demo', 'tools/prepare-tests.mjs',
+        ...controls.map((file) => `docs/${file}`),
+        'demo/composer.json', 'demo/composer.lock', 'demo/importmap.php', 'demo/symfony.lock',
+    ];
+    const outside = new Set(['docs', 'node_modules', 'packages', 'tests', 'tools', 'vendor']);
+    for (const entry of readdirSync(root, { withFileTypes: true })) {
+        if (entry.isDirectory() && !entry.name.startsWith('.') && !outside.has(entry.name)) {
+            for (const file of [...candidates, ...controls]) paths.push(`${entry.name}/${file}`);
+        }
+    }
+    const listed = execFileSync('git', ['--literal-pathspecs', 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...paths],
+        { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    // Git ignores installed dependencies. The stylesheet imports these exact CSS files and scans
+    // the two Twig layouts inherited by the demo form theme; include their installed bytes too.
+    const files = new Set(listed.split('\0').filter(Boolean));
+    for (const path of [
+        'demo/assets/vendor/flowbite/dist/flowbite.min.css',
+        'demo/vendor/symfony/ux-live-component/assets/dist/live.min.css',
+        'demo/vendor/symfony/twig-bridge/Resources/views/Form/tailwind_2_layout.html.twig',
+        'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig',
+    ]) files.add(path);
+    const digest = createHash('sha256');
+    for (const file of [...files].sort()) {
+        const path = join(root, file);
+        if (!existsSync(path)) continue;
+        digest.update(file).update('\0').update(createHash('sha256').update(readFileSync(path)).digest());
+    }
+    return digest.digest('hex');
 }
 
 /** Builds the demo's Tailwind CSS unless the record says it was built from the current sources; true when it built. */

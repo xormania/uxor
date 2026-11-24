@@ -1342,18 +1342,12 @@ jobs:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
-                  # The demo imports the packaged browser recorder. Package runs the independent Composer consumer.
+                  # Bootstrap the policy from the tested revision, then populate exactly its browser inputs.
                   sparse-checkout-cone-mode: false
-                  sparse-checkout: |
-                      /*
-                      !/composer.json
-                      !/composer.lock
-                      !/packages/uxor/*
-                      /packages/uxor/.gitattributes
-                      /packages/uxor/resources/
-                      !/packages/uxor/resources/*
-                      /packages/uxor/resources/.gitattributes
-                      /packages/uxor/resources/browser/
+                  sparse-checkout: /tools/ci/browser-checkout.patterns
+
+            - name: Check out the demo and browser inputs
+              run: git sparse-checkout set --no-cone --stdin < tools/ci/browser-checkout.patterns
 
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               id: node # its cache-hit output, for the job's metrics

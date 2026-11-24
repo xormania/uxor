@@ -3,7 +3,7 @@
  * Reuse of an earlier pass of a CI lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*).
  *
  * Each fingerprint hashes the committed tree, with selected administrative files kept by path and mode only.
- * The browser lanes also omit regular Composer files absent from their sparse checkout. The CI workflow, this tool,
+ * The browser lanes also omit regular files absent from their sparse checkout. The CI workflow, this tool,
  * and the pinned versions are inputs. CI result records a marker artifact for each lane that ran:
  * `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
  * `ci-fail-v1-...` when one failed. A later run with the same fingerprint takes the markers newest first: a failure from
@@ -130,26 +130,66 @@ function git(dir, args) {
     return spawnSync('git', ['-C', dir, ...args], { encoding: 'buffer', maxBuffer: 1 << 28 });
 }
 
-// The demo job's sparse checkout in ci.yml. Keep the shared recorder and the attributes that govern its checkout.
-function packageOnlyFile(path) {
-    if (path === 'composer.json' || path === 'composer.lock') return true;
-    return path.startsWith('packages/uxor/') && !path.startsWith('packages/uxor/resources/browser/')
-        && path !== 'packages/uxor/.gitattributes' && path !== 'packages/uxor/resources/.gitattributes';
+// Use Git's own sparse-checkout matcher on the tree of the commit being qualified. Only regular
+// files outside the runner's checkout may be omitted. A symlink can point to another path, so a
+// tree with any link or submodule falls back to hashing every entry. Unknown paths are included.
+const BROWSER_RULES = 'tools/ci/browser-checkout.patterns';
+const BROWSER_CONTROLS = new Set([BROWSER_RULES, WORKFLOW, 'tools/ci/lane-evidence.mjs', 'tools/ci-changes.sh', 'tools/tests/ci-changes.sh']);
+
+function browserControl(path) {
+    return BROWSER_CONTROLS.has(path) || ['.gitattributes', '.gitignore'].includes(path.split('/').at(-1));
+}
+
+function browserCheckout(dir, paths, entries) {
+    const rules = fileURLToPath(new URL('./browser-checkout.patterns', import.meta.url));
+    const expected = entries.find((entry) => entry.endsWith('\t' + BROWSER_RULES));
+    const actual = git(dir, ['hash-object', '--no-filters', rules]);
+    // A verifier can inspect a commit other than its own checkout. Apply the rules only if this
+    // exact file was in the commit. An older/different policy is compared as a complete tree.
+    if (actual.status !== 0 || !expected || expected.split('\t')[0].split(' ')[2] !== actual.stdout.toString().trim()) return null;
+    const result = spawnSync('git', ['-C', dir, 'sparse-checkout', 'check-rules', '--no-cone', '--rules-file', rules, '-z'], {
+        input: paths.join('\0') + '\0', encoding: 'utf8', maxBuffer: 1 << 28,
+    });
+    // Older Git installations lack check-rules. They can still qualify identical trees.
+    if (result.status !== 0) return null;
+    return new Set(result.stdout.split('\0').filter(Boolean));
+}
+
+// Playwright specs in the demo suite and in recipes are outside these lanes' archives, production
+// image and Tailwind sources. They still contribute their paths and modes to each fingerprint.
+const SPEC_INDEPENDENT_LANES = ['php', 'package', 'prod-image', 'lint-kit', 'fresh-install'];
+
+function playwrightSpecs(paths) {
+    const names = new Set(paths);
+    return new Set(paths.filter((path) => {
+        if (!path.endsWith('.spec.ts')) return false;
+        if (path.startsWith('tests/e2e/')) return true;
+        const recipe = /^([^/]+)\/tests\/[^/]+\.spec\.ts$/.exec(path);
+        return recipe && names.has(`${recipe[1]}/manifest.json`);
+    }));
 }
 
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
     const all = tree.stdout.toString('utf8').split('\0').filter(Boolean);
+    // Links or submodules can expose excluded files through another path.
+    const regularPaths = all.every((entry) => entry.startsWith('100'))
+        ? all.map((entry) => entry.slice(entry.indexOf('\t') + 1)) : null;
+    const browserPaths = regularPaths && browserCheckout(dir, regularPaths, all);
+    const specs = regularPaths ? playwrightSpecs(regularPaths) : new Set();
     return Object.fromEntries(Object.keys(REUSABLE).map((lane) => {
         const excluded = excludedFor(lane);
         const browser = BROWSER_LANES.includes(lane);
+        const ignoresSpecContent = SPEC_INDEPENDENT_LANES.includes(lane);
         const body = all.map((entry) => {
             const tab = entry.indexOf('\t');
             const path = entry.slice(tab + 1);
-            // Git regular files (100xxx) can be absent from the sparse checkout. Preserve links and submodules.
-            if (browser && entry.startsWith('100') && packageOnlyFile(path)) return '';
-            if (!excluded.includes(path)) return entry + '\0';
+            if (browser) {
+                if (!browserPaths || browserControl(path)) return entry + '\0';
+                if (!browserPaths.has(path)) return '';
+            }
+            if (!excluded.includes(path) && !(ignoresSpecContent && specs.has(path))) return entry + '\0';
             const [mode, type] = entry.slice(0, tab).split(' ');
             return `${mode} ${type} -${entry.slice(tab)}\0`;
         }).join('');

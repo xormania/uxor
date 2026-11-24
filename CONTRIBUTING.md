@@ -97,7 +97,10 @@ same way unless users of the kit or of the package need it.
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker) with FrankenPHP in worker mode,
 PHP 8.5 and HTTPS. Docker is enough to serve it locally. Symfony AssetMapper fetches browser packages and
-TailwindBundle builds CSS with the standalone Tailwind binary.
+TailwindBundle builds CSS with the standalone Tailwind binary. The demo's
+[stylesheet](demo/assets/styles/app.css) declares its utility sources: the gallery's application and recipe
+files, the examples in recipe READMEs, `INSTALL.md` and `docs/GUIDE.md`. When a new surface renders utility
+classes, include it in the stylesheet and in the [CSS rebuild check](tools/prepare-tests.mjs).
 
 ```bash
 (
@@ -249,10 +252,15 @@ Same-repository pull requests use their branch's push run, with a differently na
 request event so it cannot satisfy the required *CI result* early. Each job runs when the change could affect what
 it checks ([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main`, and a full run by hand, run everything.
 
-A branch push is compared with where it left `dev`. A fork pull request uses the target base supplied by GitHub
+A feature branch push is compared with where it left `dev`. A fork pull request uses the target base supplied by GitHub
 and runs selected lanes fresh, without reusing evidence from other runs. A push to `dev` is compared with the commit
 of its last successful run, so every merge since is checked; with none, everything runs. *Tool tests* runs in every
 full CI run and checks what any path can break: bundled reference links, test inventory names and archive contents.
+
+On a stacked or release branch, the comparison with `dev` can include work the parent branch already validated.
+In the *Changes* job, *Plan the lanes* shows whether Chromium will run and the reason. A verified browser pass
+can cover a package or documentation follow-up even on a branch's first push. See
+[Reused lanes](docs/TESTING.md#reused-lanes) for the inputs and evidence that decide this.
 
 Once a day on `dev`, the jobs that install freshly resolved dependencies run alone (both *Fresh install* jobs and
 *Package*). GitHub schedules run on the default branch, `main`; each scheduled workflow starts its work on `dev`,
@@ -479,9 +487,9 @@ default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). For 
 For an already running native server, also set `PHP_BINARY=php` or its PHP executable. For managed native servers,
 choose a free `DEMO_PORT`. [The Playwright configuration](playwright.config.ts) defines how the tests connect to
 the browser server. Before the tests, Playwright
-builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
-kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it
-builds nothing. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
+checks the demo's Tailwind inputs, including the recipe examples, the two guides the gallery renders and the
+Symfony form layouts the demo inherits. A change to those sources or the build inputs triggers a rebuild.
+The content digest is kept in `demo/var/tailwind/sources.sha256`. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
 (`tests/e2e/examples/recipes/`) when Playwright loads its configuration; each step holds a lock, and nothing is
 written when nothing changed, so several Playwright processes can share a checkout, and `--list` builds nothing.
 CI runs it as its own step before the tests (`node tools/prepare-tests.mjs`). A demo serving `demo/public/assets/`
@@ -821,6 +829,11 @@ Versions are git tags `X.Y.Z` without a `v`, for compatibility with supported To
 `## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field:
 Composer reads the version from the tag. The kit and the Composer development package share this version sequence.
 
+The release workflow pushes the tag to GitHub. Packagist automatically indexes that tag as a version of
+[`xormania/uxor`](https://packagist.org/packages/xormania/uxor). To verify publication, select the version on
+Packagist and compare its source commit with `git rev-list -n 1 X.Y.Z` in a checkout with the tag.
+Packagist also lists development versions such as `dev-main`. A release branch can appear there before its tag.
+
 The maintainer chooses each release number and may skip unused numbers. An agent preparing a release uses the
 number the maintainer supplied; changelog categories do not select it. UXor is in the initial `0.x` development
 stage described by [Semantic Versioning](https://semver.org/): its public interfaces are not yet stable.
@@ -874,9 +887,10 @@ hand, and a re-run publishes its Release.
 `main`'s first-parent history that adds the version's heading (the release pull request's merge commit), the notes
 are the version's section of `CHANGELOG.md` at that commit (a later edit to an old section changes no published
 notes), and an existing tag, lightweight or annotated, must point at that commit. A tag that points elsewhere is
-refused: the run fails at *Plan the tags*, before any install check, tag or release. Look at what the tag
-holds, then delete it (`git push origin :refs/tags/X.Y.Z`, and locally `git tag -d X.Y.Z`) or move it to the commit
-the plan names, and re-run. See the plan before a release, or after a refusal, with
+refused: the run fails at *Plan the tags*, before any install check, tag or release. Compare the tag, the planned
+commit and the version on Packagist with the maintainer. Packagist [locks a stable release's source and dist
+references](https://packagist.org/about/version-immutability). A correction to a published package needs a new
+release number. See the plan before a release, or after a refusal, with
 `git fetch origin main --tags && tools/release-plan.sh --dry-run --ref origin/main`: for every version, the tag, the
 commit, whether the tag exists and where it points, the decision and the notes; it creates nothing. CI's *Workflows*
 job runs the same dry run, and the script's cases (`tools/tests/release-plan.sh`), whenever `release.yml` or the
@@ -896,7 +910,7 @@ URL Pages gives: `release.json` holds that version and commit; the index, `r/but
 canonical URL at that address; the sitemap, `llms.txt` and `r/button.md` answer. It asks again for about two minutes
 while Pages serves the new deployment, then fails the run, with the problem in its log. If the gallery fails after its
 Release exists, run `pages.yml` by hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a
-full re-run finds the release done and skips the gallery). No branch is ever published: work on `dev` is built and
+full re-run finds the release done and skips the gallery). Only tagged releases reach the public gallery. Work on `dev` is built and
 checked by CI's *Static site* job, on every push, so a page that
 does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`
 (`pages.yml` adds `--release-from-tags` and `--branch=main` on the tag's commit, so the install commands name that
