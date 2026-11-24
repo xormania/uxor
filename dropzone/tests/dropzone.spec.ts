@@ -13,7 +13,7 @@ describeRecipe('uxor/dropzone', () => {
 
             const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
             await expect(image).toBeVisible();
-            await expect.poll(() => image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("data:image\/png/);
+            await expect.poll(() => image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("blob:/);
             await expect(page.getByRole('button', { name: 'Remove profile-picture.png' })).toBeVisible();
         },
     });
@@ -28,7 +28,7 @@ describeRecipe('uxor/dropzone', () => {
 
             await expect(page.locator('.dropzone-preview-list-item')).toHaveCount(3);
             const image = page.locator('.dropzone-preview-list-item .dropzone-preview-image').nth(2);
-            await expect.poll(() => image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("data:image\/png/);
+            await expect.poll(() => image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("blob:/);
         },
     });
 
