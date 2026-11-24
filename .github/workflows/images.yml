@@ -1,0 +1,155 @@
+name: Images
+
+on:
+    push:
+        branches-ignore: [main]
+        paths:
+            - '.github/workflows/images.yml'
+            - 'tools/ci/images/**'
+            - 'tools/tests/image-pipeline.test.mjs'
+    pull_request:
+        paths:
+            - '.github/workflows/images.yml'
+            - 'tools/ci/images/**'
+            - 'tools/tests/image-pipeline.test.mjs'
+    workflow_run:
+        workflows: [CI]
+        branches: [main]
+        types: [completed]
+    schedule:
+        - cron: '13 5 * * 0'
+    workflow_dispatch:
+        inputs:
+            role:
+                description: Image role to build and verify
+                type: choice
+                options: [all, demo, toolkit, package, docs]
+                default: all
+
+permissions:
+    contents: read
+
+jobs:
+    plan:
+        name: Select image builds
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        runs-on: ubuntu-24.04
+        timeout-minutes: 5
+        permissions:
+            contents: read
+            actions: read
+        outputs:
+            roles: ${{ steps.plan.outputs.roles }}
+            commit: ${{ steps.plan.outputs.commit }}
+            publish: ${{ steps.plan.outputs.publish }}
+            cold: ${{ steps.plan.outputs.cold }}
+            cache-run: ${{ steps.plan.outputs.cache-run }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+            - name: Select role contexts and verify the protected source
+              id: plan
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PROTECTED_REF: ${{ github.ref_protected }}
+                  SELECT_ROLE: ${{ inputs.role }}
+              run: node tools/ci/images/plan.mjs
+
+    validate:
+        name: Build and verify images
+        needs: plan
+        if: needs.plan.outputs.roles != '' && needs.plan.outputs.publish == 'false'
+        runs-on: ubuntu-24.04
+        timeout-minutes: 24
+        permissions:
+            contents: read
+            actions: read
+            packages: read
+        env:
+            IMAGE_ROLES: ${{ needs.plan.outputs.roles }}
+            IMAGE_COMMIT: ${{ needs.plan.outputs.commit }}
+            IMAGE_COLD: 'false'
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.plan.outputs.commit }}
+                  persist-credentials: false
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+            - name: Restore exact cache receipt from a verified publisher
+              if: needs.plan.outputs.cache-run != ''
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  CACHE_RUN: ${{ needs.plan.outputs.cache-run }}
+              run: bash tools/ci/images/restore-cache.sh "$RUNNER_TEMP/uxor-images"
+            - name: Build and test the role images
+              run: bash tools/ci/images/build.sh "$RUNNER_TEMP/uxor-images"
+            - name: Upload image timings
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: image-timings
+                  path: |
+                      ${{ runner.temp }}/uxor-images/timings.ndjson
+                      ${{ runner.temp }}/uxor-images/build.log
+                  retention-days: 14
+
+    publish:
+        name: Publish verified images and caches
+        needs: plan
+        if: needs.plan.outputs.publish == 'true' && github.repository == 'xormania/uxor' && github.ref == 'refs/heads/main' && github.ref_protected
+        concurrency:
+            group: uxor-images-main-publisher
+            cancel-in-progress: false
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        permissions:
+            contents: read
+            actions: read
+            packages: write
+        env:
+            IMAGE_ROLES: ${{ needs.plan.outputs.roles }}
+            IMAGE_COMMIT: ${{ needs.plan.outputs.commit }}
+            IMAGE_COLD: ${{ needs.plan.outputs.cold }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.plan.outputs.commit }}
+                  persist-credentials: false
+            - name: Confirm current main revision
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  test "$(git rev-parse HEAD)" = "$IMAGE_COMMIT"
+                  test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$IMAGE_COMMIT"
+            - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+            - name: Restore exact cache receipt from a verified publisher
+              if: needs.plan.outputs.cache-run != ''
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  CACHE_RUN: ${{ needs.plan.outputs.cache-run }}
+              run: bash tools/ci/images/restore-cache.sh "$RUNNER_TEMP/uxor-images"
+            - name: Build and test the role images
+              run: bash tools/ci/images/build.sh "$RUNNER_TEMP/uxor-images"
+            - name: Publish the tested OCI archives and scoped cache digests
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: bash tools/ci/images/publish.sh "$RUNNER_TEMP/uxor-images"
+            - name: Record trusted cache digests
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: uxor-image-cache-receipt
+                  path: ${{ runner.temp }}/uxor-images/receipt.json
+                  if-no-files-found: error
+                  retention-days: 14
+            - name: Upload image timings and build logs
+              if: always()
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: image-timings
+                  path: |
+                      ${{ runner.temp }}/uxor-images/timings.ndjson
+                      ${{ runner.temp }}/uxor-images/build.log
+                      ${{ runner.temp }}/uxor-images/cache-*.log
+                  retention-days: 14

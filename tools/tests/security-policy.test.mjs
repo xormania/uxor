@@ -123,6 +123,27 @@ test('secret references use the same boundary for brackets, whitespace, function
     assert.match(workflowProblems('.github/workflows/ci.yml', multiline).join('\n'), /a secret is read outside jev\.yml/);
 });
 
+test('only the image refresh proposal can pass its App key to the pinned token action', () => {
+    const imageWorkflow = workflow.replace('    test:', '    propose:') + `            - id: app
+              uses: actions/create-github-app-token@${sha}
+              with:
+                  client-id: \${{ vars.UXOR_IMAGE_REFRESH_APP_CLIENT_ID }}
+                  private-key: \${{ secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY }}
+`;
+    const refresh = '.github/workflows/refresh-images.yml';
+    assert.deepEqual(workflowProblems(refresh, imageWorkflow), []);
+    for (const unsafe of [
+        imageWorkflow.replace('    propose:', '    plan:'),
+        imageWorkflow.replace('create-github-app-token', 'checkout'),
+        imageWorkflow.replace('private-key:', 'other-key:'),
+        imageWorkflow.replace('secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY', 'secrets.ANOTHER_KEY'),
+        imageWorkflow + '            - run: echo \${{ secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY }}\n',
+    ]) {
+        assert.match(workflowProblems(refresh, unsafe).join('\n'), /a secret is read outside/);
+    }
+    assert.match(workflowProblems('.github/workflows/ci.yml', imageWorkflow).join('\n'), /a secret is read outside/);
+});
+
 test('indexed and nested untrusted contexts stay out of run scripts and may pass through env', () => {
     for (const expression of [
         "github['event']['pull_request']['title']", "github . event . pull_request . title",

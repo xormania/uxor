@@ -6,7 +6,8 @@
 # of the demo, the development images and the Mago images (their Dockerfiles, pinned by digest: a new digest for the
 # same tag, or a newer tag), against `dev` like any pull request. CI runs on
 # each; nothing merges on its own.
-# The browser image is not here: its tag follows @playwright/test (tools/playwright-image.json, docs/NOTES.md).
+# Refresh image pins owns the CI image inputs in tools/ci/images and the version-matched browser pins.
+# Its daily discovery starts before the routine weekly Dependabot checks. Browser screenshot upgrades stay reviewed.
 version: 2
 updates:
     - package-ecosystem: github-actions
@@ -15,6 +16,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: ci
       groups:
@@ -26,6 +30,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       ignore:
@@ -36,23 +43,33 @@ updates:
           npm:
               patterns: ['*']
 
-    # Keep the shipped browser's Dockerfile pinned to the same Playwright release when updating this lock.
+    # Refresh image pins updates playwright-core, the consumer client and the Docker image together.
     - package-ecosystem: npm
       directory: /packages/uxor/resources/browser
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
+      ignore:
+          - dependency-name: playwright-core
 
-    # These browser checks install Chromium for their own Playwright version (packages/uxor/dev/README.md).
+    # Refresh image pins owns the Playwright client here; Dependabot handles other consumer dependencies.
     - package-ecosystem: npm
       directory: /packages/uxor/dev
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
+      ignore:
+          - dependency-name: '@playwright/test'
       groups:
           consumer-npm:
               patterns: ['*']
@@ -62,6 +79,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -73,6 +93,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -84,6 +107,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -97,6 +123,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -108,6 +137,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -119,6 +151,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: ci
       groups:
@@ -131,6 +166,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:

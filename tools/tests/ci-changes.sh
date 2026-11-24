@@ -120,6 +120,8 @@ check 'static-site runtime-export fresh-install workflows' .github/workflows/rel
 check 'workflows'                 .github/workflows/audit.yml
 check 'workflows'                 .github/workflows/codeql.yml
 check 'workflows'                 .github/workflows/browser-provider.yml
+check 'workflows'                 .github/workflows/images.yml .github/workflows/refresh-images.yml
+check ''                          tools/ci/images/demo/Dockerfile tools/ci/image-refresh.mjs
 check 'workflows'                 .github/actionlint.yaml
 # monthly.yml runs on its schedule and by hand, never on a push: actionlint only. Its tools' cases (tools/monthly/) run
 # in Tool tests, on every run, so they select no job; the browser tests' opt-in coverage (tests/e2e/coverage.ts) is part
