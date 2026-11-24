@@ -55,6 +55,7 @@ final class RecipeDocs
         // each tabs of a page gets its own id prefix: Toolkit's tab ids are their titles' hashes
         $environment->addRenderer(Tabs::class, new DocTabsRenderer($this->twig), 10);
 
+        $recipe = $this->withoutSourceNote($recipe);
         $previews = new ExamplePreviewUrls($this->kit->getPreviewExamples($recipe), $recipe->name, $this->urls);
 
         $doc = $this->renderer->renderAsHtml($this->kit->getKit(), $recipe, $previews, $environment);
@@ -108,9 +109,18 @@ final class RecipeDocs
      */
     public function markdown(Recipe $recipe, string $release): string
     {
-        $markdown = $this->renderer->renderAsMarkdown($this->kit->getKit(), $recipe);
+        $markdown = $this->renderer->renderAsMarkdown($this->kit->getKit(), $this->withoutSourceNote($recipe));
 
         // saved beside the other recipes' (`r/<recipe>.md`): a link to another recipe's README is that file
         return DocMarkup::resolveMarkdownLinks($markdown, $recipe->name, fn (string $path): string => null !== ($other = $this->readmeRecipe($path)) ? $other.'.md' : $this->repositoryUrl($path, $release));
+    }
+
+    /** The website renders the installation directive. The catalog link and offline lookup serve raw README readers. */
+    private function withoutSourceNote(Recipe $recipe): Recipe
+    {
+        $doc = str_replace("\r\n", "\n", $recipe->doc ?? '');
+        $doc = preg_replace('/^(::: installation)\n\n[^\n]* <!-- recipe-source-note -->$/m', '$1', $doc);
+
+        return $doc === ($recipe->doc ?? '') ? $recipe : new Recipe($recipe->name, $recipe->absolutePath, $recipe->manifest, $doc);
     }
 }

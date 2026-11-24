@@ -73,9 +73,29 @@ final class RecipeDocsTest extends WebsiteTestCase
         self::assertNull($dom->querySelector('toolkit-popover'));
     }
 
+    public function testTheCopyableExamplesIdentifyTheirExtraRecipesAndPackages(): void
+    {
+        foreach ([
+            ['card', 'Card with form inputs', ['button.md', 'checkbox.md', 'input.md', 'label.md']],
+            ['badge', 'Badges with icon', ['composer require symfony/ux-icons']],
+        ] as [$recipe, $title, $requirements]) {
+            $section = strstr(self::page('r/'.$recipe.'.md'), '### '.$title."\n");
+            self::assertIsString($section, $title);
+            $intro = strstr($section, '```twig', true);
+            self::assertIsString($intro, $title);
+            foreach ($requirements as $requirement) {
+                self::assertStringContainsString($requirement, $intro, $title.': before copying the example');
+            }
+        }
+    }
+
     public function testTheInstallStepNamesTheRelease(): void
     {
         self::assertStringContainsString('ux:install badge --kit=https://github.com/xormania/uxor:0.4.0', self::recipeHtml('badge'));
+        self::assertStringNotContainsString('Find this recipe in the latest published catalog', self::recipeHtml('badge'));
+        self::assertStringNotContainsString('Find this recipe in the latest published catalog', self::page('r/badge.md'));
+        self::assertStringNotContainsString('recipe-source-note', self::page('r/duplicate-snippets.md'));
+        self::assertStringNotContainsString('Find this recipe in the latest published catalog', self::recipeHtml('duplicate-snippets'));
         self::assertStringContainsString("```shell\nphp bin/console ux:install badge --kit=https://github.com/xormania/uxor:0.4.0\n```", self::page('r/badge.md'));
     }
 

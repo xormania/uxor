@@ -6,6 +6,8 @@ What the kit's controllers ask about Turbo's copies of a page, answered in one J
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=turbo#recipes). To install `turbo` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component turbo --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 The recipes that reset their state before Turbo caches a page, or clean up a cached copy as it connects, install it

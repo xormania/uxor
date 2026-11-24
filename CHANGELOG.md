@@ -31,6 +31,9 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
 - `dropzone` documents that UX Dropzone 3.8 previews images from `blob:` object URLs (SVG still from `data:`): a
   Content Security Policy's `img-src` needs `blob:` and `data:`. The demo and the consumer fixture allow both.
 
+- Recipe READMEs link to the published catalog and the installation guide for their checkout. Composed examples
+  identify additional recipes or icon dependencies, and the navigation and editor previews include working local links.
+
 ### Fixed
 
 - The Docker-backed Mago and Serena launcher requires `--trust-project-code` before mounting the application

@@ -17,6 +17,8 @@ A trail of links showing where the current page sits in the site hierarchy.
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=breadcrumb#recipes). To install `breadcrumb` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component breadcrumb --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig

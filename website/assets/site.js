@@ -18,6 +18,16 @@ function setTheme(theme) {
 
 setTheme(storedTheme());
 document.addEventListener('DOMContentLoaded', () => {
+    // A source README can describe a recipe before its first release. Only follow links in the published catalog.
+    const requestedRecipe = new URLSearchParams(location.search).get('recipe');
+    if (requestedRecipe && location.hash === '#recipes') {
+        const published = [...document.querySelectorAll('#recipes .recipe-link')].find(link => link.textContent.trim() === requestedRecipe);
+        if (published) {
+            location.replace(published.href);
+            return;
+        }
+    }
+
     themeButton = document.querySelector('.theme-toggle');
     themeButton.setAttribute('aria-pressed', String(root.dataset.theme === 'dark'));
     themeButton.hidden = false;

@@ -19,3 +19,9 @@ The setup snippet and both previews use the same Twig.
 ```twig {"preview":true}
 <twig:Badge>Same content</twig:Badge>
 ```
+
+## Installation
+
+::: installation
+
+[Find this recipe in the latest published catalog](https://example.invalid/?recipe=duplicate-snippets#recipes). <!-- recipe-source-note -->

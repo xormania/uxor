@@ -1,6 +1,6 @@
 # Button
 
-Use the button component inside forms, as links, social login, payment options with support for multiple styles, colors, sizes, gradients, and shadows
+Use a button to submit a form or trigger an action. Set `as="a"` and supply `href` to style a link as a button.
 
 ```twig {"preview":true}
 <div class="space-x-2 space-y-2">
@@ -18,6 +18,8 @@ Use the button component inside forms, as links, social login, payment options w
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=button#recipes). To install `button` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component button --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 ## Usage
 
@@ -87,6 +89,8 @@ Use these examples if you want to use smaller or larger buttons.
 
 Use the following examples to add a [SVG icons](https://ux.symfony.com/icons) inside the button either on the left or right side.
 
+For this example, install Symfony UX Icons with `composer require symfony/ux-icons`.
+
 ```twig {"preview":true}
 <div class="flex items-center space-x-2">
     <twig:Button>
@@ -104,6 +108,8 @@ Use the following examples to add a [SVG icons](https://ux.symfony.com/icons) in
 ### Icon buttons
 
 Sometimes you need a button to indicate an action using only an icon.
+
+For this example, install Symfony UX Icons with `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <div class="space-x-2 space-y-2">
@@ -142,6 +148,8 @@ Sometimes you need a button to indicate an action using only an icon.
 ### Loader button
 
 Use the following [spinner component](../spinner/README.md) to indicate a loader animation inside buttons:
+
+For this example, install the [spinner](../spinner/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="space-x-2 space-y-2">

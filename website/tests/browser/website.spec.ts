@@ -265,3 +265,21 @@ test('keyboard navigation switches from a recipe preview to the documented sourc
 test('an unknown recipe URL returns 404', async ({ request }) => {
     expect((await request.get('r/does-not-exist/')).status()).toBe(404);
 });
+
+test('recipe README links open a published recipe and leave unknown recipes in the catalog', async ({ page }) => {
+    await page.goto('./?recipe=button#recipes');
+    await expect(page).toHaveURL(/\/uxor\/r\/button\/$/);
+    await page.goto('./?recipe=not-yet-published#recipes');
+    await expect(page.getByRole('heading', { name: /^Recipes/ })).toBeVisible();
+    await expect(page.locator('#recipes a.recipe-link').first()).toBeVisible();
+    await expect(page).toHaveURL(/\?recipe=not-yet-published#recipes$/);
+});
+
+test.describe('recipe README links without JavaScript', () => {
+    test.use({ javaScriptEnabled: false });
+    test('the published catalog offers normal links', async ({ page }) => {
+        await page.goto('./?recipe=button#recipes');
+        await page.locator('#recipes').getByRole('link', { name: 'button', exact: true }).click();
+        await expect(page).toHaveURL(/\/uxor\/r\/button\/$/);
+    });
+});

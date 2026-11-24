@@ -13,6 +13,8 @@ Short-lived notifications in a fixed region, added on page load or by Turbo Stre
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=toast#recipes). To install `toast` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component toast --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 Put one region in the base layout, so every page has it (the `layouts` recipe's `base.html.twig` already does). It is `data-turbo-permanent`: on a Turbo visit, Turbo keeps the region on screen, with its toasts:

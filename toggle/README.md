@@ -12,6 +12,8 @@ Use the toggle component to switch between a binary state of true or false using
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=toggle#recipes). To install `toggle` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component toggle --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -30,11 +32,11 @@ Apply the disabled attribute to disallow the users from making any further selec
 
 ```twig {"preview":true}
 <div class="flex flex-col gap-3">
-    <twig:Toggle id="checked" value="" disabled>
+    <twig:Toggle value="" disabled>
         Toggle me
     </twig:Toggle>
 
-    <twig:Toggle id="checked" value="" checked disabled>
+    <twig:Toggle value="" checked disabled>
         Toggle me
     </twig:Toggle>
 </div>

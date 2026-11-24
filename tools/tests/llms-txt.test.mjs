@@ -31,6 +31,7 @@ function kit(t, changelog) {
     }));
     write('CHANGELOG.md', changelog);
     write('button/manifest.json', '{}');
+    write('button/README.md', '# Button\n\nA button.\n\n::: installation\n');
     write('docs/RECIPES.md', '# Recipes\n\n## Basic\n\n| Install | Description |\n|---|---|\n| [`button`](../button/README.md) | A button. |\n');
     write('FOR-AGENTS.md', '# Agents\n\n<!-- recipes:start -->\n<!-- recipes:end -->\n');
     write('docs/PROJECT-AGENTS-SNIPPET.md', '# Snippet\n');
@@ -60,6 +61,37 @@ test('llms.txt names the latest release, never a branch, even with unreleased en
     assert.equal(k.run('--check').status, 0);
 });
 
+test('source recipe notes follow the kit identity and preserve the recipe text', (t) => {
+    const k = kit(t, unreleased);
+    assert.equal(k.run().status, 0);
+    const path = 'button/README.md';
+    const doc = readFileSync(join(k.dir, path), 'utf8');
+    assert.ok(doc.startsWith('# Button\n\nA button.\n\n::: installation\n'));
+    assert.ok(doc.includes('(https://example.github.io/kit/?recipe=button#recipes)'));
+    assert.ok(doc.includes('(../INSTALL.md#choosing-a-revision)'));
+    assert.ok(doc.includes('`vendor/bin/uxor component button --format=json`'));
+    k.write(path, doc.replace('?recipe=button', '?recipe=old-name'));
+    const stale = k.run('--check');
+    assert.equal(stale.status, 1);
+    assert.match(stale.stderr, /button\/README\.md is stale/);
+    assert.equal(k.run().status, 0);
+    assert.equal(readFileSync(join(k.dir, path), 'utf8'), doc);
+});
+
+test('recipe notes preserve CRLF source files when generated and checked repeatedly', (t) => {
+    const k = kit(t, unreleased);
+    const path = 'button/README.md';
+    k.write(path, '# Button\r\n\r\nA button.\r\n\r\n::: installation\r\n\r\n## Usage\r\n');
+    assert.equal(k.run().status, 0);
+    const generated = readFileSync(join(k.dir, path), 'utf8');
+    assert.equal(generated.split('<!-- recipe-source-note -->').length, 2);
+    assert.ok(!generated.replaceAll('\r\n', '').includes('\n'));
+    assert.ok(generated.endsWith('\r\n\r\n## Usage\r\n'));
+    assert.equal(k.run('--check').status, 0);
+    assert.equal(k.run().status, 0);
+    assert.equal(readFileSync(join(k.dir, path), 'utf8'), generated);
+});
+
 test('no released version in CHANGELOG.md is an error, never a branch', (t) => {
     const k = kit(t, '# Changelog\n\n## [Unreleased]\n\n- `card`: a card.\n');
     const run = k.run();
@@ -79,11 +111,13 @@ test('once the release is tagged, llms.txt is the tag copy: a recipe merged sinc
     // a recipe merged after the release, with its unreleased entry
     k.write('CHANGELOG.md', unreleased);
     k.write('card/manifest.json', '{}');
+    k.write('card/README.md', '# Card\n\nA card.\n\n::: installation\n');
     k.write('docs/RECIPES.md', `${readFileSync(join(k.dir, 'docs/RECIPES.md'), 'utf8')}| [\`card\`](../card/README.md) | A card. |\n`);
     const run = k.run();
     assert.equal(run.status, 0, run.stdout + run.stderr);
     assert.equal(k.llms(), released, 'the tag copy, unchanged');
     assert.doesNotMatch(k.llms(), /card/);
+    assert.match(readFileSync(join(k.dir, 'card/README.md'), 'utf8'), /https:\/\/example\.github\.io\/kit\/\?recipe=card#recipes/);
     // the agent table of FOR-AGENTS.md still follows the working tree
     assert.match(readFileSync(join(k.dir, 'FOR-AGENTS.md'), 'utf8'), /`card`/);
     assert.equal(k.run('--check').status, 0);
@@ -100,6 +134,8 @@ test('the website category index preserves the catalog’s group and recipe orde
     const categories = 'website/resources/recipe-categories.json';
     k.write('card/manifest.json', '{}');
     k.write('form/manifest.json', '{}');
+    k.write('card/README.md', '# Card\n\nA card.\n\n::: installation\n');
+    k.write('form/README.md', '# Form\n\nA form.\n\n::: installation\n');
     k.write('docs/RECIPES.md', [
         '# Recipes', '## Forms', '| [`form`](../form/README.md) | A form. |',
         '## Basic', '| [`card`](../card/README.md) | A card. |', '| [`button`](../button/README.md) | A button. |',

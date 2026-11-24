@@ -1,10 +1,12 @@
 # Form theme
 
-A Symfony form theme that renders every row through `FormField` and every control through the kit's `Input`, `Select`, `Textarea`, `Checkbox`, `Radio`, `Label` and `Button` components.
+A Symfony form theme for labelled fields, help text and validation errors. It styles common controls with UXor components and inherits Symfony’s Tailwind layout for other widgets.
 
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=form-theme#recipes). To install `form-theme` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component form-theme --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 ## Usage
 

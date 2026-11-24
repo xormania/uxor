@@ -6,6 +6,8 @@ The positioning that `dropdown`, `popover` (and so `date-picker`) and `tooltip` 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=floating#recipes). To install `floating` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component floating --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 Those recipes install it with them: install it yourself only to place an element of your own the same way. The

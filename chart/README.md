@@ -18,6 +18,8 @@ Charts drawn with Symfony UX Chart.js in the theme's colors, light and dark, eac
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=chart#recipes). To install `chart` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component chart --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Run the `composer require` command `ux:install` prints: Symfony Flex registers UX Chart.js and its Stimulus controller,
 and adds `chart.js` to the import map. If `importmap.php` has no `chart.js` entry afterwards, run
 `php bin/console importmap:require chart.js`. There is no stylesheet: the colors are the theme's `chart-1` to
@@ -141,6 +143,8 @@ Register Chart.js plugins as UX Chart.js documents, on its `chartjs:init` event,
 ```
 
 ### In a card, with its table shown
+
+For this example, install the [card](../card/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="w-full max-w-xl p-4">

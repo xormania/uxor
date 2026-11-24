@@ -12,6 +12,8 @@ An opinionated OAuth2/OIDC sign-in journey using Symfony Security, with Google, 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=oauth#recipes). To install `oauth` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component oauth --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 The recipe copies PHP into `src/UXor/OAuth/`, an authentication layout into `templates/layouts/`, and
@@ -208,4 +210,4 @@ Provider adapter tests separately exercise real League exchanges through mocked 
 - [GitHub OAuth authorization and PKCE](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)
 - [Google OpenID Connect](https://developers.google.com/identity/openid-connect/openid-connect)
 - [Google sign-in branding](https://developers.google.com/identity/branding-guidelines)
-- [Turbo authentication-page recovery](https://turbo.hotwired.dev/handbook/frames#breaking-out-from-a-frame)
+- [Turbo authentication-page recovery](https://turbo.hotwired.dev/handbook/frames#%E2%80%9Cbreaking-out%E2%80%9D-from-a-frame)

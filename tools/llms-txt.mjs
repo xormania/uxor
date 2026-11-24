@@ -9,13 +9,14 @@
 //   llms.txt, so work merged since (a recipe not released yet) never appears in it. The tags must be fetched.
 // - FOR-AGENTS.md, *Which recipe*: the table between the `recipes:start` and `recipes:end` comments.
 // - website/resources/recipe-categories.json: the current checkout’s categories and recipe names, in display order.
+// - Each recipe README: the current published page and the installed package lookup beside its Toolkit installation directive.
 //
 // It also checks that FOR-AGENTS.md and docs/PROJECT-AGENTS-SNIPPET.md name only recipes that exist
 // (`ux:install <name>`, `<name>/README.md` links), and the plans' status (docs/PLAN-*.md front matter and the
 // docs/ROADMAP.md table, see CONTRIBUTING.md *Plans*): an `open` plan whose recipes all ship, or a `shipped` one
 // whose recipe is missing, fails.
 //
-//   node tools/llms-txt.mjs           # writes the recipe lists and website categories
+//   node tools/llms-txt.mjs           # writes the release index, agent table, website categories and recipe source notes
 //   node tools/llms-txt.mjs --check   # compares every generated file and validates the sources (CI)
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -224,6 +225,19 @@ const outputs = [
     ['FOR-AGENTS.md', forAgentsOutput],
     ['website/resources/recipe-categories.json', JSON.stringify(categories, null, 2) + '\n'],
 ];
+for (const recipe of recipes) {
+    const path = `${recipe}/README.md`;
+    const current = read(path);
+    // The website replaces the directive with release-specific instructions. GitHub and offline readers see the README.
+    const installation = /^::: installation[ \t]*(?=\r?$)(?:(\r?\n)\1[^\r\n]* <!-- recipe-source-note -->(?=\r?$))?/gm;
+    if ([...current.matchAll(installation)].length !== 1) {
+        errors.push(`${path}: expected one Toolkit installation directive for the published recipe link.`);
+        continue;
+    }
+    const newline = current.match(/\r?\n/)?.[0] ?? '\n';
+    const note = `[Find this recipe in the latest published catalog](${kit.pages}?recipe=${recipe}#recipes). To install \`${recipe}\` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, \`vendor/bin/uxor component ${recipe} --format=json\` reads the bundled recipe manifest offline. <!-- recipe-source-note -->`;
+    outputs.push([path, current.replace(installation, `::: installation${newline}${newline}${note}`)]);
+}
 if (process.argv.includes('--check')) {
     for (const [path, output] of outputs) {
         const current = existsSync(join(root, path)) ? read(path) : '';
@@ -235,7 +249,7 @@ if (process.argv.includes('--check')) {
         errors.forEach((error) => console.error(error));
         process.exit(1);
     }
-    console.log(`The website categories, llms.txt and FOR-AGENTS.md are up to date (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}); ${plans.length} plans and the roadmap checked.`);
+    console.log(`Website categories, recipe source notes, llms.txt and FOR-AGENTS.md are up to date (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}); ${plans.length} plans and the roadmap checked.`);
 } else {
     for (const [path, output] of outputs) {
         const file = join(root, path);
@@ -243,6 +257,6 @@ if (process.argv.includes('--check')) {
         writeFileSync(file, output);
     }
     errors.forEach((error) => console.error(error));
-    console.log(`Wrote the website categories, llms.txt and FOR-AGENTS.md (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}).`);
+    console.log(`Wrote website categories, recipe source notes, llms.txt and FOR-AGENTS.md (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}).`);
     process.exit(errors.length ? 1 : 0);
 }

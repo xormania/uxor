@@ -2,6 +2,8 @@
 
 A labelled form control with its help text and error message, wired by id (used by the form theme).
 
+For this example, install the [input](../input/README.md) recipe.
+
 ```twig {"preview":true}
 <div class="w-full max-w-sm space-y-6">
     <twig:FormField for="email" label="Email" help="We never share it." required>
@@ -17,7 +19,11 @@ A labelled form control with its help text and error message, wired by id (used 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=form-field#recipes). To install `form-field` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component form-field --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [input](../input/README.md) recipe.
 
 ```twig
 <twig:FormField for="email" label="Email" help="Hint" error="{{ error }}" required>

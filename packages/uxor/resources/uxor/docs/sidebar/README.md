@@ -3,7 +3,10 @@
 The app's main navigation: grouped links with icons and counts, collapsible to icons, opened over the page on small screens.
 
 ```twig {"preview":true}
-<div class="h-96 w-full max-w-md overflow-hidden rounded-base border border-default">
+<div data-turbo="false" class="h-96 w-full max-w-md overflow-hidden rounded-base border border-default">
+    <p id="dashboard" tabindex="-1" class="hidden target:block">Dashboard: two orders are ready to ship.</p>
+    <p id="inbox" tabindex="-1" class="hidden target:block">Inbox: the confirmation for order #1042 is unread.</p>
+    <p id="profile" tabindex="-1" class="hidden target:block">Profile: Alex Morgan.</p>
     <twig:Sidebar id="sidebar-preview" storageKey="sidebar-preview">
         <twig:block name="header"><span class="text-lg font-semibold text-heading">[Product name]</span></twig:block>
         <twig:Sidebar:Group label="Overview">
@@ -29,6 +32,8 @@ The app's main navigation: grouped links with icons and counts, collapsible to i
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=sidebar#recipes). To install `sidebar` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component sidebar --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 ## Usage
 
