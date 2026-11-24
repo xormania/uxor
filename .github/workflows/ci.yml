@@ -455,7 +455,7 @@ jobs:
               run: php packages/uxor/tools/generate-reference.php --check
 
 
-            - name: Test inventory and lab coverage references
+            - name: Test inventory references
               id: tools-inventory
               if: ${{ !cancelled() }}
               run: |

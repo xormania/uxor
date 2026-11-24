@@ -1215,9 +1215,9 @@ await menu(page).click();                                                       
 await expectA11y(page, { impact: 'all', include: '#drawer-lab-mobile-nav' }, 'open'); // the component's own markup
 ```
 
-Here: [`fixtures.ts`](../tests/e2e/fixtures.ts) (`expectA11y`, `controllersConnected`), [`a11y.spec.ts`](../tests/e2e/a11y.spec.ts) (every page;
-[`tools/test-inventory.mjs`](../tools/test-inventory.mjs) fails when a lab page of `LabController` is missing from its
-`labPages`),
+Here: [`fixtures.ts`](../tests/e2e/fixtures.ts) (`expectA11y`, `controllersConnected`), [`a11y.spec.ts`](../tests/e2e/a11y.spec.ts) (every page),
+[`lab-pages.json`](../tests/e2e/lab-pages.json) (the lab URLs the spec scans),
+[`LabPageInventoryTest`](../demo/tests/Functional/LabPageInventoryTest.php) (checks the list against Symfony's registered lab routes),
 and the specs of the dropzone, editor, markdown-editor, forms, demo-app, lab.side-nav, lab.section-nav, lab.mobile-nav
 and lab.nav-menu.
 

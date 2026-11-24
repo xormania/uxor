@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Fails when docs/TEST-INVENTORY.md or the accessibility scan's list of lab pages has fallen behind the repository:
+// Fails when docs/TEST-INVENTORY.md has fallen behind the repository:
 //
 // - a recipe shipping a Stimulus controller (`<recipe>/assets/controllers/*_controller.js`) has no row in the
 //   inventory's matrix (its first column, `sidebar, navbar` naming two);
@@ -7,8 +7,6 @@
 //   (`tests/e2e/<name>.spec.ts`), `recipe:<name>` (a spec in `<name>/tests/`), `shot:<recipe>` (a recipe), a PHPUnit
 //   class (`FooTest`, `FooTest::testBar`, in `demo/tests/`), a spec, test file, `tools/` script or consumer check path. Struck text
 //   (`~~…~~`) is history and is not read;
-// - a page of the demo's LabController is not in `labPages` of tests/e2e/a11y.spec.ts, or `labPages` names a page
-//   it has not. A route without GET is not a page: it is listed below with its reason, so none is left out silently.
 // - a rule of FOR-AGENTS.md's "Working well" (a bullet's bold lead-in) has no row in the inventory's "Rules and their
 //   tests" (its first column, the lead-in as written), a row names a rule that is gone, or a row names no test and is
 //   not marked `advice` or `gap`.
@@ -23,11 +21,6 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (path) => readFileSync(join(root, path), 'utf8');
 const errors = [];
-
-// Lab routes that are not pages, so not scanned: route path => why
-const notPages = {
-    'turbo-nav/save': 'POST only: the form of the turbo-nav page posts to it',
-};
 
 const recipes = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && existsSync(join(root, entry.name, 'manifest.json')))
@@ -137,54 +130,8 @@ for (const [rule, tests = ''] of ruleRows) {
     }
 }
 
-// 4. Every lab page is scanned, and every scanned lab page exists
-const lab = read('demo/src/Controller/LabController.php');
-const routes = [...lab.matchAll(/^\s*#\[Route\('([^']*)'(.*)\)\]\s*$/gm)]
-    .filter(([, path]) => path !== '/lab') // the class's prefix
-    .map(([, path, options]) => ({
-        path: path.replace(/^\//, '').replace(/\/\{[^}]+\}$/, ''),
-        get: !/methods:/.test(options) || /methods:\s*\[[^\]]*'GET'/.test(options),
-    }));
-const a11y = read('tests/e2e/a11y.spec.ts').match(/const labPages = \[([^\]]*)\]/);
-if (null === a11y) {
-    errors.push('tests/e2e/a11y.spec.ts: no `const labPages = [...]`');
-}
-const scanned = [...(a11y?.[1] ?? '').matchAll(/'([^']*)'/g)].map(([, page]) => page);
-const pages = read('tests/e2e/a11y.spec.ts').match(/const pages = \[([^\]]*)\]/)?.[1] ?? '';
-for (const { path, get } of routes) {
-    if ('' === path) {
-        if (get && !/^\s*'\/lab',$/m.test(pages)) {
-            errors.push('tests/e2e/a11y.spec.ts: the lab index /lab is not in pages');
-        }
-        continue;
-    }
-    if (path in notPages) {
-        if (get) {
-            errors.push(`tools/test-inventory.mjs: notPages lists /lab/${path}, which now accepts GET: remove it there and add the page to labPages`);
-        }
-        continue;
-    }
-    if (!get) {
-        errors.push(`demo/src/Controller/LabController.php: /lab/${path} has no GET: add it to notPages in tools/test-inventory.mjs with its reason`);
-    } else if (!scanned.some((page) => page === path || page.startsWith(`${path}/`))) {
-        errors.push(`tests/e2e/a11y.spec.ts: the lab page /lab/${path} is not in labPages`);
-    }
-}
-for (const path of Object.keys(notPages)) {
-    if (!routes.some((route) => route.path === path)) {
-        errors.push(`tools/test-inventory.mjs: notPages lists /lab/${path}, which LabController no longer has`);
-    }
-}
-// an entry may add a query string (`dropzone-turbo?get=1`): the page is its path
-for (const page of scanned) {
-    const pagePath = page.split('?')[0];
-    if (!routes.some(({ path, get }) => get && (pagePath === path || pagePath.startsWith(`${path}/`)))) {
-        errors.push(`tests/e2e/a11y.spec.ts: labPages names /lab/${page}, which LabController has no page for`);
-    }
-}
-
 if (errors.length > 0) {
     console.error([...new Set(errors)].join('\n'));
     process.exit(1);
 }
-console.log(`test-inventory: ${rows.size} matrix rows, ${rules.length} rules, ${phpTests.size} PHPUnit classes, ${routes.length} lab routes checked`);
+console.log(`test-inventory: ${rows.size} matrix rows, ${rules.length} rules, ${phpTests.size} PHPUnit classes checked`);
