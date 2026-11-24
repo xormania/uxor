@@ -56,13 +56,14 @@ final class Operations
                 'setup' => $this->environmentSetup->setup($root, true === ($arguments['apply'] ?? false),
                     true === ($arguments['install'] ?? false), true === ($arguments['trust_project_code'] ?? false), (string) ($arguments['client'] ?? 'none'), (string) ($arguments['host_project_root'] ?? ''),
                     true === ($arguments['save_project_trust'] ?? false)),
+                'detach' => $this->environmentSetup->detach($root, true === ($arguments['apply'] ?? false)),
                 'environment' => $this->environmentStatus->inspect($root, true === ($arguments['probe'] ?? false), true === ($arguments['trust_project_code'] ?? false)),
                 'prepare' => $this->preparation->prepare($root, true === ($arguments['trust_project_code'] ?? false)),
                 'doctor' => $this->diagnose($root, (string) ($arguments['component'] ?? ''), (string) ($arguments['asset_profile'] ?? 'auto')),
                 'tools' => $this->nativeTools->discover($root, (string) ($arguments['kind'] ?? 'maker'),
                     (string) ($arguments['name'] ?? ''), (int) ($arguments['limit'] ?? 20), true === ($arguments['trust_project_code'] ?? false)),
                 'browser-diagnostics' => $this->browserDiagnostics->read($root, (string) ($arguments['path'] ?? '')),
-                default => throw new \InvalidArgumentException('Unknown operation. Use catalog, component, reference, workflow, inspect, doctor, setup, environment, prepare, tools, or browser-diagnostics.'),
+                default => throw new \InvalidArgumentException('Unknown operation. Use catalog, component, reference, workflow, inspect, doctor, setup, detach, environment, prepare, tools, or browser-diagnostics.'),
             };
             $result['status'] = $result['data']['status'] ?? 'completed';
             $result['changes'] = $result['data']['changes'] ?? [];

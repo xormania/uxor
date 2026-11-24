@@ -297,6 +297,9 @@ final class SymfonyPreparation
     private function publish(string $root, string $relative, string $content, array &$changes): void
     {
         $change = $changes[$relative] ?? ['path' => $relative, 'action' => is_file($root.'/'.$relative) ? 'update' : 'create'];
+        if (self::CONFIG === $relative) {
+            (new SetupOwnership(new ApplicationFiles($this->inspector)))->recordPreparedConfiguration($root, $content);
+        }
         $this->writeAtomic($root, $relative, $content);
         $changes[$relative] = $change;
     }

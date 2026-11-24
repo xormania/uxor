@@ -211,6 +211,140 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertSame($configured, file_get_contents($this->project.'/.codex/config.toml'));
     }
 
+    public function testDetachPreviewsThenRemovesOnlyTheSetupBindingFromEachNativeClient(): void
+    {
+        $other = ['command' => 'independent-mcp', 'args' => ['project']];
+        $claude = $this->project.'/.mcp.json';
+        file_put_contents($claude, json_encode(['mcpServers' => ['other' => $other]], JSON_THROW_ON_ERROR));
+        mkdir($this->project.'/.codex');
+        $codex = $this->project.'/.codex/config.toml';
+        $prefix = "# Local preferences\n[mcp_servers.other]\ncommand = \"independent-mcp\"\n";
+        $suffix = "\n[profiles.local]\nmodel = \"personal\"\n";
+        file_put_contents($codex, $prefix);
+        foreach (['claude', 'codex'] as $client) {
+            $this->invoke('setup', ['--apply' => true, '--client' => $client]);
+        }
+        self::assertArrayHasKey('uxor-mago', json_decode(file_get_contents($claude), true)['mcpServers']);
+        self::assertStringContainsString('[mcp_servers.uxor-mago]', file_get_contents($codex));
+        file_put_contents($codex, $suffix, FILE_APPEND);
+        $before = $this->snapshot($this->directory);
+
+        [, $plan] = $this->invoke('detach');
+        self::assertSame([], $plan['changes']);
+        self::assertSame($before, $this->snapshot($this->directory));
+        [$code, $result] = $this->invoke('detach', ['--apply' => true]);
+        self::assertSame(0, $code, json_encode($result));
+        self::assertSame(['mcpServers' => ['other' => $other]], json_decode(file_get_contents($claude), true));
+        self::assertStringContainsString($prefix, file_get_contents($codex));
+        self::assertStringContainsString($suffix, file_get_contents($codex));
+        self::assertStringNotContainsString('uxor-mago', file_get_contents($codex));
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+
+        $after = $this->snapshot($this->directory);
+        [$code, $again] = $this->invoke('detach', ['--apply' => true]);
+        self::assertSame(0, $code, json_encode($again));
+        self::assertSame([], $again['changes']);
+        self::assertSame($after, $this->snapshot($this->directory));
+    }
+
+    public function testSetupAfterDetachRestoresWorkingIntegrationsAndKeepsApplicationConfiguration(): void
+    {
+        $other = ['mcpServers' => ['own' => ['command' => 'my-project-server']]];
+        $client = $this->project.'/.mcp.json';
+        file_put_contents($client, json_encode($other, JSON_THROW_ON_ERROR));
+        $this->invoke('setup', ['--apply' => true, '--client' => 'claude']);
+        $paths = ['mago.toml', '.uxor/browser.mjs', '.uxor/mcp.json'];
+        $original = [];
+        foreach ($paths as $path) {
+            $original[$path] = file_get_contents($this->project.'/'.$path);
+        }
+        [$code, $detached] = $this->invoke('detach', ['--apply' => true]);
+        self::assertSame(0, $code, json_encode($detached));
+        foreach ($paths as $path) {
+            self::assertNotSame($original[$path], file_get_contents($this->project.'/'.$path), $path);
+        }
+        self::assertSame($other, json_decode(file_get_contents($client), true));
+        $this->invoke('setup', ['--apply' => true, '--client' => 'claude']);
+        foreach ($paths as $path) {
+            self::assertSame($original[$path], file_get_contents($this->project.'/'.$path), $path);
+        }
+        $servers = json_decode(file_get_contents($client), true)['mcpServers'];
+        self::assertArrayHasKey('uxor-mago', $servers);
+        self::assertSame($other['mcpServers']['own'], $servers['own']);
+    }
+
+    public function testEnvironmentTracksConfiguredSerenaAndBrowserDiagnosticsAcrossDetachAndSetup(): void
+    {
+        foreach ([['setup', true], ['detach', false], ['setup', true]] as [$operation, $configured]) {
+            [$code, $result] = $this->invoke($operation, ['--apply' => true]);
+            self::assertContains($code, 'setup' === $operation ? [0, 2] : [0], json_encode($result));
+            [$code, $report] = $this->invoke('environment');
+            self::assertSame(0, $code, json_encode($report));
+            $capabilities = $report['data']['capabilities'];
+            self::assertSame(
+                [$configured, $configured],
+                [$capabilities['serena']['configured'], $capabilities['browser']['configured']],
+                'Environment after '.$operation,
+            );
+            self::assertFalse($report['data']['project_code_executed']);
+        }
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+    }
+
+    public function testEnvironmentLeavesCustomIntegrationReadinessUnknownWithoutLoadingTheWrapper(): void
+    {
+        $this->invoke('setup', ['--apply' => true]);
+        $client = ['mcpServers' => ['uxor-mago' => ['command' => './project-specific-serena']]];
+        file_put_contents($this->project.'/.uxor/mcp.json', json_encode($client, JSON_THROW_ON_ERROR));
+        file_put_contents($this->project.'/.uxor/browser.mjs', <<<'JS'
+import { writeFileSync } from 'node:fs';
+writeFileSync(new URL('../browser-loaded', import.meta.url), 'loaded');
+export const { test, expect } = await import('@playwright/test');
+JS);
+        [$code, $report] = $this->invoke('environment');
+        self::assertSame(0, $code, json_encode($report));
+        $capabilities = $report['data']['capabilities'];
+        self::assertSame([null, null], [$capabilities['serena']['configured'], $capabilities['browser']['configured']]);
+        self::assertFalse($report['data']['project_code_executed']);
+        self::assertFileDoesNotExist($this->project.'/browser-loaded');
+    }
+
+    public function testDetachIdentifiesAnEditedWrapperAndBindingAndKeepsTheirContents(): void
+    {
+        $this->invoke('setup', ['--apply' => true, '--client' => 'claude']);
+        $wrapper = $this->project.'/.uxor/browser.mjs';
+        file_put_contents($wrapper, "\nexport const projectFeature = 'retained';\n", FILE_APPEND);
+        $wrapperBytes = file_get_contents($wrapper);
+        $client = $this->project.'/.mcp.json';
+        $binding = json_decode(file_get_contents($client), true);
+        $binding['mcpServers']['uxor-mago']['args'][] = '--custom-app-argument';
+        file_put_contents($client, json_encode($binding, JSON_THROW_ON_ERROR));
+        [$code, $result] = $this->invoke('detach', ['--apply' => true]);
+        self::assertSame(2, $code, json_encode($result));
+        $guidance = json_encode($result['data'], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        foreach (['.uxor/browser.mjs', '.mcp.json'] as $affected) {
+            self::assertStringContainsString($affected, $guidance);
+        }
+        self::assertSame($wrapperBytes, file_get_contents($wrapper));
+        self::assertSame($binding, json_decode(file_get_contents($client), true));
+    }
+
+    public function testDetachOfLegacyBindingsWithoutOwnershipEvidencePreservesTheApplication(): void
+    {
+        mkdir($this->project.'/.uxor');
+        $legacy = "import { recordBrowserDiagnostics } from '../vendor/xormania/uxor/packages/uxor/resources/browser/diagnostics.mjs';\n";
+        file_put_contents($this->project.'/.uxor/browser.mjs', $legacy);
+        $binding = ['command' => $this->project.'/vendor/bin/uxor-mago', 'args' => ['--project-root', $this->project, 'serena']];
+        file_put_contents($this->project.'/.mcp.json', json_encode(['mcpServers' => ['uxor-mago' => $binding]], JSON_THROW_ON_ERROR));
+        $snapshot = $this->snapshot($this->directory);
+        [$code, $result] = $this->invoke('detach', ['--apply' => true]);
+        self::assertSame(2, $code, json_encode($result));
+        $guidance = json_encode($result['data'], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        self::assertStringContainsString('.uxor/browser.mjs', $guidance);
+        self::assertStringContainsString('.mcp.json', $guidance);
+        self::assertSame($snapshot, $this->snapshot($this->directory));
+    }
+
     public function testInvalidClientConfigurationFailsBeforeAnyFilesAreWritten(): void
     {
         file_put_contents($this->project.'/.mcp.json', "{not-json\n");

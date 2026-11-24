@@ -732,6 +732,8 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
         retained.extend(directory / f"mate-{name}/SKILL.md" for directory in mirrors)
     before = {path: path.read_bytes() for path in retained}
 
+    import environment_acceptance as environment
+    environment.detach(application, php)
     execute("composer.remove", [*composer_command(), "remove", "--dev", PACKAGE_NAME,
                                 "--no-interaction", "--no-progress"], application)
 
@@ -766,6 +768,7 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
     for path, content in before.items():
         if path.read_bytes() != content:
             raise RuntimeError(f"Removing UXor changed application-owned content: {path.relative_to(application)}")
+    environment.check_detached_tools(application, php)
     render_pages(application, php, "dev", SHORTCUT_PAGE)
     print("Removal: the package, binaries and Mate integration are gone; application skills, instructions and the rendered recipe are preserved.")
 
