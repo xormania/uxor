@@ -59,9 +59,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
 - The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. Setup installs Symfony’s full debug pack and the Monolog Mate
-  extension by default, recognizes the components installed by Flex and respects the application’s profiler
-  settings. The shared fixture starts collecting only on a diagnostic run.
+  failures to exact Symfony request profiles. Requiring UXor in development installs the full Symfony debug pack, Maker, Toolkit, Monolog Mate
+  extension and Mago tooling. Composer initializes Mate and discovers the UXor tools. Serena and its Mago language
+  server prepare their provider on first use. UXor respects the application’s profiler settings. The shared fixture starts collecting only on a diagnostic run.
 
 ### Changed
 

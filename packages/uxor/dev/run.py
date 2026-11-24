@@ -128,9 +128,6 @@ def prepare(env: dict[str, str], native: bool, *, assets: bool = True) -> None:
     execute(["php", "bin/console", "cache:clear", "--no-interaction"], env, native, running=False)
     if assets:
         execute(["php", "bin/console", "importmap:install", "--no-interaction"], env, native, running=False)
-    execute(["php", "vendor/bin/mate", "init", "--no-interaction"], env, native, running=False)
-    execute(["composer", "dump-autoload", "--no-interaction"], env, native, running=False)
-    execute(["php", "vendor/bin/mate", "discover", "--no-interaction"], env, native, running=False)
 
 
 def readiness(env: dict[str, str]) -> None:

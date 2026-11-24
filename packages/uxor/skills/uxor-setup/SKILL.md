@@ -13,16 +13,16 @@ the package workflow and its first rendered component. Use the package CLI if th
 
 1. Identify the application root and PHP/Composer invocation. Keep application PHP
    commands in its actual runtime. Select `--project-root` explicitly across applications or worktrees.
-2. Read `uxor setup --format=json` and `uxor environment --format=json`. Setup defaults to a plan.
-   Apply authorized changes with `setup --apply`; installing development dependencies additionally requires
-   `--install --trust-project-code`. Use existing task/session authorization when it covers native execution in
-   this application and runtime. A configuration-only request does not authorize native execution.
+2. Composer installs the development tools, applies missing project defaults and registers UXor with Mate. Verify the application’s installation
+   with `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json`. Inspect `uxor environment --format=json`.
+   To reconcile existing configuration or add a client binding, preview `uxor setup --format=json` and apply authorized changes
+   with `setup --apply`. Run native probes only with authorization for the selected application and runtime.
 3. Preserve existing files and integrate reported configuration. Composer uses available Flex recipes.
-   The default development install requests Symfony’s full debug pack and the Monolog Mate extension.
+   UXor’s Composer requirements include Symfony’s full debug pack and the Monolog Mate extension.
    Without Flex, follow the application’s dev bundle registration and profiler route conventions. For a debugging
    task, follow the response’s exact token to its profile and inspect an available collector. The advanced
    guide listed below has the commands under “Diagnose a request.”
-4. When a task needs Serena or Mago, prepare the providers on the Docker host.
+4. For Serena or containerized Mago, use the installed launcher on the Docker host. It acquires its provider on first use.
    For generated client configuration use
    `--client=claude|codex` and, when setup runs in PHP Docker, the client's absolute `--host-project-root`.
    Authorize the current MCP launch explicitly after reviewing the application and launcher. Setup's execution
@@ -31,14 +31,14 @@ the package workflow and its first rendered component. Use the package CLI if th
    Setup preserves existing bindings; reconcile them explicitly if the intended permission changes. To revoke
    recurring permission, stop the provider and remove its saved launch flag before reconnecting.
    Connect and query a known application symbol; the generated registration is unverified.
-   Mate 1.0.0-BETA1 supplies application CLI tools; Serena supplies MCP.
+   Mate supplies application CLI tools. Serena supplies MCP.
 5. Run `uxor prepare --trust-project-code` in the application PHP runtime when compiled Symfony wiring is needed.
    Inspect its result and integrate `.uxor/mago/config.toml` into the root Mago configuration.
 6. For UI components, select the application's chosen UXor release, search the catalog and read the recipe.
    Install with Toolkit's `ux:install` and complete its Composer, importmap, CSS and controller requirements.
    Runtime component dependencies belong in regular dependencies; development tools belong in require-dev.
 7. Render and exercise the selected component through the served application, then use `mate-uxor-verify`.
-   After package updates, refresh Mate discovery while preserving project-authored instructions.
+   Composer refreshes Mate discovery during updates. Run `mate discover` after editing an application skill override.
 
 ## References
 

@@ -1,129 +1,202 @@
 """Install UXor's development stack in an application configured by Symfony Flex recipes."""
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
+import os
 from pathlib import Path
 import secrets
+import shutil
 
-from environment_acceptance import operation, run
+from environment_acceptance import install_kbd, operation, run
 from lifecycle_events import operation as observe
 
 
 @observe("consumer.flex-debug-pack")
-def check(root: Path, php: str, composer: list[str], candidate: dict, mate: dict[str, str]) -> None:
+def check(root: Path, php: str, composer: list[str], candidate: dict, operation_result: Callable) -> None:
     root.mkdir()
     manifest = {
         "name": "consumer/flex-debug", "type": "project",
         "require": {"php": ">=8.4", "symfony/flex": "^2", "symfony/console": "8.1.*",
                     "symfony/dotenv": "8.1.*", "symfony/framework-bundle": "8.1.*",
                     "symfony/runtime": "8.1.*", "symfony/yaml": "8.1.*"},
-        "require-dev": {"xormania/uxor": candidate["package"]["version"], **mate},
+        "minimum-stability": "beta", "prefer-stable": True,
         "repositories": [candidate], "autoload": {"psr-4": {"App\\": "src/"}},
         "config": {"allow-plugins": {"symfony/flex": True, "symfony/runtime": True,
-                                     "symfony/ai-mate-composer-plugin": True}},
+                                     "symfony/ai-mate-composer-plugin": True, "xormania/uxor": True}},
         "extra": {"symfony": {"require": "8.1.*"}},
-        # Composer writes the solver lock before Flex's post-update-cmd unpacks the two packs.
         "scripts": {
+            "auto-scripts": {}, "post-install-cmd": ["@auto-scripts"], "post-update-cmd": ["@auto-scripts"],
             "pre-update-cmd": "@php -r \"file_put_contents('composer-updates', '+', FILE_APPEND);\"",
-            "post-autoload-dump": [
-                "@php -r \"if ([] === array_diff(['symfony/debug-pack', 'symfony/profiler-pack'], "
-                "array_column(json_decode(file_get_contents('composer.lock'), true)['packages-dev'], 'name'))) "
-                "copy('composer.lock', 'resolved-before-flex.lock');\""
-            ],
         },
     }
     (root / "composer.json").write_text(json.dumps(manifest, indent=4) + "\n")
     run("composer.install-flex", [*composer, "install", "--prefer-dist", "--no-interaction", "--no-progress"],
         root, timeout=600)
-    packs = {"symfony/debug-pack", "symfony/profiler-pack"}
+    package = "xormania/uxor"
     components = {"symfony/debug-bundle", "symfony/monolog-bundle", "symfony/web-profiler-bundle", "symfony/stopwatch"}
     extension = "symfony/ai-monolog-mate-extension"
+    tools = components | {package, extension, "symfony/maker-bundle", "symfony/ux-toolkit", "symfony/http-client", "symfony/ai-mate",
+                          "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension",
+                          "carthage-software/mago", "byte-kitsune/mago-symfony-wiring"}
 
-    def installed_packages() -> set[str]:
-        return {p["name"] for p in json.loads((root / "vendor/composer/installed.json").read_text())["packages"]}
+    def installed_packages() -> dict[str, str]:
+        rows = json.loads((root / "vendor/composer/installed.json").read_text())["packages"]
+        return {row["name"]: row["version"] for row in rows}
 
-    if installed_packages() & (packs | components | {"monolog/monolog", extension}):
-        raise RuntimeError("The fresh Flex consumer already has debug tooling before UXor setup")
-    install = ("--apply", "--install", "--trust-project-code")
-    first = operation(root, php, "setup", *install, timeout=600)
-    if first["status"] != "completed":
-        raise RuntimeError(f"Fresh Flex setup did not complete: {first['summary']}")
-    run("composer.validate-flex-lock", [*composer, "validate", "--check-lock", "--no-check-publish", "--no-plugins", "--no-scripts"], root)
-    transactions = [e["argv"] for e in first["data"]["executions"] if e["argv"][1:2] in (["require"], ["update"])]
-    if len(transactions) != 1 or transactions[0][1] != "require":
-        raise RuntimeError(f"Fresh setup must resolve development dependencies in one Composer require: {transactions}")
-    if not {"symfony/debug-pack", extension} <= {arg.split(":", 1)[0] for arg in transactions[0]}:
-        raise RuntimeError(f"First trusted setup must request the debug pack and Monolog Mate extension together: {transactions[0]}")
+    if tools & installed_packages().keys():
+        raise RuntimeError("The fresh Flex application already has UXor development tools")
+    # A valid application file at an upcoming recipe's destination belongs to the application.
+    owned = root / "config/packages/twig.yaml"
+    owned_contents = b"parameters:\n    app.consumer_policy: 'owned by this application'\n"
+    owned.write_bytes(owned_contents)
+    updates = root / "composer-updates"
+    baseline_updates = updates.read_bytes()
+    run("composer.require-uxor", [*composer, "require", "--dev", package + ":" + candidate["package"]["version"],
+        "--prefer-dist", "--no-interaction", "--no-progress"], root, timeout=600)
+
+    # No UXor setup, Mate init or discovery between Composer and the agent's first real task.
+    call = run("mate.first-catalog", [php, "vendor/bin/mate", "tools:call", "uxor_catalog",
+               "--query=kbd", "--format=json"], root)
+    catalog = operation_result(call.stdout, "catalog")
+    if not catalog or catalog["status"] != "completed" or not any(
+            item["name"] == "kbd" for item in catalog["data"]["items"]):
+        raise RuntimeError("Requiring UXor did not make the installed Kbd recipe callable through Mate")
+    install_kbd(root, php)
+    if updates.read_bytes() != baseline_updates + b"+":
+        raise RuntimeError("The first UXor install and tool calls ran additional Composer updates")
     installed = installed_packages()
-    dev = json.loads((root / "composer.json").read_text())["require-dev"]
-    if (installed | dev.keys()) & packs or not components.issubset(dev) or not (components | {extension}).issubset(installed):
-        raise RuntimeError(f"Flex did not unpack the debug pack and its nested profiler pack, or setup omitted {extension}: {sorted(dev)}")
-    check_pack_manifests(root, packs)
+    if missing := tools - installed.keys():
+        raise RuntimeError("Requiring UXor left development tools missing: " + ", ".join(sorted(missing)))
+    if not installed["symfony/ai-mate"].lstrip("v").startswith("1."):
+        raise RuntimeError(f"The installed Mate version is outside the 1.x line: {installed['symfony/ai-mate']}")
+    after = json.loads((root / "composer.json").read_text())
+    if (set(after["require-dev"]) != {package} or after["require"] != manifest["require"]
+            or after["minimum-stability"] != "beta" or not after["prefer-stable"]):
+        raise RuntimeError("Installing UXor changed the application's runtime requirements, development roots or stability policy")
+    if not (root / "mate/config.php").is_file():
+        raise RuntimeError("Requiring UXor did not initialize the application's Mate configuration")
+    run("composer.validate-flex-lock", [*composer, "validate", "--check-lock", "--no-check-publish", "--no-plugins", "--no-scripts"], root)
+    check_pack_manifests(root)
     recipes = json.loads((root / "symfony.lock").read_text())
     for bundle in ("symfony/debug-bundle", "symfony/monolog-bundle", "symfony/web-profiler-bundle"):
         recipe = recipes.get(bundle, {}).get("recipe", {})
         if not recipe.get("ref") or recipe.get("repo") != "github.com/symfony/recipes":
             raise RuntimeError(f"Flex did not apply the official {bundle} recipe")
 
+    check_production_install(root, php, composer, tools, "production")
+
     state_files = [root / name for name in ("composer.json", "composer.lock", "symfony.lock", "composer-updates")]
     before = [path.read_bytes() for path in state_files]
-    repeated = operation(root, php, "setup", *install, timeout=600)
+    environment = operation(root, php, "environment", allowed=(0, 2))["data"]
+    repeated = operation(root, php, "setup", "--apply")
     if repeated["status"] != "completed":
-        raise RuntimeError(f"Repeated Flex setup did not complete: {repeated['summary']}")
-    if any(e["argv"][1:2] == ["require"] for e in repeated["data"]["executions"]):
-        raise RuntimeError(f"Repeated trusted setup re-ran Composer require: {repeated['data']['executions']}")
-    if [path.read_bytes() for path in state_files] != before:
-        raise RuntimeError("Repeated trusted setup invoked Composer's resolver or changed the manifest, Composer lock, or recipe lock")
-    environment = operation(root, php, "environment")["data"]
-    for result in (first["data"], repeated["data"], environment):
-        dependencies = {row["package"]: row for row in result["dependencies"]}
-        for pack in packs:
-            row = dependencies[pack]
-            if not row["compatible"] or row["installed_version"] is not None or row["satisfied_by"] != "installed_components":
-                raise RuntimeError(f"UXor misreported the unpacked {pack}: {row}")
-        if not dependencies[extension]["compatible"]:
-            raise RuntimeError(f"UXor failed to recognize the installed Monolog Mate extension: {dependencies[extension]}")
+        raise RuntimeError(f"Flex setup after installing UXor did not complete: {repeated['summary']}")
+    if repeated["data"]["executions"] or [path.read_bytes() for path in state_files] != before:
+        raise RuntimeError("Applying configuration spawned a child process or changed the installed manifest or locks")
+    for result in (environment, repeated["data"]):
+        incompatible = [row["package"] for row in result["dependencies"] if not row["compatible"]]
+        if incompatible:
+            raise RuntimeError("UXor did not recognize Composer's installed dependencies: " + ", ".join(incompatible))
     if not environment["capabilities"]["profiler"]["installed"] or not environment["capabilities"]["monolog"]["installed"]:
         raise RuntimeError(f"Environment failed to recognize profiler or Monolog: {environment['capabilities']}")
     live = operation(root, php, "environment", "--probe", "--trust-project-code", allowed=(0, 2))["data"]["capabilities"]
     if live["debug"]["observed"] != "command_available" or live["profiler"]["observed"] != "service_available":
         raise RuntimeError(f"The installed console failed to observe the Flex debug command or profiler service: {live}")
     check_debug_capture(root, php)
-    check_mate_init_with_stale_lock(root, php, install)
-    print("Flex consumer: setup installed and unpacked the debug packs, repeated without Composer require, and the same request produced a profiler dump and a Mate-searchable application log.")
+    check_monolog_ownership(root, php, composer, tools)
+    if owned.read_bytes() != owned_contents:
+        raise RuntimeError("Flex changed the application's existing config/packages/twig.yaml")
+    check_pending_requirement_preserved(root, php, composer)
+    run("composer.remove-flex-uxor", [*composer, "remove", "--dev", package, "--no-interaction", "--no-progress"], root, timeout=600)
+    if not owned.is_file() or owned.read_bytes() != owned_contents:
+        raise RuntimeError("Removing UXor deleted or changed the application-owned config/packages/twig.yaml")
+    print("Flex consumer: Composer made the Mate catalog and Toolkit Kbd installation available immediately. "
+          "The same request produced a profiler dump and a Mate-searchable log. A cold production deployment booted.")
 
 
-def check_mate_init_with_stale_lock(root: Path, php: str, install: tuple[str, ...]) -> None:
-    manifest_path = root / "composer.json"
-    manifest = json.loads(manifest_path.read_text())
-    del manifest["extra"]["ai-mate"]
-    # The application has all its development tools, but this new requirement has not been resolved.
-    manifest["require"]["php"] = ">=8.4.1"
-    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
-    (root / "mate/config.php").unlink()
-    lock = root / "composer.lock"
-    previous_lock = lock.read_bytes()
-    operation(root, php, "setup", *install, timeout=600)
-    result = json.loads(manifest_path.read_text())
-    if "ai-mate" not in result["extra"] or not (root / "mate/config.php").is_file():
-        raise RuntimeError("Setup did not restore the missing Mate configuration")
-    if result["require"]["php"] != manifest["require"]["php"] or lock.read_bytes() != previous_lock:
-        raise RuntimeError("Mate initialization changed the application's pending requirement or its existing stale lock")
-
-
-def check_pack_manifests(root: Path, packs: set[str]) -> None:
-    lock = json.loads((root / "resolved-before-flex.lock").read_text())
-    resolved = {p["name"]: p for p in lock["packages"] + lock["packages-dev"] if p["name"] in packs}
-    if resolved.keys() != packs:
-        raise RuntimeError(f"Composer's pre-unpack lock is missing {sorted(packs - resolved.keys())}")
+def check_pack_manifests(root: Path) -> None:
+    lock = json.loads((root / "composer.lock").read_text())
+    resolved = {p["name"]: p for p in lock["packages"] + lock["packages-dev"]}
     resources = root / "vendor/xormania/uxor/packages/uxor/resources/symfony/packs"
-    for name, package in resolved.items():
+    for name in ("symfony/debug-pack", "symfony/profiler-pack"):
+        package = resolved[name]
         manifest = json.loads((resources / name.split("/")[1] / "composer.json").read_text())
         for field in ("name", "type", "require", "require-dev"):
             if manifest.get(field) != package.get(field):
                 source = package["source"]
                 raise RuntimeError(f"UXor’s {name} manifest differs from resolved {package['version']} in {field}. "
                                    f"Refresh the manifest from {source['url']} at {source['reference']}.")
+
+
+def check_production_install(root: Path, php: str, composer: list[str], excluded: set[str], name: str) -> Path:
+    production = root.with_name(root.name + "-" + name)
+    shutil.copytree(root, production, ignore=shutil.ignore_patterns("vendor", "var"))
+    run("composer.install-flex-no-dev", [*composer, "install", "--no-dev", "--prefer-dist", "--no-interaction", "--no-progress"],
+        production, timeout=600, env={**os.environ, "APP_ENV": "prod", "APP_DEBUG": "0"})
+    installed = json.loads((production / "vendor/composer/installed.json").read_text())["packages"]
+    if unexpected := excluded & {package["name"] for package in installed}:
+        raise RuntimeError("A cold production deployment installed development tools: " + ", ".join(sorted(unexpected)))
+    run("symfony.flex-production-boot", [php, "bin/console", "about", "--env=prod", "--no-debug", "--no-interaction"], production)
+    return production
+
+
+def check_monolog_ownership(root: Path, php: str, composer: list[str], tools: set[str]) -> None:
+    package = "symfony/monolog-bundle"
+
+    def recipe_config() -> Path:
+        recipe = json.loads((root / "symfony.lock").read_text())[package]
+        for path in recipe["files"]:
+            source = root / path
+            if source.is_file() and source.read_bytes().startswith(b"monolog:\n"):
+                return source
+        raise RuntimeError("The Flex receipt does not identify the installed Monolog configuration")
+
+    original = recipe_config()
+    customized = original.read_bytes() + b"\n# Keep the application's logging configuration.\n"
+    original.write_bytes(customized)
+    run("composer.promote-monolog", [*composer, "require", package, "--prefer-dist", "--no-interaction", "--no-progress"], root, timeout=600)
+    if recipe_config().read_bytes() != customized:
+        raise RuntimeError("Adopting Monolog as an application dependency lost its customized Flex configuration")
+    lock = json.loads((root / "composer.lock").read_text())
+    if package not in {row["name"] for row in lock["packages"]}:
+        raise RuntimeError("Composer did not promote Monolog into the runtime dependency graph")
+    production = check_production_install(root, php, composer, tools - {package}, "with-monolog")
+    native = run("symfony.promoted-monolog", [php, "bin/console", "debug:config", "monolog", "--format=json", "--env=prod", "--no-debug"], production)
+    if not json.loads(native.stdout)["monolog"]["handlers"]:
+        raise RuntimeError("The production kernel lost the Monolog handlers from the application's Flex recipe")
+
+    # The package remains a development dependency through UXor after the root requirement is removed.
+    run("composer.drop-monolog-requirement", [*composer, "remove", "--no-update", "--no-interaction", package], root)
+    run("composer.demote-monolog", [*composer, "update", package, "--prefer-dist", "--no-interaction", "--no-progress"], root, timeout=600)
+    lock = json.loads((root / "composer.lock").read_text())
+    if package not in {row["name"] for row in lock["packages-dev"]} or recipe_config().read_bytes() != customized:
+        raise RuntimeError("Returning Monolog to development lost its package or customized recipe")
+    check_production_install(root, php, composer, tools, "after-demotion")
+
+
+def check_pending_requirement_preserved(root: Path, php: str, composer: list[str]) -> None:
+    manifest_path = root / "composer.json"
+    manifest = json.loads(manifest_path.read_text())
+    # A subsequent configuration run must leave resolution of an application-authored edit to Composer.
+    manifest["require"]["php"] = ">=8.4.1"
+    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
+    paths = [manifest_path, root / "composer.lock"]
+    before = [path.read_bytes() for path in paths]
+    result = operation(root, php, "setup", "--apply", "--install", "--trust-project-code", allowed=(0, 2))
+    if result["data"]["executions"] or [path.read_bytes() for path in paths] != before:
+        raise RuntimeError("Setup resolved or modified the application's pending Composer requirement")
+
+    # Even when a Composer autoload refresh really reinitializes Mate, it cannot mark a pending requirement resolved.
+    del manifest["extra"]["ai-mate"]
+    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
+    config = root / "mate/config.php"
+    config.unlink()
+    run("composer.reinitialize-flex-mate", [*composer, "dump-autoload", "--no-interaction"], root)
+    refreshed = json.loads(manifest_path.read_text())
+    if (not config.is_file() or "ai-mate" not in refreshed["extra"] or refreshed["require"] != manifest["require"]
+            or (root / "composer.lock").read_bytes() != before[1]):
+        raise RuntimeError("Mate reinitialization changed the pending application requirement or its existing lock")
 
 
 def check_debug_capture(root: Path, php: str) -> None:

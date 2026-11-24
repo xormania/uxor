@@ -40,8 +40,7 @@ FIXTURE = PACKAGE / "dev/app"
 # What the fixture renders in production. Fixture data: keep in step with the fixture's controller and templates.
 FIXTURE_PAGES = {"/health": "uxor-ready", "/": "UXor development", "/_uxor_probe/production": '"value":"fixed"'}
 SHORTCUT_PAGE = {"/panel": 'data-shortcut-owner="consumer"'}
-MATE_PACKAGES = ("symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension")
-MATE_BETA = "1.0.0-BETA1"
+LEGACY_MATE_PACKAGES = ("symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension")
 BASELINE_RELEASE = "0.3.2"
 LAST_BASELINE_TARGET = "0.9.9"
 RELEASE_NUMBER = r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}"
@@ -245,15 +244,14 @@ def execute(name: str, arguments: list[str], application: Path, *, capture: bool
     return result.stdout if capture else ""
 
 
-def check_mate_versions(application: Path, version: str) -> None:
+def check_mate_versions(application: Path, *, baseline: bool = False) -> None:
     installed = json.loads((application / "vendor/composer/installed.json").read_text())["packages"]
-    actual = {
-        package["name"]: package["version"].removeprefix("v")
-        for package in installed if package["name"] in MATE_PACKAGES
-    }
-    if actual != dict.fromkeys(MATE_PACKAGES, version):
-        raise RuntimeError(f"Expected Mate, its Composer plugin and Symfony extension at {version}, installed {actual}")
-    print(f"Composer installed Mate, its Composer plugin and Symfony extension at {version}.")
+    versions = {p["name"]: p["version"].removeprefix("v") for p in installed}
+    expected = LEGACY_MATE_PACKAGES if baseline else (*LEGACY_MATE_PACKAGES, "symfony/ai-monolog-mate-extension")
+    for name in expected:
+        version = versions.get(name, "")
+        if not (version == "0.14.0" if baseline else version.startswith("1.")):
+            raise RuntimeError(f"Expected {'baseline 0.14.0' if baseline else '1.x'} {name}, installed {version!r}")
 
 
 def operation_result(payload, operation: str):
@@ -444,7 +442,7 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
         raise RuntimeError("The project's agent instructions do not lead to the installed UXor extension")
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
     if "Building with UXor" not in guidance or marker not in guidance:
-        raise RuntimeError("Public setup did not publish this archive's UXor instructions")
+        raise RuntimeError("Composer did not publish this archive's UXor instructions")
     tools = json.loads(execute("mate.tools-list", [*mate, "tools:list", "--format=json"], application, capture=True))
     for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
         if tool not in tools["tools"]:
@@ -461,20 +459,15 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
     if reference is None or reference.get("status") != "completed" or not reference.get("data", {}).get("content"):
         raise RuntimeError("The installed reference resource could not be read through Mate")
     check_skills(application, php, consumer_sources, marker)
-    print("Install: the project instructions lead to working UXor tools, references and three skills after public setup.")
+    print("Install: the project instructions lead to working UXor tools, references and three skills immediately after Composer finishes.")
 
 
 @operation("toolkit.customize-kbd")
 def install_customized_shortcut(application: Path, php: str) -> Path:
     """Install a real recipe from the same dist through Toolkit, then use and customize the application's copy."""
-    kit = application / "vendor/symfony/ux-toolkit/kits/uxor-lifecycle"
-    shutil.copytree(application / "vendor" / PACKAGE_NAME, kit)
-    try:
-        execute("toolkit.install-kbd", [php, "bin/console", "ux:install", "kbd", f"--kit={kit.name}",
-                                        "--no-interaction"], application)
-    finally:
-        shutil.rmtree(kit)
-    component = application / "templates/components/Kbd.html.twig"
+    from environment_acceptance import install_kbd
+
+    component = install_kbd(application, php)
     source, count = re.subn(r"<kbd(?=[\s>])", '<kbd data-shortcut-owner="consumer"', component.read_text(), count=1)
     if not count:
         raise RuntimeError("The installed Kbd recipe has no keyboard-key element to customize")
@@ -506,8 +499,8 @@ def check_update(application: Path, archive: Path, old_marker: str,
         raise RuntimeError("Installed package metadata does not identify the newer archive")
     if json.loads((installed / "composer.json").read_text()).get("version") != "0.0.1":
         raise RuntimeError("Updated package files do not match Composer's installed version")
-    check_mate_versions(application, MATE_BETA)
-    # The approved Beta1 plugin refreshes an initialized application's extensions on Composer update.
+    check_mate_versions(application)
+    # The installed plugin refreshes the application's extensions on Composer update.
     php = os.environ.get("PHP_BIN", "php")
     check_skills(application, php, consumer_sources, new_marker)
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
@@ -612,8 +605,10 @@ def create_consumer_fixture(application: Path, revision: str) -> dict:
             destination.chmod(0o755)
     (application / ".env.local").write_text("APP_SECRET=" + secrets.token_hex(32) + "\n")
     manifest = json.loads((application / "composer.json").read_text())
-    if manifest.get("minimum-stability", "stable") != "stable":
-        raise RuntimeError("The archive consumer must keep its stable Composer policy")
+    if manifest.get("minimum-stability") != "beta" or manifest.get("prefer-stable") is not True:
+        raise RuntimeError("The archive consumer must accept beta releases and prefer stable versions")
+    if set(manifest["require-dev"]) != {PACKAGE_NAME}:
+        raise RuntimeError("The fresh archive consumer must get all development tools from its single UXor requirement")
     return manifest
 
 
@@ -632,8 +627,7 @@ def check_consumer(archive: Path, temporary: Path, revision: str, *, providers: 
     # Composer accepts both of these relative spellings. Setup and preparation must agree.
     manifest["config"]["vendor-dir"] = "./vendor"
     manifest["autoload"]["psr-4"]["App\\"] = "./src/"
-    for name in (PACKAGE_NAME, *MATE_PACKAGES):
-        del manifest["require-dev"][name]
+    del manifest["require-dev"][PACKAGE_NAME]
     manifest["extra"]["ai-mate"]["skills"] = ["project-skills"]
     consumer_sources = write_consumer_skills(application)
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
@@ -642,19 +636,20 @@ def check_consumer(archive: Path, temporary: Path, revision: str, *, providers: 
     instructions_path.write_text(custom_instructions)
     (application / "CLAUDE.md").write_text("# Application conventions\n\nKeep the project's keyboard shortcut.\n")
     execute("composer.require", [*composer_command(), "require", "--dev", f"{PACKAGE_NAME}:0.0.*",
-             *(f"{name}:{MATE_BETA}" for name in MATE_PACKAGES), "--prefer-dist", "--no-interaction", "--no-progress"], application)
+             "--prefer-dist", "--no-interaction", "--no-progress"], application)
+    after = json.loads(manifest_path.read_text())
+    if after["require"] != manifest["require"] or set(after["require-dev"]) != {PACKAGE_NAME}:
+        raise RuntimeError("Requiring UXor changed application dependency roots beyond the dev package itself")
     installed = application / "vendor" / PACKAGE_NAME
     if installed.is_symlink() or not installed.is_dir():
         raise RuntimeError("Independent consumer must install the archive, not a source symlink")
-    check_mate_versions(application, MATE_BETA)
+    check_mate_versions(application)
     execute("mago.help", ["vendor/bin/uxor-mago", "--help"], application)
     php = os.environ.get("PHP_BIN", "php")
     mate = [php, "vendor/bin/mate"]
-    # Exercise the public installed setup before manual initialization. Keep its
-    # added dev dependencies in the update manifest instead of undoing setup.
-    environment.setup(application, php)
-    check_mate_versions(application, MATE_BETA)
+    # Read the package’s tools, skills and instructions immediately after Composer installs it.
     check_install_handoff(application, php, consumer_sources, old_marker)
+    environment.setup(application, php)
     first_instructions = instructions_path.read_text()
     if not first_instructions.startswith(custom_instructions):
         raise RuntimeError("Mate initialization replaced the consumer's existing instructions")
@@ -713,7 +708,7 @@ $kernel->shutdown();
 
 @operation("consumer.remove")
 def check_removal(application: Path, php: str, component: Path, consumer_sources: dict[str, bytes], marker: str) -> None:
-    """Remove UXor from a working dev project whose own Composer requirements include Mate."""
+    """Remove UXor from an app that elects to keep its own Mate, Maker and native Mago integrations."""
     mate = [php, "vendor/bin/mate"]
     # Establish that the preceding no-dev deployment was restored before testing removal.
     catalog = operation_result(execute("mate.catalog", [*mate, "tools:call", "uxor_catalog", "--query=kbd", "--format=json"],
@@ -721,6 +716,10 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
     if not catalog or catalog.get("reference", {}).get("version") != "0.0.1" or not catalog["data"]["items"]:
         raise RuntimeError("Removal must start with a working, updated UXor installation")
     check_skills(application, php, consumer_sources, marker)
+    # The app uses Maker in its own bundles.php and continues to call Mate and Mago after removing UXor.
+    execute("composer.retain-app-tools", [*composer_command(), "require", "--dev", "symfony/ai-mate",
+            "symfony/ai-symfony-mate-extension", "symfony/maker-bundle", "symfony/ux-toolkit", "carthage-software/mago",
+            "--no-interaction", "--no-progress"], application)
     manifest_path = application / "composer.json"
     manifest = json.loads(manifest_path.read_text())
     expected_dev = manifest["require-dev"].copy()
@@ -746,8 +745,10 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
     lock = json.loads((application / "composer.lock").read_text())
     installed = json.loads((application / "vendor/composer/installed.json").read_text())
     for packages in (lock["packages"], lock["packages-dev"], installed["packages"]):
-        if any(package["name"] == PACKAGE_NAME for package in packages):
-            raise RuntimeError("Composer still records UXor after removal")
+        retained_tools = {PACKAGE_NAME, "symfony/debug-pack", "symfony/ai-monolog-mate-extension",
+                          "byte-kitsune/mago-symfony-wiring"} & {p["name"] for p in packages}
+        if retained_tools:
+            raise RuntimeError("Composer retained UXor-only dependencies after removal: " + ", ".join(sorted(retained_tools)))
     for name in (f"vendor/{PACKAGE_NAME}", "vendor/bin/uxor", "vendor/bin/uxor-mago"):
         if os.path.lexists(application / name):
             raise RuntimeError(f"Removal left a package entry at {name}")
@@ -772,6 +773,8 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
         if path.read_bytes() != content:
             raise RuntimeError(f"Removing UXor changed application-owned content: {path.relative_to(application)}")
     environment.check_detached_tools(application, php)
+    # This non-Flex application manages its own compiled container after Composer removes packages.
+    execute("symfony.clear-dev-cache", [php, "bin/console", "cache:clear", "--env=dev", "--no-debug", "--no-interaction"], application)
     render_pages(application, php, "dev", SHORTCUT_PAGE)
     print("Removal: the package, binaries and Mate integration are gone; application skills, instructions and the rendered recipe are preserved.")
 
@@ -795,7 +798,9 @@ def check_mate_upgrade(candidate: dict, application: Path, revision: str, previo
     """Use an initialized Mate 0.14 project, both with and without an existing UXor release."""
     if previous_release:
         manifest = create_consumer_fixture(application, revision)
-        manifest["require-dev"][PACKAGE_NAME] = BASELINE_RELEASE
+        # Before UXor owned the toolchain, the standalone application required these directly.
+        manifest["require-dev"].update({PACKAGE_NAME: BASELINE_RELEASE, "symfony/maker-bundle": "^1.64",
+                                        "symfony/ux-toolkit": "^3.8", "symfony/http-client": "7.4.*"})
         manifest["repositories"] = [previous_release]
     else:
         application.mkdir()
@@ -806,7 +811,9 @@ def check_mate_upgrade(candidate: dict, application: Path, revision: str, previo
             "repositories": [candidate],
             "config": {"allow-plugins": {"symfony/ai-mate-composer-plugin": True}},
         }
-    manifest["require-dev"].update(dict.fromkeys(MATE_PACKAGES, "0.14.0"))
+        manifest["require-dev"].update(dict.fromkeys(LEGACY_MATE_PACKAGES, "0.14.0"))
+    manifest["minimum-stability"] = "stable"
+    manifest["prefer-stable"] = True
     manifest_path = application / "composer.json"
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     roots = {"AGENTS.md": "AI_MATE_INSTRUCTIONS", "CLAUDE.md": "AI_MATE_AGENTS_IMPORT"}
@@ -818,7 +825,7 @@ def check_mate_upgrade(candidate: dict, application: Path, revision: str, previo
     execute("composer.install", [*composer, "install", *options], application)
     if previous_release:
         check_consumer_version(application, previous_release, mate[0])
-    check_mate_versions(application, "0.14.0")
+    check_mate_versions(application, baseline=True)
     execute("mate.init", [*mate, "init", "--no-interaction"], application)
     execute("composer.dump-autoload", [*composer, "dump-autoload", "--no-interaction"], application)
     execute("mate.discover", [*mate, "discover", "--no-interaction"], application)
@@ -857,14 +864,18 @@ def check_mate_upgrade(candidate: dict, application: Path, revision: str, previo
     manifest = json.loads(manifest_path.read_text())
     target = candidate["package"]["version"]
     manifest["repositories"] = [candidate]
+    manifest["minimum-stability"] = "beta"
+    manifest["prefer-stable"] = True
+    manifest["config"]["allow-plugins"][PACKAGE_NAME] = True
+    # Reconcile only constraints explicitly owned by an existing application.
+    for name in LEGACY_MATE_PACKAGES:
+        if name in manifest["require-dev"]:
+            manifest["require-dev"][name] = candidate["package"]["require"][name]
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     execute("composer.require", [*composer, "require", "--dev", f"{PACKAGE_NAME}:{target}",
-             *(f"{package}:{MATE_BETA}" for package in MATE_PACKAGES), *options], application)
-    check_mate_versions(application, MATE_BETA)
+             "--with-all-dependencies", *options], application)
+    check_mate_versions(application)
     check_consumer_version(application, candidate, mate[0])
-    if json.loads(manifest_path.read_text()).get("minimum-stability", "stable") != "stable":
-        raise RuntimeError("The package-specific beta requirements changed the consumer's stable policy")
-    execute("mate.discover", [*mate, "discover", "--no-interaction"], application)
     check_skills(application, mate[0], {})
     if any(os.path.lexists(path) for path in old_targets):
         raise RuntimeError("The upgrade left generated copies of the retired UXor skills")
@@ -940,7 +951,7 @@ def main() -> None:
             if arguments.consumer and not arguments.providers:
                 import flex_acceptance
                 flex_acceptance.check(temporary / "flex-consumer", os.environ.get("PHP_BIN", "php"), composer_command(),
-                                      candidate, {name: MATE_BETA for name in MATE_PACKAGES})
+                                      candidate, operation_result)
             if arguments.consumer:
                 with operation("existing-mate"):
                     check_mate_upgrade(candidate, temporary / "mate-upgrade", revision)

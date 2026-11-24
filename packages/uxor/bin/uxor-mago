@@ -5,7 +5,7 @@ usage() {
     cat <<'HELP'
 Usage: uxor-mago [--project-root DIR] [--trust-project-code] [--write] <command> [arguments]
 
-  pull [cli|serena]     Prepare both providers, or just the selected one
+  pull [cli|serena]     Prewarm both providers, or just the selected one
   image [cli|serena]    Print the selected image reference (defaults to cli)
   version [cli|serena]  Print the installed Mago version (defaults to cli)
   check                Check PHP formatting, lint, then analysis
@@ -21,7 +21,8 @@ Usage: uxor-mago [--project-root DIR] [--trust-project-code] [--write] <command>
 
 Run from the Composer application root or select it with --project-root.
 Options for UXor go before the command; native Mago arguments go after it.
-Configure source paths in the application's mago.toml. Run pull once to prepare providers.
+Providers are prepared automatically on first use. Configure source paths in the application's mago.toml.
+For the native Composer-installed Mago CLI, use the application's Composer binary directory.
 Application commands require --trust-project-code: configured Mago extensions,
 including the Symfony wiring worker, can execute application PHP and its Composer
 autoloader. Serena verifies preparation with provider-owned code that loads no
@@ -70,17 +71,39 @@ fi
 
 cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2-php8.4.28}
 serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-5}
+
+prepare_provider() {
+    if [ -n "${UXOR_MAGO_IMAGE:-}" ]; then
+        docker pull "$UXOR_MAGO_IMAGE"
+        return
+    fi
+    bin=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd -P)
+    if [ "$1" = cli ]; then
+        docker build --tag "$cli_image" - < "$bin/../resources/mago/Dockerfile"
+    else
+        # The project's published build cache supplies matching Rust and Python layers on a fresh host.
+        sh "$bin/../resources/mago/serena/build.sh" --load --tag "$serena_image" \
+            --cache-from=type=registry,ref=ghcr.io/xormania/uxor-cache:mago-serena-dev \
+            --cache-from=type=registry,ref=ghcr.io/xormania/uxor-cache:mago-serena-main
+    fi
+}
+
+provider_id() {
+    if provider_image_id=$(docker image inspect --format '{{.Id}}' "$2" </dev/null 2>/dev/null); then
+        printf '%s\n' "$provider_image_id"
+        return
+    fi
+    # Only successful pulls/builds publish the tag. Keep MCP stdin and stdout for the server.
+    prepare_provider "$1" </dev/null >&2 || return 1
+    docker image inspect --format '{{.Id}}' "$2" </dev/null
+}
+
 case "$command" in
     pull)
         case "$#:${2-}" in 1:|2:cli|2:serena) ;; *) usage >&2; exit 2 ;; esac
         if [ -n "${UXOR_MAGO_IMAGE:-}" ]; then exec docker pull "$UXOR_MAGO_IMAGE"; fi
-        bin=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd -P)
-        if [ "${2-all}" != serena ]; then
-            docker build --tag "$cli_image" - < "$bin/../resources/mago/Dockerfile"
-        fi
-        if [ "${2-all}" != cli ]; then
-            sh "$bin/../resources/mago/serena/build.sh" --load --tag "$serena_image"
-        fi
+        if [ "${2-all}" != serena ]; then prepare_provider cli; fi
+        if [ "${2-all}" != cli ]; then prepare_provider serena; fi
         exit 0
         ;;
     image|version)
@@ -91,6 +114,7 @@ case "$command" in
             *) usage >&2; exit 2 ;;
         esac
         if [ "$command" = image ]; then printf '%s\n' "$image"; exit 0; fi
+        provider_id "${2-cli}" "$image" >/dev/null
         exec docker run --rm --pull=never --network none --entrypoint mago "$image" --version
         ;;
     -h|--help) usage; exit 0 ;;
@@ -167,10 +191,7 @@ case "$command" in
         ;;
     lint|analyze|guard|cst|fix|twig:lint) set -- mago "$command" "$@" ;;
     serena)
-        if ! image=$(docker image inspect --format '{{.Id}}' "$serena_image"); then
-            echo 'Prepare the Serena provider with vendor/bin/uxor-mago pull serena.' >&2
-            exit 2
-        fi
+        image=$(provider_id serena "$serena_image") || exit 2
         digest=${image#sha256:}
         case "$image:$digest" in
             sha256:*:*) ;;
@@ -187,6 +208,8 @@ case "$command" in
         if [ "$write" = true ]; then set -- "$@" --write; fi
         ;;
 esac
+
+if [ "$command" != serena ]; then provider_id cli "$cli_image" >/dev/null; fi
 
 # Use Docker's CSV form so spaces, commas and quotes stay in one mount.
 source_field=$(printf '%s' "src=$root" | sed 's/"/""/g')

@@ -63,11 +63,11 @@
         "reason": "Runs the bound project's own bin/console or configured Composer Mate entry point, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
     },
     {
-        "path": "packages/uxor/src/EnvironmentSetup.php",
+        "path": "packages/uxor/src/Composer/Plugin.php",
         "rule": "php-process-execution",
-        "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1',",
+        "contains": "$process = new Process([PHP_BINARY, $bin, ...$arguments, '--no-interaction'], $root);",
         "count": 1,
-        "reason": "Explicit apply/install and trusted-project acknowledgement execute only the selected application's native Composer/Mate argv in its PHP environment. Preflight confines project paths; Composer manifest/vendor/bin redirects are bound to that root. Timeouts apply and raw process output is not returned."
+        "reason": "Composer activates the UXor plugin with the application’s plugin permission. In development installs it invokes the installed Mate binary through PHP using fixed init or discover arguments, Composer’s configured bin directory and the selected application root. Static UXor setup runs no process."
     },
     {
         "path": "packages/uxor/src/EnvironmentStatus.php",
