@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "c37922c964827f0c52f991e0ae5e39fbe4240dd42d2e850f1351430fc26dde58",
+        "inputs_sha256": "0c7a05796cd52db0d340ee6e06f195234ef219f35e33134d4eb3a0ba6364e12e",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "guide_catalog_sha256": "a87ef98172b494cacf5929a32f0a967a54e41c3842a534f8e9468d015dd52a5f",
         "license": "MIT"
@@ -1986,14 +1986,14 @@
         },
         "packages/uxor/OPERATIONS.md": {
             "path": "docs/packages/uxor/OPERATIONS.md",
-            "sha256": "31a1d0bb2eba181ab9af92b5383f35804414b3f6df53acee3668f38223966dca",
-            "source_sha256": "d58c9ffb288d06cb0cd3e1714fc3981f7d3c24f7d3daff54e83189050cd3a357",
+            "sha256": "cd66ba896cf3c1ff0f1f683a742b2d88b8eb19773fa655627b31ecd13bcc5d62",
+            "source_sha256": "0ac45d3cf50694cc26db3318ab2019e9d5aeffd4755a43af47a51fda45b812a4",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md"
         },
         "packages/uxor/README.md": {
             "path": "docs/packages/uxor/README.md",
-            "sha256": "3a92d3a1de5f90c65e51ebc5f8f0e03fdab54098334a1156ca63d69ae719fc30",
-            "source_sha256": "31c79876cc3320408edd21b20ed0858b2e92307f32b02cb0fa80b533498d179b",
+            "sha256": "ae756121b563e23a9f1922473e1deddd5ed252d786970e8700d2f45b2d81e83c",
+            "source_sha256": "874bd109fbf1850504b0ffd7a998b3d40f60c83741bf51cf918ad864f891c95d",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md"
         },
         "page-header/README.md": {
