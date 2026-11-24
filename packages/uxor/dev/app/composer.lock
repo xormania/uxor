@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "318630ecc7579c2273659a9a616f5d28",
+    "content-hash": "ab00e4406276f63d28576e51019b4d65",
     "packages": [
         {
             "name": "composer/semver",
@@ -5960,16 +5960,16 @@
         },
         {
             "name": "symfony/ux-toolkit",
-            "version": "v3.7.1",
+            "version": "v3.8.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/ux-toolkit.git",
-                "reference": "1b14edbe942992381d63c59365cfc589128ff613"
+                "reference": "20ea8a832e386c5c31e5e2be2393277835f3d9a3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/ux-toolkit/zipball/1b14edbe942992381d63c59365cfc589128ff613",
-                "reference": "1b14edbe942992381d63c59365cfc589128ff613",
+                "url": "https://api.github.com/repos/symfony/ux-toolkit/zipball/20ea8a832e386c5c31e5e2be2393277835f3d9a3",
+                "reference": "20ea8a832e386c5c31e5e2be2393277835f3d9a3",
                 "shasum": ""
             },
             "require": {
@@ -6052,7 +6052,7 @@
                 "ui"
             ],
             "support": {
-                "source": "https://github.com/symfony/ux-toolkit/tree/v3.7.1"
+                "source": "https://github.com/symfony/ux-toolkit/tree/v3.8.0"
             },
             "funding": [
                 {
@@ -6072,7 +6072,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-11-06T21:03:31+00:00"
+            "time": "2026-11-20T08:18:10+00:00"
         },
         {
             "name": "xormania/uxor",

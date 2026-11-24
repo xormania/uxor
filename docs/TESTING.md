@@ -258,6 +258,14 @@ holds, and what the new controller starts from.
 Here: [`lab.mobile-nav.spec.ts`](../tests/e2e/lab.mobile-nav.spec.ts), [`lab.nav-menu.spec.ts`](../tests/e2e/lab.nav-menu.spec.ts),
 [`lab.overlays.spec.ts`](../tests/e2e/lab.overlays.spec.ts) (dropdown, modal, drawer).
 
+A preview shown from an object URL (UX Dropzone 3.8 previews a PNG or JPEG from a `blob:` URL, revoked when the
+preview changes or its controller disconnects) can be broken without any error the fixture sees: a `blob:` load is not
+a request of the app, and Chromium logs nothing for a revoked URL used as a background. Wrap `URL.revokeObjectURL` in
+an init script to record the revoked URLs, then read what is shown: decode the preview's URL in the page
+(`new Image()`, `decode()`, `naturalWidth`), list the visible elements whose inline background is a revoked URL now
+and, for each body Turbo renders (`turbo:before-render`), at the first animation frame once that body is in place.
+Here: [`lab.dropzone.spec.ts`](../tests/e2e/lab.dropzone.spec.ts) ("…a restored PNG shows a preview that loads…").
+
 ### Beside a frame visit promoted to history
 
 **Catches:** a component next to a data table (or any `data-turbo-action="advance"` frame) that closes, loses the
@@ -1125,10 +1133,11 @@ linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_pro
 [`tools/tests/prod-image.sh`](../tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
 images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
 image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
-its extensions, without Xdebug or any `require-dev` package, without UX Toolkit's bundle or commands; its working
-directory and server root are the app's; it serves a page of each kind that reads the kit (the dashboard, a recipe page
-and a preview, the install guide, `llms.txt`), and every recipe page in the image (`/app/*/manifest.json`) with the
-first preview it shows, all answering 200 (an image with no recipe fails); and it holds no `node_modules`, tests, `.git`, `packages/`, `.github` or
+its extensions, without Xdebug or any development-only package from `demo/composer.lock`, and without UX Toolkit's
+bundle or commands; its working directory and server root are the app's; it serves a page of each kind that reads the
+kit (the dashboard, a recipe page and a preview, the install guide, `llms.txt`), and every recipe page in the image
+(`/app/*/manifest.json`) with the first preview it shows, all answering 200 (an image with no recipe fails); and it holds
+no `node_modules`, tests, `.git`, `packages/`, `.github` or
 `tools/`, and no docs but `docs/GUIDE.md`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
 and their docs), so the package is a `require` of the demo and its templates are registered for prod in
 `config/packages/twig.yaml`; its bundle is registered in dev and test only. Symfony applies the demo's overrides of

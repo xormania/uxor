@@ -35,7 +35,7 @@
         "symfony/ai-symfony-mate-extension": "1.0.0-BETA1",
         "symfony/http-client": "7.4.*",
         "symfony/maker-bundle": "^1.64",
-        "symfony/ux-toolkit": "3.7.1",
+        "symfony/ux-toolkit": "3.8.0",
         "xormania/uxor": "dev-main"
     },
     "repositories": [

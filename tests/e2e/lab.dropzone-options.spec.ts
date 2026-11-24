@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, countEvents } from './fixtures';
+import { test, expect, countEvents, recordDropzoneEvents } from './fixtures';
 import { png, text } from './files';
 import { back, sendStream, visit } from './transitions';
 
@@ -11,20 +11,8 @@ import { back, sendStream, visit } from './transitions';
  */
 
 const zoneOf = (page: Page, id: string) => page.locator(`[data-controller~="dropzone-assist"]:has(#${id})`);
+const dropzoneEvents = ['dropzone:reject', 'dropzone:pre-add', 'dropzone:change'];
 const names = (input: Locator) => input.evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name));
-
-/** Records every `dropzone:reject` from now on, as its reason and the names of its files. */
-async function recordRejects(page: Page): Promise<() => Promise<{ reason: string; files: string[] }[]>> {
-    await page.evaluate(() => {
-        const rejected: { reason: string; files: string[] }[] = ((window as any).rejected = []);
-        document.addEventListener('dropzone:reject', (event) => {
-            const { reason, files } = (event as CustomEvent).detail;
-            rejected.push({ reason, files: [...files].map((file: File) => file.name) });
-        });
-    });
-
-    return () => page.evaluate(() => (window as any).rejected);
-}
 
 /** Drops files on the input as the browser does: the drop event, then the files set on the input and its change event. */
 const dropFiles = (target: Locator, files: { name: string; type: string }[]) =>
@@ -53,14 +41,14 @@ test('a zone capped at two files keeps two of three picked at once and leaves th
     await page.goto('/lab/dropzone-options');
     // `maxFiles` with `multiple`: the cap on the wrapper, where UX Dropzone reads it
     await expect(zoneOf(page, 'capped')).toHaveAttribute('data-symfony--ux-dropzone--dropzone-max-files-value', '2');
-    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
-    const rejects = await recordRejects(page);
+    const order = await recordDropzoneEvents(page, dropzoneEvents);
 
     await page.locator('#capped').setInputFiles([text('a.txt'), text('b.txt'), text('c.txt')]);
     await expect(zoneOf(page, 'capped').locator('.dropzone-preview-list-item')).toHaveCount(2);
     expect(await names(page.locator('#capped'))).toEqual(['a.txt', 'b.txt']);
-    await expect.poll(rejects).toEqual([{ reason: 'max_files', files: ['c.txt'] }]);
-    expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
+    // UX Dropzone 3.8 leaves the file over the cap out before dropzone:pre-add: its listeners get the two that fit, and
+    // the reject comes first
+    await expect.poll(order).toEqual(['reject max_files c.txt', 'pre-add a.txt,b.txt', 'change a.txt,b.txt']);
 });
 
 test('a full capped zone takes no more until a file is removed; a file picked again counts once', async ({ page }) => {
@@ -68,13 +56,13 @@ test('a full capped zone takes no more until a file is removed; a file picked ag
     const input = page.locator('#capped');
     await input.setInputFiles([text('a.txt'), text('b.txt')]);
     await expect(zoneOf(page, 'capped').locator('.dropzone-preview-list-item')).toHaveCount(2);
-    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
-    const rejects = await recordRejects(page);
+    const order = await recordDropzoneEvents(page, dropzoneEvents);
+    const changesAndRejects = async () => (await order()).filter((event) => !event.startsWith('pre-add '));
 
     await input.setInputFiles(text('c.txt'));
-    await expect.poll(rejects).toEqual([{ reason: 'max_files', files: ['c.txt'] }]);
     expect(await names(input)).toEqual(['a.txt', 'b.txt']);
-    expect(await events()).toEqual({ 'dropzone:change': 0, 'dropzone:reject': 1 });
+    // no file fits: dropzone:pre-add is not dispatched at all
+    await expect.poll(order).toEqual(['reject max_files c.txt']);
 
     // a file the zone holds, picked again (same name, size and date): neither added nor left out
     await input.evaluate((element: HTMLInputElement) => {
@@ -84,7 +72,7 @@ test('a full capped zone takes no more until a file is removed; a file picked ag
         element.dispatchEvent(new Event('change', { bubbles: true }));
     });
     expect(await names(input)).toEqual(['a.txt', 'b.txt']);
-    expect(await events()).toEqual({ 'dropzone:change': 0, 'dropzone:reject': 1 });
+    expect(await changesAndRejects()).toEqual(['reject max_files c.txt']);
 
     await page.getByRole('button', { name: 'Remove a.txt' }).click();
     await expect(page.getByRole('button', { name: 'Remove b.txt' })).toBeFocused();
@@ -92,12 +80,12 @@ test('a full capped zone takes no more until a file is removed; a file picked ag
     await expect(page.getByRole('button', { name: 'Remove c.txt' })).toBeVisible();
     expect(await names(input)).toEqual(['b.txt', 'c.txt']);
     // the Remove and the pick: one change each
-    expect(await events()).toEqual({ 'dropzone:change': 2, 'dropzone:reject': 1 });
+    await expect.poll(changesAndRejects).toEqual(['reject max_files c.txt', 'change b.txt', 'change b.txt,c.txt']);
 });
 
 test('a drop over the cap with a file accept refuses: one reject for accept, one for max_files, each naming its files', async ({ page }) => {
     await page.goto('/lab/dropzone-options');
-    const rejects = await recordRejects(page);
+    const order = await recordDropzoneEvents(page, dropzoneEvents);
     await dropFiles(page.locator('#capped-images'), [
         { name: 'one.png', type: 'image/png' },
         { name: 'notes.txt', type: 'text/plain' },
@@ -107,11 +95,9 @@ test('a drop over the cap with a file accept refuses: one reject for accept, one
 
     await expect(zoneOf(page, 'capped-images').locator('.dropzone-preview-list-item')).toHaveCount(2);
     expect(await names(page.locator('#capped-images'))).toEqual(['one.png', 'two.png']);
-    // upstream reports the files accept refused, then the ones over the cap
-    await expect.poll(rejects).toEqual([
-        { reason: 'accept', files: ['notes.txt'] },
-        { reason: 'max_files', files: ['three.png'] },
-    ]);
+    // UX Dropzone 3.8: both rejects before dropzone:pre-add, whose listeners get only the images that fit, then the
+    // change (3.7 dispatched the rejects after the change)
+    await expect.poll(order).toEqual(['reject accept notes.txt', 'reject max_files three.png', 'pre-add one.png,two.png', 'change one.png,two.png']);
 });
 
 test('a DropzoneType with max_files caps its zone in the browser', async ({ page }) => {
@@ -119,10 +105,16 @@ test('a DropzoneType with max_files caps its zone in the browser', async ({ page
     const input = page.locator('#upload_demo_attachments');
     // UploadDemoType's attachments: `max_files: 3` (the lab's Turbo form test posts two)
     await expect(zoneOf(page, 'upload_demo_attachments')).toHaveAttribute('data-symfony--ux-dropzone--dropzone-max-files-value', '3');
-    const rejects = await recordRejects(page);
+    const rejects = await recordDropzoneEvents(page, ['dropzone:reject']);
     await input.setInputFiles([text('a.txt'), text('b.txt'), text('c.txt'), text('d.txt')]);
     expect(await names(input)).toEqual(['a.txt', 'b.txt', 'c.txt']);
-    await expect.poll(rejects).toEqual([{ reason: 'max_files', files: ['d.txt'] }]);
+    await expect.poll(rejects).toEqual(['reject max_files d.txt']);
+    // UX Dropzone 3.8's DropzoneType sets a `max_files_message` by default, which its own form theme writes into a
+    // `feedback` target a task after the reject: the kit's widget renders neither, so no message shows
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)));
+    const zone = zoneOf(page, 'upload_demo_attachments');
+    await expect(zone.locator('[data-symfony--ux-dropzone--dropzone-target="feedback"], .dropzone-feedback, [role="status"]')).toHaveCount(0);
+    await expect(zone).not.toContainText(/too many files|not added/i);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -136,9 +128,9 @@ test('a preview template for one file shows the picked file; its Remove, focused
     const item = page.getByTestId('templated-item');
     await expect(item).toHaveCount(1);
     await expect(item.locator('[data-dropzone-slot="filename"]')).toHaveText('photo.png');
-    // the image slot loads the picked image under the policy (img-src data:); the fixtures fail on a violation
-    await expect(item.locator('[data-dropzone-slot="image"]')).toBeVisible();
-    await expect(item.locator('[data-dropzone-slot="image"]')).toHaveAttribute('src', /^data:image\/png;/);
+    const image = item.locator('[data-dropzone-slot="image"]');
+    await expect(image).toBeVisible();
+    await expect(image).toHaveJSProperty('naturalWidth', 1);
 
     const remove = page.getByRole('button', { name: 'Remove photo.png' });
     await expect(remove).toBeFocused();

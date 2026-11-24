@@ -15,7 +15,8 @@ use Symfony\Component\HttpKernel\KernelEvents;
  * Playwright fixtures fail a test on any violation, so the whole suite checks that the kit works under this policy.
  *
  * - `'strict-dynamic'`: the nonced importmap scripts load the modules, `data:` CSS modules and modulepreload links
- *   included. Images may come from https URLs: README examples show remote pictures.
+ *   included. Images may come from https URLs: README examples show remote pictures. UX Dropzone 3.8 previews a
+ *   picked image from a `blob:` object URL, and an SVG from a `data:` URL (dropzone/README.md).
  * - `Referrer-Policy: same-origin`, not `no-referrer`: browsers then send `Origin: null` on a same-origin POST, and
  *   the stateless CSRF check of the login, logout and forms (config/packages/csrf.yaml) needs the origin.
  * - Symfony's own pages print inline code without a nonce: error pages and the `_` routes (`/_error/{code}`) get only
@@ -69,7 +70,7 @@ final class SecurityHeadersListener
         $route = (string) $request->attributes->get('_route');
         if (!$request->attributes->get(self::SYMFONY_PAGE) && !str_starts_with($route, '_')) {
             $policy['default-src'] = "'self'";
-            $policy['img-src'] = "'self' data: https:";
+            $policy['img-src'] = "'self' data: blob: https:";
             $policy['script-src'] = "'nonce-{$this->scriptNonce}' 'strict-dynamic'";
             $policy['style-src'] = "'self' 'nonce-{$this->styleNonce}'";
         }

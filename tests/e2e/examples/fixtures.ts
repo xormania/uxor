@@ -115,4 +115,5 @@ export function testState(title: string, { example, state, act }: StateOptions):
     }
 }
 
+export { decodedBackgroundImage } from '../fixtures';
 export { expect };
