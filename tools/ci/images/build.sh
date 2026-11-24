@@ -26,6 +26,7 @@ hits=$(grep -cE '^#[0-9]+ CACHED$' "$work/build.log" || true)
 jq -nc --arg commit "$IMAGE_COMMIT" --argjson seconds "$build_seconds" --argjson cached_steps "$hits" \
     --argjson cold "$IMAGE_COLD" '{commit: $commit, build_seconds: $seconds, cached_steps: $cached_steps, cold: $cold}' > "$work/timings.ndjson"
 
+failed=0
 for role in "${roles[@]}"; do
     dir=$work/$role
     archive=oci-archive:$dir/image.tar
@@ -38,17 +39,27 @@ for role in "${roles[@]}"; do
     # OCI and Docker manifest media types can differ on daemon import. The config
     # digest binds the executable configuration and uncompressed rootfs layers.
     test "$(docker image inspect --format '{{.Id}}' "$tag")" = "$config"
+    rm -f -- "$dir/tested.sha256"
+    test_status=0
     docker run --rm --mount "type=bind,src=$dir/test,dst=/workspace" \
         --mount "type=bind,src=$dir/test.sh,dst=/uxor-test.sh,readonly" \
-        --workdir /workspace --entrypoint bash "$config" /uxor-test.sh
-    sha256sum "$dir/image.tar" > "$dir/tested.sha256"
+        --workdir /workspace --entrypoint bash "$config" /uxor-test.sh || test_status=$?
+    if (( test_status == 0 )); then
+        sha256sum "$dir/image.tar" > "$dir/tested.sha256"
+    else
+        failed=1
+    fi
     elapsed=$((SECONDS - start))
     jq -nc --arg role "$role" --arg manifest "$manifest" --arg config "$config" \
-        --argjson seconds "$elapsed" '{role: $role, manifest_digest: $manifest, config_digest: $config, test_seconds: $seconds}' >> "$work/timings.ndjson"
+        --argjson seconds "$elapsed" --argjson test_exit_code "$test_status" \
+        '{role: $role, manifest_digest: $manifest, config_digest: $config, test_seconds: $seconds, test_exit_code: $test_exit_code}' >> "$work/timings.ndjson"
 done
 
 {
     printf 'Image build took %s seconds with %s cached BuildKit steps.\n\n' "$build_seconds" "$hits"
-    printf '| Role | Load and test seconds | Tested OCI manifest |\n| --- | ---: | --- |\n'
-    jq -r 'select(.role) | "| \(.role) | \(.test_seconds) | \(.manifest_digest) |"' "$work/timings.ndjson"
+    printf '| Role | Load and test seconds | Test result | OCI manifest |\n| --- | ---: | --- | --- |\n'
+    jq -r 'select(.role) | (if .test_exit_code == 0 then "Passed" else "Failed (exit \(.test_exit_code))" end) as $result
+        | "| \(.role) | \(.test_seconds) | \($result) | \(.manifest_digest) |"' "$work/timings.ndjson"
 } >> "${GITHUB_STEP_SUMMARY:-/dev/stdout}"
+
+exit "$failed"

@@ -359,6 +359,84 @@ test('only the evidence-gated image publisher has registry write access', () => 
     }
 });
 
+test('a failed role smoke test preserves every result without marking the failed images as tested', (t) => {
+    const work = temporaryDirectory(t);
+    const bin = join(work, 'bin');
+    mkdirSync(bin);
+    const smokes = ['demo', 'toolkit', 'package'];
+    const config = Object.fromEntries(smokes.map((role, index) => [role, `sha256:${String(index + 1).repeat(64)}`]));
+    writeFileSync(join(bin, 'docker'), `#!/bin/bash
+set -euo pipefail
+case "$1" in
+    buildx)
+        test "$2" = bake
+        for role in $IMAGE_ROLES; do printf '%s archive\\n' "$role" > "$role/image.tar"; done
+        echo '#1 CACHED'
+        ;;
+    image)
+        test "$2" = inspect
+        role=\${5#uxor-ci-}
+        jq -er --arg role "\${role%:tested}" '.[$role]' <<< "$FIXTURE_CONFIG"
+        ;;
+    run)
+        for arg in "$@"; do
+            if [[ "$arg" == sha256:* ]]; then
+                role=$(jq -er --arg id "$arg" 'to_entries[] | select(.value == $id) | .key' <<< "$FIXTURE_CONFIG")
+                printf '%s\\n' "$role" >> "$SMOKE_RUNS"
+                exit "$(jq -er --arg role "$role" '.[$role]' <<< "$SMOKE_RESULTS")"
+            fi
+        done
+        exit 99
+        ;;
+    *) exit 99 ;;
+esac
+`, { mode: 0o755 });
+    writeFileSync(join(bin, 'skopeo'), `#!/bin/bash
+set -euo pipefail
+case "$1" in
+    inspect)
+        test "$2" = --raw
+        role=$(basename "$(dirname "\${3#oci-archive:}")")
+        jq -ce --arg role "$role" '{config: {digest: .[$role]}}' <<< "$FIXTURE_CONFIG"
+        ;;
+    manifest-digest)
+        digest=$(sha256sum "$2")
+        printf 'sha256:%s\\n' "\${digest%% *}"
+        ;;
+    copy) test "\${3#docker-daemon:uxor-ci-}" != "$3" ;;
+    *) exit 99 ;;
+esac
+`, { mode: 0o755 });
+
+    for (const [name, results, status] of [
+        ['mixed', { demo: 41, toolkit: 0, package: 52 }, 1],
+        ['all-passed', { demo: 0, toolkit: 0, package: 0 }, 0],
+    ]) {
+        const destination = join(work, name);
+        const summary = join(work, `${name}.md`);
+        const calls = join(work, `${name}-calls.txt`);
+        const run = spawnSync('bash', [join(images, 'build.sh'), destination], {
+            cwd: root, encoding: 'utf8', timeout: 30000,
+            env: {
+                ...process.env, PATH: `${bin}:${process.env.PATH}`, GITHUB_REPOSITORY: 'xormania/uxor',
+                IMAGE_COMMIT: 'a'.repeat(40), IMAGE_ROLES: smokes.join(' '), IMAGE_COLD: 'false',
+                FIXTURE_CONFIG: JSON.stringify(config), SMOKE_RESULTS: JSON.stringify(results), SMOKE_RUNS: calls,
+                GITHUB_STEP_SUMMARY: summary,
+            },
+        });
+        assert.deepEqual(readFileSync(calls, 'utf8').trim().split('\n'), smokes, 'continue through all role tests');
+        assert.equal(run.status, status, `${run.stdout}${run.stderr}`);
+        const [, ...timings] = readFileSync(join(destination, 'timings.ndjson'), 'utf8').trim().split('\n').map(JSON.parse);
+        assert.deepEqual(timings.map(({ role, test_exit_code }) => [role, test_exit_code]), Object.entries(results));
+        const table = readFileSync(summary, 'utf8').split('\n');
+        for (const [role, code] of Object.entries(results)) {
+            const row = table.find((line) => line.startsWith(`| ${role} |`));
+            assert.ok(row?.includes(code === 0 ? 'Passed' : `Failed (exit ${code})`), `${role} reports exit ${code}`);
+            assert.equal(existsSync(join(destination, role, 'tested.sha256')), code === 0, `only passed ${role} can be published`);
+        }
+    }
+});
+
 test('a changed OCI archive fails verification before the publisher touches the registry', (t) => {
     const work = temporaryDirectory(t);
     const bin = join(work, 'bin');
