@@ -30,12 +30,6 @@
         "twig/html-extra": "^3.29"
     },
     "require-dev": {
-        "symfony/ai-mate": "1.0.0-BETA1",
-        "symfony/ai-mate-composer-plugin": "1.0.0-BETA1",
-        "symfony/ai-symfony-mate-extension": "1.0.0-BETA1",
-        "symfony/http-client": "7.4.*",
-        "symfony/maker-bundle": "^1.64",
-        "symfony/ux-toolkit": "3.8.0",
         "xormania/uxor": "dev-main"
     },
     "repositories": [
@@ -64,7 +58,8 @@
     "config": {
         "allow-plugins": {
             "symfony/runtime": true,
-            "symfony/ai-mate-composer-plugin": true
+            "symfony/ai-mate-composer-plugin": true,
+            "xormania/uxor": true
         },
         "preferred-install": "dist",
         "sort-packages": true,
@@ -83,6 +78,6 @@
             ]
         }
     },
-    "minimum-stability": "stable",
+    "minimum-stability": "beta",
     "prefer-stable": true
 }

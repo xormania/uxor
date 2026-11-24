@@ -4,6 +4,7 @@
 !/website/
 !/INSTALL.md
 !/llms.txt
+!/tools/llms-txt.mjs
 !/README.md
 !/FOR-AGENTS.md
 !/docs/*

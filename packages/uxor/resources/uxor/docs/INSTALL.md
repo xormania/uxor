@@ -20,7 +20,7 @@ For an existing application, check which dependencies, asset configuration and c
 
 - Allow Symfony Flex contrib recipes: `composer config extra.symfony.allow-contrib true`. Every component uses the `tailwind_classes` Twig filter of `tales-from-a-dev/twig-tailwind-extra`, and a contrib recipe enables its bundle. Do it before running the `composer require` command that `ux:install` prints, or components fail with `Unknown "tailwind_classes" filter`.
 - Require Twig and Twig components as regular dependencies, before the toolkit: `composer require symfony/twig-bundle symfony/ux-twig-component`. TwigComponentBundle needs TwigBundle, but does not require it. And if Twig components only come in with the toolkit, a dev dependency, `symfony/property-access` is dev-only too, and `cache:clear` fails with "non-existent service property_accessor".
-- Require the toolkit with `symfony/http-client`: `composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client`. The toolkit downloads kits from GitHub with the HTTP client, but does not require it.
+- UXor's Composer development package includes Symfony UX Toolkit and the HTTP client it uses to fetch kits from GitHub. For a kit-only installation, run `composer require --dev symfony/ux-toolkit:^3.8 symfony/http-client`.
 - Require AssetMapper and StimulusBundle: `composer require symfony/asset-mapper symfony/stimulus-bundle`. The layouts load the `app` importmap entrypoint, and StimulusBundle loads the recipes' Stimulus controllers from `assets/controllers/`.
 
 ### Tailwind CSS

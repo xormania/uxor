@@ -369,7 +369,7 @@ PW_SCREENSHOTS=all PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/screens.json npx playwri
 node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-coverage.json --infection coverage/php/infection-summary.json --js coverage/js/js-coverage.json --timings coverage/timings/timings.json   # the numbers in one monthly.json, against --previous <monthly.json>
 actionlint                                          # every workflow, with ShellCheck on its run steps (CI pins actionlint 1.7.12 and ShellCheck 0.11.0)
 
-composer validate --strict                          # the root composer.json, the Composer package xormania/uxor, and that composer.lock matches it (see Setup)
+python3 packages/uxor/tools/validate-composer.py    # strict Composer validation of the package and lock; allows the two release-matched native provider pins
 php packages/uxor/tools/generate-command-guide.php   # refresh the advanced guide from the registered UXor CLI (requires composer install)
 php packages/uxor/tools/generate-reference.php      # refresh the Composer install command and bundle the guides from the working tree
 php packages/uxor/tools/generate-reference.php --check   # the bundled references are up to date: lists the stale files, changes nothing

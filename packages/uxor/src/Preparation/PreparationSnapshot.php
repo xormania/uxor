@@ -187,7 +187,7 @@ PHP;
         }
         foreach (self::REQUIREMENTS as $name => $version) {
             if (($installed[$name] ?? null) !== $version) {
-                throw new \RuntimeException('Symfony wiring requires installed '.$name.':'.$version.'. Run setup with dependency installation or add the exact application dev dependency.');
+                throw new \RuntimeException('Symfony wiring requires installed '.$name.':'.$version.'. Run Composer in the application PHP environment to restore the development toolchain declared by UXor.');
             }
         }
         foreach ([$vendor.'/autoload.php', $vendor.'/byte-kitsune/mago-symfony-wiring/bin/create-container-reference.php',

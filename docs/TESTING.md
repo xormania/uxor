@@ -1267,8 +1267,10 @@ without repairing, an index that names no commit). `packages/uxor/tools/check-pa
 else: no development file, nothing outside the kit's root files, its recipes and the package's entries. The lists are
 the oracle for the export rules. CI's *Quick checks* runs archive verification and
 `php packages/uxor/tools/generate-reference.php --check`. The generator compares the bundled references byte for
-byte and checks the Composer install block against the package configuration. *Package* checks the command reference against the registered CLI and also runs `composer validate --strict` and exercises
-`php packages/uxor/bin/uxor list` and `catalog`.
+byte and checks the Composer install block against the package configuration. *Package* checks the command
+reference against the registered CLI and runs `python3 packages/uxor/tools/validate-composer.py`. This runs strict
+Composer validation and accepts the exact-version advisories for the release-matched Mago SDK and Symfony wiring.
+The job also exercises `php packages/uxor/bin/uxor list` and `catalog`.
 
 The package is also tested from the side of an application that uses it, in `packages/uxor/dev/`
 ([its README](../packages/uxor/dev/README.md)). `check-package.py --consumer` installs the same archive as a Composer
