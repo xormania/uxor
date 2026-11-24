@@ -6,7 +6,9 @@ import { pathToFileURL } from 'node:url';
 
 const SHA = /^[0-9a-f]{40}$/;
 const TOOL_INPUTS = new Set(['tools/llms-txt.mjs', 'tools/tests/llms-txt.test.mjs']);
-const ROOT_DOCS = new Set(['AGENTS.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'INSTALL.md', 'README.md', 'llms.txt']);
+const ROOT_DOCS = new Set([
+    'AGENTS.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'FOR-AGENTS.md', 'INSTALL.md', 'README.md', 'SECURITY.md', 'llms.txt',
+]);
 const CONTROL_FILES = new Set(['.gitattributes', '.gitignore', '.gitmodules', '.ignore']);
 const DOC_SCRIPTS = ['docs:check', 'docs:generate'];
 const DAY_MS = 24 * 60 * 60 * 1000;

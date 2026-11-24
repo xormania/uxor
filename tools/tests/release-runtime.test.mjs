@@ -34,7 +34,9 @@ test('standalone website, package references, and a scripts-only Composer edit l
     const after = files({
         'composer.json': JSON.stringify(docManifest, null, 2),
         'CONTRIBUTING.md': 'Release contributor guidance',
+        'FOR-AGENTS.md': 'Agent guidance',
         'README.md': 'Installation links',
+        'SECURITY.md': 'Security reporting guidance',
         'CHANGELOG.md': 'New site guides',
         'llms.txt': 'Guide discovery',
         'docs/APPLICATION-TESTING.md': 'Testing notes',
