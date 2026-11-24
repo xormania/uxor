@@ -100,7 +100,7 @@ function main() {
     const cacheRun = repository === 'xormania/uxor' && affected.length > 0 && eventName !== 'schedule'
         ? verifiedReceiptRun(repository)
         : '';
-    appendFileSync(output, `roles=${affected.join(' ')}\npublish=${!!publish}\ncommit=${publish ?? sha}\ncold=${eventName === 'schedule' && !!publish}\ncache-run=${cacheRun}\n`);
+    appendFileSync(output, `roles=${affected.join(' ')}\npublish=${!!publish}\ncold=${eventName === 'schedule' && !!publish}\ncache-run=${cacheRun}\n`);
     console.log(`Selected image roles: ${affected.join(', ') || 'none'}`);
 }
 

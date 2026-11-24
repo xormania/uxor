@@ -259,7 +259,9 @@ test('the planner selects an unexpired cache receipt only from a verified publis
             },
         });
         assert.equal(run.status, 0, `${eventName}: ${run.stdout}${run.stderr}`);
-        return new Map(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+        const actual = new Map(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+        assert.equal(actual.has('commit'), false, `${eventName} relies on GitHub's workflow revision`);
+        return actual;
     };
 
     for (const [eventName, cacheRun, cold] of [['workflow_run', 15, false], ['schedule', '', true]]) {
@@ -348,11 +350,22 @@ test('only the evidence-gated image publisher has registry write access', () => 
     assert.ok(definitions.has('validate'));
     assert.ok(definitions.has('publish'));
     assert.doesNotMatch(workflow.slice(0, start), /packages:\s*write\b/);
+    assert.doesNotMatch(jobs, /^\s+(?:ref|repository):/m, 'checkouts use the workflow revision and repository');
+    assert.doesNotMatch(jobs, /\b(?:steps|needs)\.plan\.outputs\.commit\b/, 'the planner cannot select source code');
     for (const [job, definition] of definitions) {
+        assert.match(definition, /uses: actions\/checkout@/, job);
+        if (job === 'validate' || job === 'publish') {
+            assert.match(definition, /^\s+IMAGE_COMMIT:\s*\$\{\{ github\.sha \}\}\s*$/m, job);
+        }
         if (job === 'publish') {
             assert.match(definition, /^\s+packages:\s*write\s*(?:#.*)?$/m);
             assert.match(definition, /^\s+needs:\s*.*\bplan\b/m);
-            assert.match(definition, /^\s+if:.*\bneeds\.plan\.outputs\./m);
+            const gate = definition.slice(0, definition.indexOf('\n        concurrency:'));
+            assert.match(gate, /\bneeds\.plan\.outputs\.publish\s*==\s*'true'/);
+            assert.match(gate, /\bgithub\.event_name\s*==\s*'workflow_run'/);
+            assert.match(gate, /\bgithub\.event_name\s*==\s*'schedule'/);
+            assert.match(gate, /\bgithub\.ref\s*==\s*'refs\/heads\/main'/);
+            assert.match(gate, /\bgithub\.ref_protected\b/);
         } else {
             assert.doesNotMatch(definition, /packages:\s*write\b/, job);
         }
