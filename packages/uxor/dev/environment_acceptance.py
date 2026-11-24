@@ -1,6 +1,7 @@
 """Installed-archive acceptance for consumer setup, preparation and request diagnosis."""
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -108,6 +109,29 @@ def repeat_setup(root: Path, php: str) -> None:
     native = operation(root, php, "setup", "--apply", "--install", "--trust-project-code", allowed=(0, 2))
     if native["data"].get("mode") != "apply" or config.read_bytes() != expected_config:
         raise RuntimeError("Repeated native setup did not retain the application's Mate configuration")
+
+
+def check_preparation_readers(root: Path, php: str, *, fresh: bool) -> str | None:
+    """Read the same installed project through the CLI, active worker and isolated provider verifier."""
+    status = operation(root, php, "environment")["data"]["capabilities"]["symfony_wiring"]
+    expected_exit = (0,) if fresh else (3,)
+    worker = run("mago.check-preparation", [php, ".uxor/mago/worker.php", "--check"], root, allowed=expected_exit)
+    observed = json.loads(worker.stdout)
+    if (status["fresh"] is not fresh or observed["fresh"] is not fresh
+            or not status["enabled"] or not observed["enabled"]
+            or status["preparation_id"] != observed["preparationId"]):
+        raise RuntimeError(f"Preparation readers disagree with fresh={fresh}: {status['state']}, {observed}")
+    if fresh and (status["state"] != "ready" or not re.fullmatch(r"[a-f0-9]{32}", status["preparation_id"] or "")):
+        raise RuntimeError("The installed package did not identify the ready preparation")
+
+    verifier = "vendor/xormania/uxor/packages/uxor/resources/mago/serena/verify-preparation.php"
+    result = run("provider.check-preparation", [php, "-n", verifier, str(root)], root, allowed=expected_exit)
+    if not fresh:
+        return None
+    proof = json.loads(result.stdout)
+    if proof["enabled"] is not True or proof["fresh"] is not True or not re.fullmatch(r"[a-f0-9]{64}", proof["generation"]):
+        raise RuntimeError("The installed provider did not verify the prepared project")
+    return proof["generation"]
 
 
 def verify_profile(response: dict, profile: dict) -> None:
@@ -224,19 +248,22 @@ final class UxorAcceptanceController
                     raise RuntimeError("Preparation deleted or changed recorded request-profile evidence")
             if profile(first) != first_profile:
                 raise RuntimeError("Preparation changed the exact recorded request's profile")
-            worker = run("mago.check-preparation", [php, ".uxor/mago/worker.php", "--check"], root)
-            if not json.loads(worker.stdout).get("fresh"):
-                raise RuntimeError("The installed preparation worker did not recognize current inputs")
+            generation = check_preparation_readers(root, php, fresh=True)
+            with (root / ".uxor/mago/.prepare.lock").open("rb") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                check_preparation_readers(root, php, fresh=False)
+            if check_preparation_readers(root, php, fresh=True) != generation:
+                raise RuntimeError("Observing a locked preparation changed the verified generation")
 
             controller.write_text(controller.read_text().replace("'value' => 'broken'", "'value' => 'fixed'", 1))
-            stale = run("mago.check-preparation", [php, ".uxor/mago/worker.php", "--check"], root, allowed=(3,))
-            if json.loads(stale.stdout).get("fresh") is not False:
-                raise RuntimeError("The changed source was not reported stale before analysis")
+            check_preparation_readers(root, php, fresh=False)
             repaired = operation(root, php, "prepare", "--trust-project-code")
             if repaired["data"].get("state") != "ready" or not repaired["data"].get("fresh"):
                 raise RuntimeError("Explicit preparation did not recover after source repair")
             if repaired["data"].get("preparation_id") == prepared["data"].get("preparation_id"):
                 raise RuntimeError("Changed source reused the previous preparation identity")
+            if check_preparation_readers(root, php, fresh=True) == generation:
+                raise RuntimeError("The provider retained the previous generation after source repair")
             final = request("repaired-" + secrets.token_hex(6))
             profile(final)
             expected = {"marker": final["url"].rsplit("/", 1)[1], "value": "fixed",

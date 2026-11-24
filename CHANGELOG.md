@@ -45,7 +45,8 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
-  Serena session using the Mago language server.
+  Serena session using the Mago language server. Setup and preparation accept Composer paths such as `./vendor`
+  and `./src`. The application and Serena both withhold fresh wiring while preparation is in progress.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
 - The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser

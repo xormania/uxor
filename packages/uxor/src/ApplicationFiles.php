@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Xormania\UXor;
 
+use Xormania\UXor\Preparation\ProjectPath;
+
 /** Project-local metadata and writes. It never loads application PHP. */
 final class ApplicationFiles
 {
@@ -15,14 +17,8 @@ final class ApplicationFiles
     {
         $root = $this->inspector->root($directory);
         $composer = $this->json($this->path($root, 'composer.json'));
-        $vendor = $this->relative((string) ($composer['config']['vendor-dir'] ?? 'vendor'));
-        $bin = $this->relative((string) ($composer['config']['bin-dir'] ?? $vendor.'/bin'));
-        foreach ([$vendor, $bin] as $directory) {
-            $absolute = $this->path($root, $directory);
-            if (file_exists($absolute) && !is_dir($absolute)) {
-                throw new \InvalidArgumentException('Expected a Composer directory: '.$directory);
-            }
-        }
+        $vendor = ProjectPath::composerDirectory($root, $composer['config']['vendor-dir'] ?? 'vendor');
+        $bin = ProjectPath::composerDirectory($root, $composer['config']['bin-dir'] ?? $vendor.'/bin');
         $installedPath = $this->path($root, $vendor.'/composer/installed.json');
         $installed = is_file($installedPath) ? $this->json($installedPath) : [];
         $packages = [];
@@ -48,36 +44,12 @@ final class ApplicationFiles
 
     public function relative(string $path): string
     {
-        $path = str_replace('\\', '/', $path);
-        if ('' === $path || str_starts_with($path, '/') || preg_match('/[\x00-\x1f:]/', $path)) {
-            throw new \InvalidArgumentException('Use a project-relative Composer directory inside the selected application.');
-        }
-        while (str_starts_with($path, './')) {
-            $path = substr($path, 2);
-        }
-        $path = rtrim($path, '/');
-        $parts = explode('/', $path);
-        if (array_intersect($parts, ['', '.', '..'])) {
-            throw new \InvalidArgumentException('Project paths must not contain empty, dot or parent segments.');
-        }
-        return implode('/', $parts);
+        return ProjectPath::relative($path);
     }
 
     public function path(string $root, string $relative): string
     {
-        $relative = $this->relative($relative);
-        $path = $root;
-        $parts = explode('/', $relative);
-        foreach ($parts as $index => $part) {
-            $path .= '/'.$part;
-            if (is_link($path)) {
-                throw new \InvalidArgumentException('Setup does not follow a symbolic link: '.$relative);
-            }
-            if ($index < count($parts) - 1 && file_exists($path) && !is_dir($path)) {
-                throw new \InvalidArgumentException('Setup requires directory ancestors: '.$relative);
-            }
-        }
-        return $path;
+        return ProjectPath::writablePath($root, $relative);
     }
 
     public function proposal(string $root, string $path, string $content): array

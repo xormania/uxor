@@ -81,10 +81,9 @@ jobs:
             - name: Build the Serena provider from the package
               run: |
                   tag=$(packages/uxor/bin/uxor-mago image serena)
-                  docker buildx build --load --tag "$tag" \
+                  sh packages/uxor/resources/mago/serena/build.sh --load --tag "$tag" \
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-dev" \
-                      "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-main" \
-                      packages/uxor/resources/mago/serena
+                      "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-main"
 
             - name: Check the installed archive through setup, Symfony semantics and source repair
               run: python3 packages/uxor/tools/check-package.py --consumer --providers

@@ -629,6 +629,9 @@ def check_consumer(archive: Path, temporary: Path, revision: str, *, providers: 
     old_marker = versioned_archive(archive, first_archive, "0.0.0")
     new_marker = versioned_archive(archive, second_archive, "0.0.1")
     manifest["repositories"] = [archive_repository(first_archive)]
+    # Composer accepts both of these relative spellings. Setup and preparation must agree.
+    manifest["config"]["vendor-dir"] = "./vendor"
+    manifest["autoload"]["psr-4"]["App\\"] = "./src/"
     for name in (PACKAGE_NAME, *MATE_PACKAGES):
         del manifest["require-dev"][name]
     manifest["extra"]["ai-mate"]["skills"] = ["project-skills"]
