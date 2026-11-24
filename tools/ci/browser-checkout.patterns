@@ -13,7 +13,6 @@
 
 # CI runs from ci.yml. Other workflow definitions are checked by the Workflows lane.
 !/.github/CODEOWNERS
-!/.github/actionlint.yaml
 !/.github/dependabot.yml
 !/.github/mention-allowlist
 !/.github/ISSUE_TEMPLATE/
