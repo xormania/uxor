@@ -51,6 +51,16 @@
         }
     },
     "scripts": {
+        "docs:generate": [
+            "@php packages/uxor/tools/generate-command-guide.php",
+            "node tools/llms-txt.mjs",
+            "@php packages/uxor/tools/generate-reference.php"
+        ],
+        "docs:check": [
+            "@php packages/uxor/tools/generate-command-guide.php --check",
+            "node tools/llms-txt.mjs --check",
+            "@php packages/uxor/tools/generate-reference.php --check"
+        ],
         "test": "@php vendor/bin/phpunit -c packages/uxor/phpunit.xml.dist"
     }
 }

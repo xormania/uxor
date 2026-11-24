@@ -17,44 +17,68 @@
     {% else %}
         <meta name="robots" content="noindex">
     {% endif %}
+    {% if markdown_url is defined %}
+        <link rel="alternate" type="text/markdown" href="{{ markdown_url }}">
+    {% endif %}
     <link rel="icon" href="{{ base_path }}/website-assets/logo.jpg">
     <script src="{{ base_path }}/website-assets/site.js"></script>
     <link rel="stylesheet" href="{{ base_path }}/website-assets/site.css">
     <link rel="stylesheet" href="{{ base_path }}/website-assets/recipe-doc.css">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="masthead">
     <nav class="wrap main-nav" aria-label="Main">
         <a class="brand" href="{{ path('app_index') }}"><img src="{{ base_path }}/website-assets/logo.jpg" width="28" height="28" alt=""><span>{{ kit.manifest.name }}</span></a>
-        <a href="{{ path('app_index') }}#recipes">Recipes</a>
-        <a href="{{ path('app_demo') }}">Demo app</a>
-        <a class="github" href="{{ repository }}">GitHub</a>
-        <button type="button" class="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" hidden><span aria-hidden="true">◐</span></button>
+        <div class="product-nav">
+            <a href="{{ path('app_guide', {name: 'composer'}) }}"{% if name|default('') == 'composer' %} aria-current="page"{% endif %}>Composer Dev Package</a>
+            <a href="{{ path('app_guide', {name: 'guide'}) }}"{% if name|default('') == 'guide' %} aria-current="page"{% endif %}>UXor Symfony UX Toolkit</a>
+        </div>
+        <div class="site-nav">
+            <a href="{{ path('app_index') }}#guides">Guides</a>
+            <a href="{{ path('app_index') }}#recipes">Recipes</a>
+            <a href="{{ path('app_demo') }}">Demo app</a>
+            <a href="{{ repository }}">GitHub</a>
+            <button type="button" class="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" hidden><span aria-hidden="true">◐</span></button>
+        </div>
     </nav>
 </header>
 <aside class="release-note" aria-label="Version">
     <div class="wrap">
         {% if release %}
-            A static copy of release <a href="{{ repository }}/releases/tag/{{ release }}">{{ release }}</a>.
+            Documentation for release <a href="{{ repository }}/releases/tag/{{ release }}">{{ release }}</a>.
         {% else %}
-            Development copy {% if commit %}<a href="{{ repository }}/commit/{{ commit }}">{{ commit[:7] }}</a> on {% endif %}<code>{{ branch }}</code>.
+            Development documentation {% if commit %}at <a href="{{ repository }}/commit/{{ commit }}">{{ commit[:7] }}</a> {% endif %}on <code>{{ branch }}</code>.
             {% if latest_release %}Latest release: <a href="{{ repository }}/releases/tag/{{ latest_release }}">{{ latest_release }}</a>.{% endif %}
         {% endif %}
-        Examples that need a server run in the <a href="{{ repository }}/blob/{{ release ?? 'main' }}/CONTRIBUTING.md#setup">full demo</a>.
     </div>
 </aside>
-<main id="main">
+<main id="main" tabindex="-1">
     {% block hero %}{% endblock %}
     <div class="wrap content">{% block body %}{% endblock %}</div>
 </main>
 <footer>
     <nav class="wrap footer-nav" aria-label="Documentation">
-        <span>MIT licensed.</span>
-        {% for slug, guide in guides %}<a href="{{ path('app_guide', {name: slug}) }}">{{ guide.title }}</a>{% endfor %}
-        <a href="{{ repository }}/blob/{{ release ?? 'main' }}/README.md">README</a>
-        <a href="{{ repository }}/blob/{{ release ?? 'main' }}/CHANGELOG.md">Changelog</a>
-        <a href="{{ repository }}/releases">Releases</a>
-        <a href="{{ repository }}/blob/main/SECURITY.md">Security</a>
+        {% for section in guide_sections %}
+            <div>
+                <p>{{ section.title }}</p>
+                <ul>
+                    {% for slug, guide in section.guides %}
+                        <li><a href="{{ path('app_guide', {name: slug}) }}">{{ guide.title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+        <div>
+            <p>Project</p>
+            <ul>
+                <li><a href="{{ repository }}/blob/{{ release ?? 'main' }}/README.md">README</a></li>
+                <li><a href="{{ repository }}/blob/{{ release ?? 'main' }}/CHANGELOG.md">Changelog</a></li>
+                <li><a href="{{ repository }}/releases">Releases</a></li>
+                <li><a href="{{ repository }}/blob/main/SECURITY.md">Security</a></li>
+                <li><a href="{{ repository }}/blob/{{ release ?? 'main' }}/LICENSE">MIT license</a></li>
+            </ul>
+        </div>
     </nav>
 </footer>
 </body>

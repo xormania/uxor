@@ -1,4 +1,4 @@
-# Getting started
+# Set up the toolkit directly
 
 Use this guide to set up Symfony UX Toolkit, assets and the theme in your application. If you're getting
 started with UXor, follow the recommended [Composer package guide](packages/uxor/README.md). It includes
@@ -65,8 +65,8 @@ See [Choosing a revision](#choosing-a-revision) for a new installation, an updat
 @import './uxor.css';
 ```
 
-3. Install the recipes you need. [`docs/RECIPES.md`](https://github.com/xormania/uxor/blob/main/docs/RECIPES.md) lists them. Run the printed
-   `composer require` and `importmap:require` commands for the recipe's dependencies.
+3. Choose a recipe from [the toolkit catalog](packages/uxor/resources/uxor/docs/docs/RECIPES.md). After installing it, run
+   the `composer require` and `importmap:require` commands that Toolkit prints for its dependencies.
 
 ```
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
@@ -97,9 +97,8 @@ normal workflow; review the resulting diff and reconcile customizations.
 
 The optional [Composer development package](packages/uxor/README.md) supplies tools, documentation and
 package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
-the [project snippet](https://github.com/xormania/uxor/blob/main/docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
-guidance is wanted, and avoid duplicating guidance already supplied by the helper.
+adapt the [optional project snippet](packages/uxor/resources/uxor/docs/docs/PROJECT-AGENTS-SNIPPET.md)
+if you want to keep UXor guidance alongside your application's existing instructions.
 
 Verify the installed components in their application context using
 [application testing](packages/uxor/resources/uxor/docs/docs/APPLICATION-TESTING.md).
-For changes to the kit or the package itself, follow [Contributing to UXor](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md).

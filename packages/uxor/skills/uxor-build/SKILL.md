@@ -11,16 +11,16 @@ Follow the application's instructions and authorized task. Preserve its customiz
 
 1. Define the requested journey: initial/loading/empty states, inputs, validation, successful action, updated
    content, feedback, focus and Back/Forward behavior. Select the relevant Turbo or Live transitions.
-2. Inspect the application with its existing tools. Mago/Serena application commands require explicit
-   `--trust-project-code` before the command; review effective extensions and the application first. Use Serena
+2. Inspect the application with its existing tools. Use `vendor/bin/mago` for native checks. For a Serena launch or a containerized Mago check, review the application and its extensions, then place
+   `--trust-project-code` before the `vendor/bin/uxor-mago` subcommand. Use Serena
    for symbols, bodies, definitions and references.
    Use Mate for compiled service detail and a fresh prepared graph for concrete wiring when useful.
    Analysis dependencies do not establish measured calls or a complete application graph.
 3. Search the UXor catalog and inspect installed/customized components. Use `mate-uxor-setup` for missing
    tools, components or dependencies. Discover installed Maker options before generation.
 4. Implement application-owned classes and wiring with Symfony Forms, validation and routing.
-   Use semantic edits when appropriate; the default provider is read-only, so enable `--write` before
-   `serena` or a Mago mutation only for an authorized edit, in addition to execution trust. Writable access includes
+   Use semantic edits when appropriate; the UXor wrapper mounts the checkout read-only by default. For an authorized edit, add `--write` before
+   the `serena` or Mago subcommand in addition to execution trust. Writable access includes
    repository metadata. Re-query after edits instead of applying stale ranges.
 5. Follow the selected component contracts for identifiers, Stimulus cleanup, theme roles, icons and CSP.
    Complete validation responses, redirects, feedback and the intended Turbo/Live update behavior.

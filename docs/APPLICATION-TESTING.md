@@ -1,68 +1,61 @@
 # Testing an application using UXor
 
-For developers and agents checking a Symfony application that uses UXor recipes, with or without the optional
-Composer development package. Work under the application's instructions, permissions and test conventions.
-UXor's demo routes, repository CI, release process and package-development fixture are contributor infrastructure;
-they are not requirements for your application.
+Choose one real page in your Symfony application and the result a user should see. Use the app's existing
+checks, or exercise the page in a browser. The same approach works with recipes installed directly through
+Symfony UX Toolkit and with the optional UXor Composer development package.
 
 ## Select the application and contract
 
-Identify the application root, its PHP/Composer invocation and the served URL before running diagnostics.
-Use its configured native or container runtime consistently. Read the selected components' READMEs and inspect
-their installed copies: the application owns and may customize those files. A package reference describes the
-bundled source, not proof of what is installed. Record a known recipe release or revision; otherwise report it
+Identify the checkout, its native or container PHP invocation and the served URL. Read the selected
+[recipe's usage](RECIPES.md) and inspect the application's installed files for customizations. Record the recipe
+release or revision from the project's installation history. If that history is unavailable, report the recipe revision
 as unknown.
 
-Use [installation guidance](../INSTALL.md) for missing setup and the [usage guide](GUIDE.md) for component,
-Turbo, Live Component and security contracts. When using the Composer package, select the application explicitly
-when crossing projects or worktrees; [package operations](../packages/uxor/OPERATIONS.md) describes root binding.
+With the development package installed, run these read-only checks from the app's root in its PHP environment.
+This example checks an app that uses the modal recipe.
 
-## Verify integration
+```sh
+vendor/bin/uxor inspect --format=json
+vendor/bin/uxor doctor --component=modal --format=json
+```
 
-Reuse the application's existing checks and choose those that exercise the change. Check required dependencies,
-autoloading and services, asset/controller discovery, CSS and theme integration, then render a real request.
-Keep packages used by installed PHP, Twig and browser components in the application's runtime dependencies.
-The optional UXor helper package remains a development dependency.
+Confirm `data.root` in the inspection result. Read the doctor's individual `data.findings`. A missing controller
+in the conventional asset layout gives you a file to inspect. If the app uses its own asset layout, select
+`--asset-profile=custom` and check registration in that pipeline. The doctor can return exit code 2 for failing
+or incomplete checks. Use a served page to settle runtime findings marked `unknown`.
+[Project evidence and first-setup checks](../packages/uxor/OPERATIONS.md#project-evidence-and-first-setup-checks).
 
-For a first installation or runtime-dependency change, verify that an isolated installation with development
-dependencies omitted can boot and render the selected components. Do not remove dependencies from the working
-application just to perform that check. A file-presence check or a running container alone does not establish
-successful integration.
+## Verify what changed
 
-## Exercise the changed journey
+| Change | Check in the application | Observable result |
+|---|---|---|
+| A first Twig component | Build the app's styles and open the route using the template. | For a [Kbd](../kbd/README.md) displaying Ctrl, the page shows a styled `<kbd>` with that text. |
+| A dialog's keyboard interaction | Open the [modal](../modal/README.md) from its trigger with the keyboard, close it and open it again. | The intended dialog opens, closing returns focus to the trigger and the next opening still works. |
+| An editor that updates a list | Submit invalid input, correct it, save and reload the list. | The app shows its validation error, then the saved value and its intended feedback. The saved value survives reload. |
 
-Test the actual page and the behavior changed: initial and empty states, inputs, validation, successful actions,
-updated content, visible feedback, keyboard/focus behavior and intended Back/Forward state. Check the themes and
-viewport sizes the application supports. Exercise Turbo or Live transitions, return visits and repeated mounting
-where that page uses them.
+Exercise theme, viewport, Back/Forward, repeated mounting or empty states where the changed behavior depends on
+them. A Frame's new content, a Stream's updated row or a Live Component's rendered state tells you when that
+operation has finished. Check for failed requests, browser errors and Content Security Policy violations.
+An expected validation response belongs to its invalid-input case.
 
-Wait for an observable result appropriate to the operation. Drive visits, Frames, Streams and Live updates have
-different completion signals; a universal navigation event or a fixed delay does not prove all of them finished.
-Capture console errors, failed requests and Content Security Policy violations. Allow an intentionally invalid
-form response only in the scenario that expects it, while continuing to reject unexpected failures.
+For a first installation or a change to runtime dependencies, verify that a separate installation of the app
+with development dependencies omitted can boot and render the selected component. Keep the project's working
+environment intact. The [installation guide](../INSTALL.md) covers missing dependencies and the
+[usage guide](GUIDE.md) covers Turbo, Live Components and the security contracts.
 
-Reusable examples are in UXor's testing reference: [transition completion](TESTING.md#wait-for-the-operation-to-complete-not-for-content),
+## Diagnose a failure and report the outcome
+
+Start with the first failing response or UI observation. If markup renders but a control does nothing, check the
+installed controller, asset requests and browser console. If the server returned an error, inspect the application's
+logs or the Symfony profile for that request. With the Composer development package installed, run
+`vendor/bin/uxor-browser http://127.0.0.1:8000/` with your page's URL to capture errors, failed requests
+and available profiler tokens. Use your application's Playwright tests to exercise interactions.
+Read either capture through `uxor_browser_diagnostics` or `vendor/bin/uxor browser-diagnostics`,
+then open an available `profileUri` in the Mate environment that served the request.
+[Browser diagnostics and fallback evidence](../packages/uxor/OPERATIONS.md#browser-diagnostics).
+
+Report the route, runtime, steps, expected result and actual result, including any checks you could not run.
+Review the application diff after a change. Redact sensitive URLs, profiler records and traces before sharing.
+For existing browser tests, the testing reference has examples of [transition completion](TESTING.md#wait-for-the-operation-to-complete-not-for-content),
 [history restoration](TESTING.md#back-after-the-cache-snapshot), [Live Components](TESTING.md#live-components)
-and [accessibility](TESTING.md#accessibility). Adapt the selected pattern to your application; the surrounding
-repository commands, demo paths and CI configuration describe how UXor itself is maintained.
-
-## Use available diagnostics
-
-Use the application's existing browser and server diagnostics. If the optional package recorder is configured,
-read its artifact through `uxor_browser_diagnostics` or the standalone CLI and open a returned `profileUri`
-in the Mate environment that served the request. Inspect the installed tool's inputs before calling it.
-A missing recorder, trace or Symfony response token is a missing evidence source, not a passing result.
-
-For quick feedback on a served URL, run the installed `vendor/bin/uxor-browser` launcher. Use the application’s
-Playwright suite to exercise interactions and verify its expected outcomes. [Browser diagnostics](../packages/uxor/OPERATIONS.md#browser-diagnostics)
-explains both capture paths and how to read an artifact when a Symfony profile is unavailable.
-
-## Report results in the application's context
-
-Inspect the final application diff, including deliberate changes to copied recipe code. Report the journey tested,
-application/runtime, known source versions, checks and actual outcomes, plus failures or checks not run.
-Keep the application's customizations and instruction files intact unless the task calls for changing them.
-
-Review diagnostic material before sharing it: URLs, profiler data, error messages, stacks and traces can contain
-application data or secrets. Follow the receiving project's disclosure and publication rules. UXor's contributor
-policies apply when submitting work to UXor; the consuming application retains its own development governance.
+and [accessibility](TESTING.md#accessibility).

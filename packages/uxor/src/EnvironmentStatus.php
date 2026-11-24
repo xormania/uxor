@@ -46,7 +46,7 @@ final class EnvironmentStatus
                 'note' => 'Installed describes the profiler pack or its unpacked requirements. Static inspection recognizes UXor’s dev config; other application configuration and effective collection require runtime evidence. An exact HTTP response token and matching profile establish request capture.'],
             'debug' => ['installed' => $has('symfony/debug-bundle'), 'compatible' => $debug['compatible'], 'observed' => 'not_probed'],
             'browser' => ['configured' => is_file($root.'/.uxor/browser.mjs'), 'observed' => 'not_probed',
-                'note' => 'The application must import the recorder into its Playwright fixture and set the served baseURL.'],
+                'note' => 'Configured reports the optional Playwright recorder. Import it into an application test fixture and set baseURL to use it. The standalone uxor-browser launcher can visit a served URL independently.'],
             'monolog' => ['installed' => $has('symfony/ai-monolog-mate-extension'), 'observed' => 'not_probed'],
         ];
         $ownership = new SetupOwnership($this->files);
@@ -91,7 +91,7 @@ final class EnvironmentStatus
             $next[] = 'Run prepare --trust-project-code after source, dependencies, service configuration or environment changes.';
         }
         if (!$probe) {
-            $next[] = 'Run environment --probe --trust-project-code to inspect real native entry points and prepared providers.';
+            $next[] = 'Run environment --probe --trust-project-code to inspect native entry points. Docker provider version checks can acquire images on first use.';
         } elseif (in_array('probe_failed', array_column($capabilities, 'observed'), true)) {
             $next[] = 'Inspect the named failed probe in its owning runtime. The Mago and Serena launchers prepare their providers on first use on the Docker host.';
         }

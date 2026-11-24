@@ -1,9 +1,9 @@
 # Demo security contract
 
-GitHub Pages serves static documentation from the website build and visual previews from the demo export. The dynamic demo is a
-development and test fixture: it compiles the repository's preview-enabled README examples as Twig, exposes routes
-that exercise Live Components and uploads, and uses a known demonstration login. Run it only from a trusted checkout
-and keep its Compose ports on loopback.
+GitHub Pages serves the documentation website and the static example app. The website embeds the recipe examples
+marked for preview. In the running Symfony fixture, the preview route can load any catalogued README example and
+compile its Twig. The fixture also exposes routes for Live Components and uploads, and uses a known demonstration
+login. Run it only from a trusted checkout and keep its Compose ports on loopback.
 
 Production mode therefore fails closed. `App\Kernel` refuses to boot in `prod` unless both conditions hold:
 

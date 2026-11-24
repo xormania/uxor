@@ -10,6 +10,10 @@ AEO foundations. The proposal below is kept as written, after the owner's decisi
 Stage 0. Repository and contributor guidance: it is not consumer documentation, and the consumer-agent index
 (`llms.txt`) does not list it._
 
+The sections below describe the November 4 baseline and proposed stages. In this checkout, the [documentation
+website](../website/) builds the release guides and recipe catalog separately from the demo. See [Docs](../CONTRIBUTING.md#docs)
+for current sources, generation and checks, and [Releases](../CONTRIBUTING.md#releases) for publication and live-site verification.
+
 ## Decisions (2026-11-04)
 
 1. **Documentation corrections ship through ordinary releases** (section 4, *Documentation-only corrections*, the first
@@ -350,7 +354,7 @@ Repository links are pinned to the inspected commit unless stated otherwise. Ext
 - **[R10] Example component annotations:** [Button.html.twig](https://github.com/xormania/uxor/blob/f7c94ef1f126996b2094ed02210585c2c9b21c2c/button/templates/components/Button.html.twig).
 - **[R11] Example authored recipe documentation:** [button/README.md](https://github.com/xormania/uxor/blob/f7c94ef1f126996b2094ed02210585c2c9b21c2c/button/README.md).
 - **[R12] Consumer entry points requiring audience review:** [README.md](https://github.com/xormania/uxor/blob/f7c94ef1f126996b2094ed02210585c2c9b21c2c/README.md), [INSTALL.md](https://github.com/xormania/uxor/blob/f7c94ef1f126996b2094ed02210585c2c9b21c2c/INSTALL.md), [GUIDE.md](https://github.com/xormania/uxor/blob/f7c94ef1f126996b2094ed02210585c2c9b21c2c/docs/GUIDE.md), and [FOR-AGENTS.md](https://github.com/xormania/uxor/blob/f7c94ef1f126996b2094ed02210585c2c9b21c2c/FOR-AGENTS.md).
-- **[B1] Prior measurement record:** [UXor-SEO-AEO-Baseline-2026-11-04(1).md](https://chatgpt.com/library?file_id=libfile_6da2aad37e5c8191b16ae5778f08d4ca&account_id=personal). Supporting release: [0.3.0](https://github.com/xormania/uxor/releases/tag/0.3.0). The relevant conclusions and measurement limits are reproduced in section 2.
+- **[B1] Baseline release and revision:** [Published release 0.3.0](https://github.com/xormania/uxor/releases/tag/0.3.0) and [changes through the inspected commit](https://github.com/xormania/uxor/compare/0.3.0...f7c94ef1f126996b2094ed02210585c2c9b21c2c). The [evidence snapshot](#2-evidence-snapshot) records the site observations and their measurement limits.
 
 #### Primary upstream and platform references
 

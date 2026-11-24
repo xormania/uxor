@@ -77,6 +77,7 @@ final class Website
         $this->twig->addGlobal('kit', $this->kit->getKit());
         $this->twig->addGlobal('repository', $this->kit->getManifest()->homepage);
         $this->twig->addGlobal('guides', $this->guides->all());
+        $this->twig->addGlobal('guide_sections', $this->guides->sections());
         $this->twig->addGlobal('ref', $this->ref);
         $this->twig->addGlobal('release', $release);
         $this->twig->addGlobal('latest_release', $latestRelease);
@@ -103,17 +104,17 @@ final class Website
             $files->dumpFile($output.$path.'index.html', $this->twig->render($template, $data + ['canonical' => $canonical]));
             $pages[] = $canonical;
         };
-        $groups = $this->getGroups();
         $recipes = $this->kit->getRecipes();
+        $categories = RecipeCategories::fromSource($this->sourceRoot, $recipes);
         $counts = array_map(fn (Recipe $recipe): int => count($this->kit->getPreviewExamples($recipe)), $recipes);
-        $savePage('/', 'index.html.twig', ['groups' => $groups, 'recipes' => $recipes, 'example_counts' => $counts]);
+        $savePage('/', 'index.html.twig', ['recipe_categories' => $categories, 'recipes' => $recipes, 'example_counts' => $counts]);
         foreach ($this->guides->all() as $slug => $guide) {
-            $savePage('/'.$slug.'/', 'guide.html.twig', ['name' => $slug, 'doc' => $this->guides->html($slug, $this->ref)] + $guide);
+            $savePage('/'.$slug.'/', 'guide.html.twig', ['name' => $slug] + $this->guides->render($slug, $this->ref) + $guide);
             $files->dumpFile($output.'/'.$slug.'.md', $this->guides->markdown($slug, $this->ref));
         }
         foreach ($recipes as $recipe) {
             $savePage('/r/'.$recipe->name.'/', 'recipe.html.twig', [
-                'recipe' => $recipe, 'doc' => $this->docs->page($recipe, $this->ref), 'groups' => $groups,
+                'recipe' => $recipe, 'doc' => $this->docs->page($recipe, $this->ref), 'recipe_categories' => $categories,
                 'dependencies' => $this->dependencies($recipe), 'server_notice' => self::SERVER_ONLY[$recipe->name] ?? null,
             ]);
             $files->dumpFile($output.'/r/'.$recipe->name.'.md', $this->docs->markdown($recipe, $this->ref));
@@ -175,21 +176,5 @@ final class Website
         }
 
         return $text;
-    }
-
-    /**
-     * @return array<string, array{title: string, recipes: list<Recipe>}> the recipes by type, components first
-     */
-    private function getGroups(): array
-    {
-        $groups = [
-            'component' => ['title' => 'Components', 'recipes' => []],
-            'block' => ['title' => 'Blocks', 'recipes' => []],
-        ];
-        foreach ($this->kit->getRecipes() as $recipe) {
-            $groups[$recipe->manifest->type->value]['recipes'][] = $recipe;
-        }
-
-        return array_filter($groups, fn (array $group): bool => [] !== $group['recipes']);
     }
 }

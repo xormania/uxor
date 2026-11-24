@@ -7,6 +7,8 @@ Use `mate-uxor-setup` for development tools or component installation, `mate-uxo
 and implement a feature, and `mate-uxor-verify` to diagnose failures and verify behavior.
 For first use, read `uxor://reference/packages/uxor/README.md`. The installed copy is
 `xormania/uxor/packages/uxor/README.md` under the application's configured Composer vendor directory.
+For a first read-only task in the selected application, open `uxor://reference/docs/AGENT-ONBOARDING.md`.
+Find your installed setup defaults in `uxor://reference/docs/COMPOSER-CONFIGURATION.md`.
 Use `uxor://reference/FOR-AGENTS.md` and the selected component's reference when building a feature.
 Inspect installed/customized copies; reference digests identify supplied guidance, not application provenance.
 
@@ -22,8 +24,7 @@ Call `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json` to veri
 Use `uxor environment` to inspect readiness. To reconcile configuration or add client bindings, preview `uxor setup` and apply
 the authorized plan with `setup --apply`. Execution probes and `prepare` require `--trust-project-code`.
 `uxor-mago` application commands, including Serena startup, require `--trust-project-code` before the command.
-Setup's execution flag covers the current operation. Saving permission for future Serena connections separately
-requires `--save-project-trust` and authorization for that persistence; do not infer it from installation or editing.
+Saving permission for future Serena connections requires `--save-project-trust` and authorization for that persistence; do not infer it from installation or editing.
 Saved permission also covers later code checked out at that path. Existing bindings may retain earlier permission;
 stop the provider and remove its saved launch flag before reconnecting to revoke it. Review the application and effective Mago extensions before
 execution. `--write` separately authorizes checkout changes. Existing task/session authorization is sufficient when
@@ -37,8 +38,8 @@ and `uxor_prepare`. The standalone `uxor` CLI exposes the same operations with `
 ## Understand, build and diagnose
 
 Use Serena/Mago source queries and fresh compiled Symfony bindings to understand the change.
-Discover installed Maker options before generation. Native Mago commands cover PHP/Twig checks,
-formatting and supported fixes; enable `--write` only for an authorized mutation and inspect the diff.
+Discover installed Maker options before generation. Use `vendor/bin/mago` for native Mago checks in the application.
+When running an authorized fix through `vendor/bin/uxor-mago`, place `--write` before its subcommand and inspect the diff.
 Toolkit's `ux:install` remains the component installation path.
 
 Run `uxor prepare --trust-project-code` after relevant source, configuration or dependency changes

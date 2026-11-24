@@ -1,9 +1,8 @@
-# Guide
+# Use and update recipes
 
-How to install, update and use the kit's recipes after [setting up UXor with Composer](../packages/uxor/README.md)
-or [configuring Toolkit directly](../INSTALL.md). Use the consuming application's instructions, runtime and existing configuration.
-Its installed recipe files belong to the application. Contributing changes to UXor itself follows
-[CONTRIBUTING.md](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md#project-boundaries).
+Once you've [set up UXor with Composer](../packages/uxor/README.md) or [installed Toolkit directly](../INSTALL.md),
+you can add recipes, customize their files and update them when you choose. Run the commands below in your
+Symfony application's PHP environment.
 
 ## Installing recipes
 
@@ -12,11 +11,6 @@ Its installed recipe files belong to the application. Contributing changes to UX
 from [setup](../INSTALL.md), run it for any additional packages it lists, such as the editor's Tiptap modules.
 `ux:install dashboard-home` brings the layouts and every component the dashboard uses.
 Install the `theme` during setup and use the dashboard recipe's README for the controller and template.
-
-With [Symfony Docker](https://github.com/dunglas/symfony-docker), run every `composer` and `php bin/console`
-command in the [kit setup instructions](../INSTALL.md) inside the container, from the
-project directory: `docker compose exec php composer …` and `docker compose exec php bin/console …`. Its PHP image
-has the `zip` extension. CI installs the kit this way, in a fresh Symfony Docker project.
 
 ## Updating
 
@@ -125,11 +119,7 @@ are examples for contributors, not the consuming application's environment.
 
 ## Versioning
 
-Versions are git tags `X.Y.Z`, without a `v`, for compatibility with supported Toolkit versions.
-The maintainer chooses each release number and may skip unused numbers. UXor's `0.x` interfaces are still in
-development; read the release notes for changes and migration needs. Install with
-`--kit=https://github.com/xormania/uxor:<version>`, choosing the latest release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
-default branch, which can hold work that is not released yet.
-For explicitly requested testing of unreleased work, select the intended source revision deliberately and record
-its resolved commit; do not treat it as a published release or rely on an unrecorded moving default.
-[`CHANGELOG.md`](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md) lists what each version changes.
+Use a tagged release (`X.Y.Z`) of the kit for new work. Keep the version your application already uses until
+you choose to update it. [Choosing a revision](../INSTALL.md#choosing-a-revision) explains how to pin a release
+or a commit when testing unreleased work. UXor is in `0.x` development. Read the [changelog](https://github.com/xormania/uxor/blob/0.3.5/CHANGELOG.md)
+for compatibility changes and migration steps before an update.

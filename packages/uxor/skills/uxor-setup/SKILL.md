@@ -25,8 +25,7 @@ the package workflow and its first rendered component. Use the package CLI if th
 4. For Serena or containerized Mago, use the installed launcher on the Docker host. It acquires its provider on first use.
    For generated client configuration use
    `--client=claude|codex` and, when setup runs in PHP Docker, the client's absolute `--host-project-root`.
-   Authorize the current MCP launch explicitly after reviewing the application and launcher. Setup's execution
-   flag never saves permission. Use `--save-project-trust` only when recurring execution is explicitly authorized;
+   Authorize the current MCP launch explicitly after reviewing the application and launcher. Use `--save-project-trust` only when recurring execution is explicitly authorized;
    it covers later code at that path too. Do not infer this choice from setup, installation or editing permission.
    Setup preserves existing bindings; reconcile them explicitly if the intended permission changes. To revoke
    recurring permission, stop the provider and remove its saved launch flag before reconnecting.

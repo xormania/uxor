@@ -6,9 +6,8 @@ Use this guide to build and test further features under the application's instru
 For changes to UXor's kit, Composer package or repository demo and test fixtures, use
 [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md) and the repository's [`AGENTS.md`](https://github.com/xormania/uxor/blob/0.3.5/AGENTS.md).
 
-The same text, as plain markdown:
-<https://raw.githubusercontent.com/xormania/uxor/0.3.5/FOR-AGENTS.md>. Every page of the kit, with one line
-each: [`llms.txt`](https://github.com/xormania/uxor/blob/0.3.5/llms.txt).
+Use [the documentation index](https://github.com/xormania/uxor/blob/0.3.5/llms.txt) to find guides and recipe READMEs for this version. With the package
+installed, `uxor://reference/FOR-AGENTS.md` exposes this guide to a connected agent.
 
 ## What you get
 

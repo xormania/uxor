@@ -2,6 +2,9 @@
 
 Reviewed November 18, 2026 against the demo on Symfony 8.1.11 and UXor’s development setup on Symfony AI Mate 0.14.0.
 
+The [experiment reports](experiments/) record what the trials found. For Mate, see the [beta discovery results](experiments/mate-beta.md)
+and the [current package guide](../packages/uxor/README.md#connect-an-agent-client) for discovering tools in your application.
+
 ## Asset delivery and diagnostics
 
 - **AssetMapper 8.2.0-BETA2** offers `framework.asset_mapper.importmap_entries: reachable`. It follows literal dynamic imports as well as static imports. The Stimulus controller registry can therefore keep a lazy controller in the inline map even on pages where the browser never fetches it. A trial on the dashboard should compare compressed HTML size and actual module requests separately. [Symfony release status](https://symfony.com/releases/8.2) · [AssetMapper changes](https://symfony.com/blog/new-in-symfony-8-2-assetmapper-improvements)

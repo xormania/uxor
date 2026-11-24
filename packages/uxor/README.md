@@ -56,8 +56,9 @@ The result should include the `kbd` recipe. Use the application's configured bin
 
 ## Configure the development environment
 
-To add a Serena client binding, preview the changes and apply them. For Claude Code use `--client=claude`.
-Run `setup` without a client option to inspect the project defaults or restore missing configuration.
+Use `vendor/bin/uxor setup` to preview project configuration and `vendor/bin/uxor setup --apply` to restore missing files.
+To add a Serena binding, include your client in both commands. The example uses Codex. For Claude Code, use `--client=claude`.
+Decide [how to authorize Serena launches](#connect-an-agent-client) before creating the binding. Setup preserves existing registrations.
 
 ```sh
 vendor/bin/uxor setup --client=codex --format=json
@@ -66,9 +67,7 @@ vendor/bin/uxor environment --format=json
 ```
 
 When application PHP runs in Docker and the client runs on the host, pass the host checkout's absolute path
-with `--host-project-root` to both setup commands. Review the plan and reconcile any existing application
-settings. To save execution permission for later connections, make that choice
-[before creating the binding](#connect-an-agent-client).
+with `--host-project-root` to both setup commands. Review the plan for existing application settings that need reconciliation.
 
 The application controls profiler collection. If UXor supplied the default policy, start the dev server with
 `PROFILER_COLLECT=1` for a diagnostic run and use the response’s `X-Debug-Token` to find its profile.
@@ -77,8 +76,8 @@ bundle and route registration, and [diagnose a request](OPERATIONS.md#diagnose-a
 
 ### Connect an agent client
 
-1. Start the client on a Docker host that can access the checkout. The installed launcher acquires the Serena
-   provider on its first use. For native Mago CLI checks in the application, run `vendor/bin/mago --version`.
+1. Start the client on a Docker host that can access the checkout. The installed `vendor/bin/uxor-mago` launcher
+   acquires the Serena provider on first use. For native Mago in the application, run `vendor/bin/mago --version`.
 2. **In the application PHP environment**, run `vendor/bin/uxor prepare --trust-project-code --format=json`.
    Look for `data.state` of `ready`. This prepares compiled Symfony service bindings for source queries.
    Re-run it after changes to dependencies, service configuration or other preparation inputs.
@@ -94,6 +93,7 @@ bundle and route registration, and [diagnose a request](OPERATIONS.md#diagnose-a
    `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify`.
 
 If client or provider setup is incomplete, the following recipe workflow is also available through the package CLI.
+To try the agent on an existing page, [give it a first read-only task](resources/uxor/docs/docs/AGENT-ONBOARDING.md).
 
 ## Use
 
