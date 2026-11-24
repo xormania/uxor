@@ -1133,10 +1133,11 @@ linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_pro
 [`tools/tests/prod-image.sh`](../tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
 images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
 image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
-its extensions, without Xdebug or any `require-dev` package, without UX Toolkit's bundle or commands; its working
-directory and server root are the app's; it serves a page of each kind that reads the kit (the dashboard, a recipe page
-and a preview, the install guide, `llms.txt`), and every recipe page in the image (`/app/*/manifest.json`) with the
-first preview it shows, all answering 200 (an image with no recipe fails); and it holds no `node_modules`, tests, `.git`, `packages/`, `.github` or
+its extensions, without Xdebug or any development-only package from `demo/composer.lock`, and without UX Toolkit's
+bundle or commands; its working directory and server root are the app's; it serves a page of each kind that reads the
+kit (the dashboard, a recipe page and a preview, the install guide, `llms.txt`), and every recipe page in the image
+(`/app/*/manifest.json`) with the first preview it shows, all answering 200 (an image with no recipe fails); and it holds
+no `node_modules`, tests, `.git`, `packages/`, `.github` or
 `tools/`, and no docs but `docs/GUIDE.md`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
 and their docs), so the package is a `require` of the demo and its templates are registered for prod in
 `config/packages/twig.yaml`; its bundle is registered in dev and test only. Symfony applies the demo's overrides of

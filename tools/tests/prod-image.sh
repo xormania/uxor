@@ -11,8 +11,8 @@
 #   runtime  the image refuses to boot without the production opt-in; with it and a random APP_SECRET, it turns healthy
 #            (its HEALTHCHECK), PID 1 runs as www-data, PHP has the extensions the image installs and the demo requires,
 #            the production kernel registers no UXToolkitBundle and its console has no ux:install or ux:toolkit:* command
-#            (the gallery uses the Toolkit's library in prod), no Xdebug and no require-dev package (read from
-#            demo/composer.json at run time) is in it, the opt-in and the secret are not baked into it; the app is
+#            (the gallery uses the Toolkit's library in prod), no Xdebug and no development-only package (read from
+#            demo/composer.lock at run time) is in it, the opt-in and the secret are not baked into it; the app is
 #            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the install guide and
 #            /llms.txt answer 200 with their content, and every recipe the image holds (/app/*/manifest.json) has a
 #            recipe page answering 200, as does each page's first preview, each page rendered through the demo's own
@@ -241,10 +241,10 @@ else
         check runtime 'no Xdebug' bash -c '! grep -qx xdebug <<<"$1"' _ "$modules"
         check runtime 'no Node.js or npm executable' docker exec "$container" sh -c '! command -v node && ! command -v npm'
         check runtime 'frankenphp runs' docker exec "$container" frankenphp version
-        dev_packages="$(php -r 'echo implode(" ", array_keys(json_decode(file_get_contents($argv[1]), true)["require-dev"] ?? []));' "$root/demo/composer.json" 2>/dev/null \
-            || jq -r '."require-dev" // {} | keys | join(" ")' "$root/demo/composer.json")"
+        # Composer locks shared dependencies in packages. Only packages-dev are exclusive to development.
+        dev_packages="$(jq -er '."packages-dev" | map(.name) | join(" ")' "$root/demo/composer.lock")"
         for package in $dev_packages; do
-            check runtime "no require-dev package $package in vendor/" docker exec "$container" test ! -e "vendor/$package"
+            check runtime "no development-only package $package in vendor/" docker exec "$container" test ! -e "vendor/$package"
         done
         # the layout of the development image: the app in /app/demo, the kit's files beside it
         check runtime "the working directory is /app/demo (got $(docker exec "$container" pwd 2>/dev/null))" test "$(docker exec "$container" pwd 2>/dev/null)" = /app/demo
