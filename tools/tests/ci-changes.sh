@@ -134,7 +134,7 @@ check "$kit prod-image"                      some-new-file.txt
 # The production image's lane, for everything the image holds (demo/Dockerfile.dockerignore): a recipe's manifest,
 # README, templates/, assets/, src/ and config/, and a new or deleted top-level directory or a new root file, which the
 # list may have to name. Not a recipe's tests/ or another file the list leaves out, root files the image never holds,
-# nor packages/.
+# or package-only code.
 check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
 check "$kit_contrast prod-image"             alert/assets/controllers/alert_controller.js
 check "$kit_contrast prod-image"             oauth/src/UXor/OAuth/OAuthClient.php
@@ -268,10 +268,16 @@ check "$kit_contrast prod-image"             docs/NOTES.md kit.css
 check 'package'                   composer.json
 check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
+check 'php static-site contrast demo package prod-image' packages/uxor/resources/guides.json
+for guide in packages/uxor/README.md packages/uxor/OPERATIONS.md; do
+    check 'php static-site contrast package prod-image' "$guide"
+done
+check 'package'                   packages/uxor/resources/other.json
 check 'demo package'              packages/uxor/resources/browser/diagnostics.mjs
 check 'demo package'              packages/uxor/resources/browser/diagnostics.d.mts
-check 'demo package'              packages/uxor/.gitattributes
-check 'demo package'              packages/uxor/resources/.gitattributes
+check 'php static-site contrast demo package prod-image' packages/.gitattributes
+check 'php static-site contrast demo package prod-image' packages/uxor/.gitattributes
+check 'php static-site contrast demo package prod-image' packages/uxor/resources/.gitattributes
 check 'package'                   packages/uxor/tests/OperationsTest.php
 check 'package'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
 check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md

@@ -1147,6 +1147,9 @@ jobs:
                   set -o pipefail
                   composer install --no-interaction --no-progress 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
 
+            - name: Verify the published CLI command reference
+              run: php packages/uxor/tools/generate-command-guide.php --check
+
             # every tracked PHP file of the package, and its executable (PHP without the extension)
             - name: Syntax
               id: syntax

@@ -67,8 +67,7 @@ jobs:
     # release-checks-passed-v2-<sha> artifact, which a passing daily run uploads); the pull request's or the branch's own commit
     # otherwise. A pull request skips the suite when it passed on an earlier head of a pull request in this repository,
     # merged with the same base (its release-checks-pr-passed-v1-<base>-<head> marker), and every path changed since is
-    # one the suite never reads (the allowlist below): the release commit's CHANGELOG.md and llms.txt, docs, the
-    # Composer package.
+    # one the suite never reads (the allowlist below), such as CHANGELOG.md and package-only development files.
     changed:
         name: What to check
         if: github.event_name != 'schedule'
@@ -139,12 +138,13 @@ jobs:
                           [ "$marker" = "release-checks-pr-passed-v1-$proved_base-$sha" ] || continue
                           git cat-file -e "$sha^{commit}" 2>/dev/null || continue
                           changed=$(git diff --name-only --no-renames "$sha" "$head") || break
-                          # The release fixtures import the package's browser recorder. The production image serves
-                          # GUIDE.md and llms.txt. These paths and anything else outside the allowlist run the suite.
+                          # The release fixtures import the package's recorder. The production image serves the
+                          # public guide catalog and source Markdown. Keep these inputs ahead of the directory exclusions.
                           other=$(while IFS= read -r path; do
                               case "$path" in
                                   '' ) ;;
                                   docs/GUIDE.md | packages/uxor/resources/browser | packages/uxor/resources/browser/*) printf '%s\n' "$path" ;;
+                                  packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) printf '%s\n' "$path" ;;
                                   docs/* | packages/uxor/* | CHANGELOG.md | AGENTS.md) ;;
                                   *) printf '%s\n' "$path" ;;
                               esac

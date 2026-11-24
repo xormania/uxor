@@ -62,7 +62,7 @@ final class GuidePageTest extends WebTestCase
 
     public function testTheGuidesLinksReachTheGallerysPagesOrGitHub(): void
     {
-        foreach (['/install', '/guide'] as $path) {
+        foreach (['/install', '/guide', '/composer', '/advanced'] as $path) {
             preg_match_all('/<a href="([^"]*)"/', (string) self::get($path)->getContent(), $hrefs);
             foreach ($hrefs[1] as $href) {
                 self::assertMatchesRegularExpression('#^(?:https?:|mailto:|/|\#)#', $href, "$path: no link left relative to the repository");
@@ -80,6 +80,37 @@ final class GuidePageTest extends WebTestCase
         self::assertStringContainsString('<a href="https://github.com/xormania/uxor/releases">', $install, 'the release listing stays a moving index');
     }
 
+    public function testTheComposerAndAdvancedGuidesLinkAcrossTheGalleryAndPortableMarkdown(): void
+    {
+        foreach (['composer' => 'packages/uxor/README.md', 'advanced' => 'packages/uxor/OPERATIONS.md'] as $slug => $source) {
+            $html = (string) self::get('/'.$slug)->getContent();
+            $markdown = self::get('/'.$slug.'.md');
+            self::assertSame('text/markdown; charset=UTF-8', $markdown->headers->get('Content-Type'));
+            $heading = strtok(file_get_contents(\dirname(__DIR__, 3).'/'.$source), "\n");
+            self::assertStringStartsWith($heading."\n", (string) $markdown->getContent(), $slug);
+            self::assertSame(1, substr_count($html, '<h1'), $slug);
+            self::assertStringContainsString('href="/'.$slug.'.md" type="text/markdown"', $html, $slug);
+        }
+
+        // These guides live two directories below the kit root. Sibling, root and fragment links must
+        // lead to the corresponding public page, or its Markdown sibling when reading offline.
+        $composer = (string) self::get('/composer')->getContent();
+        $advanced = (string) self::get('/advanced')->getContent();
+        self::assertStringContainsString('ux:install kbd --kit=https://github.com/xormania/uxor:0.4.0', $composer);
+        self::assertStringContainsString('href="/advanced#browser-diagnostics"', $composer);
+        self::assertStringContainsString('id="browser-diagnostics"', $advanced);
+        self::assertStringContainsString('href="/install"', $composer);
+        self::assertStringContainsString('href="/composer"', $advanced);
+        self::assertStringContainsString('href="/composer"', (string) self::get('/install')->getContent());
+
+        $composerMd = (string) self::get('/composer.md')->getContent();
+        self::assertStringContainsString('ux:install kbd --kit=https://github.com/xormania/uxor:0.4.0', $composerMd);
+        self::assertStringContainsString('](advanced.md#browser-diagnostics)', $composerMd);
+        self::assertStringContainsString('](install.md)', $composerMd);
+        self::assertStringContainsString('](composer.md)', (string) self::get('/advanced.md')->getContent());
+        self::assertStringContainsString('](composer.md)', (string) self::get('/install.md')->getContent());
+    }
+
     public function testEachGuideIsPortableMarkdownBesideTheRecipes(): void
     {
         $response = self::get('/guide.md');
@@ -90,7 +121,7 @@ final class GuidePageTest extends WebTestCase
         self::assertStringContainsString('](install.md)', $markdown);
         self::assertStringContainsString('](r/dropzone.md#in-a-live-component)', $markdown);
         self::assertStringContainsString('](https://github.com/xormania/uxor/blob/0.4.0/CHANGELOG.md)', $markdown);
-        self::assertDoesNotMatchRegularExpression('#\]\((?!https?:|mailto:|/|\#|install\.md|guide\.md|r/[a-z0-9-]+\.md)#', $markdown, 'no link relative to the repository');
+        self::assertDoesNotMatchRegularExpression('#\]\((?!https?:|mailto:|/|\#|(?:install|guide|composer|advanced)\.md|r/[a-z0-9-]+\.md)#', $markdown, 'no link relative to the repository');
 
         $install = (string) self::get('/install.md')->getContent();
         foreach (['docs/RECIPES.md', 'docs/APPLICATION-TESTING.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'CONTRIBUTING.md'] as $document) {

@@ -8,12 +8,14 @@ The links below point at release `0.3.5`, the version this file was written for:
 
 ## Start here
 
-- [For agents](https://raw.githubusercontent.com/xormania/uxor/0.3.5/FOR-AGENTS.md): using UXor in your Symfony application: setup, recipe selection and optional development tools
+- [Set up UXor with Composer](https://raw.githubusercontent.com/xormania/uxor/0.3.5/packages/uxor/README.md): Install the development package, connect your coding agent and render your first UXor recipe in a Symfony application.
+- [Advanced UXor setup and operations](https://raw.githubusercontent.com/xormania/uxor/0.3.5/packages/uxor/OPERATIONS.md): Customize development tools, use Toolkit directly, inspect Symfony wiring and diagnose an application request.
+- [Getting started](https://raw.githubusercontent.com/xormania/uxor/0.3.5/INSTALL.md): Set a Symfony project up for the UXor kit: requirements, Tailwind CSS and Flowbite CSS, the theme, then installing recipes with ux:install.
+- [Guide](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/GUIDE.md): Installing and updating the UXor kit's recipes, using them with Turbo and Live Components, security, and versioning.
+- [For agents](https://raw.githubusercontent.com/xormania/uxor/0.3.5/FOR-AGENTS.md): use UXor in the selected Symfony application
 - [Project agents snippet](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md): optional application guidance when existing project or package-managed instructions need a short UXor entry
-- [Install](https://raw.githubusercontent.com/xormania/uxor/0.3.5/INSTALL.md): install the kit in a Symfony application
 - [README](https://raw.githubusercontent.com/xormania/uxor/0.3.5/README.md): what the kit is, how to install it, requirements
 - [Recipes](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/RECIPES.md): every recipe, one line each
-- [Guide](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning
 - [Application testing](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/APPLICATION-TESTING.md): verify your application's integration and user journeys using its own runtime and tests
 
 ## Theme

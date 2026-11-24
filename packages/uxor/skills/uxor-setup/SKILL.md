@@ -6,11 +6,12 @@ description: Use when configuring UXor development tools, installing UXor compon
 # Set up UXor in an application
 
 Follow the consuming application's instructions, authorized task and runtime. Preserve its configuration
-and customized components.
+and customized components. Start with the installed `uxor://reference/packages/uxor/README.md` guide for
+the package workflow and its first rendered component. Use the package CLI if the client is not connected.
 
 ## Procedure
 
-1. Identify the application root, PHP/Composer invocation and Docker-host checkout path. Keep application PHP
+1. Identify the application root and PHP/Composer invocation. Keep application PHP
    commands in its actual runtime. Select `--project-root` explicitly across applications or worktrees.
 2. Read `uxor setup --format=json` and `uxor environment --format=json`. Setup defaults to a plan.
    Apply authorized changes with `setup --apply`; installing development dependencies additionally requires
@@ -19,7 +20,8 @@ and customized components.
 3. Preserve existing files and integrate reported configuration. Composer uses available Flex recipes.
    Without Flex, register Debug/WebProfiler bundles and profiler routes using the application's conventions.
    Confirm a real dev response has a profile; config-file presence is insufficient.
-4. Prepare Mago/Serena providers on the Docker host. For generated client configuration use
+4. When a task needs Serena or Mago, prepare the providers on the Docker host.
+   For generated client configuration use
    `--client=claude|codex` and, when setup runs in PHP Docker, the client's absolute `--host-project-root`.
    Authorize the current MCP launch explicitly after reviewing the application and launcher. Setup's execution
    flag never saves permission. Use `--save-project-trust` only when recurring execution is explicitly authorized;
@@ -44,8 +46,8 @@ Read `uxor://reference/FOR-AGENTS.md`, `uxor://reference/INSTALL.md` and the sel
 
 Use the configured Mate CLI's `resources:read` or bounded `uxor_reference`. Inspect installed tool inputs
 with `tools:inspect` before calling `uxor_setup`, `uxor_environment` or `uxor_prepare`.
-Detailed provider, host-path, preparation and dependency instructions are in the package's
-`README.md` and `OPERATIONS.md`, normally under `vendor/xormania/uxor/packages/uxor/`.
+The advanced guide is `uxor://reference/packages/uxor/OPERATIONS.md`. Read the installed `README.md`
+and `OPERATIONS.md` directly under `vendor/xormania/uxor/packages/uxor/` when working offline.
 Use the application's actual Composer vendor directory.
 
 Report the selected application/runtime, changes, checks actually run and unresolved integration steps.

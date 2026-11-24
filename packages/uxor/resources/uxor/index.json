@@ -3,8 +3,9 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "9d7c0767d866e9b60dc603d2d4337aa2d0fea16ca621b58d9ede46c033d0362e",
+        "inputs_sha256": "264cd83cb53d2a2b5b49837ef402e75911e5475cac2384ded8867115e6510458",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
+        "guide_catalog_sha256": "a87ef98172b494cacf5929a32f0a967a54e41c3842a534f8e9468d015dd52a5f",
         "license": "MIT"
     },
     "kit": {
@@ -1685,14 +1686,14 @@
     "documents": {
         "FOR-AGENTS.md": {
             "path": "docs/FOR-AGENTS.md",
-            "sha256": "c96c8a08767e57112f82537c8e3d0334636522e9371655d8ec24a2bfd72fa680",
-            "source_sha256": "7bd8fdd018f775ea1e56c8f32d935d7353376f09e19151d90caf8ebdaefe52a5",
+            "sha256": "123b9b8bb7352fa663fa9ca70d1d81fa9883ce16ce49558505b3fe75f26056a4",
+            "source_sha256": "782342ce2496ba83eae1b6a25cfa90596a0725bb40c549e03c9b5cd00892c7a2",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/FOR-AGENTS.md"
         },
         "INSTALL.md": {
             "path": "docs/INSTALL.md",
-            "sha256": "0f5cc2f4362ea6d104d05c425f73912fcd63a4eae484e4df900b26344755fe8b",
-            "source_sha256": "32921192901b68a9443bf1412f7f7445c4b5aed5cc1e7e58845a42e567d04753",
+            "sha256": "68e8b424a518f2c104aa5cc24cda5563723e28d174e2f4af213b652e418a4be7",
+            "source_sha256": "e4bc288109ebbb873ae89730f0ff5f1d669e8fd76904c1f9372c7b77b2a90bcb",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/INSTALL.md"
         },
         "LICENSE": {
@@ -1709,8 +1710,8 @@
         },
         "README.md": {
             "path": "docs/README.md",
-            "sha256": "ca615141292902daf2943e799d479ab78bb2ccf1acb6683f833b572d829c285a",
-            "source_sha256": "967b8cccc6be7d41baf8199344a3f44eed0767b34ed42d4ba323482e5d1dc056",
+            "sha256": "2dca4cea9843daa7d54682bf4a622c6bec779cc8ca95bdb838fd3b34fd67eefe",
+            "source_sha256": "520e0544acffb247382c311be7b870f6c7a697d0cdd715b4fbd40004d8da38d8",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/README.md"
         },
         "alert/README.md": {
@@ -1811,19 +1812,19 @@
         },
         "docs/APPLICATION-TESTING.md": {
             "path": "docs/docs/APPLICATION-TESTING.md",
-            "sha256": "bd44989b090236e90683a440a3035ca7efd6a410edf88c8b465515e628d3c3b5",
+            "sha256": "8b757e48cf1734857afe04398543b8d241813ca07811bea1bf7177460e5564c1",
             "source_sha256": "8b757e48cf1734857afe04398543b8d241813ca07811bea1bf7177460e5564c1",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/APPLICATION-TESTING.md"
         },
         "docs/GUIDE.md": {
             "path": "docs/docs/GUIDE.md",
-            "sha256": "362df030924b0bcb103f1b1eb70f83df0a366b4db7731001295a64e01661bb49",
-            "source_sha256": "e2964c27df5f1b3a95d2c422c2cfb9ec59687d895aaf56034046d2c8f8929b96",
+            "sha256": "912a8863f32fc90a3745e17775be0591cac2a8d301505df2b00605ee6e7711a0",
+            "source_sha256": "37b62690370e101e81da368093a6ba3e608629e4c79261845d3a4766c3084b3f",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/GUIDE.md"
         },
         "docs/PROJECT-AGENTS-SNIPPET.md": {
             "path": "docs/docs/PROJECT-AGENTS-SNIPPET.md",
-            "sha256": "45d9239b98f10831d5e2ab51c405cd94ca8950a9f2c962c9c410bc754df8936a",
+            "sha256": "55ba99d844ff35558f7e466aacc76b596f356d5f0496e8d8d4d29cdd001da7e9",
             "source_sha256": "55ba99d844ff35558f7e466aacc76b596f356d5f0496e8d8d4d29cdd001da7e9",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md"
         },
@@ -1835,8 +1836,8 @@
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "a76b2922239f70e9f49b39d6554f1c07527713052a2d52f201f01cadee0c9e8e",
-            "source_sha256": "2141dfa8148d5a8c73bc6085ac43ac6f1b4d3159913ae8f771ce2768826cac1d",
+            "sha256": "afddfb0aa018aa9cd0265a349445de6c54b83d8e828e232c4f87063b6116561e",
+            "source_sha256": "05b34b029120be5e96bfe84dd2813908425d66491454dff1c623cb3b42f40b7a",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/TESTING.md"
         },
         "drawer/README.md": {
@@ -1982,6 +1983,18 @@
             "sha256": "dbe68e5eb4309190f55d8c48218ef8c065e1b016cba1096faec2f3f63b2868c9",
             "source_sha256": "dbe68e5eb4309190f55d8c48218ef8c065e1b016cba1096faec2f3f63b2868c9",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/oauth/README.md"
+        },
+        "packages/uxor/OPERATIONS.md": {
+            "path": "docs/packages/uxor/OPERATIONS.md",
+            "sha256": "cbd74d47d2bf264adbf77713987c9420c56073c659e52ab873951eef825ff66b",
+            "source_sha256": "54870f9aa5bd32d3ea187e91886a104b405839eb0444ffd16e35492b1fde882c",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md"
+        },
+        "packages/uxor/README.md": {
+            "path": "docs/packages/uxor/README.md",
+            "sha256": "a5c5fbe08346ae8cde7ad8e90e5e93dda00df442374c24362f012e325808463f",
+            "source_sha256": "f141a868d370e6110568d6e806d14d1d6b9c5a6f5a6e9de88d35cec077a2cb59",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md"
         },
         "page-header/README.md": {
             "path": "docs/page-header/README.md",

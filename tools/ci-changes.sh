@@ -113,8 +113,11 @@ while IFS= read -r path; do
         # file is export-ignored and only the package installs from it. .gitattributes decides what both archives hold.
         # The package's markdown runs Contrast too (the markdown rule below); .gitattributes, another directory under
         # packages/ and the references' inputs in the kit are below, with the kit.
-        # The demo imports the packaged recorder. Its parent attributes can change the checked-out recorder.
-        packages/uxor/resources/browser/* | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on package demo ;;
+        # The guide catalog supplies the navigation on browser-tested pages and the generated llms.txt.
+        # The two package guide bodies are requested by the PHP tests, static export and image harness.
+        packages/uxor/resources/guides.json | packages/.gitattributes | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on php static-site contrast demo package prod-image ;;
+        packages/uxor/README.md | packages/uxor/OPERATIONS.md) on php static-site contrast package prod-image ;;
+        packages/uxor/resources/browser/*) on package demo ;;
         composer.json) on package ;;
         composer.lock | packages/uxor/*) on package ;;
 
@@ -234,7 +237,7 @@ while IFS= read -r path; do
             # top-level directory, a new root file, a top-level directory deleted), which can need the list changed. A
             # recipe's tests/ and anything else the list leaves out do not.
             if [[ $path == packages/* ]]; then
-                :  # the Composer package: never in the image
+                :  # the package's gallery inputs are handled above
             elif [[ $path == */* ]]; then
                 if [ -f "${path%%/*}/manifest.json" ]; then
                     [[ $path =~ ^[^/]+/(manifest\.json$|(templates|assets|src|config)/) ]] && on prod-image

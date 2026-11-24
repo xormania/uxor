@@ -10,6 +10,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Added
 
+- The gallery publishes the Composer onboarding guide and advanced operations reference as HTML and Markdown.
+  The same guides are available in the repository and through the installed agent tools.
+
 - The Composer dev package adds setup planning and application-owned configuration for Mago, Serena, Maker and
   Symfony diagnostics, with explicit dependency installation, environment checks and compiled Symfony preparation.
   Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source

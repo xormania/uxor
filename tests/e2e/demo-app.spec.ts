@@ -543,9 +543,18 @@ test("the gallery's header keeps one row on a phone, its GitHub link named", asy
     }
 });
 
-test("the hero's two secondary links share one style", async ({ page }) => {
+test("the hero links to Composer first and its two secondary links share one style", async ({ page }) => {
     await page.goto('/');
     const hero = page.locator('.xor-hero');
-    const install = await hero.getByRole('link', { name: 'Install' }).getAttribute('class');
-    expect(await hero.getByRole('link', { name: 'Open the demo app' }).getAttribute('class')).toBe(install);
+    const primary = hero.getByRole('link').first();
+    await expect(primary).toHaveAccessibleName('Get started with Composer');
+    await expect(primary).toHaveAttribute('href', '/composer');
+    const browse = hero.getByRole('link', { name: 'Browse the recipes' });
+    const demo = hero.getByRole('link', { name: 'Open the demo app' });
+    await expect(browse).toHaveAttribute('href', '#recipes');
+    await expect(demo).toHaveAttribute('href', '/demo');
+    const secondaryStyle = await browse.getAttribute('class');
+    expect(secondaryStyle).toBeTruthy();
+    expect(await demo.getAttribute('class')).toBe(secondaryStyle);
+    expect(await primary.getAttribute('class')).not.toBe(secondaryStyle);
 });

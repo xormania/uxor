@@ -244,6 +244,15 @@ the repository binding resolves that worktree's Git root. The server uses stdio 
 To check the integration locally, run `uv run --script packages/uxor/dev/check-mago.py --repository`.
 It looks up package, recipe and demo symbols and compares the analyzer's diagnostics with Serena's.
 
+### Publishing consumer guides
+
+Edit the package walkthrough in [its README](packages/uxor/README.md) and the advanced guide in
+[OPERATIONS.md](packages/uxor/OPERATIONS.md). Their entries in the [guide registry](packages/uxor/resources/guides.json)
+supply the gallery routes, navigation and discovery links. Agents can read the same guides through the installed
+`reference` command. Keep shared explanations in those source files and link to them from entry points.
+After changing commands, refresh the advanced guide first. After changing guide content or package requirements,
+regenerate the references. The [checks below](#checks) include both commands.
+
 ## Checks
 
 CI runs on every branch push and on pull requests from forks. Fork contributions are checked at their proposed
@@ -299,7 +308,9 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 | `INSTALL.md` (the gallery's install guide, `/install`: its page tests, its static export, the browser tests that load it) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
 | `.gitattributes` (what both installs receive) | the jobs of `kit.js` (above) and *Package* |
 | `composer.json` | *Package*: the kit's archive holds it too, but no install or lint reads it |
-| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures), `packages/uxor/.gitattributes`, `packages/uxor/resources/.gitattributes` | *Package*, *Demo + Playwright* |
+| `packages/uxor/resources/guides.json` (gallery navigation and discovery), `.gitattributes` in `packages/`, `packages/uxor/` or `packages/uxor/resources/` (checkout rules for these inputs) | *Kit PHP*, *Static site*, *Contrast*, *Demo + Playwright*, *Package*, *Production image* |
+| `packages/uxor/README.md`, `packages/uxor/OPERATIONS.md` (the published Composer and advanced guides) | *Kit PHP*, *Static site*, *Contrast*, *Package*, *Production image*. Browser tests visit the kit guides and read the catalog for navigation. |
+| `packages/uxor/resources/browser/` (the diagnostics recorder imported by the demo's Playwright fixtures) | *Package*, *Demo + Playwright* |
 | `composer.lock`, any other file in `packages/uxor/` | *Package*; its markdown also *Contrast* (the markdown row below) |
 | any other file in `packages/` | *Package*, and the jobs of a directory no other row names (above): the archive ships it |
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Demo + Playwright* and *Contrast*. The inventory check runs in *Quick checks* on every CI run |
@@ -408,7 +419,8 @@ node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-cover
 actionlint                                          # every workflow, with ShellCheck on its run steps (CI pins actionlint 1.7.12 and ShellCheck 0.11.0)
 
 composer validate --strict                          # the root composer.json, the Composer package xormania/uxor, and that composer.lock matches it (see Setup)
-php packages/uxor/tools/generate-reference.php      # regenerate the package's bundled references from the working tree (commit them with the docs they copy)
+php packages/uxor/tools/generate-command-guide.php   # refresh the advanced guide from the registered UXor CLI (requires composer install)
+php packages/uxor/tools/generate-reference.php      # refresh the Composer install command and bundle the guides from the working tree
 php packages/uxor/tools/generate-reference.php --check   # the bundled references are up to date: lists the stale files, changes nothing
 composer test                                       # the package's PHPUnit tests (packages/uxor/tests/, packages/uxor/phpunit.xml.dist)
 python3 packages/uxor/tools/check-package.py        # the archive both installs receive holds what the script lists and composer.json declares, and nothing else: no development file, nothing outside the kit's root files, its recipes and the package's entries. It checks git archive HEAD, committed files only: commit first

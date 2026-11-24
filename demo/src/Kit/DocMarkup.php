@@ -76,10 +76,17 @@ final class DocMarkup
     private static function linkPath(string $target, string $dir, ?string $repositoryPrefix): ?string
     {
         if (null !== $repositoryPrefix && str_starts_with($target, $repositoryPrefix)) {
-            return self::repositoryPath('', substr($target, \strlen($repositoryPrefix)));
+            $dir = '';
+            $target = substr($target, \strlen($repositoryPrefix));
+        } elseif (preg_match('#^(?:[a-z][a-z0-9+.-]*:|/)#i', $target)) {
+            return null;
         }
 
-        return preg_match('#^(?:[a-z][a-z0-9+.-]*:|/)#i', $target) ? null : self::repositoryPath($dir, $target);
+        $path = self::repositoryPath($dir, $target);
+        // The Composer guides link to offline copies. The gallery renders or links the originals at its release.
+        $bundle = 'packages/uxor/resources/uxor/docs/';
+
+        return str_starts_with($path, $bundle) ? substr($path, \strlen($bundle)) : $path;
     }
 
     /**

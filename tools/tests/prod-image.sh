@@ -13,15 +13,16 @@
 #            the production kernel registers no UXToolkitBundle and its console has no ux:install or ux:toolkit:* command
 #            (the gallery uses the Toolkit's library in prod), no Xdebug and no require-dev package (read from
 #            demo/composer.json at run time) is in it, the opt-in and the secret are not baked into it; the app is
-#            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the install guide and
+#            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the consumer guides and
 #            /llms.txt answer 200 with their content, and every recipe the image holds (/app/*/manifest.json) has a
 #            recipe page answering 200, as does each page's first preview, each page rendered through the demo's own
 #            templates (its Toolkit overrides show every example in a light and a dark preview frame), not a fallback (the files the image needs are in it); no node_modules, tests,
-#            .git, packages/, .github, docs but GUIDE.md, or tools/ are (the files it must not hold are not)
+#            .git, package code, .github, docs but GUIDE.md, or tools/ are
 #
 #   context  what the build context sends (demo/Dockerfile's ignore file applied): a throwaway stage copies the
-#            whole context and the copy is listed; nothing under .git, .github, node_modules, packages/ or any tests
-#            directory, nothing in tools/ but tools/sync-demo, and no secret or machine-local file a developer's
+#            whole context and the copy is listed; only the gallery guides are included from packages/, nothing
+#            under .git, .github, node_modules or any tests directory, nothing in tools/ but tools/sync-demo, and
+#            no secret or machine-local file a developer's
 #            checkout may hold (Symfony's secrets decryption key, .env.local files, phpunit.xml, .agents, .idea, .vscode),
 #            which only a run in such a checkout can catch; demo/ holding only the entries the build needs (an
 #            explicit list here: a new one fails until it is added to the allow-list and to this list); and nothing
@@ -47,6 +48,11 @@ image="${given_image:-uxor-demo-prod:check-$$}"
 container="uxor-demo-prod-check-$$"
 failures=0
 declare -a report
+# Run at the root of the copied context or /app. Both stages must contain only the public package guides.
+unexpected_package_entries='find packages -mindepth 1 ! \( \
+    -type d \( -path packages/uxor -o -path packages/uxor/resources \) -o \
+    -type f \( -path packages/uxor/README.md -o -path packages/uxor/OPERATIONS.md -o -path packages/uxor/resources/guides.json \) \
+    \) -print'
 
 result() { # <part> <PASS|FAIL|SKIP> <what>
     report+=("$(printf '%-8s %-4s %s' "$1" "$2" "$3")")
@@ -140,7 +146,7 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed '.git' "find . \\( -name .git -o -path '*/.git/*' \\) -print"
     listed '.github' "find . -name .github -prune -print"
     listed 'node_modules' "find . -name node_modules -prune -print"
-    listed 'packages/' "find . -maxdepth 1 -name packages -print"
+    listed 'package entries outside the public guides' "$unexpected_package_entries"
     listed 'tests directory' "find . -name tests -type d -prune -print"
     listed 'tools/ but tools/sync-demo' "find ./tools -mindepth 1 ! -path ./tools/sync-demo -print"
     # what a developer's checkout holds and a clone never does (CI cannot see these): Symfony's secrets decryption key,
@@ -265,6 +271,10 @@ else
         page '/preview/button/default?theme=light' '<title>button / default'   # one preview: the recipe's templates render
         page /install 'ux:install'               # the install guide (INSTALL.md)
         page /guide 'How to install, update and use the kit'   # the guide (docs/GUIDE.md)
+        page /composer 'allow-plugins.symfony/ai-mate-composer-plugin'
+        page /composer.md 'allow-plugins.symfony/ai-mate-composer-plugin'
+        page /advanced 'vendor/bin/uxor catalog'
+        page /advanced.md 'vendor/bin/uxor catalog'
         page /llms.txt '/r/button'               # llms.txt, from the kit's files
 
         # every recipe page answers 200: the recipes are read from the image (each /app/<recipe>/manifest.json), so the
@@ -317,7 +327,7 @@ else
         absent 'node_modules' 'find /app -name node_modules -prune -print'
         absent 'tests directory (the root, a recipe or the demo)' 'find /app -maxdepth 2 -name tests -type d -print'
         absent '.git' 'find /app -maxdepth 2 \( -name .git -prune -print \) ; find /app/.git -mindepth 1 -maxdepth 2 -print'
-        absent 'packages/' 'find /app -maxdepth 1 -name packages -print'
+        absent 'package entries outside the public guides' "cd /app && $unexpected_package_entries"
         absent '.github' 'find /app -maxdepth 1 -name .github -print'
         absent 'tools/ (removed after the build)' 'find /app -maxdepth 1 -name tools -print'
         absent 'docs but docs/GUIDE.md' 'find /app/docs -mindepth 1 ! -path /app/docs/GUIDE.md -print'

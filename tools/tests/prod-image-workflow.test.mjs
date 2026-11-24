@@ -15,6 +15,7 @@ import { stepIn } from '../ci/step-attempts.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const workflowsDir = '.github/workflows';
+const packageGuides = ['packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json'];
 /**
  * The image's build inputs: the Dockerfile and its allow-list, the Compose files and FrankenPHP's; what the demo's vendor/
  * holds (demo/composer.json, demo/composer.lock: a development-only package the gallery needs at run time is how the
@@ -41,6 +42,7 @@ const TRIGGERS = [
     'INSTALL.md',
     'llms.txt',
     'docs/GUIDE.md',
+    ...packageGuides,
     'brand-new-dir/notes.txt',
     'NEW-ROOT-FILE.md',
     // the demo is the app the image runs, and its files behave differently in prod (no dev packages, no Toolkit bundle):
@@ -64,18 +66,19 @@ const TRIGGERS = [
     'editor/src/UXor/Editor/EditorExtension.php',
     'oauth/config/uxor_oauth.example.yaml',
 ];
-/** Content the other jobs render from the same files: a recipe's template, assets and README, a browser spec. */
-/** What the image does not hold: a browser spec, a recipe's own tests, docs but the guide, the package, the other tools. */
+/** The image leaves out browser specs, recipe tests, package internals and contributor documentation. */
 const UNRELATED = [
     'tests/e2e/smoke.spec.ts',
     'alert/tests/alert.spec.ts',
     'alert/tests/screenshots/with-list-dark.png',
     'docs/TESTING.md',
     'packages/uxor/tools/ReferenceGenerator.php',
+    'packages/uxor/INSTRUCTIONS.md',
+    'packages/uxor/resources/uxor/index.json',
     'tools/docs-lint.mjs',
 ];
 /** The image's inputs a release check must not count as never read. */
-const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
+const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', ...packageGuides, 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
 
 const workflows = readdirSync(join(root, workflowsDir))
     .filter((name) => /\.ya?ml$/.test(name))
@@ -207,7 +210,7 @@ test("the release checks never reuse an earlier pass across a change to one of t
     const decision = lines.findIndex((line, i) => i > changed && /^\s*if \[ -z "\$other" \]; then$/.test(line));
     assert.ok(changed >= 0 && decision > changed, 'a shell predicate connects the changed paths to the reuse decision');
     const predicate = lines.slice(changed + 1, decision).join('\n');
-    const docs = ['CHANGELOG.md', 'AGENTS.md', 'docs/TESTING.md', 'docs/GUIDE.md.bak', 'packages/uxor/README.md'];
+    const docs = ['CHANGELOG.md', 'AGENTS.md', 'docs/TESTING.md', 'docs/GUIDE.md.bak', 'packages/uxor/INSTRUCTIONS.md', 'packages/uxor/resources/guides.json.bak'];
     for (const [inputs, expected] of [
         [IMAGE_INPUTS, IMAGE_INPUTS],
         [docs, []],

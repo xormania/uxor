@@ -23,6 +23,12 @@ function kit(t, changelog) {
         copyFileSync(join(root, tool), join(dir, tool));
     }
     write('manifest.json', JSON.stringify({ name: 'Fixture', homepage: 'https://github.com/example/kit', description: 'A fixture kit.' }));
+    write('packages/uxor/resources/guides.json', JSON.stringify({
+        install: { file: 'INSTALL.md', title: 'Install', description: 'Install the kit.' },
+        guide: { file: 'docs/GUIDE.md', title: 'Guide', description: 'Use the kit.' },
+        composer: { file: 'packages/uxor/README.md', title: 'Composer', description: 'Install the package.' },
+        advanced: { file: 'packages/uxor/OPERATIONS.md', title: 'Advanced', description: 'Configure the tools.' },
+    }));
     write('CHANGELOG.md', changelog);
     write('button/manifest.json', '{}');
     write('docs/RECIPES.md', '# Recipes\n\n## Basic\n\n| Install | Description |\n|---|---|\n| [`button`](../button/README.md) | A button. |\n');
@@ -47,6 +53,9 @@ test('llms.txt names the latest release, never a branch, even with unreleased en
     const llms = k.llms();
     assert.match(llms, /--kit=https:\/\/github\.com\/example\/kit:1\.2\.0`/);
     assert.match(llms, /raw\.githubusercontent\.com\/example\/kit\/1\.2\.0\/button\/README\.md/);
+    for (const path of ['packages/uxor/README.md', 'packages/uxor/OPERATIONS.md']) {
+        assert.ok(llms.includes(`(https://raw.githubusercontent.com/example/kit/1.2.0/${path})`), path);
+    }
     assert.doesNotMatch(llms, /:dev\b|\/dev\//);
     assert.equal(k.run('--check').status, 0);
 });
