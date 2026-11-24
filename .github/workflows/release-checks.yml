@@ -530,8 +530,8 @@ jobs:
     # Only a complete matrix may publish a reusable pass or a recorded baseline. A lane can never clear another lane.
     # The demo's production image (demo/Dockerfile, target frankenphp_prod) on the release target: built from the
     # target's repository for linux/amd64 and run by its tools/tests/prod-image.sh (boot refused without the opt-in, no
-    # baked secret or development package, healthy as www-data, the gallery's pages served, nothing beyond the
-    # allow-list). The workflow's own tools and the target live in separate checkouts, as for the suite.
+    # baked secret or development package, healthy as www-data, the demo's pages and each recipe's live preview served,
+    # nothing beyond the allow-list). The workflow's own tools and the target live in separate checkouts, as for the suite.
     prod-image:
         name: Production image
         needs: changed

@@ -361,8 +361,8 @@ jobs:
     #   tracked paths and ownership controls), and what any path can break whichever lanes the change runs: the bundled
     #   references' links, the test inventory's names, the archive's payload, and the name check, which reads every file.
     # - Contrast, when tools/ci-changes.sh selects it: the theme's contrast, kit.css, llms.txt, what the markdown
-    #   teaches, the icons, the README examples, the test inventory, the READMEs' versions and the README pairing (which
-    #   reads the branch's commits since the Changes job's base).
+    #   teaches, the icons, the README examples, the READMEs' versions and the README pairing (which reads the branch's
+    #   commits since the Changes job's base).
     # - Workflows, when selected: every workflow's syntax, expressions, job graph, action inputs and the shell of its run
     #   steps (actionlint with ShellCheck, release binaries pinned by version and SHA-256); tools/ci-changes.sh also runs
     #   the jobs that run what a workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Then
@@ -1169,8 +1169,8 @@ jobs:
     # The demo's production image (demo/Dockerfile, target frankenphp_prod), which no other job builds: built from the
     # repository as the dev image is (the kit beside the demo, demo/Dockerfile.dockerignore naming what it holds), for
     # linux/amd64 only, then run by tools/tests/prod-image.sh: it refuses to boot without the explicit opt-in, holds no
-    # baked secret, development package or Xdebug, runs as www-data, turns healthy, serves the gallery's pages (each
-    # kind of file it reads from the kit) and holds nothing the allow-list leaves out. It runs when the image's build
+    # baked secret, development package or Xdebug, runs as www-data, turns healthy, serves the demo's pages and a live
+    # preview of each recipe in both themes, and holds nothing the allow-list leaves out. It runs when the image's build
     # inputs change (tools/ci-changes.sh); a plain build, with no cache shared with the dev image's bake.
     prod-image:
         name: Production image
