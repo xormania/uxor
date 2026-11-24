@@ -2,9 +2,9 @@
 /*
  * What the browser tests need before they run, made idempotent and safe to run from several processes at once:
  *
- * - UXor's recipe specs in <recipe>/tests/*.spec.ts. Some retain a fixture import path from the initial
- *   symfony/ux reference. They run as copies in tests/e2e/examples/recipes/ (gitignored), with that inherited import
- *   pointed at tests/e2e/examples/fixtures.ts. Maintain the source specs for UXor's behavior and contracts.
+ * - UXor's recipe specs in <recipe>/tests/*.spec.ts. Each imports tests/e2e/examples/fixtures.ts by its path from the
+ *   recipe (`../../tests/e2e/examples/fixtures`), so an editor resolves it there. They run as copies in
+ *   tests/e2e/examples/recipes/ (gitignored), with that import pointed at the same file from the copy (`../fixtures`).
  *   The copies are built in a temporary directory, then each new or changed one is renamed into place and each one
  *   no recipe has any more is deleted: a process listing the tests meanwhile sees every file whole, old or new, and
  *   nothing is written when nothing changed.
@@ -68,7 +68,7 @@ export function recipeSpecs(root = repository) {
         }
         for (const file of readdirSync(testsDir).filter((name) => name.endsWith('.spec.ts')).sort()) {
             const source = readFileSync(join(testsDir, file), 'utf8');
-            const spec = source.replace(/(['"])(?:\.\.\/)+assets\/test\/browser\/fixtures\1/g, "'../fixtures'");
+            const spec = source.replace(/(['"])\.\.\/\.\.\/tests\/e2e\/examples\/fixtures\1/g, "'../fixtures'");
             specs[`${entry.name}.${file}`] = `// Generated from ${entry.name}/tests/${file} by tools/prepare-tests.mjs: do not edit.\n${spec}`;
         }
     }
