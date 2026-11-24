@@ -298,3 +298,10 @@ service; `status` gets a real health response. Neither one replaces the browser 
 Two separately marked archives exercise Composer's automatic update hooks. The historical upgrade
 uses the actual released and candidate distributions and can also run directly with
 `python3 packages/uxor/tools/check-package.py --release-upgrade`.
+
+The same `--consumer` run installs the archive in a fresh Symfony Flex application. It compares the pack
+requirements selected by Composer with the manifests UXor ships for offline inspection, before Flex unpacks
+them. If those requirements change, refresh the corresponding `composer.json` and license in
+`packages/uxor/resources/symfony/packs/` from the upstream revision in the failure message. The current
+snapshots come from [debug-pack v1.1.0](https://github.com/symfony/debug-pack/tree/v1.1.0) and
+[profiler-pack v1.0.6](https://github.com/symfony/profiler-pack/tree/v1.0.6).

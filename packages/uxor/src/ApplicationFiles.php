@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xormania\UXor;
 
+use Composer\Semver\VersionParser;
 use Xormania\UXor\Preparation\ProjectPath;
 
 /** Project-local metadata and writes. It never loads application PHP. */
@@ -22,12 +23,58 @@ final class ApplicationFiles
         $installedPath = $this->path($root, $vendor.'/composer/installed.json');
         $installed = is_file($installedPath) ? $this->json($installedPath) : [];
         $packages = [];
+        $packageMetadata = [];
         foreach (($installed['packages'] ?? $installed) as $package) {
             if (is_array($package) && isset($package['name'], $package['version'])) {
-                $packages[$package['name']] = (string) $package['version'];
+                $name = $package['name'];
+                $packages[$name] = (string) $package['version'];
+                $packageMetadata[$name] = [
+                    'normalized' => $package['version_normalized'] ?? null,
+                    'branches' => $package['extra']['branch-alias'] ?? [],
+                ];
             }
         }
-        return compact('root', 'composer', 'vendor', 'bin', 'packages');
+        return compact('root', 'composer', 'vendor', 'bin', 'packages', 'packageMetadata');
+    }
+
+    /** Read aliases only for an installed version that did not itself satisfy a pack constraint. */
+    public function installedAliases(array $project, string $name): array
+    {
+        $version = $project['packages'][$name];
+        $metadata = $project['packageMetadata'][$name] ?? [];
+        $parser = new VersionParser();
+        $branch = $this->branchAlias($version, $metadata['branches'] ?? [], $parser);
+        $aliases = null === $branch ? [] : [$branch];
+        if (!isset($project['root']) || !is_file($project['root'].'/composer.lock')) {
+            return $aliases;
+        }
+        $records = $this->json($this->path($project['root'], 'composer.lock'))['aliases'] ?? [];
+        $normalized = $metadata['normalized'] ?? $parser->normalize($version);
+        foreach (is_array($records) ? $records : [] as $alias) {
+            if (($alias['package'] ?? null) === $name && ($alias['version'] ?? null) === $normalized
+                && is_string($alias['alias'] ?? null) && is_string($alias['alias_normalized'] ?? null)) {
+                $aliases[] = ['alias' => $alias['alias'], 'normalized' => $alias['alias_normalized']];
+            }
+        }
+        return $aliases;
+    }
+
+    private function branchAlias(string $version, mixed $branches, VersionParser $parser): ?array
+    {
+        if (!is_array($branches) || (!str_starts_with($version, 'dev-') && !str_ends_with($version, '-dev'))) {
+            return null;
+        }
+        $target = array_change_key_case($branches)[strtolower($version)] ?? null;
+        if (!is_string($target) || !str_ends_with($target, '-dev')) {
+            return null;
+        }
+        $normalized = $parser->normalizeBranch(substr($target, 0, -4));
+        $sourcePrefix = $parser->parseNumericAliasPrefix($version);
+        $targetPrefix = $parser->parseNumericAliasPrefix($target);
+        if (!str_ends_with($normalized, '-dev') || (false !== $sourcePrefix && false !== $targetPrefix && !str_starts_with($targetPrefix, $sourcePrefix))) {
+            return null;
+        }
+        return ['alias' => $target, 'normalized' => $normalized];
     }
 
     public function json(string $path): array

@@ -16,6 +16,13 @@ from urllib.request import urlopen
 
 from lifecycle_events import operation as observe
 
+# This standalone application installs the Symfony pack without Flex unpacking it.
+NON_FLEX_DEBUG_PACKAGES = {
+    "symfony/debug-pack", "symfony/debug-bundle", "symfony/monolog-bundle", "monolog/monolog",
+    "symfony/profiler-pack", "symfony/web-profiler-bundle", "symfony/stopwatch",
+    "symfony/ai-monolog-mate-extension",
+}
+
 
 def run(event: str, arguments: list[str], root: Path, *, timeout: float = 120, allowed=(0,)) -> subprocess.CompletedProcess:
     with observe(event):
@@ -100,16 +107,22 @@ def setup(root: Path, php: str) -> None:
         raise RuntimeError("Setup selected a client when none was requested")
     packages = {item["name"]: item["version"].removeprefix("v")
                 for item in json.loads((root / "vendor/composer/installed.json").read_text())["packages"]}
-    for name in ("symfony/maker-bundle", "symfony/web-profiler-bundle"):
-        if name not in packages:
-            raise RuntimeError("Setup did not install its requested development package: " + name)
+    if "symfony/flex" in packages:
+        raise RuntimeError("The independent non-Flex consumer unexpectedly installed Flex")
+    missing = (NON_FLEX_DEBUG_PACKAGES | {"symfony/maker-bundle"}) - packages.keys()
+    if missing:
+        raise RuntimeError("Public setup did not install the full development tools: " + ", ".join(sorted(missing)))
+    incompatible = [item["package"] for item in installed["data"]["dependencies"] if not item["compatible"]]
+    if incompatible:
+        raise RuntimeError("Initial setup still reports missing development dependencies: " + ", ".join(incompatible))
     for name, version in {"carthage-software/mago": "1.60.2", "byte-kitsune/mago-symfony-wiring": "1.3.0"}.items():
         if packages.get(name) != version:
             raise RuntimeError(f"Setup installed {name} at {packages.get(name)}, expected {version}")
     manifest = json.loads((root / "composer.json").read_text())
     if manifest.get("minimum-stability", "stable") != "stable":
         raise RuntimeError("Setup weakened the application's Composer stability policy")
-    for name in ("carthage-software/mago", "byte-kitsune/mago-symfony-wiring"):
+    for name in ("symfony/debug-pack", "symfony/ai-monolog-mate-extension",
+                 "carthage-software/mago", "byte-kitsune/mago-symfony-wiring"):
         if name not in manifest.get("require-dev", {}) or name in manifest.get("require", {}):
             raise RuntimeError("Setup did not keep development tools in require-dev: " + name)
     print("Installed setup: real Composer dev dependencies, first Mate initialization, separate saved execution permission and application instructions verified.")

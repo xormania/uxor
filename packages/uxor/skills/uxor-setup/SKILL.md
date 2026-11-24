@@ -17,8 +17,9 @@ and customized components.
    `--install --trust-project-code`. Use existing task/session authorization when it covers native execution in
    this application and runtime. A configuration-only request does not authorize native execution.
 3. Preserve existing files and integrate reported configuration. Composer uses available Flex recipes.
-   Without Flex, register WebProfilerBundle and its dev routes if the application uses the profiler UI.
-   Confirm a real dev response has a profile; config-file presence is insufficient.
+   The default development install requests Symfony’s full debug pack. Without Flex, follow the application's
+   bundle and route conventions. For a debugging task, follow a real response token to its profile and choose
+   an available collector. The installed package’s `OPERATIONS.md` covers request diagnosis.
 4. Prepare Mago/Serena providers on the Docker host. For generated client configuration use
    `--client=claude|codex` and, when setup runs in PHP Docker, the client's absolute `--host-project-root`.
    Authorize the current MCP launch explicitly after reviewing the application and launcher. Setup's execution

@@ -86,35 +86,179 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
-    public static function profilerInstallations(): iterable
+    public static function debuggingPackages(): iterable
     {
-        yield 'Flex unpacked profiler-pack 1.0.6' => [['symfony/web-profiler-bundle', 'symfony/stopwatch'], true];
-        yield 'debug-bundle does not supply stopwatch' => [['symfony/web-profiler-bundle', 'symfony/debug-bundle'], false];
-        yield 'stopwatch without web-profiler-bundle' => [['symfony/stopwatch'], false];
+        $profiler = ['symfony/web-profiler-bundle' => 'v8.1.3', 'symfony/stopwatch' => 'v7.4.2'];
+        $debug = ['symfony/debug-bundle' => 'v8.1.1', 'symfony/monolog-bundle' => 'v4.0.0'];
+
+        yield 'fresh application' => [[], null, null];
+        yield 'both named packs remain installed' => [
+            ['symfony/debug-pack' => 'v1.1.0', 'symfony/profiler-pack' => 'v1.0.6'] + $debug + $profiler,
+            'installed_package', 'installed_package',
+        ];
+        yield 'fully unpacked nested packs' => [$debug + $profiler, 'installed_components', 'installed_components'];
+        yield 'only the outer pack was unpacked' => [
+            $debug + ['symfony/profiler-pack' => 'v1.0.6'] + $profiler, 'installed_components', 'installed_package',
+        ];
+        yield 'profiler independently available' => [$profiler, null, 'installed_components'];
+        yield 'both debugging bundles without a profiler' => [$debug, null, null];
+        yield 'DebugBundle does not supply Stopwatch' => [$debug + ['symfony/web-profiler-bundle' => 'v8.1.3'], null, null];
+        yield 'Stopwatch without WebProfilerBundle' => [$debug + ['symfony/stopwatch' => 'v7.4.2'], null, null];
+        yield 'incompatible MonologBundle with a working profiler' => [
+            ['symfony/monolog-bundle' => 'v2.12.1'] + $debug + $profiler, null, 'installed_components',
+        ];
+        yield 'supported MonologBundle 3.x' => [
+            ['symfony/monolog-bundle' => 'v3.11.1'] + $debug + $profiler, 'installed_components', 'installed_components',
+        ];
     }
 
-    #[DataProvider('profilerInstallations')]
-    public function testSetupAndEnvironmentAgreeOnProfilerDependencies(array $profilerPackages, bool $expected): void
+    #[DataProvider('debuggingPackages')]
+    public function testSetupAndEnvironmentDistinguishNamedPackagesFromInstalledComponents(
+        array $installed, ?string $debugSource, ?string $profilerSource,
+    ): void
     {
-        $packages = [
-            ['name' => 'symfony/framework-bundle', 'version' => 'v8.1.0'],
-            ['name' => 'symfony/maker-bundle', 'version' => 'v1.0.0'],
-            ['name' => 'carthage-software/mago', 'version' => '1.60.2'],
-            ['name' => 'byte-kitsune/mago-symfony-wiring', 'version' => '1.3.0'],
+        if ([] !== $installed) {
+            $installed['symfony/ai-monolog-mate-extension'] = '1.0.0-BETA1';
+        }
+        $installed += [
+            'symfony/framework-bundle' => 'v8.1.0',
+            'symfony/maker-bundle' => 'v1.0.0',
+            'carthage-software/mago' => '1.60.2',
+            'byte-kitsune/mago-symfony-wiring' => '1.3.0',
         ];
-        foreach ($profilerPackages as $name) {
-            $packages[] = ['name' => $name, 'version' => 'v8.1.0'];
+        $this->writeInstalledPackages($installed);
+        [, $plan] = $this->invoke('setup');
+        [$code, $applied] = $this->invoke('setup', ['--apply' => true]);
+        self::assertSame(null === $debugSource ? 2 : 0, $code, $applied['summary']);
+        [, $environment] = $this->invoke('environment');
+        self::assertSame($plan['data']['dependencies'], $applied['data']['dependencies']);
+        self::assertSame($plan['data']['dependencies'], $environment['data']['dependencies']);
+
+        $dependencies = array_column($plan['data']['dependencies'], null, 'package');
+        foreach (['symfony/debug-pack' => $debugSource, 'symfony/profiler-pack' => $profilerSource] as $name => $source) {
+            self::assertArrayHasKey($name, $dependencies);
+            self::assertSame($installed[$name] ?? null, $dependencies[$name]['installed_version']);
+            self::assertSame($source, $dependencies[$name]['satisfied_by']);
+            self::assertSame(null !== $source, $dependencies[$name]['compatible']);
+        }
+        self::assertTrue($dependencies['symfony/debug-pack']['install_requested']);
+        self::assertFalse($dependencies['symfony/profiler-pack']['install_requested']);
+        self::assertTrue($dependencies['symfony/ai-monolog-mate-extension']['install_requested']);
+        self::assertSame(isset($installed['symfony/ai-monolog-mate-extension']), $dependencies['symfony/ai-monolog-mate-extension']['compatible']);
+        self::assertSame(null !== $profilerSource, $environment['data']['capabilities']['profiler']['installed']);
+        self::assertSame(isset($installed['symfony/debug-bundle']), $environment['data']['capabilities']['debug']['installed']);
+
+        $debugComponents = array_column($dependencies['symfony/debug-pack']['components'], null, 'package');
+        $profilerComponents = array_column($dependencies['symfony/profiler-pack']['components'], null, 'package');
+        self::assertEqualsCanonicalizing(['symfony/debug-bundle', 'symfony/monolog-bundle', 'symfony/profiler-pack'], array_keys($debugComponents));
+        self::assertEqualsCanonicalizing(['symfony/web-profiler-bundle', 'symfony/stopwatch'], array_keys($profilerComponents));
+        foreach ($debugComponents + $profilerComponents as $package => $component) {
+            self::assertSame($installed[$package] ?? null, $component['installed_version'], $package);
+        }
+        self::assertSame(null !== $profilerSource, $debugComponents['symfony/profiler-pack']['compatible']);
+        self::assertSame(isset($installed['symfony/monolog-bundle']) && 'v2.12.1' !== $installed['symfony/monolog-bundle'],
+            $debugComponents['symfony/monolog-bundle']['compatible']);
+
+        [$repeatCode, $repeated] = $this->invoke('setup', ['--apply' => true]);
+        self::assertSame($code, $repeatCode);
+        self::assertSame([], $repeated['changes']);
+    }
+
+    public static function monologAliases(): iterable
+    {
+        $installed = ['name' => 'symfony/monolog-bundle', 'version' => 'dev-main', 'version_normalized' => 'dev-main'];
+        $alias = ['package' => 'symfony/monolog-bundle', 'version' => 'dev-main', 'alias' => '4.0.0', 'alias_normalized' => '4.0.0.0'];
+
+        yield 'installed branch matches the lock alias' => [$installed, [$alias], '4.0.0'];
+        yield 'lock alias for a different branch' => [$installed, [['version' => 'dev-older'] + $alias], null];
+        yield 'lock alias for an incompatible major' => [$installed, [['alias' => '2.0.0', 'alias_normalized' => '2.0.0.0'] + $alias], null];
+        yield 'lock entry without an installed package' => [null, [$alias], null];
+        yield 'installed package declares its own branch alias' => [
+            $installed + ['extra' => ['branch-alias' => ['dev-main' => '4.x-dev']]], [], '4.x-dev',
+        ];
+        yield 'package declares an alias for another branch' => [
+            $installed + ['extra' => ['branch-alias' => ['dev-older' => '4.x-dev']]], [], null,
+        ];
+        yield 'comparable branch cannot alias a different major' => [
+            ['name' => 'symfony/monolog-bundle', 'version' => '2.x-dev', 'extra' => ['branch-alias' => ['2.x-dev' => '4.x-dev']]], [], null,
+        ];
+    }
+
+    #[DataProvider('monologAliases')]
+    public function testDebugPackUsesOnlyAliasesOfTheInstalledMonologBundle(?array $monolog, array $aliases, ?string $expectedAlias): void
+    {
+        $this->writeInstalledPackages(['symfony/debug-bundle' => 'v8.1.1', 'symfony/profiler-pack' => 'v1.0.6'], null === $monolog ? [] : [$monolog]);
+        file_put_contents($this->project.'/composer.lock', json_encode(['packages' => [], 'packages-dev' => [], 'aliases' => $aliases], JSON_THROW_ON_ERROR));
+        [, $setup] = $this->invoke('setup');
+        $dependencies = array_column($setup['data']['dependencies'], null, 'package');
+        $debug = $dependencies['symfony/debug-pack'];
+        $component = array_column($debug['components'], null, 'package')['symfony/monolog-bundle'];
+
+        self::assertSame($monolog['version'] ?? null, $component['installed_version']);
+        self::assertSame($expectedAlias, $component['matched_alias'] ?? null);
+        self::assertSame(null !== $expectedAlias, $component['compatible']);
+        self::assertSame($component['compatible'], $debug['compatible']);
+    }
+
+    public function testNativeToolPinsRequireTheInstalledReleaseString(): void
+    {
+        $this->writeInstalledPackages(['carthage-software/mago' => '1.60.2.0', 'byte-kitsune/mago-symfony-wiring' => 'dev-main']);
+        $alias = ['package' => 'byte-kitsune/mago-symfony-wiring', 'version' => 'dev-main', 'alias' => '1.3.0', 'alias_normalized' => '1.3.0.0'];
+        file_put_contents($this->project.'/composer.lock', json_encode(['packages' => [], 'packages-dev' => [], 'aliases' => [$alias]], JSON_THROW_ON_ERROR));
+        [, $environment] = $this->invoke('environment');
+        $rows = array_column($environment['data']['dependencies'], null, 'package');
+        self::assertFalse($rows['carthage-software/mago']['compatible']);
+        self::assertFalse($rows['byte-kitsune/mago-symfony-wiring']['compatible']);
+    }
+
+    public function testDebugBundleInstallationAndTheNativeCommandAreIndependentObservations(): void
+    {
+        $console = $this->project.'/bin/console';
+        $calls = $this->project.'/bin/debug-probe.json';
+        file_put_contents($console, <<<'PHP'
+            <?php
+            if (['help', 'server:dump'] === array_slice($argv, 1, 2)) {
+                file_put_contents(__DIR__.'/debug-probe.json', json_encode(array_slice($argv, 1)));
+                exit((int) file_get_contents(__DIR__.'/debug-exit'));
+            }
+            echo '{"commands":[]}';
+            PHP);
+        file_put_contents($this->project.'/bin/debug-exit', '0');
+        $trusted = ['--probe' => true, '--trust-project-code' => true];
+
+        [, $absent] = $this->invoke('environment', $trusted);
+        self::assertArrayNotHasKey('debug', $absent['data']['probes']);
+        self::assertFileDoesNotExist($calls);
+
+        $this->writeInstalledPackages(['symfony/debug-bundle' => 'v8.1.1']);
+        [, $static] = $this->invoke('environment');
+        self::assertArrayHasKey('debug', $static['data']['capabilities']);
+        self::assertTrue($static['data']['capabilities']['debug']['installed']);
+        self::assertSame('not_probed', $static['data']['capabilities']['debug']['observed']);
+        self::assertFileDoesNotExist($calls);
+
+        [, $available] = $this->invoke('environment', $trusted);
+        self::assertSame('command_available', $available['data']['capabilities']['debug']['observed']);
+        self::assertSame(0, $available['data']['probes']['debug']['exit_code']);
+        $arguments = json_decode(file_get_contents($calls), true, 512, JSON_THROW_ON_ERROR);
+        self::assertSame(['help', 'server:dump'], array_slice($arguments, 0, 2));
+
+        file_put_contents($this->project.'/bin/debug-exit', '7');
+        [, $failed] = $this->invoke('environment', $trusted);
+        self::assertTrue($failed['data']['capabilities']['debug']['installed']);
+        self::assertSame('probe_failed', $failed['data']['capabilities']['debug']['observed']);
+        self::assertSame(7, $failed['data']['probes']['debug']['exit_code']);
+        unlink($console);
+        [, $missing] = $this->invoke('environment', $trusted);
+        self::assertSame('probe_failed', $missing['data']['capabilities']['debug']['observed']);
+    }
+
+    private function writeInstalledPackages(array $versions, array $packages = []): void
+    {
+        foreach ($versions as $name => $version) {
+            $packages[] = ['name' => $name, 'version' => $version];
         }
         file_put_contents($this->project.'/vendor/composer/installed.json', json_encode(['packages' => $packages], JSON_THROW_ON_ERROR));
-
-        [$code, $setup] = $this->invoke('setup', ['--apply' => true]);
-        self::assertSame($expected ? 0 : 2, $code, $setup['summary']);
-        [, $environment] = $this->invoke('environment');
-        foreach ([$setup, $environment] as $result) {
-            self::assertArrayHasKey('dependencies', $result['data'], $result['operation']);
-            $dependencies = array_column($result['data']['dependencies'], 'compatible', 'package');
-            self::assertSame($expected, $dependencies['symfony/profiler-pack'], $result['operation']);
-        }
     }
 
     public function testApplyingSetupProducesUsableConfigurationAndRepeatingItPreservesApplicationFiles(): void
@@ -395,7 +539,9 @@ final class DeveloperEnvironmentTest extends TestCase
         file_put_contents($this->project.'/vendor/composer/installed.json', json_encode([
             'packages' => [
                 ['name' => 'symfony/framework-bundle', 'version' => 'v8.1.0'],
-                ['name' => 'symfony/profiler-pack', 'version' => 'v1.0.0'],
+                ['name' => 'symfony/debug-pack', 'version' => 'v1.1.0'],
+                ['name' => 'symfony/profiler-pack', 'version' => 'v1.0.6'],
+                ['name' => 'symfony/ai-monolog-mate-extension', 'version' => '1.0.0-BETA1'],
                 ['name' => 'symfony/maker-bundle', 'version' => 'v1.0.0'],
                 ['name' => 'carthage-software/mago', 'version' => '1.60.2'],
                 ['name' => 'byte-kitsune/mago-symfony-wiring', 'version' => '1.3.0'],

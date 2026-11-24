@@ -676,8 +676,11 @@ def check_consumer(archive: Path, temporary: Path, revision: str, *, providers: 
     with operation("consumer.production"):
         execute("composer.install-no-dev", [*composer_command(), "install", "--no-dev", "--prefer-dist",
                                            "--no-interaction", "--no-progress"], application)
-        if installed.exists():
-            raise RuntimeError("The development-only package remains installed after --no-dev")
+        production_packages = {item["name"] for item in json.loads(
+            (application / "vendor/composer/installed.json").read_text())["packages"]}
+        remaining = (environment.NON_FLEX_DEBUG_PACKAGES | {PACKAGE_NAME}) & production_packages
+        if remaining or installed.exists():
+            raise RuntimeError("Development tools remain after --no-dev: " + ", ".join(sorted(remaining or {PACKAGE_NAME})))
         execute("symfony.clear-prod-cache", [php, "bin/console", "cache:clear", "--env=prod",
                                             "--no-debug", "--no-interaction"], application)
         render_pages(application, php, "prod", FIXTURE_PAGES | SHORTCUT_PAGE)
@@ -931,6 +934,10 @@ def main() -> None:
             check_consumer(archive, temporary, revision, providers=arguments.providers)
         if run_upgrades:
             candidate = archive_repository(archive, version=target)
+            if arguments.consumer and not arguments.providers:
+                import flex_acceptance
+                flex_acceptance.check(temporary / "flex-consumer", os.environ.get("PHP_BIN", "php"), composer_command(),
+                                      candidate, {name: MATE_BETA for name in MATE_PACKAGES})
             if arguments.consumer:
                 with operation("existing-mate"):
                     check_mate_upgrade(candidate, temporary / "mate-upgrade", revision)

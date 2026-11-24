@@ -34,11 +34,14 @@ missing development dependencies with Composer, initializes Mate when `mate/conf
 autoload metadata and refreshes discovery. It requires `--apply --trust-project-code`. It does not build providers
 or prepare compiled Symfony facts.
 
-Setup and environment inspection report the same installed development dependencies and compatible versions.
-Symfony Flex can unpack the profiler pack into WebProfilerBundle and Stopwatch. Without Flex, register
-WebProfilerBundle and its routes in development when the application needs the profiler UI. The generated
+Setup requests Symfony’s full debug pack and the Monolog Mate extension in the first development install.
+Flex can replace the debug pack and its nested profiler pack with direct component requirements. Setup and
+environment inspection use the same Composer evidence, so the next setup can reuse those components even
+when neither pack name appears in the lock. [Debug pack manifest](https://github.com/symfony/debug-pack/blob/v1.1.0/composer.json)
+
+Without Flex, enable DebugBundle, MonologBundle and WebProfilerBundle in the environments where the application
+uses them, and import the development profiler routes if you use its UI. The generated
 `config/packages/dev/uxor.php` supplies a collection policy only when the application has none.
-Check a real response and its profile. [Profiler pack requirements](https://github.com/symfony/profiler-pack/blob/v1.0.6/composer.json)
 
 `environment` reports setup and preparation state. `--probe` adds the implemented execution checks and requires
 `--trust-project-code`. Read each check and its scope: configuration presence, installed tools, native execution,
@@ -159,12 +162,16 @@ explains host execution, persistent index storage and client registration.
 1. Reproduce the failure in the selected application's served environment. Record the request URL, time, response
    status and its `X-Debug-Token` when present. Correlate that exact token with the profile; the newest profile may
    belong to another request.
-2. Inspect the installed Mate schemas, then read the profile and relevant exception, database, request or logger
-   collectors. Use the application's logs or installed Monolog Mate extension when needed.
+2. Inspect the installed Mate schemas and read the profile. Choose a collector listed for that token to inspect
+   a request, exception, log entry or captured dump. Symfony can show the collectors registered in the dev
+   container and whether its live dump-server command is available.
 
    ```sh
    vendor/bin/mate tools:inspect symfony-profiler-get --format=json
    vendor/bin/mate resources:read "symfony-profiler://profile/<response-token>" --format=json
+   vendor/bin/mate resources:read "symfony-profiler://profile/<response-token>/<collector>" --format=json
+   php bin/console debug:container --tag=data_collector --env=dev
+   php bin/console help server:dump --env=dev
    ```
 
 3. Trace the relevant declarations and callers with Serena/Mago and inspect compiled service bindings when current

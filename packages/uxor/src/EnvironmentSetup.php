@@ -51,10 +51,8 @@ final class EnvironmentSetup
             }
             $before = $this->hashes($root, ['composer.json', 'composer.lock']);
             $missing = [];
-            foreach ($this->dependencies($project) as $dependency) {
-                if (!$dependency['compatible']) {
-                    $missing[] = $dependency['package'].('' === $dependency['constraint'] ? '' : ':'.$dependency['constraint']);
-                }
+            foreach (DevelopmentDependencies::missingRequests($this->dependencies($project)) as $dependency) {
+                $missing[] = $dependency['package'].('' === $dependency['constraint'] ? '' : ':'.$dependency['constraint']);
             }
             if ([] !== $missing) {
                 $execution = $this->execute([$composer, 'require', '--dev', '--no-interaction', '--no-progress', '--with-all-dependencies', ...$missing], $root, 300);
@@ -107,7 +105,7 @@ final class EnvironmentSetup
 
     public function dependencies(array $project): array
     {
-        return DevelopmentDependencies::evaluate($project);
+        return DevelopmentDependencies::evaluate($project, $this->files);
     }
 
     private function plan(array $project, string $client, string $hostProjectRoot, bool $saveProjectTrust): array
@@ -268,7 +266,7 @@ final class EnvironmentSetup
     private function result(array $project, array $plan, string $mode, array $changes, array $executions): array
     {
         $dependencies = $this->dependencies($project);
-        $missing = array_filter($dependencies, static fn (array $item): bool => !$item['compatible']);
+        $missing = DevelopmentDependencies::missingRequests($dependencies);
         $publicFiles = array_map(static function (array $file): array {
             // Existing client configuration can contain private environment values.
             unset($file['content']);

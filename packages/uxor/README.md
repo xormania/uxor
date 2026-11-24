@@ -75,12 +75,14 @@ application files and reports configuration that needs integration. `--apply` wr
 `--install` additionally runs Composer for missing development dependencies. It then initializes Mate if needed,
 regenerates autoload metadata and runs Mate discovery. Provider builds and Symfony preparation are separate steps.
 
-The development tools include Symfony's profiler pack and Maker, the Mago 1.60.2 SDK and Symfony wiring 1.3.0,
-with Mate extensions described by the setup plan. Setup and environment inspection recognize the profiler pack
-by its installed package or by both unpacked requirements, WebProfilerBundle and Stopwatch. Without Flex, register
-WebProfilerBundle and its routes in development if the application uses the profiler UI. Setup preserves the
-application’s profiler policy. With no existing policy, run the development server with `PROFILER_COLLECT=1` to
-collect a profile; verify its token on a real response.
+By default, setup installs Symfony’s full `symfony/debug-pack`, Maker, the Monolog Mate extension, and the Mago
+SDK and Symfony wiring as development tools. Flex can unpack the debug and profiler packs into their components.
+The setup plan and environment report show which dependencies satisfy the requirements. Rerunning setup reuses them.
+
+Use the Symfony profiler to inspect a particular request, the logger to follow its messages, and DebugBundle
+to inspect a value with `dump()`. The application controls collection. If it has no profiler setting, start the
+development server with `PROFILER_COLLECT=1` and check the response’s `X-Debug-Token`.
+See [Diagnose a request](OPERATIONS.md#diagnose-a-request) for the native commands and Mate resources.
 
 Composer resolves these tools against the application's requirements. Wiring 1.3.0 requires
 `symfony/yaml ^7.4.23 || ^8.1.11`; a project that pins all Symfony packages to 8.0 may need a compatible dependency

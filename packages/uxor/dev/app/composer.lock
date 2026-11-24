@@ -6082,6 +6082,7 @@
                 "url": "../../../.."
             },
             "require": {
+                "composer/semver": "^3.4",
                 "php": ">=8.4",
                 "symfony/ai-mate": ">=1.0.0-BETA1 <1.0.0-BETA2",
                 "symfony/ai-mate-composer-plugin": ">=1.0.0-BETA1 <1.0.0-BETA2",
