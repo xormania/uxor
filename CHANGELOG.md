@@ -10,6 +10,10 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Added
 
+- The documentation website groups guides by product and recipes by task. It publishes an agent onboarding
+  walkthrough, application verification guide and a Composer configuration reference generated from the package.
+
+
 - The gallery publishes the Composer onboarding guide and advanced operations reference as HTML and Markdown.
   The same guides are available in the repository and through the installed agent tools.
 

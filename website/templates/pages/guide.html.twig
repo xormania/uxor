@@ -1,12 +1,33 @@
 {% extends 'base.html.twig' %}
 
+{% set markdown_url = path('app_guide_markdown', {name: name}) %}
 {% set page_title = title ~ ': ' ~ kit.manifest.name %}
 
 {% block body %}
-    {#- a consumer guide from the repository, rendered by UXor\Website\GuideDocs: its own title, its sections, its install
-        commands at the release this copy shows -#}
-    <div class="recipe-doc guide" data-testid="guide">
-        {{ doc|raw }}
-        <p class="markdown-link"><a href="{{ path('app_guide_markdown', {name: name}) }}" type="text/markdown">This guide as Markdown</a></p>
+    <a class="guide-back" href="{{ path('app_index') }}#guides">All guides</a>
+    <div class="guide-layout">
+        {% if guide_toc|length > 1 %}
+            {% set contents %}
+                <ul>
+                    {% for heading in guide_toc %}
+                        <li><a href="#{{ heading.id }}">{{ heading.title }}</a></li>
+                    {% endfor %}
+                </ul>
+            {% endset %}
+            <nav class="guide-toc" aria-label="On this page">
+                <details class="toc-disclosure">
+                    <summary>On this page</summary>
+                    {{ contents }}
+                </details>
+                <div class="toc-sidebar">
+                    <p>On this page</p>
+                    {{ contents }}
+                </div>
+            </nav>
+        {% endif %}
+        <article class="recipe-doc guide" data-testid="guide">
+            {{ doc|raw }}
+            <p class="markdown-link"><a href="{{ markdown_url }}" type="text/markdown">This guide as Markdown</a></p>
+        </article>
     </div>
 {% endblock %}

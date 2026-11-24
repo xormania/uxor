@@ -6,7 +6,7 @@ Every recipe of the kit, by group: install one with
 [README](../README.md#install).
 
 Recipes marked ✦ come with a Stimulus controller, copied to `assets/controllers/` and loaded by StimulusBundle.
-Each recipe's README has its examples, props and usage.
+Each recipe’s README explains how to use it. Component guides also describe their Twig props and blocks where applicable.
 
 ## Theme
 

@@ -6,7 +6,11 @@ final class GuidePageTest extends WebsiteTestCase
 {
     public function testEachRegisteredGuideHasOneTitleAndLinksItsMarkdown(): void
     {
-        foreach (['install' => 'Getting started', 'guide' => 'Guide', 'composer' => 'First steps', 'advanced' => 'Further reading'] as $slug => $title) {
+        foreach (self::GUIDES as $slug => $guide) {
+            $source = file(self::source().'/'.$guide['file'], FILE_IGNORE_NEW_LINES);
+            self::assertIsArray($source);
+            self::assertStringStartsWith('# ', $source[0]);
+            $title = substr($source[0], 2);
             $html = self::page($slug.'/index.html');
             $dom = \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR);
             self::assertCount(1, $dom->querySelectorAll('h1'), $slug);
@@ -21,9 +25,54 @@ final class GuidePageTest extends WebsiteTestCase
             foreach ($dom->querySelectorAll('a[href]') as $link) {
                 self::assertMatchesRegularExpression('#^(?:https?:|mailto:|/|\#)#', $link->getAttribute('href'));
             }
-            foreach (['index.html', 'r/button/index.html'] as $page) {
-                self::assertStringContainsString('href="/uxor/'.$slug.'/"', self::page($page), 'The guide is discoverable from '.$page);
+            self::assertNotNull($dom->querySelector('nav[aria-label="Main"] a[href="/uxor/#guides"]'), $slug);
+        }
+    }
+
+    public function testTheGuideDirectoryGroupsTheCatalogEntriesByTheirDeclaredSections(): void
+    {
+        $dom = \Dom\HTMLDocument::createFromString(self::page('index.html'), LIBXML_NOERROR);
+        $directory = $dom->querySelector('main #guides');
+        self::assertNotNull($directory);
+        $expected = [];
+        foreach (self::GUIDES as $slug => $guide) {
+            $expected[$guide['section']][] = '/uxor/'.$slug.'/';
+            $link = $directory->querySelector('a[href="/uxor/'.$slug.'/"]');
+            self::assertNotNull($link, $slug);
+            self::assertStringContainsString($guide['title'], $link->textContent);
+            self::assertStringContainsString($guide['description'], $directory->textContent);
+        }
+
+        $actual = [];
+        $current = '';
+        foreach ($directory->querySelectorAll('h3, a[href]') as $element) {
+            if ('h3' === $element->localName) {
+                $current = trim($element->textContent);
+            } elseif (str_starts_with($element->getAttribute('href'), '/uxor/')) {
+                $actual[$current][] = $element->getAttribute('href');
             }
+        }
+        self::assertEqualsCanonicalizing($expected, $actual);
+        $recipe = \Dom\HTMLDocument::createFromString(self::recipeHtml('button'), LIBXML_NOERROR);
+        self::assertNotNull($recipe->querySelector('nav[aria-label="Main"] a[href="/uxor/#guides"]'));
+    }
+
+    public function testTheContentsLinksUseTheRenderedChapterHeadingsAndTheirUniqueIds(): void
+    {
+        $dom = \Dom\HTMLDocument::createFromString(self::page('advanced/index.html'), LIBXML_NOERROR);
+        $headings = [];
+        foreach ($dom->querySelectorAll('[data-testid="guide"] h2[id]') as $heading) {
+            $headings['#'.$heading->getAttribute('id')] = trim($heading->textContent);
+        }
+        self::assertSame(['Local tools', 'Repeated heading', 'Repeated heading'], array_values($headings));
+        $lists = $dom->querySelectorAll('nav[aria-label="On this page"] ul');
+        self::assertGreaterThan(0, $lists->length);
+        foreach ($lists as $list) {
+            $links = [];
+            foreach ($list->querySelectorAll('a') as $link) {
+                $links[$link->getAttribute('href')] = trim($link->textContent);
+            }
+            self::assertSame($headings, $links);
         }
     }
 
@@ -49,7 +98,7 @@ final class GuidePageTest extends WebsiteTestCase
         $install = self::page('install/index.html');
         self::assertStringContainsString('href="/uxor/#recipes"', $install);
         self::assertStringContainsString('href="https://github.com/xormania/uxor/releases"', $install);
-        self::assertStringContainsString('href="https://github.com/xormania/uxor/blob/0.4.0/docs/APPLICATION-TESTING.md"', $install);
+        self::assertStringContainsString('href="/uxor/application-testing/"', $install);
     }
 
     public function testNestedGuidesResolveSiblingAndRootLinksInHtmlAndMarkdown(): void
@@ -71,9 +120,11 @@ final class GuidePageTest extends WebsiteTestCase
         self::assertStringContainsString('](install.md)', $markdown);
         self::assertStringContainsString('](r/dropzone.md#in-a-live-component)', $markdown);
         self::assertStringContainsString('](https://github.com/xormania/uxor/blob/0.4.0/CHANGELOG.md)', $markdown);
-        self::assertDoesNotMatchRegularExpression('#\]\((?!https?:|mailto:|/|\#|(?:install|guide|composer|advanced)\.md|r/[a-z0-9-]+\.md)#', $markdown);
+        $guideSlugs = implode('|', array_keys(self::GUIDES));
+        self::assertDoesNotMatchRegularExpression('#\]\((?!https?:|mailto:|/|\#|(?:'.$guideSlugs.')\.md|r/[a-z0-9-]+\.md)#', $markdown);
         $install = self::page('install.md');
-        foreach (['docs/RECIPES.md', 'docs/APPLICATION-TESTING.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'CONTRIBUTING.md'] as $document) {
+        self::assertStringContainsString('](application-testing.md)', $install);
+        foreach (['docs/RECIPES.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'CONTRIBUTING.md'] as $document) {
             self::assertStringContainsString('](https://github.com/xormania/uxor/blob/0.4.0/'.$document.')', $install);
         }
         self::assertStringContainsString('](https://github.com/xormania/uxor/releases)', $install);

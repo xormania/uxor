@@ -25,6 +25,8 @@ gallery page lists the dependencies it adds.
 
 ## Documentation
 
+- [Agent onboarding](docs/AGENT-ONBOARDING.md) walks through a first task in your application.
+- [Composer configuration](docs/COMPOSER-CONFIGURATION.md) lists the defaults for this version.
 - [Using and updating recipes](https://xormania.github.io/uxor/guide/) covers application-owned changes.
 - [Application testing](docs/APPLICATION-TESTING.md) covers verification in your app.
 - [Releases](https://github.com/xormania/uxor/releases) lists published versions of the kit and package.

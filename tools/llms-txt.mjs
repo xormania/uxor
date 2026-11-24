@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Writes the agent-facing lists of recipes from docs/RECIPES.md's tables (the row a person reads is the line an agent
+// Writes the website and agent-facing lists of recipes from docs/RECIPES.md's tables (the row a person reads is the line an agent
 // reads), checked against the directories holding a manifest.json, so a recipe cannot be left out or listed twice:
 //
 // - llms.txt (https://llmstxt.org/): the kit's pages for agents, one line each, linked as raw markdown. It describes a
@@ -8,17 +8,18 @@
 //   exists, it is written from the working tree with its links at the version; once the tag exists, it is the tag's own
 //   llms.txt, so work merged since (a recipe not released yet) never appears in it. The tags must be fetched.
 // - FOR-AGENTS.md, *Which recipe*: the table between the `recipes:start` and `recipes:end` comments.
+// - website/resources/recipe-categories.json: the current checkout’s categories and recipe names, in display order.
 //
 // It also checks that FOR-AGENTS.md and docs/PROJECT-AGENTS-SNIPPET.md name only recipes that exist
 // (`ux:install <name>`, `<name>/README.md` links), and the plans' status (docs/PLAN-*.md front matter and the
 // docs/ROADMAP.md table, see CONTRIBUTING.md *Plans*): an `open` plan whose recipes all ship, or a `shipped` one
 // whose recipe is missing, fails.
 //
-//   node tools/llms-txt.mjs           # writes llms.txt and the FOR-AGENTS.md table
-//   node tools/llms-txt.mjs --check   # fails when either is not what this script writes, or a check fails (CI)
+//   node tools/llms-txt.mjs           # writes the recipe lists and website categories
+//   node tools/llms-txt.mjs --check   # compares every generated file and validates the sources (CI)
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { kitIdentity } from './kit-identity.mjs';
 
@@ -79,24 +80,30 @@ if (missing.length || unknown.length || twice.length) {
 const ships = (name) => recipes.includes(name) && listed.includes(name);
 
 // --- llms.txt
+const guides = Object.values(JSON.parse(read('packages/uxor/resources/guides.json')));
+const guideSections = Map.groupBy(guides, (guide) => guide.section ?? 'Guides');
 const lines = [
     `# ${kit.name}`,
     '',
     `> ${manifest.description}`,
     '',
-    `A Symfony UX Toolkit kit: install a recipe with \`php bin/console ux:install <recipe> --kit=${kit.homepage}:${ref}\`, which copies its files into the project. Each recipe's README gives its props, examples and how it behaves in forms, Live Components and Turbo Frames.`,
+    `The Composer Dev Package provides setup, instructions and diagnostics for Symfony applications and their coding agents. The UXor Symfony UX Toolkit supplies recipes that copy source files into the application. Each recipe documents its use and any component API.`,
     '',
     `The links below point at release \`${ref}\`, the version this file was written for: install it with \`--kit=${kit.homepage}:${ref}\`.`,
     '',
     '## Start here',
     '',
-    ...Object.values(JSON.parse(read('packages/uxor/resources/guides.json')))
-        .map(({ title, file, description }) => `- [${title}](${raw}/${file}): ${description}`),
+    ...Array.from(guideSections, ([section, entries]) => [
+        `### ${section}`, '',
+        ...entries.map(({ title, file, description }) => `- [${title}](${raw}/${file}): ${description}`),
+        '',
+    ]).flat(),
+    '### Repository and agent references',
+    '',
     `- [For agents](${raw}/FOR-AGENTS.md): use UXor in the selected Symfony application`,
     `- [Project agents snippet](${raw}/docs/PROJECT-AGENTS-SNIPPET.md): optional application guidance when existing project or package-managed instructions need a short UXor entry`,
     `- [README](${raw}/README.md): what the kit is, how to install it, requirements`,
     `- [Recipes](${raw}/docs/RECIPES.md): every recipe, one line each`,
-    `- [Application testing](${raw}/docs/APPLICATION-TESTING.md): verify your application's integration and user journeys using its own runtime and tests`,
     '',
 ];
 for (const group of groups) {
@@ -209,7 +216,15 @@ for (const page of closedPlans) {
 }
 
 // --- write or check
-const outputs = [['llms.txt', llms], ['FOR-AGENTS.md', forAgentsOutput]];
+const categories = groups.filter(({ rows }) => rows.length).map(({ title, rows }) => ({
+    title: title.replaceAll('`', ''),
+    recipes: rows.map(({ name }) => name),
+}));
+const outputs = [
+    ['llms.txt', llms],
+    ['FOR-AGENTS.md', forAgentsOutput],
+    ['website/resources/recipe-categories.json', JSON.stringify(categories, null, 2) + '\n'],
+];
 if (process.argv.includes('--check')) {
     for (const [path, output] of outputs) {
         const current = existsSync(join(root, path)) ? read(path) : '';
@@ -221,12 +236,14 @@ if (process.argv.includes('--check')) {
         errors.forEach((error) => console.error(error));
         process.exit(1);
     }
-    console.log(`llms.txt and FOR-AGENTS.md are up to date (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}); ${plans.length} plans and the roadmap checked.`);
+    console.log(`The website categories, llms.txt and FOR-AGENTS.md are up to date (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}); ${plans.length} plans and the roadmap checked.`);
 } else {
     for (const [path, output] of outputs) {
-        writeFileSync(join(root, path), output);
+        const file = join(root, path);
+        mkdirSync(dirname(file), { recursive: true });
+        writeFileSync(file, output);
     }
     errors.forEach((error) => console.error(error));
-    console.log(`Wrote llms.txt and FOR-AGENTS.md (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}).`);
+    console.log(`Wrote the website categories, llms.txt and FOR-AGENTS.md (${listed.length} recipes, llms.txt ${released ? `as tag ${ref} holds it` : `links at ${ref}`}).`);
     process.exit(errors.length ? 1 : 0);
 }

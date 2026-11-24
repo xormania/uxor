@@ -94,3 +94,39 @@ test('once the release is tagged, llms.txt is the tag copy: a recipe merged sinc
     assert.equal(check.status, 1);
     assert.match(check.stderr, /llms\.txt is stale/);
 });
+
+test('the website category index preserves the catalog’s group and recipe order and fails checks on missing or stale output', (t) => {
+    const k = kit(t, unreleased);
+    const categories = 'website/resources/recipe-categories.json';
+    k.write('card/manifest.json', '{}');
+    k.write('form/manifest.json', '{}');
+    k.write('docs/RECIPES.md', [
+        '# Recipes', '## Forms', '| [`form`](../form/README.md) | A form. |',
+        '## Basic', '| [`card`](../card/README.md) | A card. |', '| [`button`](../button/README.md) | A button. |',
+    ].join('\n') + '\n');
+
+    assert.match(k.run('--check').stderr, /website\/resources\/recipe-categories\.json is stale/);
+    const write = k.run();
+    assert.equal(write.status, 0, write.stderr);
+    const generated = JSON.parse(readFileSync(join(k.dir, categories), 'utf8'));
+    assert.deepEqual(generated, [
+        { title: 'Forms', recipes: ['form'] },
+        { title: 'Basic', recipes: ['card', 'button'] },
+    ]);
+    assert.equal(k.run('--check').status, 0);
+
+    generated[1].recipes.reverse();
+    k.write(categories, JSON.stringify(generated, null, 2) + '\n');
+    const stale = k.run('--check');
+    assert.equal(stale.status, 1);
+    assert.match(stale.stderr, /website\/resources\/recipe-categories\.json is stale/);
+});
+
+test('website category assignments match those published by the Composer package', () => {
+    const categories = JSON.parse(readFileSync(join(root, 'website/resources/recipe-categories.json'), 'utf8'));
+    const { components } = JSON.parse(readFileSync(join(root, 'packages/uxor/resources/uxor/index.json'), 'utf8'));
+    const expected = Object.fromEntries(Object.entries(components).map(([name, recipe]) => [name, recipe.category]));
+    const names = categories.flatMap(({ title, recipes }) => recipes.map((name) => [name, title]));
+    assert.equal(names.length, Object.keys(expected).length);
+    assert.deepEqual(Object.fromEntries(names), expected);
+});

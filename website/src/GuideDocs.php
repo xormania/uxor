@@ -4,9 +4,13 @@ namespace UXor\Website;
 
 use League\CommonMark\Environment\Environment;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
+use League\CommonMark\Extension\CommonMark\Node\Block\Heading;
 use League\CommonMark\Extension\HeadingPermalink\HeadingPermalinkExtension;
 use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
+use League\CommonMark\Node\NodeIterator;
+use League\CommonMark\Node\RawMarkupContainerInterface;
+use League\CommonMark\Node\StringContainerHelper;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
@@ -21,7 +25,7 @@ final class GuideDocs
 {
     private const REPOSITORY_DOC_PREFIX = 'https://github.com/xormania/uxor/blob/main/';
 
-    /** @var array<string, array{file: string, title: string, description: string}> */
+    /** @var array<string, array{section: string, file: string, title: string, description: string}> */
     private readonly array $guides;
 
     public function __construct(
@@ -32,37 +36,61 @@ final class GuideDocs
         $guides = json_decode((new Filesystem())->readFile($kitDir.'/packages/uxor/resources/guides.json'), true, flags: \JSON_THROW_ON_ERROR);
         foreach ($guides as $slug => $guide) {
             if (!preg_match('/^[a-z][a-z0-9-]*$/D', (string) $slug) || in_array($slug, ['r', 'demo', 'preview', 'assets', 'website-assets'], true)
-                || !isset($guide['file'], $guide['title'], $guide['description'])) {
+                || !isset($guide['file'], $guide['title'], $guide['description'], $guide['section']) || !is_string($guide['section']) || '' === trim($guide['section'])) {
                 throw new \InvalidArgumentException('Invalid public guide entry: '.$slug);
             }
         }
         $this->guides = $guides;
     }
 
-    /** @return array<string, array{file: string, title: string, description: string}> */
+    /** @return array<string, array{section: string, file: string, title: string, description: string}> */
     public function all(): array
     {
         return $this->guides;
     }
 
+    /** @return list<array{title: string, guides: array}> */
+    public function sections(): array
+    {
+        $sections = [];
+        foreach ($this->guides as $slug => $guide) {
+            $title = $guide['section'];
+            $sections[$title] ??= ['title' => $title, 'guides' => []];
+            $sections[$title]['guides'][$slug] = $guide;
+        }
+
+        return array_values($sections);
+    }
+
     /**
      * @param string|null $ref the release (or a development copy's branch) the copy installs; null for the default branch
+     * @return array{doc: string, guide_toc: list<array{id: string, title: string}>}
      */
-    public function html(string $name, ?string $ref = null): string
+    public function render(string $name, ?string $ref = null): array
     {
         $environment = new Environment(['heading_permalink' => ['insert' => 'none', 'apply_id_to_heading' => true, 'id_prefix' => '', 'fragment_prefix' => '']]);
         $environment->addExtension(new CommonMarkCoreExtension());
         $environment->addExtension(new TableExtension());
         $environment->addExtension(new HeadingPermalinkExtension());
 
-        $html = (string) new MarkdownConverter($environment)->convert($this->source($name, $ref));
-
-        return DocMarkup::resolveHtmlLinks(DocMarkup::focusableScrolling($html), \dirname($this->guides[$name]['file']), fn (string $path): string => match (true) {
+        $result = (new MarkdownConverter($environment))->convert($this->source($name, $ref));
+        $contents = [];
+        foreach ($result->getDocument()->iterator(NodeIterator::FLAG_BLOCKS_ONLY) as $node) {
+            if ($node instanceof Heading && 2 === $node->getLevel()) {
+                $contents[] = [
+                    'id' => $node->data->get('attributes/id'),
+                    'title' => StringContainerHelper::getChildText($node, [RawMarkupContainerInterface::class]),
+                ];
+            }
+        }
+        $html = DocMarkup::resolveHtmlLinks(DocMarkup::focusableScrolling($result->getContent()), \dirname($this->guides[$name]['file']), fn (string $path): string => match (true) {
             null !== $page = $this->recipes->recipePageUrl($path) => $page,
             null !== $guide = $this->slugForFile($path) => $this->urls->generate('app_guide', ['name' => $guide]),
             'docs/RECIPES.md' === $path => $this->urls->generate('app_index').'#recipes',
             default => $this->recipes->repositoryUrl($path, $ref),
         }, self::REPOSITORY_DOC_PREFIX);
+
+        return ['doc' => $html, 'guide_toc' => $contents];
     }
 
     /**

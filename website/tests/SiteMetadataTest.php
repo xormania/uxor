@@ -9,13 +9,16 @@ final class SiteMetadataTest extends WebsiteTestCase
     public function testEachPublicPageNamesItsCanonicalUrlAndDescribesItself(): void
     {
         $descriptions = [];
-        foreach (['', 'install/', 'guide/', 'composer/', 'advanced/', 'r/button/', 'r/data-table/'] as $path) {
+        $guidePaths = array_map(static fn (string $slug): string => $slug.'/', array_keys(self::GUIDES));
+        foreach (['', ...$guidePaths, 'r/button/', 'r/data-table/'] as $path) {
             $html = self::page($path.'index.html');
             $dom = \Dom\HTMLDocument::createFromString($html, LIBXML_NOERROR);
             $url = self::SITE.'/'.$path;
             self::assertSame($url, $dom->querySelector('link[rel="canonical"]')?->getAttribute('href'), $path);
             self::assertSame($dom->querySelector('title')->textContent, $dom->querySelector('meta[property="og:title"]')?->getAttribute('content'), $path);
             self::assertSame($url, $dom->querySelector('meta[property="og:url"]')?->getAttribute('content'));
+            $markdown = $dom->querySelector('head link[rel="alternate"][type="text/markdown"]')?->getAttribute('href');
+            self::assertSame('' === $path ? null : '/uxor/'.rtrim($path, '/').'.md', $markdown, $path);
             $description = $dom->querySelector('meta[name="description"]')?->getAttribute('content');
             self::assertNotEmpty($description);
             self::assertSame($description, $dom->querySelector('meta[property="og:description"]')?->getAttribute('content'));
@@ -38,7 +41,7 @@ final class SiteMetadataTest extends WebsiteTestCase
             $locations[] = (string) $url->loc;
         }
         $expected = [self::SITE.'/'];
-        foreach (['composer', 'advanced', 'install', 'guide'] as $slug) {
+        foreach (array_keys(self::GUIDES) as $slug) {
             $expected[] = self::SITE.'/'.$slug.'/';
         }
         foreach (array_keys(self::kit()->getRecipes()) as $name) {
@@ -51,7 +54,7 @@ final class SiteMetadataTest extends WebsiteTestCase
     {
         $llms = self::page('llms.txt');
         self::assertStringStartsWith("# UXor\n", $llms);
-        foreach (['composer', 'advanced', 'install', 'guide'] as $slug) {
+        foreach (array_keys(self::GUIDES) as $slug) {
             self::assertSame(1, substr_count($llms, '('.self::SITE.'/'.$slug.'.md)'));
             self::assertStringStartsWith('# ', self::page($slug.'.md'));
         }

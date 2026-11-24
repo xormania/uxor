@@ -7,6 +7,8 @@ Use `mate-uxor-setup` for development tools or component installation, `mate-uxo
 and implement a feature, and `mate-uxor-verify` to diagnose failures and verify behavior.
 For first use, read `uxor://reference/packages/uxor/README.md`. The installed copy is
 `xormania/uxor/packages/uxor/README.md` under the application's configured Composer vendor directory.
+For a first read-only task in the selected application, open `uxor://reference/docs/AGENT-ONBOARDING.md`.
+Find your installed setup defaults in `uxor://reference/docs/COMPOSER-CONFIGURATION.md`.
 Use `uxor://reference/FOR-AGENTS.md` and the selected component's reference when building a feature.
 Inspect installed/customized copies; reference digests identify supplied guidance, not application provenance.
 

@@ -84,6 +84,7 @@ bundle and route registration, and [diagnose a request](OPERATIONS.md#diagnose-a
    `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify`.
 
 If client or provider setup is incomplete, the following recipe workflow is also available through the package CLI.
+To try the agent on an existing page, [give it a first read-only task](resources/uxor/docs/docs/AGENT-ONBOARDING.md).
 
 ## Use
 

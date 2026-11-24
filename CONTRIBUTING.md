@@ -61,7 +61,7 @@ local, ignored settings rather than tracked project guidance. The ignore rules c
 | `tools/sync-demo` | no | copies every recipe into `demo/` the way `ux:install --force` does |
 | `tools/demo-php` | no | runs PHP in the demo's container, for the Playwright specs (`DEMO_URL`) |
 | `tools/contrast/` | no | WCAG contrast check of the theme's color roles |
-| `tools/llms-txt.mjs` | no | writes `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status |
+| `tools/llms-txt.mjs` | no | writes the website’s recipe category index, `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status |
 | `tools/docs-lint.mjs`, `tools/fence-coverage.mjs` | no | what the markdown examples teach, and a gallery page for every recipe and README example (*Docs*) |
 | `tools/recipe-imports.mjs` | no | every relative import in a recipe's JavaScript names a file the recipe or its recipe dependencies install (*Checks*) |
 | `tools/js-duplication.mjs` | no | the copies of code in the recipes' JavaScript: the duplicated lines stay within a budget, and no recipe declares again a name a shared module exports (*Checks*, *Shared code*) |
@@ -246,12 +246,16 @@ It looks up package, recipe and demo symbols and compares the analyzer's diagnos
 
 ### Publishing consumer guides
 
-Edit the package walkthrough in [its README](packages/uxor/README.md) and the advanced guide in
-[OPERATIONS.md](packages/uxor/OPERATIONS.md). Their entries in the [guide registry](packages/uxor/resources/guides.json)
-supply the gallery routes, navigation and discovery links. Agents can read the same guides through the installed
-`reference` command. Keep shared explanations in those source files and link to them from entry points.
-After changing commands, refresh the advanced guide first. After changing guide content or package requirements,
-regenerate the references. The [checks below](#checks) include both commands.
+Each entry in the [guide registry](packages/uxor/resources/guides.json) names one Markdown file, its public URL
+slug, its product section and the task it helps a visitor complete. Register a guide once to publish it in the
+website directory, HTML, portable Markdown, sitemap, machine-readable index and installed agent references.
+Write onboarding and testing procedures in their source guides. Edit the recipe groupings in
+[the toolkit catalog](docs/RECIPES.md). Both the website and the installed package use those groupings.
+
+From a repository checkout with its Composer dependencies installed, run `composer docs:generate`
+after editing a source. It refreshes the command and configuration guides first, then the category and discovery
+indexes, then the installed reference bundle. Run `composer docs:check` to verify all three stages without
+writing files. The [checks below](#checks) also list the individual generators.
 
 ## Checks
 
@@ -335,7 +339,7 @@ demo/vendor/bin/ux-toolkit-kit-debug .              # lists each recipe with its
 
 node tools/contrast/check.mjs                       # every pair in tools/contrast/pairs.json meets its contrast minimum
 cmp kit.css theme/assets/styles/uxor.css            # the theme recipe ships kit.css unchanged
-node tools/llms-txt.mjs --check                     # llms.txt and FOR-AGENTS.md's recipe table match docs/RECIPES.md's recipe tables (without --check: rewrites both; see Docs)
+node tools/llms-txt.mjs --check                     # website categories, llms.txt and the FOR-AGENTS.md recipe table match their sources (see Docs)
 node tools/name-check.mjs                           # no file names a former repository of the kit (tools/kit-former-names.json) by its github.com, raw or gallery URL (see Renaming the kit)
 node tools/docs-lint.mjs                            # no markdown example teaches Flowbite JS, palette colors, dark: overrides, inline handlers or styles; no recipe template uses a palette color (see Docs)
 node tools/icon-lint.mjs                            # every icon in the recipes' templates and the markdown is a flowbite: name written in full; lists the names chosen by a Twig expression (see Docs)
@@ -368,7 +372,7 @@ node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-cover
 actionlint                                          # every workflow, with ShellCheck on its run steps (CI pins actionlint 1.7.12 and ShellCheck 0.11.0)
 
 composer validate --strict                          # the root composer.json, the Composer package xormania/uxor, and that composer.lock matches it (see Setup)
-php packages/uxor/tools/generate-command-guide.php   # refresh the advanced guide from the registered UXor CLI (requires composer install)
+php packages/uxor/tools/generate-command-guide.php   # refresh the CLI and configuration references from the package (requires composer install)
 php packages/uxor/tools/generate-reference.php      # refresh the Composer install command and bundle the guides from the working tree
 php packages/uxor/tools/generate-reference.php --check   # the bundled references are up to date: lists the stale files, changes nothing
 composer test                                       # the package's PHPUnit tests (packages/uxor/tests/, packages/uxor/phpunit.xml.dist)
@@ -606,8 +610,9 @@ Use `tools/build-static.sh _site --base-path=/uxor` to build both from the same 
 The `/demo/` pages show visitors what the application looks like. Run the Docker application
 to exercise features that need a Symfony server.
 
-The lists of recipes that agents read are written from `docs/RECIPES.md`'s recipe tables by `tools/llms-txt.mjs`: edit a
-row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* checks (in *Quick checks*) run
+The recipe tables in `docs/RECIPES.md` supply the website’s category index, the recipe lists in
+`FOR-AGENTS.md` and the release index in `llms.txt`. Edit the table once, then run
+`node tools/llms-txt.mjs` and commit the generated files. CI's *Contrast* checks (in *Quick checks*) run
 it with `--check`, which fails when:
 
 - a directory with a `manifest.json` is missing from the tables, listed twice, or a row names no recipe;

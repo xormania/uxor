@@ -133,7 +133,7 @@ final class ReferenceGenerator
         }
 
         $guides = json_decode($read(self::GUIDE_CATALOG), true, 512, JSON_THROW_ON_ERROR);
-        $paths = [...self::GUIDES, ...array_column($guides, 'file')];
+        $paths = array_unique([...self::GUIDES, ...array_column($guides, 'file')]);
         foreach ($names as $name) {
             $paths[] = $name.'/README.md';
         }

@@ -14,6 +14,15 @@ abstract class WebsiteTestCase extends TestCase
 {
     protected const SITE = 'https://xormania.github.io/uxor';
     protected const RELEASE = '0.4.0';
+    protected const GUIDES = [
+        'composer' => ['section' => 'Package guides', 'file' => 'handbook/nested/start.md', 'title' => 'First steps', 'description' => 'Get started in an application.'],
+        'advanced' => ['section' => 'Package guides', 'file' => 'handbook/nested/detail.md', 'title' => 'Further reading & FAQs', 'description' => 'Compare "debug" output for <draft> & release builds.'],
+        'configuration' => ['section' => 'Package guides', 'file' => 'docs/COMPOSER-CONFIGURATION.md', 'title' => 'Configuration', 'description' => 'Look up the environment settings.'],
+        'agent-onboarding' => ['section' => 'Application guides', 'file' => 'FOR-AGENTS.md', 'title' => 'Agent onboarding', 'description' => 'Connect an agent.'],
+        'application-testing' => ['section' => 'Application guides', 'file' => 'docs/APPLICATION-TESTING.md', 'title' => 'Application testing', 'description' => 'Verify a consuming application.'],
+        'install' => ['section' => 'Kit guides', 'file' => 'INSTALL.md', 'title' => 'Getting started', 'description' => 'Set up a kit.'],
+        'guide' => ['section' => 'Kit guides', 'file' => 'docs/GUIDE.md', 'title' => 'Guide', 'description' => 'Install and update recipes.'],
+    ];
     private static ?string $work = null;
 
     /** Exercise publishing with the real recipes and independently authored guide content. */
@@ -38,16 +47,17 @@ abstract class WebsiteTestCase extends TestCase
         }
         $fs->dumpFile($root.'/duplicate-snippets/manifest.json', '{"type":"component","name":"Duplicate snippets"}');
         $fs->copy(__DIR__.'/fixtures/duplicate-snippets.md', $root.'/duplicate-snippets/README.md');
-        $guides = [
-            'composer' => ['file' => 'handbook/nested/start.md', 'title' => 'First steps', 'description' => 'Get started in an application.'],
-            'advanced' => ['file' => 'handbook/nested/detail.md', 'title' => 'Further reading & FAQs', 'description' => 'Compare "debug" output for <draft> & release builds.'],
-            'install' => ['file' => 'INSTALL.md', 'title' => 'Getting started', 'description' => 'Set up a kit.'],
-            'guide' => ['file' => 'docs/GUIDE.md', 'title' => 'Guide', 'description' => 'Install and update recipes.'],
-        ];
-        $fs->dumpFile($root.'/packages/uxor/resources/guides.json', json_encode($guides, JSON_THROW_ON_ERROR));
+        $catalogPath = '/website/resources/recipe-categories.json';
+        $categories = json_decode($fs->readFile($repository.$catalogPath), true, flags: JSON_THROW_ON_ERROR);
+        $categories[] = ['title' => 'Test fixtures', 'recipes' => ['duplicate-snippets']];
+        $fs->dumpFile($root.$catalogPath, json_encode($categories, JSON_THROW_ON_ERROR));
+        $fs->dumpFile($root.'/packages/uxor/resources/guides.json', json_encode(self::GUIDES, JSON_THROW_ON_ERROR));
+        $fs->dumpFile($root.'/FOR-AGENTS.md', "# Agent onboarding\n");
+        $fs->dumpFile($root.'/docs/APPLICATION-TESTING.md', "# Application testing\n");
+        $fs->dumpFile($root.'/docs/COMPOSER-CONFIGURATION.md', "# Configuration\n");
         $fs->dumpFile($root.'/handbook/nested/start.md', "# First steps\n\nRead [Details](detail.md#local-tools) and [Install](../../INSTALL.md).\n\n[Offline install guide](../../packages/uxor/resources/uxor/docs/INSTALL.md).\n");
-        $fs->dumpFile($root.'/handbook/nested/detail.md', "# Further reading\n\n## Local tools\n\nSee [First steps](start.md).\n");
-        // A frozen release index predates the two nested guides. The current site's index must still include them.
+        $fs->dumpFile($root.'/handbook/nested/detail.md', "# Further reading\n\n## Local tools\n\nSee [First steps](start.md).\n\n## *Repeated* heading\n\n### Short example\n\n```md\n## A code sample\n```\n\n## Repeated heading\n");
+        // A frozen release index predates the new guides. The current site's index must still include them.
         $raw = 'https://raw.githubusercontent.com/xormania/uxor/0.3.0/';
         $llms = "# UXor\n\n[Installation](".$raw."INSTALL.md)\n[Guide](".$raw."docs/GUIDE.md)\n";
         foreach (glob($root.'/*/manifest.json') as $file) {
