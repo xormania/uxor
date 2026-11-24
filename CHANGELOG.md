@@ -15,6 +15,11 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source
   writes and project-code execution require separate explicit grants, and existing application configuration is preserved.
 
+### Changed
+
+- `dropzone` documents that UX Dropzone 3.8 previews images from `blob:` object URLs (SVG still from `data:`): a
+  Content Security Policy's `img-src` needs `blob:` and `data:`. The demo and the consumer fixture allow both.
+
 ### Fixed
 
 - Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation

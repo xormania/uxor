@@ -136,9 +136,10 @@ test('a preview template for one file shows the picked file; its Remove, focused
     const item = page.getByTestId('templated-item');
     await expect(item).toHaveCount(1);
     await expect(item.locator('[data-dropzone-slot="filename"]')).toHaveText('photo.png');
-    // the image slot loads the picked image under the policy (img-src data:); the fixtures fail on a violation
+    // the image slot loads the picked PNG from its object URL under the policy (img-src blob:); the fixtures fail on a
+    // violation
     await expect(item.locator('[data-dropzone-slot="image"]')).toBeVisible();
-    await expect(item.locator('[data-dropzone-slot="image"]')).toHaveAttribute('src', /^data:image\/png;/);
+    await expect(item.locator('[data-dropzone-slot="image"]')).toHaveAttribute('src', /^blob:/);
 
     const remove = page.getByRole('button', { name: 'Remove photo.png' });
     await expect(remove).toBeFocused();

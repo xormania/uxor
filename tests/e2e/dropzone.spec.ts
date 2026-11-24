@@ -98,7 +98,8 @@ test('a picked image shows its name and its preview; a text file shows no image'
     await expect(page.getByText('Drag and drop or browse')).toBeHidden();
     const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
     await expect(image).toBeVisible();
-    expect(await image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("data:image\/png/);
+    // UX Dropzone 3.8 previews a PNG from an object URL (csp.spec.ts loads it under the policy)
+    expect(await image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("blob:/);
     expect(await changes()).toEqual({ 'dropzone:change': 1 });
     // picked without the input focused: the focus stays where it was
     await expect(page.locator('body')).toBeFocused();
