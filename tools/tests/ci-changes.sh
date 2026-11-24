@@ -54,15 +54,26 @@ check_git() {
     fi
 }
 
-all='lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image'
-kit='lint-kit php static-site runtime-export fresh-install demo'
-kit_contrast='lint-kit php static-site runtime-export fresh-install contrast demo'
+all='lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image'
+kit='lint-kit php static-site runtime-export fresh-install demo demo-app'
+kit_contrast='lint-kit php static-site runtime-export fresh-install contrast demo demo-app'
 
 # Read by people only
 check ''                          .github/dependabot.yml
 check 'static-site'               website/templates/pages/base.html.twig website/assets/site.css
 check 'static-site'               website/tests/browser/website.spec.ts website/composer.lock
-check 'php static-site runtime-export demo prod-image' tools/kit/KitReader.php
+check 'contrast demo-app'        tests/e2e/demo-app.spec.ts
+check 'contrast demo-app'        tests/e2e/demo-app-a11y.spec.ts
+check 'contrast demo-app'        tests/e2e/examples/pages.spec.ts
+check 'demo-app'                 tests/e2e/examples/demo-app-screenshots/dashboard-desktop.png
+check 'contrast demo demo-app'   tests/e2e/a11y.spec.ts tests/e2e/csp.spec.ts tests/e2e/theme-toggle.spec.ts
+check 'contrast demo demo-app'   tests/e2e/examples/fit.spec.ts
+check 'contrast demo demo-app'   tests/e2e/examples/baselines.spec.ts
+check 'contrast demo demo-app'   tests/e2e/lab.section-nav.spec.ts
+check 'php runtime-export demo-app prod-image' demo/templates/demo_app/dashboard.html.twig demo/templates/demo_app/_stylesheets.html.twig
+check 'php runtime-export demo-app prod-image' demo/assets/styles/demo-app.css demo/assets/images/xor/mascot.gif demo/assets/images/xor/mascot-still.png
+check 'php runtime-export demo demo-app prod-image' demo/templates/shared/_brand.html.twig demo/assets/styles/shared.css demo/config/packages/symfonycasts_tailwind.yaml
+check 'php static-site runtime-export demo demo-app prod-image' tools/kit/KitReader.php
 
 # Read by people and agents: Contrast checks the generated lists, the plans and what the markdown teaches
 check 'contrast'                  .github/pull_request_template.md
@@ -89,12 +100,12 @@ check ''                          tools/tests/icon-lint.test.mjs
 check "$kit_contrast package prod-image"     input/templates/components/Input.html.twig
 check "$kit_contrast package prod-image"     kbd/templates/components/Kbd.html.twig
 check "$kit_contrast prod-image"             dropdown/templates/components/Dropdown/SubTrigger.html.twig
-check 'contrast demo'             tests/e2e/NOTES.md
-check 'php runtime-export contrast demo' tools/NOTES.md
-check 'php runtime-export demo prod-image' demo/templates/components/Input.html.twig
-check 'php runtime-export demo'      demo/README.md
+check 'contrast demo demo-app'             tests/e2e/NOTES.md
+check 'php runtime-export contrast demo demo-app' tools/NOTES.md
+check 'php runtime-export demo demo-app prod-image' demo/templates/components/Input.html.twig
+check 'php runtime-export demo demo-app'      demo/README.md
 # the lock Lint kit's locked lane reads the Toolkit version from
-check 'lint-kit php runtime-export demo prod-image' demo/composer.lock
+check 'lint-kit php runtime-export demo demo-app prod-image' demo/composer.lock
 check 'static-site runtime-export contrast'      tools/fence-coverage.mjs
 check 'static-site runtime-export'               tools/build-static.sh
 # INSTALL.md supplies the standalone install page, the bundled guide and Contrast.
@@ -108,6 +119,7 @@ check 'static-site runtime-export workflows'     .github/workflows/pages.yml
 check 'static-site runtime-export fresh-install workflows' .github/workflows/release.yml
 check 'workflows'                 .github/workflows/audit.yml
 check 'workflows'                 .github/workflows/codeql.yml
+check 'workflows'                 .github/workflows/browser-provider.yml
 check 'workflows'                 .github/actionlint.yaml
 # monthly.yml runs on its schedule and by hand, never on a push: actionlint only. Its tools' cases (tools/monthly/) run
 # in Tool tests, on every run, so they select no job; the browser tests' opt-in coverage (tests/e2e/coverage.ts) is part
@@ -118,7 +130,7 @@ check 'workflows'                 .github/workflows/monthly.yml
 # projects only; their cases are Tool tests', the inventory names the specs (Contrast)
 check 'workflows'                 .github/workflows/release-checks.yml
 check ''                          tools/ci/release-timings.mjs tools/ci/release-checks.mjs tools/ci/release-evidence.mjs tools/ci/release-failure.mjs
-check 'demo'                      tests/perf/baseline.json
+check 'demo demo-app'                      tests/perf/baseline.json
 check ''                          tools/tests/release-timings.test.mjs
 check 'contrast'                  tests/e2e/release.fuzz.spec.ts tests/e2e/release.long-session.spec.ts
 check ''                          tests/e2e/leak-detector.mjs tools/tests/leak-detector.test.mjs
@@ -126,7 +138,7 @@ check ''                          tests/e2e/leak-detector.mjs tools/tests/leak-d
 check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml .github/workflows/php-analysis-comparison.yml
 check ''                          .github/CODEOWNERS .github/mention-allowlist
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
-check 'demo'                      tests/e2e/coverage.ts
+check 'demo demo-app'                      tests/e2e/coverage.ts
 check "$all"                      .github/workflows/ci.yml
 # the lanes' plan and CI result's verdict (tools/ci/lane-evidence.mjs) decide what runs and what passes, as the selector does
 check "$all"                      tools/ci/lane-evidence.mjs
@@ -161,23 +173,23 @@ check "$kit_contrast"                        alert/docs/notes.txt
 check "$kit_contrast prod-image"             brand-new-dir/notes.txt
 check "$kit_contrast prod-image"             NEW-ROOT-FILE.md
 check "$kit prod-image"                      NEW-ROOT-FILE.txt
-check 'lint-kit php runtime-export fresh-install demo prod-image' kit.js
+check 'lint-kit php runtime-export fresh-install demo demo-app prod-image' kit.js
 check "$kit"                                 icon.svg
 check_git "$kit_contrast prod-image"         'mkdir -p old-top-dir && echo x > old-top-dir/file.txt && git add old-top-dir && git -c user.name=t -c user.email=t@t commit -qm old && git rm -q -r old-top-dir'
 check_git "$kit_contrast package prod-image" 'mkdir -p added-recipe/templates && echo "{}" > added-recipe/manifest.json && echo x > added-recipe/templates/X.html.twig && git add added-recipe'
 # a README in a directory that is not a recipe is a new directory too; an existing recipe's README is not
-check 'lint-kit static-site runtime-export contrast demo package prod-image' brand-new-dir/README.md
+check 'lint-kit static-site runtime-export contrast demo demo-app package prod-image' brand-new-dir/README.md
 # the demo app, every entry the image admits; not its tests, README or development files
-check 'php runtime-export demo prod-image' demo/src/Controller/HomeController.php
-check 'php runtime-export demo prod-image' demo/.env
-check 'php runtime-export demo prod-image' demo/importmap.php
-check 'php runtime-export demo prod-image' demo/symfony.lock
-check 'php runtime-export demo prod-image' demo/public/index.php
-check 'php runtime-export demo prod-image' demo/bin/console
-check 'php runtime-export demo'            demo/phpunit.dist.xml
+check 'php runtime-export demo demo-app prod-image' demo/src/Controller/HomeController.php
+check 'php runtime-export demo demo-app prod-image' demo/.env
+check 'php runtime-export demo demo-app prod-image' demo/importmap.php
+check 'php runtime-export demo demo-app prod-image' demo/symfony.lock
+check 'php runtime-export demo demo-app prod-image' demo/public/index.php
+check 'php runtime-export demo demo-app prod-image' demo/bin/console
+check 'php runtime-export demo demo-app'            demo/phpunit.dist.xml
 check 'php runtime-export contrast demo'   demo/tests/Functional/DemoExportTest.php
 # the image's own harness
-check 'php runtime-export demo prod-image' tools/tests/prod-image.sh
+check 'php runtime-export demo demo-app prod-image' tools/tests/prod-image.sh
 # the kit's manifest: llms.txt (Contrast) holds its name, homepage and description; the references copy it (Package)
 check "$kit_contrast package prod-image"     manifest.json
 check 'contrast'                  tools/kit-identity.mjs
@@ -190,18 +202,19 @@ check 'workflows'                 tools/tests/release-plan.sh
 # tools/test-inventory.mjs (Contrast) reads which specs and PHPUnit tests exist and the recipes' controllers.
 # Kit PHP and the browser tests read the shared list of accessibility scan paths.
 check 'php demo'                  tests/e2e/lab-pages.json
-check 'contrast demo'             tests/e2e/lab.side-nav.spec.ts
-check 'demo'                      tests/e2e/transitions.ts
+check 'contrast demo demo-app'    tests/e2e/lab.side-nav.spec.ts
+check 'contrast demo'             tests/e2e/lab.popover.spec.ts
+check 'demo demo-app'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
-check 'demo'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
-check 'demo'                      tools/playwright-image.mjs tools/playwright-image.json
+check 'demo demo-app'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
+check 'demo demo-app'                      tools/playwright-image.mjs tools/playwright-image.json
 check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php runtime-export contrast demo' demo/tests/Editor/EditorTypeTest.php
-check 'php runtime-export demo prod-image' demo/src/Controller/LabController.php
-check 'static-site contrast demo'             package-lock.json
+check 'php runtime-export demo demo-app prod-image' demo/src/Controller/LabController.php
+check 'static-site contrast demo demo-app'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
-check 'php runtime-export demo prod-image' demo/src/Demo/DataTableCollector.php
+check 'php runtime-export demo demo-app prod-image' demo/src/Demo/DataTableCollector.php
 check 'php'                       tools/phpstan.neon tools/ci/phpstan/composer.json tools/ci/phpstan/composer.lock
 check ''                          tools/ci/php-analysis-comparison.py tools/ci/php-analysis-eval.py tools/ci/php-analysis-export.py
 check ''                          tools/ci/jev-php-analysis.mjs tools/tests/test_php_analysis_eval.py tools/tests/fixtures/php-analysis/return_type/bad.php
@@ -210,12 +223,12 @@ check 'fresh-install'             tools/tests/install-scenario.sh
 check 'fresh-install'             tools/tests/live-action.php
 check 'fresh-install'             tools/tests/fixtures/fresh-app/templates/home.html.twig
 check 'demo'                      tools/tests/fixtures/sync-kit/manifest.json
-check 'demo'                      tools/ci/playwright-summary.mjs tools/ci/run-provenance.mjs
+check 'demo demo-app'                      tools/ci/playwright-summary.mjs tools/ci/run-provenance.mjs
 # the job metrics run in advisory steps only (the browser job's, CI result's): their cases are Tool tests'
 check ''                          tools/ci/ci-metrics.mjs
 # the shard plan runs in the browser job (plan, verify) and in CI result (timings); the timings it reads are a test file
-check 'demo'                      tools/ci/shard-plan.mjs
-check 'demo'                      tests/shard-timings.json
+check 'demo demo-app'                      tools/ci/shard-plan.mjs
+check 'demo demo-app'                      tests/shard-timings.json
 check ''                          tools/tests/shard-plan.test.mjs
 # Jev's tools: advisory steps after a failure, and jev.yml's own checkout; their cases are Tool tests'
 check ''                          tools/ci/junit-attempts.mjs
@@ -230,32 +243,32 @@ check 'workflows'                 .github/actions/jev-diagnosis/action.yml
 check ''                          tools/tests/playwright-summary.test.mjs tools/tests/fixtures/playwright-results/timed.json
 check ''                          tools/tests/fixtures/junit/phpunit.xml tools/tests/fixtures/junit/node-test.xml
 check ''                          tools/tests/ci-metrics.test.mjs tools/tests/fixtures/ci-metrics/jobs.jsonl
-check 'php runtime-export demo prod-image' tools/sync-demo
+check 'php runtime-export demo demo-app prod-image' tools/sync-demo
 # tools Tool tests runs against the real kit or its own config, on every run
 check ''                          tools/security-policy.mjs tools/security-sinks.json tools/check-github-mentions.mjs tools/hooks/commit-msg
 check ''                          tools/js-duplication.mjs tools/recipe-imports.mjs tools/kit-former-names.json
 check ''                          tools/tests/fixtures/release-checks/run.json
-check 'demo'                      tools/demo-php
-check 'php runtime-export fresh-install demo prod-image' demo/compose.yaml
-check 'php runtime-export fresh-install demo prod-image' demo/frankenphp/Caddyfile
+check 'demo demo-app'                      tools/demo-php
+check 'php runtime-export fresh-install demo demo-app prod-image' demo/compose.yaml
+check 'php runtime-export fresh-install demo demo-app prod-image' demo/frankenphp/Caddyfile
 # the demo image's other build inputs: the production image's lane too (it builds and runs frankenphp_prod)
-check 'php runtime-export demo prod-image' demo/Dockerfile
-check 'php runtime-export demo prod-image' demo/Dockerfile.dockerignore
-check 'php runtime-export demo prod-image' demo/compose.override.yaml
-check 'php runtime-export demo prod-image' demo/frankenphp/docker-entrypoint.sh
-check 'php runtime-export demo prod-image' demo/frankenphp/conf.d/20-app.prod.ini
+check 'php runtime-export demo demo-app prod-image' demo/Dockerfile
+check 'php runtime-export demo demo-app prod-image' demo/Dockerfile.dockerignore
+check 'php runtime-export demo demo-app prod-image' demo/compose.override.yaml
+check 'php runtime-export demo demo-app prod-image' demo/frankenphp/docker-entrypoint.sh
+check 'php runtime-export demo demo-app prod-image' demo/frankenphp/conf.d/20-app.prod.ini
 # what the production image installs and how it boots in prod: the lane too
-check 'lint-kit php runtime-export demo prod-image' demo/composer.lock demo/src/Kernel.php
-check 'php runtime-export demo prod-image' demo/composer.json
-check 'php runtime-export demo prod-image' demo/config/packages/twig.yaml
-check 'php runtime-export demo prod-image' demo/config/services.yaml
+check 'lint-kit php runtime-export demo demo-app prod-image' demo/composer.lock demo/src/Kernel.php
+check 'php runtime-export demo demo-app prod-image' demo/composer.json
+check 'php runtime-export demo demo-app prod-image' demo/config/packages/twig.yaml
+check 'php runtime-export demo demo-app prod-image' demo/config/services.yaml
 # the demo's code, templates and assets are not the image's build inputs on their own
-check 'php runtime-export demo prod-image' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
+check 'php runtime-export demo demo-app prod-image' demo/src/Kernel.php demo/templates/base.html.twig demo/assets/app.js
 check "$kit_contrast prod-image"             side-nav/assets/controllers/side_nav_controller.js
 # a recipe's README.md: the lint, the gallery's page of it (Kit PHP: RecipeDocsTest, RecipePageTest), the static site, the
 # browser tests' examples, Contrast, the references
-check 'lint-kit php static-site runtime-export contrast demo package prod-image' side-nav/README.md
-check 'lint-kit php runtime-export fresh-install contrast demo prod-image' kit.css
+check 'lint-kit php static-site runtime-export contrast demo demo-app package prod-image' side-nav/README.md
+check 'lint-kit php runtime-export fresh-install contrast demo demo-app prod-image' kit.css
 # the theme recipe's copy of kit.css (contrast check) and a recipe's template (tools/docs-lint.mjs: no palette color)
 check "$kit_contrast package prod-image"     theme/assets/styles/uxor.css
 check "$kit_contrast package prod-image"     button/templates/components/Button.html.twig
@@ -267,7 +280,7 @@ check "$kit package"              .gitattributes
 # manifest are copied into the package's references (Package); a deeper README is not
 check "$kit_contrast prod-image"             alert/templates/components/Alert.html.twig
 check "$kit_contrast package prod-image"     data-table/src/Table/DataTable.php
-check 'lint-kit php static-site runtime-export contrast demo package prod-image' alert/README.md
+check 'lint-kit php static-site runtime-export contrast demo demo-app package prod-image' alert/README.md
 check "$kit_contrast package prod-image"     alert/manifest.json
 check "$kit_contrast"             alert/docs/README.md
 check "$kit_contrast prod-image"             alert/assets/manifest.json
@@ -276,7 +289,7 @@ check 'contrast'                  tools/readme-pairing.mjs tools/readme-versions
 check ''                          tools/tests/readme-pairing.test.mjs
 check ''                          tools/tests/jev-diagnosis.test.mjs
 check ''                          tools/tests/step-attempts.test.mjs
-check 'lint-kit php runtime-export fresh-install contrast demo prod-image' docs/NOTES.md kit.css
+check 'lint-kit php runtime-export fresh-install contrast demo demo-app prod-image' docs/NOTES.md kit.css
 
 # The Composer package xormania/uxor. Its root metadata is in the kit's archive too, but no install or lint reads it;
 # the lock file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'
@@ -294,8 +307,8 @@ jq '. + {testing: {file: "docs/APPLICATION-TESTING.md"}}' "$catalog" > "$catalog
 mv "$catalog.next" "$catalog"
 check 'static-site contrast package' docs/APPLICATION-TESTING.md
 check 'package'                   packages/uxor/resources/other.json
-check 'demo package'              packages/uxor/resources/browser/diagnostics.mjs
-check 'demo package'              packages/uxor/resources/browser/diagnostics.d.mts
+check 'demo demo-app package'              packages/uxor/resources/browser/diagnostics.mjs
+check 'demo demo-app package'              packages/uxor/resources/browser/diagnostics.d.mts
 check 'contrast demo package' packages/.gitattributes
 check 'contrast demo package' packages/uxor/.gitattributes
 check 'contrast demo package' packages/uxor/resources/.gitattributes

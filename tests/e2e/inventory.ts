@@ -42,4 +42,5 @@ export const demoPages = {
 
 // The shell, accessibility and favicon checks also exercise routes without a screenshot baseline.
 export const demoRoutePaths = [...Object.values(demoPages), '/demo/revenue-assistant'];
+export const demoAppScreenshots = ['tests', 'e2e', 'examples', 'demo-app-screenshots'];
 export const viewports = { desktop: { width: 1280, height: 800 }, mobile: { width: 390, height: 844 } };

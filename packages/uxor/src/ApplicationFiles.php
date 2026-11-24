@@ -9,6 +9,8 @@ use Xormania\UXor\Preparation\ProjectPath;
 /** Project-local metadata and writes. It never loads application PHP. */
 final class ApplicationFiles
 {
+    public const PROFILER_PATH_STEM = 'packages/dev/uxor';
+
     public function __construct(private readonly ProjectInspector $inspector)
     {
     }
@@ -19,6 +21,8 @@ final class ApplicationFiles
         $composer = $this->json($this->path($root, 'composer.json'));
         $vendor = ProjectPath::composerDirectory($root, $composer['config']['vendor-dir'] ?? 'vendor');
         $bin = ProjectPath::composerDirectory($root, $composer['config']['bin-dir'] ?? $vendor.'/bin');
+        $symfony = self::symfonyConfig($root, $composer['extra'] ?? []);
+        $profiler = $symfony['project_config'].'/'.self::PROFILER_PATH_STEM;
         $installedPath = $this->path($root, $vendor.'/composer/installed.json');
         $installed = is_file($installedPath) ? $this->json($installedPath) : [];
         $packages = new InstalledPackages($installed['packages'] ?? $installed, function () use ($root): array {
@@ -26,7 +30,17 @@ final class ApplicationFiles
             return is_file($lock) ? $this->json($lock) : [];
         }, is_file($installedPath) ? $composer : null);
         return ['root' => $root, 'composer' => $composer, 'vendor' => $vendor, 'bin' => $bin,
+            'profiler' => ['config' => $profiler.'.php', 'legacy' => $profiler.'.yaml'],
             'packages' => $packages->versions(), 'installedPackages' => $packages];
+    }
+
+    /** Flex expands %CONFIG_DIR% relative to its configured Symfony root. */
+    public static function symfonyConfig(string $project, array $extra): array
+    {
+        $directory = ProjectPath::relative($extra['root-dir'] ?? $extra['symfony']['root-dir'] ?? '.', true);
+        $root = '' === $directory ? $project : ProjectPath::writablePath($project, $directory);
+        $config = ProjectPath::composerDirectory($root, $extra['config-dir'] ?? 'config');
+        return ['root' => $root, 'config' => $config, 'project_config' => '' === $directory ? $config : $directory.'/'.$config];
     }
 
     public function json(string $path): array

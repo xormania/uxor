@@ -41,12 +41,12 @@ final class EnvironmentStatus
                 'note' => 'Configuration paths must resolve on the MCP host. The provider uses PHP 8.4; preparation in another PHP version does not prove the application autoloader runs there.'],
             'symfony_wiring' => $this->preparation->status($root),
             'profiler' => ['installed' => $requirements['symfony/profiler-pack']['compatible'],
-                'configured' => is_file($root.'/'.EnvironmentSetup::PROFILER_CONFIG) || is_file($root.'/config/packages/dev/uxor.yaml') ? true : null,
+                'configured' => is_file($root.'/'.$project['profiler']['config']) || is_file($root.'/'.$project['profiler']['legacy']) ? true : null,
                 'observed' => 'not_probed',
                 'note' => 'Installed describes the profiler pack or its unpacked requirements. Static inspection recognizes UXor’s dev config; other application configuration and effective collection require runtime evidence. An exact HTTP response token and matching profile establish request capture.'],
             'debug' => ['installed' => $has('symfony/debug-bundle'), 'compatible' => $debug['compatible'], 'observed' => 'not_probed'],
             'browser' => ['configured' => is_file($root.'/.uxor/browser.mjs'), 'observed' => 'not_probed',
-                'note' => 'The application must import the recorder into its Playwright fixture and set the served baseURL.'],
+                'note' => 'Configured reports the optional Playwright recorder. Import it into an application test fixture and set baseURL to use it. The standalone uxor-browser launcher can visit a served URL independently.'],
             'monolog' => ['installed' => $has('symfony/ai-monolog-mate-extension'), 'observed' => 'not_probed'],
         ];
         $ownership = new SetupOwnership($this->files);
@@ -81,16 +81,19 @@ final class EnvironmentStatus
             }
         }
         $next = [];
-        if ([] !== DevelopmentDependencies::missingRequests($dependencies) || !$capabilities['mate']['configured'] || !$capabilities['mago']['configured']) {
-            $next[] = 'Run setup to review missing configuration, then setup --apply --install --trust-project-code in the application PHP environment.';
+        if ([] !== DevelopmentDependencies::missing($dependencies) || !$capabilities['mate']['configured']) {
+            $next[] = 'Run Composer in the application PHP environment with development dependencies and the UXor and Mate plugins enabled.';
+        }
+        if (!$capabilities['mago']['configured']) {
+            $next[] = 'Review the application configuration with setup and apply it with setup --apply.';
         }
         if (!($capabilities['symfony_wiring']['fresh'] ?? false)) {
             $next[] = 'Run prepare --trust-project-code after source, dependencies, service configuration or environment changes.';
         }
         if (!$probe) {
-            $next[] = 'Run environment --probe --trust-project-code to inspect real native entry points and prepared providers.';
+            $next[] = 'Run environment --probe --trust-project-code to inspect native entry points. Docker provider version checks can acquire images on first use.';
         } elseif (in_array('probe_failed', array_column($capabilities, 'observed'), true)) {
-            $next[] = 'Inspect the named failed probe in its owning runtime. Prepare external providers with uxor-mago pull on the Docker host.';
+            $next[] = 'Inspect the named failed probe in its owning runtime. The Mago and Serena launchers prepare their providers on first use on the Docker host.';
         }
         if (true === $capabilities['serena']['configured']) {
             $next[] = 'Connect Serena and query a current application symbol. Provider version checks do not establish an active MCP session.';

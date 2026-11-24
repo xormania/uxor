@@ -46,7 +46,8 @@ final class ReferenceBundleTest extends TestCase
             'packages/uxor/README.md' => "# Composer\n\n<!-- package-install:start -->\n<!-- package-install:end -->\n\n[Operations](OPERATIONS.md)\n",
             'packages/uxor/OPERATIONS.md' => "# Advanced\n\n[Composer](README.md)\n",
             'composer.json' => json_encode([
-                'name' => 'xormania/uxor', 'require' => ['php' => '>=8.4', 'vendor/experimental' => '^2.0.0-beta1', 'vendor/stable' => '^1.0'],
+                'name' => 'xormania/uxor', 'type' => 'composer-plugin', 'minimum-stability' => 'beta', 'prefer-stable' => true,
+                'require' => ['php' => '>=8.4', 'vendor/experimental' => '^2.0.0-beta1', 'vendor/stable' => '^1.0'],
                 'config' => ['allow-plugins' => ['vendor/example-plugin' => true]],
             ], JSON_THROW_ON_ERROR),
             'composer.lock' => json_encode([
@@ -199,8 +200,12 @@ final class ReferenceBundleTest extends TestCase
         self::assertSame(0, $status, $error);
         $guide = $this->source.'/packages/uxor/README.md';
         $before = file_get_contents($guide);
-        self::assertStringContainsString('composer require --dev', $before);
-        self::assertStringContainsString('vendor/experimental:^2.0.0-beta1', $before);
+        self::assertSame(1, substr_count($before, 'composer require --dev'));
+        self::assertStringContainsString("composer require --dev 'xormania/uxor:^1.4.0'\n", $before);
+        self::assertStringContainsString("composer config minimum-stability 'beta'", $before);
+        self::assertStringContainsString('composer config prefer-stable true', $before);
+        self::assertStringContainsString("composer config 'allow-plugins.xormania/uxor' true", $before);
+        self::assertStringNotContainsString('vendor/experimental:', $before);
         self::assertStringNotContainsString('vendor/stable:', $before);
         self::assertStringNotContainsString('vendor/test-tool:', $before);
         self::assertStringContainsString('allow-plugins.vendor/example-plugin', $before);
@@ -210,7 +215,8 @@ final class ReferenceBundleTest extends TestCase
 
         $path = $this->source.'/composer.json';
         $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        $manifest['require']['vendor/experimental'] = '>=2.0.0-beta1 <2.0.0-beta4';
+        $manifest['name'] = 'example/renamed';
+        $manifest['require']['php'] = '>=8.5';
         file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
         self::assertSame(1, $this->script(['--check'])[0]);
         self::assertSame($before, file_get_contents($guide), 'check leaves the source guide intact');
@@ -219,8 +225,10 @@ final class ReferenceBundleTest extends TestCase
         [$status, , $error] = $this->script([]);
         self::assertSame(0, $status, $error);
         $after = file_get_contents($guide);
-        self::assertStringContainsString("'vendor/experimental:>=2.0.0-beta1 <2.0.0-beta4@beta'", $after);
-        self::assertStringNotContainsString('vendor/experimental:^2.0.0-beta1', $after);
+        self::assertStringContainsString("composer require --dev 'example/renamed:^1.4.0'\n", $after);
+        self::assertStringContainsString("composer config 'allow-plugins.example/renamed' true", $after);
+        self::assertStringContainsString('>=8.5', $after);
+        self::assertStringNotContainsString('xormania/uxor:^1.4.0', $after);
         self::assertSame($after, file_get_contents($this->output.'/docs/packages/uxor/README.md'));
         self::assertSame(0, $this->script(['--check'])[0]);
     }
@@ -319,7 +327,7 @@ final class ReferenceBundleTest extends TestCase
         self::assertSame(0, $check->run(), $check->getErrorOutput());
     }
 
-    public function testTheConfigurationGuideUsesReleaseRequirementsBinariesAndOnlyRequestedSetupDependencies(): void
+    public function testTheConfigurationGuideTracksReleaseRequirementsAndBinaries(): void
     {
         $script = $this->copyGuideGenerator();
         $guide = $this->source.'/docs/COMPOSER-CONFIGURATION.md';
@@ -329,7 +337,6 @@ final class ReferenceBundleTest extends TestCase
         $source = file_get_contents($file);
         self::assertIsString($source);
         $manifest = json_decode($source, true, flags: JSON_THROW_ON_ERROR);
-        // Exercise an additional setup request even on releases that usually supply the debug pack directly.
         unset($manifest['require']['symfony/debug-pack']);
         $manifest['require']['symfony/console'] = '^9.2 || ^10.0';
         $manifest['bin'][] = 'packages/uxor/bin/uxor-fixture';
@@ -344,12 +351,7 @@ final class ReferenceBundleTest extends TestCase
         self::assertStringContainsString('| `symfony/console` | `^9.2 \|\| ^10.0` |', $updated);
         self::assertStringContainsString('`uxor-fixture`', $updated);
 
-        self::assertSame(1, preg_match('/^## Optional development setup\n(.+?)(?=^## |\z)/ms', $updated, $section));
-        preg_match_all('/^\| `([^`]+)` \|/m', $section[1], $rows);
-        $planned = $this->setupRequestsInEmptyApplication($this->directory.'/consumer');
-        self::assertEqualsCanonicalizing(array_keys(array_diff_key($planned, $manifest['require'])), $rows[1]);
-        self::assertContains('symfony/debug-pack', $rows[1]);
-        self::assertNotContains('symfony/profiler-pack', $rows[1]);
+        self::assertStringNotContainsString('| `symfony/debug-pack` |', $updated);
         self::assertSame(0, $check->run(), $check->getErrorOutput());
     }
 
@@ -362,13 +364,8 @@ final class ReferenceBundleTest extends TestCase
         $source = file_get_contents($file);
         self::assertIsString($source);
         $manifest = json_decode($source, true, flags: JSON_THROW_ON_ERROR);
-        foreach ($requests as $package => $constraint) {
-            $manifest['require'][$package] ??= '' === $constraint ? '*' : $constraint;
-        }
-        file_put_contents($file, json_encode($manifest, JSON_THROW_ON_ERROR));
-
-        (new Process([PHP_BINARY, $script], cwd: $consumer))->mustRun();
-        (new Process([PHP_BINARY, $script, '--check'], cwd: $consumer))->mustRun();
+        self::assertSame([], array_diff_key($requests, $manifest['require']), 'Composer supplies all development packages identified by the public setup plan.');
+        (new Process([PHP_BINARY, $script]))->mustRun();
         self::assertSame(['.', '..', 'composer.json'], scandir($consumer));
         self::assertSame("{}\n", file_get_contents($consumer.'/composer.json'));
 

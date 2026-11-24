@@ -27,7 +27,10 @@
         {% endif %}
         <article class="recipe-doc guide" data-testid="guide">
             {{ doc|raw }}
-            <p class="markdown-link"><a href="{{ markdown_url }}" type="text/markdown">This guide as Markdown</a></p>
+            <p class="resource-links">
+                <a href="{{ markdown_url }}" type="text/markdown">This guide as Markdown</a>
+                <a href="{{ repository }}/blob/{{ commit ?? ref }}/{{ file }}">View source on GitHub</a>
+            </p>
         </article>
     </div>
 {% endblock %}

@@ -3,6 +3,7 @@ set -euo pipefail
 
 dev=$(cd "$(dirname "$0")" && pwd)
 python3 "$dev/run.py" --native prepare --no-assets
+python3 "$dev/check-headless.py" "$dev/app"
 python3 "$dev/install-uxor.py"
 (cd "$dev" && npm run test:request-only && npm run test:workflow)
 

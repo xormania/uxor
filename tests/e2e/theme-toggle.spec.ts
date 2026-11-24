@@ -118,7 +118,7 @@ test.describe('storage blocked', () => {
     });
 });
 
-test.describe('a switch', () => {
+test.describe('a switch', { tag: '@demo-app' }, () => {
     test.use({ colorScheme: 'light' });
 
     // colors change at once: a transition meant for hover (table rows) must not fade the page into the new theme

@@ -124,7 +124,7 @@ final class GuidePageTest extends WebsiteTestCase
         self::assertDoesNotMatchRegularExpression('#\]\((?!https?:|mailto:|/|\#|(?:'.$guideSlugs.')\.md|r/[a-z0-9-]+\.md)#', $markdown);
         $install = self::page('install.md');
         self::assertStringContainsString('](application-testing.md)', $install);
-        foreach (['docs/RECIPES.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'CONTRIBUTING.md'] as $document) {
+        foreach (['docs/RECIPES.md', 'docs/PROJECT-AGENTS-SNIPPET.md'] as $document) {
             self::assertStringContainsString('](https://github.com/xormania/uxor/blob/0.4.0/'.$document.')', $install);
         }
         self::assertStringContainsString('](https://github.com/xormania/uxor/releases)', $install);

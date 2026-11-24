@@ -1,6 +1,6 @@
 name: Audit
 
-# Known advisories in the npm projects (repository tests, consumer browser checks and editor tooling), all Composer
+# Known advisories in the npm projects (repository tests, consumer checks, the shipped browser and editor tooling), all Composer
 # projects (the package, website, demo, consumer harness and CI analyzers) and the browser packages of the demo's and the consumer's
 # importmap.php, which no lock file lists: weekly, as advisories appear without any change
 # here, and on every pull request that changes a lockfile or an importmap. On a pull request each audit runs only when its own files
@@ -14,6 +14,8 @@ on:
         paths:
             - package.json
             - package-lock.json
+            - packages/uxor/resources/browser/package.json
+            - packages/uxor/resources/browser/package-lock.json
             - packages/uxor/dev/package.json
             - packages/uxor/dev/package-lock.json
             - packages/uxor/dev/images/serena/package.json
@@ -63,6 +65,8 @@ jobs:
                 include:
                     - project: tests
                       directory: .
+                    - project: browser
+                      directory: packages/uxor/resources/browser
                     - project: consumer
                       directory: packages/uxor/dev
                     - project: editor

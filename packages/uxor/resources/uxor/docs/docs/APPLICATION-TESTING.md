@@ -47,9 +47,12 @@ environment intact. The [installation guide](../INSTALL.md) covers missing depen
 
 Start with the first failing response or UI observation. If markup renders but a control does nothing, check the
 installed controller, asset requests and browser console. If the server returned an error, inspect the application's
-logs or the Symfony profile for that request. With UXor's optional recorder configured, read the captured artifact
-through `uxor_browser_diagnostics` or the standalone CLI, then open the returned `profileUri` in the Mate
-environment that served it. [Browser diagnostics and fallback evidence](../packages/uxor/OPERATIONS.md#browser-diagnostics).
+logs or the Symfony profile for that request. With the Composer development package installed, run
+`vendor/bin/uxor-browser http://127.0.0.1:8000/` with your page's URL to capture errors, failed requests
+and available profiler tokens. Use your application's Playwright tests to exercise interactions.
+Read either capture through `uxor_browser_diagnostics` or `vendor/bin/uxor browser-diagnostics`,
+then open an available `profileUri` in the Mate environment that served the request.
+[Browser diagnostics and fallback evidence](../packages/uxor/OPERATIONS.md#browser-diagnostics).
 
 Report the route, runtime, steps, expected result and actual result, including any checks you could not run.
 Review the application diff after a change. Redact sensitive URLs, profiler records and traces before sharing.

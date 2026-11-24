@@ -5,12 +5,9 @@ declare(strict_types=1);
 namespace Xormania\UXor\Tools;
 
 use Symfony\Component\Console\Input\InputDefinition;
-use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Process\Process;
 use Xormania\UXor\EnvironmentSetup;
-use Xormania\UXor\ProjectInspector;
 use Xormania\UXor\SetupIntegration;
-use Xormania\UXor\SymfonyPreparation;
 
 /** Consumer configuration for the same checkout whose command definitions and provider launcher we ship. */
 final class ConfigurationGuide
@@ -23,16 +20,6 @@ final class ConfigurationGuide
             $requirements[] = '| `'.$name.'` | `'.str_replace('|', '\|', $constraint).'` |';
         }
         $binaries = array_map(static fn (string $path): string => '`'.basename($path).'`', $composer['bin']);
-
-        $requests = [];
-        foreach (self::setupPlanDependencies() as $row) {
-            if (!$row['install_requested'] || isset($composer['require'][$row['package']])) {
-                continue;
-            }
-            $constraint = '' === $row['constraint'] ? 'Composer selects a compatible version'
-                : '`'.str_replace('|', '\|', $row['constraint']).'`';
-            $requests[] = '| `'.$row['package'].'` | '.$constraint.' |';
-        }
 
         $defaults = [];
         foreach ($setup->getOptions() as $option) {
@@ -69,19 +56,6 @@ final class ConfigurationGuide
             $providers[] = '| '.$label.' | `'.$image.'` |';
         }
 
-        $installation = [] === $requests
-            ? "Composer supplies the development tools through UXor’s direct requirements. After reviewing the plan, run `vendor/bin/uxor setup --apply` to apply the proposed application and client configuration."
-            : sprintf(<<<'MARKDOWN'
-                These are the additional package requests outside UXor’s direct Composer requirements.
-
-                | Development dependency | Requested version |
-                | --- | --- |
-                %s
-
-                Symfony Flex can unpack a pack into individual dependencies. Setup checks the installed components when the pack itself is absent and skips requests your application already satisfies.
-                After reviewing the plan, run `vendor/bin/uxor setup --apply --install --trust-project-code` to authorize installation in the selected application.
-                MARKDOWN, implode("\n", $requests));
-
         return sprintf(<<<'MARKDOWN'
             # Composer package configuration
 
@@ -101,7 +75,9 @@ final class ConfigurationGuide
 
             Run `vendor/bin/uxor setup --format=json` to see the proposed configuration and installed dependency evidence for your application.
 
-            %s
+            Composer supplies the development tools listed above. Symfony Flex may unpack the debug and profiler packs into their component packages.
+            After reviewing the plan, run `vendor/bin/uxor setup --apply` to apply the proposed configuration.
+            The setup flags `--install` and `--trust-project-code` remain available for older scripts.
 
             ## Setup defaults
 
@@ -114,7 +90,7 @@ final class ConfigurationGuide
 
             ## Application files
 
-            Paths are relative to the selected application. The setup plan shows which files apply to your client and configuration.
+            Paths are relative to the selected application. The table uses the default Symfony config directory. Your setup plan shows the paths for your application and client.
 
             | Setting | Application path |
             | --- | --- |
@@ -136,33 +112,9 @@ final class ConfigurationGuide
             MARKDOWN,
             implode("\n", $requirements),
             implode(', ', $binaries),
-            $installation,
             implode("\n", $defaults),
             implode("\n", $paths),
             implode("\n", $providers),
         );
-    }
-
-    /** Read the consumer-facing plan using an empty Composer app, independent of the maintainer's installed tools. */
-    private static function setupPlanDependencies(): array
-    {
-        $fs = new Filesystem();
-        $root = sys_get_temp_dir().'/uxor-doc-setup-'.bin2hex(random_bytes(12));
-        $fs->mkdir($root, 0700);
-        try {
-            $fs->dumpFile($root.'/composer.json', "{}\n");
-            // The CLI wraps this same plan with metadata from the generated reference bundle.
-            // Reading the plan directly lets maintainers regenerate that bundle from a clean tree.
-            $inspector = new ProjectInspector();
-            $setup = new EnvironmentSetup($inspector, new SymfonyPreparation($inspector));
-            $plan = $setup->setup($root);
-            if ('plan' !== ($plan['mode'] ?? null) || !is_array($plan['dependencies'] ?? null)) {
-                throw new \RuntimeException('Could not read dependency evidence from the UXor setup plan.');
-            }
-
-            return $plan['dependencies'];
-        } finally {
-            $fs->remove($root);
-        }
     }
 }

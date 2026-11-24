@@ -71,7 +71,7 @@ if [ "$scope" != website-only ]; then
     (
         cd "$root/demo"
         "$composer" install --no-interaction --no-progress
-        # the compiler is downloaded by tailwind:build itself, so the version it will fetch is the configured one
+        # TailwindBundle downloads the compiler at the configured version during the build
         # the first binary_version line, its value quoted with ' or " or not, then optionally a comment; a commented-out key is no key
         tailwind_version=$(sed -nE "/^ *binary_version:/{s/^ *binary_version: *['\"]?(v?[0-9][0-9.]*)['\"]? *(#.*)?\$/\1/p;q}" config/packages/symfonycasts_tailwind.yaml)
         if [ -z "$tailwind_version" ]; then
@@ -79,7 +79,7 @@ if [ "$scope" != website-only ]; then
             exit 1
         fi
         echo "Tailwind compiler: ${tailwind_version} (symfonycasts_tailwind binary_version)"
-        "$php" bin/console tailwind:build --minify
+        "$php" bin/console app:build-styles --minify
         "$php" bin/console asset-map:compile
         "$php" bin/console app:export-static "$work/runtime-export" --base-path="$base_path"
     )

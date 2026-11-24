@@ -1,7 +1,7 @@
 # Demo contributor guidance
 
-This Symfony application runs the example dashboard at `/demo`, the forms and interaction labs, and live recipe
-previews. The repository website publishes documentation separately. Follow the
+This Symfony host serves the example app at `/demo` and the Toolkit fixtures at `/lab`, `/forms`, and `/preview`.
+The example app has its own Playwright project. The documentation website lives in `website/`. Follow the
 [root contributor guidance](../AGENTS.md) and [project boundaries](../CONTRIBUTING.md#project-boundaries).
 
 - The application root is `demo/`, with its own Composer dependencies, cache and PHP runtime.

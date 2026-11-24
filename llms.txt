@@ -120,5 +120,4 @@ The links below point at release `0.3.5`, the version this file was written for:
 
 - [Changelog](https://raw.githubusercontent.com/xormania/uxor/0.3.5/CHANGELOG.md): what each version changes
 - [Security](https://raw.githubusercontent.com/xormania/uxor/0.3.5/SECURITY.md): reporting a vulnerability
-- [Testing patterns](https://raw.githubusercontent.com/xormania/uxor/0.3.5/docs/TESTING.md): UXor contributor reference; adapt selected reusable patterns to an application
 - [Contributing](https://raw.githubusercontent.com/xormania/uxor/0.3.5/CONTRIBUTING.md): developing the kit and Composer package: project boundaries, conventions and checks

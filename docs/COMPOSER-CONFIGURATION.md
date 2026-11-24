@@ -9,32 +9,33 @@ Follow the [installation guide](../packages/uxor/README.md) for the release-spec
 | Direct requirement | Constraint |
 | --- | --- |
 | `php` | `>=8.4` |
+| `byte-kitsune/mago-symfony-wiring` | `1.3.0` |
+| `carthage-software/mago` | `1.60.2` |
+| `composer` | `^2.8.2` |
+| `composer-plugin-api` | `^2.1` |
 | `composer/composer` | `^2.11.2` |
-| `symfony/ai-mate` | `>=1.0.0-BETA1 <1.0.0-BETA2` |
-| `symfony/ai-mate-composer-plugin` | `>=1.0.0-BETA1 <1.0.0-BETA2` |
-| `symfony/ai-symfony-mate-extension` | `>=1.0.0-BETA1 <1.0.0-BETA2` |
+| `symfony/ai-mate` | `^1.0.0-BETA1` |
+| `symfony/ai-mate-composer-plugin` | `^1.0.0-BETA1` |
+| `symfony/ai-monolog-mate-extension` | `^1.0.0-BETA1` |
+| `symfony/ai-symfony-mate-extension` | `^1.0.0-BETA1` |
 | `symfony/console` | `^7.4 \|\| ^8.0` |
+| `symfony/debug-pack` | `^1.1` |
 | `symfony/filesystem` | `^7.4 \|\| ^8.0` |
+| `symfony/http-client` | `^7.4 \|\| ^8.0` |
+| `symfony/maker-bundle` | `^1.68` |
 | `symfony/process` | `^7.4 \|\| ^8.0` |
+| `symfony/ux-toolkit` | `^3.8` |
+| `symfony/yaml` | `^7.4 \|\| ^8.0` |
 
-UXor declares the executables `uxor`, `uxor-mago`. Composer exposes them in your application's binary directory, normally `vendor/bin`.
+UXor declares the executables `uxor`, `uxor-mago`, `uxor-browser`. Composer exposes them in your application's binary directory, normally `vendor/bin`.
 
 ## Optional development setup
 
 Run `vendor/bin/uxor setup --format=json` to see the proposed configuration and installed dependency evidence for your application.
 
-These are the additional package requests outside UXor’s direct Composer requirements.
-
-| Development dependency | Requested version |
-| --- | --- |
-| `symfony/debug-pack` | Composer selects a compatible version |
-| `symfony/maker-bundle` | Composer selects a compatible version |
-| `carthage-software/mago` | `1.60.2` |
-| `byte-kitsune/mago-symfony-wiring` | `1.3.0` |
-| `symfony/ai-monolog-mate-extension` | `1.0.0-BETA1` |
-
-Symfony Flex can unpack a pack into individual dependencies. Setup checks the installed components when the pack itself is absent and skips requests your application already satisfies.
-After reviewing the plan, run `vendor/bin/uxor setup --apply --install --trust-project-code` to authorize installation in the selected application.
+Composer supplies the development tools listed above. Symfony Flex may unpack the debug and profiler packs into their component packages.
+After reviewing the plan, run `vendor/bin/uxor setup --apply` to apply the proposed configuration.
+The setup flags `--install` and `--trust-project-code` remain available for older scripts.
 
 ## Setup defaults
 
@@ -54,7 +55,7 @@ See [setup options and permissions](../packages/uxor/OPERATIONS.md#setup) before
 
 ## Application files
 
-Paths are relative to the selected application. The setup plan shows which files apply to your client and configuration.
+Paths are relative to the selected application. The table uses the default Symfony config directory. Your setup plan shows the paths for your application and client.
 
 | Setting | Application path |
 | --- | --- |

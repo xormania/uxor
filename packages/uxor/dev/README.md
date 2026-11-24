@@ -54,8 +54,8 @@ command to choose one.
 are paths, not shell commands. `prepare --no-assets` skips the importmap downloads for console-only work.
 
 `prepare` installs the repository's and the consumer's lock files, keeps an existing `.env.local` (or writes one with
-a private development secret), warms the container, runs Mate's `init` and then `discover`. Repeating `init` keeps
-its existing configuration. Commit intentional lock file changes with the change that needs them.
+a private development secret) and warms the container. The consumer's Composer install initializes Mate and
+refreshes its extensions. Commit intentional lock file changes with the change that needs them.
 
 ## Live Composer lifecycle in tmux
 
@@ -214,6 +214,13 @@ After preparing the customer workflow, run a targeted headless Chromium check fr
 npm run test:workflow:diagnostics -- -g 'a saved row leaving the active search'
 ```
 
+The installed browser launcher also has a standalone acceptance check against a plain HTML page served on
+loopback. It exercises a broken page, a clean page without a profile token and an HTTP 404 before installing
+recipes. Package CI starts with an empty native runtime and browser cache. The Browser provider workflow repeats the
+check with a cold Docker image when its inputs change. Run `python3 packages/uxor/dev/check-headless.py packages/uxor/dev/app` against
+a prepared consumer, adding `--docker` for the container run. When testing with a local Chromium executable,
+set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its absolute path.
+
 The diagnostic run retains `trace.zip` and `browser-diagnostics.json` for each test under `app/var/browser-diagnostics`,
 including passes. Read the selected manifest through the installed UXor tools. Pass the path relative to `app/`:
 
@@ -299,9 +306,16 @@ Two separately marked archives exercise Composer's automatic update hooks. The h
 uses the actual released and candidate distributions and can also run directly with
 `python3 packages/uxor/tools/check-package.py --release-upgrade`.
 
-The same `--consumer` run installs the archive in a fresh Symfony Flex application. It compares the pack
-requirements selected by Composer with the manifests UXor ships for offline inspection, before Flex unpacks
-them. If those requirements change, refresh the corresponding `composer.json` and license in
-`packages/uxor/resources/symfony/packs/` from the upstream revision in the failure message. The current
-snapshots come from [debug-pack v1.1.0](https://github.com/symfony/debug-pack/tree/v1.1.0) and
-[profiler-pack v1.0.6](https://github.com/symfony/profiler-pack/tree/v1.0.6).
+The same `--consumer` run starts with a fresh Symfony Flex application that accepts beta dependencies and
+prefers stable releases. It authorizes Composer plugins and adds only `xormania/uxor` to `require-dev`.
+The first command after installation calls `uxor_catalog` through the installed Mate CLI. Symfony UX Toolkit
+installs Kbd from the same distribution. The consumer checks Symfony's official debug recipes, retrieves a
+dump and its matching log from one request, and boots a clean production deployment with
+`composer install --no-dev`. It also promotes Monolog to a runtime dependency and checks that production
+uses the application's logging configuration. Returning Monolog to development keeps the customized recipe
+and boots production without Monolog. Removing UXor preserves the configuration the application owned before
+the first Composer install.
+
+The test compares Composer's resolved debug-pack and profiler-pack requirements with the Symfony manifests
+under `packages/uxor/resources/symfony/packs`. When an upstream pack changes, refresh its manifest from the
+source commit identified by the failing check.

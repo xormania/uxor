@@ -98,8 +98,20 @@ test('the index offers Composer first, the recipe catalog, and the visual demo',
     expect(secondary).toBeTruthy();
     expect(await demo.getAttribute('class')).toBe(secondary);
     expect(await primary.getAttribute('class')).not.toBe(secondary);
+    await expect(hero).toContainText('Symfony UX Toolkit');
+    await expect(hero).toContainText('Mate');
+    await expect(hero).toContainText('headless Chromium');
+    await page.locator('#install').getByRole('link', { name: 'configured for Symfony UX Toolkit' }).click();
+    await expect(page).toHaveURL(/\/uxor\/install\/$/);
+    await expect(page.locator('main')).toContainText('php bin/console ux:install');
+    await page.goBack();
+
     await primary.click();
     await expect(page).toHaveURL(/\/uxor\/composer\/$/);
+    const developmentInstall = page.locator('pre code').filter({ hasText: /composer require --dev/ });
+    await expect(developmentInstall).toHaveCount(1);
+    await expect(developmentInstall).toHaveText(/^composer require --dev ['"]?xormania\/uxor(?::[^'"\s]+)?['"]?\s*$/);
+    await expect(page.locator('pre code').filter({ hasText: 'vendor/bin/mate tools:call uxor_catalog' })).toBeVisible();
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {

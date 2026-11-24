@@ -19,8 +19,9 @@
  *   finish  record's and verdict's options: record, then verdict (CI result's one step)
  *   require --lane <reusable lane> --repo <o/r> --sha <sha> [--chromium-shards <n>]   (exit 0: a pass that verifies; 1: none)
  *
- * The browser tests are one job of ci.yml whose matrix the plan computes, and two lanes: `demo`, its Chromium shards
- * (CHROMIUM_SHARDS of them), and `engines`, three shards each of Firefox and WebKit. With ENGINES_ON=daily the engines run
+ * One CI matrix runs Toolkit Chromium (`demo`, CHROMIUM_SHARDS jobs), the example app's Chromium project
+ * (`demo-app`, one job), and both suites in Firefox and WebKit (`engines`, three shards per engine).
+ * With ENGINES_ON=daily the engines run
  * on dev's daily run (unless they already passed on its inputs), on main, when a manual run asks for them, and when the
  * release pull request's Release checks finds no pass for its head and starts one; on any other push they are deferred
  * (not run at this stage, said so in CI result), unless a pass on the same inputs exists. ENGINES_ON=every-push runs them
@@ -39,15 +40,21 @@ import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
 /** every lane of ci.yml's Changes job, in its order: the selector's, then the engines, which follow the browser tests */
-export const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image', 'engines'];
+export const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package', 'prod-image', 'engines'];
+const TOOLKIT_BROWSER_JOB = 'Toolkit browser verification';
+const CROSS_BROWSER_JOB = 'Cross-browser verification';
+const DEMO_APP_BROWSER_JOB = 'Demo app browser checks';
+const BROWSER_LANE_NAMES = { demo: TOOLKIT_BROWSER_JOB, 'demo-app': DEMO_APP_BROWSER_JOB, engines: CROSS_BROWSER_JOB };
+const DEMO_APP_BROWSER = { name: `${DEMO_APP_BROWSER_JOB} (chromium 1/1)`, count: 1 };
+
 /**
  * The reusable lanes, their job names in ci.yml and the job count for a full pass. The website and runtime exports
  * include revision metadata and run fresh when selected.
  */
 export const REUSABLE = {
     php: { name: 'Kit PHP', count: 1 },
-    demo: { prefix: 'Demo + Playwright (chromium ', count: null }, // CHROMIUM_SHARDS
-    engines: { prefixes: ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit '], count: 6 },
+    demo: { prefix: `${TOOLKIT_BROWSER_JOB} (chromium `, count: null }, // CHROMIUM_SHARDS
+    engines: { prefixes: [`${CROSS_BROWSER_JOB} (firefox `, `${CROSS_BROWSER_JOB} (webkit `], count: 6 },
     'prod-image': { name: 'Production image', count: 1 },
     // the lanes that resolve dependencies live (MAX_AGE_HOURS: a day)
     'fresh-install': { names: ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'], count: 2 },
@@ -57,6 +64,7 @@ export const REUSABLE = {
 export const DEFAULT_CHROMIUM_SHARDS = 6;
 /** the browser lanes share one job (`demo` in `needs`): the verdict reads them from the run's jobs */
 const BROWSER_LANES = ['demo', 'engines'];
+const BROWSER_MATRIX_LANES = [...BROWSER_LANES, 'demo-app'];
 const ENGINE_BROWSERS = ['firefox', 'webkit'];
 const ENGINE_SHARDS = 3;
 const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines";
@@ -88,7 +96,7 @@ const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'], engines: [
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
 /** the checks that are steps of the Quick checks job (`quick` in `needs`): their outcomes are its outputs */
 const QUICK_CHECKS = ['tools', 'contrast', 'workflows'];
-const IMPORTMAP_USERS = ['php', 'runtime-export', 'demo', 'engines'];
+const IMPORTMAP_USERS = ['php', 'runtime-export', 'demo', 'demo-app', 'engines'];
 const MARKER_LIMIT = 65536;
 const RERUN_NOTE = 'only "Re-run all jobs" plans the lanes again; re-running failed jobs reuses this plan';
 
@@ -332,7 +340,7 @@ export function zipEntry(buffer, wanted) {
 // lanes -------------------------------------------------------------------------------------------------------------------
 
 export function laneJobs(lane, jobs) {
-    const rule = REUSABLE[lane];
+    const rule = lane === 'demo-app' ? DEMO_APP_BROWSER : REUSABLE[lane];
     const prefixes = rule.prefixes ?? (rule.prefix !== undefined ? [rule.prefix] : []);
     const names = rule.names ?? (rule.name !== undefined ? [rule.name] : null);
     return jobs.filter((job) => isObject(job) && typeof job.name === 'string'
@@ -340,7 +348,7 @@ export function laneJobs(lane, jobs) {
 }
 
 /** how many jobs a full pass of the lane has */
-const expected = (lane, chromiumShards) => (lane === 'demo' ? chromiumShards : REUSABLE[lane].count);
+const expected = (lane, chromiumShards) => (lane === 'demo' ? chromiumShards : (REUSABLE[lane] ?? DEMO_APP_BROWSER).count);
 
 function chromiumShards(value) {
     const shards = value === undefined ? DEFAULT_CHROMIUM_SHARDS : Number(value);
@@ -598,7 +606,7 @@ async function planCommand(opts) {
         const [lane, value] = line.split('=');
         return [lane, value === 'true'];
     }));
-    // the engines test what the browser tests test: selected with them, unless the selection names them (the daily run)
+    // Toolkit input changes select cross-engine verification. Daily and release runs can select it explicitly.
     selected.engines ??= selected.demo ?? true;
     const reuseOff = opts.ref === 'refs/heads/main' ? 'main' : opts.reuse === 'off' ? 'switch' : null;
     // when the engines run rather than wait: on main, with ENGINES_ON=every-push, when a manual run asks, on the daily run
@@ -618,7 +626,7 @@ async function planCommand(opts) {
     const lanes = {};
     for (const lane of LANES) {
         const entry = { selected: selected[lane] ?? true, decision: 'run', fingerprint: own?.[lane] ?? null, reason: '', detail: '', evidence: null };
-        if (REUSABLE[lane]) entry.jobs_expected = expected(lane, ctx.chromiumShards);
+        if (REUSABLE[lane] || lane === 'demo-app') entry.jobs_expected = expected(lane, ctx.chromiumShards);
         lanes[lane] = entry;
         if (!entry.selected) Object.assign(entry, { decision: 'skip', reason: 'not_selected', detail: 'the change cannot affect it' });
         else if (!REUSABLE[lane]) Object.assign(entry, { reason: 'not_reusable', detail: 'it always runs when selected' });
@@ -640,14 +648,29 @@ async function planCommand(opts) {
             Object.assign(entry, { decision: 'defer', reason: 'deferred', detail: DEFERRED });
         }
     }
-    // the browser job's matrix: the Chromium shards when the demo lane runs, the engines' when they run
     const include = [];
     if (lanes.demo.decision === 'run') {
-        for (let shard = 1; shard <= ctx.chromiumShards; shard++) include.push({ browser: 'chromium', shard, shards: ctx.chromiumShards, projects: '--project=smoke --project=examples' });
+        for (let shard = 1; shard <= ctx.chromiumShards; shard++) {
+            include.push({
+                suite: TOOLKIT_BROWSER_JOB, browser: 'chromium', 'artifact-browser': 'chromium', shard, shards: ctx.chromiumShards,
+                projects: '--project=smoke --project=examples',
+            });
+        }
+    }
+    if (lanes['demo-app'].decision === 'run') {
+        include.push({
+            suite: DEMO_APP_BROWSER_JOB, browser: 'chromium', 'artifact-browser': 'demo-app-chromium', shard: 1, shards: 1,
+            projects: '--project=demo-app',
+        });
     }
     if (lanes.engines.decision === 'run') {
         for (const browser of ENGINE_BROWSERS) {
-            for (let shard = 1; shard <= ENGINE_SHARDS; shard++) include.push({ browser, shard, shards: ENGINE_SHARDS, projects: `--project=smoke-${browser} --project=examples-${browser}` });
+            for (let shard = 1; shard <= ENGINE_SHARDS; shard++) {
+                include.push({
+                    suite: CROSS_BROWSER_JOB, browser, 'artifact-browser': browser, shard, shards: ENGINE_SHARDS,
+                    projects: `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`,
+                });
+            }
         }
     }
     const plan = {
@@ -988,12 +1011,12 @@ function verdictCommand(opts) {
         let ran;
         let passed;
         let results;
-        if (BROWSER_LANES.includes(lane) && !jobs && result('demo') === 'skipped') {
-            // the browser job was skipped: nothing of either lane ran, and no job list is needed to say so
+        if (BROWSER_MATRIX_LANES.includes(lane) && !jobs && result('demo') === 'skipped') {
+            // the browser job was skipped: none of its lanes ran, and no job list is needed to say so
             ran = false;
             passed = false;
             results = ['skipped'];
-        } else if (BROWSER_LANES.includes(lane)) {
+        } else if (BROWSER_MATRIX_LANES.includes(lane)) {
             if (!jobs) {
                 status('incomplete', "the run's jobs could not be read, so the browser lanes cannot be told apart");
                 continue;
@@ -1059,7 +1082,7 @@ function verdictCommand(opts) {
     }
     const label = (value) => (value.status === 'not_run_at_this_stage' ? 'NOT RUN AT THIS STAGE' : value.status);
     const why = (value) => (value.status === 'not_run_at_this_stage' ? DEFERRED.replace('NOT RUN AT THIS STAGE: ', '') : value.reason);
-    const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${label(value)} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${why(value)} |`);
+    const rows = Object.entries(lanes).map(([lane, value]) => `| ${BROWSER_LANE_NAMES[lane] ?? lane} | ${label(value)} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${why(value)} |`);
     const summary = [
         '### Lanes', '',
         '| Lane | Result | Producer | Flaky | Why |', '|---|---|---|---|---|', ...rows, '',

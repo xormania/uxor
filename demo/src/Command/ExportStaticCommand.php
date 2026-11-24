@@ -54,7 +54,7 @@ final class ExportStaticCommand
 
         $assets = $this->projectDir.'/public/assets';
         if (!is_file($assets.'/manifest.json')) {
-            $io->error('No compiled assets: run "bin/console tailwind:build" and "bin/console asset-map:compile" first.');
+            $io->error('No compiled assets: run "bin/console app:build-styles" and "bin/console asset-map:compile" first.');
 
             return Command::FAILURE;
         }

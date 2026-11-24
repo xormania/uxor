@@ -1,11 +1,9 @@
 # Contributing to UXor
 
-UXor is an independently maintained Symfony UI library, currently distributed as a Symfony UX Toolkit kit:
-`manifest.json` at the root, one recipe per top-level directory
-holding a `manifest.json`. The same repository is the Composer package `xormania/uxor`, agent guidance and development
-tools for projects using the kit: `composer.json` at the root, its code in `packages/uxor/`
-([`docs/PLAN-composer-package.md`](docs/PLAN-composer-package.md)). This page covers the repository, the conventions,
-adding a recipe, and the commit and pull request standard.
+This guide covers contributions to UXor's Symfony UX Toolkit recipes and its Composer development package.
+The kit lives in the root `manifest.json` and the recipe directories. Root `composer.json` defines
+`xormania/uxor`, with its code in `packages/uxor/`. To use either product in a Symfony application, start
+with the [Composer setup guide](packages/uxor/README.md) or the [direct Toolkit setup](INSTALL.md).
 
 The official Symfony UX `flowbite-4` kit was an initial reference only. UXor's requirements and compatibility
 commitments govern its design, APIs, documentation and tests; inherited names, markup and behavior carry no
@@ -33,7 +31,7 @@ that install UXor: those applications keep their own instructions, ownership, re
 | Toolkit contribution | Root `manifest.json` and top-level recipe directories | This guide and [root agent guidance](AGENTS.md); edit recipe sources here |
 | Composer dev package development | Root `composer.json`; implementation in `packages/uxor/` | Root Composer dependencies and tests; packaged instructions and skills are product content for consuming applications |
 | Project documentation website | `website/` | Builds release guides, recipe pages, portable Markdown and discovery files from the kit and Composer package sources. See [Docs](#docs). |
-| Example application | `demo/` | [Local Docker setup](#setup) and [demo guidance](demo/AGENTS.md). The app supplies the visual demo and recipe previews for Pages. |
+| Symfony example application and Toolkit test host | `demo/` | [Local Docker setup](#setup) and [demo guidance](demo/AGENTS.md). Pages uses the exported example app at `/demo/` and recipe previews at `/preview/`. The host also runs the local lab and form fixtures. |
 | Package consumer fixture | `packages/uxor/dev/app/` | [Fixture guide](packages/uxor/dev/README.md); independent Composer application, runner and browser suite; installs the package and recipes through consumer workflows |
 | Application using UXor | The application's own root | [FOR-AGENTS.md](FOR-AGENTS.md) for kit use; the installed package's instructions and skills for its tools; the application owner's governance and runtime |
 
@@ -99,16 +97,18 @@ same way unless users of the kit or of the package need it.
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker) with FrankenPHP in worker mode,
 PHP 8.5 and HTTPS. Docker is enough to serve it locally. Symfony AssetMapper fetches browser packages and
-TailwindBundle builds CSS with the standalone Tailwind binary. The demo's
-[stylesheet](demo/assets/styles/app.css) declares its utility sources: the demo's templates, recipe sources and the examples in recipe READMEs. When a new surface renders utility
-classes, include it in the stylesheet and in the [CSS rebuild check](tools/prepare-tests.mjs).
+TailwindBundle builds CSS with the standalone Tailwind binary. The [example app stylesheet](demo/assets/styles/demo-app.css)
+scans the example app's templates. The [Toolkit fixture stylesheet](demo/assets/styles/toolkit-fixtures.css) scans labs,
+forms, OAuth fixtures, and the recipe README examples. Both import [the installed Toolkit and shared host styles](demo/assets/styles/shared.css).
+When adding utility sources, include each source in the stylesheet that uses it and in the
+[CSS rebuild check](tools/prepare-tests.mjs).
 
 ```bash
 (
     cd demo
     docker compose up --wait
     docker compose exec php php ../tools/sync-demo
-    docker compose exec php bin/console tailwind:build
+    docker compose exec php bin/console app:build-styles
 )
 ```
 
@@ -122,7 +122,7 @@ Do not run the browser tests with `develop` on ([`docs/TESTING.md`](docs/TESTING
 Open https://localhost to enter the example app (the demo listens on this machine only) and accept the certificate of Caddy's local
 authority. The container sees the whole repository in `/app` and runs the demo from `/app/demo`, as on disk;
 FrankenPHP restarts its workers when a file changes. After changing a recipe, run `tools/sync-demo` and
-`tailwind:build` again. `tools/sync-demo` never deletes: remove a renamed or deleted recipe file from `demo/`
+`app:build-styles` again. `tools/sync-demo` never deletes: remove a renamed or deleted recipe file from `demo/`
 yourself. `docker compose down` stops the demo.
 
 The demo image builds from the repository, not from `demo/`: `compose.override.yaml` sets `context: ..` and
@@ -146,7 +146,7 @@ it when the demo's files it holds or its build inputs change (*Production image*
 release.
 
 Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
-`(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
+`(cd demo && composer install && php bin/console app:build-styles && php bin/console asset-map:compile)`, and serve
 the demo with `php -S 127.0.0.1:8000 -t demo/public tools/plant-router.php`. The router forwards application
 and AssetMapper routes to Symfony and serves public files directly. Recompile when using compiled assets.
 
@@ -290,7 +290,8 @@ input until the classifier and its tests say otherwise. A deletion counts as a c
 as a change to both paths.
 
 *Tool tests*, *Contrast* and *Workflows* below are checks, run as the steps of one job, *Quick checks*: Tool tests on
-every run, the other two when selected. *Demo + Playwright* below means the Chromium shards when the lane is selected and has no reusable result. Firefox and WebKit run on `dev`'s daily run, on
+every run, the other two when selected. *Toolkit browser verification* runs the Toolkit's Chromium shards when selected
+with no reusable result. *Demo app browser checks* runs the example app in one Chromium job. Firefox and WebKit run on `dev`'s daily run, on
 `main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
 (`docs/TESTING.md`, *Browsers*).
 
@@ -359,19 +360,20 @@ phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php -
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below
-npx playwright test --project=smoke --project=examples   # Chromium only, the screenshots included: the quicker loop
+npx playwright test --project=smoke --project=examples   # Toolkit on Chromium, including screenshots
+npx playwright test --project=demo-app                   # example app on Chromium, including layout screenshots
 RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # the three release browser projects (docs/TESTING.md also lists PHP properties and the production image)
 node --test 'tools/monthly/*.test.mjs'              # the cases of the monthly job's report tools (tools/monthly/)
 php tools/monthly/php-scope.php coverage/php        # the monthly job's PHP scope: coverage/php/phpunit.xml and infection.json5 (the recipes' src/)
 (cd demo && bin/phpunit -c ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml) && node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml   # PHP coverage per recipe class (needs PCOV, or Xdebug with XDEBUG_MODE=coverage)
 (cd demo && php infection.phar -c ../coverage/php/infection.json5) && node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json   # Infection's MSI and surviving mutants (the PHAR CI pins in monthly.yml)
-JS_COVERAGE=$PWD/coverage/js/raw npx playwright test --project=smoke --project=examples && node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw   # the controllers' JS coverage and the methods no test runs (Chromium)
+JS_COVERAGE=$PWD/coverage/js/raw npx playwright test --project=smoke --project=examples --project=demo-app && node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw   # the controllers' JS coverage and the methods no test runs (Chromium)
 PW_TIMINGS=1 PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/timings.json npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 --reporter=json && node tools/monthly/timings.mjs --out coverage/timings coverage/timings.json   # the interaction timings, report only (Chromium)
-PW_SCREENSHOTS=all PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/screens.json npx playwright test --project=smoke-firefox --project=examples-firefox --retries=0 --reporter=json; node tools/monthly/screenshots.mjs --browser firefox --shard 1/1 --out coverage/screens coverage/screens.json   # Firefox's screenshots against the Chromium baselines (fails on any difference; the report reads it)
+PW_SCREENSHOTS=all PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/screens.json npx playwright test --project=smoke-firefox --project=examples-firefox --project=demo-app-firefox --retries=0 --reporter=json; node tools/monthly/screenshots.mjs --browser firefox --shard 1/1 --out coverage/screens coverage/screens.json   # Firefox's screenshots against the Chromium baselines (fails on any difference; the report reads it)
 node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-coverage.json --infection coverage/php/infection-summary.json --js coverage/js/js-coverage.json --timings coverage/timings/timings.json   # the numbers in one monthly.json, against --previous <monthly.json>
 actionlint                                          # every workflow, with ShellCheck on its run steps (CI pins actionlint 1.7.12 and ShellCheck 0.11.0)
 
-composer validate --strict                          # the root composer.json, the Composer package xormania/uxor, and that composer.lock matches it (see Setup)
+python3 packages/uxor/tools/validate-composer.py    # strict Composer validation of the package and lock; allows the two release-matched native provider pins
 php packages/uxor/tools/generate-command-guide.php   # refresh the CLI and configuration references from the package (requires composer install)
 php packages/uxor/tools/generate-reference.php      # refresh the Composer install command and bundle the guides from the working tree
 php packages/uxor/tools/generate-reference.php --check   # the bundled references are up to date: lists the stale files, changes nothing
@@ -383,7 +385,7 @@ python3 packages/uxor/tools/check-package.py --consumer   # that archive install
 python3 packages/uxor/dev/run.py --native prepare && python3 packages/uxor/dev/run.py --native check   # the consumer's container, Twig and Mate (packages/uxor/dev/README.md)
 ```
 
-Run `tools/sync-demo` and `bin/console tailwind:build` first so the PHP tests render the current recipes and CSS.
+Run `tools/sync-demo` and `bin/console app:build-styles` first so the PHP tests render the current recipes and CSS.
 Use `CREATE_SNAPSHOTS=true bin/phpunit` to create intentionally added snapshots. A change in a component's markup changes its snapshot in
 `demo/tests/Twig/__snapshots__/`: rewrite it with `UPDATE_SNAPSHOTS=true bin/phpunit` and review it like code. CI
 runs them with `CREATE_SNAPSHOTS=false`, so a missing snapshot fails there. The patterns are in
@@ -451,16 +453,17 @@ environment, and a later `docker compose up` (such as turning Xdebug on) without
 default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). For a manually started native demo, pass its URL in `DEMO_URL` and route Symfony requests with the native setup command above.
 For an already running native server, also set `PHP_BINARY=php` or its PHP executable. For managed native servers,
 choose a free `DEMO_PORT`. [The Playwright configuration](playwright.config.ts) defines how the tests connect to
-the browser server. Before the tests, Playwright
-checks the demo's Tailwind inputs, including the recipe examples, the two guides the gallery renders and the
-Symfony form layouts the demo inherits. A change to those sources or the build inputs triggers a rebuild.
-The content digest is kept in `demo/var/tailwind/sources.sha256`. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
-(`tests/e2e/examples/recipes/`) when Playwright loads its configuration; each step holds a lock, and nothing is
-written when nothing changed, so several Playwright processes can share a checkout, and `--list` builds nothing.
-CI runs it as its own step before the tests (`node tools/prepare-tests.mjs`). A demo serving `demo/public/assets/`
-still needs `asset-map:compile` after that. The demo shows all of a recipe's examples at `/r/<recipe>`, and one example
-alone at `/preview/<recipe>/<example>?theme=light` (or `dark`). `<example>` is the slug of the heading above the
-example: `default` for the one under the title, with `-2`, `-3`… added when a heading repeats.
+the browser server. Before tests run, `tools/prepare-tests.mjs` checks the source digest for each stylesheet
+in `demo/var/tailwind/<entrypoint>.sources.sha256`. The example app uses `demo-app`. Labs, forms and recipe
+previews use `toolkit-fixtures`, whose inputs include the README examples. Both use the shared recipe and host
+styles. Playwright prepares runnable copies of the recipe specs in `tests/e2e/examples/recipes/` when it loads
+its configuration and rebuilds changed CSS before running tests. Each step holds a lock so concurrent test
+processes can share a checkout. When the server uses compiled assets in `demo/public/assets/`, rerun
+`bin/console asset-map:compile` from `demo/` after rebuilding CSS.
+
+The [website](#docs) lists each recipe's examples at `/r/<recipe>/`. The Symfony host renders individual
+previews at `/preview/<recipe>/<example>?theme=light` or `?theme=dark`. The example ID comes from the
+preceding heading, with `default` under the recipe title and `-2`, `-3` and so on for repeated headings.
 
 ## Conventions
 
@@ -563,9 +566,10 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
    only the line `::: installation` (the toolkit replaces it with the install steps), `## Usage`, then more examples
    under `##` or `###` headings. Open each example with ```` ```twig {"preview":true} ````: the demo renders it and
    Playwright screenshots it in light and dark. A plain ```` ```twig ```` block is shown as code only.
-4. Run `tools/sync-demo`, then `(cd demo && php bin/console tailwind:build && php bin/console asset-map:compile)`: the
-   demo's CSS only holds the classes it has seen, and the demo serves the compiled files. Start the demo (see *Setup*)
-   and open `/r/<recipe>` and `/preview/<recipe>/<example>?theme=dark`.
+4. Run `tools/sync-demo`, then `(cd demo && php bin/console app:build-styles && php bin/console asset-map:compile)`: the
+   host serves the compiled CSS. Open `/preview/<recipe>/<example>?theme=dark` on the running [Symfony host](#setup).
+   To review the rendered documentation and its embedded previews together, build the complete [local site](#docs)
+   and open `/uxor/r/<recipe>/`.
    - Icons: Iconify on demand is off in the demo, so import each icon the recipe uses
      (`(cd demo && php bin/console ux:icons:import flowbite:<name>)`) and commit it under `demo/assets/icons/`.
    - A block that takes a Symfony form gets one for its previews in `demo/src/Kit/PreviewForms.php`.
@@ -586,8 +590,8 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
    If the recipe puts a text, icon or bar color on a background that `tools/contrast/pairs.json` does not cover yet,
    add a row there: `fg`, `bg`, `min` (4.5 for text, 3 for icons, bars and focus rings) and `usage`.
 7. Add a row for the recipe to the matching table in `docs/RECIPES.md` (mark it ✦ if it ships a Stimulus
-   controller), run `node tools/llms-txt.mjs` to add it to `llms.txt` and to `FOR-AGENTS.md`'s table, and add an
-   entry to `CHANGELOG.md` (see *Changelog*). If it is close to another recipe, say which to pick in the list under
+   controller), run `composer docs:generate` to refresh the website categories, agent indexes and package references,
+   and add an entry to `CHANGELOG.md` (see *Changelog*). If it is close to another recipe, say which to pick in the list under
    that table (*Which recipe*). Commit, then run
    the checks that cover a new recipe: the kit lint, `ux-toolkit-kit-debug`, `node tools/contrast/check.mjs` if you added pairs, and
    `npx playwright test`. CI runs all of them.
@@ -606,19 +610,27 @@ website and the installed agent references. Website templates, styles and naviga
 `website/`. This build works without installing the example application.
 
 A complete release adds the example app and rendered recipe previews from a second build.
-Use `tools/build-static.sh _site --base-path=/uxor` to build both from the same checkout.
-The `/demo/` pages show visitors what the application looks like. Run the Docker application
+To inspect the combined site locally, serve both outputs under the same base path:
+
+```sh
+tools/build-static.sh _site/uxor --base-path=/uxor
+python3 -m http.server 8001 --bind 127.0.0.1 --directory _site
+```
+
+Open `http://127.0.0.1:8001/uxor/` for the documentation or `/uxor/demo/` for the visual example app.
+Run the [Symfony host](#setup)
 to exercise features that need a Symfony server.
 
 The recipe tables in `docs/RECIPES.md` supply the website’s category index, the recipe lists in
 `FOR-AGENTS.md` and the release index in `llms.txt`. Edit the table once, then run
-`node tools/llms-txt.mjs` and commit the generated files. CI's *Contrast* checks (in *Quick checks*) run
-it with `--check`, which fails when:
+`composer docs:generate` and commit the resulting indexes and packaged references. Within that
+command, `node tools/llms-txt.mjs` generates the category and discovery indexes. CI runs its
+`--check` mode in *Contrast*. It fails when:
 
 - a directory with a `manifest.json` is missing from the tables, listed twice, or a row names no recipe;
 - a plan's status does not match the recipes that ship (*Plans* below);
-- `llms.txt`, or the table between `<!-- recipes:start` and `<!-- recipes:end -->` in `FOR-AGENTS.md`, is not what
-  the script writes;
+- the website category index in `website/resources/recipe-categories.json`, `llms.txt` or the generated recipe
+  table in `FOR-AGENTS.md` differs from the generator output;
 - `FOR-AGENTS.md` or `docs/PROJECT-AGENTS-SNIPPET.md` names a recipe that does not exist (`ux:install <name>`, a
   `<name>/README.md` link).
 
@@ -715,7 +727,7 @@ the code names (`App\UXor`, `uxor-*.js`, `uxor*.css`) are renamed by hand, with 
 `<recipe>/tests/screenshots/*.png` are the baselines Playwright compares screenshots with. Never update them as a
 side effect. A visual change is a commit of its own:
 
-1. Run `npx playwright test --project=examples --update-snapshots`. It rewrites every baseline that differs.
+1. Run `npx playwright test --project=examples --project=demo-app --update-snapshots`. It rewrites every baseline that differs.
 2. Keep only the files you meant to change (check `git status`), and review them.
 
 ## Commits and pull requests

@@ -63,27 +63,18 @@ jobs:
                   version: '0.13.9'
                   enable-cache: false
 
-            - name: Build the CLI provider from the package
-              run: packages/uxor/bin/uxor-mago pull cli
-
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
-            - name: Name the build cache
-              id: cache
-              env:
-                  REPO: ${{ github.repository }}
+            - name: Run both providers on first use
               run: |
-                  image="ghcr.io/${REPO,,}-cache"
-                  echo "image=$image" >> "$GITHUB_OUTPUT"
-
-            # CI's Build cache job exports these layers on dev and main. BuildKit uses them when they match the
-            # package recipe and inputs, and builds from source when they do not.
-            - name: Build the Serena provider from the package
-              run: |
-                  tag=$(packages/uxor/bin/uxor-mago image serena)
-                  sh packages/uxor/resources/mago/serena/build.sh --load --tag "$tag" \
-                      "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-dev" \
-                      "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-main"
+                  for provider in cli serena; do
+                      tag=$(packages/uxor/bin/uxor-mago image "$provider")
+                      if docker image inspect "$tag" >/dev/null 2>&1; then
+                          echo "::error::The first-use check needs an uncached provider tag: $tag"
+                          exit 1
+                      fi
+                      packages/uxor/bin/uxor-mago version "$provider"
+                  done
 
             - name: Check the installed archive through setup, Symfony semantics and source repair
               run: python3 packages/uxor/tools/check-package.py --consumer --providers

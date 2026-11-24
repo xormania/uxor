@@ -7,26 +7,23 @@ trial=$(mktemp -d)
 trap 'rm -rf "$trial"' EXIT
 app="$trial/packages/uxor/dev/app"
 package="$trial/packages/uxor"
-mkdir -p "$app/mate"
+mkdir -p "$app"
 cp "$root/composer.json" "$trial/"
 for part in bin config resources skills src INSTRUCTIONS.md; do
     cp -R "$root/packages/uxor/$part" "$package/"
 done
 cp "$root/packages/uxor/dev/app/"{composer.json,composer.lock} "$app/"
-cp "$root/packages/uxor/dev/app/mate/config.php" "$app/mate/"
 
 cd "$app"
 composer install --prefer-dist --no-interaction --no-progress
 
-jq -e --arg version 'v1.0.0-BETA1' '
-    INDEX(.packages[]; .name)
-    | .["symfony/ai-mate"].version == $version
-      and .["symfony/ai-mate-composer-plugin"].version == $version
-      and .["symfony/ai-symfony-mate-extension"].version == $version
+vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json |
+    jq -e '.operation == "catalog" and .status == "completed" and any(.data.items[]; .name == "kbd")'
+jq -e '
+    INDEX(.packages[]; .name) as $installed |
+    ["symfony/ai-mate", "symfony/ai-mate-composer-plugin", "symfony/ai-symfony-mate-extension",
+     "symfony/ai-monolog-mate-extension"] | all(.[]; $installed[.].version | test("^v?1\\."))
 ' vendor/composer/installed.json
-vendor/bin/mate init --no-interaction
-composer dump-autoload --no-interaction
-vendor/bin/mate discover --no-interaction
 tools_json=$(vendor/bin/mate tools:list --format=json)
 jq -e '
     [.tools | to_entries[] | select(.value.extension == "xormania/uxor") | .key] | sort ==

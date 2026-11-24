@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import socket
 import subprocess
 import time
@@ -24,13 +25,30 @@ NON_FLEX_DEBUG_PACKAGES = {
 }
 
 
-def run(event: str, arguments: list[str], root: Path, *, timeout: float = 120, allowed=(0,)) -> subprocess.CompletedProcess:
+def run(event: str, arguments: list[str], root: Path, *, timeout: float = 120, allowed=(0,),
+        env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     with observe(event):
-        result = subprocess.run(arguments, cwd=root, text=True, capture_output=True, timeout=timeout)
+        result = subprocess.run(arguments, cwd=root, text=True, capture_output=True, timeout=timeout, env=env)
         if result.returncode not in allowed:
             raise RuntimeError(f"Consumer command failed ({result.returncode}): {arguments[:4]!r}\n"
                                + result.stderr[-4000:] + result.stdout[-4000:])
         return result
+
+
+def install_kbd(root: Path, php: str) -> Path:
+    """Install the packaged recipe through Toolkit's local kit registry, without fetching another release."""
+    dist = root / "vendor/xormania/uxor"
+    kit = root / "vendor/symfony/ux-toolkit/kits/uxor-lifecycle"
+    shutil.copytree(dist, kit)
+    try:
+        run("toolkit.install-kbd", [php, "bin/console", "ux:install", "kbd", "--kit=" + kit.name, "--no-interaction"], root)
+    finally:
+        shutil.rmtree(kit)
+    component = Path("templates/components/Kbd.html.twig")
+    installed = root / component
+    if installed.read_bytes() != (dist / "kbd" / component).read_bytes():
+        raise RuntimeError("Toolkit did not install the Kbd template from the Composer distribution")
+    return installed
 
 
 def operation(root: Path, php: str, name: str, *arguments: str, allowed=(0,), timeout=120) -> dict:
@@ -57,7 +75,7 @@ def snapshot(root: Path) -> dict[str, str]:
 
 @observe("consumer.setup")
 def setup(root: Path, php: str) -> None:
-    """Install through the public command, preserving application decisions."""
+    """Configure the installed stack and preserve the application’s existing decisions."""
     profiler_policy = root / "config/packages/dev/application.yaml"
     profiler_policy.parent.mkdir(parents=True, exist_ok=True)
     profiler_policy.write_text("parameters:\n    env(APP_CAPTURE_REQUESTS): '0'\n"
@@ -67,12 +85,10 @@ def setup(root: Path, php: str) -> None:
     if planned["changes"] or snapshot(root) != before:
         raise RuntimeError("Setup planning changed the independent consumer")
     instructions = (root / "AGENTS.md").read_bytes()
-    if (root / "mate/config.php").exists() or (root / "mate/extensions.php").exists():
-        raise RuntimeError("The first installation needs a consumer where Mate has never been initialized")
-    installed = operation(root, php, "setup", "--apply", "--install", "--trust-project-code",
-                          allowed=(0, 2), timeout=900)
-    if not installed["changes"]:
-        raise RuntimeError("Fresh consumer setup reported no application configuration changes")
+    composer_state = {name: (root / name).read_bytes() for name in ("composer.json", "composer.lock")}
+    installed = operation(root, php, "setup", "--apply", allowed=(0, 2))
+    if installed["data"]["executions"] or any((root / name).read_bytes() != content for name, content in composer_state.items()):
+        raise RuntimeError("Applying UXor configuration changed the installed Composer dependencies or ran a subprocess")
     for name in ("mago.toml", ".uxor/mago/config.toml", ".uxor/mago/worker.php",
                  ".uxor/browser.mjs", ".uxor/mcp.json",
                  "mate/config.php", "mate/extensions.php"):
@@ -111,21 +127,17 @@ def setup(root: Path, php: str) -> None:
         raise RuntimeError("The independent non-Flex consumer unexpectedly installed Flex")
     missing = (NON_FLEX_DEBUG_PACKAGES | {"symfony/maker-bundle"}) - packages.keys()
     if missing:
-        raise RuntimeError("Public setup did not install the full development tools: " + ", ".join(sorted(missing)))
+        raise RuntimeError("Composer did not install the full development tools: " + ", ".join(sorted(missing)))
     incompatible = [item["package"] for item in installed["data"]["dependencies"] if not item["compatible"]]
     if incompatible:
         raise RuntimeError("Initial setup still reports missing development dependencies: " + ", ".join(incompatible))
     for name, version in {"carthage-software/mago": "1.60.2", "byte-kitsune/mago-symfony-wiring": "1.3.0"}.items():
         if packages.get(name) != version:
-            raise RuntimeError(f"Setup installed {name} at {packages.get(name)}, expected {version}")
+            raise RuntimeError(f"Composer installed {name} at {packages.get(name)}, expected {version}")
     manifest = json.loads((root / "composer.json").read_text())
-    if manifest.get("minimum-stability", "stable") != "stable":
-        raise RuntimeError("Setup weakened the application's Composer stability policy")
-    for name in ("symfony/debug-pack", "symfony/ai-monolog-mate-extension",
-                 "carthage-software/mago", "byte-kitsune/mago-symfony-wiring"):
-        if name not in manifest.get("require-dev", {}) or name in manifest.get("require", {}):
-            raise RuntimeError("Setup did not keep development tools in require-dev: " + name)
-    print("Installed setup: real Composer dev dependencies, first Mate initialization, separate saved execution permission and application instructions verified.")
+    if manifest.get("minimum-stability") != "beta" or manifest.get("prefer-stable") is not True:
+        raise RuntimeError("The application's selected Composer stability settings changed")
+    print("Installed setup: Composer supplied every dev dependency and initialized Mate; explicit setup configured the application and preserved its instructions.")
 
 
 def check_application_profiler(root: Path, php: str, expected: bool, **switches: str) -> None:
@@ -390,11 +402,14 @@ def check_detached_tools(root: Path, php: str) -> None:
 
     # A real in-file type finding proves native Mago loaded and analyzed the app without calling UXor's removed worker.
     source = root / "src/DetachedProbe.php"
-    source.write_text("<?php\ndeclare(strict_types=1);\nnamespace App;\nfunction detachedProbe(): int { return 'wrong'; }\n")
+    source.write_text("<?php\ndeclare(strict_types=1);\nnamespace App;\nfinal class DetachedProbe { public function value(): int { return 'wrong'; } }\n")
     result = run("mago.detached-native", [php, "vendor/bin/mago", "analyze", "--reporting-format", "json",
                                           "--reporting-target", "stdout", "--", "src/DetachedProbe.php"],
                  root, allowed=(1,), timeout=180)
-    issues = json.loads(result.stdout)["issues"]
+    try:
+        issues = json.loads(result.stdout)["issues"]
+    except json.JSONDecodeError as error:
+        raise RuntimeError(f"Native Mago did not return a JSON report:\n{result.stderr[-2000:]}{result.stdout[-2000:]}") from error
     if not any(issue.get("code") == "invalid-return-statement" and
                any(note.get("kind") == "Primary" and
                    Path(note["span"]["file_id"]["name"]).name == source.name for note in issue.get("annotations", []))

@@ -1,0 +1,15 @@
+/* Recipe previews, interaction labs, form and OAuth fixtures. */
+@import "./shared.css";
+
+@source "../../templates/{base.html.twig,preview.html.twig,_toolkit_stylesheets.html.twig,forms/**/*,lab/**/*,oauth/**/*}";
+@source "../../src/{Demo,Kit,OAuth}/**/*.php";
+@source "../../src/Controller/{Forms,Lab,OAuthDemo,Preview}Controller.php";
+@source not "../controllers/revenue_assistant_controller.js";
+
+/* PreviewController renders the annotated Twig examples in recipe READMEs. */
+@source "../../../*/README.md";
+@source not "../../README.md";
+@source "../../../*/manifest.json";
+@source "../../../kit.js";
+@source not "../../../{docs,node_modules,packages,tests,tools,vendor,website}";
+@source not "../../../.*";

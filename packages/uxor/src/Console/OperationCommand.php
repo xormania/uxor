@@ -39,23 +39,23 @@ final class OperationCommand extends Command
         }
         if (in_array($this->operation, ['setup', 'environment', 'prepare'], true)) {
             $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'setup' === $this->operation
-                ? 'Acknowledge native application execution for this setup operation; does not save permission for future connections'
+                ? 'Compatibility flag for older setup invocations. Setup only configures files; use save-project-trust for new Serena bindings.'
                 : 'Acknowledge execution of this already trusted application and its native tools');
         }
         if ('setup' === $this->operation) {
             $this->addOption('apply', null, InputOption::VALUE_NONE, 'Apply the proposed project configuration')
-                ->addOption('install', null, InputOption::VALUE_NONE, 'Use native Composer and Mate to install and initialize the development tools; requires apply and trust-project-code')
-                ->addOption('save-project-trust', null, InputOption::VALUE_NONE, 'Save execution permission in new Serena bindings for future connections, including later checkouts; separate from current setup execution')
+                ->addOption('install', null, InputOption::VALUE_NONE, 'Compatibility flag for older setup invocations. Composer installs the development tools when the application requires UXor.')
+                ->addOption('save-project-trust', null, InputOption::VALUE_NONE, 'Save execution permission in new Serena bindings for future connections, including later checkouts; applies only to future provider launches')
                 ->addOption('client', null, InputOption::VALUE_REQUIRED, 'none, claude, or codex; configure Serena MCP without replacing existing server entries', 'none')
                 ->addOption('host-project-root', null, InputOption::VALUE_REQUIRED, 'Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere', '');
-            $this->setHelp('Setup plans changes unless --apply is supplied. --trust-project-code authorizes native commands for this setup operation only; it does not save future execution permission. The separate --save-project-trust option adds --trust-project-code to new Serena bindings when applied, authorizing application code on every future connection, including later code at that path, configured Mago extensions and Composer autoloaders. Saved permission has no commit restriction or expiry; remove the saved flag to revoke it. --save-project-trust alone does not authorize installation. Without launch authorization, Serena refuses to connect. --write separately allows editing and is not added by setup. Existing bindings are preserved and may retain earlier permission; reconcile their paths and remove --trust-project-code if recurring execution is no longer intended.');
+            $this->setHelp('Setup plans application configuration unless --apply is supplied. Composer installs dependencies and initializes Mate. The separate --save-project-trust option adds --trust-project-code to new Serena bindings when applied, authorizing application code on every future connection, including later code at that path, configured Mago extensions and Composer autoloaders. Saved permission has no commit restriction or expiry; remove the saved flag to revoke it. Without launch authorization, Serena refuses to connect. --write separately allows editing and is not added by setup. Existing bindings are preserved and may retain earlier permission; reconcile their paths and remove --trust-project-code if recurring execution is no longer intended.');
         }
         if ('detach' === $this->operation) {
             $this->addOption('apply', null, InputOption::VALUE_NONE, 'Apply the detachment plan after reviewing the listed paths')
                 ->setHelp('Run before composer remove --dev xormania/uxor. Without --apply, inspect the managed files and any application integrations requiring manual reconciliation. Stop running UXor providers before applying.');
         }
         if ('environment' === $this->operation) {
-            $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes; requires trust-project-code');
+            $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes, including Docker provider version checks that may prepare images on first use; requires trust-project-code');
         }
         if ('catalog' === $this->operation) {
             $this->addOption('query', null, InputOption::VALUE_REQUIRED, 'Component name or intent', '')

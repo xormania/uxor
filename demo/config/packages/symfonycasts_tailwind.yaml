@@ -1,3 +1,6 @@
 symfonycasts_tailwind:
-    # Tailwind CLI downloaded by tailwind:build (Tailwind v4: no config file, no PostCSS)
+    # TailwindBundle downloads this standalone compiler. app:build-styles builds both inputs.
     binary_version: 'v4.3.5'
+    input_css:
+        - '%kernel.project_dir%/assets/styles/toolkit-fixtures.css'
+        - '%kernel.project_dir%/assets/styles/demo-app.css'

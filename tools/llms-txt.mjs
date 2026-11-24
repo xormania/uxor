@@ -118,7 +118,6 @@ lines.push(
     '',
     `- [Changelog](${raw}/CHANGELOG.md): what each version changes`,
     `- [Security](${raw}/SECURITY.md): reporting a vulnerability`,
-    `- [Testing patterns](${raw}/docs/TESTING.md): UXor contributor reference; adapt selected reusable patterns to an application`,
     `- [Contributing](${raw}/CONTRIBUTING.md): developing the kit and Composer package: project boundaries, conventions and checks`,
     '',
 );

@@ -1,9 +1,12 @@
 # Recipes
 
-Every recipe of the kit, by group: install one with
-`php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>` (a release: the latest on the
-[Releases](https://github.com/xormania/uxor/releases) page), after the setup in the
-[README](../README.md#install).
+Choose a recipe by the kind of interface you are building. For first-time setup, follow the
+[Composer package guide](../packages/uxor/README.md) or [set up the toolkit directly](../INSTALL.md).
+In a configured application, install your chosen recipe at the [revision your application uses](../INSTALL.md#choosing-a-revision).
+
+```sh
+php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
+```
 
 Recipes marked ✦ come with a Stimulus controller, copied to `assets/controllers/` and loaded by StimulusBundle.
 Each recipe’s README explains how to use it. Component guides also describe their Twig props and blocks where applicable.

@@ -76,14 +76,14 @@ abstract class WebsiteTestCase extends TestCase
         return $kit ??= new KitReader(self::source());
     }
 
-    protected static function page(string $file, ?string $release = self::RELEASE, string $branch = 'main'): string
+    protected static function page(string $file, ?string $release = self::RELEASE, string $branch = 'main', ?string $commit = 'abc1234def'): string
     {
         static $built = [];
         $source = self::source();
-        $key = ($release ?? 'branch').'-'.$branch;
+        $key = ($release ?? 'branch').'-'.$branch.'-'.($commit ?? 'unversioned');
         $output = self::$work.'/'.$key;
         if (!isset($built[$key])) {
-            (new Website($source, '/uxor', self::SITE, $release, $branch, 'abc1234def', '0.3.0'))->build($output);
+            (new Website($source, '/uxor', self::SITE, $release, $branch, $commit, '0.3.0'))->build($output);
             $built[$key] = true;
         }
         self::assertFileExists($output.'/'.$file);

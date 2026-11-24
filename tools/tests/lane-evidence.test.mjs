@@ -15,7 +15,7 @@ const browserPolicy = 'tools/ci/browser-checkout.patterns';
 const browserPatterns = () => readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8');
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
-const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
+const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package', 'prod-image'];
 const REUSABLE = ['demo', 'engines', 'php', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
@@ -126,14 +126,14 @@ const selection = (fx, lanes) => {
     return file;
 };
 
-// the browser job's matrix: CHROMIUM_SHARDS (6) Chromium shards are the demo lane, three each of Firefox and WebKit the
-// engines lane
+// The browser matrix runs CHROMIUM_SHARDS (6) Toolkit Chromium jobs, one Demo app Chromium job and three jobs per
+// cross-browser engine when selected.
 const demoJobs = (base = 500, attempt = 1, shards = 6) => Array.from({ length: shards }, (_, i) => `chromium ${i + 1}/${shards}`)
-    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
+    .map((label, i) => ({ id: base + i, name: `Toolkit browser verification (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
 const engineJobs = (base = 700, attempt = 1) => [...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
-    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
+    .map((label, i) => ({ id: base + i, name: `Cross-browser verification (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
 const DEMO_JOBS = demoJobs();
-const SKIPPED_DEMO = { id: 499, name: 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
+const SKIPPED_DEMO = { id: 499, name: '${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
 const brief = (jobs) => jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt }));
 
 /**
@@ -545,9 +545,32 @@ test('on a branch push the engines lane is deferred, never reported as not appli
     assert.equal(deferred.outputs.browsers, 'run');
     assert.deepEqual(deferred.matrix.include.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
     assert.equal(deferred.matrix.include[0].projects, '--project=smoke --project=examples');
+    assert.equal(deferred.matrix.include[0].suite, 'Toolkit browser verification');
     const reused = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines));
     assert.equal(reused.outputs.engines, 'reuse', reused.plan.lanes.engines.detail);
     assert.equal(enginesPlan(fx, {}, { lanes: ['php'] }).outputs.engines, 'skip', 'no browser lane selected: neither');
+});
+
+test('a Demo app change plans one Chromium job without Toolkit Chromium or cross-browser engines', (t) => {
+    const fx = scratch(t);
+    const selected = { lanes: ['demo-app'], enginesOn: 'every-push', shards: '8' };
+    const standalone = enginesPlan(fx, {}, selected);
+    assert.equal(standalone.outputs['demo-app'], 'run');
+    assert.equal(standalone.plan.lanes['demo-app'].reason, 'not_reusable');
+    assert.equal(standalone.outputs.demo, 'skip');
+    assert.equal(standalone.outputs.engines, 'skip');
+    assert.equal(standalone.outputs.importmap, 'run');
+    assert.deepEqual(standalone.matrix.include, [{
+        browser: 'chromium', suite: 'Demo app browser checks', shard: 1, shards: 1,
+        projects: '--project=demo-app', 'artifact-browser': 'demo-app-chromium',
+    }]);
+
+    const website = enginesPlan(fx, {}, { ...selected, lanes: ['static-site'] });
+    assert.equal(website.outputs['static-site'], 'run');
+    assert.equal(website.outputs['demo-app'], 'skip');
+    assert.equal(website.outputs.browsers, 'skip');
+    assert.equal(website.outputs.importmap, 'skip');
+    assert.deepEqual(website.matrix.include, []);
 });
 
 test('the engines lane runs when asked, on main, with every push, and on the daily run without a pass on its inputs', (t) => {
@@ -558,8 +581,10 @@ test('the engines lane runs when asked, on main, with every push, and on the dai
     assert.equal(asked.outputs.engines, 'run');
     assert.equal(asked.plan.lanes.engines.reason, 'no_evidence');
     assert.equal(browsers(asked).length, 12);
-    assert.deepEqual(asked.matrix.include.filter((e) => e.browser === 'webkit').map((e) => [e.shard, e.shards, e.projects]),
-        [[1, 3, '--project=smoke-webkit --project=examples-webkit'], [2, 3, '--project=smoke-webkit --project=examples-webkit'], [3, 3, '--project=smoke-webkit --project=examples-webkit']]);
+    for (const browser of ['firefox', 'webkit']) {
+        assert.deepEqual(asked.matrix.include.filter((e) => e.browser === browser).map((e) => [e.suite, e.shard, e.shards, e.projects]),
+            [1, 2, 3].map((shard) => ['Cross-browser verification', shard, 3, `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`]));
+    }
     const main = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { ref: 'refs/heads/main' });
     assert.equal(main.outputs.engines, 'run', 'main runs fresh, evidence or not');
     assert.equal(main.plan.lanes.engines.reason, 'reuse_off');
@@ -567,6 +592,7 @@ test('the engines lane runs when asked, on main, with every push, and on the dai
     const daily = enginesPlan(fx, {}, { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
     assert.equal(daily.outputs.engines, 'run');
     assert.equal(daily.outputs.demo, 'skip');
+    assert.equal(daily.outputs['demo-app'], 'skip');
     assert.deepEqual([...new Set(browsers(daily))], ['firefox', 'webkit']);
     assert.equal(daily.outputs.importmap, 'run', 'the engines need the importmap packages too');
     const passed = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
@@ -817,7 +843,7 @@ test('the verdict tells fresh, reused, not applicable and incomplete apart, and 
     assert.equal(good.json.lanes.php.status, 'fresh');
     assert.equal(good.json.lanes.contrast.status, 'fresh');
     assert.equal(good.json.lanes.package.status, 'not_applicable');
-    assert.match(good.summary, /demo.*reused.*actions\/runs\/71/);
+    assert.match(good.summary, /Toolkit browser verification.*reused.*actions\/runs\/71/);
     assert.match(good.summary, /1234 ms/);
     assert.match(good.summary, /7 API calls/);
 
@@ -833,8 +859,8 @@ test('a deferred engines lane is reported as not run at this stage, never as a p
     const out = verdict();
     assert.equal(out.status, 0, out.stderr);
     assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
-    assert.match(out.summary, /\| engines \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
-    assert.doesNotMatch(out.summary, /\| engines \| (fresh|reused|not_applicable)/);
+    assert.match(out.summary, /\| Cross-browser verification \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
+    assert.doesNotMatch(out.summary, /\| Cross-browser verification \| (fresh|reused|not_applicable)/);
     assert.match(out.stdout + out.stderr, /::notice::.*NOT RUN AT THIS STAGE/);
     assert.equal(verdict({ demo: 'success' }, undefined, [], [...DEMO_JOBS.map((j) => ({ ...j, id: j.id + 1000 })), ...engineJobs()]).json.lanes.engines.status, 'incomplete', 'a deferred lane that ran is not what was planned');
 });
@@ -996,14 +1022,14 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.match(plan, /--engines "\$ENGINES"/);
     assert.match(plan, /--event "\$PLAN_EVENT"/);
 
-    // the browser job: one definition, both lanes, the same check names as before
+    // The browser job has one definition, with distinct check names assigned by the matrix.
     const demo = job('demo');
-    assert.equal(demo.name, 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})');
+    assert.equal(demo.name, '${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})');
     assert.equal(demo.if, "needs.changes.outputs.browsers == 'run'");
     assert.match(demo.text, /^ {12}matrix: \$\{\{ fromJSON\(needs\.changes\.outputs\.browser-matrix\) \}\}$/m);
     assert.doesNotMatch(demo.text, /browser: \[chromium/, 'no fixed browser list');
-    assert.equal(rules.demo.prefix, 'Demo + Playwright (chromium ');
-    assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit ']);
+    assert.equal(rules.demo.prefix, 'Toolkit browser verification (chromium ');
+    assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Cross-browser verification (firefox ', 'Cross-browser verification (webkit ']);
     assert.equal(rules.engines.count, 6);
     assert.equal(job('demo-engines'), undefined, 'no second copy of the browser job');
     assert.ok(job('importmap').if.includes("needs.changes.outputs.importmap == 'run'"));
@@ -1013,8 +1039,8 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     // CI result: the required name, every lane's jobs, the plan by name, record and verdict by the tool
     const result = job('result');
     assert.equal(evaluate(result.name, push), 'CI result', 'the rulesets require this exact name, from the push');
-    // the engines run in the browser job (`demo`); Contrast, Workflows and Tool tests in Quick checks (`quick`)
-    for (const id of [...lanes.filter((id) => !['engines', 'contrast', 'workflows'].includes(id)), 'docker-install', 'importmap', 'quick', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
+    // Demo app Chromium and the engines run in `demo`; Contrast, Workflows and Tool tests run in `quick`.
+    for (const id of [...lanes.filter((id) => !['demo-app', 'engines', 'contrast', 'workflows'].includes(id)), 'docker-install', 'importmap', 'quick', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
     assert.match(result.text, /artifact-ids: \$\{\{ needs\.changes\.outputs\.lane-plan-id \}\}/, 'the plan artifact by the id Changes gave it, whatever the attempt');
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
     assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs finish/);
@@ -1310,12 +1336,12 @@ test('a website-only push above a verified release runs website checks with a co
         [[releasePr, otherRelease], verified, pass],
         [[{ ...releasePr, author_association: 'CONTRIBUTOR' }], verified, pass],
     ]) {
-        assert.equal(exercise(prs, proof, result, dev).matrix.include.length, 8, 'an unverified inherited recorder change selects all shards');
+        assert.equal(exercise(prs, proof, result, dev).matrix.include.length, 9, 'an unverified inherited recorder change selects both Chromium suites');
     }
     const partial = exercise([releasePr], verified, pass, dev, true);
-    assert.equal(partial.matrix.include.length, 8, 'a truncated list of active release targets never narrows validation');
+    assert.equal(partial.matrix.include.length, 9, 'a truncated list of active release targets never narrows validation');
     fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed recorder\n');
-    assert.equal(exercise([releasePr], verified, pass, green).matrix.include.length, 8, 'a new recorder change always selects the shards');
+    assert.equal(exercise([releasePr], verified, pass, green).matrix.include.length, 9, 'a new recorder change selects both Chromium suites');
 
     const site = job('static-site');
     assert.equal(site.needs, 'changes');

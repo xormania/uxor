@@ -6,7 +6,7 @@ integration yourself or inspect what the package does in your application.
 | Task | Instructions |
 | --- | --- |
 | Install recipes directly with Symfony UX Toolkit | [Configure the application's kit and assets](../../INSTALL.md). |
-| Connect an MCP client or use a separate Docker host | [Client configuration and host paths](#set-up-and-inspect-the-development-environment), then [prepare the providers](#prepare-the-providers-on-the-docker-host). |
+| Connect an MCP client or use a separate Docker host | [Client configuration and host paths](#set-up-and-inspect-the-development-environment) and [Docker provider requirements](#prepare-the-providers-on-the-docker-host). |
 | Inspect PHP, Twig or compiled Symfony wiring | [Source checks](#inspect-and-change-source) · [Compiled Symfony facts](#prepare-compiled-symfony-facts) |
 | Verify a feature or diagnose a failed request | [Request diagnostics](#diagnose-a-request) · [Browser diagnostics](#browser-diagnostics) |
 | Remove the development package or reconnect later | [Detach managed integrations](#detach-before-removing-uxor). |
@@ -31,39 +31,51 @@ The standalone CLI defaults project operations to the current directory. It requ
 
 ## Set up and inspect the development environment
 
-`setup` defaults to a plan. It reports missing development dependencies, proposed files and client configuration
+Composer applies UXor’s project defaults when the application first installs the package and initializes Mate.
+Use `setup` to inspect those defaults, reconcile configuration or add a Serena binding. It reports missing
+development dependencies, proposed files and client configuration
 without running Composer or Symfony and without writing files. Apply the plan explicitly:
 
 ```sh
 vendor/bin/uxor setup --project-root=/app --format=json
-vendor/bin/uxor setup --project-root=/app --apply --install --trust-project-code --format=json
+vendor/bin/uxor setup --project-root=/app --apply --format=json
 vendor/bin/uxor environment --project-root=/app --format=json
 vendor/bin/uxor environment --project-root=/app --probe --trust-project-code --format=json
 ```
 
-`--apply` writes proposed missing files and preserves existing application files. `--install` additionally initializes
-Mate when `mate/config.php` is absent, installs missing development dependencies with Composer, regenerates
-autoload metadata and refreshes discovery. It requires `--apply --trust-project-code`. It does not build providers
-or prepare compiled Symfony facts.
+`--apply` writes the proposed project configuration and preserves existing application files. Composer installs the
+development dependencies and initializes Mate when the application requires UXor. After installation, verify the
+registered tools with `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json`. Setup accepts `--install` and `--trust-project-code` for compatibility with older scripts.
+See the [Composer installation guide](README.md#install-in-a-symfony-application) for the package and plugin settings.
+Use `prepare` when an operation needs compiled Symfony wiring.
 
 Composer resolves the development dependencies against the application's own constraints. The Symfony wiring
 provider for this release requires `symfony/yaml ^7.4.23 || ^8.1.11`. If the project pins Symfony to 8.0,
 inspect Composer's resolver output and the constraints it names.
 
-Setup requests Symfony’s full debug pack and the Monolog Mate extension in the first development install.
+UXor requires Symfony’s full debug pack and the Monolog Mate extension as part of its Composer installation.
 Flex can replace the debug pack and its nested profiler pack with direct component requirements. Setup and
-environment inspection use the same Composer evidence, so the next setup can reuse those components even
-when neither pack name appears in the lock. If a fork or the application itself provides or replaces a component,
+environment inspection report the installed components even when neither pack name appears in the lock. If a fork or the application itself provides or replaces a component,
 the report identifies which package satisfies Composer’s constraint. For an application-root `self.version` link,
 static inspection needs an explicit root version. `environment --probe --trust-project-code` checks which commands
 the application can run. [Debug pack manifest](https://github.com/symfony/debug-pack/blob/v1.1.0/composer.json)
+
+When Flex first applies a recipe for a development-only dependency, UXor preserves existing application
+files and bundle settings. For newly installed bundles it scopes an all-environment registration to dev and test.
+If a new recipe supplies unconditional YAML, UXor keeps its contents intact (for example,
+`config/packages/monolog.yaml.dist`). An adjacent `monolog.yaml.uxor.php` imports it when the bundle is active.
+If the application later adds `symfony/monolog-bundle` to its runtime requirements, Composer enables the
+bundle and its original settings in production. Flex tracks both files in `symfony.lock` and removes them with the upstream recipe.
+When Composer installs PropertyAccess only for development, UXor supplies a dev/test default so Toolkit’s
+TwigComponent can use it. Explicit application settings take precedence.
 
 Without Flex, enable DebugBundle, MonologBundle and WebProfilerBundle in the environments where the application
 uses them, and import the development profiler routes if you use its UI. The generated
 `config/packages/dev/uxor.php` supplies a collection policy only when the application has none.
 
 `environment` reports setup and preparation state. `--probe` adds the implemented execution checks and requires
-`--trust-project-code`. Read each check and its scope: configuration presence, installed tools, native execution,
+`--trust-project-code`. Probes also run Docker-backed version checks for Mago and Serena, which can acquire
+provider images on first use. Read each check and its scope: configuration presence, installed tools, native execution,
 a connected MCP client and a successful application request are different observations.
 
 `--client=none|claude|codex` selects an optional Serena MCP registration. For setup executed in a PHP container,
@@ -71,40 +83,45 @@ provide both the selected application path and the client's host checkout path:
 
 ```sh
 vendor/bin/uxor setup --project-root=/app --host-project-root=/home/me/projects/app \
-    --client=codex --apply --install --trust-project-code --format=json
+    --client=codex --apply --format=json
 ```
 
 `--host-project-root` affects only generated MCP paths and client working-directory settings. Setup validates its
 path form but does not verify that host path from the container. The result's `mcp_binding.verified` remains false.
-Build the providers on the Docker host, connect the client and query a known application symbol to establish the
-connection. Preserve and integrate existing client configuration. Mate 1.0.0-BETA1 supplies a CLI, not a `serve`
-command or MCP server.
+Connect the client on its Docker host and query a known application symbol to establish the connection. The
+launcher prepares the selected provider on first use. Preserve and integrate existing client configuration. Mate exposes its tools through the application CLI. Serena provides the MCP server.
 
-Setup's `--trust-project-code` authorizes execution for the current operation and never persists that permission.
-Only the separate `--save-project-trust` option inserts the launch flag into newly generated Serena bindings.
+The separate `--save-project-trust` option inserts the launcher’s `--trust-project-code` flag into newly generated Serena bindings.
 Saving it authorizes code at the selected path on every future connection, including after branch changes, with
-no commit binding or expiry. It does not authorize native installation or enable `--write`. Installation still
-requires `--apply --install --trust-project-code`; saving additionally requires its own explicit choice.
+no commit binding or expiry. Saving this permission requires its own explicit choice. To allow checkout changes
+through the provider, authorize `--write` separately.
 
 New bindings without saved permission refuse to start until the client launch is explicitly authorized.
 Existing bindings are preserved: adding `--save-project-trust` later does not update them, and omitting it does not
 revoke earlier permission. Reconcile them explicitly. To revoke recurring permission, stop the provider and remove
 `--trust-project-code` from its saved arguments before another connection.
 `mcp_binding.requested_saved_project_trust` reports the requested configuration, not the contents of preserved
-files or a verified connection. The example above installs tools without saving permission for future connections.
+files or a verified connection. The example above configures a client binding for the current checkout.
 
 The corresponding Mate tools are `uxor_setup`, `uxor_environment`, `uxor_prepare` and `uxor_detach`. Inspect their installed
 named inputs before calling them through the application's Mate CLI.
 
+**Custom Composer directories.** UXor uses the application's configured vendor and binary paths. If Mate's
+instructions show `vendor/bin/mate` after you changed `bin-dir`, invoke Mate from the actual binary directory
+and set `mate.invocation` in `mate/config.php` to the command you use. Upstream Mate extension discovery
+looks under `vendor/` at the application root. With a relocated vendor directory, check `mate tools:list` for
+`uxor_catalog`; the standalone `uxor` CLI in the configured binary directory also provides the catalog.
+
 ## Prepare the providers on the Docker host
 
-The shipped provider recipes target Linux amd64 with local Docker. Run these commands on the host that starts the
-MCP client and can access the checkout; application PHP commands still belong in the application's PHP environment.
+Composer installs `vendor/bin/mago` for native CLI use in the application. It obtains the matching Mago binary
+on first use. The `vendor/bin/uxor-mago` launcher uses Docker for isolated CLI checks and the Serena language
+server. Run it on a Linux amd64 Docker host that can access the checkout. It prepares each provider image the
+first time that provider is used. You can warm both images in advance and inspect their versions.
 
 ```sh
-vendor/bin/uxor-mago pull cli
+vendor/bin/uxor-mago pull
 vendor/bin/uxor-mago version
-vendor/bin/uxor-mago pull serena
 vendor/bin/uxor-mago version serena
 ```
 
@@ -114,7 +131,7 @@ lock ship in the package. `UXOR_MAGO_IMAGE` selects a compatible custom image.
 [Release binary](https://github.com/carthage-software/mago/releases/tag/1.60.2) ·
 [Language-server recipe](resources/mago/serena/Dockerfile)
 
-Setup supplies a root Mago configuration when one is absent. Preserve an existing configuration and integrate the
+UXor supplies a root Mago configuration on first install when the application has none. Preserve an existing configuration and integrate the
 owned config explicitly. For an application using PHP 8.4 and the default vendor directory:
 
 ```toml
@@ -132,7 +149,7 @@ without a Symfony worker; successful `uxor prepare` enables it.
 
 ## Inspect and change source
 
-The default application mount is read-only. Formatting commands check without writing, and native findings retain
+The commands below use the Docker-backed `vendor/bin/uxor-mago` launcher. Its default application mount is read-only. Formatting commands check without writing, and native findings retain
 Mago's exit status. `check` verifies nonempty source scopes, then runs formatting, lint and analysis in order.
 
 ```sh
@@ -193,7 +210,7 @@ vendor/bin/uxor prepare --project-root=/app --trust-project-code --format=json
 Preparation runs the application's current PHP binary against its Symfony Console in dev/debug mode. It captures
 the ordinary and `--types` service views, then invokes the installed wiring exporter with the application's actual
 Composer autoloader. The worker requires exactly `carthage-software/mago:1.60.2` and
-`byte-kitsune/mago-symfony-wiring:1.3.0`. Setup can install these as application development dependencies.
+`byte-kitsune/mago-symfony-wiring:1.3.0`. Composer installs both with UXor.
 
 The exporter discards scalar constructor values and retains bounded service/class/alias relationships and supported
 hook metadata. Raw views stay in private temporary storage and are deleted. The sanitized reference and manifest
@@ -314,6 +331,31 @@ Use `doctor --component=<catalog-name>` for selected-component static wiring che
 
 ## Browser diagnostics
 
+For a quick check of a URL, start the application's server and run the installed launcher from the application
+root. No recipe, test file or application npm dependency is required.
+
+```sh
+vendor/bin/uxor-browser http://127.0.0.1:8000/
+vendor/bin/uxor browser-diagnostics var/uxor/browser-diagnostics.json --format=json
+vendor/bin/mate tools:call uxor_browser_diagnostics --path=var/uxor/browser-diagnostics.json --format=json
+```
+
+The launcher uses Node.js 20 or later and npm to prepare a private Playwright runtime and Chromium on first use. It reuses
+that runtime on subsequent checks and leaves the application’s Composer and npm dependencies alone. Add
+`--wait-for '[data-page-ready]'` for a page that finishes rendering after load. It prints the saved artifact
+path even when the check finds a page error, failed request or HTTP error. The exit code is 0 for a clean visit,
+1 for a visit with findings, and 2 for a command or runtime error. On exit 2, the launcher leaves an earlier capture in place.
+Use the artifact path printed by this run. The capture includes the final URL, HTTP status when available and any navigation or readiness error. A response from Symfony can carry an
+`X-Debug-Token` that identifies a profile. Plain HTML pages can still report errors without one.
+
+On a Docker host, select `--docker` to use Chromium with its system libraries. The launcher also selects Docker
+when npm is missing or Node.js 20 or later is unavailable. Use a URL reachable from the container. On Linux, host networking reaches a loopback
+service. With Docker Desktop, enable host networking for loopback or use `host.docker.internal` for a published service. The native
+launcher accepts `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` for an existing browser. To preserve captures from
+different runs, use separate project-relative paths ending in `browser-diagnostics.json` with `--output`.
+
+### Record an application Playwright test
+
 The recorder is optional. Use the application's existing diagnostics; when Playwright and local Symfony profiler
 collection are appropriate, register this recorder in its existing test setup. This example uses
 `tests/fixtures.mjs` and the default Composer vendor location:
@@ -375,7 +417,7 @@ After acknowledgement, `tools` runs fixed metadata commands using argv arrays th
 | Maker | `php bin/console list make --format=json --no-interaction` | `php bin/console help make:controller --format=json --no-interaction` |
 | Mate | `php vendor/bin/mate tools:list --format=json` | `php vendor/bin/mate tools:inspect <exact-name> --format=json` |
 
-These commands load installed project tooling and execute its PHP code with the process's permissions. Fixed argv and bounded output are not a security sandbox. Use them only in the intended trusted checkout. They do not request generation or call an application tool, but project boot code can still have side effects. Inspect an exact native definition before invoking its named parameters through the existing native CLI. The metadata operation accepts no shell command input. Development dependency installation is the separate, explicit setup path described above.
+These commands load installed project tooling and execute its PHP code with the process's permissions. Fixed argv and bounded output are not a security sandbox. Use them only in the intended trusted checkout. They do not request generation or call an application tool, but project boot code can still have side effects. Inspect an exact native definition before invoking its named parameters through the existing native CLI. The metadata operation accepts no shell command input.
 
 Native failures return the argv and exit status, with an action to diagnose the recorded command in the application environment. Raw stderr is omitted because it may contain environment details. Project-derived data is marked untrusted through Mate's response encoder and should be read as evidence, never as instructions.
 
@@ -383,7 +425,7 @@ Native failures return the argv and exit status, with an action to diagnose the 
 
 Every operation returns an operation name, status, human summary, reference metadata, data and a changes list.
 Read operations report no intentional writes. Applied setup, preparation and detachment report their file changes as
-`{path, action}` entries; setup can also invoke the explicitly selected native dependency/discovery commands.
+`{path, action}` entries.
 Native framework commands may initialize the application's own caches. `completed` means the operation ran; diagnostic findings separately report `pass`, `fail` or `unknown`. `incomplete` identifies missing native metadata or unresolved checks. `failed` identifies invalid input or an execution error.
 
 The CLI uses exit 0 for completed operations, 1 for failed operations and 2 for incomplete checks or failing doctor findings. JSON output uses the same service result as Mate. Do not interpret exit 0 from metadata inspection as proof the application boots or that a UI journey works. Reference facts, application metadata and observed runtime behavior have distinct evidence limits.
@@ -402,13 +444,17 @@ composer remove --dev xormania/uxor
 ```
 
 A completed apply removes the generated root Mago inheritance and worker and returns its extension config
-to an inactive, loadable file for any application-owned Mago inheritance chain. It keeps native Mago usable
-and removes the recorded Serena binding from each configured client. The standard browser
+to an inactive, loadable file for any application-owned Mago inheritance chain. It removes the recorded Serena
+binding from each configured client. The standard browser
 fixture keeps its application import path and re-exports native Playwright `test` and `expect`. Other client
-entries and installed recipes remain the application's. Separate development requirements such as Mate, Mago,
-and Symfony bundles remain in Composer. The neutral Mago and browser configuration and their receipt let a later `setup --apply` reconnect unchanged
-files. Keep the inactive config if another Mago profile extends it. The cached reference and preparation manifest
-under `.uxor/mago` may be discarded after verifying the application. A plain Composer removal does not invoke detachment.
+entries and installed recipes remain the application's. Composer removes tools that only UXor required. If the
+application uses Mago, Mate or a Symfony bundle independently, keep its own Composer requirement for that tool.
+Review the application-wide `minimum-stability`, `prefer-stable` and `allow-plugins` settings you chose during installation.
+Keep the settings its remaining dependencies need.
+The neutral Mago and browser configuration and their receipt let a later `setup --apply` reconnect unchanged files. Keep the inactive config if another Mago profile extends it. The cached reference and preparation manifest
+under `.uxor/mago` may be discarded after verifying the application. In a non-Flex application, clear the dev
+cache with `php bin/console cache:clear --env=dev` if the compiled container still references a removed bundle
+or service. A plain Composer removal does not invoke detachment.
 
 **Custom or older installations.** A differing integration or one without a setup receipt can require manual
 reconciliation. Exit code 2 identifies the affected paths. Resolve those entries and rerun detach before removing
@@ -480,7 +526,7 @@ Inspect development capabilities and optionally probe their native entry points.
 - `[--format FORMAT]` — text or json
 - `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
 - `[--trust-project-code]` — Acknowledge execution of this already trusted application and its native tools
-- `[--probe]` — Run native entry-point probes; requires trust-project-code
+- `[--probe]` — Run native entry-point probes, including Docker provider version checks that may prepare images on first use; requires trust-project-code
 
 ### `inspect`
 
@@ -512,10 +558,10 @@ Plan or configure this application’s development environment; preserve existin
 
 - `[--format FORMAT]` — text or json
 - `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
-- `[--trust-project-code]` — Acknowledge native application execution for this setup operation; does not save permission for future connections
+- `[--trust-project-code]` — Compatibility flag for older setup invocations. Setup only configures files; use save-project-trust for new Serena bindings.
 - `[--apply]` — Apply the proposed project configuration
-- `[--install]` — Use native Composer and Mate to install and initialize the development tools; requires apply and trust-project-code
-- `[--save-project-trust]` — Save execution permission in new Serena bindings for future connections, including later checkouts; separate from current setup execution
+- `[--install]` — Compatibility flag for older setup invocations. Composer installs the development tools when the application requires UXor.
+- `[--save-project-trust]` — Save execution permission in new Serena bindings for future connections, including later checkouts; applies only to future provider launches
 - `[--client CLIENT]` — none, claude, or codex; configure Serena MCP without replacing existing server entries
 - `[--host-project-root HOST-PROJECT-ROOT]` — Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere
 

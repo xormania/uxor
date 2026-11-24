@@ -104,6 +104,7 @@ jobs:
             fresh-install: ${{ steps.plan.outputs.fresh-install }}
             contrast: ${{ steps.plan.outputs.contrast }}
             demo: ${{ steps.plan.outputs.demo }}
+            demo-app: ${{ steps.plan.outputs.demo-app }}
             workflows: ${{ steps.plan.outputs.workflows }}
             package: ${{ steps.plan.outputs.package }}
             prod-image: ${{ steps.plan.outputs.prod-image }}
@@ -210,13 +211,13 @@ jobs:
                       # Firefox and WebKit only, for the release pull request's head (Release checks) or by hand: every
                       # other lane already has its result on this head's push run
                       echo "Firefox and WebKit only"
-                      for job in lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image; do
                           echo "$job=false"
                       done > "$RUNNER_TEMP/jobs"
                       echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: install checks with fresh consumer dependency resolution"
-                      for job in lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
                       # and Firefox and WebKit, unless they already passed on dev's inputs (the plan)
@@ -229,7 +230,7 @@ jobs:
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image; do
+                  for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   cat "$RUNNER_TEMP/jobs"
@@ -248,8 +249,8 @@ jobs:
                       echo 'decision=run' >> "$GITHUB_OUTPUT"
                   fi
 
-            # The browser tests are two lanes of one job: the Chromium shards (demo) and Firefox and WebKit (engines), which
-            # with ENGINES_ON=daily wait on a push (defer: NOT RUN AT THIS STAGE in CI result) and run on the daily run
+            # One browser matrix runs Toolkit Chromium (demo), example-app Chromium (demo-app) and
+            # Firefox and WebKit (engines), which with ENGINES_ON=daily wait on a push and run on the daily run
             # (unless they passed on these inputs), on main and when a manual run asks; the plan writes the job's matrix.
             # Each selected lane runs, or reuses an earlier pass with the same inputs (tools/ci/lane-evidence.mjs,
             # docs/TESTING.md, *Reused lanes*): the markers for the lane's fingerprint, newest first, until a failure from
@@ -899,7 +900,7 @@ jobs:
               if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               run: |
                   php tools/sync-demo
-                  (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                  (cd demo && composer install --no-interaction --no-progress && bin/console app:build-styles)
 
             - name: Check the demo's Mate guidance
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
@@ -1246,7 +1247,7 @@ jobs:
               id: validate
               run: |
                   set -o pipefail
-                  composer validate --strict 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
+                  python3 packages/uxor/tools/validate-composer.py 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
 
             - name: Install the package's dependencies
               id: install
@@ -1360,7 +1361,7 @@ jobs:
         name: Build cache
         needs: changes
         # A reused browser lane builds no image, so write its cache all the same. Serena has its own build inputs.
-        if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.mago-serena-cache == 'run')
+        if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.demo-app == 'run' || needs.changes.outputs.mago-serena-cache == 'run')
         runs-on: ubuntu-latest
         timeout-minutes: 30
         # a cache that cannot be written fails no run: the run's conclusion, which release.yml waits for on main, stays
@@ -1391,7 +1392,7 @@ jobs:
               run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
             - name: Build the demo image into the cache
-              if: needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse'
+              if: needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.demo-app == 'run'
               uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
               env:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
@@ -1423,7 +1424,7 @@ jobs:
               run: docker logout ghcr.io
 
     demo:
-        name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
+        name: ${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
         # not importmap: the shards start beside it and wait for it, by name, just before they need its packages (the
         # plan runs Importmap packages whenever this job runs: its `importmap` output follows the browser lanes)
         needs: changes
@@ -1435,17 +1436,13 @@ jobs:
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
-        # the browser suite is most of CI's time: one job per browser and shard, each with its own demo and browser (each
-        # reads the image cache the cache job writes on dev and main). Two lanes share this one job, so its steps exist once:
-        # the Chromium shards (the demo lane, CHROMIUM_SHARDS of them: every test, the screenshots included) and three
-        # shards each of Firefox and WebKit (the engines lane: every behavior test, without the @screenshot ones,
-        # playwright.config.ts, browserProjects()). The Changes job's plan lists the shards that run, as the matrix:
-        # Chromium's when the demo lane runs, the engines' when they run (ENGINES_ON, above). docs/TESTING.md, *Browsers*
+        # The three browser lanes share their Symfony host, pinned browser image and setup steps.
+        # The Changes job lists the selected suites and shards. See docs/TESTING.md, *Browsers*.
         env:
             XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
         strategy:
             fail-fast: false
-            # each entry: browser, shard, shards and the two projects (smoke and examples) of that browser
+            # Each entry identifies its suite, browser, shard and Playwright projects.
             matrix: ${{ fromJSON(needs.changes.outputs.browser-matrix) }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1554,7 +1551,7 @@ jobs:
             # checks that the copies are what ux:install writes. Deterministic checks run on one shard only (Chromium's 1).
             - name: The sync leaves tracked files unchanged
               id: tracked
-              if: matrix.browser == 'chromium' && matrix.shard == 1
+              if: matrix.artifact-browser == 'chromium' && matrix.shard == 1
               run: |
                   if [ -n "$(git status --porcelain)" ]; then
                       git status --porcelain
@@ -1564,13 +1561,13 @@ jobs:
 
             - name: The demo's composer.json and composer.lock are valid
               id: composer
-              if: matrix.browser == 'chromium' && matrix.shard == 1
+              if: matrix.artifact-browser == 'chromium' && matrix.shard == 1
               working-directory: demo
               run: docker compose exec -T php composer validate --no-check-publish --strict   # also fails on a stale composer.lock
 
             - name: sync-demo copies what ux:install copies
               id: sync-parity
-              if: matrix.browser == 'chromium' && matrix.shard == 1
+              if: matrix.artifact-browser == 'chromium' && matrix.shard == 1
               working-directory: demo
               run: docker compose exec -T php bash ../tools/tests/sync-demo.sh
 
@@ -1661,7 +1658,7 @@ jobs:
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks run in
             # release-checks.yml, not here (their projects exist only with RELEASE_CHECKS set)
-            - name: Playwright (smoke + every README example + UXor recipe specs)
+            - name: Playwright (selected projects)
               id: tests
               env:
                   DEMO_URL: https://localhost
@@ -1680,9 +1677,9 @@ jobs:
               if: ${{ !cancelled() }}
               env:
                   SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
-                  BROWSER: ${{ matrix.browser }}
-                  RESULTS_ARTIFACT: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
-                  REPORT_ARTIFACT: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+                  BROWSER: ${{ matrix.artifact-browser }}
+                  RESULTS_ARTIFACT: playwright-results-${{ matrix.artifact-browser }}-${{ matrix.shard }}
+                  REPORT_ARTIFACT: playwright-report-${{ matrix.artifact-browser }}-${{ matrix.shard }}
                   DEMO_STARTED: ${{ steps.start.outcome }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
@@ -1717,7 +1714,7 @@ jobs:
               continue-on-error: true
               timeout-minutes: 1
               env:
-                  BROWSER: ${{ matrix.browser }}
+                  BROWSER: ${{ matrix.artifact-browser }}
                   SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
                   NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
                   NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
@@ -1735,7 +1732,7 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ !cancelled() }}
               with:
-                  name: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
+                  name: playwright-results-${{ matrix.artifact-browser }}-${{ matrix.shard }}
                   path: playwright-results/
                   retention-days: 30
 
@@ -1752,7 +1749,7 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
               with:
-                  name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+                  name: playwright-report-${{ matrix.artifact-browser }}-${{ matrix.shard }}
                   path: |
                       playwright-report/
                       test-results/
@@ -1772,9 +1769,10 @@ jobs:
               with:
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
-                  shard: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
-                  dir: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
-                  artifact: jev-input-ci-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  shard: ${{ matrix.artifact-browser }} ${{ matrix.shard }}/${{ matrix.shards }}
+                  job: ${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
+                  dir: ${{ runner.temp }}/jev-${{ matrix.artifact-browser }}-${{ matrix.shard }}
+                  artifact: jev-input-ci-${{ matrix.artifact-browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             # Last, so the end of the job log names what failed (after the demo's logs): the summary written above
             - name: Playwright summary
@@ -1782,8 +1780,8 @@ jobs:
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
-    # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
-    # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
+    # One check for the branch rulesets to require. A skipped matrix job reports its unexpanded name.
+    # Requiring an individual shard would leave a
     # pull request pending forever. It passes when each lane ran fresh and passed, reused an earlier pass whose evidence
     # still holds (requalified here), or was skipped as unaffected; and records the lanes that ran fresh, for later runs
     # (tools/ci/lane-evidence.mjs, docs/TESTING.md, *Reused lanes*).

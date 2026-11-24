@@ -17,17 +17,18 @@ Follow the consuming application's instructions and authorized task. Use its act
 3. If no token exists, use available logs, request evidence or browser traces. An early boot failure can precede
    profiling. Preserve historical profiles/logs before a cache reset; current source changes do not invalidate
    their value as historical observations.
-4. Trace the defect with Serena/Mago and current compiled bindings when available. Their application commands
-   require `--trust-project-code` before the command; `--write` is a separate grant for an authorized repair.
-   Add or select a regression
-   that fails on the defect, repair it and verify it passes. Keep existing test coverage and inspect diagnostic
+4. Trace the defect with Serena/Mago and current compiled bindings when available. For the Docker-backed `vendor/bin/uxor-mago` launcher, place
+   `--trust-project-code` before the subcommand. Add `--write` only for an authorized repair.
+   Add or select a regression that fails on the defect, repair it and verify it passes. Keep existing test coverage and inspect diagnostic
    changes; equal finding counts alone do not establish an unchanged report.
 5. Verify a fresh request after repair and exercise the relevant browser journey: validation, submission, content,
    feedback, keyboard/focus behavior, history, return visits and repeated mounting.
 6. Wait for the observable final state appropriate to Drive, Frames, Streams or Live updates. A generic
    `turbo:load` wait, arbitrary delay or running container does not prove completion.
-7. Capture console, request and CSP failures. When configured, `uxor_browser_diagnostics` reads the package
-   Playwright recorder and returns available profile URIs. Read the profile in the environment that served it.
+7. For a quick headless visit, run `vendor/bin/uxor-browser URL`. Use `--wait-for SELECTOR` when a visible
+   element signals readiness. Pass the printed path to `uxor_browser_diagnostics` to inspect page errors,
+   failed requests and any exact profiler tokens. Use the application's Playwright tests for multi-step
+   interactions, console and CSP checks. Read each profile in the environment that served it.
 8. Inspect the final diff and actual state. Report checks, failures, skipped checks and concrete limits separately.
    Review diagnostic output and traces for sensitive application data before sharing them.
 

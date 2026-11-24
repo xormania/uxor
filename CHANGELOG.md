@@ -4,18 +4,19 @@ All notable changes to UXor. The format follows [Keep a Changelog](https://keepa
 Versions use [Semantic Versioning](https://semver.org/)'s `X.Y.Z` format as git tags, without a `v`.
 UXor is in `0.x` development: its public interfaces are not yet stable, and changes may be incompatible.
 The maintainer chooses each release number and may skip numbers; the entries describe changes and migration needs.
-See [Releases](CONTRIBUTING.md#releases) for the current policy.
+On a release branch, a dated entry can describe a version being prepared. [GitHub Releases](https://github.com/xormania/uxor/releases)
+lists published versions. See the [release policy](CONTRIBUTING.md#releases) for how UXor publishes a tag.
 
 ## [Unreleased]
 
 ### Added
 
-- The documentation website groups guides by product and recipes by task. It publishes an agent onboarding
-  walkthrough, application verification guide and a Composer configuration reference generated from the package.
+- The documentation website groups guides by product and recipes by task. The Composer setup, agent onboarding,
+  advanced operations, configuration and application testing guides are available as HTML and Markdown.
+  Installed agent tools can read the same guides. Package settings generate the configuration reference.
 
-
-- The gallery publishes the Composer onboarding guide and advanced operations reference as HTML and Markdown.
-  The same guides are available in the repository and through the installed agent tools.
+- The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
+  read page errors, failed requests and available Symfony profile tokens using the installed CLI or Mate.
 
 - The Composer dev package adds setup planning and application-owned configuration for Mago, Serena, Maker and
   Symfony diagnostics, with explicit dependency installation, environment checks and compiled Symfony preparation.
@@ -61,9 +62,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
 - The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. Setup installs Symfony’s full debug pack and the Monolog Mate
-  extension by default, recognizes the components installed by Flex and respects the application’s profiler
-  settings. The shared fixture starts collecting only on a diagnostic run.
+  failures to exact Symfony request profiles. Requiring UXor in development installs the full Symfony debug pack, Maker, Toolkit, Monolog Mate
+  extension and Mago tooling. Composer initializes Mate and discovers the UXor tools. Serena and its Mago language
+  server prepare their provider on first use. UXor respects the application’s profiler settings. The shared fixture starts collecting only on a diagnostic run.
 
 ### Changed
 
@@ -74,8 +75,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   Component’s loading indicators in its main stylesheet.
 - `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
   Charts share one 1×1 canvas to resolve theme colors on load and when switching themes.
-- The Composer development package uses Symfony AI Mate `1.0.0-BETA1`. Consuming applications opt into the three
-  Mate prereleases in their own Composer dev dependencies. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
+- The Composer development package moves from Symfony AI Mate 0.14 to the 1.x line, starting at `1.0.0-BETA1`.
+  While the required Mate packages are in beta, the application allows beta dependencies and prefers stable versions.
+  Allow the UXor and Mate Composer plugins, then require `xormania/uxor` for development. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
 - The Composer package names its Mate skills `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify` so
   application skills can use the original generic names. See the [migration steps](packages/uxor/README.md#upgrade-from-the-old-skill-names)
   for custom overrides and disable settings.

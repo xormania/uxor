@@ -1,4 +1,4 @@
-# Getting started
+# Set up the toolkit directly
 
 Use this guide to set up Symfony UX Toolkit, assets and the theme in your application. If you're getting
 started with UXor, follow the recommended [Composer package guide](packages/uxor/README.md). It includes
@@ -20,7 +20,7 @@ For an existing application, check which dependencies, asset configuration and c
 
 - Allow Symfony Flex contrib recipes: `composer config extra.symfony.allow-contrib true`. Every component uses the `tailwind_classes` Twig filter of `tales-from-a-dev/twig-tailwind-extra`, and a contrib recipe enables its bundle. Do it before running the `composer require` command that `ux:install` prints, or components fail with `Unknown "tailwind_classes" filter`.
 - Require Twig and Twig components as regular dependencies, before the toolkit: `composer require symfony/twig-bundle symfony/ux-twig-component`. TwigComponentBundle needs TwigBundle, but does not require it. And if Twig components only come in with the toolkit, a dev dependency, `symfony/property-access` is dev-only too, and `cache:clear` fails with "non-existent service property_accessor".
-- Require the toolkit with `symfony/http-client`: `composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client`. The toolkit downloads kits from GitHub with the HTTP client, but does not require it.
+- UXor's Composer development package includes Symfony UX Toolkit and the HTTP client it uses to fetch kits from GitHub. For a kit-only installation, run `composer require --dev symfony/ux-toolkit:^3.8 symfony/http-client`.
 - Require AssetMapper and StimulusBundle: `composer require symfony/asset-mapper symfony/stimulus-bundle`. The layouts load the `app` importmap entrypoint, and StimulusBundle loads the recipes' Stimulus controllers from `assets/controllers/`.
 
 ### Tailwind CSS
@@ -65,8 +65,8 @@ See [Choosing a revision](#choosing-a-revision) for a new installation, an updat
 @import './uxor.css';
 ```
 
-3. Install the recipes you need. [`docs/RECIPES.md`](https://github.com/xormania/uxor/blob/main/docs/RECIPES.md) lists them. Run the printed
-   `composer require` and `importmap:require` commands for the recipe's dependencies.
+3. Choose a recipe from [the toolkit catalog](packages/uxor/resources/uxor/docs/docs/RECIPES.md). After installing it, run
+   the `composer require` and `importmap:require` commands that Toolkit prints for its dependencies.
 
 ```
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
@@ -97,9 +97,8 @@ normal workflow; review the resulting diff and reconcile customizations.
 
 The optional [Composer development package](packages/uxor/README.md) supplies tools, documentation and
 package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
-the [project snippet](https://github.com/xormania/uxor/blob/main/docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
-guidance is wanted, and avoid duplicating guidance already supplied by the helper.
+adapt the [optional project snippet](packages/uxor/resources/uxor/docs/docs/PROJECT-AGENTS-SNIPPET.md)
+if you want to keep UXor guidance alongside your application's existing instructions.
 
 Verify the installed components in their application context using
 [application testing](packages/uxor/resources/uxor/docs/docs/APPLICATION-TESTING.md).
-For changes to the kit or the package itself, follow [Contributing to UXor](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md).

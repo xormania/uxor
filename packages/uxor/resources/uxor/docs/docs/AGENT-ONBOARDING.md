@@ -6,18 +6,18 @@ If the application still needs the development package, follow [Set up UXor with
 
 ## Confirm which application the agent sees
 
-Ask the agent to read the application's instructions and run the following in its PHP environment, from the
-directory containing its `composer.json`. These examples use Composer's default binary directory.
+Ask the agent to read the application's instructions and run these commands in its PHP environment,
+from the directory containing its `composer.json`. These examples use Composer's default binary directory.
 
 ```sh
-vendor/bin/uxor list --raw
+vendor/bin/mate tools:call uxor_catalog --query=modal --format=json
 vendor/bin/uxor inspect --format=json
 ```
 
-The first command lists the installed CLI commands. The second reports the application directory in `data.root`
-and local file evidence in `data.component_evidence`. Compare the root with the checkout serving the page.
-Inside a container, compare container paths. If the root is wrong, change to the intended directory or repeat
-`inspect` with `--project-root=/absolute/path/to/the/application`.
+A successful Composer installation registers UXor's tools with Mate. The catalog result should include `modal`.
+The inspection result identifies the selected checkout in `data.root` and local files in `data.component_evidence`.
+Compare that path with the application serving the page, using container paths when PHP runs in a container.
+To inspect another checkout, pass its absolute path with `--project-root`.
 
 ## Give the agent a read-only assignment
 
@@ -38,14 +38,14 @@ with the copies used by the named template. For an edit flow that also submits a
 `vendor/bin/uxor workflow customer-management --format=json` describes that sequence. A long reference or workflow
 can return `data.truncated`; pass its `data.next_offset` to `--offset` to continue.
 
-If the app uses Mate, its CLI lists the registered tools with `vendor/bin/mate tools:list --format=json`.
-Inspect the bound project tool with `vendor/bin/mate tools:inspect uxor_project --format=json`. If the tool
-is missing, the standalone UXor commands above still work. [Agent setup and troubleshooting](../packages/uxor/README.md#connect-an-agent-client).
+To inspect the tool available to your agent, run `vendor/bin/mate tools:inspect uxor_project --format=json`.
+If Mate discovery is incomplete, use the standalone UXor commands above while you [check the installation](../packages/uxor/README.md#install-in-a-symfony-application).
+[Connect an agent client](../packages/uxor/README.md#connect-an-agent-client) covers optional Serena source queries.
 
 ## Check the result
 
-Open the named page, activate its edit trigger with the keyboard, close the dialog and observe which control
-has focus. The agent's report should name the application files it found, the check it ran and what happened.
+Open the named page in a browser or run an existing interaction test. Activate its edit trigger with the keyboard,
+close the dialog, and observe which control has focus. The agent's report should name the application files it found, the check it ran and what happened.
 If the page has no dialog yet, a useful result is the actual template where it would belong and the missing recipe
 or wiring. If the page could not be served, report the blocking step and what remains unverified.
 [Testing an application using UXor](APPLICATION-TESTING.md) covers checking a change in the running app.

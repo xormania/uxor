@@ -51,14 +51,14 @@ async function gotoAndCheckPolicy(page: Page, path: string): Promise<{ script: s
     return { script: nonceOf(scriptSources), style: nonceOf(styleSources), policy };
 }
 
-test('every response gets its own nonces', async ({ page }) => {
+test('every response gets its own nonces', { tag: '@demo-app' }, async ({ page }) => {
     const first = await gotoAndCheckPolicy(page, '/demo/login');
     const second = await gotoAndCheckPolicy(page, '/demo/login');
     expect(second.script).not.toEqual(first.script);
     expect(second.style).not.toEqual(first.style);
 });
 
-test.describe('system in dark mode', () => {
+test.describe('system in dark mode', { tag: '@demo-app' }, () => {
     test.use({ colorScheme: 'dark' });
 
     test('the layout sets the theme before the first paint', async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('system in dark mode', () => {
     });
 });
 
-test("Turbo's progress bar gets its style and the brand color", async ({ page }) => {
+test("Turbo's progress bar gets its style and the brand color", { tag: '@demo-app' }, async ({ page }) => {
     await page.goto('/demo/login');
     await page.waitForFunction(() => 'Turbo' in window);
     const bar = await page.evaluate(() => {
@@ -88,7 +88,7 @@ test("Turbo's progress bar gets its style and the brand color", async ({ page })
     expect(bar.color).toBe(bar.brand);
 });
 
-test('the Progress bars keep their width', async ({ page }) => {
+test('the Progress bars keep their width', { tag: '@demo-app' }, async ({ page }) => {
     await page.goto('/demo');
     const bars = await page.locator('[role="meter"], [role="progressbar"]').evaluateAll((tracks) =>
         tracks.map((track) => ({

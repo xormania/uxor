@@ -16,7 +16,8 @@ Report it privately through GitHub: **Security** › **Report a vulnerability**
 Name the affected recipe or package operation, the UXor version, the relevant input and the observed browser
 or server behavior. Include a minimal reproduction when possible; omit credentials and private application data.
 
-The Toolkit route copies recipes, `kit.css` and `kit.js` into an application. The optional Composer package
+Symfony UX Toolkit copies the files listed in each selected recipe's manifest into the application.
+The kit archive also contains `kit.css` and `kit.js` for previews. The Composer development package
 `xormania/uxor` installs agent guidance and development tools under `vendor/xormania/uxor/`; its operations,
 reference handling and execution boundaries are also in scope for vulnerability reports. The demo application,
 repository tests and maintainer tooling are development infrastructure and are not shipped in that package.

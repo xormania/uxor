@@ -1,19 +1,29 @@
 {
     "name": "xormania/uxor",
     "description": "UXor, a Symfony UX Toolkit kit: agent guidance and development tools for building with it, installed with Composer.",
-    "type": "library",
+    "type": "composer-plugin",
     "license": "MIT",
     "homepage": "https://github.com/xormania/uxor",
     "authors": [{"name": "xormania"}],
     "require": {
         "php": ">=8.4",
+        "byte-kitsune/mago-symfony-wiring": "1.3.0",
+        "carthage-software/mago": "1.60.2",
+        "composer": "^2.8.2",
+        "composer-plugin-api": "^2.1",
         "composer/composer": "^2.11.2",
-        "symfony/ai-mate": ">=1.0.0-BETA1 <1.0.0-BETA2",
-        "symfony/ai-mate-composer-plugin": ">=1.0.0-BETA1 <1.0.0-BETA2",
-        "symfony/ai-symfony-mate-extension": ">=1.0.0-BETA1 <1.0.0-BETA2",
+        "symfony/ai-mate": "^1.0.0-BETA1",
+        "symfony/ai-mate-composer-plugin": "^1.0.0-BETA1",
+        "symfony/ai-monolog-mate-extension": "^1.0.0-BETA1",
+        "symfony/ai-symfony-mate-extension": "^1.0.0-BETA1",
         "symfony/console": "^7.4 || ^8.0",
+        "symfony/debug-pack": "^1.1",
         "symfony/filesystem": "^7.4 || ^8.0",
-        "symfony/process": "^7.4 || ^8.0"
+        "symfony/http-client": "^7.4 || ^8.0",
+        "symfony/maker-bundle": "^1.68",
+        "symfony/process": "^7.4 || ^8.0",
+        "symfony/ux-toolkit": "^3.8",
+        "symfony/yaml": "^7.4 || ^8.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^12.5"
@@ -24,12 +34,15 @@
     "autoload-dev": {
         "psr-4": {"Xormania\\UXor\\Tests\\": "packages/uxor/tests/"}
     },
-    "bin": ["packages/uxor/bin/uxor", "packages/uxor/bin/uxor-mago"],
+    "bin": ["packages/uxor/bin/uxor", "packages/uxor/bin/uxor-mago", "packages/uxor/bin/uxor-browser"],
+    "minimum-stability": "beta",
+    "prefer-stable": true,
     "config": {
         "sort-packages": true,
         "allow-plugins": {"symfony/ai-mate-composer-plugin": true}
     },
     "extra": {
+        "class": "Xormania\\UXor\\Composer\\Plugin",
         "ai-mate": {
             "scan-dirs": ["packages/uxor/src/Mate"],
             "includes": ["packages/uxor/config/services.php"],

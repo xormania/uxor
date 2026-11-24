@@ -121,7 +121,7 @@ jobs:
                   set -o pipefail
                   {
                       php tools/sync-demo
-                      (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                      (cd demo && composer install --no-interaction --no-progress && bin/console app:build-styles)
                   } 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
 
             - name: Coverage scope (the recipes' src/)
@@ -316,8 +316,8 @@ jobs:
                   SHARD: ${{ matrix.shard }}
               run: |
                   case "$KIND" in
-                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --shard="$SHARD/3" --workers=2 ;;
-                      engines) npx playwright test --project="smoke-$BROWSER" --project="examples-$BROWSER" --shard="$SHARD/3" --workers=2 ;;
+                      coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --project=demo-app --shard="$SHARD/3" --workers=2 ;;
+                      engines) npx playwright test --project="smoke-$BROWSER" --project="examples-$BROWSER" --project="demo-app-$BROWSER" --shard="$SHARD/3" --workers=2 ;;
                       timings) PW_TIMINGS=1 npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 ;;
                   esac
 
@@ -354,6 +354,7 @@ jobs:
               with:
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
+                  job: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
                   shard: monthly ${{ matrix.kind }} ${{ matrix.browser }} ${{ matrix.shard }}
                   dir: ${{ runner.temp }}/jev-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
                   artifact: jev-input-monthly-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -374,7 +375,7 @@ jobs:
               env:
                   DEMO_URL: https://localhost
                   PW_SCREENSHOTS: all
-              run: npx playwright test --project=smoke-${{ matrix.browser }} --project=examples-${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=2 --retries=0
+              run: npx playwright test --project=smoke-${{ matrix.browser }} --project=examples-${{ matrix.browser }} --project=demo-app-${{ matrix.browser }} --shard=${{ matrix.shard }}/3 --workers=2 --retries=0
 
             - name: Read the screenshots
               if: ${{ !cancelled() && matrix.kind == 'engines' && steps.screenshots.outcome != 'skipped' }}

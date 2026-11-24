@@ -49,13 +49,13 @@ final class Capabilities
 
     /**
      * @param bool $apply Apply the proposed configuration, preserving application-owned files.
-     * @param bool $install Use native Composer/Mate; requires apply and trustProjectCode.
-     * @param bool $trustProjectCode Acknowledge native application execution for this setup operation only; does not save future connection permission.
-     * @param string $client none, claude, or codex; only Serena uses MCP, Mate Beta1 uses the application CLI.
+     * @param bool $install Compatibility flag for older clients. Composer owns installation.
+     * @param bool $trustProjectCode Compatibility flag for older clients. Setup only configures the application.
+     * @param string $client none, claude, or codex; only Serena uses MCP, Mate uses the application CLI.
      * @param string $hostProjectRoot Optional absolute checkout path on the MCP host when PHP uses a different path.
-     * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry. Does not authorize current installation.
+     * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry.
      */
-    #[MateTool('uxor_setup', description: 'Plan or configure the bound application development environment with native Composer/Mate integration. Defaults to a read-only plan. trustProjectCode authorizes current native execution only; saveProjectTrust separately saves permission for future Serena connections, including later checkouts.')]
+    #[MateTool('uxor_setup', description: 'Preview application and client configuration or apply it with apply=true. Composer installs the development tools. saveProjectTrust adds permission for future Serena connections, including later checkouts, to new bindings.')]
     public function setup(bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): string
     {
         return ResponseEncoder::encodeUntrusted($this->operations->run('setup',
@@ -70,7 +70,7 @@ final class Capabilities
     }
 
     /** @param bool $trustProjectCode Acknowledge application PHP execution before enabling native probes. */
-    #[MateTool('uxor_environment', description: 'Inspect the bound application development capabilities, freshness and next steps; probe native entry points only when requested and authorized.')]
+    #[MateTool('uxor_environment', description: 'Inspect development capabilities and preparation state. Authorized probes run native entry points and can prepare Docker provider images on first use.')]
     public function environment(bool $probe = false, bool $trustProjectCode = false): string
     {
         return ResponseEncoder::encodeUntrusted($this->operations->run('environment',
