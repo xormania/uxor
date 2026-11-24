@@ -10,6 +10,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Added
 
+- The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
+  read page errors, failed requests and available Symfony profile tokens using the installed CLI or Mate.
+
 - The gallery publishes the Composer onboarding guide and advanced operations reference as HTML and Markdown.
   The same guides are available in the repository and through the installed agent tools.
 
