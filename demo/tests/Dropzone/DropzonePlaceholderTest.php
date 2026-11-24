@@ -85,6 +85,40 @@ final class DropzonePlaceholderTest extends KernelTestCase
         self::assertSame(['Déposez une photo'], $this->mainLines($this->renderField(['placeholder' => $placeholder])));
     }
 
+    /** @return iterable<string, array{array<string, mixed>, list<string>}> */
+    public static function placeholderChoices(): iterable
+    {
+        yield 'placeholder false' => [['placeholder' => false], []];
+        yield 'nothing said' => [[], [self::DEFAULT_PHRASE]];
+        yield 'a placeholder' => [['placeholder' => 'Drop a photo'], ['Drop a photo']];
+        yield 'custom attr, no placeholder' => [['attr' => ['accept' => 'image/png']], [self::DEFAULT_PHRASE]];
+    }
+
+    /**
+     * UX Dropzone 3.8 adds the `placeholder` and `container_attr` view variables and still sets `attr.placeholder`: the
+     * widget renders as on 3.7. The main line is the field's choice, the file input carries no `placeholder` attribute
+     * (not one of a file input) and no `data-controller`, and the box is the recipe's, with its own controllers and none
+     * of UX Dropzone's container classes.
+     *
+     * @param array<string, mixed> $options
+     * @param list<string>         $lines
+     */
+    #[DataProvider('placeholderChoices')]
+    public function testTheWidgetRendersTheSameForEachPlaceholderChoice(array $options, array $lines): void
+    {
+        $zone = $this->renderField($options);
+        $input = $zone->filter('input[type="file"]');
+
+        self::assertSame($lines, $this->mainLines($zone));
+        self::assertCount(1, $input);
+        self::assertNull($input->attr('placeholder'), 'no placeholder attribute on the file input');
+        self::assertNull($input->attr('data-controller'), 'no controller on the file input');
+        $box = $zone->filter('[data-controller~="symfony--ux-dropzone--dropzone"]');
+        self::assertCount(1, $box);
+        self::assertSame('symfony--ux-dropzone--dropzone dropzone-assist', $box->attr('data-controller'));
+        self::assertStringNotContainsString('dropzone-container', (string) $box->attr('class'), "UX Dropzone's container_attr is not rendered");
+    }
+
     /** @return iterable<string, array{bool}> */
     public static function consumerExtensionOrders(): iterable
     {

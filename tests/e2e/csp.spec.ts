@@ -1,6 +1,6 @@
 import type { APIResponse, Page, Response } from '@playwright/test';
-import { test, expect, recordDarkAtFirstBody } from './fixtures';
-import { png } from './files';
+import { test, expect, decodedBackgroundImage, recordDarkAtFirstBody } from './fixtures';
+import { jpeg, png, svg } from './files';
 
 /*
  * The demo's browser hardening headers and its enforced Content Security Policy
@@ -126,29 +126,39 @@ test("the Editor's markup has no style attribute, and the mounted editor adds no
     expect(await page.locator('style').evaluateAll((styles) => styles.filter((style) => style.textContent!.includes('ProseMirror')).length)).toBe(0);
 });
 
-test('a picked image shows its preview under the policy (img-src data:)', async ({ page }) => {
-    const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=light');
-    expect(policy.get('img-src')).toContain('data:');
-    await page.locator('input[type="file"]').setInputFiles(png('tiny.png'));
-    const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
-    await expect(image).toBeVisible();
-    // the image loads: its natural size, read the way the browser loads a CSS background (the fixtures fail on a violation)
-    const loaded = await image.evaluate(async (element) => {
-        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
-        const probe = new Image();
-        probe.src = url;
-        await probe.decode();
+// UX Dropzone 3.8 uses object URLs for PNG and JPEG previews. SVG previews still load from data URLs.
+for (const theme of ['light', 'dark']) {
+    test(`in the ${theme} theme, a picked PNG or JPEG shows its preview from a blob: URL, an SVG from a data: URL, under the policy`, async ({ page }) => {
+        const { policy } = await gotoAndCheckPolicy(page, `/preview/dropzone/default?theme=${theme}`);
+        expect(policy.get('img-src')).toEqual(expect.arrayContaining(['blob:', 'data:']));
+        const input = page.locator('input[type="file"]');
+        const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
+        for (const [file, scheme] of [
+            [png('tiny.png'), /^blob:/],
+            [jpeg('tiny.jpg'), /^blob:/],
+            [svg('tiny.svg'), /^data:image\/svg\+xml;/],
+        ] as const) {
+            const previous = await decodedBackgroundImage(image);
+            await input.setInputFiles(file);
+            await expect(page.getByText(file.name, { exact: true })).toBeVisible();
+            await expect(image).toBeVisible();
+            await expect.poll(async () => {
+                const preview = await decodedBackgroundImage(image);
 
-        return { scheme: url.slice(0, 15), width: probe.naturalWidth };
+                return preview?.url === previous?.url ? null : preview;
+            }, { message: file.name }).toEqual({
+                url: expect.stringMatching(scheme),
+                width: 1,
+            });
+        }
     });
-    expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
-});
+}
 
 // the same in the dark theme, walked as the user does: a keyboard pick shows the name, the image and Remove, focused;
 // Remove empties the zone and puts the focus back on the input
 test('in the dark theme, a picked image shows its name, its preview under the policy and Remove, focused; Remove empties the zone', async ({ page }) => {
     const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=dark');
-    expect(policy.get('img-src')).toContain('data:');
+    expect(policy.get('img-src')).toEqual(expect.arrayContaining(['blob:', 'data:']));
     await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
     const input = page.getByLabel('Profile picture');
     await input.focus();
@@ -165,16 +175,8 @@ test('in the dark theme, a picked image shows its name, its preview under the po
     await expect(image).toBeVisible();
     const box = await image.boundingBox();
     expect(box && box.width > 0 && box.height > 0).toBe(true);
-    // the image loads (the fixtures fail on a violation), read the way the browser loads a CSS background
-    const loaded = await image.evaluate(async (element) => {
-        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
-        const probe = new Image();
-        probe.src = url;
-        await probe.decode();
-
-        return { scheme: url.slice(0, 15), width: probe.naturalWidth };
-    });
-    expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
+    // the image loads from its object URL (the fixtures fail on a violation)
+    await expect.poll(() => decodedBackgroundImage(image)).toEqual({ url: expect.stringMatching(/^blob:/), width: 1 });
 
     await page.keyboard.press('Enter');
     await expect(input).toBeFocused();
