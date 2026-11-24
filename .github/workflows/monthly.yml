@@ -252,7 +252,7 @@ jobs:
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             # reads the image cache CI writes for dev and main (ci.yml, *Name the build cache*: a public package, so no
-            # login), then the GitHub Actions caches CI keeps as fallbacks; writes none
+            # login); writes none
             - name: Name the build cache
               id: cache
               env:
@@ -280,8 +280,6 @@ jobs:
                       *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
-                      *.cache-from=type=gha,scope=demo-refs/heads/dev
-                      *.cache-from=type=gha,scope=demo-refs/heads/main
 
             - name: Start the demo (composer install on first start)
               id: start

@@ -1541,8 +1541,6 @@ jobs:
                       *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
-                      *.cache-from=type=gha,scope=demo-${{ github.ref }}
-                      *.cache-from=type=gha,scope=demo-refs/heads/main
 
             # The job does not need importmap, so it starts while that job downloads the packages (about 15 s) and
             # waits for it here, by name, through the run's jobs (tools/ci/wait-for-job.mjs): it goes on only when the
@@ -1743,7 +1741,7 @@ jobs:
                   node tools/ci/playwright-summary.mjs playwright-results/results.json
 
             # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs job), report only: the demo image's
-            # build records (cached of total steps: did the GitHub Actions cache serve the build), the npm cache hit and
+            # build records (cached of total steps: did the build cache serve the build), the npm cache hit and
             # the seconds of npm ci and of the Playwright image's pull, in job-metrics.json next to the results. CI
             # result gathers every shard's with their durations.json. It never fails the job.
             - name: Record the job's metrics (advisory)
