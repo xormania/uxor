@@ -541,6 +541,22 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
 - **Never commit** `vendor/`, `demo/vendor/`, `demo/var/`, `demo/public/assets/`, `demo/assets/vendor/`, `node_modules/`,
   Playwright output (`test-results/`, `playwright-report/`, `playwright-results/`).
 
+### CI and test names
+
+- **Workflows** use short sentence-case names for their responsibility, such as *Release checks* or *PHP analysis
+  comparison*.
+- **Jobs** use short sentence-case noun phrases that identify what they validate or produce, such as *Toolkit browser
+  verification*. Keep the base name consistent across a matrix and append the distinguishing inputs in parentheses.
+  Use `(<browser> <shard>/<total>)` for browser shards, as in *Toolkit browser verification (chromium 1/8)*.
+- **Steps** start with an action verb and name its target, such as *Verify the published release tag*.
+- **Test titles** state the expected behavior in the present tense and include the condition that changes it. For
+  example, `the deploy stops when a newer release appears or the tag moves`. Use group names for shared context
+  and include the case or input in parameterized titles. Follow the framework's convention for method names.
+- **Names read by tooling** are compatibility interfaces. Search for the exact name in workflow triggers, evidence
+  checks, metrics, diagnostics and test selectors before renaming it. Update the consumers and fixtures together.
+  Coordinate required check renames with the maintainer and the target branch rulesets. Keep partial and skipped
+  verdicts distinct from the required full *CI result*.
+
 ## Adding a recipe
 
 1. Create `<recipe>/manifest.json`. Copy the pinned `$schema` URL from one of this kit's own recipes (`stat-card`),
