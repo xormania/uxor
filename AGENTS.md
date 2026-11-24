@@ -11,7 +11,9 @@ you are working on. UXor's contribution and publication policies do not govern a
   implementation and shipped consumer guidance in `packages/uxor/`. The demo and the package's independent consumer
   fixture have separate dependencies and runtimes. Follow their local guidance.
 - The project documentation website lives in `website/`. It renders the kit and Composer package guides from their release
-  sources. The demo owns the example application and recipe previews. Pages publishes their static outputs together.
+  sources. The Symfony host in `demo/` serves the example app at `/demo` and the Toolkit fixtures at
+  `/lab`, `/forms`, and `/preview`. Pages publishes the static website and runtime export together.
+  The example app and Toolkit have separate Chromium projects and CI checks.
 - UXor's requirements govern its design and compatibility. The original reference kit, Flowbite CSS and icon set
   do not fix future design choices. Preserve legal attribution.
 - Keep Node.js out of the demo and the kit's install, build and runtime requirements. Browser packages use

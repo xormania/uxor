@@ -13,7 +13,8 @@ moves or removes coverage updates the rows it touches, and its own coverage map 
   (`demo/tests/…`).
 - **Scope:** unit, Twig or Live component (PHPUnit with the UX helpers), functional (`WebTestCase`), E2E lab
   (`/lab/*` pages), E2E demo (`/preview/*`, `/forms`, `/demo`), screenshot.
-- **Browsers:** every E2E test named here runs in Chromium in CI on every change the browser job checks, and in
+- **Browsers:** the Toolkit projects (`smoke`, `examples`) cover labs and previews. The `demo-app` project covers
+  the example app at `/demo`. CI selects the Chromium jobs whose inputs changed. It runs both suites in
   Firefox and WebKit on `dev`'s daily run when `dev` changed since their last pass, on every push to `main`, in a
   manual run with *engines* and before a release (*Release checks* requires their pass on the head): not before a
   branch merges, a trial set by `ENGINES_ON` in `ci.yml` ([`TESTING.md`](TESTING.md), *Browsers*). Many behavior tests run in all three engines. The screenshot comparisons (`shot:<recipe>`, `examples/examples`, `examples/pages`, `baselines`,

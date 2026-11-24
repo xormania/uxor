@@ -309,7 +309,7 @@ test('on a desktop the section nav is a column', async ({ page }) => {
     expect(new Set(tops).size).toBe(sections.length);
 });
 
-test('the demo\'s settings pages mark their section on the server and visit each other', async ({ page }) => {
+test('the demo\'s settings pages mark their section on the server and visit each other', { tag: '@demo-app' }, async ({ page }) => {
     await page.goto('/demo/settings/profile');
     const settings = page.getByRole('navigation', { name: 'Settings' });
     const sameDocument = await markDocument(page);

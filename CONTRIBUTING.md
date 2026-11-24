@@ -286,7 +286,8 @@ input until the classifier and its tests say otherwise. A deletion counts as a c
 as a change to both paths.
 
 *Tool tests*, *Contrast* and *Workflows* below are checks, run as the steps of one job, *Quick checks*: Tool tests on
-every run, the other two when selected. *Demo + Playwright* below means the Chromium shards when the lane is selected and has no reusable result. Firefox and WebKit run on `dev`'s daily run, on
+every run, the other two when selected. *Toolkit browser verification* runs the Toolkit's Chromium shards when selected
+with no reusable result. *Demo app browser checks* runs the example app in one Chromium job. Firefox and WebKit run on `dev`'s daily run, on
 `main`, in a manual run with *engines* and before a release, a trial set by `ENGINES_ON` in `ci.yml`
 (`docs/TESTING.md`, *Browsers*).
 
@@ -355,15 +356,16 @@ phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php -
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below
-npx playwright test --project=smoke --project=examples   # Chromium only, the screenshots included: the quicker loop
+npx playwright test --project=smoke --project=examples   # Toolkit on Chromium, including screenshots
+npx playwright test --project=demo-app                   # example app on Chromium, including layout screenshots
 RELEASE_CHECKS=1 npx playwright test --project=release --project=release-dark --project=release-harsh --workers=1   # the three release browser projects (docs/TESTING.md also lists PHP properties and the production image)
 node --test 'tools/monthly/*.test.mjs'              # the cases of the monthly job's report tools (tools/monthly/)
 php tools/monthly/php-scope.php coverage/php        # the monthly job's PHP scope: coverage/php/phpunit.xml and infection.json5 (the recipes' src/)
 (cd demo && bin/phpunit -c ../coverage/php/phpunit.xml --coverage-clover ../coverage/php/clover.xml) && node tools/monthly/php-coverage.mjs --out coverage/php coverage/php/clover.xml   # PHP coverage per recipe class (needs PCOV, or Xdebug with XDEBUG_MODE=coverage)
 (cd demo && php infection.phar -c ../coverage/php/infection.json5) && node tools/monthly/infection.mjs --out coverage/php coverage/php/infection/infection.json   # Infection's MSI and surviving mutants (the PHAR CI pins in monthly.yml)
-JS_COVERAGE=$PWD/coverage/js/raw npx playwright test --project=smoke --project=examples && node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw   # the controllers' JS coverage and the methods no test runs (Chromium)
+JS_COVERAGE=$PWD/coverage/js/raw npx playwright test --project=smoke --project=examples --project=demo-app && node tools/monthly/js-coverage.mjs --out coverage/js coverage/js/raw   # the controllers' JS coverage and the methods no test runs (Chromium)
 PW_TIMINGS=1 PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/timings.json npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 --reporter=json && node tools/monthly/timings.mjs --out coverage/timings coverage/timings.json   # the interaction timings, report only (Chromium)
-PW_SCREENSHOTS=all PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/screens.json npx playwright test --project=smoke-firefox --project=examples-firefox --retries=0 --reporter=json; node tools/monthly/screenshots.mjs --browser firefox --shard 1/1 --out coverage/screens coverage/screens.json   # Firefox's screenshots against the Chromium baselines (fails on any difference; the report reads it)
+PW_SCREENSHOTS=all PLAYWRIGHT_JSON_OUTPUT_NAME=coverage/screens.json npx playwright test --project=smoke-firefox --project=examples-firefox --project=demo-app-firefox --retries=0 --reporter=json; node tools/monthly/screenshots.mjs --browser firefox --shard 1/1 --out coverage/screens coverage/screens.json   # Firefox's screenshots against the Chromium baselines (fails on any difference; the report reads it)
 node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-coverage.json --infection coverage/php/infection-summary.json --js coverage/js/js-coverage.json --timings coverage/timings/timings.json   # the numbers in one monthly.json, against --previous <monthly.json>
 actionlint                                          # every workflow, with ShellCheck on its run steps (CI pins actionlint 1.7.12 and ShellCheck 0.11.0)
 
@@ -710,7 +712,7 @@ the code names (`App\UXor`, `uxor-*.js`, `uxor*.css`) are renamed by hand, with 
 `<recipe>/tests/screenshots/*.png` are the baselines Playwright compares screenshots with. Never update them as a
 side effect. A visual change is a commit of its own:
 
-1. Run `npx playwright test --project=examples --update-snapshots`. It rewrites every baseline that differs.
+1. Run `npx playwright test --project=examples --project=demo-app --update-snapshots`. It rewrites every baseline that differs.
 2. Keep only the files you meant to change (check `git status`), and review them.
 
 ## Commits and pull requests
