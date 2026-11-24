@@ -1,4 +1,16 @@
-# UXor operations in a consuming application
+# Advanced UXor setup and operations
+
+For the recommended setup, follow [the Composer guide](README.md). Use this reference to run a specific
+integration yourself or inspect what the package does in your application.
+
+| Task | Instructions |
+| --- | --- |
+| Install recipes directly with Symfony UX Toolkit | [Configure the application's kit and assets](../../INSTALL.md). |
+| Connect an MCP client or use a separate Docker host | [Client configuration and host paths](#set-up-and-inspect-the-development-environment), then [prepare the providers](#prepare-the-providers-on-the-docker-host). |
+| Inspect PHP, Twig or compiled Symfony wiring | [Source checks](#inspect-and-change-source) · [Compiled Symfony facts](#prepare-compiled-symfony-facts) |
+| Verify a feature or diagnose a failed request | [Request diagnostics](#diagnose-a-request) · [Browser diagnostics](#browser-diagnostics) |
+| Remove the development package or reconnect later | [Detach managed integrations](#detach-before-removing-uxor). |
+| Check what the package knows about an existing project | [Project evidence and first-setup checks](#project-evidence-and-first-setup-checks) |
 
 Use these tools in the consuming application's checkout, under its instructions and authorized task scope. Run commands with its configured PHP runtime; in a containerized project, use the PHP container so installed extensions, paths and generated Symfony artifacts match the application. Application-owned components and configuration remain the application's responsibility.
 
@@ -33,6 +45,10 @@ vendor/bin/uxor environment --project-root=/app --probe --trust-project-code --f
 Mate when `mate/config.php` is absent, installs missing development dependencies with Composer, regenerates
 autoload metadata and refreshes discovery. It requires `--apply --trust-project-code`. It does not build providers
 or prepare compiled Symfony facts.
+
+Composer resolves the development dependencies against the application's own constraints. The Symfony wiring
+provider for this release requires `symfony/yaml ^7.4.23 || ^8.1.11`. If the project pins Symfony to 8.0,
+inspect Composer's resolver output and the constraints it names.
 
 Setup requests Symfony’s full debug pack and the Monolog Mate extension in the first development install.
 Flex can replace the debug pack and its nested profiler pack with direct component requirements. Setup and
@@ -77,8 +93,96 @@ revoke earlier permission. Reconcile them explicitly. To revoke recurring permis
 `mcp_binding.requested_saved_project_trust` reports the requested configuration, not the contents of preserved
 files or a verified connection. The example above installs tools without saving permission for future connections.
 
-The corresponding Mate tools are `uxor_setup`, `uxor_environment` and `uxor_prepare`. Inspect their installed
+The corresponding Mate tools are `uxor_setup`, `uxor_environment`, `uxor_prepare` and `uxor_detach`. Inspect their installed
 named inputs before calling them through the application's Mate CLI.
+
+## Prepare the providers on the Docker host
+
+The shipped provider recipes target Linux amd64 with local Docker. Run these commands on the host that starts the
+MCP client and can access the checkout; application PHP commands still belong in the application's PHP environment.
+
+```sh
+vendor/bin/uxor-mago pull cli
+vendor/bin/uxor-mago version
+vendor/bin/uxor-mago pull serena
+vendor/bin/uxor-mago version serena
+```
+
+The CLI provider uses the official digest-pinned binary in PHP 8.4.28. The Serena provider builds language-server
+and extension support from Mago 1.60.2 and pins upstream Serena at `7f7d6245`. Both recipes and Serena's dependency
+lock ship in the package. `UXOR_MAGO_IMAGE` selects a compatible custom image.
+[Release binary](https://github.com/carthage-software/mago/releases/tag/1.60.2) ·
+[Language-server recipe](resources/mago/serena/Dockerfile)
+
+Setup supplies a root Mago configuration when one is absent. Preserve an existing configuration and integrate the
+owned config explicitly. For an application using PHP 8.4 and the default vendor directory:
+
+```toml
+version = "1.60.2"
+php-version = "8.4"
+extends = ".uxor/mago/config.toml"
+
+[source]
+paths = ["src", "tests", "templates"]
+includes = ["vendor"]
+```
+
+Use the application's actual PHP target, source paths and Composer vendor directory. The owned config starts
+without a Symfony worker; successful `uxor prepare` enables it.
+
+## Inspect and change source
+
+The default application mount is read-only. Formatting commands check without writing, and native findings retain
+Mago's exit status. `check` verifies nonempty source scopes, then runs formatting, lint and analysis in order.
+
+```sh
+vendor/bin/uxor-mago --trust-project-code check
+vendor/bin/uxor-mago --trust-project-code analyze --reporting-format json
+vendor/bin/uxor-mago --trust-project-code lint --reporting-format json src/
+vendor/bin/uxor-mago --trust-project-code twig:lint templates/
+vendor/bin/uxor-mago --trust-project-code cst --help
+vendor/bin/uxor-mago --trust-project-code guard --help
+```
+
+`--trust-project-code` authorizes execution; add `--write` before the command when checkout changes are also
+authorized. Writable access includes repository metadata; the offline provider is not a safe execution environment
+for untrusted application code. The native `fix` command uses its safe
+default; inspect the resulting diff and run the relevant application tests.
+
+```sh
+vendor/bin/uxor-mago --trust-project-code --write format src/
+vendor/bin/uxor-mago --trust-project-code --write fix src/
+vendor/bin/uxor-mago --trust-project-code --write twig:fmt templates/
+```
+
+The launcher also forwards `guard`, `cst`, `twig:fmt` and `twig:lint` options to Mago. Mutation options
+such as `--fix` require `--write`; native dry-run previews remain available. Explicit check, diff and stdin
+options keep their native meaning. Use each command's installed `--help` before selecting unfamiliar options.
+
+For manual MCP configuration, substitute the absolute host application and executable paths. This definition
+carries no saved execution permission:
+
+```json
+{
+  "mcpServers": {
+    "uxor-mago": {
+      "command": "/path/to/app/vendor/bin/uxor-mago",
+      "args": ["--project-root", "/path/to/app", "serena"]
+    }
+  }
+}
+```
+
+To authorize a launch, supply `"--trust-project-code"` before `"serena"` after reviewing the selected application
+and launcher. Save that flag in client settings only when recurring permission is intended; it also applies to
+later code checked out at the same path. Keep this permission in local settings rather than shared configuration.
+Add `"--write"` before `"serena"` only when that session is authorized to edit the application. This enables
+Serena's source editing with a writable mount. Use project-relative paths for source queries.
+
+The provider keeps its index and settings in private Docker storage selected for the checkout, user and image.
+It preserves the application's own `.serena/` files. Close the existing MCP process before reconnecting to the
+same provider state; reconnecting starts a new REPL session. Install dependencies inside the mounted checkout:
+external Composer path-repository targets are inaccessible.
 
 ## Prepare compiled Symfony facts
 
@@ -122,6 +226,10 @@ provenance of application-authored artifacts. Native source operations remain in
 For another client, reload or restart after exporting a new reference. Graph edges have no source spans and
 describe analysis dependencies or compiled bindings; they do not establish that a runtime call occurred.
 
+When your PHP process runs in a container and the client starts on the host, run `prepare` in the PHP container, check both provider versions on the host, and query a known symbol from
+the actual client. If source changed during an edit, query the symbol again before applying a range.
+[Provider limitations](https://github.com/xormania/mago-serena_v2-poc/blob/4e811e48ee9c934791695ebfc9622daa251534b4/docs/CAPABILITIES.md)
+
 The offline worker uses the provider's PHP 8.4.28 and the mounted application's dependencies. Its platform and
 extensions must satisfy those dependencies. A project using a newer PHP platform may need a compatible custom
 provider. Prepared facts, provider readiness and application health are reported separately.
@@ -137,27 +245,14 @@ Discover Maker commands and exact arguments using `tools` or the native Console 
 application's conventions and existing components. Missing UXor components still install through Toolkit's
 `ux:install`; setup configures development tools and does not replace recipe installation.
 
-Every application command requires `--trust-project-code` before the launcher command because configured
-extensions, including the prepared Symfony wiring worker, can execute application PHP and its Composer autoloader. Review the
-checkout and effective configuration first. Provider preparation, image/version queries and top-level help are
-exempt. The default application mount is read-only; `--write` separately permits checkout changes, including
-repository metadata:
-
-```sh
-vendor/bin/uxor-mago --trust-project-code format src/
-vendor/bin/uxor-mago --trust-project-code --write format src/
-vendor/bin/uxor-mago --trust-project-code --write fix src/
-vendor/bin/uxor-mago --trust-project-code analyze --reporting-format json
-vendor/bin/uxor-mago --trust-project-code twig:lint templates/
-```
-
-`format` and `twig:fmt` check by default. `fix` and mutating native options need `--write`; native dry-run previews
-remain available. `guard`, `cst`, `twig:fmt` and `twig:lint` accept their installed native options. Use `--help` when
-choosing a command. `--trust-project-code --write serena` enables semantic editing for that trusted session.
-Neither a read-only mount nor disabled networking establishes that application code is safe to execute.
+Use the [Mago source checks](#inspect-and-change-source) for PHP/Twig formatting, lint and analysis
+in the selected application. Configured extensions can run its PHP, including the Composer autoloader.
+Review the checkout and effective configuration before supplying `--trust-project-code`; add `--write`
+for an authorized mutating operation. Provider preparation, image/version queries and top-level help are
+available without running application code.
 
 Inspect the resulting diff, retain native findings and run tests that exercise the changed behavior. Refresh
-compiled facts when required before interpreting framework graph results. The [provider setup](README.md#mago-and-serena)
+compiled facts when required before interpreting framework graph results. The [provider setup](#prepare-the-providers-on-the-docker-host)
 explains host execution, persistent index storage and client registration.
 
 ## Diagnose a request
@@ -198,7 +293,7 @@ A profiler token cannot recover a file removed by another cache-clearing process
 `workflow customer-management` reads the UXor-authored guide for a searchable customer list, edit dialog, validation, successful save, feedback and Turbo history. It uses the same bounded UTF-8 pagination and directory checks as references. The result identifies the UXor package (`xormania/uxor`) as its source and returns the observed file checksum; that checksum identifies the returned guide and is not an independent signature. This guide lives outside the generated UXor reference bundle. Mate exposes it through `uxor://workflow/customer-management` and `uxor_workflow`; use the tool or CLI `--offset` to continue a truncated page.
 
 Mate exposes `uxor_catalog`, `uxor_component`, `uxor_reference`, `uxor_workflow`, `uxor_project`, `uxor_doctor`,
-`uxor_tools`, `uxor_browser_diagnostics`, `uxor_setup`, `uxor_environment` and `uxor_prepare`. The fixed `uxor://catalog` resource supplies the initial catalog page.
+`uxor_tools`, `uxor_browser_diagnostics`, `uxor_setup`, `uxor_environment`, `uxor_prepare` and `uxor_detach`. The fixed `uxor://catalog` resource supplies the initial catalog page.
 Read an indexed document through `uxor://reference/INSTALL.md` or `uxor://reference/modal/README.md`. Use the reference
 tool for pagination. See `vendor/bin/mate tools:inspect <name> --format=json` for actual named inputs.
 
@@ -287,12 +382,11 @@ Native failures return the argv and exit status, with an action to diagnose the 
 ## Result and exit contract
 
 Every operation returns an operation name, status, human summary, reference metadata, data and a changes list.
-Read operations report no intentional writes. Applied setup and preparation report their file changes as
+Read operations report no intentional writes. Applied setup, preparation and detachment report their file changes as
 `{path, action}` entries; setup can also invoke the explicitly selected native dependency/discovery commands.
 Native framework commands may initialize the application's own caches. `completed` means the operation ran; diagnostic findings separately report `pass`, `fail` or `unknown`. `incomplete` identifies missing native metadata or unresolved checks. `failed` identifies invalid input or an execution error.
 
 The CLI uses exit 0 for completed operations, 1 for failed operations and 2 for incomplete checks or failing doctor findings. JSON output uses the same service result as Mate. Do not interpret exit 0 from metadata inspection as proof the application boots or that a UI journey works. Reference facts, application metadata and observed runtime behavior have distinct evidence limits.
-
 
 ## Detach before removing UXor
 
@@ -329,3 +423,120 @@ custom Playwright fixture, extend the application's normal `test` from `@playwri
 UXor recorder registration. Migrate tests which request the recorder explicitly. Run the application's Playwright
 suite, its remaining Mago command, and `vendor/bin/mate tools:list` if it keeps Mate. These verify the scopes,
 providers and tests the application actually uses.
+
+## CLI command reference
+
+Run `vendor/bin/uxor <command> --help` for the installed version. Square brackets indicate inputs the Console parser accepts as optional.
+To complete a lookup, give `component` or `workflow` a name, or give `reference` a document path.
+
+<!-- BEGIN UXOR COMMAND REFERENCE -->
+
+### `browser-diagnostics`
+
+Read a local Playwright capture of browser errors, failed requests, and exact Symfony profile tokens.
+
+- `<path>` — Project-relative path to browser-diagnostics.json
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+
+### `catalog`
+
+Find UXor component references.
+
+- `[--format FORMAT]` — text or json
+- `[--query QUERY]` — Component name or intent
+- `[--category CATEGORY]` — Exact category filter
+- `[--limit LIMIT]` — Result limit (1–50)
+- `[--offset OFFSET]` — Result offset
+
+### `component`
+
+Describe one component reference.
+
+- `[<name>]` — Exact component name
+- `[--format FORMAT]` — text or json
+
+### `detach`
+
+Plan or detach the development integrations before removing UXor with Composer.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--apply]` — Apply the detachment plan after reviewing the listed paths
+
+### `doctor`
+
+Check setup, selected component wiring and runtime unknowns.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--component COMPONENT]` — Installed component to check against its reference requirements
+- `[--asset-profile ASSET-PROFILE]` — auto, assetmapper, or custom
+
+### `environment`
+
+Inspect development capabilities and optionally probe their native entry points.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--trust-project-code]` — Acknowledge execution of this already trusted application and its native tools
+- `[--probe]` — Run native entry-point probes; requires trust-project-code
+
+### `inspect`
+
+Inspect the selected application metadata.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+
+### `prepare`
+
+Refresh sanitized compiled Symfony wiring in the trusted application runtime.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--trust-project-code]` — Acknowledge execution of this already trusted application and its native tools
+
+### `reference`
+
+Read a packaged UXor document.
+
+- `[<path>]` — Indexed document key, e.g. INSTALL.md
+- `[--format FORMAT]` — text or json
+- `[--offset OFFSET]` — Byte offset
+- `[--limit LIMIT]` — Byte limit (1–24000)
+
+### `setup`
+
+Plan or configure this application’s development environment; preserve existing configuration.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--trust-project-code]` — Acknowledge native application execution for this setup operation; does not save permission for future connections
+- `[--apply]` — Apply the proposed project configuration
+- `[--install]` — Use native Composer and Mate to install and initialize the development tools; requires apply and trust-project-code
+- `[--save-project-trust]` — Save execution permission in new Serena bindings for future connections, including later checkouts; separate from current setup execution
+- `[--client CLIENT]` — none, claude, or codex; configure Serena MCP without replacing existing server entries
+- `[--host-project-root HOST-PROJECT-ROOT]` — Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere
+
+### `tools`
+
+Discover native Maker/Mate metadata by executing trusted project PHP (explicit opt-in).
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--kind KIND]` — maker or mate
+- `[--name NAME]` — Exact name for native parameter definitions
+- `[--limit LIMIT]` — List limit (1–50)
+- `[--trust-project-code]` — Acknowledge that metadata discovery boots this trusted checkout and executes its PHP/autoload code
+
+### `workflow`
+
+Read a practical UXor-authored application workflow.
+
+- `[<name>]` — Known workflow name: customer-management
+- `[--format FORMAT]` — text or json
+- `[--offset OFFSET]` — Byte offset
+- `[--limit LIMIT]` — Byte limit (1–24000)
+
+<!-- END UXOR COMMAND REFERENCE -->

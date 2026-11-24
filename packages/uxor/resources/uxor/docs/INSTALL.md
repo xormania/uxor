@@ -1,25 +1,20 @@
 # Getting started
 
-UXor is an independently maintained Symfony UI library, currently distributed as a Symfony UX Toolkit kit: Twig
-components, Stimulus controllers, a form theme, layouts and blocks (ready-made parts of a page), styled with
-[Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with
-`php bin/console ux:install`, once the project is set up as below.
-
-These steps install the Toolkit kit into a consuming application, which owns the copied recipes. UXor also provides
-an optional [Composer development package, `xormania/uxor`](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md), for agent guidance, diagnostics
-and tools; it does not install recipes. Follow the application's own instructions, workflow and permissions, and
-preserve its existing configuration. Developing either deliverable or the repository's demo and test fixtures
-starts with [`CONTRIBUTING.md`](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md).
-
-The official Symfony UX `flowbite-4` kit was an initial reference only. The Toolkit installer, Flowbite stylesheet
-and icon set are current integrations, not a requirement to track that kit. These setup instructions describe the
-current release; UXor's requirements and compatibility commitments govern how its integrations evolve.
+Use this guide to set up Symfony UX Toolkit, assets and the theme in your application. If you're getting
+started with UXor, follow the recommended [Composer package guide](packages/uxor/README.md). It includes
+this kit setup and takes you through rendering your first component. Experienced teams can also use
+these steps directly for a kit-only installation.
 
 ## Requirements
 
 The kit needs PHP 8.4 or later with the `zip` extension, Tailwind CSS v4 and Flowbite v4's stylesheet.
-The standard setup uses Symfony AssetMapper and TailwindBundle's standalone binary and runs without Node.js.
-On a new Symfony project (`composer create-project symfony/skeleton`), follow the *Symfony* steps first.
+The standard setup uses AssetMapper and TailwindBundle's standalone binary. UXor tests the kit on Symfony 7.4
+LTS and 8.1. For `calendar` and `date-picker` in locales other than `en`, enable PHP's `intl` extension.
+
+For a new Symfony application, create a project (for example `composer create-project symfony/skeleton`),
+then run the *Symfony* steps below from its root. With Symfony Docker, run Composer and Symfony commands in
+the PHP container, for example `docker compose exec php composer …` and `docker compose exec php bin/console …`.
+For an existing application, check which dependencies, asset configuration and components are already in place.
 
 ### Symfony
 
@@ -77,6 +72,9 @@ See [Choosing a revision](#choosing-a-revision) for a new installation, an updat
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
 
+Before deploying a page that uses UX Icons, run `php bin/console ux:icons:lock` and commit the icons it saves.
+Repeat this when your templates use new icons. That lets the application serve the selected icons locally.
+
 ## Choosing a revision
 
 For a new installation, choose a tagged release from [Releases](https://github.com/xormania/uxor/releases).
@@ -97,9 +95,11 @@ The application owns and may customize installed recipe files. Read the recipe's
 points and security contracts. Before reinstalling with `--force`, preserve local changes using the application's
 normal workflow; review the resulting diff and reconcile customizations.
 
-The optional [Composer development package](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md) supplies tools, documentation and
+The optional [Composer development package](packages/uxor/README.md) supplies tools, documentation and
 package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
 the [project snippet](https://github.com/xormania/uxor/blob/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md) is optional; adapt and merge it only when persistent UXor
 guidance is wanted, and avoid duplicating guidance already supplied by the helper.
 
-Verify the installed components in their application context using [application testing](https://github.com/xormania/uxor/blob/0.3.5/docs/APPLICATION-TESTING.md).
+Verify the installed components in their application context using
+[application testing](docs/APPLICATION-TESTING.md).
+For changes to the kit or the package itself, follow [Contributing to UXor](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md).

@@ -19,7 +19,7 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page and
- * its portable Markdown (r/<recipe>.md), every README example in both themes, the consumer guides (install, guide)
+ * its portable Markdown (r/<recipe>.md), every README example in both themes, the published consumer guides
  * and theirs, sitemap.xml and llms.txt, and the /demo application's pages. The site's public URL (--site-url) goes into
  * the canonical links, the sitemap and llms.txt. Each page goes through the kernel as a GET
  * request under the site's base path, so Symfony prints the links and asset URLs the site needs.
@@ -46,6 +46,7 @@ final class ExportStaticCommand
 
     public function __construct(
         private readonly KitReader $kit,
+        private readonly GuideDocs $guides,
         #[Autowire(service: 'http_kernel')]
         private readonly HttpKernelInterface $httpKernel,
         #[Autowire(service: 'services_resetter')]
@@ -137,7 +138,7 @@ final class ExportStaticCommand
                 }
             }
         }
-        foreach (array_keys(GuideDocs::GUIDES) as $guide) {
+        foreach (array_keys($this->guides->all()) as $guide) {
             yield '/'.$guide => $guide.'/index.html';
             yield '/'.$guide.'.md' => $guide.'.md';
         }

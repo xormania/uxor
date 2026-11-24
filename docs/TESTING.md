@@ -1133,12 +1133,13 @@ linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_pro
 [`tools/tests/prod-image.sh`](../tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
 images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
 image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
-its extensions, without Xdebug or any development-only package from `demo/composer.lock`, and without UX Toolkit's
-bundle or commands; its working directory and server root are the app's; it serves a page of each kind that reads the
-kit (the dashboard, a recipe page and a preview, the install guide, `llms.txt`), and every recipe page in the image
-(`/app/*/manifest.json`) with the first preview it shows, all answering 200 (an image with no recipe fails); and it holds
-no `node_modules`, tests, `.git`, `packages/`, `.github` or
-`tools/`, and no docs but `docs/GUIDE.md`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
+its required PHP extensions. The harness checks the development-only packages in `demo/composer.lock` are absent,
+along with Xdebug and UX Toolkit's bundle and commands. It verifies the working directory and server root, then
+requests the dashboard, a recipe preview, the setup guides and `llms.txt`. The Composer and advanced guides must
+respond in both HTML and Markdown. Every recipe in the image (`/app/*/manifest.json`) must serve its page and first
+preview, and the image must contain at least one recipe. The harness rejects `node_modules`, tests, `.git`, `.github`
+and `tools/`. It permits only `docs/GUIDE.md` under `docs/`, and the two published package guides and their JSON
+registry under `packages/`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
 and their docs), so the package is a `require` of the demo and its templates are registered for prod in
 `config/packages/twig.yaml`; its bundle is registered in dev and test only. Symfony applies the demo's overrides of
 those templates (`templates/bundles/UXToolkitBundle/`: the installation steps, which name a binary file instead of
@@ -1153,8 +1154,8 @@ only the twelve entries the build and the pages use. Three rules keep it tight, 
 below the root starts with a letter or a digit (`![a-z0-9]*/…`, never `!*/…`, which once took `.git/config`); every
 exclusion names the directory and everything below it (`x` and `x/**`), since a file is judged by the last pattern
 matching its own path; and `demo/` is admitted entry by entry (`!demo/<entry>`), so a developer's secrets key, local
-env file or editor folder stays out. The harness's context part checks the result on the checkout it runs in: no
-`.git`, `.github`, `node_modules`, `packages` or `tests`, no tools but `tools/sync-demo`, only the expected entries at
+env file or editor folder stays out. The harness's context part checks the result on the checkout it runs in: only the three public guide inputs under `packages/`,
+no `.git`, `.github`, `node_modules` or `tests`, no tools but `tools/sync-demo`, only the expected entries at
 the top of `demo/`, nothing `demo/.gitignore` ignores, no secret or machine-local file; it says whether the checkout's
 `.git` is a directory (a clone, as in CI) or a file (a worktree, which cannot show a `.git` leak). Every file in the
 context must be tracked by git or be a copy `tools/sync-demo` writes. CI builds from a clone, which holds only tracked
@@ -1173,11 +1174,11 @@ package, no Toolkit bundle); for its other build inputs: `demo/Dockerfile`, `dem
 `demo/compose.yaml`, `demo/compose.override.yaml` and `tools/sync-demo`, which the builder runs; for its harness,
 `tools/tests/prod-image.sh`; for every recipe file the image holds, which it renders without the development packages: a
 recipe's `manifest.json`, `README.md`, `templates/`, `assets/`, `src/` and `config/`; for the root files it admits
-(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`); and for what its
+(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`), the package guides and their registry; and for what its
 allow-list may have to name: a new root file, and any file in a top-level directory that is not a recipe (new, or
 deleted), its README included. It does not run for a recipe's `tests/` (its browser specs and screenshot baselines) or
 another file the allow-list leaves out, the browser specs in `tests/`, the docs but `docs/GUIDE.md`, the tools but the
-two above, `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
+two above, the rest of `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
 it: most pull requests run the lane beside *Kit PHP*, *Static site* and *Demo + Playwright*, about 2 minutes 15 seconds
 on its own runner, in parallel, so it adds runner time but not the time to a verdict, which *Demo + Playwright* sets.
 The release checks reuse an earlier pass only when nothing the suite reads changed; `docs/GUIDE.md` and `llms.txt`,
@@ -1267,7 +1268,7 @@ without repairing, an index that names no commit). `packages/uxor/tools/check-pa
 else: no development file, nothing outside the kit's root files, its recipes and the package's entries. The lists are
 the oracle for the export rules. CI's *Quick checks* runs archive verification and
 `php packages/uxor/tools/generate-reference.php --check`. The generator compares the bundled references byte for
-byte and lists stale files. *Package* also runs `composer validate --strict` and exercises
+byte and checks the Composer install block against the package configuration. *Package* checks the command reference against the registered CLI and also runs `composer validate --strict` and exercises
 `php packages/uxor/bin/uxor list` and `catalog`.
 
 The package is also tested from the side of an application that uses it, in `packages/uxor/dev/`

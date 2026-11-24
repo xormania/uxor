@@ -18,7 +18,8 @@
 /.github/workflows/.gitattributes
 /.github/workflows/ci.yml
 
-# The demo's own Composer root is demo/. It imports this recorder from the package.
+# The demo reads the guide navigation and imports the browser recorder. The browser tests
+# visit /install and /guide; the other guides' bodies are exercised by PHP and the static export.
 !/composer.json
 !/composer.lock
 !/packages/uxor/*
@@ -26,6 +27,7 @@
 /packages/uxor/resources/
 !/packages/uxor/resources/*
 /packages/uxor/resources/.gitattributes
+/packages/uxor/resources/guides.json
 /packages/uxor/resources/browser/
 
 # Release checks run these specs in their own full checkout. Normal browser projects ignore them.

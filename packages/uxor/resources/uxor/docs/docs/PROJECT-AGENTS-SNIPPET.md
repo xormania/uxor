@@ -4,7 +4,7 @@ This is a short starting point for a Symfony application using UXor recipes. Ada
 UXor guidance is part of the application's setup, and merge it with existing project-owned instructions.
 The application's workflow and permissions remain authoritative for work in that application.
 
-If the optional Composer helper already supplies [package-managed guidance](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md), use its
+If the optional Composer helper already supplies [package-managed guidance](../packages/uxor/README.md), use its
 integration rather than duplicating this block. Component details belong in the recipe READMEs; use
 [FOR-AGENTS.md](../FOR-AGENTS.md) and [application testing](APPLICATION-TESTING.md) as reference guides.
 

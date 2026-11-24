@@ -6,6 +6,11 @@ namespace Xormania\UXor\Tests;
 
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Symfony\Component\Console\Tester\CommandTester;
+use Symfony\Component\Process\Process;
+use Xormania\UXor\Console\Application;
+use Xormania\UXor\Mate\Capabilities;
+use Xormania\UXor\Operations;
 use Xormania\UXor\ReferenceBundle;
 use Xormania\UXor\Tools\ReferenceGenerator;
 
@@ -32,6 +37,27 @@ final class ReferenceBundleTest extends TestCase
             'docs/PROJECT-AGENTS-SNIPPET.md' => "# Project guidance\n",
             'docs/APPLICATION-TESTING.md' => "# Application tests\n\n[Patterns](TESTING.md)\n",
             'docs/TESTING.md' => "# Tests\n",
+            'packages/uxor/resources/guides.json' => json_encode([
+                'install' => ['file' => 'INSTALL.md', 'title' => 'Install', 'description' => 'Install the kit.'],
+                'guide' => ['file' => 'docs/GUIDE.md', 'title' => 'Guide', 'description' => 'Use the kit.'],
+                'composer' => ['file' => 'packages/uxor/README.md', 'title' => 'Composer', 'description' => 'Install with Composer.'],
+                'advanced' => ['file' => 'packages/uxor/OPERATIONS.md', 'title' => 'Advanced', 'description' => 'Configure the tools.'],
+            ], JSON_THROW_ON_ERROR),
+            'packages/uxor/README.md' => "# Composer\n\n<!-- package-install:start -->\n<!-- package-install:end -->\n\n[Operations](OPERATIONS.md)\n",
+            'packages/uxor/OPERATIONS.md' => "# Advanced\n\n[Composer](README.md)\n",
+            'composer.json' => json_encode([
+                'name' => 'xormania/uxor', 'require' => ['php' => '>=8.4', 'vendor/experimental' => '^2.0.0-beta1', 'vendor/stable' => '^1.0'],
+                'config' => ['allow-plugins' => ['vendor/example-plugin' => true]],
+            ], JSON_THROW_ON_ERROR),
+            'composer.lock' => json_encode([
+                'stability-flags' => ['vendor/experimental' => 10, 'vendor/test-tool' => 20],
+                'packages' => [
+                    ['name' => 'vendor/experimental', 'version' => '2.0.0-beta1'],
+                    ['name' => 'vendor/stable', 'version' => '1.0.0'],
+                    ['name' => 'vendor/example-plugin', 'version' => '1.0.0', 'type' => 'composer-plugin'],
+                ],
+                'packages-dev' => [['name' => 'vendor/test-tool', 'version' => 'dev-main']],
+            ], JSON_THROW_ON_ERROR),
             'LICENSE' => "MIT fixture license\n",
             'NOTICE' => "Fixture notice\n",
             'button/manifest.json' => '{"name":"Button","type":"component","dependencies":{"composer":["symfony/ux-twig-component:^3.5"]}}',
@@ -67,7 +93,8 @@ final class ReferenceBundleTest extends TestCase
 
         $index = json_decode($files['index.json'], true, 512, JSON_THROW_ON_ERROR);
         self::assertSame(2, $index['schema_version']);
-        self::assertSame(['repository', 'ref', 'inputs_sha256', 'manifest_sha256', 'license'], array_keys($index['source']));
+        self::assertEqualsCanonicalizing(['repository', 'ref', 'inputs_sha256', 'manifest_sha256', 'guide_catalog_sha256', 'license'], array_keys($index['source']));
+        self::assertSame(hash_file('sha256', $this->source.'/packages/uxor/resources/guides.json'), $index['source']['guide_catalog_sha256']);
         self::assertSame('1.4.0', $index['source']['ref']);
         self::assertSame(['button'], array_keys($index['components']));
         self::assertSame('A useful button.', $index['components']['button']['summary']);
@@ -82,7 +109,8 @@ final class ReferenceBundleTest extends TestCase
         // The inputs' digest is sha256sum's lines for the sorted input paths, hashed again
         $lines = '';
         foreach (['FOR-AGENTS.md', 'INSTALL.md', 'LICENSE', 'NOTICE', 'README.md', 'button/README.md', 'button/manifest.json',
-            'docs/APPLICATION-TESTING.md', 'docs/GUIDE.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'docs/RECIPES.md', 'docs/TESTING.md', 'manifest.json'] as $path) {
+            'docs/APPLICATION-TESTING.md', 'docs/GUIDE.md', 'docs/PROJECT-AGENTS-SNIPPET.md', 'docs/RECIPES.md', 'docs/TESTING.md', 'manifest.json',
+            'packages/uxor/OPERATIONS.md', 'packages/uxor/README.md', 'packages/uxor/resources/guides.json'] as $path) {
             $lines .= hash_file('sha256', $this->source.'/'.$path).'  '.$path."\n";
         }
         self::assertSame(hash('sha256', $lines), $index['source']['inputs_sha256']);
@@ -143,10 +171,10 @@ final class ReferenceBundleTest extends TestCase
 
         [$status, $output] = $this->script([]);
         self::assertSame(0, $status, $output);
-        self::assertStringStartsWith('Wrote 12 generated reference files', $output);
+        self::assertStringStartsWith('Wrote 14 generated reference files', $output);
         [$status, $output] = $this->script(['--check']);
         self::assertSame(0, $status);
-        self::assertStringStartsWith('Verified 12 generated reference files', $output);
+        self::assertStringStartsWith('Verified 14 generated reference files', $output);
 
         $index = file_get_contents($this->output.'/index.json');
         file_put_contents($this->source.'/button/README.md', "# Button, changed\n");
@@ -163,6 +191,99 @@ final class ReferenceBundleTest extends TestCase
         self::assertFileDoesNotExist($this->output.'/docs/obsolete.md');
         self::assertSame(0, $this->script(['--check'])[0]);
         self::assertSame(1, $this->script(['--check', '--ref=1.0.0'])[0]);
+    }
+
+    public function testComposerInstallGuideChangesWhenThePackageRequirementChanges(): void
+    {
+        [$status, , $error] = $this->script([]);
+        self::assertSame(0, $status, $error);
+        $guide = $this->source.'/packages/uxor/README.md';
+        $before = file_get_contents($guide);
+        self::assertStringContainsString('composer require --dev', $before);
+        self::assertStringContainsString('vendor/experimental:^2.0.0-beta1', $before);
+        self::assertStringNotContainsString('vendor/stable:', $before);
+        self::assertStringNotContainsString('vendor/test-tool:', $before);
+        self::assertStringContainsString('allow-plugins.vendor/example-plugin', $before);
+        self::assertStringContainsString('>=8.4', $before);
+        self::assertStringContainsString('xormania/uxor:^1.4.0', $before);
+        self::assertSame($before, file_get_contents($this->output.'/docs/packages/uxor/README.md'));
+
+        $path = $this->source.'/composer.json';
+        $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $manifest['require']['vendor/experimental'] = '>=2.0.0-beta1 <2.0.0-beta4';
+        file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
+        self::assertSame(1, $this->script(['--check'])[0]);
+        self::assertSame($before, file_get_contents($guide), 'check leaves the source guide intact');
+        self::assertSame($before, file_get_contents($this->output.'/docs/packages/uxor/README.md'));
+
+        [$status, , $error] = $this->script([]);
+        self::assertSame(0, $status, $error);
+        $after = file_get_contents($guide);
+        self::assertStringContainsString("'vendor/experimental:>=2.0.0-beta1 <2.0.0-beta4@beta'", $after);
+        self::assertStringNotContainsString('vendor/experimental:^2.0.0-beta1', $after);
+        self::assertSame($after, file_get_contents($this->output.'/docs/packages/uxor/README.md'));
+        self::assertSame(0, $this->script(['--check'])[0]);
+    }
+
+    public function testInstalledCliAndMateReadBothPackageGuides(): void
+    {
+        $root = ReferenceGenerator::repositoryRoot();
+        $catalogKey = 'packages/uxor/resources/guides.json';
+        $bundle = $root.'/packages/uxor/resources/uxor';
+        $index = json_decode(file_get_contents($bundle.'/index.json'), true, 512, JSON_THROW_ON_ERROR);
+        $command = new CommandTester((new Application())->find('reference'));
+
+        $mate = new Capabilities(Operations::create(), $root);
+        $catalog = json_decode(file_get_contents($root.'/'.$catalogKey), true, 512, JSON_THROW_ON_ERROR);
+        self::assertArrayNotHasKey($catalogKey, $index['documents']);
+        self::assertSame(hash_file('sha256', $root.'/'.$catalogKey), $index['source']['guide_catalog_sha256']);
+        foreach (['composer' => 'packages/uxor/README.md', 'advanced' => 'packages/uxor/OPERATIONS.md'] as $slug => $path) {
+            self::assertSame($path, $catalog[$slug]['file']);
+            $resource = $mate->deeplyNestedReference(...explode('/', $path));
+            self::assertSame($path, $resource['data']['path']);
+            self::assertSame($index['documents'][$path]['sha256'], $resource['data']['sha256']);
+            $offset = 0;
+            $text = '';
+            do {
+                $status = $command->execute(['path' => $path, '--offset' => $offset, '--limit' => 512, '--format' => 'json']);
+                self::assertSame(0, $status, $command->getDisplay());
+                $page = json_decode($command->getDisplay(), true, 512, JSON_THROW_ON_ERROR)['data'];
+                self::assertSame($offset, $page['offset']);
+                self::assertNotSame('', $page['content']);
+                self::assertLessThanOrEqual(512, strlen($page['content']));
+                $text .= $page['content'];
+                $offset = $page['next_offset'];
+                if (null !== $offset) {
+                    self::assertSame(strlen($text), $offset);
+                }
+            } while (null !== $offset);
+            self::assertSame(hash_file('sha256', $root.'/'.$path), $index['documents'][$path]['source_sha256'], $path);
+            self::assertSame(file_get_contents($bundle.'/docs/'.$path), $text, $path);
+        }
+    }
+
+    public function testTheCommandGuideRejectsDriftAndRestoresTheInstalledCommandDefinition(): void
+    {
+        $package = $this->source.'/packages/uxor';
+        $script = $package.'/tools/generate-command-guide.php';
+        mkdir(dirname($script), 0777, true);
+        copy(dirname(__DIR__).'/tools/generate-command-guide.php', $script);
+        symlink(ReferenceGenerator::repositoryRoot().'/vendor', $this->source.'/vendor');
+        $guide = $package.'/OPERATIONS.md';
+        $current = file_get_contents(dirname(__DIR__).'/OPERATIONS.md');
+        $command = (new Application())->find('setup');
+        $description = $command->getDefinition()->getOption('save-project-trust')->getDescription();
+        self::assertStringContainsString('### `setup`', $current);
+        self::assertStringContainsString($description, $current);
+        $stale = str_replace($description, 'Stale option description.', $current);
+        file_put_contents($guide, $stale);
+
+        $check = new Process([PHP_BINARY, $script, '--check']);
+        self::assertSame(1, $check->run(), $check->getErrorOutput());
+        self::assertSame($stale, file_get_contents($guide));
+        (new Process([PHP_BINARY, $script]))->mustRun();
+        self::assertSame($current, file_get_contents($guide));
+        self::assertSame(0, $check->run(), $check->getErrorOutput());
     }
 
     public function testNoReleaseInTheChangelogIsAnErrorNeverABranch(): void
@@ -266,7 +387,10 @@ final class ReferenceBundleTest extends TestCase
     /** The inputs' digest, recomputed from the hashes the index records for each input. */
     private static function inputsDigest(array $index): string
     {
-        $inputs = ['manifest.json' => $index['source']['manifest_sha256']];
+        $inputs = [
+            'manifest.json' => $index['source']['manifest_sha256'],
+            'packages/uxor/resources/guides.json' => $index['source']['guide_catalog_sha256'],
+        ];
         foreach ($index['components'] as $name => $component) {
             $inputs[$name.'/manifest.json'] = $component['manifest_sha256'];
         }

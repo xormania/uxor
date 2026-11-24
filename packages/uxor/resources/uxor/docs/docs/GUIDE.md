@@ -1,7 +1,7 @@
 # Guide
 
-How to install, update and use the kit's recipes once your project is set up as the [README](../README.md#install)
-says. This guide is for the consuming application: use its instructions, runtime and existing configuration.
+How to install, update and use the kit's recipes after [setting up UXor with Composer](../packages/uxor/README.md)
+or [configuring Toolkit directly](../INSTALL.md). Use the consuming application's instructions, runtime and existing configuration.
 Its installed recipe files belong to the application. Contributing changes to UXor itself follows
 [CONTRIBUTING.md](https://github.com/xormania/uxor/blob/0.3.5/CONTRIBUTING.md#project-boundaries).
 
@@ -14,7 +14,7 @@ from [setup](../INSTALL.md), run it for any additional packages it lists, such a
 Install the `theme` during setup and use the dashboard recipe's README for the controller and template.
 
 With [Symfony Docker](https://github.com/dunglas/symfony-docker), run every `composer` and `php bin/console`
-command of the [README](../README.md#install) and of [`INSTALL.md`](../INSTALL.md) inside the container, from the
+command in the [kit setup instructions](../INSTALL.md) inside the container, from the
 project directory: `docker compose exec php composer …` and `docker compose exec php bin/console …`. Its PHP image
 has the `zip` extension. CI installs the kit this way, in a fresh Symfony Docker project.
 

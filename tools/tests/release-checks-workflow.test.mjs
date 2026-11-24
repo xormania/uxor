@@ -412,7 +412,7 @@ printf '%s' "$payload" | jq -r "$4"`);
     commit('docs/RECIPES.md', 'recipes');
     commit('docs/TESTING.md', 'docs');
     commit('AGENTS.md', 'rules');
-    const docs = commit('packages/uxor/README.md', 'package');
+    const docs = commit('packages/uxor/INSTRUCTIONS.md', 'package');
     const code = commit('calendar/Calendar.html.twig', 'changed');
     git('checkout', '-q', docs);
     const recorder = commit('packages/uxor/resources/browser/diagnostics.mjs', 'browser recorder');

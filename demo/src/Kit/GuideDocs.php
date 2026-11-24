@@ -9,12 +9,11 @@ use League\CommonMark\Extension\Table\TableExtension;
 use League\CommonMark\MarkdownConverter;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Filesystem\Filesystem;
-use Symfony\Component\Filesystem\Path;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Twig\Attribute\AsTwigFunction;
 
 /**
- * The consumer guides the gallery publishes, from the repository's own files: getting started (INSTALL.md) and the
- * guide (docs/GUIDE.md), as pages (/install, /guide) and as portable Markdown beside them (/install.md, /guide.md).
+ * The consumer guides the gallery publishes from the repository's own files, as HTML and portable Markdown.
  *
  * Their links name files in the repository: a recipe's README becomes its gallery page (r/<recipe>.md in Markdown),
  * the other guide its page, the recipe list the gallery's own, any other file its page on GitHub at the ref the copy
@@ -24,11 +23,8 @@ final class GuideDocs
 {
     private const REPOSITORY_DOC_PREFIX = 'https://github.com/xormania/uxor/blob/main/';
 
-    /** the guides, by name: their file in the repository, their title and description in the gallery */
-    public const GUIDES = [
-        'install' => ['file' => 'INSTALL.md', 'title' => 'Getting started', 'description' => 'Set a Symfony project up for the UXor kit: requirements, Tailwind CSS and Flowbite CSS, the theme, then installing recipes with ux:install.'],
-        'guide' => ['file' => 'docs/GUIDE.md', 'title' => 'Guide', 'description' => "Installing and updating the UXor kit's recipes, using them with Turbo and Live Components, security, and versioning."],
-    ];
+    /** @var array<string, array{file: string, title: string, description: string}> */
+    private readonly array $guides;
 
     public function __construct(
         #[Autowire('%app.kit_dir%')]
@@ -36,6 +32,14 @@ final class GuideDocs
         private readonly RecipeDocs $recipes,
         private readonly UrlGeneratorInterface $urls,
     ) {
+        $this->guides = json_decode((new Filesystem())->readFile($kitDir.'/packages/uxor/resources/guides.json'), true, flags: \JSON_THROW_ON_ERROR);
+    }
+
+    /** @return array<string, array{file: string, title: string, description: string}> */
+    #[AsTwigFunction('gallery_guides')]
+    public function all(): array
+    {
+        return $this->guides;
     }
 
     /**
@@ -50,9 +54,9 @@ final class GuideDocs
 
         $html = (string) new MarkdownConverter($environment)->convert($this->source($name, $ref));
 
-        return DocMarkup::resolveHtmlLinks(DocMarkup::focusableScrolling($html), \dirname(self::GUIDES[$name]['file']), fn (string $path): string => match (true) {
+        return DocMarkup::resolveHtmlLinks(DocMarkup::focusableScrolling($html), \dirname($this->guides[$name]['file']), fn (string $path): string => match (true) {
             null !== $page = $this->recipes->recipePageUrl($path) => $page,
-            null !== $guide = self::guide($path) => $this->urls->generate('app_guide', ['name' => $guide]),
+            null !== $guide = $this->slugForFile($path) => $this->urls->generate('app_guide', ['name' => $guide]),
             'docs/RECIPES.md' === $path => $this->urls->generate('app_index').'#recipes',
             default => $this->recipes->repositoryUrl($path, $ref),
         }, self::REPOSITORY_DOC_PREFIX);
@@ -63,9 +67,9 @@ final class GuideDocs
      */
     public function markdown(string $name, string $ref): string
     {
-        return DocMarkup::resolveMarkdownLinks($this->source($name, $ref), \dirname(self::GUIDES[$name]['file']), fn (string $path): string => match (true) {
+        return DocMarkup::resolveMarkdownLinks($this->source($name, $ref), \dirname($this->guides[$name]['file']), fn (string $path): string => match (true) {
             null !== $recipe = $this->recipes->readmeRecipe($path) => 'r/'.$recipe.'.md',
-            null !== $guide = self::guide($path) => $guide.'.md',
+            null !== $guide = $this->slugForFile($path) => $guide.'.md',
             default => $this->recipes->repositoryUrl($path, $ref),
         }, self::REPOSITORY_DOC_PREFIX);
     }
@@ -75,7 +79,11 @@ final class GuideDocs
      */
     private function source(string $name, ?string $ref): string
     {
-        $markdown = (new Filesystem())->readFile(Path::join($this->kitDir, self::GUIDES[$name]['file']));
+        $path = realpath($this->kitDir).'/'.$this->guides[$name]['file'];
+        if (!str_ends_with($path, '.md') || realpath($path) !== $path || !is_file($path)) {
+            throw new \RuntimeException('Guide source must be a Markdown file inside the kit: '.$name);
+        }
+        $markdown = (new Filesystem())->readFile($path);
 
         return null !== $ref && preg_match('/^\d+\.\d+\.\d+$/', $ref) ? str_replace('uxor:<version>', 'uxor:'.$ref, $markdown) : $markdown;
     }
@@ -83,9 +91,9 @@ final class GuideDocs
     /**
      * The guide a repository path names, or null.
      */
-    private static function guide(string $path): ?string
+    public function slugForFile(string $path): ?string
     {
-        foreach (self::GUIDES as $name => $guide) {
+        foreach ($this->guides as $name => $guide) {
             if ($guide['file'] === $path) {
                 return $name;
             }
