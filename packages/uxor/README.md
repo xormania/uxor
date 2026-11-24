@@ -139,6 +139,13 @@ edits from `mate/skills/build/` into `mate/skills/uxor-build/`, then run `vendor
 
 <a id="optional-php-checks-and-serena-with-mago"></a>
 
+## Remove the development package
+
+Run `vendor/bin/uxor detach` while UXor is still installed. Review its plan, stop running UXor providers, and
+reconcile any listed application integrations. Apply the plan with `vendor/bin/uxor detach --apply`. After a
+completed result, run `composer remove --dev xormania/uxor`. The [removal instructions](OPERATIONS.md#detach-before-removing-uxor)
+cover customized files, earlier installations, and how to verify remaining Playwright, Mago and Mate integrations.
+
 ## Mago and Serena
 
 The Composer package installs `vendor/bin/uxor-mago`. Its CLI uses the official Mago 1.60.2 release for

@@ -28,12 +28,13 @@ final class OperationCommand extends Command
             'inspect' => 'Inspect the selected application metadata.',
             'doctor' => 'Check setup, selected component wiring and runtime unknowns.',
             'setup' => 'Plan or configure this application’s development environment; preserve existing configuration.',
+            'detach' => 'Plan or detach the development integrations before removing UXor with Composer.',
             'environment' => 'Inspect development capabilities and optionally probe their native entry points.',
             'prepare' => 'Refresh sanitized compiled Symfony wiring in the trusted application runtime.',
             'tools' => 'Discover native Maker/Mate metadata by executing trusted project PHP (explicit opt-in).',
             'browser-diagnostics' => 'Read a local Playwright capture of browser errors, failed requests, and exact Symfony profile tokens.',
         })->addOption('format', null, InputOption::VALUE_REQUIRED, 'text or json', 'text');
-        if (in_array($this->operation, ['inspect', 'doctor', 'setup', 'environment', 'prepare', 'tools', 'browser-diagnostics'], true)) {
+        if (in_array($this->operation, ['inspect', 'doctor', 'setup', 'detach', 'environment', 'prepare', 'tools', 'browser-diagnostics'], true)) {
             $this->addOption('project-root', null, InputOption::VALUE_REQUIRED, 'Explicit application directory; defaults to current directory', getcwd());
         }
         if (in_array($this->operation, ['setup', 'environment', 'prepare'], true)) {
@@ -48,6 +49,10 @@ final class OperationCommand extends Command
                 ->addOption('client', null, InputOption::VALUE_REQUIRED, 'none, claude, or codex; configure Serena MCP without replacing existing server entries', 'none')
                 ->addOption('host-project-root', null, InputOption::VALUE_REQUIRED, 'Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere', '');
             $this->setHelp('Setup plans changes unless --apply is supplied. --trust-project-code authorizes native commands for this setup operation only; it does not save future execution permission. The separate --save-project-trust option adds --trust-project-code to new Serena bindings when applied, authorizing application code on every future connection, including later code at that path, configured Mago extensions and Composer autoloaders. Saved permission has no commit restriction or expiry; remove the saved flag to revoke it. --save-project-trust alone does not authorize installation. Without launch authorization, Serena refuses to connect. --write separately allows editing and is not added by setup. Existing bindings are preserved and may retain earlier permission; reconcile their paths and remove --trust-project-code if recurring execution is no longer intended.');
+        }
+        if ('detach' === $this->operation) {
+            $this->addOption('apply', null, InputOption::VALUE_NONE, 'Apply the detachment plan after reviewing the listed paths')
+                ->setHelp('Run before composer remove --dev xormania/uxor. Without --apply, inspect the managed files and any application integrations requiring manual reconciliation. Stop running UXor providers before applying.');
         }
         if ('environment' === $this->operation) {
             $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes; requires trust-project-code');

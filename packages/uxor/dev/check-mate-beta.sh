@@ -30,7 +30,7 @@ vendor/bin/mate discover --no-interaction
 tools_json=$(vendor/bin/mate tools:list --format=json)
 jq -e '
     [.tools | to_entries[] | select(.value.extension == "xormania/uxor") | .key] | sort ==
-    ["uxor_browser_diagnostics","uxor_catalog","uxor_component","uxor_doctor","uxor_environment","uxor_prepare","uxor_project","uxor_reference","uxor_setup","uxor_tools","uxor_workflow"]
+    ["uxor_browser_diagnostics","uxor_catalog","uxor_component","uxor_detach","uxor_doctor","uxor_environment","uxor_prepare","uxor_project","uxor_reference","uxor_setup","uxor_tools","uxor_workflow"]
 ' <<< "$tools_json"
 for tool in $(jq -r '.tools | keys[] | select(startswith("uxor_"))' <<< "$tools_json"); do
     vendor/bin/mate tools:inspect "$tool" --format=json |
@@ -48,6 +48,8 @@ vendor/bin/mate tools:call uxor_setup --format=json |
     jq -e '.untrusted_data | .operation == "setup" and .data.mode == "plan"
         and .data.mcp_binding.requested_saved_project_trust == false
         and .changes == [] and .data.executions == []'
+vendor/bin/mate tools:call uxor_detach --format=json |
+    jq -e '.untrusted_data | .operation == "detach" and .data.mode == "plan" and .changes == []'
 vendor/bin/mate tools:call uxor_component --name=button --format=json |
     jq -e '.status == "completed" and .data.reference_uri == "uxor://reference/button/README.md"'
 vendor/bin/mate tools:call uxor_workflow --name=customer-management --limit=64 --format=json |
@@ -73,4 +75,4 @@ for skill in "${skill_names[@]}"; do
     vendor/bin/mate skills:validate "$skill" --format=json |
         jq -e --arg installed "mate-$skill" '.skills | length == 1 and .[0].name == $installed and .[0].status == "ok"'
 done
-echo 'Eleven tool schemas, separate setup permissions, two reads, the trust check and three installed skills passed.'
+echo 'Twelve tool schemas, read-only detach, separate setup permissions, two reads, the trust check and three installed skills passed.'

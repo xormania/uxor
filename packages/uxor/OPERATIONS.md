@@ -283,3 +283,40 @@ Read operations report no intentional writes. Applied setup and preparation repo
 Native framework commands may initialize the application's own caches. `completed` means the operation ran; diagnostic findings separately report `pass`, `fail` or `unknown`. `incomplete` identifies missing native metadata or unresolved checks. `failed` identifies invalid input or an execution error.
 
 The CLI uses exit 0 for completed operations, 1 for failed operations and 2 for incomplete checks or failing doctor findings. JSON output uses the same service result as Mate. Do not interpret exit 0 from metadata inspection as proof the application boots or that a UI journey works. Reference facts, application metadata and observed runtime behavior have distinct evidence limits.
+
+
+## Detach before removing UXor
+
+Use the application runtime where the package is installed. Stop any running UXor Serena process, then inspect
+the plan with `vendor/bin/uxor detach --format=json` (or the bound Mate tool `uxor_detach`). Setup records the
+digests of the integrations it writes in `.uxor/setup-ownership.json`. Keep this record with the application.
+It contains hashes of the UXor files or MCP server settings, without host paths or unrelated client values.
+
+```sh
+vendor/bin/uxor detach --apply --format=json
+# After detach reports completed:
+composer remove --dev xormania/uxor
+```
+
+A completed apply removes the generated root Mago inheritance and worker and returns its extension config
+to an inactive, loadable file for any application-owned Mago inheritance chain. It keeps native Mago usable
+and removes the recorded Serena binding from each configured client. The standard browser
+fixture keeps its application import path and re-exports native Playwright `test` and `expect`. Other client
+entries and installed recipes remain the application's. Separate development requirements such as Mate, Mago,
+and Symfony bundles remain in Composer. The neutral Mago and browser configuration and their receipt let a later `setup --apply` reconnect unchanged
+files. Keep the inactive config if another Mago profile extends it. The cached reference and preparation manifest
+under `.uxor/mago` may be discarded after verifying the application. A plain Composer removal does not invoke detachment.
+
+**Custom or older installations.** A differing integration or one without a setup receipt can require manual
+reconciliation. Exit code 2 identifies the affected paths. Resolve those entries and rerun detach before removing
+the package. In an application-owned `mago.toml`, remove its inheritance of `.uxor/mago/config.toml` or its
+`uxor-symfony` extension host while keeping other sources and hosts. Remove old UXor worker registrations and the
+unused UXor worker. In client settings, replace or remove only the server launching `uxor-mago`. Inspect any
+global client settings or MCP aliases managed outside this checkout as well.
+
+Search the application's test and configuration files for `recordBrowserDiagnostics`, `browserDiagnostics`,
+`xormania/uxor` and `uxor-mago`. Replace direct package imports with application-owned equivalents. For a
+custom Playwright fixture, extend the application's normal `test` from `@playwright/test` and remove only the
+UXor recorder registration. Migrate tests which request the recorder explicitly. Run the application's Playwright
+suite, its remaining Mago command, and `vendor/bin/mate tools:list` if it keeps Mate. These verify the scopes,
+providers and tests the application actually uses.
