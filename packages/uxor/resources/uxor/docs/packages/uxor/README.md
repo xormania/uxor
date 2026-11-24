@@ -56,8 +56,10 @@ vendor/bin/uxor environment --format=json
 ```
 
 This installs missing development tools, including Maker and Symfony's profiler, initializes Mate when needed
-and refreshes its tools and skills. Resolve any remaining integration steps reported for your application.
-For example, an application without Flex must register its profiler bundles and routes.
+and refreshes its tools and skills. Setup recognizes an installed profiler pack or its two unpacked requirements,
+WebProfilerBundle and Stopwatch. For the profiler UI in an app without Flex, register WebProfilerBundle and its
+dev routes. Your application's existing profiler policy takes precedence. If it has none, start the dev server
+with `PROFILER_COLLECT=1` for a diagnostic run and verify the token on a real response.
 [Custom application integration](OPERATIONS.md#set-up-and-inspect-the-development-environment).
 
 ### Connect an agent client
@@ -158,7 +160,7 @@ Before updating with Composer, record which skills are disabled or overridden an
 `mate/skills/`. Save edits made directly in `.agents/skills/mate-*` or `.claude/skills/mate-*` outside those
 directories. Mate manages those targets and can remove them when Composer triggers discovery during the update.
 
-The skill rename shipped in UXor 0.3.5. An existing `^0.3` constraint already permits that release.
+UXor 0.3.5 renames the skills. An existing `^0.3` constraint already permits that release.
 Use the [current install command](#install-in-a-symfony-application) when upgrading so the application
 admits the required UXor and Mate versions.
 
@@ -168,6 +170,13 @@ remain in place. To carry forward a build override, run `vendor/bin/mate skills:
 edits from `mate/skills/build/` into `mate/skills/uxor-build/`, then run `vendor/bin/mate discover` again. Keep
 `name: uxor-build` in the new skill's front matter. Reapply any disable setting with the new slug, for example
 `vendor/bin/mate skills:disable uxor-build`.
+
+## Remove the development package
+
+Run `vendor/bin/uxor detach` while UXor is still installed. Review its plan, stop running UXor providers, and
+reconcile any listed application integrations. Apply the plan with `vendor/bin/uxor detach --apply`. After a
+completed result, run `composer remove --dev xormania/uxor`. The [removal instructions](OPERATIONS.md#detach-before-removing-uxor)
+cover customized files, earlier installations, and how to verify remaining Playwright, Mago and Mate integrations.
 
 ## Developing this package
 

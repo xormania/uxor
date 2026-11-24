@@ -544,11 +544,11 @@ def check_browser_diagnostics(application: Path, installed: Path, php: str, mate
 import { EventEmitter } from 'node:events';
 import { pathToFileURL } from 'node:url';
 const [recorder, path, scenario] = process.argv.slice(1);
+process.env.PROFILER_COLLECT = '1';
 const { recordBrowserDiagnostics } = await import(pathToFileURL(recorder).href);
 const { responses, requestFailures, pageErrors } = JSON.parse(scenario);
 const context = new EventEmitter();
 const requests = new Map();
-process.env.PROFILER_COLLECT = '1';
 await recordBrowserDiagnostics({ context, baseURL: 'http://127.0.0.1:8765' }, async () => {
     for (const response of responses) {
         const request = {
@@ -629,6 +629,9 @@ def check_consumer(archive: Path, temporary: Path, revision: str, *, providers: 
     old_marker = versioned_archive(archive, first_archive, "0.0.0")
     new_marker = versioned_archive(archive, second_archive, "0.0.1")
     manifest["repositories"] = [archive_repository(first_archive)]
+    # Composer accepts both of these relative spellings. Setup and preparation must agree.
+    manifest["config"]["vendor-dir"] = "./vendor"
+    manifest["autoload"]["psr-4"]["App\\"] = "./src/"
     for name in (PACKAGE_NAME, *MATE_PACKAGES):
         del manifest["require-dev"][name]
     manifest["extra"]["ai-mate"]["skills"] = ["project-skills"]
@@ -729,6 +732,8 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
         retained.extend(directory / f"mate-{name}/SKILL.md" for directory in mirrors)
     before = {path: path.read_bytes() for path in retained}
 
+    import environment_acceptance as environment
+    environment.detach(application, php)
     execute("composer.remove", [*composer_command(), "remove", "--dev", PACKAGE_NAME,
                                 "--no-interaction", "--no-progress"], application)
 
@@ -763,6 +768,7 @@ def check_removal(application: Path, php: str, component: Path, consumer_sources
     for path, content in before.items():
         if path.read_bytes() != content:
             raise RuntimeError(f"Removing UXor changed application-owned content: {path.relative_to(application)}")
+    environment.check_detached_tools(application, php)
     render_pages(application, php, "dev", SHORTCUT_PAGE)
     print("Removal: the package, binaries and Mate integration are gone; application skills, instructions and the rendered recipe are preserved.")
 

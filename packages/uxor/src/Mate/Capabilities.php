@@ -62,6 +62,13 @@ final class Capabilities
             ['project_root' => $this->projectRoot, 'apply' => $apply, 'install' => $install, 'trust_project_code' => $trustProjectCode, 'client' => $client, 'host_project_root' => $hostProjectRoot, 'save_project_trust' => $saveProjectTrust]));
     }
 
+    /** @param bool $apply Apply the reviewed changes to the bound application. */
+    #[MateTool('uxor_detach', description: 'Plan or detach UXor development integrations before removing its Composer package. Defaults to a read-only plan.')]
+    public function detach(bool $apply = false): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('detach', ['project_root' => $this->projectRoot, 'apply' => $apply]));
+    }
+
     /** @param bool $trustProjectCode Acknowledge application PHP execution before enabling native probes. */
     #[MateTool('uxor_environment', description: 'Inspect the bound application development capabilities, freshness and next steps; probe native entry points only when requested and authorized.')]
     public function environment(bool $probe = false, bool $trustProjectCode = false): string

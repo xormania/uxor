@@ -1133,11 +1133,13 @@ linux/amd64 (`docker buildx build --platform linux/amd64 --target frankenphp_pro
 [`tools/tests/prod-image.sh`](../tools/tests/prod-image.sh) on it. The harness checks the static facts (the base
 images pinned by digest) and, in a running container: the console refuses to boot without the opt-in; neither the
 image nor its dumped `.env.local.php` holds the opt-in or `APP_SECRET`; it turns healthy, as `www-data`, in prod, with
-its extensions, without Xdebug or any `require-dev` package, without UX Toolkit's bundle or commands; its working
-directory and server root are the app's; it serves a page of each kind that reads the kit (the dashboard, a recipe page
-and a preview, the setup guides in HTML and Markdown, and `llms.txt`), and every recipe page in the image (`/app/*/manifest.json`) with the
-first preview it shows, all answering 200 (an image with no recipe fails); and it holds no `node_modules`, tests, `.git`, `.github` or
-`tools/`. The only files under `packages/` are the two published package guides and their JSON registry. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
+its required PHP extensions. The harness checks the development-only packages in `demo/composer.lock` are absent,
+along with Xdebug and UX Toolkit's bundle and commands. It verifies the working directory and server root, then
+requests the dashboard, a recipe preview, the setup guides and `llms.txt`. The Composer and advanced guides must
+respond in both HTML and Markdown. Every recipe in the image (`/app/*/manifest.json`) must serve its page and first
+preview, and the image must contain at least one recipe. The harness rejects `node_modules`, tests, `.git`, `.github`
+and `tools/`. It permits only `docs/GUIDE.md` under `docs/`, and the two published package guides and their JSON
+registry under `packages/`. The demo reads UX Toolkit's library at run time (the gallery's recipe pages
 and their docs), so the package is a `require` of the demo and its templates are registered for prod in
 `config/packages/twig.yaml`; its bundle is registered in dev and test only. Symfony applies the demo's overrides of
 those templates (`templates/bundles/UXToolkitBundle/`: the installation steps, which name a binary file instead of
@@ -1223,9 +1225,9 @@ await menu(page).click();                                                       
 await expectA11y(page, { impact: 'all', include: '#drawer-lab-mobile-nav' }, 'open'); // the component's own markup
 ```
 
-Here: [`fixtures.ts`](../tests/e2e/fixtures.ts) (`expectA11y`, `controllersConnected`), [`a11y.spec.ts`](../tests/e2e/a11y.spec.ts) (every page;
-[`tools/test-inventory.mjs`](../tools/test-inventory.mjs) fails when a lab page of `LabController` is missing from its
-`labPages`),
+Here: [`fixtures.ts`](../tests/e2e/fixtures.ts) (`expectA11y`, `controllersConnected`), [`a11y.spec.ts`](../tests/e2e/a11y.spec.ts) (every page),
+[`lab-pages.json`](../tests/e2e/lab-pages.json) (the lab URLs the spec scans),
+[`LabPageInventoryTest`](../demo/tests/Functional/LabPageInventoryTest.php) (checks the list against Symfony's registered lab routes),
 and the specs of the dropzone, editor, markdown-editor, forms, demo-app, lab.side-nav, lab.section-nav, lab.mobile-nav
 and lab.nav-menu.
 

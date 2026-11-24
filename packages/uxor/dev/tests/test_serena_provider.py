@@ -60,12 +60,13 @@ class SerenaProviderStateTest(unittest.TestCase):
     def producer(self, operation, vendor="vendor", preparation_id="a" * 32):
         """Use the real package producer's serialization, never application PHP."""
         code = r"""
+require dirname($argv[1]).'/Preparation/ProjectPath.php';
+require dirname($argv[1]).'/Preparation/PreparationSnapshot.php';
 require $argv[1];
-$reflection = new ReflectionClass(\Xormania\UXor\SymfonyPreparation::class);
 if ($argv[2] === 'files') {
     echo json_encode([
         'files' => \Xormania\UXor\SymfonyPreparation::configurationFiles($argv[4]),
-        'active' => $reflection->getReflectionConstant('ACTIVE_CONFIG')->getValue(),
+        'active' => \Xormania\UXor\Preparation\PreparationSnapshot::ACTIVE_CONFIG,
     ], JSON_THROW_ON_ERROR);
     exit(0);
 }
@@ -74,8 +75,7 @@ if ($argv[2] === 'status') {
     echo json_encode((new \Xormania\UXor\SymfonyPreparation())->status($argv[3]), JSON_THROW_ON_ERROR);
     exit(0);
 }
-$preparation = $reflection->newInstanceWithoutConstructor();
-$snapshot = $reflection->getMethod('snapshot')->invoke($preparation, $argv[3], $argv[4]);
+$snapshot = (new \Xormania\UXor\Preparation\PreparationSnapshot())->snapshot($argv[3], $argv[4]);
 $manifest = [
     'schema' => 1, 'state' => 'ready', 'enabled' => true, 'preparation_id' => $argv[5],
     'prepared_at' => '2026-01-01T00:00:00+00:00', 'environment' => 'dev', 'debug' => true,
@@ -438,6 +438,36 @@ echo json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_TH
         self.assertEqual(generation, self.verify())
         self.assertEqual("dependencies/vendor", json.loads((directory / "preparation.json").read_text())["vendor_directory"])
 
+    def test_root_classmap_tracks_vendor_siblings_and_only_supported_vendor_inputs(self):
+        vendor = "dependencies/vendor"
+        self.prepared(vendor)
+        composer_path = self.project / "composer.json"
+        composer = json.loads(composer_path.read_text())
+        composer["autoload"] = {"classmap": ["."]}
+        composer_path.write_text(json.dumps(composer))
+        application_source = self.project / "dependencies/ProjectService.php"
+        application_source.write_text("<?php // application source\n")
+        unrelated_vendor = self.project / vendor / "other/package/src/Dependency.php"
+        unrelated_vendor.parent.mkdir(parents=True)
+        unrelated_vendor.write_text("<?php // installed dependency\n")
+        self.publish_manifest(vendor)
+        generation = self.verify()
+
+        unrelated_vendor.write_text("<?php // outside the tracked dependency inputs\n")
+        self.assertEqual(generation, self.verify())
+        self.assertTrue(json.loads(self.producer("status", vendor))["fresh"])
+
+        worker = self.project / vendor / "carthage-software/mago/composer/src/Sdk/Worker.php"
+        for path in (application_source, worker):
+            original = path.read_bytes()
+            path.write_bytes(original + b"// changed\n")
+            with self.subTest(path=path.relative_to(self.project), reader="package"):
+                self.assertFalse(json.loads(self.producer("status", vendor))["fresh"])
+            with self.subTest(path=path.relative_to(self.project), reader="provider"), self.assertRaises(RuntimeError):
+                self.verify()
+            path.write_bytes(original)
+            self.assertEqual(generation, self.verify())
+
     def test_root_autoload_excludes_runtime_state_and_environment_values(self):
         self.prepared()
         composer_path = self.project / "composer.json"
@@ -551,8 +581,12 @@ echo json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_TH
         self.assertFalse(lock_path.exists(), "Verification must not create preparation state")
         with lock_path.open("w") as owner:
             fcntl.flock(owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            with self.assertRaises(RuntimeError):
+            with self.subTest(reader="package"):
+                self.assertFalse(json.loads(self.producer("status"))["fresh"],
+                                 "The package reported ready during exclusive publication")
+            with self.subTest(reader="provider"), self.assertRaises(RuntimeError):
                 self.verify()
+        self.assertTrue(json.loads(self.producer("status"))["fresh"])
         self.assertEqual(generation, self.verify())
         before = {str(path.relative_to(self.project)): path.read_bytes()
                   for path in self.project.rglob("*") if path.is_file()}

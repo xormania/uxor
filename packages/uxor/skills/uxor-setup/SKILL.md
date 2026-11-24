@@ -18,7 +18,7 @@ the package workflow and its first rendered component. Use the package CLI if th
    `--install --trust-project-code`. Use existing task/session authorization when it covers native execution in
    this application and runtime. A configuration-only request does not authorize native execution.
 3. Preserve existing files and integrate reported configuration. Composer uses available Flex recipes.
-   Without Flex, register Debug/WebProfiler bundles and profiler routes using the application's conventions.
+   Without Flex, register WebProfilerBundle and its dev routes if the application uses the profiler UI.
    Confirm a real dev response has a profile; config-file presence is insufficient.
 4. When a task needs Serena or Mago, prepare the providers on the Docker host.
    For generated client configuration use

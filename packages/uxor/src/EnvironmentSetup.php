@@ -10,13 +10,17 @@ use Symfony\Component\Process\Process;
 /** Configures a consumer through its existing Composer and Symfony tooling. */
 final class EnvironmentSetup
 {
+    public const PROFILER_CONFIG = 'config/packages/dev/uxor.php';
+
     private readonly ApplicationFiles $files;
+    private readonly SetupOwnership $ownership;
 
     public function __construct(
         private readonly ProjectInspector $inspector,
         private readonly SymfonyPreparation $preparation,
     ) {
         $this->files = new ApplicationFiles($inspector);
+        $this->ownership = new SetupOwnership($this->files);
     }
 
     public function setup(string $directory, bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): array
@@ -24,6 +28,8 @@ final class EnvironmentSetup
         if (!in_array($client, ['none', 'claude', 'codex'], true)) {
             throw new \InvalidArgumentException('Choose client none, claude, or codex.');
         }
+        // Keep overlapping setup and detach applications from interleaving their ownership records.
+        $lock = $apply ? ApplicationFiles::lockProject($this->inspector->root($directory)) : null;
         $project = $this->files->project($directory);
         $root = $project['root'];
         if ($install && (!$apply || !$trustProjectCode)) {
@@ -103,28 +109,14 @@ final class EnvironmentSetup
         return $this->result($project, $plan, 'apply', $changes, $executions);
     }
 
+    public function detach(string $directory, bool $apply = false): array
+    {
+        return $this->ownership->detach($this->inspector->root($directory), $apply);
+    }
+
     public function dependencies(array $project): array
     {
-        $requirements = [
-            'symfony/profiler-pack' => '',
-            'symfony/maker-bundle' => '',
-            'carthage-software/mago' => '1.60.2',
-            'byte-kitsune/mago-symfony-wiring' => '1.3.0',
-        ];
-        if (isset($project['packages']['monolog/monolog']) || isset($project['packages']['symfony/monolog-bundle'])) {
-            $requirements['symfony/ai-monolog-mate-extension'] = '1.0.0-BETA1';
-        }
-        $result = [];
-        foreach ($requirements as $package => $constraint) {
-            // Flex can unpack a pack; its installed contents satisfy this setup request.
-            $version = $project['packages'][$package] ?? null;
-            if ('symfony/profiler-pack' === $package && isset($project['packages']['symfony/web-profiler-bundle'], $project['packages']['symfony/debug-bundle'])) {
-                $version = 'unpacked';
-            }
-            $result[] = ['package' => $package, 'constraint' => $constraint, 'installed_version' => $version,
-                'compatible' => null !== $version && ('' === $constraint || ltrim($version, 'v') === $constraint)];
-        }
-        return $result;
+        return DevelopmentDependencies::evaluate($project);
     }
 
     private function plan(array $project, string $client, string $hostProjectRoot, bool $saveProjectTrust): array
@@ -145,7 +137,7 @@ final class EnvironmentSetup
         // This describes the requested binding, not the contents of preserved client files.
         $binding = ['root' => $bindingRoot, 'source' => '' === $hostProjectRoot ? 'current_runtime' : 'explicit_host',
             'verified' => false, 'requested_saved_project_trust' => $saveProjectTrust];
-        $mago = 'version = "1.60.2"'."\n".'php-version = "'.$phpTarget."\"\n"
+        $mago = 'version = "'.SymfonyPreparation::REQUIREMENTS['carthage-software/mago'].'"'."\n".'php-version = "'.$phpTarget."\"\n"
             .'extends = ".uxor/mago/config.toml"'."\n\n[source]\npaths = [".$quotedPaths."]\nincludes = [".$vendor."]\n";
         $serverArgs = ['--project-root', $bindingRoot];
         if ($saveProjectTrust) {
@@ -160,11 +152,11 @@ final class EnvironmentSetup
             .'import { recordBrowserDiagnostics } from '.json_encode($browserImport, JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR).";\n\n"
             ."export const test = base.extend({ browserDiagnostics: [recordBrowserDiagnostics, { auto: true }] });\nexport { expect };\n";
         $templates = [
-            'mago.toml' => $mago,
-            '.uxor/browser.mjs' => $browser,
-            '.uxor/mcp.json' => ApplicationFiles::encode(['mcpServers' => $servers]),
+            SetupIntegration::Mago->value => $mago,
+            SetupIntegration::Browser->value => $browser,
+            SetupIntegration::LocalMcp->value => ApplicationFiles::encode(['mcpServers' => $servers]),
             '.uxor/.gitignore' => "/mcp.json\n",
-            '.uxor/README.md' => "# Application development tools\n\n"
+            SetupIntegration::Guide->value => "# Application development tools\n\n"
                 ."This configuration belongs to this application. Repeated UXor setup preserves existing files.\n\n"
                 ."Setup’s --trust-project-code authorizes native commands for the current setup operation; it does not save permission in MCP bindings. The separate --save-project-trust option adds --trust-project-code to new Serena bindings when the plan is applied. Saving it authorizes application code on every future connection, including code checked out later at the same path. It has no commit restriction or expiry. Removing the saved flag affects subsequent launches; also stop any already running Serena provider when revoking permission. --write separately allows editing and is not generated by setup.\n\n"
                 ."Without --trust-project-code before serena, the provider refuses to connect. Review the application and its Mago configuration before authorizing that launch or choosing to save permission for future connections. Existing bindings are preserved and may retain permission from earlier setup. --save-project-trust does not update them; reconcile those bindings manually, removing --trust-project-code if recurring execution is no longer intended.\n\n"
@@ -173,7 +165,7 @@ final class EnvironmentSetup
                 ."- Prepare external Mago providers on the Docker host with ".$project['bin']."/uxor-mago pull.\n"
                 ."- Connect Serena using the local MCP definition in mcp.json. Paths are machine-local to the MCP host; container users supply --host-project-root during setup.\n"
                 ."- Mate Beta1 uses the application CLI: ".$project['bin']."/mate tools:list --format=json; inspect exact inputs before tools:call.\n"
-                ."- Import test and expect from .uxor/browser.mjs in the application's Playwright tests; configure its baseURL and output directory.\n"
+                ."- Import test and expect from .uxor/browser.mjs in the application's Playwright tests; configure its baseURL and output directory, and set PROFILER_COLLECT=1 for a diagnostic run.\n"
                 ."- Inspect the exact request profile URI in browser-diagnostics.json. Preserve failure evidence before changing caches.\n"
                 ."- Keep the application's production runtime independent of development dependencies.\n",
         ];
@@ -181,16 +173,33 @@ final class EnvironmentSetup
             $templates[$path] = $content;
         }
         if (isset($project['composer']['require']['symfony/framework-bundle']) || isset($project['packages']['symfony/framework-bundle'])) {
-            $templates['config/packages/dev/uxor.yaml'] = "# Local development diagnostics; never loaded in production.\nframework:\n    profiler:\n        collect: true\n";
+            $profiler = file_get_contents(__DIR__.'/../resources/symfony/profiler.php');
+            if (false === $profiler) {
+                throw new \RuntimeException('The packaged development profiler configuration is missing.');
+            }
+            $templates[self::PROFILER_CONFIG] = $profiler;
         }
         $files = [];
         $notes = [];
+        $detached = $this->ownership->reconnectableFiles($root);
         foreach ($templates as $path => $content) {
             $proposal = $this->files->proposal($root, $path, $content);
+            if ('preserve' === $proposal['action'] && isset($detached[$path])) {
+                if ($proposal['sha256'] === $detached[$path]) {
+                    $proposal['action'] = 'update';
+                    $proposal['content'] = $content;
+                } else {
+                    $notes[] = 'Detached application configuration changed: '.$path.'. Reconcile the project file with the proposed integration before using it.';
+                }
+            }
             $files[] = $proposal;
-            if ('.uxor/mcp.json' === $path && 'preserve' === $proposal['action'] && $proposal['sha256'] !== hash('sha256', $content)) {
+            if (SetupIntegration::LocalMcp->value === $path && 'preserve' === $proposal['action'] && $proposal['sha256'] !== hash('sha256', $content)) {
                 $notes[] = 'Existing .uxor/mcp.json was preserved; reconcile its application paths and saved execution permission before connecting. It may retain a previous --trust-project-code flag; remove that flag and stop any already running Serena provider if recurring execution is no longer intended.';
             }
+        }
+        $oldProfiler = $this->files->path($root, 'config/packages/dev/uxor.yaml');
+        if (is_file($oldProfiler) && hash_file('sha256', $oldProfiler) === hash('sha256', "# Local development diagnostics; never loaded in production.\nframework:\n    profiler:\n        collect: true\n")) {
+            $notes[] = 'The earlier config/packages/dev/uxor.yaml enables profiling on every dev request. Reconcile this preserved file with your application’s profiler policy.';
         }
         if (is_file($root.'/mago.toml') && !str_contains((string) file_get_contents($root.'/mago.toml'), '.uxor/mago/config.toml')) {
             $notes[] = 'Existing mago.toml was preserved. Include .uxor/mago/config.toml in its existing inheritance chain to enable Symfony enrichment.';
@@ -198,25 +207,37 @@ final class EnvironmentSetup
         if ('claude' === $client) {
             $path = $this->files->path($root, '.mcp.json');
             if (is_file($path)) {
-                $existing = $this->files->json($path);
-                if (isset($existing['mcpServers']) && !is_array($existing['mcpServers'])) {
-                    throw new \InvalidArgumentException('The existing .mcp.json mcpServers value must be an object.');
+                $json = $this->files->readJson($path);
+                $existing = json_decode($json, flags: JSON_THROW_ON_ERROR);
+                if (!$existing instanceof \stdClass || (property_exists($existing, 'mcpServers') && !$existing->mcpServers instanceof \stdClass)) {
+                    throw new \InvalidArgumentException('The existing .mcp.json and its mcpServers member must be objects.');
                 }
-                $merged = $existing;
+                $rootOffset = strspn($json, " \t\r\n");
+                $map = JsonObjectMembers::span($json, 'mcpServers', $rootOffset);
+                $target = $map[1] ?? $rootOffset;
+                $additions = [];
                 foreach ($servers as $name => $server) {
-                    if (isset($existing['mcpServers'][$name]) && $existing['mcpServers'][$name] !== $server) {
+                    $member = null === $map ? null : JsonObjectMembers::span($json, $name, $target);
+                    if (null === $member) {
+                        $additions[$name] = $server;
+                    } elseif (!$existing->mcpServers->$name instanceof \stdClass || (array) $existing->mcpServers->$name !== $server) {
                         $notes[] = 'Existing MCP server '.$name.' was preserved; reconcile its application paths and saved execution permission before connecting. It may retain a previous --trust-project-code flag; remove that flag and stop any already running Serena provider if recurring execution is no longer intended.';
-                    } else {
-                        $merged['mcpServers'][$name] = $server;
                     }
                 }
-                $files[] = $merged === $existing ? $this->files->proposal($root, '.mcp.json', '')
-                    : ['path' => '.mcp.json', 'action' => 'update', 'sha256' => hash_file('sha256', $path), 'content' => ApplicationFiles::encode($merged)];
+                if ([] === $additions) {
+                    $files[] = $this->files->proposal($root, '.mcp.json', '');
+                } else {
+                    $entries = rtrim(ApplicationFiles::encode(null === $map ? ['mcpServers' => $additions] : $additions));
+                    $members = rtrim(substr($entries, 1, -1));
+                    $object = null === $map ? $existing : $existing->mcpServers;
+                    $content = substr_replace($json, $members.([] === (array) $object ? "\n" : ','), $target + 1, 0);
+                    $files[] = ['path' => '.mcp.json', 'action' => 'update', 'sha256' => hash('sha256', $json), 'content' => $content];
+                }
             } else {
                 $files[] = $this->files->proposal($root, '.mcp.json', ApplicationFiles::encode(['mcpServers' => $servers]));
             }
         } elseif ('codex' === $client) {
-            $path = $this->files->path($root, '.codex/config.toml');
+            $path = $this->files->path($root, SetupIntegration::Codex->value);
             if (file_exists($path) && (!is_file($path) || !is_readable($path) || filesize($path) > 1024 * 1024)) {
                 throw new \InvalidArgumentException('Expected a readable .codex/config.toml under 1 MiB.');
             }
@@ -243,10 +264,11 @@ final class EnvironmentSetup
                 }
                 $updated .= $section;
             }
-            $files[] = !is_file($path) ? $this->files->proposal($root, '.codex/config.toml', $updated)
-                : ($updated === $existing ? $this->files->proposal($root, '.codex/config.toml', '')
-                    : ['path' => '.codex/config.toml', 'action' => 'update', 'sha256' => hash_file('sha256', $path), 'content' => $updated]);
+            $files[] = !is_file($path) ? $this->files->proposal($root, SetupIntegration::Codex->value, $updated)
+                : ($updated === $existing ? $this->files->proposal($root, SetupIntegration::Codex->value, '')
+                    : ['path' => SetupIntegration::Codex->value, 'action' => 'update', 'sha256' => hash_file('sha256', $path), 'content' => $updated]);
         }
+        $files = $this->ownership->record($root, $files, $servers);
         return compact('files', 'notes', 'servers', 'binding');
     }
 
@@ -264,7 +286,8 @@ final class EnvironmentSetup
 
     private function result(array $project, array $plan, string $mode, array $changes, array $executions): array
     {
-        $missing = array_filter($this->dependencies($project), static fn (array $item): bool => !$item['compatible']);
+        $dependencies = $this->dependencies($project);
+        $missing = array_filter($dependencies, static fn (array $item): bool => !$item['compatible']);
         $publicFiles = array_map(static function (array $file): array {
             // Existing client configuration can contain private environment values.
             unset($file['content']);
@@ -286,7 +309,7 @@ final class EnvironmentSetup
             'summary' => 'plan' === $mode ? 'Development setup planned; no files or processes changed.'
                 : 'Development configuration applied; inspect capability readiness before starting work.',
             'mode' => $mode, 'root' => $project['root'], 'php_binary' => PHP_BINARY,
-            'files' => $publicFiles, 'dependencies' => $this->dependencies($project), 'mcp_binding' => $plan['binding'], 'changes' => $changes,
+            'files' => $publicFiles, 'dependencies' => $dependencies, 'mcp_binding' => $plan['binding'], 'changes' => $changes,
             'executions' => $executions, 'next_steps' => $next];
     }
 

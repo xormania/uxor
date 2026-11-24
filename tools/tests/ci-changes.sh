@@ -172,8 +172,9 @@ check ''                          tools/name-check.mjs tools/tests/name-check.te
 check "$all"                      tools/ci-changes.sh
 check 'workflows'                 tools/release-plan.sh
 check 'workflows'                 tools/tests/release-plan.sh
-# tools/test-inventory.mjs (Contrast) reads which specs and PHPUnit tests exist, the lab's routes and the recipes'
-# controllers; a helper or a baseline it does not read
+# tools/test-inventory.mjs (Contrast) reads which specs and PHPUnit tests exist and the recipes' controllers.
+# Kit PHP and the browser tests read the shared list of accessibility scan paths.
+check 'php demo'                  tests/e2e/lab-pages.json
 check 'contrast demo'             tests/e2e/lab.side-nav.spec.ts
 check 'demo'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
@@ -182,7 +183,7 @@ check 'demo'                      tools/playwright-image.mjs tools/playwright-im
 check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php static-site contrast demo' demo/tests/Editor/EditorTypeTest.php
-check 'php static-site contrast demo prod-image' demo/src/Controller/LabController.php
+check 'php static-site demo prod-image' demo/src/Controller/LabController.php
 check 'contrast demo'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
 check 'php static-site demo prod-image' demo/src/Demo/DataTableCollector.php

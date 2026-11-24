@@ -29,21 +29,30 @@ final class EnvironmentStatus
                 'next_steps' => ['Use existing application execution authorization to enable probes.']];
         }
         $has = static fn (string $package): bool => isset($project['packages'][$package]);
+        $dependencies = DevelopmentDependencies::evaluate($project);
+        $compatible = array_column($dependencies, 'compatible', 'package');
         $capabilities = [
             'mate' => ['installed' => $has('symfony/ai-mate'), 'configured' => is_file($root.'/mate/config.php'),
                 'interface' => 'application CLI', 'observed' => 'not_probed'],
-            'maker' => ['installed' => $has('symfony/maker-bundle'), 'configured' => is_file($root.'/bin/console'), 'observed' => 'not_probed'],
+            'maker' => ['installed' => $compatible['symfony/maker-bundle'], 'configured' => is_file($root.'/bin/console'), 'observed' => 'not_probed'],
             'mago' => ['installed' => null, 'configured' => is_file($root.'/mago.toml'), 'observed' => 'not_probed'],
             'serena' => ['installed' => null, 'configured' => is_file($root.'/.uxor/mcp.json'), 'interface' => 'MCP stdio', 'observed' => 'not_probed',
                 'note' => 'Configuration paths must resolve on the MCP host. The provider uses PHP 8.4; preparation in another PHP version does not prove the application autoloader runs there.'],
             'symfony_wiring' => $this->preparation->status($root),
-            'profiler' => ['installed' => $has('symfony/web-profiler-bundle'),
-                'configured' => is_file($root.'/config/packages/dev/uxor.yaml'), 'observed' => 'not_probed',
-                'note' => 'An exact HTTP response token and matching profile establish request capture. Bundle presence does not establish its registration or UI routes.'],
+            'profiler' => ['installed' => $compatible['symfony/profiler-pack'],
+                'configured' => is_file($root.'/'.EnvironmentSetup::PROFILER_CONFIG) || is_file($root.'/config/packages/dev/uxor.yaml') ? true : null,
+                'observed' => 'not_probed',
+                'note' => 'Installed describes the profiler pack or its unpacked requirements. Static inspection recognizes UXor’s dev config; other application configuration and effective collection require runtime evidence. An exact HTTP response token and matching profile establish request capture.'],
             'browser' => ['configured' => is_file($root.'/.uxor/browser.mjs'), 'observed' => 'not_probed',
                 'note' => 'The application must import the recorder into its Playwright fixture and set the served baseURL.'],
             'monolog' => ['installed' => $has('symfony/ai-monolog-mate-extension'), 'observed' => 'not_probed'],
         ];
+        $ownership = new SetupOwnership($this->files);
+        foreach (['serena' => SetupIntegration::LocalMcp, 'browser' => SetupIntegration::Browser] as $name => $integration) {
+            if ($capabilities[$name]['configured']) {
+                $capabilities[$name]['configured'] = $ownership->verifyClientConfiguration($root, $integration);
+            }
+        }
         $probes = [];
         if ($probe) {
             foreach (['maker', 'mate'] as $kind) {
@@ -66,7 +75,7 @@ final class EnvironmentStatus
             }
         }
         $next = [];
-        if (!$capabilities['mate']['configured'] || !$capabilities['maker']['installed'] || !$capabilities['mago']['configured']) {
+        if (in_array(false, $compatible, true) || !$capabilities['mate']['configured'] || !$capabilities['mago']['configured']) {
             $next[] = 'Run setup to review missing configuration, then setup --apply --install --trust-project-code in the application PHP environment.';
         }
         if (!($capabilities['symfony_wiring']['fresh'] ?? false)) {
@@ -77,7 +86,9 @@ final class EnvironmentStatus
         } elseif (in_array('probe_failed', array_column($capabilities, 'observed'), true)) {
             $next[] = 'Inspect the named failed probe in its owning runtime. Prepare external providers with uxor-mago pull on the Docker host.';
         }
-        $next[] = 'Connect Serena and query a current application symbol. Provider version checks do not establish an active MCP session.';
+        if (true === $capabilities['serena']['configured']) {
+            $next[] = 'Connect Serena and query a current application symbol. Provider version checks do not establish an active MCP session.';
+        }
         $next[] = 'Exercise the requested application journey and inspect its exact profiler token. Keep existing failure evidence when refreshing source facts.';
         if (!$has('symfony/flex')) {
             $next[] = 'This application does not have Flex. Register installed development bundles and profiler UI routes using its own kernel/configuration conventions.';
@@ -87,7 +98,7 @@ final class EnvironmentStatus
             'summary' => $probe ? 'Development entry points probed; session and request evidence are reported separately.'
                 : 'Development configuration inspected without running application code.',
             'root' => $root, 'php_binary' => PHP_BINARY, 'php_version' => PHP_VERSION, 'vendor_directory' => $project['vendor'],
-            'project_code_executed' => $probe, 'capabilities' => $capabilities, 'probes' => $probes, 'changes' => [],
+            'project_code_executed' => $probe, 'capabilities' => $capabilities, 'dependencies' => $dependencies, 'probes' => $probes, 'changes' => [],
             'workflows' => [
                 'understand' => ['mago', 'serena', 'symfony_wiring', 'mate'],
                 'build' => ['maker', 'serena', 'mago'],

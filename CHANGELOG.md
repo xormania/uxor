@@ -43,16 +43,21 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Added
 
+- The Composer development package can detach its recorded Mago, MCP and browser integrations before removal.
+  Run `vendor/bin/uxor detach` to review the plan and `detach --apply` to apply it.
+
 - The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
 - `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
-  Serena session using the Mago language server.
+  Serena session using the Mago language server. Setup and preparation accept Composer paths such as `./vendor`
+  and `./src`. The application and Serena both withhold fresh wiring while preparation is in progress.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
 - The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. The demo and independent consumer use the same fixture.
+  failures to exact Symfony request profiles. Setup respects the application’s profiler settings and recognizes
+  Flex’s unpacked profiler dependencies. The shared fixture starts collecting only on a diagnostic run.
 
 ### Changed
 

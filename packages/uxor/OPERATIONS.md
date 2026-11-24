@@ -9,6 +9,7 @@ integration yourself or inspect what the package does in your application.
 | Connect an MCP client or use a separate Docker host | [Client configuration and host paths](#set-up-and-inspect-the-development-environment), then [prepare the providers](#prepare-the-providers-on-the-docker-host). |
 | Inspect PHP, Twig or compiled Symfony wiring | [Source checks](#inspect-and-change-source) · [Compiled Symfony facts](#prepare-compiled-symfony-facts) |
 | Verify a feature or diagnose a failed request | [Request diagnostics](#diagnose-a-request) · [Browser diagnostics](#browser-diagnostics) |
+| Remove the development package or reconnect later | [Detach managed integrations](#detach-before-removing-uxor). |
 | Check what the package knows about an existing project | [Project evidence and first-setup checks](#project-evidence-and-first-setup-checks) |
 
 Use these tools in the consuming application's checkout, under its instructions and authorized task scope. Run commands with its configured PHP runtime; in a containerized project, use the PHP container so installed extensions, paths and generated Symfony artifacts match the application. Application-owned components and configuration remain the application's responsibility.
@@ -49,10 +50,11 @@ Composer resolves the development dependencies against the application's own con
 provider for this release requires `symfony/yaml ^7.4.23 || ^8.1.11`. If the project pins Symfony to 8.0,
 inspect Composer's resolver output and the constraints it names.
 
-Let Composer and Symfony Flex apply available package recipes. If the application does not use Flex, register the
-Debug and WebProfiler bundles and integrate profiler routes using the application's configuration conventions.
-The generated FrameworkBundle dev profiler config enables collection but cannot supply missing bundle or route
-registration. Check a real response and its profile. Keep development packages out of the production dependency set.
+Setup and environment inspection report the same installed development dependencies and compatible versions.
+Symfony Flex can unpack the profiler pack into WebProfilerBundle and Stopwatch. Without Flex, register
+WebProfilerBundle and its routes in development when the application needs the profiler UI. The generated
+`config/packages/dev/uxor.php` supplies a collection policy only when the application has none.
+Check a real response and its profile. [Profiler pack requirements](https://github.com/symfony/profiler-pack/blob/v1.0.6/composer.json)
 
 `environment` reports setup and preparation state. `--probe` adds the implemented execution checks and requires
 `--trust-project-code`. Read each check and its scope: configuration presence, installed tools, native execution,
@@ -85,7 +87,7 @@ revoke earlier permission. Reconcile them explicitly. To revoke recurring permis
 `mcp_binding.requested_saved_project_trust` reports the requested configuration, not the contents of preserved
 files or a verified connection. The example above installs tools without saving permission for future connections.
 
-The corresponding Mate tools are `uxor_setup`, `uxor_environment` and `uxor_prepare`. Inspect their installed
+The corresponding Mate tools are `uxor_setup`, `uxor_environment`, `uxor_prepare` and `uxor_detach`. Inspect their installed
 named inputs before calling them through the application's Mate CLI.
 
 ## Prepare the providers on the Docker host
@@ -210,7 +212,8 @@ The packaged Serena graph operation checks freshness before and after a query us
 provider image. It runs the image's PHP with configuration loading disabled and never includes the application's
 worker or Composer autoloader. It validates the manifest and hashes the reference and tracked inputs itself;
 application-produced freshness output is not used. Incomplete, changed or unavailable preparation fails the query.
-The verifier honors preparation's lock and rechecks the published files after fingerprinting. The verified
+The application’s environment report, wiring worker and provider use the same readiness checks, lock and
+publication recheck. Composer paths such as `./vendor` and `./src` resolve relative to the application root. The verified
 manifest, reference and input digest determine the language-server generation, so changed content restarts the
 server even when a preparation ID is reused. These checks establish snapshot consistency, not authenticated
 provenance of application-authored artifacts. Native source operations remain independent.
@@ -280,7 +283,7 @@ A profiler token cannot recover a file removed by another cache-clearing process
 `workflow customer-management` reads the UXor-authored guide for a searchable customer list, edit dialog, validation, successful save, feedback and Turbo history. It uses the same bounded UTF-8 pagination and directory checks as references. The result identifies the UXor package (`xormania/uxor`) as its source and returns the observed file checksum; that checksum identifies the returned guide and is not an independent signature. This guide lives outside the generated UXor reference bundle. Mate exposes it through `uxor://workflow/customer-management` and `uxor_workflow`; use the tool or CLI `--offset` to continue a truncated page.
 
 Mate exposes `uxor_catalog`, `uxor_component`, `uxor_reference`, `uxor_workflow`, `uxor_project`, `uxor_doctor`,
-`uxor_tools`, `uxor_browser_diagnostics`, `uxor_setup`, `uxor_environment` and `uxor_prepare`. The fixed `uxor://catalog` resource supplies the initial catalog page.
+`uxor_tools`, `uxor_browser_diagnostics`, `uxor_setup`, `uxor_environment`, `uxor_prepare` and `uxor_detach`. The fixed `uxor://catalog` resource supplies the initial catalog page.
 Read an indexed document through `uxor://reference/INSTALL.md` or `uxor://reference/modal/README.md`. Use the reference
 tool for pagination. See `vendor/bin/mate tools:inspect <name> --format=json` for actual named inputs.
 
@@ -314,16 +317,13 @@ export const test = base.extend({
 });
 ```
 
-Set Playwright's `baseURL` to the app. The generated development setup enables FrameworkBundle profiler collection.
-Verify collection in the running application, including any existing configuration overrides. Applications that
-prefer an explicit collection flag can instead set `PROFILER_COLLECT=0` and configure dev collection as follows:
+Set Playwright’s `baseURL` to the app. Start the test process with `PROFILER_COLLECT=1` for a diagnostic run.
+With collection disabled the recorder requests no browser context, so API-only tests can run without a browser.
 
-```yaml
-when@dev:
-    framework:
-        profiler:
-            collect: '%env(bool:PROFILER_COLLECT)%'
-```
+Symfony applies the application’s existing profiler settings. When none are present, the generated dev configuration
+uses `PROFILER_COLLECT`, with collection off by default. Earlier setup versions may have generated
+`config/packages/dev/uxor.yaml` with `collect: true`. Setup preserves that file. Review it before removing or
+changing that setting if your application uses a different policy.
 
 Start the local Symfony server with `PROFILER_COLLECT=1`. If Playwright starts the server, it can inherit the same
 flag from the test command. Keep the output in the selected application so Mate and the CLI can read it:
@@ -372,11 +372,47 @@ Native failures return the argv and exit status, with an action to diagnose the 
 ## Result and exit contract
 
 Every operation returns an operation name, status, human summary, reference metadata, data and a changes list.
-Read operations report no intentional writes. Applied setup and preparation report their file changes as
+Read operations report no intentional writes. Applied setup, preparation and detachment report their file changes as
 `{path, action}` entries; setup can also invoke the explicitly selected native dependency/discovery commands.
 Native framework commands may initialize the application's own caches. `completed` means the operation ran; diagnostic findings separately report `pass`, `fail` or `unknown`. `incomplete` identifies missing native metadata or unresolved checks. `failed` identifies invalid input or an execution error.
 
 The CLI uses exit 0 for completed operations, 1 for failed operations and 2 for incomplete checks or failing doctor findings. JSON output uses the same service result as Mate. Do not interpret exit 0 from metadata inspection as proof the application boots or that a UI journey works. Reference facts, application metadata and observed runtime behavior have distinct evidence limits.
+
+## Detach before removing UXor
+
+Use the application runtime where the package is installed. Stop any running UXor Serena process, then inspect
+the plan with `vendor/bin/uxor detach --format=json` (or the bound Mate tool `uxor_detach`). Setup records the
+digests of the integrations it writes in `.uxor/setup-ownership.json`. Keep this record with the application.
+It contains hashes of the UXor files or MCP server settings, without host paths or unrelated client values.
+
+```sh
+vendor/bin/uxor detach --apply --format=json
+# After detach reports completed:
+composer remove --dev xormania/uxor
+```
+
+A completed apply removes the generated root Mago inheritance and worker and returns its extension config
+to an inactive, loadable file for any application-owned Mago inheritance chain. It keeps native Mago usable
+and removes the recorded Serena binding from each configured client. The standard browser
+fixture keeps its application import path and re-exports native Playwright `test` and `expect`. Other client
+entries and installed recipes remain the application's. Separate development requirements such as Mate, Mago,
+and Symfony bundles remain in Composer. The neutral Mago and browser configuration and their receipt let a later `setup --apply` reconnect unchanged
+files. Keep the inactive config if another Mago profile extends it. The cached reference and preparation manifest
+under `.uxor/mago` may be discarded after verifying the application. A plain Composer removal does not invoke detachment.
+
+**Custom or older installations.** A differing integration or one without a setup receipt can require manual
+reconciliation. Exit code 2 identifies the affected paths. Resolve those entries and rerun detach before removing
+the package. In an application-owned `mago.toml`, remove its inheritance of `.uxor/mago/config.toml` or its
+`uxor-symfony` extension host while keeping other sources and hosts. Remove old UXor worker registrations and the
+unused UXor worker. In client settings, replace or remove only the server launching `uxor-mago`. Inspect any
+global client settings or MCP aliases managed outside this checkout as well.
+
+Search the application's test and configuration files for `recordBrowserDiagnostics`, `browserDiagnostics`,
+`xormania/uxor` and `uxor-mago`. Replace direct package imports with application-owned equivalents. For a
+custom Playwright fixture, extend the application's normal `test` from `@playwright/test` and remove only the
+UXor recorder registration. Migrate tests which request the recorder explicitly. Run the application's Playwright
+suite, its remaining Mago command, and `vendor/bin/mate tools:list` if it keeps Mate. These verify the scopes,
+providers and tests the application actually uses.
 
 ## CLI command reference
 
@@ -409,6 +445,14 @@ Describe one component reference.
 
 - `[<name>]` — Exact component name
 - `[--format FORMAT]` — text or json
+
+### `detach`
+
+Plan or detach the development integrations before removing UXor with Composer.
+
+- `[--format FORMAT]` — text or json
+- `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+- `[--apply]` — Apply the detachment plan after reviewing the listed paths
 
 ### `doctor`
 

@@ -121,8 +121,10 @@ while IFS= read -r path; do
         composer.json) on package ;;
         composer.lock | packages/uxor/*) on package ;;
 
-        # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
-        # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
+        # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs and PHPUnit tests
+        # exist and which recipes ship a controller.
+        # Kit PHP's LabPageInventoryTest and the browser accessibility scan read the same list of lab pages.
+        tests/e2e/lab-pages.json) on php demo ;;
         # The release checks' own specs and their leak detector run in the release projects only (playwright.config.ts,
         # with RELEASE_CHECKS: release-checks.yml), never in CI's browser job; the inventory names the specs, and the
         # detector's cases run in Tool tests
@@ -192,7 +194,6 @@ while IFS= read -r path; do
         demo/composer.lock) on php static-site demo prod-image lint-kit ;;
         demo/composer.json | demo/config/*) on php static-site demo prod-image ;;
         demo/tests/*) on php static-site demo contrast ;;
-        demo/src/Controller/LabController.php) on php static-site demo contrast prod-image ;;
         # the rest of what the image admits (demo/Dockerfile.dockerignore): the app runs differently in prod (no
         # development package, no Toolkit bundle), so a change to any of its files runs the image
         demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php static-site demo prod-image ;;
