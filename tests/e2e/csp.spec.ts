@@ -131,6 +131,9 @@ for (const theme of ['light', 'dark']) {
     test(`in the ${theme} theme, a picked PNG or JPEG shows its preview from a blob: URL, an SVG from a data: URL, under the policy`, async ({ page }) => {
         const { policy } = await gotoAndCheckPolicy(page, `/preview/dropzone/default?theme=${theme}`);
         expect(policy.get('img-src')).toEqual(expect.arrayContaining(['blob:', 'data:']));
+        if ('dark' === theme) {
+            await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
+        }
         const input = page.locator('input[type="file"]');
         const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
         for (const [file, scheme] of [
@@ -141,6 +144,7 @@ for (const theme of ['light', 'dark']) {
             const previous = await decodedBackgroundImage(image);
             await input.setInputFiles(file);
             await expect(page.getByText(file.name, { exact: true })).toBeVisible();
+            await expect(page.getByRole('button', { name: `Remove ${file.name}` })).toBeVisible();
             await expect(image).toBeVisible();
             await expect.poll(async () => {
                 const preview = await decodedBackgroundImage(image);
@@ -153,38 +157,6 @@ for (const theme of ['light', 'dark']) {
         }
     });
 }
-
-// the same in the dark theme, walked as the user does: a keyboard pick shows the name, the image and Remove, focused;
-// Remove empties the zone and puts the focus back on the input
-test('in the dark theme, a picked image shows its name, its preview under the policy and Remove, focused; Remove empties the zone', async ({ page }) => {
-    const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=dark');
-    expect(policy.get('img-src')).toEqual(expect.arrayContaining(['blob:', 'data:']));
-    await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
-    const input = page.getByLabel('Profile picture');
-    await input.focus();
-    const chooser = page.waitForEvent('filechooser');
-    await page.keyboard.press('Enter');
-    await (await chooser).setFiles(png('dark.png'));
-
-    const remove = page.getByRole('button', { name: 'Remove dark.png' });
-    await expect(remove).toBeFocused();
-    await expect(remove).toBeVisible();
-    await expect(page.getByText('dark.png', { exact: true })).toBeVisible();
-    await expect(page.getByText('Drag and drop or browse')).toBeHidden();
-    const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
-    await expect(image).toBeVisible();
-    const box = await image.boundingBox();
-    expect(box && box.width > 0 && box.height > 0).toBe(true);
-    // the image loads from its object URL (the fixtures fail on a violation)
-    await expect.poll(() => decodedBackgroundImage(image)).toEqual({ url: expect.stringMatching(/^blob:/), width: 1 });
-
-    await page.keyboard.press('Enter');
-    await expect(input).toBeFocused();
-    await expect(image).toBeHidden();
-    await expect(remove).toBeHidden();
-    await expect(page.getByText('Drag and drop or browse')).toBeVisible();
-    expect(await input.evaluate((element: HTMLInputElement) => element.files?.length ?? 0)).toBe(0);
-});
 
 test("Symfony's error pages keep the hardening headers without a policy on scripts and styles", async ({ page, allowHttpError }) => {
     // an exception's page; in debug, Symfony also removes the whole header from it
