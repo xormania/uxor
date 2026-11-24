@@ -20,7 +20,6 @@ Follow the [installation guide](../packages/uxor/README.md) for the release-spec
 | `symfony/ai-symfony-mate-extension` | `^1.0.0-BETA1` |
 | `symfony/console` | `^7.4 \|\| ^8.0` |
 | `symfony/debug-pack` | `^1.1` |
-| `symfony/filesystem` | `^7.4 \|\| ^8.0` |
 | `symfony/http-client` | `^7.4 \|\| ^8.0` |
 | `symfony/maker-bundle` | `^1.68` |
 | `symfony/process` | `^7.4 \|\| ^8.0` |

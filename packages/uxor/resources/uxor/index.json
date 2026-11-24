@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "4c72912cc9fe3831250ceec07b58f0268baf358b5bf9423b1a66e09643425e87",
+        "inputs_sha256": "dc98fa34cc7f90216dfdd2042c743d519e3152f96af4bc3c53fe7f8f0d436c39",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "guide_catalog_sha256": "92b083ca3a1cb43236e66a9bf903458f9aa676bed7552cdfe6a52a8f79e302fd",
         "license": "MIT"
@@ -1824,8 +1824,8 @@
         },
         "docs/COMPOSER-CONFIGURATION.md": {
             "path": "docs/docs/COMPOSER-CONFIGURATION.md",
-            "sha256": "c375df36c3ea4616bfd9078d3e6876800a471c256f670e3daf3e7a66fee9e93d",
-            "source_sha256": "c375df36c3ea4616bfd9078d3e6876800a471c256f670e3daf3e7a66fee9e93d",
+            "sha256": "72459076b1c16aea73acd316064e372893ddb8c3a6a686655a74785af5c83918",
+            "source_sha256": "72459076b1c16aea73acd316064e372893ddb8c3a6a686655a74785af5c83918",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/COMPOSER-CONFIGURATION.md"
         },
         "docs/GUIDE.md": {
