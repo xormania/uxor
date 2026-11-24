@@ -2182,14 +2182,13 @@ workflow, resolved target and actual checkout revisions are recorded separately 
 After preparing the demo, [`tools/ci/release-checks.mjs`](../tools/ci/release-checks.mjs) discovers the target's
 Playwright project contract before launching its assigned lane. Three jobs run concurrently on separate machines:
 `release` (timings, fuzzing and long sessions) uses one worker, while `dark` and `harsh` use two workers each.
-Timing measurements never compete with either behavior lane. Current checkouts use
-`release`, `release-dark` and `release-harsh`. A temporary bridge also supports the exact legacy family on older
-`main` checkouts, including its legacy tag filter. Unknown, partial or mixed families and discovery errors fail;
-a failed suite never retries with another family. Each lane saves its project and required-spec contract in
+Timing measurements never compete with either behavior lane. The target must configure exactly the
+`release`, `release-dark` and `release-harsh` projects: other release project names, a partial or mixed set and
+discovery errors fail, and a failed suite never retries a smaller one. Each lane saves its project and required-spec contract in
 `release-selection.json`; evidence independently derives the expected contract from the assigned `RELEASE_LANE`,
 so a saved contract cannot narrow it. The three lanes partition the required projects exactly once; the `release`
 lane also requires every release spec to run without skips. Missing or empty lane reports remain fatal. With no
-`RELEASE_LANE`, the runner retains the complete serial suite for local use. Remove the legacy bridge when the supported `main` contract is retired.
+`RELEASE_LANE`, the runner retains the complete serial suite for local use.
 
 The PHPUnit properties run once in the `release` lane, with a random seed and `--fail-on-empty-test-suite`.
 The dashboard timing scenario opens Settings through the keyboard, including after a warm-up has left it open;
