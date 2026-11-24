@@ -61,7 +61,7 @@ local, ignored settings rather than tracked project guidance. The ignore rules c
 | `tools/sync-demo` | no | copies every recipe into `demo/` the way `ux:install --force` does |
 | `tools/demo-php` | no | runs PHP in the demo's container, for the Playwright specs (`DEMO_URL`) |
 | `tools/contrast/` | no | WCAG contrast check of the theme's color roles |
-| `tools/llms-txt.mjs` | no | writes `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status |
+| `tools/llms-txt.mjs` | no | writes `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status. It also maintains each recipe README’s published catalog link and offline lookup beside `::: installation` |
 | `tools/docs-lint.mjs`, `tools/fence-coverage.mjs` | no | what the markdown examples teach, and a gallery page for every recipe and README example (*Docs*) |
 | `tools/recipe-imports.mjs` | no | every relative import in a recipe's JavaScript names a file the recipe or its recipe dependencies install (*Checks*) |
 | `tools/js-duplication.mjs` | no | the copies of code in the recipes' JavaScript: the duplicated lines stay within a budget, and no recipe declares again a name a shared module exports (*Checks*, *Shared code*) |

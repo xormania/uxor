@@ -4,7 +4,7 @@ The textarea component is a multi-line text field input that can be used to rece
 
 ```twig {"preview":true}
 <form class="w-full">
-    <twig:Label for="message" class="mb-2.5">Your message</twig:Label>
+    <label for="message" class="mb-2.5 block text-sm font-medium text-heading">Your message</label>
     <twig:Textarea id="message" rows="4" placeholder="Write your thoughts here..." />
 </form>
 ```
@@ -12,6 +12,8 @@ The textarea component is a multi-line text field input that can be used to rece
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=textarea#recipes). To install `textarea` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component textarea --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 ## Usage
 
@@ -24,6 +26,8 @@ The textarea component is a multi-line text field input that can be used to rece
 ### Comment Box
 
 Most often the textarea component is used as the main text field input element in comment sections. Use this example to also apply a helper text and buttons below the textarea itself.
+
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <form class="w-full">
@@ -60,6 +64,8 @@ Most often the textarea component is used as the main text field input element i
 ### WYSIWYG Editor
 
 Use this example to add action buttons alongside a textarea for rich text editing capabilities.
+
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <form class="w-full">
@@ -126,6 +132,8 @@ Use this example to add action buttons alongside a textarea for rich text editin
 ### Chatroom Input
 
 If you want to build a chatroom component you will usually want to use a textarea element to allow users to write multi-line chunks of text.
+
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <form class="w-full">

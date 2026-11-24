@@ -12,6 +12,8 @@ A registration card rendering a Symfony form through the form theme.
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=signup#recipes). To install `signup` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component signup --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `SignupForm` applies the form theme (`form/flowbite_layout.html.twig`, from the `form-theme` recipe) to its own form, so you do not need a `twig.form_themes` setting. It renders every field of the form, in order.

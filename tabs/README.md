@@ -1,6 +1,6 @@
 # Tabs
 
-Use the following default tabs component example to show a list of links that the user can navigate from on your website.
+Tabs switch between panels on the same page. Use the arrow keys to move between tabs.
 
 ```twig {"preview":true}
 <twig:Tabs defaultValue="profile" class="max-w-xl w-full">
@@ -37,6 +37,8 @@ Use the following default tabs component example to show a list of links that th
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=tabs#recipes). To install `tabs` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component tabs --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 ## Usage
 
@@ -88,6 +90,8 @@ Use this alternative tabs component style with an underline instead of a backgro
 ### Tabs with icons
 
 This is an example of the tabs component where you can also use a SVG powered icon to complement the text within the navigational tabs.
+
+For this example, install Symfony UX Icons with `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <twig:Tabs defaultValue="dashboard" class="max-w-[800px] w-full">

@@ -33,6 +33,14 @@ for (const path of pages) {
         // axe passes the contrast of short text it cannot judge (a one-character page number): every text of a README
         // example, in both themes, measured from its computed colors (contrast.ts)
         if (path.startsWith('/preview/')) {
+            const ids = await page.locator('[id]').evaluateAll((elements) => elements.map((element) => element.id));
+            expect(ids, 'each id in the rendered README example is unique').toEqual([...new Set(ids)]);
+            // Inspect ordinary section links. Empty fragments, #top and text fragments can work without an element.
+            const missing = await page.locator('a[href^="#"]').evaluateAll((links) => links
+                .map((link) => decodeURIComponent(link.getAttribute('href')!.slice(1).split(':~:')[0]))
+                .filter((id) => id && id.toLowerCase() !== 'top' && !document.getElementById(id)
+                    && !Array.from(document.getElementsByName(id)).some((element) => element.tagName === 'A')));
+            expect(missing, 'the example contains the linked sections').toEqual([]);
             expect(await lowContrastText(page), 'text below WCAG AA contrast').toEqual([]);
         }
     });

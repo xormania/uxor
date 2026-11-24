@@ -2,6 +2,8 @@
 
 A short text shown while a control is hovered or focused, also announced as its description.
 
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
+
 ```twig {"preview":true}
 <div class="flex gap-4 pt-12">
     <twig:Tooltip content="Saved 2 minutes ago" id="tooltip-saved">
@@ -19,7 +21,11 @@ A short text shown while a control is hovered or focused, also announced as its 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=tooltip#recipes). To install `tooltip` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component tooltip --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig
 <twig:Tooltip content="Text" placement="top | bottom | left | right">

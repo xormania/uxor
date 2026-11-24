@@ -19,6 +19,8 @@ Searchable selects with [Symfony UX Autocomplete](https://symfony.com/bundles/ux
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=autocomplete#recipes). To install `autocomplete` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component autocomplete --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Then:
 
 1. Run the `composer require` command `ux:install` prints (`symfony/ux-autocomplete`); its Flex recipe registers the

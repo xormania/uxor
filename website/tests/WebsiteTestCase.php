@@ -56,6 +56,10 @@ abstract class WebsiteTestCase extends TestCase
         }
         $fs->dumpFile($root.'/llms.txt', $llms);
 
+        // Exercise a Windows checkout through the actual Markdown renderer and the runtime's preview catalog.
+        $readme = $root.'/duplicate-snippets/README.md';
+        $fs->dumpFile($readme, preg_replace('/\r?\n/', "\r\n", $fs->readFile($readme)));
+
         return $root;
     }
 

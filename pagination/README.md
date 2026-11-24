@@ -28,6 +28,8 @@ Use the Tailwind CSS pagination element to indicate a series of content across v
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=pagination#recipes). To install `pagination` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component pagination --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `Pagination:Link href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.

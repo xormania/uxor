@@ -14,6 +14,8 @@ File uploads with [Symfony UX Dropzone](https://symfony.com/bundles/ux-dropzone/
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=dropzone#recipes). To install `dropzone` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component dropzone --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Then:
 
 1. Run the `composer require` command `ux:install` prints (`symfony/ux-dropzone`). Symfony Flex registers the bundle

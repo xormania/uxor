@@ -73,7 +73,8 @@ final class KitReader
         if (null === $recipe->doc) {
             return [];
         }
-        $found = preg_match_all('/^```(?<language>\S+)\h+(?<json>\{.*?\})\h*$\R(?<code>.*?)\R```\h*$/ms', $recipe->doc, $matches, \PREG_SET_ORDER | \PREG_OFFSET_CAPTURE);
+        $doc = str_replace("\r\n", "\n", $recipe->doc);
+        $found = preg_match_all('/^```(?<language>\S+)\h+(?<json>\{.*?\})\h*$\R(?<code>.*?)\R```\h*$/ms', $doc, $matches, \PREG_SET_ORDER | \PREG_OFFSET_CAPTURE);
         if (false === $found) {
             throw self::pcreError('find the README examples', $recipe->name);
         }
@@ -90,7 +91,7 @@ final class KitReader
                 continue;
             }
 
-            $baseId = self::getExampleBaseId(substr($recipe->doc, 0, $match[0][1]), $slugger, $recipe->name);
+            $baseId = self::getExampleBaseId(substr($doc, 0, $match[0][1]), $slugger, $recipe->name);
             $id = $baseId;
             for ($i = 2; isset($usedIds[$id]); ++$i) {
                 $id = $baseId.'-'.$i;

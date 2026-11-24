@@ -10,6 +10,8 @@ The `data-table` recipe as a Live Component: search while typing, filters, sorta
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=data-table-live#recipes). To install `data-table-live` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component data-table-live --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Run `ux:install` from your project's root directory: this recipe copies `AbstractLiveDataTable` into
 `src/UXor/DataTableLive/` (namespace `App\UXor\DataTableLive`), and installs the `data-table` recipe,
 whose classes it extends. If your project's root namespace is not `App`, change the `namespace` and `use` lines of
@@ -28,6 +30,7 @@ It fits its parent the same way too: never wider than it, the table scrolling si
 // src/Twig/Components/OrdersTable.php
 namespace App\Twig\Components;
 
+use App\Repository\OrderRepository;
 use App\UXor\DataTable\Column;
 use App\UXor\DataTable\TableQuery;
 use App\UXor\DataTableLive\AbstractLiveDataTable;

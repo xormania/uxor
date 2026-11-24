@@ -2,6 +2,17 @@
 
 Groups buttons and links in one element, horizontally or vertically.
 
+If your list reads the `sort` query parameter, group its sort links with native anchors.
+
+```twig
+<twig:ButtonGroup aria-label="Sort order">
+    <a href="?sort=oldest" class="px-3 py-2">Oldest first</a>
+    <a href="?sort=newest" class="px-3 py-2">Newest first</a>
+</twig:ButtonGroup>
+```
+
+For this example, install the [button](../button/README.md) recipe.
+
 ```twig {"preview":true}
 <twig:ButtonGroup>
     <twig:Button variant="tertiary" size="sm">Profile</twig:Button>
@@ -14,7 +25,11 @@ Groups buttons and links in one element, horizontally or vertically.
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=button-group#recipes). To install `button-group` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component button-group --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig
 <twig:ButtonGroup>
@@ -32,6 +47,8 @@ Groups buttons and links in one element, horizontally or vertically.
 
 ### Orientation
 
+For this example, install the [button](../button/README.md) recipe.
+
 ```twig {"preview":true}
 <twig:ButtonGroup orientation="vertical" class="w-56">
     <twig:Button variant="tertiary">Profile</twig:Button>
@@ -41,6 +58,8 @@ Groups buttons and links in one element, horizontally or vertically.
 ```
 
 ### Size
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="flex flex-col items-start gap-8">

@@ -21,10 +21,15 @@ test('the preview tab renders the Markdown on the server, and Write comes back t
     await expect(tab(page, 'Preview')).toHaveAttribute('aria-selected', 'true');
     await expect(preview(page).getByRole('heading', { level: 2, name: 'Spring release' })).toBeVisible();
     await expect(preview(page).locator('strong')).toHaveText('spring collection');
-    await expect(preview(page).getByRole('link', { name: 'size guide' })).toHaveAttribute('rel', 'noopener noreferrer nofollow');
+    const sizes = preview(page).getByRole('link', { name: 'size guide' });
+    await expect(sizes).toHaveAttribute('rel', 'noopener noreferrer nofollow');
     await expect(source).toBeHidden();
     // the toolbar is for writing only
     await expect(page.getByRole('toolbar')).toHaveCount(0);
+
+    await sizes.click();
+    await expect(page.locator(':target')).toBeVisible();
+    await expect(page.locator(':target')).toContainText(/size/i);
 
     await tab(page, 'Write').click();
     await expect(source).toBeVisible();
@@ -124,7 +129,9 @@ test('a read-only editor has no toolbar, and its preview works', async ({ page }
     await expect(source).toHaveAttribute('readonly', '');
     await expect(page.getByRole('toolbar')).toHaveCount(0);
     await tab(page, 'Preview').click();
-    await expect(preview(page).getByRole('link', { name: 'terms of sale' })).toHaveAttribute('href', '/terms');
+    await preview(page).getByRole('link', { name: 'terms of sale' }).click();
+    await expect(page.locator(':target')).toBeVisible();
+    await expect(page.locator(':target')).toContainText(/terms of sale/i);
 });
 
 test('the markdown editor has no serious accessibility issue, invalid or not, in either tab', async ({ page }) => {

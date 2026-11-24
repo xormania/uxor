@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect, expectA11y, stimulusControllers, turboVisitDone, markDocument } from './fixtures';
-import { viewports } from './inventory';
+import { previewUrl, viewports } from './inventory';
 
 /*
  * /lab/section-nav/<section>: a SectionNav rendered by every page (marked by the server), one inside a
@@ -15,6 +15,15 @@ const nav = (page: Page) => page.getByRole('navigation', { name: 'Account settin
 const permanent = (page: Page) => page.getByRole('navigation', { name: 'Permanent sections' });
 const tablist = (page: Page) => page.getByRole('tablist', { name: 'Preferences' });
 const tab = (page: Page, name: string) => tablist(page).getByRole('tab', { name, exact: true });
+
+test('a README section link reveals and focuses its example content', async ({ page }) => {
+    await page.goto(previewUrl('section-nav', 'default'));
+    await page.getByRole('link', { name: 'Billing', exact: true }).click();
+    const section = page.locator(':target');
+    await expect(section).toBeVisible();
+    await expect(section).toBeFocused();
+    await expect(section).toContainText('Billing');
+});
 
 /** The whole state: each navigation's current links, the selected tabs, the Tab stops, the panels shown. */
 async function state(page: Page) {

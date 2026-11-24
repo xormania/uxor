@@ -4,16 +4,19 @@ A Markdown field: a native textarea with a small toolbar and a Preview tab rende
 stored Markdown will be printed. CommonMark with strikethrough; raw HTML, images and unsafe links never reach the page.
 
 ```twig {"preview":true}
-<div class="w-full max-w-xl p-4">
+<div data-turbo="false" class="w-full max-w-xl p-4">
     <twig:FormField for="markdown-default" label="Release notes">
-        <twig:MarkdownEditor id="markdown-default" name="notes" :value="'## Spring release\n\nOur **spring collection** is here: light fabrics, _bright_ colors.\n\n- Free shipping over 50 €\n- Returns within 30 days\n\nSee the [size guide](/sizes).'" />
+        <twig:MarkdownEditor id="markdown-default" name="notes" :value="'## Spring release\n\nOur **spring collection** is here: light fabrics, _bright_ colors.\n\n- Free shipping over 50 €\n- Returns within 30 days\n\nSee the [size guide](#sizes).'" />
     </twig:FormField>
+    <p id="sizes" tabindex="-1" class="hidden target:block">Size guide: small fits a chest measurement of 86–91 cm; medium fits 92–97 cm.</p>
 </div>
 ```
 
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=markdown-editor#recipes). To install `markdown-editor` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component markdown-editor --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 Then run the `composer require` command `ux:install` prints: `league/commonmark`, `symfony/html-sanitizer` and
 `symfony/ux-live-component` (the preview is a Live Component).
@@ -122,7 +125,8 @@ deeper than 20 levels and more than 500 emphasis markers on a line are kept as t
 ### Read-only
 
 ```twig {"preview":true}
-<div class="w-full max-w-xl p-4">
-    <twig:MarkdownEditor id="markdown-readonly" name="terms" label="Terms" readonly :value="'## Terms\n\nBy ordering, you accept our [terms of sale](/terms).'" />
+<div data-turbo="false" class="w-full max-w-xl p-4">
+    <twig:MarkdownEditor id="markdown-readonly" name="terms" label="Terms" readonly :value="'## Terms\n\nBy ordering, you accept our [terms of sale](#terms).'" />
+    <p id="terms" tabindex="-1" class="hidden target:block">Terms of sale: prices include taxes and orders may be returned within 30 days.</p>
 </div>
 ```
