@@ -18,7 +18,6 @@ import { follow, turboOperation } from './transitions';
 const RUNS = Number(process.env.TIMING_RUNS ?? 5);
 
 test.describe('release timings', () => {
-    test.skip(({ browserName }) => 'chromium' !== browserName, 'the renderer metrics are Chromium\'s');
     test.describe.configure({ timeout: 180_000 });
     // A bad interaction must fail before consuming the whole repeated-measurement budget (and its retry).
     test.use({ actionTimeout: 10_000, navigationTimeout: 30_000 });
