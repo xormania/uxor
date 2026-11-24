@@ -68,7 +68,7 @@ const IMAGE_STEPS = ['Build the production image', 'Run the production image'];
 // These are the audited workflow preambles and production jobs. When either contract changes, run the
 // release fallback until both implementations have been checked for equivalence and the expectations renewed.
 const PRODUCTION_CONTRACTS = {
-    ci: '1b7591a2c29f646ad4345fbafb81f1d58fbf68a02210a34db6d592140d35b4b0',
+    ci: '6946940ead3f3dda0f231f859336127c2c8315d4b6469a526c7417448c93262f',
     release: '104819955bcafaa355e918399f4fa54e5dbe1cff833a1a5aef2276e878fe5605',
 };
 

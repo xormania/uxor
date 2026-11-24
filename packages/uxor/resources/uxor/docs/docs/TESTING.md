@@ -1190,9 +1190,9 @@ recipe's tests, the docs or the tools, and that the dev image's bake steps read 
 
 ## Accessibility
 
-**Catches:** serious and critical axe violations on every page, in both themes; and, in a component's own specs, the
-states a page load does not reach (open, focused, invalid, after a pick) and every violation in a component's own
-markup.
+The runtime accessibility suite checks serious and critical axe violations on the forms, lab and example-app
+routes and in each recipe preview in both themes. Component specs also check states reached by opening,
+focusing, invalidating or selecting a widget.
 
 One helper owns the scan, the policy and the report; the spec drives the state and keeps its own expectations of it.
 The policy is explicit at each call: `serious` fails on serious and critical violations, `all` on any, and `include`
@@ -1202,9 +1202,10 @@ read at its end, not half-way; endless and paused ones are not awaited. A whole-
 widgets to mount, every controller named in a `data-controller` connected (`controllersConnected`, lazy ones
 loaded), so it reads what the controllers render, not the server's markup before them.
 
-Website browser checks exercise the generated HTML and navigation, including the recipe pages
-under `/r/`. The kit browser suite exercises the actual rendered examples under `/preview/`,
-including their light and dark themes. Both use a browser, with independent test inputs and runs.
+[Website browser checks](https://github.com/xormania/uxor/blob/0.3.5/website/tests/browser/website.spec.ts) scan the generated index, guides and
+`/r/` recipe pages at 320 px, verify the preview URLs and exclude iframe contents from axe.
+[Runtime scans](https://github.com/xormania/uxor/blob/0.3.5/tests/e2e/a11y.spec.ts) exercise the rendered examples under `/preview/` in both themes.
+The `demo-app` project owns the tagged scans of `/demo` routes, including a separate check of its 404 page.
 
 The scan runs axe in the page itself (`setLegacyMode()` of the axe-core Playwright package), not its default of a partial
 run in each frame finished in a blank page of its own, which injects axe a second time and opens a page per scan. Both
@@ -1493,8 +1494,9 @@ the browser tests. Firefox and WebKit run:
 An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
 push's run or is cancelled by one. Its verdict covers the browser jobs and their setup. The accompanying push or full
 run covers Quick checks. The dedicated run and the daily run publish their verdict as *CI result (engines only)* and *CI
-result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
-partial run can never stand in for a red full one on the same commit.
+result (daily)*. A branch push, a full manual run or a fork pull request publishes *CI result*, the check the
+rulesets require. The fork checks its proposed merge with the target branch. A same-repository pull request
+uses its branch's push result.
 
 On any other push, a branch's or `dev`'s, they wait: *CI result* reports the lane as *NOT RUN AT THIS STAGE*, which
 fails nothing and is never read as a pass, unless a pass on the same inputs already exists (then *reused*). This

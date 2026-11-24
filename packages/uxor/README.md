@@ -43,8 +43,9 @@ composer require --dev 'xormania/uxor:^0.3.5'
 
 Composer installs Mate with its Symfony and Monolog extensions, the full Symfony debug pack, Maker, the Mago
 PHP SDK and Symfony wiring, and the Symfony UX Toolkit installer with its HTTP client. During installation,
-UXor writes missing project defaults and preserves existing settings. The plugins initialize Mate and discover
-UXor’s tools, references and skills.
+UXor writes missing project defaults and preserves existing settings. With the application's standard `vendor/` directory, the plugins initialize Mate and discover
+UXor’s tools, references and skills. A custom binary directory also works. Applications that relocate the
+vendor directory can use the [custom directory guidance](OPERATIONS.md#set-up-and-inspect-the-development-environment).
 Try a catalog lookup in the application.
 
 ```sh

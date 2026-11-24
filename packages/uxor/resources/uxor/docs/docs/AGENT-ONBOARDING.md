@@ -14,7 +14,10 @@ vendor/bin/mate tools:call uxor_catalog --query=modal --format=json
 vendor/bin/uxor inspect --format=json
 ```
 
-A successful Composer installation registers UXor's tools with Mate. The catalog result should include `modal`.
+With the standard `vendor/` directory, Composer registers UXor’s tools with Mate. Use the configured binary
+directory if it differs from `vendor/bin`. Mate looks for extensions in the application’s `vendor/` directory. If the application
+relocates that directory, automatic discovery is unavailable. The installed `uxor catalog --query=modal` command provides the same lookup. The catalog
+result should include `modal`.
 The inspection result identifies the selected checkout in `data.root` and local files in `data.component_evidence`.
 Compare that path with the application serving the page, using container paths when PHP runs in a container.
 To inspect another checkout, pass its absolute path with `--project-root`.

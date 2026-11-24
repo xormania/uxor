@@ -1189,6 +1189,45 @@ test('full CI results and partial or skipped runs cannot substitute for one anot
     assert.match(workflow, /^ {12}engines_only:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m);
 });
 
+test('an engines-only dispatch on dev keeps its lane selection, check and issue policy when daily is also selected', (t) => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    const temp = mkdtempSync(join(tmpdir(), 'ci-dispatch-'));
+    t.after(() => rmSync(temp, { recursive: true, force: true }));
+    const selection = stepIn(workflow, 'changes', 'jobs').run;
+    const issue = job('engines-issue').if.replace('always()', 'true');
+    const dispatch = (inputs) => {
+        const context = { ...daily, inputs, needs: { result: { outputs: { 'engines-status': 'failed' } } } };
+        const result = spawnSync('bash', ['-eu', '-o', 'pipefail', '-c', selection], {
+            cwd: temp, encoding: 'utf8',
+            env: { PATH: process.env.PATH, EVENT: 'workflow_dispatch', REF: context.github.ref,
+                DAILY: String(Boolean(inputs.daily)), ENGINES_ONLY: String(Boolean(inputs.engines_only)),
+                RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'output') },
+        });
+        assert.equal(result.status, 0, result.stderr);
+        return {
+            lanes: readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').filter((line) => line.endsWith('=true')),
+            plan: evaluate(key(job('changes').text, 'PLAN_EVENT'), context),
+            name: evaluate(key(workflow, 'run-name'), context),
+            group: evaluate(key(workflow, 'group'), context),
+            cancel: evaluate(key(workflow, 'cancel-in-progress'), context),
+            quick: Boolean(evaluate(job('quick').if, context)),
+            verdict: evaluate(job('result').name, context),
+            reportIssue: Boolean(evaluate(issue, context)),
+        };
+    };
+    const only = dispatch({ engines_only: true });
+    assert.deepEqual(only, {
+        lanes: ['engines=true'], plan: 'engines', name: 'CI: Firefox and WebKit only',
+        group: 'ci-engines-refs/heads/dev', cancel: false, quick: false,
+        verdict: 'CI result (engines only)', reportIssue: false,
+    });
+    assert.deepEqual(dispatch({ daily: true, engines_only: true }), only);
+    const ordinaryDaily = dispatch({ daily: true });
+    assert.equal(ordinaryDaily.group, 'ci-daily');
+    assert.equal(ordinaryDaily.verdict, 'CI result (daily)');
+    assert.equal(ordinaryDaily.reportIssue, true);
+});
+
 test("fork PRs enter read-only CI while same-repository PRs leave the required result to their push", () => {
     const { workflow, job } = workflowJobs('ci.yml');
     assert.match(workflow, /^ {4}pull_request:\n {8}types: \[opened, edited, synchronize, reopened, ready_for_review\]$/m);

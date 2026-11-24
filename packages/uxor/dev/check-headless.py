@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import subprocess
@@ -12,20 +13,59 @@ import threading
 
 
 @contextmanager
+def serve(handler):
+    with ThreadingHTTPServer(("127.0.0.1", 0), handler) as server:
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield f"http://127.0.0.1:{server.server_port}"
+        finally:
+            server.shutdown()
+            thread.join()
+
+
+@contextmanager
 def plain_site():
     token = secrets.token_hex(3)
     marker = "headless-regression-" + secrets.token_hex(8)
 
+    private = "private-" + secrets.token_hex(8)
+
+    class External(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path.startswith("/disconnected/"):
+                self.close_connection = True
+                return
+            status = 503 if self.path.startswith("/unavailable/") else 200
+            self.send_response(status)
+            self.send_header("Content-Type", "application/javascript")
+            self.send_header("Content-Length", "0")
+            self.send_header("X-Debug-Token", private)
+            self.end_headers()
+
+        def log_message(self, *args):
+            pass
+
     class Pages(BaseHTTPRequestHandler):
         def do_GET(self):
             if self.path == "/disconnected.js":
-                # A dropped same-origin connection is a real browser request failure. An HTTP 404 is a response.
+                # Closing before response headers makes the browser emit a transport failure.
                 self.close_connection = True
                 return
             pages = {
                 "/fault": f'<script src="/disconnected.js"></script><script>throw new Error("{marker}")</script>',
-                "/clean": '<p>A plain page</p>',
+                "/clean": f'<script src="{foreign}/ok/{private}"></script>',
+                "/asset": f'<img src="/absent.png?key={private}">',
+                # The server rejects this oversized request line; the artifact must count its omitted row.
+                "/over-limit": '<img src="/' + 'a' * (300 * 1024) + '">',
+                "/external-http": f'<script src="{foreign}/unavailable/{private}?key={private}"></script>',
+                "/external-transport": f'<script src="{foreign}/disconnected/{private}?key={private}"></script>',
             }
+            if self.path.startswith("/absent.png"):
+                self.send_response(404)
+                self.send_header("X-Debug-Token", token)
+                self.end_headers()
+                return
             if self.path not in pages:
                 self.send_error(404)
                 return
@@ -41,14 +81,8 @@ def plain_site():
         def log_message(self, *args):
             pass
 
-    with ThreadingHTTPServer(("127.0.0.1", 0), Pages) as server:
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            yield f"http://127.0.0.1:{server.server_port}", token, marker
-        finally:
-            server.shutdown()
-            thread.join()
+    with serve(External) as foreign, serve(Pages) as origin:
+        yield origin, foreign, token, marker, private
 
 
 def run_browser(app, url, path, cache, *, expected, docker, warm):
@@ -67,6 +101,7 @@ def run_browser(app, url, path, cache, *, expected, docker, warm):
     if result.returncode != expected or result.stdout.strip() != path:
         raise RuntimeError(f"Headless launch for {url} expected exit {expected} and artifact {path}, "
                            f"got {result.returncode}, stdout {result.stdout!r}, stderr {result.stderr[-2000:]!r}")
+    return result.stderr
 
 
 def check_readers(app, path):
@@ -82,22 +117,46 @@ def check_readers(app, path):
     return report["data"]
 
 
-def assert_capture(data, url, status, token, error):
-    visit = {"url": url, "status": status, "error": None}
-    if data.get("visit") != visit:
-        raise RuntimeError(f"Expected visit {visit}, got {data.get('visit')}")
-    expected = [(url, token, 200, f"symfony-profiler://profile/{token}")] if token else []
-    actual = [(row["url"], row["token"], row["status"], row["profileUri"]) for row in data["responses"]]
-    if actual != expected:
-        raise RuntimeError(f"Wrong profile evidence. Expected {expected}, got {actual}")
-    if error:
-        if [row["message"] for row in data["pageErrors"]] != [error]:
-            raise RuntimeError(f"Page error did not come from this run: {data['pageErrors']}")
-        failures = data["requestFailures"]
-        if len(failures) != 1 or failures[0]["url"] != url.rsplit("/", 1)[0] + "/disconnected.js" or not failures[0]["error"]:
-            raise RuntimeError(f"Missing the dropped script connection: {failures}")
-    elif data["pageErrors"] or data["requestFailures"]:
-        raise RuntimeError(f"Clean page inherited findings from the previous run: {data}")
+def assert_capture(data, diagnostic, page, origin, foreign, token, marker, private):
+    url = f"{origin}/{page}"
+    status = 404 if page == "missing" else 200
+    if data["visit"] != {"url": url, "status": status, "error": None}:
+        raise RuntimeError(f"Unexpected visit for {page}: {data['visit']}")
+    if private in json.dumps(data) or private in diagnostic:
+        raise RuntimeError(f"Private URL data or a foreign profiler token leaked from {page}")
+    if [row["message"] for row in data["pageErrors"]] != ([marker] if page == "fault" else []):
+        raise RuntimeError(f"Unexpected page errors for {page}: {data['pageErrors']}")
+    failures = data["requestFailures"]
+    expected = {
+        "missing": (url, "HTTP 404"),
+        "fault": (origin + "/disconnected.js", None),
+        "asset": (origin + "/absent.png", "HTTP 404"),
+        "external-http": (foreign, "HTTP 503"),
+        "external-transport": (foreign, None),
+    }.get(page)
+    dropped = data.get("dropped", {}).get("requestFailures", 0)
+    count = int(expected is not None)
+    omitted = int(page == "over-limit")
+    if (len(failures) != count or dropped != omitted
+            or not re.search(rf"\b{count + omitted} failed requests\.", diagnostic)):
+        raise RuntimeError(f"Wrong number of failed requests for {page}: {failures}")
+    if expected:
+        row = failures[0]
+        target, error = expected
+        if row["url"].rstrip("/") != target or row["method"] != "GET" or row["turboFrame"] is not None:
+            raise RuntimeError(f"Wrong request attribution for {page}: {row}")
+        if not row["error"] or (error is not None and row["error"] != error):
+            raise RuntimeError(f"Wrong failure reason for {page}: {row}")
+    profiles = data["responses"]
+    if page in ("fault", "asset"):
+        if len(profiles) != 1 or (profiles[0]["token"], profiles[0]["status"], profiles[0]["profileUri"]) != (
+                token, 404 if page == "asset" else 200, f"symfony-profiler://profile/{token}"):
+            raise RuntimeError(f"Wrong profiled response for {page}: {profiles}")
+        same_request = profiles[0]["requestId"] == failures[0]["requestId"]
+        if same_request != (page == "asset"):
+            raise RuntimeError(f"Incorrectly correlated the failure and profiler token for {page}")
+    elif profiles:
+        raise RuntimeError(f"Unexpected profiler token on {page}: {profiles}")
 
 
 def main():
@@ -115,19 +174,17 @@ def main():
     before = dependencies()
     had_node = (app / "node_modules").exists()
     (app / "var").mkdir(exist_ok=True)
-    with (plain_site() as (origin, token, marker), tempfile.TemporaryDirectory(dir=app / "var") as output,
+    with (plain_site() as (origin, foreign, token, marker, private), tempfile.TemporaryDirectory(dir=app / "var") as output,
           tempfile.TemporaryDirectory() as cache):
-        pages = (("fault", 200, token, marker), ("clean", 200, None, None), ("missing", 404, None, None))
-        for page, status, expected_token, error in pages:
-            url = f"{origin}/{page}"
+        for page in ("fault", "asset", "external-http", "external-transport", "over-limit", "clean", "missing"):
             path = (Path(output) / page / "browser-diagnostics.json").relative_to(app).as_posix()
-            run_browser(app, url, path, Path(cache), expected=int(bool(error) or status >= 400),
-                        docker=options.docker, warm=page != "fault")
-            assert_capture(check_readers(app, path), url, status, expected_token, error)
+            diagnostic = run_browser(app, f"{origin}/{page}", path, Path(cache), expected=int(page != "clean"),
+                                     docker=options.docker, warm=page != "fault")
+            assert_capture(check_readers(app, path), diagnostic, page, origin, foreign, token, marker, private)
     if dependencies() != before or (app / "node_modules").exists() != had_node:
         raise RuntimeError("The browser feedback tool changed application package files or installed Node dependencies")
     runtime = "container" if options.docker else "native runtime"
-    print(f"Headless Chromium ({runtime}) verified page and network errors, a clean page and HTTP 404 through CLI and Mate.")
+    print(f"Headless Chromium ({runtime}) verified local and external HTTP and transport failures, profile correlation and a clean page through CLI and Mate.")
 
 
 if __name__ == "__main__":

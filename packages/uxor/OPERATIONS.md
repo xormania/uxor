@@ -116,8 +116,12 @@ looks under `vendor/` at the application root. With a relocated vendor directory
 
 Composer installs `vendor/bin/mago` for native CLI use in the application. It obtains the matching Mago binary
 on first use. The `vendor/bin/uxor-mago` launcher uses Docker for isolated CLI checks and the Serena language
-server. Run it on a Linux amd64 Docker host that can access the checkout. It prepares each provider image the
-first time that provider is used. You can warm both images in advance and inspect their versions.
+server. The launcher needs a POSIX shell and a Docker engine with Buildx and access to the checkout.
+The provider containers run Linux on amd64 or arm64. Linux users can use Docker Engine. On macOS, use
+Docker Desktop with the checkout shared. On Windows, run the client and launcher inside a WSL2 distribution
+with Docker integration enabled, using the checkout's WSL path in the client binding.
+
+The launcher prepares each image on first use. You can warm both images in advance and inspect their versions.
 
 ```sh
 vendor/bin/uxor-mago pull
@@ -345,8 +349,13 @@ that runtime on subsequent checks and leaves the application’s Composer and np
 `--wait-for '[data-page-ready]'` for a page that finishes rendering after load. It prints the saved artifact
 path even when the check finds a page error, failed request or HTTP error. The exit code is 0 for a clean visit,
 1 for a visit with findings, and 2 for a command or runtime error. On exit 2, the launcher leaves an earlier capture in place.
-Use the artifact path printed by this run. The capture includes the final URL, HTTP status when available and any navigation or readiness error. A response from Symfony can carry an
-`X-Debug-Token` that identifies a profile. Plain HTML pages can still report errors without one.
+Use the artifact path printed by this run. The capture includes the visit's location, HTTP status when available,
+and any navigation or readiness failure. A document or subresource returning HTTP 400 or above counts as a
+finding, as does a failed network request, including requests to third-party services. In `requestFailures`,
+look for the HTTP status or transport error beside the method and request ID. The launcher records the origin
+and path for application requests and only the origin for other HTTP(S) requests. The request and visit URL
+fields omit credentials, query strings and fragments. Only responses from the application origin can supply a
+Symfony profiler token.
 
 On a Docker host, select `--docker` to use Chromium with its system libraries. The launcher also selects Docker
 when npm is missing or Node.js 20 or later is unavailable. Use a URL reachable from the container. On Linux, host networking reaches a loopback
@@ -398,8 +407,9 @@ is returned, open it with Mate's Symfony profiler resource in the environment th
 response token, use an available trace or the application's network evidence to find where the request stopped.
 An absent recorder or profile is a limit on the available evidence. The original test determines pass or fail.
 
-The recorder observes Playwright's `context` fixture and correlates HTTP responses and failures on the `baseURL`
-origin. Tests that create a separate context need to register the recorder against that context. When a capture
+The Playwright test recorder observes the test's `context` fixture and correlates profiler responses and
+transport failures on the `baseURL` origin. The test owns its HTTP expectations, including expected form-validation
+responses. Tests that create a separate context need to register the recorder against that context. When a capture
 reaches a section's size limit, `dropped` counts the omitted entries so the rest of the evidence stays readable.
 
 Captures and browser traces can contain request URLs, application data and error details. Review and redact

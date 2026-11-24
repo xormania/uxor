@@ -75,7 +75,7 @@ The launcher uses these local image tags by default. Set `UXOR_MAGO_IMAGE` on th
 | Provider | Default image |
 | --- | --- |
 | Mago CLI | `uxor-mago-cli:1.60.2-php8.4.28` |
-| Serena | `uxor-mago-serena:1.60.2-7f7d624-5` |
+| Serena | `uxor-mago-serena:1.60.2-7f7d624-6` |
 
 Run `vendor/bin/uxor-mago image cli` or `vendor/bin/uxor-mago image serena` to see the selection on your host.
 See [provider preparation](../packages/uxor/OPERATIONS.md#prepare-the-providers-on-the-docker-host) to build or pull it.

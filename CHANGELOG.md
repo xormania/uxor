@@ -9,45 +9,7 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
 
 ## [Unreleased]
 
-### Added
-
-- The documentation website groups guides by product and recipes by task. The Composer setup, agent onboarding,
-  advanced operations, configuration and application testing guides are available as HTML and Markdown.
-  Installed agent tools can read the same guides. Package settings generate the configuration reference.
-
-- The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
-  read page errors, failed requests and available Symfony profile tokens using the installed CLI or Mate.
-
-- Installing the Composer development package supplies the Toolkit installer, Mate, Maker, Mago and Symfony
-  diagnostics. `uxor setup` previews changes to application configuration and Serena client bindings.
-  `uxor setup --apply` writes missing configuration and preserves existing settings.
-
-### Changed
-
-- The documentation website builds from release sources independently of the demo. GitHub Pages publishes its guides
-  and recipe catalog alongside static recipe previews and a visual copy of the example application at `/demo/`.
-  Running the Docker application locally opens the demo.
-
-- `dropzone` documents that UX Dropzone 3.8 previews images from `blob:` object URLs (SVG still from `data:`): a
-  Content Security Policy's `img-src` needs `blob:` and `data:`. The demo and the consumer fixture allow both.
-
-- Recipe READMEs link to the published catalog and the installation guide for their checkout. Composed examples
-  identify additional recipes or icon dependencies, and the navigation and editor previews include working local links.
-
-### Fixed
-
-- The Docker-backed Mago and Serena launcher requires `--trust-project-code` before mounting the application
-  or executing its preparation worker, Composer autoloader or configured extensions. Mutating the checkout also
-  requires `--write`. Persisting execution permission in a new Serena binding requires `--save-project-trust`.
-  Checked-in contributor bindings carry no saved execution permission.
-
-- Serena verifies Symfony preparation using provider-owned code without loading application PHP. It checks the
-  manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
-  freshness output, and refreshes its language server when verified content changes even if a preparation ID is reused.
-
-- Serena can start on macOS using the system `shasum` and selects the same state volume as `sha256sum`.
-
-## [0.3.5] - 2026-11-21
+## [0.3.5] - 2026-11-24
 
 ### Added
 
@@ -68,6 +30,18 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
   extension and Mago tooling. Composer initializes Mate and discovers the UXor tools. Serena and its Mago language
   server prepare their provider on first use. UXor respects the application’s profiler settings. The shared fixture starts collecting only on a diagnostic run.
 
+- The documentation website groups guides by product and recipes by task. The Composer setup, agent onboarding,
+  advanced operations, configuration and application testing guides are available as HTML and Markdown.
+  Installed agent tools can read the same guides. Package settings generate the configuration reference.
+
+- The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
+  read page errors, HTTP errors and network failures for the page and its resources, and available Symfony
+  profile tokens using the installed CLI or Mate. A failed third-party request identifies its origin.
+
+- Installing the Composer development package supplies the Toolkit installer, Mate, Maker, Mago and Symfony
+  diagnostics. `uxor setup` previews changes to application configuration and Serena client bindings.
+  `uxor setup --apply` writes missing configuration and preserves existing settings.
+
 ### Changed
 
 - Agent guidance separates UXor contributor work, the demo and independent package-consumer fixtures, and
@@ -87,12 +61,36 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
   The installer drops the Flowbite npm suggestion, and the demo's Manual tab now shows the AssetMapper command
   for recipes with importmap dependencies.
 
+- The documentation website builds from release sources independently of the demo. GitHub Pages publishes its guides
+  and recipe catalog alongside static recipe previews and a visual copy of the example application at `/demo/`.
+  Running the Docker application locally opens the demo.
+
+- `dropzone` documents that UX Dropzone 3.8 previews images from `blob:` object URLs (SVG still from `data:`): a
+  Content Security Policy's `img-src` needs `blob:` and `data:`. The demo and the consumer fixture allow both.
+
+- Recipe READMEs link to the published catalog and the installation guide for their checkout. Composed examples
+  identify additional recipes or icon dependencies, and the navigation and editor previews include working local links.
+
 ### Fixed
 
 - `dropdown` keeps a hover menu closed after a second tap or an explicit dismissal.
 - `pagination` wraps its links when the container is too narrow for one row.
 - `data-table` cancels a pending page link as Back or Forward starts, so Turbo can restore the previous rows
   without an uncaught browser error.
+
+- The Docker-backed Mago and Serena launcher requires `--trust-project-code` before mounting the application
+  or executing its preparation worker, Composer autoloader or configured extensions. Mutating the checkout also
+  requires `--write`. Persisting execution permission in a new Serena binding requires `--save-project-trust`.
+  Checked-in contributor bindings carry no saved execution permission.
+
+- Serena verifies Symfony preparation using provider-owned code without loading application PHP. It checks the
+  manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
+  freshness output, and refreshes its language server when verified content changes even if a preparation ID is reused.
+
+- The Docker-backed Serena provider includes Python wheels for Linux arm64 and amd64. The macOS host launcher
+  can use the system `shasum` and selects the same state volume as `sha256sum`.
+- The package, documentation website, demo and consumer fixture use patched Twig dependencies. The demo and
+  consumer fixture also use patched Symfony UX Icons and Live Component releases.
 
 ## [0.3.2] - 2026-11-16
 

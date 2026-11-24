@@ -5,7 +5,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startBrowserDiagnostics } from './capture.mjs';
+import { diagnosticUrl, startBrowserDiagnostics } from './capture.mjs';
 
 const source = dirname(fileURLToPath(import.meta.url));
 
@@ -70,21 +70,26 @@ async function main() {
     const browser = await launchBrowser(mode === 'bundled');
     try {
         const context = await browser.newContext();
-        const finish = startBrowserDiagnostics(context, url);
+        const finish = startBrowserDiagnostics(context, url, { standalone: true });
         const page = await context.newPage();
         const timeout = Number(rawTimeout);
         // Leave room for visit metadata within the reader's 1 MiB cap, including escaped control characters.
-        const visit = { url: url.href.slice(0, 8192), status: null, error: null };
+        const visit = { url: diagnosticUrl(url, url.origin).slice(0, 8192), status: null, error: null };
+        let stage = 'Navigation';
         try {
             const response = await page.goto(url.href, { waitUntil: 'load', timeout });
             if (response) {
-                visit.url = response.url().slice(0, 8192);
+                visit.url = diagnosticUrl(response.url(), url.origin).slice(0, 8192);
                 visit.status = response.status();
                 console.error(`HTTP ${visit.status} ${JSON.stringify(visit.url)}`);
             }
-            if (selector) await page.locator(selector).first().waitFor({ state: 'visible', timeout });
+            if (selector) {
+                stage = 'Readiness check';
+                await page.locator(selector).first().waitFor({ state: 'visible', timeout });
+            }
         } catch (error) {
-            visit.error = error.message.slice(0, 8192);
+            // Playwright's full call log can contain redirect URLs and the application's selector.
+            visit.error = error.name === 'TimeoutError' ? `${stage} timed out after ${timeout} ms.` : `${stage} failed.`;
             console.error(JSON.stringify(visit.error));
         }
         const evidence = { ...finish(), visit };

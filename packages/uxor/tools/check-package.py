@@ -486,11 +486,13 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
     for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
         if tool not in tools["tools"]:
             raise RuntimeError(f"The installed tool was not discovered: {tool}")
-    catalog = operation_result(execute("mate.catalog", [*mate, "tools:call", "uxor_catalog", "--query=modal",
+    catalog = operation_result(execute("mate.catalog", [*mate, "tools:call", "uxor_catalog", "--query=kbd",
                                         "--limit=1", "--format=json"], application, capture=True), "catalog")
     expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
-    if catalog is None or catalog.get("status") != "completed" or not catalog.get("data", {}).get("items"):
-        raise RuntimeError("The discovered catalog tool could not read its exported references")
+    if (catalog is None or catalog.get("status") != "completed"
+            or not any(item["name"] == "kbd" for item in catalog["data"]["items"])):
+        raise RuntimeError("The discovered catalog tool did not return the requested Kbd recipe")
+    check_mate_application(application, mate, "vendor", "vendor/bin")
     if catalog.get("reference", {}).get("uxor", {}).get("inputs_sha256") != expected_inputs:
         raise RuntimeError("Catalog results do not identify the packaged UXor references by their inputs' digest")
     reference = operation_result(execute("mate.reference", [*mate, "resources:read", "uxor://reference/FOR-AGENTS.md",
@@ -499,6 +501,17 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
         raise RuntimeError("The installed reference resource could not be read through Mate")
     check_skills(application, php, consumer_sources, marker)
     print("Install: the project instructions lead to working UXor tools, references and three skills immediately after Composer finishes.")
+
+
+def check_mate_application(application: Path, mate: list[str], vendor: str, binaries: str) -> None:
+    """Kit lookups can succeed even when the extension inspects the wrong application."""
+    result = operation_result(execute("mate.inspect", [*mate, "tools:call", "uxor_project", "--format=json"],
+                                      application, capture=True), "inspect")
+    if not result or result["status"] != "completed":
+        raise RuntimeError(f"Mate could not inspect the application: {result}")
+    data = result["data"]
+    if (data["root"], data["vendor_directory"], data["bin_directory"]) != (str(application), vendor, binaries):
+        raise RuntimeError("Mate inspected a different project or ignored its Composer directories")
 
 
 @operation("toolkit.customize-kbd")

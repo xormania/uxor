@@ -389,18 +389,10 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         self.assertRegex(name, r"^uxor-mago-serena-[0-9a-f]{64}$")
         return name
 
+    @unittest.skipUnless(shutil.which("shasum"), "Requires the host shasum utility")
     def test_serena_reuses_existing_volume_with_only_shasum_on_path(self):
-        for command in ("id", "sed"):
+        for command in ("id", "sed", "shasum"):
             (self.directory / command).symlink_to(shutil.which(command))
-        shasum = self.directory / "shasum"
-        shasum.write_text(f"#!{sys.executable}\n" + """
-import argparse, hashlib, sys
-parser = argparse.ArgumentParser()
-parser.add_argument("-a", "--algorithm", default="1")
-algorithm = parser.parse_args().algorithm
-print(hashlib.new("sha" + algorithm, sys.stdin.buffer.read()).hexdigest(), " -")
-""")
-        shasum.chmod(0o755)
 
         result = self.invoke("--trust-project-code", "serena", PATH=str(self.directory))
         self.assertEqual(0, result.returncode, result.stderr)

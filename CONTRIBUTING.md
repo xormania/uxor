@@ -209,7 +209,9 @@ application trust.
 
 The checkout and Composer package share the same Mago 1.60.2 pins. The CLI uses the official release binary
 in the official PHP 8.4.28 runtime. A separate UXor image builds language-server support from the same Mago
-release and pins upstream Serena at `7f7d6245`. Both recipes ship with the Composer package. On Linux amd64, prepare each provider once per Docker host. `tools/mago pull` prepares both.
+release and pins upstream Serena at `7f7d6245`. Both recipes ship with the Composer package and build Linux
+containers for amd64 and arm64. Run `tools/mago pull` from Linux, macOS or a Windows WSL2 distribution
+with access to Docker and the checkout. See [provider host setup](packages/uxor/OPERATIONS.md#prepare-the-providers-on-the-docker-host).
 `UXOR_MAGO_IMAGE` selects a compatible custom build. [Mago 1.60.2](https://github.com/carthage-software/mago/releases/tag/1.60.2)
 
 ```bash
@@ -262,7 +264,9 @@ writing files. The [checks below](#checks) also list the individual generators.
 CI runs on every branch push and on pull requests from forks. Fork contributions are checked at their proposed
 merge with the target branch; a maintainer may need to approve a first-time contributor's workflow run in GitHub.
 Same-repository pull requests use their branch's push run, with a differently named skipped result on the pull
-request event so it cannot satisfy the required *CI result* early. Each job runs when the change could affect what
+request event so it cannot satisfy the required *CI result* early. GitHub can display the unevaluated name
+expression for this skipped job. Read the branch push's *CI result* for its verdict.
+Each job runs when the change could affect what
 it checks ([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main`, and a full run by hand, run everything.
 
 Feature pushes normally use their merge base with `dev`. For a release branch with a verified CI result, CI can use the nearer shared commit on that branch. A fork pull request uses the target base supplied by GitHub
@@ -396,14 +400,14 @@ Use `CREATE_SNAPSHOTS=true bin/phpunit` to create intentionally added snapshots.
 runs them with `CREATE_SNAPSHOTS=false`, so a missing snapshot fails there. The patterns are in
 [`docs/TESTING.md`](docs/TESTING.md) (*PHP tests*).
 
-`npx playwright test` runs six projects, two per browser: `smoke` and `examples` in Chromium, `smoke-firefox` and
-`examples-firefox`, `smoke-webkit` and `examples-webkit`. Firefox and WebKit run every behavior test and no screenshot
-comparison: a test that compares pixels is tagged `@screenshot` and runs in Chromium only, and so do the broad axe
-scans of `a11y.spec.ts`. Pick projects with
-`--project` (several allowed). See [`docs/TESTING.md`](docs/TESTING.md), *Browsers*.
+`npx playwright test` runs nine projects by default. Chromium uses `smoke`, `examples` and `demo-app`.
+Firefox appends `-firefox` to each name and WebKit appends `-webkit`. Use `--project` to select one or
+more projects. The standard Firefox and WebKit projects skip `@screenshot` comparisons and the broad axe
+scans of `a11y.spec.ts`. See [Browsers](docs/TESTING.md#browsers) for the cross-browser screenshot report.
 
-The [CI workflow](.github/workflows/ci.yml) sets the Chromium shard count. Firefox and WebKit each run in
-three shards. Each shard has its own demo and browser. Each shard retries a failed test once and ends with its summary: the counts, every failed test and every
+The [CI workflow](.github/workflows/ci.yml) uses eight Chromium shards for the Toolkit and one Chromium job
+for the example app. Firefox and WebKit normally use three shards each. The dedicated `engines_only` dispatch
+uses four per engine. Each shard has its own demo and browser. Each shard retries a failed test once and ends with its summary: the counts, every failed test and every
 flaky one (passed only on its retry) with its error, on the run's *Summary* page, as annotations at the failing lines
 and as the last step of the job log; a shard whose tests did not run says which step failed. A flaky test keeps the run
 green but is reported as flaky, never as a clean pass. See [`docs/TESTING.md`](docs/TESTING.md), *Reading CI results*.
@@ -430,15 +434,15 @@ appear in that separate run, as `jev-run-<source run>-<source attempt>`. It beco
 the default branch through a release. See *Jev diagnosis* in the same section for rollout and the environment setting
 needed to protect a repository secret from a malicious branch writer.
 
-- `smoke` runs the specs in `tests/e2e/`: the demo pages, the forms, the `/lab` pages for Turbo and Live
-  Components, the components given hostile prop values (`hostile-props.spec.ts`), what a strict Content Security
-  Policy would break (`csp.spec.ts`; each page's headers and nonces are PHPUnit's `SecurityHeadersTest`), an axe accessibility scan of every demo page (no serious or critical
-  issue), and the counts of the key interactions (`counts.spec.ts`: requests, Stimulus controllers connected and
-  disconnected, listeners left, response bytes under a budget; a change that moves one updates its number in the spec,
-  [`docs/TESTING.md`](docs/TESTING.md), *Interaction counts*).
-- `examples` compares a screenshot of every README example and of every `/demo` page with the committed one, and
-  runs the recipes' own specs (`<recipe>/tests/*.spec.ts`, ported to `tests/e2e/examples/recipes/`). It fails
-  on a committed screenshot that no test compares (`baselines.spec.ts`).
+- `smoke` checks Toolkit behavior, including forms, Turbo and Live Component labs, hostile props, CSP and
+  interaction counts. Its Chromium accessibility scans cover forms, labs and actual light and dark recipe
+  previews. See [Interaction counts](docs/TESTING.md#interaction-counts).
+- `examples` compares the README example screenshots and runs each recipe's own specs
+  (`<recipe>/tests/*.spec.ts`, prepared under `tests/e2e/examples/recipes/`).
+- `demo-app` checks the example application's `/demo` routes, including behavior, accessibility and layout
+  screenshots. Shared specs use `@demo-app` to select the cases owned by that project.
+- The separate [website browser suite](website/tests/browser/website.spec.ts) scans the generated index, guides
+  and recipe pages. It checks the preview iframe URLs and excludes iframe contents from its axe scan.
 
 A test that brings a new technique (a way to provoke a state, to observe a cost, to send what a crafted request
 sends) is written up in [`docs/TESTING.md`](docs/TESTING.md), with its core and a link to the spec: apps built with
@@ -477,6 +481,10 @@ docs image targets with one builder. Each target under `tools/ci/images/` has a 
 inputs and its own verification script. The builder stages a separate context for each image and a separate
 checkout for its tests. Shared PHP foundations are selected by version. The docs checkout contains only the
 website and the release material it reads. The demo uses the Toolkit's public recipe payload.
+
+UXor owns these product tests and role images. Xorder provides independent development images that can be used
+for local diagnostics. Hosted browser CI uses the Microsoft Playwright image pinned in
+[`tools/playwright-image.json`](tools/playwright-image.json).
 
 The work summaries record build and test times, cache information and image digests. Publication requires a
 green CI push on protected `main` and passes the image's own tests before the digest is published. A periodic
@@ -811,7 +819,9 @@ integration branch will make review easier. Ordinary contributions need no work 
   and job. The double hyphen avoids Git's conflict between a branch and a directory of the same name.
 - Before using an integration branch, a maintainer verifies its branch pattern is covered by a
   [ruleset](https://github.com/xormania/uxor/rules) requiring pull requests, *CI result*, *CodeQL* and resolved
-  conversations. Jobs merge by pull request; updates from `dev` also arrive through a job, such as
+  conversations. The `work-orders` ruleset should include `work/*` and exclude `work/*--*` job branches.
+  Keep earlier patterns while their integration branches are active. Jobs merge by pull request;
+  updates from `dev` also arrive through a job, such as
   `work/<name>--sync`. Contributors should not push directly to the protected integration branch.
 - Its draft pull request into `dev` records the objective, completion criteria, links to the jobs and remaining
   work. Each job receives normal review and includes the documentation, changelog and test evidence its change needs.
@@ -864,9 +874,10 @@ compliance with the public work attribution rule.
 Use plain words throughout. Pull requests are merged with a merge commit (no squash, no rebase), preserving the
 branch's commits and their authorship.
 
-**Changelog:** a user-visible change (a recipe added, changed or removed, a fix users notice) gets an entry under
-`## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md), in the pull request that makes it: one line naming the recipe,
-under `### Added`, `### Changed`, `### Fixed` or `### Removed`, as Keep a Changelog does.
+**Changelog.** Record user-visible changes in the pull request that makes them. During development, add the
+entry under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md). When the pull request targets a prepared release
+branch, add it to that release's numbered section so it appears in the published notes. Use the appropriate
+`Added`, `Changed`, `Fixed` or `Removed` category and describe the change from the user's perspective.
 
 ## Releases
 
@@ -894,7 +905,7 @@ When the maintainer decides to release, create `release/X.Y.Z` from `dev` and op
 to `main` as a draft. Its release commit moves the entries under `## [Unreleased]` to the chosen version's dated
 section, leaves an empty `## [Unreleased]` section, and updates the compare links at the bottom. Compare with the
 previous actual release: a release of `0.3.5` after `0.3.2` links `0.3.2...0.3.5`; skipped numbers need no headings
-or tags. Use the release date in the new heading.
+or tags. Date the heading when preparing the release. GitHub records when it is published.
 
 Run `node tools/llms-txt.mjs` and `php packages/uxor/tools/generate-reference.php` in that commit. Both take the
 version from the new changelog heading, so the commit that release.yml tags already contains references linking

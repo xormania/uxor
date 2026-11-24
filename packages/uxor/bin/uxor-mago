@@ -70,7 +70,7 @@ if [ "$write" = true ]; then
 fi
 
 cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2-php8.4.28}
-serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-5}
+serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-6}
 
 prepare_provider() {
     if [ -n "${UXOR_MAGO_IMAGE:-}" ]; then

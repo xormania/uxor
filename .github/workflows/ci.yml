@@ -44,7 +44,7 @@ permissions:
 concurrency:
     # the schedule's start, the daily run and an engines-only run in groups of their own: none cancels, or is cancelled by,
     # a push; an engines-only run never cancels another (a second one waits)
-    group: ${{ github.event_name == 'schedule' && 'ci-schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'ci-daily' || inputs.engines_only && format('ci-engines-{0}', github.ref) || format('ci-{0}', github.ref) }}
+    group: ${{ github.event_name == 'schedule' && 'ci-schedule' || inputs.engines_only && format('ci-engines-{0}', github.ref) || inputs.daily && github.ref == 'refs/heads/dev' && 'ci-daily' || format('ci-{0}', github.ref) }}
     cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.engines_only) }}
 
 env:
@@ -1824,7 +1824,7 @@ jobs:
     result:
         # Pushes, full manual runs and fork PRs publish the required check. A same-repository PR's skipped job has a
         # different name, so it cannot satisfy CI result before the push run. Partial manual runs keep their own names.
-        name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && 'CI result (push runs separately)' || github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
+        name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && 'CI result (push runs separately)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || 'CI result' }}
         if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
         needs: [changes, quick, importmap, lint-kit, php, static-site, runtime-export, fresh-install, docker-install, package-docs, package, demo, prod-image]
         runs-on: ubuntu-latest
@@ -2105,7 +2105,7 @@ jobs:
     engines-issue:
         name: Engines issue
         needs: result
-        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.result.outputs.engines-status != '' }}
+        if: ${{ always() && inputs.daily && !inputs.engines_only && github.ref == 'refs/heads/dev' && needs.result.outputs.engines-status != '' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:

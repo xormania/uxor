@@ -51,6 +51,9 @@ final class BrowserDiagnostics
 
         if (property_exists($document, 'dropped')) {
             $result['dropped'] = $this->droppedCounts($document->dropped);
+            if ($result['dropped']['requestFailures'] > 0) {
+                $result['summary'] .= sprintf(' The capture omitted %d additional failed request entries.', $result['dropped']['requestFailures']);
+            }
         }
 
         if (property_exists($document, 'visit')) {
