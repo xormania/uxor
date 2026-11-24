@@ -28,13 +28,14 @@ none of which fail an assertion on their own.
 
 A Playwright fixture records them for every test and fails the test at its end; a test that expects an error allows
 exactly that response. Requests leaving the app are blocked, so no test depends on the network: an image gets a local
-placeholder, any other request fails. The guard's route names them with a RegExp (`leavingTheDemo()`), never a function:
+placeholder, and other requests fail. The browser loads `blob:` and `data:` URLs directly, including Dropzone previews.
+The guard's route names outside requests with a RegExp (`leavingTheDemo()`):
 Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only what
 matches, while a function has it hand over every request of the page, the app's own scripts, styles and fonts
 included, and wait for the answer. The guard reads the app's requests from the page's events, which see every request
 whatever the route takes. `smoke.spec.ts` ("the page guard › requests and violations") checks the route against the
 app's address and others built to trip it, a request leaving the app (it never reaches a route behind the guard's), a
-local 404 and a local failure, and a policy violation.
+decoded blob image, a local 404 and a local failure, and a policy violation.
 
 ```ts
 // tests/e2e/fixtures.ts (shortened)

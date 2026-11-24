@@ -83,15 +83,16 @@ export async function recordCspViolations(page: Page): Promise<string[]> {
 }
 
 /**
- * The URLs the guard's route takes: every one that is not the demo's (`isLocal` in guardPage). A RegExp, not a
- * function: Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only
+ * The guard's route leaves the demo's own URLs and in-browser blob: and data: URLs to the browser. WebKit can send
+ * object URLs through Playwright's route interception, where the placeholder would replace the actual preview.
+ * Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only
  * the requests that match, while a function makes it hand over every request of the page and wait for the answer, the
  * demo's own scripts, styles and fonts included (in CI, a round trip from the browser's container to the runner and
  * back). The guard sees the demo's requests through the page's events, never through this route.
  */
 export function leavingTheDemo(baseURL: string | undefined): RegExp {
     const local = `${baseURL}/`.replace(/[\\^$.*+?()[\]{}|/]/g, (character) => `\\${character}`);
-    return new RegExp(`^(?!${local})`);
+    return new RegExp(`^(?!${local}|blob:|data:)`);
 }
 
 /**

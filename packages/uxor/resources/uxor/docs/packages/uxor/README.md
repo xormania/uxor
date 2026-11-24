@@ -55,12 +55,15 @@ vendor/bin/uxor setup --client=codex --apply --install --trust-project-code --fo
 vendor/bin/uxor environment --format=json
 ```
 
-This installs missing development tools, including Maker and Symfony's profiler, initializes Mate when needed
-and refreshes its tools and skills. Setup recognizes an installed profiler pack or its two unpacked requirements,
-WebProfilerBundle and Stopwatch. For the profiler UI in an app without Flex, register WebProfilerBundle and its
-dev routes. Your application's existing profiler policy takes precedence. If it has none, start the dev server
-with `PROFILER_COLLECT=1` for a diagnostic run and verify the token on a real response.
-[Custom application integration](OPERATIONS.md#set-up-and-inspect-the-development-environment).
+Setup initializes Mate when needed, then asks Composer to install missing development tools, including Symfony’s
+full `symfony/debug-pack`, Maker, the Monolog Mate extension and the Mago SDK and Symfony wiring. It refreshes
+autoload metadata and runs Mate discovery. If Flex unpacks the debug and profiler packs, setup and environment
+inspection recognize their installed components. Repeating setup reuses them.
+
+The application controls profiler collection. If it has no profiler policy, start the dev server with
+`PROFILER_COLLECT=1` for a diagnostic run and use the response’s `X-Debug-Token` to find its profile.
+See [custom application integration](OPERATIONS.md#set-up-and-inspect-the-development-environment) for non-Flex
+bundle and route registration, and [diagnose a request](OPERATIONS.md#diagnose-a-request) to inspect a dump or log.
 
 ### Connect an agent client
 
