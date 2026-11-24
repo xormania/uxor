@@ -69,7 +69,7 @@ if [ "$write" = true ]; then
 fi
 
 cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2-php8.4.28}
-serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-4}
+serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-5}
 case "$command" in
     pull)
         case "$#:${2-}" in 1:|2:cli|2:serena) ;; *) usage >&2; exit 2 ;; esac
@@ -79,7 +79,7 @@ case "$command" in
             docker build --tag "$cli_image" - < "$bin/../resources/mago/Dockerfile"
         fi
         if [ "${2-all}" != cli ]; then
-            docker buildx build --load --tag "$serena_image" "$bin/../resources/mago/serena"
+            sh "$bin/../resources/mago/serena/build.sh" --load --tag "$serena_image"
         fi
         exit 0
         ;;

@@ -20,6 +20,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 - The demo builds Tailwind utilities from its UI sources and rendered guides. Changes to contributor docs or
   package-only files can reuse a verified Playwright run on a stacked or release branch.
 
+- `dropzone` documents that UX Dropzone 3.8 previews images from `blob:` object URLs (SVG still from `data:`): a
+  Content Security Policy's `img-src` needs `blob:` and `data:`. The demo and the consumer fixture allow both.
+
 ### Fixed
 
 - Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation
@@ -42,11 +45,13 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
-  Serena session using the Mago language server.
+  Serena session using the Mago language server. Setup and preparation accept Composer paths such as `./vendor`
+  and `./src`. The application and Serena both withhold fresh wiring while preparation is in progress.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
 - The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. The demo and independent consumer use the same fixture.
+  failures to exact Symfony request profiles. Setup respects the application’s profiler settings and recognizes
+  Flex’s unpacked profiler dependencies. The shared fixture starts collecting only on a diagnostic run.
 
 ### Changed
 

@@ -3,9 +3,15 @@ import { writeFile } from 'node:fs/promises';
 // Bound the compact JSON for each section independently. Three sections plus metadata fit the PHP reader's 1 MiB limit.
 const SECTION_BYTE_LIMIT = 256 * 1024;
 
+// Playwright resolves fixture dependencies before invoking the function. Select the implementation
+// at registration time so disabled captures in existing consumer fixtures never request a browser context.
+export const recordBrowserDiagnostics = process.env.PROFILER_COLLECT === '1'
+    ? collectBrowserDiagnostics
+    : async ({}, use) => { await use(); };
+
 /** Opt-in Playwright fixture for correlating browser failures with Symfony Profiler responses. */
-export async function recordBrowserDiagnostics({ context, baseURL }, use, testInfo) {
-    if (process.env.PROFILER_COLLECT !== '1' || !baseURL) {
+async function collectBrowserDiagnostics({ context, baseURL }, use, testInfo) {
+    if (!baseURL) {
         await use();
         return;
     }

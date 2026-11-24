@@ -208,7 +208,7 @@ jobs:
               run: |
                   context=packages/uxor/resources/mago/serena
                   if [ -f "$context/Dockerfile" ] && { [ -z "$BASE" ] || ! git diff --quiet "$BASE" HEAD -- \
-                      "$context" .github/workflows/ci.yml .github/workflows/mago-providers.yml; }; then
+                      "$context" packages/uxor/src/Preparation .github/workflows/ci.yml .github/workflows/mago-providers.yml; }; then
                       echo 'decision=run' >> "$GITHUB_OUTPUT"
                   fi
 
@@ -1303,11 +1303,10 @@ jobs:
             - name: Build the Mago Serena image into the cache
               if: ${{ !cancelled() && steps.registry.outcome == 'success' && needs.changes.outputs.mago-serena-cache == 'run' }}
               run: |
-                  docker buildx build --output=type=cacheonly \
+                  sh packages/uxor/resources/mago/serena/build.sh --output=type=cacheonly \
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-dev" \
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-main" \
-                      "--cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true" \
-                      packages/uxor/resources/mago/serena
+                      "--cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true"
 
             - name: Log out
               if: always()

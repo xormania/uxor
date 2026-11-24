@@ -122,7 +122,10 @@ ln -s /opt/mago-serena-provider/identity.json /opt/toolchain-runtime.json
 install -d -m1777 /state
 SH
 
-COPY start.py verify-preparation.php /opt/provider/
+# Keep the package-relative paths used by the standalone verifier and the public launcher entry point.
+COPY --from=preparation . /opt/provider/src/Preparation/
+COPY start.py verify-preparation.php /opt/provider/resources/mago/serena/
+RUN ln -s resources/mago/serena/start.py /opt/provider/start.py
 
 ENV PATH=/opt/venv/bin:$PATH HOME=/state SERENA_HOME=/state/serena \
     MAGO_EXPERIMENTAL_SERVER=1 PYTHONUNBUFFERED=1

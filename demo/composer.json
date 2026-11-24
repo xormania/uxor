@@ -115,6 +115,7 @@
         }
     },
     "require-dev": {
+        "composer/semver": "^3.5",
         "phpunit/phpunit": "^13.4.6",
         "spatie/phpunit-snapshot-assertions": "^5.4",
         "symfony/ai-mate": "^0.14",

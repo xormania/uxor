@@ -107,6 +107,116 @@ test('after Back, and after Back and Forward, every file of a POST form with mor
     expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:clear': 1, 'dropzone:remove': 0 });
 });
 
+/**
+ * Records the object URLs the page revokes, from its first script on, in `window.__revokedUrls`: UX Dropzone revokes
+ * the URL of a preview once it no longer shows it (Remove, a new pick, its controller disconnecting). A revoked blob:
+ * URL that fails to load logs nothing the fixture sees, so what is shown is read instead: `window.__revokedIn(root)`
+ * lists the zones (their input's id) of `root` with a visible element whose inline background is a revoked URL, and for
+ * each body Turbo renders, `window.__revokedRenders` holds the zones whose copy holds one (shown or not) and those
+ * showing one at the first animation frame after the body is in place, once the controllers have connected.
+ */
+async function recordRevokedUrls(page: Page) {
+    await page.addInitScript(() => {
+        const revoked = ((window as any).__revokedUrls = new Set<string>());
+        const revoke = URL.revokeObjectURL.bind(URL);
+        URL.revokeObjectURL = (url: string) => {
+            revoked.add(url);
+            revoke(url);
+        };
+        const revokedIn = ((window as any).__revokedIn = (root: ParentNode, visibleOnly = true) =>
+            [...root.querySelectorAll<HTMLElement>('[style*="blob:"]')]
+                .filter((element) => revoked.has(element.style.backgroundImage.slice(5, -2)) && (!visibleOnly || element.checkVisibility()))
+                .map((element) => element.closest('[data-controller~="dropzone-assist"]')?.querySelector('input')?.id ?? element.tagName));
+        const renders: { copy: string[]; firstFrame: string[] | null }[] = ((window as any).__revokedRenders = []);
+        document.addEventListener('turbo:before-render', (event: any) => {
+            const body = event.detail.newBody;
+            const render = { copy: revokedIn(body, false), firstFrame: null as string[] | null };
+            renders.push(render);
+            let frames = 0;
+            const observe = () => {
+                if (document.body !== body) {
+                    if (++frames < 600) {
+                        requestAnimationFrame(observe);
+                    }
+                    return;
+                }
+                render.firstFrame = revokedIn(document);
+            };
+            requestAnimationFrame(observe);
+        });
+    });
+}
+
+/**
+ * The URL a zone's preview image shows, whether the page revoked it, and the width it decodes to in the page (0: it
+ * does not load).
+ */
+const previewImageOf = (page: Page, id: string) =>
+    zoneOf(page, id)
+        .locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]')
+        .evaluate(async (element) => {
+            const url = getComputedStyle(element).backgroundImage.slice(5, -2);
+            const probe = new Image();
+            probe.src = url;
+            const width = await probe.decode().then(() => probe.naturalWidth, () => 0);
+
+            return { blob: url.startsWith('blob:'), revoked: (window as any).__revokedUrls.has(url), width };
+        });
+
+/** The zones showing a revoked object URL now. */
+const revokedShown = (page: Page) => page.evaluate(() => (window as any).__revokedIn(document) as string[]);
+
+// UX Dropzone 3.8 revokes a preview's object URL when its controller disconnects: Turbo's copy of the page, taken while
+// the zones showed their files, holds elements whose background is a URL revoked by the time Back or Forward shows it.
+// Restored (a POST form's zone through the kit, the permanent one moved into the page), each zone shows its file from a
+// new URL that loads, from the first frame on; Remove hides the image and revokes its URL
+test('after Back and after Forward, a restored PNG shows a preview that loads, from the first frame; Remove leaves no revoked image on screen', async ({ page }) => {
+    await recordRevokedUrls(page);
+    await page.goto('/lab/dropzone-turbo/two');
+    const one = new URL('/lab/dropzone-turbo?zones=1', page.url()).href;
+    await turboOperation(page, { url: one }, () => page.evaluate((href) => (window as any).Turbo.visit(href), one));
+    await turboVisitDone(page);
+    await expect(page.getByTestId('page')).toHaveText('Page one');
+    await page.locator('#many-1').setInputFiles(png('f1.png'));
+    await page.locator('#kept').setInputFiles(png('kept.png'));
+    for (const name of ['f1.png', 'kept.png']) {
+        await expect(page.getByRole('button', { name: `Remove ${name}` })).toBeVisible();
+    }
+    for (const id of ['many-1', 'kept']) {
+        expect(await previewImageOf(page, id), `picked: #${id}`).toEqual({ blob: true, revoked: false, width: 1 });
+    }
+
+    const steps = [
+        ['Back', async () => { await visit(page, 'Go to page two', 'Page two'); await back(page, 'Page one'); }],
+        ['Forward', async () => { await back(page, 'Page two'); await forward(page, 'Page one'); }],
+    ] as const;
+    for (const [step, walk] of steps) {
+        await walk();
+        for (const [id, name] of [['many-1', 'f1.png'], ['kept', 'kept.png']]) {
+            await expect(page.getByRole('button', { name: `Remove ${name}` }), `${step}: #${id}`).toBeVisible();
+            await expect(zoneOf(page, id).locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]'), `${step}: #${id}`).toBeVisible();
+            expect(await previewImageOf(page, id), `${step}: #${id}`).toEqual({ blob: true, revoked: false, width: 1 });
+        }
+        expect(await revokedShown(page), `${step}: zones showing a revoked URL`).toEqual([]);
+    }
+    // every render's first frame showed no revoked URL; the copies of page one Back and Forward showed held one
+    let renders: { copy: string[]; firstFrame: string[] | null }[] = [];
+    await expect.poll(async () => (renders = await page.evaluate(() => (window as any).__revokedRenders)).every((render) => null !== render.firstFrame)).toBe(true);
+    expect(renders.map((render) => render.firstFrame), 'zones showing a revoked URL at the first frame').toEqual(renders.map(() => []));
+    expect(renders.filter((render) => render.copy.includes('many-1')).length, 'copies holding a revoked URL in #many-1').toBe(2);
+
+    for (const [id, name] of [['many-1', 'f1.png'], ['kept', 'kept.png']]) {
+        const image = zoneOf(page, id).locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
+        const url = await image.evaluate((element) => getComputedStyle(element).backgroundImage.slice(5, -2));
+        await page.getByRole('button', { name: `Remove ${name}` }).click();
+        await expectEmptySingle(page, id);
+        await expect(image).toBeHidden();
+        expect(await image.evaluate((element) => getComputedStyle(element).backgroundImage), `#${id}`).toBe('none');
+        expect(await page.evaluate((url) => (window as any).__revokedUrls.has(url), url), `#${id}: its URL revoked`).toBe(true);
+    }
+    expect(await revokedShown(page)).toEqual([]);
+});
+
 // The eleven zones beside a frame visit promoted to history: Turbo copies the page as the visit starts, so each zone's
 // file goes under the key it carried then (the case below, with eleven zones in the copy instead of two)
 test('beside a frame visit promoted to history, Back and Forward keep every file of a POST form with more zones than Turbo keeps copies', async ({ page }) => {
@@ -403,6 +513,65 @@ test('a Turbo form posts its DropzoneType files; a Live re-render beside it leav
     await expect(page.getByTestId('submitted')).toHaveText('photo=tiny.png; attachments=a.txt,b.txt');
     expect(new URL(page.url()).searchParams.get('submitted')).toBe('photo=tiny.png; attachments=a.txt,b.txt');
     await expect(zoneOf(page, 'upload_demo_photo')).toHaveCount(1);
+});
+
+// UX Dropzone 3.8 holds a form's submission while a `dropzone:pre-add` listener still processes picked files (its
+// `waitUntil()` promise pending), and submits the form again once they are added; the submission that goes then
+// dispatches `dropzone:pre-submit` on each zone of the form. Through Turbo, one request reaches the server, with the
+// processed file, and the 422 and the 303 answers render as without the hold
+test('a Turbo form submitted while a dropzone:pre-add listener processes a file sends one request, once processed: 422 with the errors, 303 to the result', async ({ page, allowHttpError }) => {
+    allowHttpError(/\/lab\/dropzone-form$/, 422);
+    await page.goto('/lab/dropzone-form');
+    const posts: string[] = [];
+    page.on('request', (request) => {
+        if ('POST' === request.method() && '/lab/dropzone-form' === new URL(request.url()).pathname) {
+            posts.push(request.url());
+        }
+    });
+    const events = await countEvents(page, ['turbo:submit-start', 'dropzone:pre-submit', 'dropzone:change']);
+    // every picked file is held until the test releases it, then added renamed `processed-<name>`
+    await page.evaluate(() => {
+        const held: (() => void)[] = ((window as any).__heldFiles = []);
+        document.addEventListener('dropzone:pre-add', (event: any) => {
+            event.detail.waitUntil(
+                new Promise((resolve) =>
+                    held.push(() => resolve(event.detail.files.map((file: File) => new File([file], `processed-${file.name}`, { type: file.type })))),
+                ),
+            );
+        });
+    });
+    const release = () => page.evaluate(() => (window as any).__heldFiles.splice(0).forEach((resolve: () => void) => resolve()));
+    const photo = zoneOf(page, 'upload_demo_photo');
+
+    for (const [sent, outcome] of [[1, '422'], [2, '303']] as const) {
+        // the counts so far: the earlier submission, if any
+        const before = { 'turbo:submit-start': sent - 1, 'dropzone:pre-submit': 2 * (sent - 1), 'dropzone:change': sent - 1 };
+        if ('303' === outcome) {
+            await page.getByRole('textbox', { name: 'Title' }).fill('Trip');
+        }
+        await page.locator('#upload_demo_photo').setInputFiles(png('tiny.png'));
+        await expect(photo).toHaveAttribute('data-state', 'processing');
+        await page.getByRole('button', { name: 'Upload' }).click();
+        // held: an animation frame later, nothing has gone, and the zone is still processing
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        expect(posts, `${outcome}: held`).toHaveLength(sent - 1);
+        expect(await events(), `${outcome}: held`).toEqual(before);
+        await expect(photo).toHaveAttribute('data-state', 'processing');
+
+        await release();
+        if ('422' === outcome) {
+            await expect(page.locator('#upload_demo_title')).toHaveAttribute('aria-invalid', 'true');
+            await expect(page.locator('#upload_demo_photo')).toHaveAccessibleDescription('PNG or JPG, up to 1 MB. processed-tiny.png was not kept: choose it again.');
+        } else {
+            await expect(page.getByTestId('submitted')).toHaveText('photo=processed-tiny.png; attachments=');
+        }
+        await turboVisitDone(page);
+        expect(posts, outcome).toHaveLength(sent);
+        // one submission per answer; each dispatched `dropzone:pre-submit` on the two zones of the form
+        expect(await events(), outcome).toEqual({ 'turbo:submit-start': sent, 'dropzone:pre-submit': 2 * sent, 'dropzone:change': sent });
+    }
+    expect(new URL(page.url()).searchParams.get('submitted')).toBe('photo=processed-tiny.png; attachments=');
+    await expect(photo).toHaveCount(1);
 });
 
 test('in a Live Component, files go up through a files action: re-renders keep them, each upload gives a fresh zone', async ({ page }) => {
