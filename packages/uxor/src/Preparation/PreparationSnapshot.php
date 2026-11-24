@@ -1,0 +1,372 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Xormania\UXor\Preparation;
+
+/** Dependency-free schema shared by the Composer package and the standalone provider image. */
+final class PreparationSnapshot
+{
+    public const DIRECTORY = '.uxor/mago';
+    public const CONFIG = self::DIRECTORY.'/config.toml';
+    public const WORKER = self::DIRECTORY.'/worker.php';
+    public const REFERENCE = self::DIRECTORY.'/container-reference.dev.json';
+    public const MANIFEST = self::DIRECTORY.'/preparation.json';
+    public const LOCK = self::DIRECTORY.'/.prepare.lock';
+    public const REQUIREMENTS = [
+        'carthage-software/mago' => '1.60.2',
+        'byte-kitsune/mago-symfony-wiring' => '1.3.0',
+    ];
+
+    public const MAX_OUTPUT_BYTES = 64 * 1024 * 1024;
+    private const MAX_INPUT_BYTES = 256 * 1024 * 1024;
+    private const MAX_INPUT_FILES = 20000;
+    public const NATIVE_CONFIG = "# UXor PHP tools. Run uxor prepare to enable compiled Symfony wiring.\n";
+    public const ACTIVE_CONFIG = <<<'TOML'
+# UXor compiled Symfony wiring. Refresh with uxor prepare after application changes.
+# Extend this file from the application's root mago.toml.
+[extension-hosts.uxor-symfony]
+command = ["php", "-d", "display_errors=stderr", "-d", "memory_limit=1G", ".uxor/mago/worker.php"]
+working-directory = "."
+workers = 1
+request-timeout-ms = 30000
+shutdown-timeout-ms = 2000
+environment = { MAGO_EXTENSION_BACKEND = "php" }
+
+TOML;
+
+    /** Read only data, under the same publication lock used by the writer. */
+    public function readiness(string $root): array
+    {
+        $native = ['state' => 'unprepared', 'enabled' => false, 'fresh' => false, 'generation' => null,
+            'summary' => 'Compiled Symfony wiring has not been prepared.'];
+        $lock = null;
+        try {
+            $lockPath = $root.'/'.self::LOCK;
+            if (file_exists($lockPath) || is_link($lockPath)) {
+                $this->readFile($root, self::LOCK, 1024);
+                $lock = fopen($lockPath, 'rb');
+                if (false === $lock || !flock($lock, LOCK_SH | LOCK_NB)) {
+                    return $this->refused('unavailable', 'Symfony preparation is in progress.');
+                }
+            }
+            $configPath = $root.'/'.self::CONFIG;
+            if (!file_exists($configPath) && !is_link($configPath)) {
+                foreach ([self::WORKER, self::MANIFEST, self::REFERENCE] as $relative) {
+                    if (file_exists($root.'/'.$relative) || is_link($root.'/'.$relative)) {
+                        return $this->refused('unavailable', 'Symfony preparation is incomplete.');
+                    }
+                }
+                return $native;
+            }
+            $config = $this->readFile($root, self::CONFIG, 65536);
+            if (self::NATIVE_CONFIG === $config) {
+                return $native;
+            }
+            if (self::ACTIVE_CONFIG !== $config) {
+                return $this->refused('unavailable', 'The owned Mago configuration differs from UXor’s configuration. Reconcile it with setup before preparing.');
+            }
+            $vendor = $this->vendorDirectory($root);
+            $this->dependencies($root, $vendor);
+            $this->checkWorker($root, $vendor);
+            $manifestBytes = $this->readFile($root, self::MANIFEST, 1024 * 1024);
+            $manifest = json_decode($manifestBytes, true, 128, JSON_THROW_ON_ERROR);
+            if (!is_array($manifest)
+                || ($manifest['schema'] ?? null) !== 1 || ($manifest['state'] ?? null) !== 'ready'
+                || ($manifest['enabled'] ?? null) !== true || ($manifest['vendor_directory'] ?? null) !== $vendor
+                || ($manifest['environment'] ?? null) !== 'dev' || !is_string($manifest['preparation_id'] ?? null)
+                || !preg_match('/\A[a-f0-9]{32}\z/D', $manifest['preparation_id'])) {
+                return $this->refused('stale', 'The Symfony preparation manifest is invalid or incomplete.');
+            }
+            foreach (['reference_sha256', 'inputs_sha256'] as $key) {
+                if (!is_string($manifest[$key] ?? null) || !preg_match('/\A[a-f0-9]{64}\z/D', $manifest[$key])) {
+                    return $this->refused('stale', 'The Symfony preparation manifest has invalid hashes.');
+                }
+            }
+            $referenceHash = hash('sha256', $this->readFile($root, self::REFERENCE, self::MAX_OUTPUT_BYTES));
+            if (!hash_equals($manifest['reference_sha256'], $referenceHash)) {
+                return $this->refused('stale', 'The compiled Symfony reference is missing or has changed.');
+            }
+            $snapshot = $this->snapshot($root, $vendor);
+            if (!hash_equals($manifest['inputs_sha256'], $snapshot['sha256'])) {
+                return $this->refused('stale', 'Application source, configuration or dependency metadata changed after Symfony preparation.');
+            }
+            // Each artifact is published atomically. A verifier may have started before the lock file existed.
+            if ($manifestBytes !== $this->readFile($root, self::MANIFEST, 1024 * 1024)
+                || $config !== $this->readFile($root, self::CONFIG, 65536)
+                || !hash_equals($referenceHash, hash('sha256', $this->readFile($root, self::REFERENCE, self::MAX_OUTPUT_BYTES)))) {
+                return $this->refused('stale', 'Symfony preparation changed during verification.');
+            }
+            return ['state' => 'ready', 'enabled' => true, 'fresh' => true,
+                'preparation_id' => $manifest['preparation_id'], 'prepared_at' => $manifest['prepared_at'] ?? null,
+                'generation' => hash('sha256', $manifestBytes."\0".$referenceHash."\0".$snapshot['sha256']),
+                'source_files' => $snapshot['files'], 'summary' => 'Compiled Symfony facts match the tracked application inputs.'];
+        } catch (\Throwable) {
+            return $this->refused('unavailable', 'Symfony preparation is unavailable or its inputs cannot be verified. Run setup, inspect dependencies, then prepare in the application’s PHP environment.');
+        } finally {
+            if (is_resource($lock)) {
+                flock($lock, LOCK_UN);
+                fclose($lock);
+            }
+        }
+    }
+
+    private function refused(string $state, string $summary): array
+    {
+        return ['state' => $state, 'enabled' => true, 'fresh' => false, 'generation' => null, 'summary' => $summary];
+    }
+
+    /** Files owned by setup; callers must preserve differing application-owned contents. */
+    public static function configurationFiles(string $vendorDirectory = 'vendor'): array
+    {
+        $vendorDirectory = ProjectPath::relative($vendorDirectory);
+        $worker = <<<'PHP'
+<?php
+
+declare(strict_types=1);
+
+$root = dirname(__DIR__, 2);
+require $root.'/'.__UXOR_VENDOR__.'/autoload.php';
+
+$preparation = new \Xormania\UXor\SymfonyPreparation();
+try {
+    if (['--check'] === array_slice($argv, 1)) {
+        $state = $preparation->status($root);
+        echo json_encode([
+            'enabled' => $state['enabled'],
+            'fresh' => $state['fresh'],
+            'preparationId' => $state['preparation_id'],
+        ], JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+        if ($state['enabled'] && !$state['fresh']) {
+            fwrite(STDERR, $state['summary']." Run uxor prepare in the application's PHP environment, then retry.\n");
+            exit(3);
+        }
+        exit(0);
+    }
+    if (count($argv) !== 1) {
+        throw new \InvalidArgumentException('Use worker.php without arguments, or --check.');
+    }
+    $preparation->assertFresh($root);
+    putenv('MAGO_EXTENSION_BACKEND=php');
+    (new \Mago\Sdk\Worker(
+        \ByteKitsune\MagoSymfonyWiring\SymfonyWiringExtension::fromContainerReference(
+            $root,
+            \Xormania\UXor\SymfonyPreparation::REFERENCE,
+        ),
+    ))->run();
+} catch (\Throwable $error) {
+    fwrite(STDERR, "UXor Symfony wiring is unavailable. Run uxor environment, then uxor prepare in the application's PHP environment.\n");
+    exit(3);
+}
+PHP;
+        return [
+            self::CONFIG => self::NATIVE_CONFIG,
+            self::WORKER => str_replace('__UXOR_VENDOR__', var_export($vendorDirectory, true), $worker)."\n",
+            self::DIRECTORY.'/.gitignore' => "/container-reference.dev.json\n/preparation.json\n/.prepare.lock\n/.prepare-*/\n/.tmp-*\n",
+        ];
+    }
+
+    public function vendorDirectory(string $root): string
+    {
+        $composer = $this->readJson($root, 'composer.json', 16 * 1024 * 1024);
+        $vendor = ProjectPath::composerDirectory($root, $composer['config']['vendor-dir'] ?? 'vendor');
+        if (!is_dir($root.'/'.$vendor)) {
+            throw new \RuntimeException('Install Composer dependencies in the application’s configured vendor directory.');
+        }
+        return $vendor;
+    }
+
+    public function dependencies(string $root, string $vendor): void
+    {
+        $metadata = $this->readJson($root, $vendor.'/composer/installed.json', 16 * 1024 * 1024);
+        $installed = [];
+        foreach (($metadata['packages'] ?? $metadata) as $package) {
+            if (is_array($package) && is_string($package['name'] ?? null)) {
+                $installed[$package['name']] = ltrim((string) ($package['version'] ?? ''), 'v');
+            }
+        }
+        foreach (self::REQUIREMENTS as $name => $version) {
+            if (($installed[$name] ?? null) !== $version) {
+                throw new \RuntimeException('Symfony wiring requires installed '.$name.':'.$version.'. Run setup with dependency installation or add the exact application dev dependency.');
+            }
+        }
+        foreach ([$vendor.'/autoload.php', $vendor.'/byte-kitsune/mago-symfony-wiring/bin/create-container-reference.php',
+            $vendor.'/carthage-software/mago/composer/src/Sdk/Worker.php'] as $path) {
+            $this->readFile($root, $path, 1024 * 1024);
+        }
+    }
+
+    public function checkWorker(string $root, string $vendor): void
+    {
+        if ($this->readFile($root, self::WORKER, 65536) !== self::configurationFiles($vendor)[self::WORKER]) {
+            throw new \RuntimeException('The owned Symfony wiring worker is missing or differs from this package. Reconcile it with setup.');
+        }
+    }
+
+    public function snapshot(string $root, string $vendor, ?string $configOverride = null): array
+    {
+        $composer = $this->readJson($root, 'composer.json', 16 * 1024 * 1024);
+        $paths = ['composer.json', 'composer.lock', 'bin/console', 'config', 'src', 'tests',
+            'mago.toml', self::CONFIG, self::WORKER, $vendor.'/autoload.php',
+            $vendor.'/composer', $vendor.'/carthage-software/mago/composer/src',
+            $vendor.'/byte-kitsune/mago-symfony-wiring/src',
+            $vendor.'/byte-kitsune/mago-symfony-wiring/bin/create-container-reference.php'];
+        foreach (['autoload', 'autoload-dev'] as $section) {
+            foreach (['psr-4', 'psr-0'] as $kind) {
+                foreach (($composer[$section][$kind] ?? []) as $entries) {
+                    foreach ((array) $entries as $path) {
+                        if (is_string($path)) {
+                            $paths[] = ProjectPath::relative($path, allowRoot: true);
+                        }
+                    }
+                }
+            }
+            foreach (['classmap', 'files'] as $kind) {
+                foreach (($composer[$section][$kind] ?? []) as $path) {
+                    if (is_string($path)) {
+                        $paths[] = ProjectPath::relative($path, allowRoot: true);
+                    }
+                }
+            }
+        }
+        $entries = [];
+        $bytes = 0;
+        $seen = [];
+        foreach (array_unique($paths) as $path) {
+            if (strpbrk($path, '*?[') !== false) {
+                $matches = glob($root.'/'.$path, GLOB_NOSORT);
+                if (false === $matches) {
+                    throw new \RuntimeException('An application autoload path cannot be inspected.');
+                }
+                sort($matches, SORT_STRING);
+                $entries['glob:'.$path] = array_map(static fn (string $match): string => substr($match, strlen($root) + 1), $matches);
+                foreach ($matches as $match) {
+                    $this->collect($root, substr($match, strlen($root) + 1), $vendor, $entries, $bytes, $seen);
+                }
+                continue;
+            }
+            $this->collect($root, $path, $vendor, $entries, $bytes, $seen);
+        }
+        if (null !== $configOverride) {
+            $entries[self::CONFIG] = hash('sha256', $configOverride);
+        }
+        ksort($entries, SORT_STRING);
+        return ['sha256' => hash('sha256', self::json($entries)), 'files' => count($entries), 'bytes' => $bytes];
+    }
+
+    private function collect(string $root, string $relative, string $vendor, array &$entries, int &$bytes, array &$seen): void
+    {
+        // Apply the exclusion to explicit Composer file entries as well as directory traversal.
+        if (self::excludedInput($relative)) {
+            return;
+        }
+        if (count($entries) >= self::MAX_INPUT_FILES) {
+            throw new \RuntimeException('Preparation exceeds the supported 20,000 tracked input files.');
+        }
+        $path = $root.('' === $relative ? '' : '/'.$relative);
+        if (!file_exists($path) && !is_link($path)) {
+            $entries[$relative] = null;
+            return;
+        }
+        $canonical = realpath($path);
+        if (false === $canonical || ($canonical !== $root && !str_starts_with($canonical, $root.'/'))) {
+            throw new \RuntimeException('An application input points outside the selected project.');
+        }
+        if (self::excludedInput(ltrim(substr($canonical, strlen($root)), '/'))) {
+            return;
+        }
+        if (is_link($path)) {
+            $entries['link:'.$relative] = substr($canonical, strlen($root) + 1);
+        }
+        if (is_dir($path)) {
+            if (isset($seen[$canonical])) {
+                return;
+            }
+            $seen[$canonical] = true;
+            $entries['dir:'.$relative] = true;
+            $children = scandir($path);
+            if (false === $children) {
+                throw new \RuntimeException('An application input directory is unreadable.');
+            }
+            foreach ($children as $name) {
+                if ('.' === $name || '..' === $name) {
+                    continue;
+                }
+                // A root-level autoload path must not absorb generated runtime state.
+                if ('' === $relative && in_array($name, ['.git', '.uxor', '.serena', '.agents', '.claude',
+                    'var', 'node_modules', 'public', '.cache'], true)) {
+                    continue;
+                }
+                // Walk application siblings of a nested vendor directory. Explicit inputs inside vendor are
+                // visited separately, including Composer metadata, the SDK and the wiring exporter.
+                if ($canonical.'/'.$name === $root.'/'.$vendor) {
+                    continue;
+                }
+                $child = '' === $relative ? $name : $relative.'/'.$name;
+                $this->collect($root, $child, $vendor, $entries, $bytes, $seen);
+            }
+            return;
+        }
+        if (!is_file($path)) {
+            throw new \RuntimeException('An application input is not a regular file.');
+        }
+        $size = filesize($path);
+        if (false === $size || $size > 16 * 1024 * 1024 || $bytes + $size > self::MAX_INPUT_BYTES) {
+            throw new \RuntimeException('Preparation input size exceeds the supported bound.');
+        }
+        $hash = hash_file('sha256', $path);
+        if (false === $hash) {
+            throw new \RuntimeException('An application input is unreadable.');
+        }
+        $entries[$relative] = $hash;
+        $bytes += $size;
+    }
+
+    public function readFile(string $root, string $relative, int $maximum): string
+    {
+        $relative = ProjectPath::relative($relative);
+        $path = $root.'/'.$relative;
+        $canonical = realpath($path);
+        if (false === $canonical || !str_starts_with($canonical, $root.'/') || !is_file($path)
+            || is_link($path) || !is_readable($path)) {
+            throw new \RuntimeException('A required project file is missing, linked outside the project, or unreadable: '.$relative);
+        }
+        $size = filesize($path);
+        if (false === $size || $size > $maximum) {
+            throw new \RuntimeException('A project file exceeds its supported size: '.$relative);
+        }
+        $value = file_get_contents($path);
+        if (false === $value || strlen($value) !== $size) {
+            throw new \RuntimeException('A project file changed while it was being read: '.$relative);
+        }
+        return $value;
+    }
+
+    private function readJson(string $root, string $relative, int $maximum): array
+    {
+        try {
+            $value = json_decode($this->readFile($root, $relative, $maximum), true, 128, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new \RuntimeException('Invalid project JSON: '.$relative);
+        }
+        if (!is_array($value)) {
+            throw new \RuntimeException('Project JSON must contain an object or array: '.$relative);
+        }
+        return $value;
+    }
+
+    private static function excludedInput(string $relative): bool
+    {
+        foreach (explode('/', $relative) as $part) {
+            if (str_starts_with($part, '.env')) {
+                return true;
+            }
+        }
+        return 'config/secrets' === $relative || str_starts_with($relative, 'config/secrets/');
+    }
+
+    public static function json(array $data): string
+    {
+        return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR)."\n";
+    }
+}

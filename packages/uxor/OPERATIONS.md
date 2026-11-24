@@ -107,7 +107,8 @@ The packaged Serena graph operation checks freshness before and after a query us
 provider image. It runs the image's PHP with configuration loading disabled and never includes the application's
 worker or Composer autoloader. It validates the manifest and hashes the reference and tracked inputs itself;
 application-produced freshness output is not used. Incomplete, changed or unavailable preparation fails the query.
-The verifier honors preparation's lock and rechecks the published files after fingerprinting. The verified
+The application’s environment report, wiring worker and provider use the same readiness checks, lock and
+publication recheck. Composer paths such as `./vendor` and `./src` resolve relative to the application root. The verified
 manifest, reference and input digest determine the language-server generation, so changed content restarts the
 server even when a preparation ID is reused. These checks establish snapshot consistency, not authenticated
 provenance of application-authored artifacts. Native source operations remain independent.
