@@ -182,6 +182,12 @@ final class SetupOwnership
             'review' => array_keys($review), 'changes' => $changes, 'next_steps' => $steps];
     }
 
+    public function hasRecordedSetup(string $root): bool
+    {
+        [$owned, $detached] = $this->readReceipt($root);
+        return [] !== $owned || [] !== $detached;
+    }
+
     /** A neutral file can be reconnected only if detach left these exact bytes for this project. */
     public function reconnectableFiles(string $root): array
     {

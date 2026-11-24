@@ -49,11 +49,11 @@ final class Capabilities
 
     /**
      * @param bool $apply Apply the proposed configuration, preserving application-owned files.
-     * @param bool $install Use native Composer/Mate; requires apply and trustProjectCode.
-     * @param bool $trustProjectCode Acknowledge native application execution for this setup operation only; does not save future connection permission.
-     * @param string $client none, claude, or codex; only Serena uses MCP, Mate Beta1 uses the application CLI.
+     * @param bool $install Compatibility flag for older clients. Composer owns installation.
+     * @param bool $trustProjectCode Compatibility flag for older clients. Setup only configures the application.
+     * @param string $client none, claude, or codex; only Serena uses MCP, Mate uses the application CLI.
      * @param string $hostProjectRoot Optional absolute checkout path on the MCP host when PHP uses a different path.
-     * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry. Does not authorize current installation.
+     * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry.
      */
     #[MateTool('uxor_setup', description: 'Plan or configure the bound application development environment with native Composer/Mate integration. Defaults to a read-only plan. trustProjectCode authorizes current native execution only; saveProjectTrust separately saves permission for future Serena connections, including later checkouts.')]
     public function setup(bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): string

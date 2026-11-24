@@ -15,34 +15,33 @@ final class PackageInstallGuide
             throw new \RuntimeException('The package README needs one ordered pair of package-install markers.');
         }
 
-        $commands = [];
-        $requirements = [escapeshellarg($package['name'].':^'.$release)];
-        // Composer records the root's explicit stability exceptions in the lock. Only its production
-        // graph travels with the package. Its PHPUnit and other maintainer requirements stay out.
+        $settings = [];
+        if ('stable' !== ($package['minimum-stability'] ?? 'stable')) {
+            $settings[] = 'composer config minimum-stability '.escapeshellarg($package['minimum-stability']);
+        }
+        if (true === ($package['prefer-stable'] ?? false)) {
+            $settings[] = 'composer config prefer-stable true';
+        }
+        if ('composer-plugin' === ($package['type'] ?? null)) {
+            $settings[] = 'composer config '.escapeshellarg('allow-plugins.'.$package['name']).' true';
+        }
         foreach ($lock['packages'] as $dependency) {
             $name = $dependency['name'];
             if ('composer-plugin' === ($dependency['type'] ?? null) && true === ($package['config']['allow-plugins'][$name] ?? false)) {
-                $commands[] = 'composer config '.escapeshellarg('allow-plugins.'.$name).' true';
+                $settings[] = 'composer config '.escapeshellarg('allow-plugins.'.$name).' true';
             }
-            $flag = $lock['stability-flags'][$name] ?? 0;
-            if (0 === $flag) {
-                continue;
-            }
-
-            // Composer's BasePackage STABILITY_* values. Keep the dependency's own allowed range.
-            $stability = match ($flag) {
-                5 => 'RC', 10 => 'beta', 15 => 'alpha', 20 => 'dev',
-                default => throw new \RuntimeException('Unrecognized Composer stability flag for '.$name),
-            };
-            $constraint = $package['require'][$name] ?? '*';
-            if (!str_contains($constraint, '@')) {
-                $constraint .= '@'.$stability;
-            }
-            $requirements[] = escapeshellarg($name.':'.$constraint);
         }
 
-        $commands[] = 'composer require --dev '.implode(" \\\n    ", $requirements);
-        $block = "\n\nRequires PHP `".$package['require']['php']."`.\n\n```sh\n".implode("\n", $commands)."\n```\n\n";
+        $requirements = 'Requires PHP `'.$package['require']['php'].'`';
+        if (isset($package['require']['composer'])) {
+            $requirements .= ' and Composer `'.$package['require']['composer'].'`';
+        }
+        $block = "\n\n".$requirements.".\n\n";
+        if ([] !== $settings) {
+            $block .= "For a fresh application or a noninteractive install, apply these project settings first.\n\n```sh\n"
+                .implode("\n", $settings)."\n```\n\n";
+        }
+        $block .= "Install the development package.\n\n```sh\ncomposer require --dev ".escapeshellarg($package['name'].':^'.$release)."\n```\n\n";
 
         return substr($markdown, 0, strpos($markdown, $start) + strlen($start)).$block.substr($markdown, strpos($markdown, $end));
     }

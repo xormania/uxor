@@ -17,9 +17,10 @@ Select `--project-root` explicitly across applications or worktrees. Docker-host
 use the host checkout path; setup's `--host-project-root` only supplies generated client paths.
 A client registration is unverified until the client connects and queries a real application symbol.
 
-Start with `uxor setup` to inspect its plan and `uxor environment` to inspect readiness.
-Apply an authorized plan with `setup --apply`; dependency installation additionally uses
-`--install --trust-project-code`. Execution probes and `prepare` also require that acknowledgement.
+Composer installs the development tools, applies missing project defaults and registers the Mate integration.
+Call `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json` to verify it.
+Use `uxor environment` to inspect readiness. To reconcile configuration or add client bindings, preview `uxor setup` and apply
+the authorized plan with `setup --apply`. Execution probes and `prepare` require `--trust-project-code`.
 `uxor-mago` application commands, including Serena startup, require `--trust-project-code` before the command.
 Setup's execution flag covers the current operation. Saving permission for future Serena connections separately
 requires `--save-project-trust` and authorization for that persistence; do not infer it from installation or editing.
@@ -29,7 +30,7 @@ execution. `--write` separately authorizes checkout changes. Existing task/sessi
 it covers the selected application, runtime and operation; do not ask again for an already authorized action.
 Preserve application files and integrate missing bundle, route and client configuration.
 
-Mate 1.0.0-BETA1 exposes tools through its CLI; Serena exposes MCP. Use Mate's `tools:list`
+Mate exposes its tools through the application CLI. Serena exposes MCP. Use Mate's `tools:list`
 and `tools:inspect` before calling installed tools, including `uxor_setup`, `uxor_environment`
 and `uxor_prepare`. The standalone `uxor` CLI exposes the same operations with `--format=json`.
 
@@ -63,5 +64,5 @@ with continuation offsets for bounded reads. The application testing guide is
 are available as `uxor://reference/packages/uxor/OPERATIONS.md` or in the installed operations guide, normally at
 `vendor/xormania/uxor/packages/uxor/OPERATIONS.md`; use the actual Composer vendor directory.
 
-After package updates, run Mate `discover` to refresh guidance and skills while preserving
-project-authored text around its managed blocks.
+Composer refreshes Mate’s guidance and skills during package updates. After editing an application skill override,
+run Mate `discover` to register the change. Preserve project-authored text around Mate’s managed blocks.

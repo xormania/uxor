@@ -4,14 +4,20 @@ declare(strict_types=1);
 
 namespace Xormania\UXor\Tests;
 
+use Composer\Factory;
+use Composer\IO\NullIO;
 use Composer\Package\Locker;
+use Composer\Repository\PlatformRepository;
+use Composer\Script\ScriptEvents;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\AI\Mate\Encoding\ResponseEncoder;
 use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\Filesystem\Filesystem;
+use Xormania\UXor\Composer\Plugin;
 use Xormania\UXor\Console\Application;
 use Xormania\UXor\Operations;
+use Xormania\UXor\Preparation\PreparationSnapshot;
 use Xormania\UXor\Mate\Capabilities;
 
 final class DeveloperEnvironmentTest extends TestCase
@@ -88,6 +94,92 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
+    public function testSetupConfiguresTheProjectWithoutRunningASecondInstaller(): void
+    {
+        // Simulate a partially installed app: the package is available but its development tools are absent.
+        mkdir($this->project.'/vendor/bin', 0777, true);
+        mkdir($this->project.'/mate');
+        file_put_contents($this->project.'/mate/config.php', "<?php return [];\n");
+        file_put_contents($this->project.'/vendor/bin/mate', file_get_contents($this->project.'/vendor/autoload.php'));
+        file_put_contents($this->project.'/composer.lock', "{\"packages\": [], \"packages-dev\": []}\n");
+        $manifest = file_get_contents($this->project.'/composer.json');
+        $lock = file_get_contents($this->project.'/composer.lock');
+        $marker = $this->directory.'/resolver-invoked';
+        $composer = $this->directory.'/composer';
+        file_put_contents($composer, "#!/bin/sh\ntouch ".escapeshellarg($marker)."\nexit 9\n");
+        chmod($composer, 0755);
+        $path = getenv('PATH');
+        putenv('PATH='.$this->directory.PATH_SEPARATOR.$path);
+        try {
+            foreach ([['--install' => true], []] as $options) {
+                [$code, $result] = $this->invoke('setup', ['--apply' => true, '--trust-project-code' => true] + $options);
+                self::assertFileDoesNotExist($marker, 'Only the application Composer install or update resolves the development graph.');
+                self::assertSame($manifest, file_get_contents($this->project.'/composer.json'));
+                self::assertSame($lock, file_get_contents($this->project.'/composer.lock'));
+                self::assertSame(0, $code, json_encode($result));
+                self::assertSame('completed', $result['status']);
+                self::assertSame([], $result['data']['executions']);
+                self::assertFileExists($this->project.'/.uxor/mcp.json');
+                self::assertFileDoesNotExist($this->project.'/application-executed');
+                $dependencies = array_column($result['data']['dependencies'], null, 'package');
+                self::assertFalse($dependencies['symfony/debug-pack']['compatible']);
+                self::assertStringNotContainsString('setup --apply --install', implode(' ', $result['data']['next_steps']));
+            }
+        } finally {
+            putenv('PATH='.$path);
+        }
+    }
+
+    public function testComposerRetriesAnUnfinishedBootstrapAndPreservesAnExplicitDetach(): void
+    {
+        // A failed install can leave a populated vendor with no project integration.
+        mkdir($this->project.'/vendor/xormania/uxor', 0777, true);
+        $this->writeInstalledPackages(['xormania/uxor' => '0.3.5']);
+        mkdir($this->project.'/vendor/bin');
+        file_put_contents($this->project.'/vendor/bin/mate', "<?php exit(0);\n");
+        mkdir($this->project.'/mate');
+        file_put_contents($this->project.'/mate/config.php', "<?php return [];\n");
+        file_put_contents($this->project.'/mate/extensions.php', "<?php return [];\n");
+        $composerFile = getenv('COMPOSER');
+        putenv('COMPOSER='.$this->project.'/composer.json');
+        try {
+            $completeInstall = function (): void {
+                $composer = (new Factory())->createComposer(new NullIO(), $this->project.'/composer.json', true, null, true, true);
+                $dispatcher = $composer->getEventDispatcher();
+                $dispatcher->addSubscriber(new Plugin());
+                // A second Composer process has no package install or update to dispatch.
+                $dispatcher->dispatchScript(ScriptEvents::POST_AUTOLOAD_DUMP, true);
+                $dispatcher->dispatchScript(ScriptEvents::POST_INSTALL_CMD, true);
+            };
+            $completeInstall();
+            self::assertFileExists($this->project.'/.uxor/browser.mjs');
+            self::assertFileExists($this->project.'/mago.toml');
+            [$code, $result] = $this->invoke('detach', ['--apply' => true]);
+            self::assertSame(0, $code, json_encode($result));
+            $detached = $this->snapshot($this->project);
+            $completeInstall();
+            self::assertSame($detached, $this->snapshot($this->project));
+        } finally {
+            putenv(false === $composerFile ? 'COMPOSER' : 'COMPOSER='.$composerFile);
+        }
+    }
+
+    public function testToolCompatibilityUsesThePackageComposerConstraints(): void
+    {
+        $this->writeInstalledPackages(['symfony/maker-bundle' => 'v1.0.0', 'symfony/ai-monolog-mate-extension' => 'v1.1.0']);
+        [, $environment] = $this->invoke('environment');
+        $rows = array_column($environment['data']['dependencies'], null, 'package');
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 3).'/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+        $declared = array_filter($manifest['require'], static fn (string $name): bool => !PlatformRepository::isPlatformPackage($name), ARRAY_FILTER_USE_KEY);
+        $reported = array_filter($rows, static fn (array $row): bool => $row['install_requested']);
+        self::assertEqualsCanonicalizing(array_keys($declared), array_keys($reported));
+        foreach ($declared as $name => $constraint) {
+            self::assertSame($constraint, $reported[$name]['constraint'], $name);
+        }
+        self::assertFalse($rows['symfony/maker-bundle']['compatible']);
+        self::assertTrue($rows['symfony/ai-monolog-mate-extension']['compatible']);
+    }
+
     public static function debuggingPackages(): iterable
     {
         $profiler = ['symfony/web-profiler-bundle' => 'v8.1.3', 'symfony/stopwatch' => 'v7.4.2'];
@@ -131,7 +223,7 @@ final class DeveloperEnvironmentTest extends TestCase
         $this->writeInstalledPackages($installed);
         [, $plan] = $this->invoke('setup');
         [$code, $applied] = $this->invoke('setup', ['--apply' => true]);
-        self::assertSame(null === $debugSource ? 2 : 0, $code, $applied['summary']);
+        self::assertSame(0, $code, $applied['summary']);
         [, $environment] = $this->invoke('environment');
         self::assertSame($plan['data']['dependencies'], $applied['data']['dependencies']);
         self::assertSame($plan['data']['dependencies'], $environment['data']['dependencies']);
@@ -347,6 +439,16 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertSame($component['compatible'], $debug['compatible']);
     }
 
+    public function testPreparedProviderAndComposerInstallUseTheSameToolVersions(): void
+    {
+        $manifest = json_decode(file_get_contents(dirname(__DIR__, 3).'/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+        $provider = PreparationSnapshot::REQUIREMENTS;
+        self::assertEqualsCanonicalizing(['carthage-software/mago', 'byte-kitsune/mago-symfony-wiring'], array_keys($provider));
+        foreach ($provider as $package => $version) {
+            self::assertSame($manifest['require'][$package], $version, $package);
+        }
+    }
+
     public function testNativeToolPinsRequireTheInstalledReleaseString(): void
     {
         $this->writeInstalledPackages(['carthage-software/mago' => '1.60.2.0', 'byte-kitsune/mago-symfony-wiring' => 'dev-main']);
@@ -357,7 +459,7 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertFalse($rows['carthage-software/mago']['compatible']);
         self::assertFalse($rows['byte-kitsune/mago-symfony-wiring']['compatible']);
 
-        $pins = ['carthage-software/mago' => '1.60.2', 'byte-kitsune/mago-symfony-wiring' => '1.3.0', 'symfony/ai-monolog-mate-extension' => '1.0.0-BETA1'];
+        $pins = ['carthage-software/mago' => '1.60.2', 'byte-kitsune/mago-symfony-wiring' => '1.3.0'];
         $this->writeInstalledPackages([], [['name' => 'example/dev-tools', 'version' => '1.0.0', 'provide' => $pins]]);
         [, $environment] = $this->invoke('environment');
         $rows = array_column($environment['data']['dependencies'], null, 'package');
@@ -571,6 +673,37 @@ final class DeveloperEnvironmentTest extends TestCase
         $servers = json_decode(file_get_contents($client), true)['mcpServers'];
         self::assertArrayHasKey('uxor-mago', $servers);
         self::assertSame($other['mcpServers']['own'], $servers['own']);
+    }
+
+    public function testProfilerUsesFlexConfigurationDirectoryAndPreservesApplicationOwnership(): void
+    {
+        $manifest = json_decode(file_get_contents($this->project.'/composer.json'), true, flags: JSON_THROW_ON_ERROR);
+        $manifest['extra'] = ['symfony' => ['root-dir' => 'app'], 'config-dir' => 'settings'];
+        file_put_contents($this->project.'/composer.json', json_encode($manifest, JSON_THROW_ON_ERROR));
+        $dev = $this->project.'/app/settings/packages/dev';
+
+        [$code, $result] = $this->invoke('setup', ['--apply' => true]);
+        self::assertSame(0, $code, json_encode($result));
+        self::assertFileExists($dev.'/uxor.php');
+        self::assertFileDoesNotExist($this->project.'/config/packages/dev/uxor.php');
+        [$code, $report] = $this->invoke('environment');
+        self::assertTrue($report['data']['capabilities']['profiler']['configured']);
+
+        $applicationPolicy = "<?php // Native Symfony policy owned by the application.\n";
+        file_put_contents($dev.'/uxor.php', $applicationPolicy);
+        $this->invoke('setup', ['--apply' => true]);
+        $this->invoke('detach', ['--apply' => true]);
+        self::assertSame($applicationPolicy, file_get_contents($dev.'/uxor.php'));
+
+        unlink($dev.'/uxor.php');
+        $legacy = "# Local development diagnostics; never loaded in production.\nframework:\n    profiler:\n        collect: true\n";
+        file_put_contents($dev.'/uxor.yaml', $legacy);
+        [, $report] = $this->invoke('environment');
+        self::assertTrue($report['data']['capabilities']['profiler']['configured']);
+        [, $plan] = $this->invoke('setup');
+        self::assertStringContainsString('app/settings/packages/dev/uxor.yaml', implode("\n", $plan['data']['next_steps']));
+        self::assertSame($legacy, file_get_contents($dev.'/uxor.yaml'));
+        self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
     public function testEnvironmentTracksConfiguredSerenaAndBrowserDiagnosticsAcrossDetachAndSetup(): void
@@ -824,19 +957,6 @@ JS);
 
     private function assertPreservedTrustTransition(bool $initialTrust): void
     {
-        // Satisfy static dependency metadata so only a binding conflict can
-        // change a matching completed setup into an incomplete result.
-        file_put_contents($this->project.'/vendor/composer/installed.json', json_encode([
-            'packages' => [
-                ['name' => 'symfony/framework-bundle', 'version' => 'v8.1.0'],
-                ['name' => 'symfony/debug-pack', 'version' => 'v1.1.0'],
-                ['name' => 'symfony/profiler-pack', 'version' => 'v1.0.6'],
-                ['name' => 'symfony/ai-monolog-mate-extension', 'version' => '1.0.0-BETA1'],
-                ['name' => 'symfony/maker-bundle', 'version' => 'v1.0.0'],
-                ['name' => 'carthage-software/mago', 'version' => '1.60.2'],
-                ['name' => 'byte-kitsune/mago-symfony-wiring', 'version' => '1.3.0'],
-            ],
-        ], JSON_THROW_ON_ERROR));
         foreach (['claude', 'codex'] as $client) {
             $options = ['--apply' => true, '--client' => $client];
             if ($initialTrust) {
@@ -900,23 +1020,6 @@ JS);
         }
     }
 
-    public function testSavedTrustAndTruthyValuesDoNotAuthorizeNativeInstallation(): void
-    {
-        $before = $this->snapshot($this->directory);
-        $operations = Operations::create();
-        foreach ([false, null, 0, 1, '', 'false', 'true'] as $currentTrust) {
-            $result = $operations->run('setup', [
-                'project_root' => $this->project, 'apply' => true, 'install' => true,
-                'trust_project_code' => $currentTrust, 'save_project_trust' => true,
-            ]);
-            self::assertSame('incomplete', $result['status'], json_encode($result));
-            self::assertStringContainsString('--trust-project-code', $result['summary']);
-            self::assertSame([], $result['changes']);
-            self::assertSame($before, $this->snapshot($this->directory));
-            self::assertFileDoesNotExist($this->project.'/application-executed');
-        }
-    }
-
     public function testMateSeparatesCurrentExecutionFromSavedProjectTrust(): void
     {
         $mate = new Capabilities(Operations::create(), $this->project);
@@ -936,9 +1039,9 @@ JS);
             self::assertSame([], $result['data']['executions']);
             self::assertSame($before, $this->snapshot($this->directory));
         }
-        $blocked = ResponseEncoder::decode($mate->setup(apply: true, install: true, saveProjectTrust: true))['untrusted_data'];
-        self::assertSame('incomplete', $blocked['status']);
-        self::assertStringContainsString('--trust-project-code', $blocked['summary']);
+        $preview = ResponseEncoder::decode($mate->setup(install: true, saveProjectTrust: true))['untrusted_data'];
+        self::assertSame('plan', $preview['data']['mode']);
+        self::assertSame([], $preview['data']['executions']);
         self::assertSame($before, $this->snapshot($this->directory));
 
         $result = ResponseEncoder::decode($mate->setup(apply: true, trustProjectCode: true))['untrusted_data'];
@@ -956,13 +1059,10 @@ JS);
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
-    public function testInstallationAndRuntimePreparationRequireExplicitExecutionConsent(): void
+    public function testEnvironmentProbesAndRuntimePreparationRequireExecutionConsent(): void
     {
         $before = $this->snapshot($this->directory);
         foreach ([
-            ['setup', ['--apply' => true, '--install' => true]],
-            ['setup', ['--apply' => true, '--install' => true, '--save-project-trust' => true]],
-            ['setup', ['--install' => true, '--trust-project-code' => true]],
             ['environment', ['--probe' => true]],
             ['prepare', []],
         ] as [$operation, $options]) {

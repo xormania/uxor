@@ -46,7 +46,8 @@ final class ReferenceBundleTest extends TestCase
             'packages/uxor/README.md' => "# Composer\n\n<!-- package-install:start -->\n<!-- package-install:end -->\n\n[Operations](OPERATIONS.md)\n",
             'packages/uxor/OPERATIONS.md' => "# Advanced\n\n[Composer](README.md)\n",
             'composer.json' => json_encode([
-                'name' => 'xormania/uxor', 'require' => ['php' => '>=8.4', 'vendor/experimental' => '^2.0.0-beta1', 'vendor/stable' => '^1.0'],
+                'name' => 'xormania/uxor', 'type' => 'composer-plugin', 'minimum-stability' => 'beta', 'prefer-stable' => true,
+                'require' => ['php' => '>=8.4', 'vendor/experimental' => '^2.0.0-beta1', 'vendor/stable' => '^1.0'],
                 'config' => ['allow-plugins' => ['vendor/example-plugin' => true]],
             ], JSON_THROW_ON_ERROR),
             'composer.lock' => json_encode([
@@ -199,8 +200,12 @@ final class ReferenceBundleTest extends TestCase
         self::assertSame(0, $status, $error);
         $guide = $this->source.'/packages/uxor/README.md';
         $before = file_get_contents($guide);
-        self::assertStringContainsString('composer require --dev', $before);
-        self::assertStringContainsString('vendor/experimental:^2.0.0-beta1', $before);
+        self::assertSame(1, substr_count($before, 'composer require --dev'));
+        self::assertStringContainsString("composer require --dev 'xormania/uxor:^1.4.0'\n", $before);
+        self::assertStringContainsString("composer config minimum-stability 'beta'", $before);
+        self::assertStringContainsString('composer config prefer-stable true', $before);
+        self::assertStringContainsString("composer config 'allow-plugins.xormania/uxor' true", $before);
+        self::assertStringNotContainsString('vendor/experimental:', $before);
         self::assertStringNotContainsString('vendor/stable:', $before);
         self::assertStringNotContainsString('vendor/test-tool:', $before);
         self::assertStringContainsString('allow-plugins.vendor/example-plugin', $before);
@@ -210,7 +215,8 @@ final class ReferenceBundleTest extends TestCase
 
         $path = $this->source.'/composer.json';
         $manifest = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        $manifest['require']['vendor/experimental'] = '>=2.0.0-beta1 <2.0.0-beta4';
+        $manifest['name'] = 'example/renamed';
+        $manifest['require']['php'] = '>=8.5';
         file_put_contents($path, json_encode($manifest, JSON_THROW_ON_ERROR));
         self::assertSame(1, $this->script(['--check'])[0]);
         self::assertSame($before, file_get_contents($guide), 'check leaves the source guide intact');
@@ -219,8 +225,10 @@ final class ReferenceBundleTest extends TestCase
         [$status, , $error] = $this->script([]);
         self::assertSame(0, $status, $error);
         $after = file_get_contents($guide);
-        self::assertStringContainsString("'vendor/experimental:>=2.0.0-beta1 <2.0.0-beta4@beta'", $after);
-        self::assertStringNotContainsString('vendor/experimental:^2.0.0-beta1', $after);
+        self::assertStringContainsString("composer require --dev 'example/renamed:^1.4.0'\n", $after);
+        self::assertStringContainsString("composer config 'allow-plugins.example/renamed' true", $after);
+        self::assertStringContainsString('>=8.5', $after);
+        self::assertStringNotContainsString('xormania/uxor:^1.4.0', $after);
         self::assertSame($after, file_get_contents($this->output.'/docs/packages/uxor/README.md'));
         self::assertSame(0, $this->script(['--check'])[0]);
     }

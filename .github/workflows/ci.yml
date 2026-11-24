@@ -1246,7 +1246,7 @@ jobs:
               id: validate
               run: |
                   set -o pipefail
-                  composer validate --strict 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
+                  python3 packages/uxor/tools/validate-composer.py 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
 
             - name: Install the package's dependencies
               id: install

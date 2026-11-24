@@ -15,65 +15,75 @@ If you're starting from scratch, create your Symfony project first, for example 
 once the listed versions include this guide's release. If your app already uses UXor 0.3.0–0.3.2 with Mate 0.14,
 read the [skill migration steps](#upgrade-from-the-old-skill-names) before updating.
 
-Run these commands in the application after reviewing the plugin permission. The listed prereleases can be
-installed under the application's normal stable policy.
+This release uses Symfony AI Mate 1.x. The application must allow beta releases while stable 1.x packages are
+unavailable. Composer’s `prefer-stable` setting prefers stable versions wherever the constraints allow them.
+These settings apply to the whole application. Allow the UXor and Symfony AI Mate Composer plugins to run
+when Composer prompts, or configure their permissions in advance as shown below.
 
 <!-- package-install:start -->
 
-Requires PHP `>=8.4`.
+Requires PHP `>=8.4` and Composer `^2.8.2`.
+
+For a fresh application or a noninteractive install, apply these project settings first.
 
 ```sh
+composer config minimum-stability 'beta'
+composer config prefer-stable true
+composer config 'allow-plugins.xormania/uxor' true
 composer config 'allow-plugins.symfony/ai-mate-composer-plugin' true
-composer require --dev 'xormania/uxor:^0.3.5' \
-    'symfony/ai-mate:>=1.0.0-BETA1 <1.0.0-BETA2@beta' \
-    'symfony/ai-mate-composer-plugin:>=1.0.0-BETA1 <1.0.0-BETA2@beta' \
-    'symfony/ai-symfony-mate-extension:>=1.0.0-BETA1 <1.0.0-BETA2@beta'
+```
+
+Install the development package.
+
+```sh
+composer require --dev 'xormania/uxor:^0.3.5'
 ```
 
 <!-- package-install:end -->
 
-Commands below assume Composer's default `vendor/bin`. Use your project's configured binary directory if it differs.
+Composer installs Mate with its Symfony and Monolog extensions, the full Symfony debug pack, Maker, the Mago
+PHP SDK and Symfony wiring, and the Symfony UX Toolkit installer with its HTTP client. During installation,
+UXor writes missing project defaults and preserves existing settings. The plugins initialize Mate and discover
+UXor’s tools, references and skills.
+Try a catalog lookup in the application.
+
+```sh
+vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json
+```
+
+The result should include the `kbd` recipe. Use the application's configured binary directory in place of
+`vendor/bin` if it differs. Continue to [use a recipe](#use), or configure additional integrations below.
 
 ## Configure the development environment
 
-In the application's PHP environment, plan setup for the client you use. The commands below use Codex;
-replace `--client=codex` with `--client=claude` for Claude Code. If your PHP process sees `/app` but your
-client runs on the host, add `--host-project-root=/absolute/host/path/to/the/app` to **both** setup commands
-before applying. If you want to save execution permission for later connections, make that choice
-[before creating the binding](#connect-an-agent-client). For CLI-only use, omit the client option.
+To add a Serena client binding, preview the changes and apply them. For Claude Code use `--client=claude`.
+Run `setup` without a client option to inspect the project defaults or restore missing configuration.
 
 ```sh
 vendor/bin/uxor setup --client=codex --format=json
-```
-
-Review the proposed dependencies, files and next steps. In an existing app, keep its own configuration and
-reconcile any differences reported by the plan. Once you authorize Composer scripts and application PHP
-to run for this setup, apply it:
-
-```sh
-vendor/bin/uxor setup --client=codex --apply --install --trust-project-code --format=json
+vendor/bin/uxor setup --client=codex --apply --format=json
 vendor/bin/uxor environment --format=json
 ```
 
-Setup initializes Mate when needed, then asks Composer to install missing development tools, including Symfony’s
-full `symfony/debug-pack`, Maker, the Monolog Mate extension and the Mago SDK and Symfony wiring. It refreshes
-autoload metadata and runs Mate discovery. If Flex unpacks the debug and profiler packs, setup and environment
-inspection recognize their installed components. Repeating setup reuses them.
+When application PHP runs in Docker and the client runs on the host, pass the host checkout's absolute path
+with `--host-project-root` to both setup commands. Review the plan and reconcile any existing application
+settings. To save execution permission for later connections, make that choice
+[before creating the binding](#connect-an-agent-client).
 
-The application controls profiler collection. If it has no profiler policy, start the dev server with
+The application controls profiler collection. If UXor supplied the default policy, start the dev server with
 `PROFILER_COLLECT=1` for a diagnostic run and use the response’s `X-Debug-Token` to find its profile.
 See [custom application integration](OPERATIONS.md#set-up-and-inspect-the-development-environment) for non-Flex
 bundle and route registration, and [diagnose a request](OPERATIONS.md#diagnose-a-request) to inspect a dump or log.
 
 ### Connect an agent client
 
-1. From the same checkout **on the Docker host**, run `vendor/bin/uxor-mago pull`. It prepares both Mago
-   providers from the shipped Linux amd64 build recipes. Check `vendor/bin/uxor-mago version` and `vendor/bin/uxor-mago version serena` there.
+1. Start the client on a Docker host that can access the checkout. The installed launcher acquires the Serena
+   provider on its first use. For native Mago CLI checks in the application, run `vendor/bin/mago --version`.
 2. **In the application PHP environment**, run `vendor/bin/uxor prepare --trust-project-code --format=json`.
    Look for `data.state` of `ready`. This prepares compiled Symfony service bindings for source queries.
    Re-run it after changes to dependencies, service configuration or other preparation inputs.
 3. Review the Serena registration in your selected client. To authorize local PHP for a Serena launch, its
-   arguments need `--trust-project-code` **before** `serena`. The setup command authorized only the install.
+   arguments need `--trust-project-code` **before** `serena`.
    To authorize every future connection at this checkout, including code checked out later, choose
    `--save-project-trust` when planning and applying a **new** binding. Setup preserves existing bindings.
    [Client configuration and execution permissions](OPERATIONS.md#set-up-and-inspect-the-development-environment)
@@ -99,9 +109,9 @@ The result identifies the `kbd` recipe, its dependencies and the Twig to render 
 same job, ask it to add a visible **Ctrl** key to a page you name and verify that page. The agent can use
 the bundled catalog, the application's own instructions and the same verification below.
 
-**Render the key.** In a new application, use the [kit setup checklist](../../INSTALL.md) to install
-Symfony UX Toolkit, configure AssetMapper and TailwindBundle, and install the theme once. For an existing
-app, inspect its setup and local customizations first. Use its chosen kit release for new recipes. [Choosing a revision](../../INSTALL.md#choosing-a-revision) explains how to identify it.
+**Render the key.** The development package supplies Toolkit’s `ux:install` command and the HTTP client it
+uses to fetch kits. Follow the [kit setup checklist](../../INSTALL.md) for the application’s Twig components,
+AssetMapper, TailwindBundle and theme. For an existing app, inspect its setup and local customizations first. Use its chosen kit release for new recipes. [Choosing a revision](../../INSTALL.md#choosing-a-revision) explains how to identify it.
 Use the chosen release in the command below. In a checkout, replace `<version>` with that release.
 Then run the dependency commands that Toolkit prints:
 
@@ -146,14 +156,13 @@ For custom runtimes and manual configuration, see [provider preparation](OPERATI
 
 ## Update an existing installation
 
-Keep the package and its managed skills current using the application's own Composer and Mate commands:
+Update the package in the application:
 
 ```sh
 composer update xormania/uxor
-vendor/bin/mate discover
 ```
 
-Composer updates the helper and its bundled references. Update the application's copied recipes separately
+Composer updates the helper and its bundled references and triggers Mate discovery for its tools and skills. Update the application's copied recipes separately
 using its recorded kit revision and [recipe update procedure](../../docs/GUIDE.md#updating).
 
 ### Upgrade from the old skill names
@@ -170,10 +179,10 @@ UXor 0.3.5 renames the skills. An existing `^0.3` constraint already permits tha
 Use the [current install command](#install-in-a-symfony-application) when upgrading so the application
 admits the required UXor and Mate versions.
 
-Run `vendor/bin/mate discover` after the update. Mate registers the application skills from their configured
+During the update, Mate registers the application skills from their configured
 sources, retires the old generated UXor copies and installs the new ones. Old override sources under `mate/skills/`
 remain in place. To carry forward a build override, run `vendor/bin/mate skills:override uxor-build`, port your
-edits from `mate/skills/build/` into `mate/skills/uxor-build/`, then run `vendor/bin/mate discover` again. Keep
+edits from `mate/skills/build/` into `mate/skills/uxor-build/`, then run `vendor/bin/mate discover` to register your edits. Keep
 `name: uxor-build` in the new skill's front matter. Reapply any disable setting with the new slug, for example
 `vendor/bin/mate skills:disable uxor-build`.
 

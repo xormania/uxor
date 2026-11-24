@@ -35,9 +35,25 @@ class MagoCommandTest(unittest.TestCase):
         docker = self.directory / "docker"
         docker.write_text(f"#!{sys.executable}\n" + """
 import json, os, sys
+from pathlib import Path
 inspect = sys.argv[1:3] == ["image", "inspect"]
 with open(os.environ["DOCKER_CALLS"], "a") as log:
     print(json.dumps({"args": sys.argv[1:], "stdin": "" if inspect else sys.stdin.read()}), file=log)
+state = os.environ.get("DOCKER_IMAGE_STATE")
+if state:
+    cache = Path(state)
+    images = set(cache.read_text().splitlines()) if cache.exists() else set()
+    if inspect and sys.argv[-1] not in images:
+        sys.exit(1)
+    if sys.argv[1] in ("build", "buildx", "pull"):
+        print("preparing image")
+        if os.environ.get("FAIL_PREPARATION"):
+            sys.exit(17)
+        image = sys.argv[-1] if sys.argv[1] == "pull" else sys.argv[sys.argv.index("--tag") + 1]
+        images.add(image)
+        cache.write_text(chr(10).join(sorted(images)))
+    if sys.argv[1] == "run" and not any(image in sys.argv or os.environ["DOCKER_IMAGE_ID"] in sys.argv for image in images):
+        sys.exit(18)
 if inspect:
     print(os.environ.get("DOCKER_IMAGE_ID", "sha256:" + "a" * 64))
     sys.exit(int(os.environ.get("DOCKER_INSPECT_STATUS", "0")))
@@ -189,6 +205,43 @@ sys.exit(23 if sys.argv[1] == os.environ.get("FAIL_STEP") else 0)
         result = self.invoke("version", "serena")
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual(["mago", image, "--version"], self.docker_call()["args"][-3:])
+
+    def test_first_command_prepares_only_its_provider_and_repeated_command_reuses_it(self):
+        message = '{"jsonrpc":"2.0","method":"initialize","id":1}\n'
+        for command, builder in (("lint", "build"), ("serena", "buildx")):
+            with self.subTest(command=command):
+                cache = self.directory / (command + "-images")
+                env = {"DOCKER_IMAGE_STATE": str(cache), "DOCKER_IMAGE_ID": DIGEST}
+                provider = "serena" if command == "serena" else "cli"
+                expected = self.invoke("image", provider).stdout.strip()
+                for cold in (True, False):
+                    result = self.invoke("--trust-project-code", command, stdin=message, **env)
+                    self.assertEqual(0, result.returncode, result.stderr)
+                    calls = [json.loads(line) for line in self.log.read_text().splitlines()]
+                    preparation = [c for c in calls if c["args"][0] in ("build", "buildx", "pull")]
+                    self.assertEqual([builder] if cold else [], [c["args"][0] for c in preparation])
+                    self.assertEqual([expected], cache.read_text().splitlines())
+                    self.assertEqual("run", calls[-1]["args"][0])
+                    self.assert_container(calls[-1]["args"])
+                    self.assertEqual(message, calls[-1]["stdin"])
+                    if command == "serena":
+                        self.assertEqual(["python", "/opt/provider/start.py", "--trust-project-code"], calls[-1]["args"][-3:])
+                        self.assertEqual("", result.stdout, "Provider preparation must leave MCP stdout free for its protocol")
+
+    def test_failed_custom_provider_pull_stops_before_project_execution_and_retries(self):
+        cache = self.directory / "custom-images"
+        env = {"DOCKER_IMAGE_STATE": str(cache), "DOCKER_IMAGE_ID": DIGEST, "UXOR_MAGO_IMAGE": IMAGE}
+        result = self.invoke("--trust-project-code", "analyze", FAIL_PREPARATION="yes", **env)
+        self.assertNotEqual(0, result.returncode)
+        calls = [json.loads(line)["args"] for line in self.log.read_text().splitlines()]
+        self.assertEqual([["pull", IMAGE]], [args for args in calls if args[0] != "image"])
+        self.assertFalse(cache.exists())
+        result = self.invoke("--trust-project-code", "analyze", **env)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual([IMAGE], cache.read_text().splitlines())
+        calls = [json.loads(line)["args"] for line in self.log.read_text().splitlines()]
+        self.assertIn(["pull", IMAGE], calls)
+        self.assertEqual("run", calls[-1][0])
 
     def test_single_checks_use_the_selected_image_and_preserve_native_arguments(self):
         for command in ("format", "lint", "analyze", "guard", "cst", "twig:fmt", "twig:lint"):
@@ -385,7 +438,7 @@ print(hashlib.new("sha" + algorithm, sys.stdin.buffer.read()).hexdigest(), " -")
 
     def test_serena_requires_a_real_prepared_image_identity_before_mounting_the_project(self):
         for environment in [
-            {"DOCKER_INSPECT_STATUS": "1"}, {"DOCKER_IMAGE_ID": ""},
+            {"DOCKER_IMAGE_ID": ""},
             {"DOCKER_IMAGE_ID": "local/tag:latest"}, {"DOCKER_IMAGE_ID": "sha256:" + "z" * 64},
             {"DOCKER_IMAGE_ID": "sha256:" + "a" * 63},
         ]:
