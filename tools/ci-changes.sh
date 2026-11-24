@@ -99,7 +99,7 @@ while IFS= read -r path; do
         # calls pages.yml. audit.yml and codeql.yml run themselves on the pull request that changes them.
         .github/workflows/pages.yml) on static-site runtime-export workflows ;;
         .github/workflows/release.yml) on static-site runtime-export fresh-install workflows ;;
-        .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/actionlint.yaml) on workflows ;;
+        .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/workflows/browser-provider.yml | .github/actionlint.yaml) on workflows ;;
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
         .github/workflows/monthly.yml) on workflows ;;

@@ -1,0 +1,103 @@
+#!/bin/sh
+set -eu
+
+usage() {
+    cat <<'HELP'
+Usage: uxor-browser [--docker] [--output PATH] [--wait-for SELECTOR] [--timeout-ms N] URL
+
+Visit a running HTTP(S) app with headless Chromium. Wait for page load and optionally
+a visible selector. Each wait defaults to 10000 ms. PATH defaults to
+var/uxor/browser-diagnostics.json in the current project.
+
+Print the artifact path on stdout. Exit 0 for a clean visit, 1 for a recorded
+failure and 2 for a command or runtime error. The native runtime uses Node.js
+20+ and npm; --docker selects the packaged browser with its system libraries.
+HELP
+}
+
+fail() {
+    echo "uxor-browser: $*" >&2
+    exit 2
+}
+
+docker=false
+output=var/uxor/browser-diagnostics.json
+selector=''
+timeout=10000
+address=''
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        -h|--help) usage; exit 0 ;;
+        --docker) docker=true ;;
+        --output|--wait-for|--timeout-ms)
+            [ "$#" -ge 2 ] && [ -n "$2" ] || fail "$1 needs a value"
+            case "$1" in
+                --output) output=$2 ;;
+                --wait-for) selector=$2 ;;
+                --timeout-ms) timeout=$2 ;;
+            esac
+            shift ;;
+        -*) fail "Unknown option: $1" ;;
+        *) [ -z "$address" ] || fail 'Supply one URL.'; address=$1 ;;
+    esac
+    shift
+done
+
+case "$address" in http://?*|https://?*) ;; *) fail 'Supply an HTTP or HTTPS URL.' ;; esac
+authority=${address#*://}
+authority=${authority%%[/?#]*}
+case "$authority" in ''|*@*) fail 'Supply a web URL with a host and without embedded credentials.' ;; esac
+case "$timeout" in ''|*[!0-9]*|???????*) fail 'Timeout must be 1–120000 milliseconds.' ;; esac
+[ "$timeout" -ge 1 ] && [ "$timeout" -le 120000 ] || fail 'Timeout must be 1–120000 milliseconds.'
+case "/$output/" in *'/../'*|*'//'*|*\\*|*:*) fail 'Select a project-relative browser-diagnostics.json path.' ;; esac
+[ "${output##*/}" = browser-diagnostics.json ] || fail 'The artifact filename must be browser-diagnostics.json.'
+
+assets=$(CDPATH='' cd -P "$(dirname "$0")/../resources/browser" && pwd) || fail 'Could not find the shipped browser runtime.'
+project=$(pwd -P) || fail 'Could not resolve the current project.'
+directory=$(dirname "./$output")
+ancestor=$directory
+while [ ! -d "$ancestor" ]; do ancestor=$(dirname "$ancestor"); done
+case "$(CDPATH='' cd -P "$ancestor" && pwd)/" in "$project/"*) ;; *) fail 'The artifact must be inside the project.' ;; esac
+mkdir -p "$directory" || fail 'Could not create the artifact directory.'
+[ ! -L "./$output" ] && { [ ! -e "./$output" ] || [ -f "./$output" ]; } || fail 'Select a regular artifact path.'
+artifact=$(mktemp "$directory/.uxor-browser.XXXXXXXX") || fail 'Could not create a temporary artifact.'
+trap 'rm -f "$artifact"' EXIT
+trap 'exit 2' HUP INT TERM
+
+if ! "$docker"; then
+    if ! command -v npm >/dev/null || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 20 ? 1 : 0)' >/dev/null 2>&1; then
+        docker=true
+    fi
+fi
+
+if "$docker"; then
+    command -v docker >/dev/null || fail 'A working Docker CLI or Node.js 20+ with npm is required.'
+    # Changes to a shipped worker or runtime pin select a new tag. Warm runs need no registry or build.
+    hash_input() {
+        if command -v sha256sum >/dev/null; then sha256sum; else shasum -a 256; fi
+    }
+    digest=$(cd "$assets" && cat Dockerfile package.json package-lock.json run.mjs capture.mjs | hash_input) || fail 'Could not identify the packaged browser.'
+    image="uxor-browser:${digest%% *}"
+    if ! docker image inspect "$image" >/dev/null 2>&1; then
+        docker build --tag "$image" "$assets" >&2 || fail 'Could not prepare the packaged browser.'
+    fi
+    status=0
+    # Loopback must reach the host's development server. Other URLs, including Docker Desktop's
+    # host.docker.internal, use normal container DNS/networking.
+    network=bridge
+    case "$authority" in localhost|localhost:*|127.*|'[::1]'|'[::1]:'*) network=host ;; esac
+    docker run --rm --init --network "$network" --shm-size=256m --cap-drop=ALL --security-opt=no-new-privileges \
+        "$image" "$address" "$selector" "$timeout" >"$artifact" || status=$?
+else
+    status=0
+    node "$assets/run.mjs" native "$address" "$selector" "$timeout" >"$artifact" || status=$?
+    if [ "$status" -gt 1 ]; then
+        echo 'Use --docker to run Chromium with the packaged system libraries.' >&2
+    fi
+fi
+
+case "$status" in 0|1) ;; *) exit 2 ;; esac
+[ -s "$artifact" ] || fail 'The browser exited before producing an artifact.'
+mv -f "$artifact" "./$output" || fail 'Could not replace the requested artifact.'
+printf '%s\n' "$output"
+exit "$status"

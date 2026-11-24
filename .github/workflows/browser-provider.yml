@@ -1,0 +1,45 @@
+name: Browser provider
+
+on:
+    pull_request:
+        paths: &provider_paths
+            - packages/uxor/bin/uxor-browser
+            - packages/uxor/resources/browser/**
+            - packages/uxor/src/BrowserDiagnostics.php
+            - packages/uxor/dev/check-headless.py
+            - packages/uxor/dev/run.py
+            - packages/uxor/dev/app/composer.json
+            - packages/uxor/dev/app/composer.lock
+            - composer.json
+            - composer.lock
+            - .github/workflows/browser-provider.yml
+    push:
+        branches: [dev, main]
+        paths: *provider_paths
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    chromium:
+        name: Packaged Chromium on Docker
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: '8.4'
+                  extensions: intl, mbstring, pdo_sqlite, zip
+                  tools: composer:v2
+                  coverage: none
+
+            - name: Install the package in its locked consumer
+              run: python3 packages/uxor/dev/run.py --native prepare --no-assets
+
+            - name: Check plain HTTP pages through the installed container launcher, CLI and Mate
+              run: python3 packages/uxor/dev/check-headless.py --docker packages/uxor/dev/app
