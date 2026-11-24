@@ -53,7 +53,7 @@ env:
     # takes the newest version the demo runs, read at run time; the fresh installs use this one.
     UX_TOOLKIT_MINIMUM_VERSION: '3.5.1'
     # The browser tests (docs/TESTING.md, *Browsers*): Chromium in CHROMIUM_SHARDS shards on every push that selects them;
-    # Firefox and WebKit, three shards each, as ENGINES_ON says. `daily` (the trial): on dev's daily run when dev changed
+    # Firefox and WebKit, three shards each (four in a dedicated run), as ENGINES_ON says. `daily`: on dev when it changed
     # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
     # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
     # result. `every-push`: on every push, as before the trial. This line is the one switch back.
@@ -374,7 +374,8 @@ jobs:
     quick:
         name: Quick checks
         needs: changes
-        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+        # The dedicated engine dispatch publishes its own verdict. The push or full run still owns Tool tests.
+        if: github.event_name != 'schedule' && !inputs.engines_only && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 15 # the three checks' 5, 10 and 5 in a row, plus 3 for the advisory Jev steps
         env:

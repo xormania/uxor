@@ -20,7 +20,7 @@
  *   require --lane <reusable lane> --repo <o/r> --sha <sha> [--chromium-shards <n>]   (exit 0: a pass that verifies; 1: none)
  *
  * One CI matrix runs Toolkit Chromium (`demo`, CHROMIUM_SHARDS jobs), the example app's Chromium project
- * (`demo-app`, one job), and both suites in Firefox and WebKit (`engines`, three shards per engine).
+ * (`demo-app`, one job), and both suites in Firefox and WebKit (`engines`, three shards per engine or four on its dedicated dispatch).
  * With ENGINES_ON=daily the engines run
  * on dev's daily run (unless they already passed on its inputs), on main, when a manual run asks for them, and when the
  * release pull request's Release checks finds no pass for its head and starts one; on any other push they are deferred
@@ -54,7 +54,7 @@ const DEMO_APP_BROWSER = { name: `${DEMO_APP_BROWSER_JOB} (chromium 1/1)`, count
 export const REUSABLE = {
     php: { name: 'Kit PHP', count: 1 },
     demo: { prefix: `${TOOLKIT_BROWSER_JOB} (chromium `, count: null }, // CHROMIUM_SHARDS
-    engines: { prefixes: [`${CROSS_BROWSER_JOB} (firefox `, `${CROSS_BROWSER_JOB} (webkit `], count: 6 },
+    engines: { prefixes: [`${CROSS_BROWSER_JOB} (firefox `, `${CROSS_BROWSER_JOB} (webkit `] },
     'prod-image': { name: 'Production image', count: 1 },
     // the lanes that resolve dependencies live (MAX_AGE_HOURS: a day)
     'fresh-install': { names: ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'], count: 2 },
@@ -67,6 +67,8 @@ const BROWSER_LANES = ['demo', 'engines'];
 const BROWSER_MATRIX_LANES = [...BROWSER_LANES, 'demo-app'];
 const ENGINE_BROWSERS = ['firefox', 'webkit'];
 const ENGINE_SHARDS = 3;
+const ENGINE_DISPATCH_SHARDS = 4;
+const ENGINE_DISPATCH_TITLE = 'CI: Firefox and WebKit only';
 const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines";
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
@@ -348,7 +350,22 @@ export function laneJobs(lane, jobs) {
 }
 
 /** how many jobs a full pass of the lane has */
-const expected = (lane, chromiumShards) => (lane === 'demo' ? chromiumShards : (REUSABLE[lane] ?? DEMO_APP_BROWSER).count);
+function expected(lane, chromiumShards, enginesOnly) {
+    if (lane === 'demo') return chromiumShards;
+    if (lane === 'engines') return ENGINE_BROWSERS.length * (enginesOnly ? ENGINE_DISPATCH_SHARDS : ENGINE_SHARDS);
+    return (REUSABLE[lane] ?? DEMO_APP_BROWSER).count;
+}
+
+const isEngineDispatch = (run) => run.event === 'workflow_dispatch' && run.display_title === ENGINE_DISPATCH_TITLE;
+
+function completeJobSet(lane, jobs, count) {
+    if (jobs.length !== count) return false;
+    if (lane !== 'engines') return true;
+    const shards = count / ENGINE_BROWSERS.length;
+    const names = new Set(jobs.map((job) => job.name));
+    return ENGINE_BROWSERS.every((browser) => Array.from({ length: shards }, (_, i) =>
+        `${CROSS_BROWSER_JOB} (${browser} ${i + 1}/${shards})`).every((name) => names.has(name)));
+}
 
 function chromiumShards(value) {
     const shards = value === undefined ? DEFAULT_CHROMIUM_SHARDS : Number(value);
@@ -439,10 +456,12 @@ function runJobs(client, ctx, run) {
 
 function producerJobs(client, ctx, lane, run) {
     const mine = laneJobs(lane, runJobs(client, ctx, run));
-    const count = expected(lane, ctx.chromiumShards);
+    const count = expected(lane, ctx.chromiumShards, isEngineDispatch(run));
+    const complete = completeJobSet(lane, mine, count);
     const bad = mine.filter((job) => job.conclusion !== 'success');
-    if (mine.length !== count || bad.length) {
-        throw new Refused('jobs_incomplete', `run ${run.id}: ${mine.length} of ${count} ${lane} jobs${bad.length ? `, ${bad.map((job) => `${job.name} ${job.conclusion}`).join(', ')}` : ''}`);
+    if (!complete || bad.length) {
+        const identities = mine.length === count && !complete ? ', wrong shard identities' : '';
+        throw new Refused('jobs_incomplete', `run ${run.id}: ${mine.length} of ${count} ${lane} jobs${identities}${bad.length ? `, ${bad.map((job) => `${job.name} ${job.conclusion}`).join(', ')}` : ''}`);
     }
     return mine;
 }
@@ -626,7 +645,7 @@ async function planCommand(opts) {
     const lanes = {};
     for (const lane of LANES) {
         const entry = { selected: selected[lane] ?? true, decision: 'run', fingerprint: own?.[lane] ?? null, reason: '', detail: '', evidence: null };
-        if (REUSABLE[lane] || lane === 'demo-app') entry.jobs_expected = expected(lane, ctx.chromiumShards);
+        if (REUSABLE[lane] || lane === 'demo-app') entry.jobs_expected = expected(lane, ctx.chromiumShards, event === 'engines');
         lanes[lane] = entry;
         if (!entry.selected) Object.assign(entry, { decision: 'skip', reason: 'not_selected', detail: 'the change cannot affect it' });
         else if (!REUSABLE[lane]) Object.assign(entry, { reason: 'not_reusable', detail: 'it always runs when selected' });
@@ -664,10 +683,11 @@ async function planCommand(opts) {
         });
     }
     if (lanes.engines.decision === 'run') {
+        const shards = event === 'engines' ? ENGINE_DISPATCH_SHARDS : ENGINE_SHARDS;
         for (const browser of ENGINE_BROWSERS) {
-            for (let shard = 1; shard <= ENGINE_SHARDS; shard++) {
+            for (let shard = 1; shard <= shards; shard++) {
                 include.push({
-                    suite: CROSS_BROWSER_JOB, browser, 'artifact-browser': browser, shard, shards: ENGINE_SHARDS,
+                    suite: CROSS_BROWSER_JOB, browser, 'artifact-browser': browser, shard, shards,
                     projects: `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`,
                 });
             }
@@ -758,7 +778,7 @@ function engineDispatch(client, ctx, opts, head) {
     const requested = Number(opts['run-id']);
     const matches = (run) => isObject(run) && Number.isSafeInteger(run.id) && (!requested || run.id === requested)
         && run.head_sha === head && run.head_branch === opts.branch && run.path === WORKFLOW
-        && run.event === 'workflow_dispatch' && run.display_title === 'CI: Firefox and WebKit only'
+        && isEngineDispatch(run)
         && run.repository?.full_name === ctx.repo && run.head_repository?.full_name === ctx.repo;
     if (requested) {
         const run = client.object(`${root}/runs/${requested}`);
@@ -809,7 +829,7 @@ function waitForEngines(opts, head, out) {
             if (run?.status === 'completed' && run.conclusion && run.conclusion !== 'success') {
                 const jobs = laneJobs('engines', runJobs(client, ctx, run));
                 // Another lane can fail the workflow even when engines passed and recorded a marker that is not visible yet.
-                if (jobs.length !== expected('engines', ctx.chromiumShards) || jobs.some((job) => job.conclusion !== 'success')) {
+                if (!completeJobSet('engines', jobs, expected('engines', ctx.chromiumShards, true)) || jobs.some((job) => job.conclusion !== 'success')) {
                     const failed = jobs.some((job) => Array.isArray(job.steps) && job.steps.some((step) => String(step?.name).startsWith(TESTS_STEP)
                         && ['failure', 'timed_out'].includes(step.conclusion)));
                     const url = `https://github.com/${opts.repo}/actions/runs/${run.id}`;
@@ -894,8 +914,8 @@ function recordCommand(opts) {
             console.log(`${lane}: its jobs ran in an earlier attempt, which recorded them`);
             continue;
         }
-        const count = entry.jobs_expected ?? expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS);
-        const passed = mine.length === count && mine.every((job) => job.conclusion === 'success');
+        const count = expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS, plan.event === 'engines');
+        const passed = completeJobSet(lane, mine, count) && mine.every((job) => job.conclusion === 'success');
         // a browser shard that failed before its tests is incomplete, not a failure of these inputs
         const failed = BROWSER_LANES.includes(lane)
             ? mine.some(testsFailed)
@@ -1022,10 +1042,13 @@ function verdictCommand(opts) {
                 continue;
             }
             const mine = laneJobs(lane, jobs).filter((job) => job.conclusion !== 'skipped');
+            const count = expected(lane, ctx.chromiumShards, plan.event === 'engines');
             ran = mine.length > 0;
-            passed = ran && mine.length === (entry?.jobs_expected ?? expected(lane, ctx.chromiumShards)) && mine.every((job) => job.conclusion === 'success');
+            passed = ran && completeJobSet(lane, mine, count) && mine.every((job) => job.conclusion === 'success');
             results = mine.length ? [...new Set(mine.map((job) => job.conclusion ?? job.status))] : ['skipped'];
-            if (ran && !passed && mine.every((job) => job.conclusion === 'success')) results = [`${mine.length} of ${entry?.jobs_expected} jobs`];
+            if (ran && !passed && mine.every((job) => job.conclusion === 'success')) {
+                results = [mine.length === count ? 'wrong shard identities' : `${mine.length} of ${count} jobs`];
+            }
         } else {
             results = (NEEDS[lane] ?? [lane]).map(result);
             ran = !results.every((value) => value === 'skipped');

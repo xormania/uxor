@@ -1472,7 +1472,8 @@ stylesheet, specs, or layout screenshots selects only that browser job. Website 
 The example app and Toolkit fixture styles compile independently. Pages load the stylesheet for their surface.
 Changes to shared runtime inputs, such as installed recipes, the compiler pin, or shared Twig fragments, select
 both browser suites.
-*Cross-browser verification* runs both suites in three shards each on Firefox and WebKit.
+*Cross-browser verification* runs both suites in three shards each on Firefox and WebKit. The dedicated `engines_only`
+dispatch uses four shards per engine for the same full suites. The pass requires every shard of the producer's matrix.
 Each job starts the browser server itself (*Start the browser server*, the pinned image on the runner's network, failing at
 once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the
 browser reaches `https://localhost` itself. Without it (a local run, the default), `playwright.config.ts` has the
@@ -1495,7 +1496,8 @@ the browser tests. Firefox and WebKit run:
   requires verified engine evidence on the head.
 
 An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
-push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
+push's run or is cancelled by one. Its verdict covers the browser jobs and their setup. The accompanying push or full
+run covers Quick checks. The dedicated run and the daily run publish their verdict as *CI result (engines only)* and *CI
 result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
 partial run can never stand in for a red full one on the same commit.
 
