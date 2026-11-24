@@ -1249,7 +1249,7 @@ jobs:
     # the development harness of packages/uxor/dev/, that archive installed and updated in the independent consumer
     # (check-package.py --consumer), the package's executable, and the locked consumer's customer workflow with recipes
     # installed from this commit. It runs on the package's minimum PHP (composer.json: php >=8.4), pinned here so a
-    # later bump of PHP_VERSION does not stop checking the minimum. Development images checks Docker and Serena.
+    # later bump of PHP_VERSION does not stop checking the minimum. Development images checks the Docker stack.
     package:
         name: Package
         needs: changes

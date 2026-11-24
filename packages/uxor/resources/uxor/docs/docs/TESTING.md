@@ -1274,13 +1274,13 @@ The package is also tested from the side of an application that uses it, in `pac
 dependency in a copy of the independent consumer (`packages/uxor/dev/app`): Mate's initialization and discovery, the
 package's tools, references and skills, a repeated initialization, an update to a newer archive that keeps the
 consumer's own instructions and a custom component, then a production render without development dependencies. The
-Python tests in `packages/uxor/dev/tests/` check the development runner and the Serena harness against a mocked
-provider: that the repository, package and application roots agree, and that a wrong binding is never reported as
-success. *Package* runs both. The [fixture checks](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/dev/README.md#checks) describe the locked
+Python tests in `packages/uxor/dev/tests/` check the development runner and the Mago and Serena providers without a
+real Docker engine: that the repository, package and application roots agree, and that a stale build or a failed
+health check is never reported as ready. *Package* runs both. The [fixture checks](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/dev/README.md#checks) describe the locked
 Chromium journey and production `/customers` check with recipes installed from the tested revision, and record
 which checks run in CI.
-[*Development images*](https://github.com/xormania/uxor/blob/0.3.5/.github/workflows/development-images.yml) checks Docker and Serena on matching pushes
-and manual runs.
+[*Development images*](https://github.com/xormania/uxor/blob/0.3.5/.github/workflows/development-images.yml) checks the consumer's Docker stack on matching
+pushes and manual runs.
 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
@@ -1322,7 +1322,6 @@ The dependency-advisory workflow (`.github/workflows/audit.yml`) checks each npm
 |---|---|
 | Repository browser tests | `package-lock.json` |
 | Consumer browser checks | `packages/uxor/dev/package-lock.json` |
-| Serena TypeScript navigation | `packages/uxor/dev/images/serena/package-lock.json` |
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |

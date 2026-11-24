@@ -20,7 +20,7 @@ permissions:
 
 jobs:
     consumer:
-        name: Symfony consumer and Serena
+        name: Symfony consumer
         runs-on: ubuntu-latest
         timeout-minutes: 30
         steps:
@@ -35,11 +35,6 @@ jobs:
               run: |
                   python3 packages/uxor/dev/run.py status
                   python3 packages/uxor/dev/run.py check
-
-            - name: Exercise Serena with the installed package
-              run: |
-                  python3 packages/uxor/dev/run.py serena --prepare
-                  python3 packages/uxor/dev/check-serena.py --package
 
             - name: Stop the consumer
               if: always()

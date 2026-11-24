@@ -33,7 +33,7 @@ and Symfony UX Toolkit 3.8.0. It requires PHP 8.4 or later (`config.platform.php
 environment runs PHP 8.5. CI's *Fresh install* job exercises the kit on Symfony 7.4 with Toolkit 3.5.1.
 
 The runner, `run.py`, receives the three roots from its own location: the repository root is what Docker mounts at
-`/workspace` and what Serena binds; commands run in `/workspace/packages/uxor/dev/app`.
+`/workspace`; commands run in `/workspace/packages/uxor/dev/app`.
 
 ## Native development
 
@@ -145,9 +145,9 @@ same inputs when you need another live observation. The agent session stays open
 
 ## Docker development
 
-The Docker runner uses Python, Git and Docker with Compose v2. UXor builds the PHP and editor images locally
-from [the FrankenPHP recipe](images/php/Dockerfile) and [the Serena recipe](images/serena/Dockerfile). Preparing a new environment downloads the pinned upstream inputs and the
-application's Composer dependencies.
+The Docker runner uses Python, Git and Docker with Compose v2. UXor builds the PHP image locally from
+[the FrankenPHP recipe](images/php/Dockerfile). Preparing a new environment downloads the pinned upstream inputs and
+the application's Composer dependencies.
 
 ```sh
 python3 packages/uxor/dev/run.py up
@@ -252,52 +252,17 @@ php packages/uxor/dev/app/bin/console cache:clear --env=prod --no-debug --no-int
 php packages/uxor/dev/check-workflow-runtime.php
 ```
 
-## Serena v2 REPL
-
-Prepare the provider once, then register the stdio command in the agent's MCP configuration:
-
-```sh
-python3 packages/uxor/dev/run.py serena --prepare
-python3 /absolute/path/to/uxor/packages/uxor/dev/run.py serena --write
-```
-
-Omit `--write` to inspect only. Starting MCP pulls no image. Each worktree has its own index and project binding:
-Serena can read the entire checkout, including ignored files. With `--write` it can edit the entire checkout.
-PHPactor indexes PHP, and the optional editor image supplies Node.js for TypeScript and JavaScript navigation.
-The kit, package and consumer share one project, and the consumer is at
-`packages/uxor/dev/app`. Install the dependencies before indexing.
-
-`python3 packages/uxor/dev/check-serena.py` collects real provider evidence after `prepare`: PHP symbol lookup,
-variables kept across cells, an edit that remains after a deliberately failed cell, and a reconnect that drops the
-REPL's variables and keeps the edit. It edits only a uniquely named temporary probe, closes both sessions and removes
-the probe; a per-worktree lock serializes runs. The receipt is `.state/serena-evidence.json` in this directory, and it
-names the bound application. `--package` adds the installed package's CLI and Mate tools, an inspection of the bound
-application and a targeted recovery of a customized probe, in the same session. The mocked harness tests do not
-establish any of this.
-
-Start a session with `initial_instructions`, use its session ID in every `serena_repl` call, and look up the current
-operations before calling them:
-
-```python
-s.info('lsp.find_symbol', 'lsp.find_referencing_symbols')
-s.lsp.find_symbol('DevelopmentController', relative_path='packages/uxor/dev/app/src/Controller/DevelopmentController.php')
-```
-
-A failed or interrupted cell may already have changed files: inspect the error and the source before retrying.
-Nothing is replayed after a reconnect. PHPactor finds explicit PHP symbols and references; Twig, service names and
-Stimulus names need a text search too, so an empty references result does not prove code unused.
-
 ## Checks
 
 | Check | Command | In CI |
 |---|---|---|
-| The runner and Serena harness, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
+| The runner and harness helpers, without Docker or PHP | `python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'` | *Package* |
 | Install, update and remove the archive with Composer, use its Mate tools and skills and render the customized Kbd recipe across dev and production installs. | [Live Composer lifecycle in tmux](#live-composer-lifecycle-in-tmux) or `python3 packages/uxor/tools/check-package.py --consumer` | *Package* through tmux |
 | Observe a quiet command from a live terminal and match its operation ID to the final timeline. | [Run the local observer](#observe-a-real-run-from-a-local-agent-session). For controller and journal cases, run `UXOR_TEST_TMUX=1 python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_lifecycle_*.py'`. | *Package* exercises real attach/detach and observes the focused release upgrade. |
 | The consumer's container, Twig and Mate | `python3 packages/uxor/dev/run.py --native check` | not yet |
 | The customer workflow in a browser, then without development dependencies | `bash packages/uxor/dev/check-workflow.sh` after the [browser setup](#the-customer-workflow) | *Package* |
 | The installed Mago launcher and its real language server, including empty scopes, a clean application, a type error and a symbol lookup | Prepare both providers in the [package README](../README.md#optional-php-checks-and-serena-with-mago), then run `uv run --script packages/uxor/dev/check-mago.py` from the repository root | *Mago providers* |
-| The Docker stack and the editable Serena session | `run.py up`, `status`, `check`, `run.py serena --prepare`, then `check-serena.py --package` | *Development images* |
+| The Docker stack | `run.py up`, `status` and `check` | *Development images* |
 
 `check` lints the container and the Twig templates, lists Mate's tools and asks Mate about the compiled controller
 service; `status` gets a real health response. Neither one replaces the browser journey or the archive install.
