@@ -1,0 +1,22 @@
+{
+    "composer": {
+        "file": "packages/uxor/README.md",
+        "title": "Set up UXor with Composer",
+        "description": "Install the development package, connect your coding agent and render your first UXor recipe in a Symfony application."
+    },
+    "advanced": {
+        "file": "packages/uxor/OPERATIONS.md",
+        "title": "Advanced UXor setup and operations",
+        "description": "Customize development tools, use Toolkit directly, inspect Symfony wiring and diagnose an application request."
+    },
+    "install": {
+        "file": "INSTALL.md",
+        "title": "Getting started",
+        "description": "Set a Symfony project up for the UXor kit: requirements, Tailwind CSS and Flowbite CSS, the theme, then installing recipes with ux:install."
+    },
+    "guide": {
+        "file": "docs/GUIDE.md",
+        "title": "Guide",
+        "description": "Installing and updating the UXor kit's recipes, using them with Turbo and Live Components, security, and versioning."
+    }
+}

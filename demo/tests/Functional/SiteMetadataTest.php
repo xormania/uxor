@@ -39,7 +39,7 @@ final class SiteMetadataTest extends WebTestCase
     public function testEachPublicPageNamesItsCanonicalUrlAndDescribesItself(): void
     {
         $descriptions = [];
-        foreach (['/' => '/', '/install' => '/install/', '/guide' => '/guide/', '/r/button' => '/r/button/', '/r/data-table' => '/r/data-table/'] as $path => $canonical) {
+        foreach (['/' => '/', '/install' => '/install/', '/guide' => '/guide/', '/composer' => '/composer/', '/advanced' => '/advanced/', '/r/button' => '/r/button/', '/r/data-table' => '/r/data-table/'] as $path => $canonical) {
             $html = self::get($path);
             self::assertSame(1, substr_count($html, 'rel="canonical"'), $path);
             self::assertStringContainsString(\sprintf('<link rel="canonical" href="%s%s">', self::SITE, $canonical), $html);
@@ -75,11 +75,11 @@ final class SiteMetadataTest extends WebTestCase
             $locs[] = (string) $url->loc;
         }
 
-        $expected = [self::SITE.'/', self::SITE.'/install/', self::SITE.'/guide/'];
+        $expected = [self::SITE.'/', self::SITE.'/install/', self::SITE.'/guide/', self::SITE.'/composer/', self::SITE.'/advanced/'];
         foreach (array_keys(static::getContainer()->get(KitReader::class)->getRecipes()) as $recipe) {
             $expected[] = self::SITE.'/r/'.$recipe.'/';
         }
-        self::assertSame($expected, $locs, 'the index, the guides and every recipe page; no preview, demo page or Markdown copy');
+        self::assertEqualsCanonicalizing($expected, $locs, 'the index, the guides and every recipe page; no preview, demo page or Markdown copy');
     }
 
     public function testTheSitesLlmsTxtPointsAtTheMarkdownItRenders(): void
@@ -92,7 +92,9 @@ final class SiteMetadataTest extends WebTestCase
         }
         self::assertStringContainsString('(https://xormania.github.io/uxor/r/button.md)', $llms);
         self::assertStringContainsString('(https://xormania.github.io/uxor/install.md)', $llms);
-        self::assertStringContainsString('(https://xormania.github.io/uxor/guide.md)', $llms);
+        foreach (['guide', 'composer', 'advanced'] as $slug) {
+            self::assertSame(1, substr_count($llms, '('.self::SITE.'/'.$slug.'.md)'), $slug);
+        }
 
         // every Markdown it links is one the site answers: a guide's or an existing recipe's (RecipePageTest and
         // GuidePageTest request them)
@@ -100,7 +102,7 @@ final class SiteMetadataTest extends WebTestCase
         self::assertGreaterThanOrEqual(66, \count($paths[1]));
         $recipes = static::getContainer()->get(KitReader::class)->getRecipes();
         foreach (array_unique($paths[1]) as $path) {
-            self::assertTrue(\in_array($path, ['/install.md', '/guide.md'], true) || (preg_match('#^/r/([a-z0-9-]+)\.md$#', $path, $recipe) && isset($recipes[$recipe[1]])), $path);
+            self::assertTrue(\in_array($path, ['/install.md', '/guide.md', '/composer.md', '/advanced.md'], true) || (preg_match('#^/r/([a-z0-9-]+)\.md$#', $path, $recipe) && isset($recipes[$recipe[1]])), $path);
         }
     }
 

@@ -90,12 +90,12 @@ const lines = [
     '',
     '## Start here',
     '',
-    `- [For agents](${raw}/FOR-AGENTS.md): using UXor in your Symfony application: setup, recipe selection and optional development tools`,
+    ...Object.values(JSON.parse(read('packages/uxor/resources/guides.json')))
+        .map(({ title, file, description }) => `- [${title}](${raw}/${file}): ${description}`),
+    `- [For agents](${raw}/FOR-AGENTS.md): use UXor in the selected Symfony application`,
     `- [Project agents snippet](${raw}/docs/PROJECT-AGENTS-SNIPPET.md): optional application guidance when existing project or package-managed instructions need a short UXor entry`,
-    `- [Install](${raw}/INSTALL.md): install the kit in a Symfony application`,
     `- [README](${raw}/README.md): what the kit is, how to install it, requirements`,
     `- [Recipes](${raw}/docs/RECIPES.md): every recipe, one line each`,
-    `- [Guide](${raw}/docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning`,
     `- [Application testing](${raw}/docs/APPLICATION-TESTING.md): verify your application's integration and user journeys using its own runtime and tests`,
     '',
 ];

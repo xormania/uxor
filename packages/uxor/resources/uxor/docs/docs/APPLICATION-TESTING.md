@@ -15,7 +15,7 @@ as unknown.
 
 Use [installation guidance](../INSTALL.md) for missing setup and the [usage guide](GUIDE.md) for component,
 Turbo, Live Component and security contracts. When using the Composer package, select the application explicitly
-when crossing projects or worktrees; [package operations](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md) describes root binding.
+when crossing projects or worktrees; [package operations](../packages/uxor/OPERATIONS.md) describes root binding.
 
 ## Verify integration
 
@@ -53,7 +53,7 @@ read its artifact through `uxor_browser_diagnostics` or the standalone CLI and o
 in the Mate environment that served the request. Inspect the installed tool's inputs before calling it.
 A missing recorder, trace or Symfony response token is a missing evidence source, not a passing result.
 
-[Browser diagnostics](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md#browser-diagnostics) explains the opt-in Playwright fixture,
+[Browser diagnostics](../packages/uxor/OPERATIONS.md#browser-diagnostics) explains the opt-in Playwright fixture,
 artifact paths and fallback when no profile is available. Installing the helper package does not create a browser
 suite or require the application's asset pipeline to use Node.js.
 

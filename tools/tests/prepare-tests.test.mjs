@@ -175,6 +175,7 @@ test('the Tailwind sources and the CSS build record agree on rendered and reposi
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig'];
     const omitted = ['README.md', 'docs/README.md', 'docs/templates/snippet.html.twig', 'docs/subdir/review.md',
         'docs/PLAN-composer-package.md', '.github/workflows/release.yml', 'tests/e2e/shared.spec.ts',
+        'packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json',
         'composer.json', 'composer.lock', 'packages/uxor/dev/app/templates/widget.html.twig', 'tools/README.md',
         'node_modules/unrelated/templates/widget.html.twig', 'demo/assets/vendor/unrelated/data.json',
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/unrelated.html.twig',
