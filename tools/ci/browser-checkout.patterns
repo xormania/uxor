@@ -39,6 +39,8 @@
 # The classifier and its cases are CI control inputs.
 !/tools/contrast
 !/tools/monthly
+!/tools/ci/images/
+!/tools/ci/image-refresh*
 !/tools/tests/*
 /tools/tests/.gitattributes
 /tools/tests/ci-changes.sh

@@ -1,0 +1,18 @@
+{
+    "php": "8.4",
+    "test": [
+        "INSTALL.md",
+        "docs/AGENT-ONBOARDING.md",
+        "docs/APPLICATION-TESTING.md",
+        "docs/COMPOSER-CONFIGURATION.md",
+        "docs/GUIDE.md",
+        "llms.txt",
+        "manifest.json",
+        "packages/uxor/OPERATIONS.md",
+        "packages/uxor/README.md",
+        "packages/uxor/resources/guides.json",
+        "tools/kit/",
+        "website/",
+        "@recipe-payload"
+    ]
+}

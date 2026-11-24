@@ -1,0 +1,20 @@
+{
+    "php": "8.4",
+    "test": [
+        ".gitattributes",
+        "INSTALL.md",
+        "LICENSE",
+        "NOTICE",
+        "README.md",
+        "icon.svg",
+        "kit.css",
+        "kit.js",
+        "manifest.json",
+        "@recipes",
+        "tools/tests/check-fresh-app.sh",
+        "tools/tests/fixtures/fresh-app/",
+        "tools/tests/fresh-install.sh",
+        "tools/tests/install-scenario.sh",
+        "tools/tests/live-action.php"
+    ]
+}

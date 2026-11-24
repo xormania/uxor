@@ -470,6 +470,27 @@ The [website](#docs) lists each recipe's examples at `/r/<recipe>/`. The Symfony
 previews at `/preview/<recipe>/<example>?theme=light` or `?theme=dark`. The example ID comes from the
 preceding heading, with `default` under the recipe title and `-2`, `-3` and so on for repeated headings.
 
+### CI images and caches
+
+The [Images workflow](.github/workflows/images.yml) builds the example app, Toolkit, Composer Dev Package and
+docs image targets with one builder. Each target under `tools/ci/images/` has a Dockerfile, a list of test
+inputs and its own verification script. The builder stages a separate context for each image and a separate
+checkout for its tests. Shared PHP foundations are selected by version. The docs checkout contains only the
+website and the release material it reads. The demo uses the Toolkit's public recipe payload.
+
+The work summaries record build and test times, cache information and image digests. Publication requires a
+green CI push on protected `main` and passes the image's own tests before the digest is published. A periodic
+cold build refreshes the packages inside the images even when the pinned base digest stays the same. Use the
+digest recorded by the publishing run when consuming an image in another workflow.
+
+The [Refresh images workflow](.github/workflows/refresh-images.yml) checks upstream inputs daily. It proposes
+source pin updates through ordinary PR checks. Set the repository variable `UXOR_IMAGE_REFRESH_APP_CLIENT_ID`
+to the client ID of an App installed only for this repository with Contents and Pull requests write access.
+Put `UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY` in the `image-refresh` environment and restrict deployment branches
+for that environment to `main`. Without the App configuration the workflow reports available changes.
+Dependabot's regular version checks have a later weekly slot. GitHub runs the schedules after the workflows
+are on the default branch.
+
 ## Conventions
 
 - **Behavior in Stimulus only.** No `import 'flowbite'` and no `initFlowbite()`. A controller's `connect()` must work

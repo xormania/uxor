@@ -70,14 +70,25 @@ const jobWrites = {
     'audit.yml': { start: ['actions'] },
     'ci.yml': { cache: ['packages'], start: ['actions'], 'engines-issue': ['issues'] },
     'codeql.yml': { analyze: ['security-events'] },
+    'images.yml': { publish: ['packages'] },
     'monthly.yml': { start: ['actions'] },
     'pages.yml': { deploy: ['pages', 'id-token'] },
     'release.yml': { release: ['contents'], pages: ['pages', 'id-token'] },
     'release-checks.yml': { issue: ['issues'], start: ['actions'], 'start-engines': ['actions'] },
 };
 
-// The independent trusted diagnosis workflow alone reads secrets. Producers collect data without credentials.
+// Diagnosis reads its own secrets. For image refresh, only the App token action receives the App private key.
 const secretReader = 'jev.yml';
+
+function imageRefreshKeyInput(lines, index) {
+    if (!/^\s+private-key:\s*\$\{\{\s*secrets\.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY\s*\}\}\s*$/.test(lines[index])) return false;
+    const before = lines.slice(0, index);
+    const parent = before.findLastIndex((line) => line.trim() && !line.trimStart().startsWith('#') && indentOf(line) < indentOf(lines[index]));
+    if (parent < 1 || !/^\s+with:\s*$/.test(lines[parent])) return false;
+    const action = before[parent - 1];
+    return indentOf(action) === indentOf(lines[parent])
+        && /^\s+uses:\s*actions\/create-github-app-token@[a-f0-9]{40}(?:\s+#.*)?\s*$/.test(action);
+}
 
 // Read context references as expression tokens, not as spellings inside arbitrary text. Dotted and indexed access
 // have the same trust boundary; quoted literals, nested function calls and whitespace do not change that boundary.
@@ -238,7 +249,7 @@ export function workflowProblems(file, source) {
     return problems;
 }
 
-// Checkouts that keep no token, write permissions only where jobWrites allows, secrets read only by the Jev workflow,
+// Checkouts that keep no token, write permissions only where jobWrites allows, scoped secret reads,
 // and no untrusted expression inside a `run:` script.
 function credentialProblems(file, lines) {
     const problems = [];
@@ -303,8 +314,9 @@ function credentialProblems(file, lines) {
         if (/\bsecrets:\s*inherit\b/.test(content)) {
             problems.push(`${file}:${index + 1}: secrets: inherit hands every secret on; name the one the workflow needs`);
         }
-        if (secretLines.has(index) && name !== secretReader) {
-            problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; producers collect diagnosis inputs without credentials`);
+        const imageRefreshKey = file === '.github/workflows/refresh-images.yml' && job === 'propose' && imageRefreshKeyInput(lines, index);
+        if (secretLines.has(index) && name !== secretReader && !imageRefreshKey) {
+            problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader} or the image refresh App token input`);
         }
 
         const run = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);

@@ -1,0 +1,20 @@
+{
+  "php": "8.4",
+  "test": [
+    "CHANGELOG.md",
+    "composer.json",
+    "composer.lock",
+    "docs/COMPOSER-CONFIGURATION.md",
+    "packages/uxor/INSTRUCTIONS.md",
+    "packages/uxor/OPERATIONS.md",
+    "packages/uxor/README.md",
+    "packages/uxor/bin/",
+    "packages/uxor/config/",
+    "packages/uxor/phpunit.xml.dist",
+    "packages/uxor/resources/",
+    "packages/uxor/skills/",
+    "packages/uxor/src/",
+    "packages/uxor/tests/",
+    "packages/uxor/tools/"
+  ]
+}
