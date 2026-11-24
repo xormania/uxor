@@ -3,7 +3,7 @@
 // Run: node --test tools/tests/release-checks-workflow.test.mjs
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -235,6 +235,29 @@ test('the verdict and the daily issue wait for the production image and read its
     }
 });
 
+test('the release image has a direct build fallback unless a same-repository pull request produces verified evidence', (t) => {
+    const fx = scratch(t);
+    const image = steps('prod-image');
+    const reuse = image.find((step) => step.id === 'reuse');
+    const docker = image.filter((step) => /docker\/setup-buildx-action/.test(step.uses ?? '') || ['build', 'prod-image'].includes(step.id));
+    assert.equal(docker.length, 3);
+    assert.ok(holds(reuse.if, { github: { event_name: 'pull_request', repository: 'example/repo', event: { pull_request: { head: { repo: { full_name: 'example/repo' } } } } } }));
+    assert.equal(holds(reuse.if, { github: { event_name: 'pull_request', repository: 'example/repo', event: { pull_request: { head: { repo: { full_name: 'fork/repo' } } } } } }), false);
+    assert.equal(holds(reuse.if, { github: { event_name: 'workflow_dispatch' } }), false);
+    const output = join(fx.temp, 'reuse-output');
+    for (const verified of [false, true]) {
+        executable(fx, 'node', verified ? 'echo "Verified CI evidence"' : 'echo "No matching pass"; exit 1');
+        writeFileSync(output, '');
+        const result = shell(reuse.run, fx, { GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary') });
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        const pass = readFileSync(output, 'utf8').trim() === 'pass=true';
+        assert.equal(pass, verified);
+        for (const step of docker) {
+            assert.equal(holds(step.if, { steps: { reuse: { outputs: { pass: pass ? 'true' : '' } } } }), !verified, step.name ?? step.uses);
+        }
+    }
+});
+
 test('the daily issue reports a failed production image, and closes only when it succeeded too', (t) => {
     const issue = steps('issue').find((step) => step.run);
     for (const [image, closed, reported] of [
@@ -377,6 +400,8 @@ printf '%s' "$payload" | jq -r "$4"`);
 
 test('a pull request skips the suite only after a same-repository pass on the same base, with nothing it reads changed since', (t) => {
     const fx = scratch(t);
+    mkdirSync(join(fx.dir, 'tools/ci'), { recursive: true });
+    copyFileSync(join(root, 'tools/ci/release-runtime.mjs'), join(fx.dir, 'tools/ci/release-runtime.mjs'));
     executable(fx, 'gh', `
 case "$2" in
     */workflows/release-checks.yml/runs?*) payload="$API_RUNS" ;;
@@ -406,7 +431,8 @@ printf '%s' "$payload" | jq -r "$4"`);
         return git('rev-parse', 'HEAD');
     };
     git('init', '-q', '--initial-branch=main');
-    const base = commit('kit.css', 'base');
+    commit('kit.css', 'base CSS');
+    const base = commit('composer.json', '{"require":{"php":">=8.4"}}');
     const passed = commit('calendar/Calendar.html.twig', 'passed');
     commit('CHANGELOG.md', 'release');
     commit('docs/RECIPES.md', 'recipes');
@@ -414,6 +440,11 @@ printf '%s' "$payload" | jq -r "$4"`);
     commit('website/templates/layout.html.twig', 'website navigation');
     commit('packages/uxor/resources/guides.json', 'published guides');
     commit('AGENTS.md', 'rules');
+    commit('README.md', 'root package links');
+    commit('CONTRIBUTING.md', 'release documentation');
+    commit('tools/llms-txt.mjs', 'discovery generator');
+    commit('tools/tests/llms-txt.test.mjs', 'generator tests');
+    commit('composer.json', '{"require":{"php":">=8.4"},"scripts":{"docs:check":"node tools/llms-txt.mjs --check"}}');
     const docs = commit('packages/uxor/INSTRUCTIONS.md', 'package');
     const code = commit('calendar/Calendar.html.twig', 'changed');
     git('checkout', '-q', docs);
@@ -430,8 +461,12 @@ printf '%s' "$payload" | jq -r "$4"`);
     const movedBase = commit('main-only.txt', 'moved');
     const provenMerge = merge(base, passed);
     const futureMerge = merge(base, docs);
+    const provenTree = git('rev-parse', `${provenMerge}^{tree}`);
     const compare = steps('changed').find((step) => step.id === 'compare');
-    const marker = (b, h) => ({ id: 91, name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false });
+    const marker = (b, h) => ({
+        id: 91, name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false,
+        created_at: new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    });
     for (const [name, tested, modify, expected] of [
         ['only paths the suite never reads', merge(base, docs), () => {}, 'false'],
         ['same head', merge(base, passed), () => {}, 'false'],
@@ -444,6 +479,9 @@ printf '%s' "$payload" | jq -r "$4"`);
         ['the base moved since', merge(movedBase, docs), () => {}, 'true'],
         ['the earlier run left no marker', merge(base, docs), (runs, artifacts) => { artifacts.length = 1; }, 'true'],
         ['an expired marker', merge(base, docs), (runs, artifacts) => { artifacts[1].expired = true; }, 'true'],
+        ['an unexpired marker older than two weeks', merge(base, docs), (runs, artifacts) => {
+            artifacts[1].created_at = '2026-01-01T00:00:00Z';
+        }, 'true'],
         ['another base in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(movedBase, passed); }, 'true'],
         ['a fork run', merge(base, docs), (runs) => { runs[0].head_repository.full_name = 'fork/project'; }, 'true'],
         ['an unknown commit in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(base, 'd'.repeat(40)); }, 'true'],
@@ -463,6 +501,9 @@ printf '%s' "$payload" | jq -r "$4"`);
         ['producer repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.repository.full_name = 'other/project'; }, 'true'],
         ['producer head repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.head_repository.full_name = 'fork/project'; }, 'true'],
         ['recorded merge base differs', futureMerge, (runs, artifacts, proof) => { proof.commit.parents[0].sha = movedBase; }, 'true'],
+        ['recorded merge tree differs from the producer head', futureMerge, (runs, artifacts, proof) => {
+            proof.commit.tree.sha = git('rev-parse', `${futureMerge}^{tree}`);
+        }, 'true'],
         ['recorded commit is not the requested SHA', futureMerge, (runs, artifacts, proof) => { proof.commit.sha = 'd'.repeat(40); }, 'true'],
         ['recorded commit is not a two-parent merge', futureMerge, (runs, artifacts, proof) => { proof.commit.parents.length = 1; }, 'true'],
         ['malformed commit text', futureMerge, (runs, artifacts, proof) => { proof.content = 'not a commit'; }, 'true'],
@@ -478,7 +519,7 @@ printf '%s' "$payload" | jq -r "$4"`);
         const proof = {
             run: { head_sha: passed, path: file, event: 'pull_request', conclusion: 'success',
                 repository: { full_name: 'example/project' }, head_repository: { full_name: 'example/project' } },
-            commit: { sha: provenMerge, parents: [{ sha: base }, { sha: passed }] },
+            commit: { sha: provenMerge, parents: [{ sha: base }, { sha: passed }], tree: { sha: provenTree } },
             content: `${provenMerge}\n`, filename: 'commit', extra: false, fail: '', oversized: false,
         };
         modify(runs, artifacts, proof);

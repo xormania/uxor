@@ -82,6 +82,18 @@ export async function recordCspViolations(page: Page): Promise<string[]> {
     return violations;
 }
 
+/** Records preloads and runtime imports of the lazy autocomplete packages. */
+export function collectAutocompleteAssetRequests(page: Page): string[] {
+    const paths: string[] = [];
+    page.on('request', (request) => {
+        const path = new URL(request.url()).pathname;
+        if (/^\/assets\/(?:@symfony\/ux-autocomplete|vendor\/(?:tom-select|@orchidjs))\//.test(path)) {
+            paths.push(path);
+        }
+    });
+    return paths;
+}
+
 /**
  * The guard's route leaves the demo's own URLs and in-browser blob: and data: URLs to the browser. WebKit can send
  * object URLs through Playwright's route interception, where the placeholder would replace the actual preview.

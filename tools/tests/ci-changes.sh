@@ -54,7 +54,30 @@ check_git() {
     fi
 }
 
-all='lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image'
+# Exercise the real base/candidate distinction with tracked files and the same
+# argument CI supplies to the trusted classifier.
+check_package_comparison() {
+    local expected="$1" path="$2" before="$3" after="$4"
+    local repo base actual
+    repo=$(mktemp -d "$inputs/package-comparison.XXXXXXXX")
+    mkdir -p "$repo/packages/uxor/resources"
+    cp "$catalog" "$repo/packages/uxor/resources/guides.json"
+    git -C "$repo" init -q
+    printf '%s\n' "$before" > "$repo/$path"
+    git -C "$repo" add .
+    git -C "$repo" -c user.name=t -c user.email=t@t commit -qm base
+    base=$(git -C "$repo" rev-parse HEAD)
+    printf '%s\n' "$after" > "$repo/$path"
+    git -C "$repo" -c user.name=t -c user.email=t@t commit -qam candidate
+    actual=$(cd "$repo" && git diff --name-only --no-renames "$base" HEAD |
+        bash "$root/tools/ci-changes.sh" "$base" | sed -n 's/=true$//p' | paste -sd ' ' -)
+    if [ "$actual" != "$expected" ]; then
+        echo "FAIL: comparison of $path -> '$actual', expected '$expected'"
+        failures=$((failures + 1))
+    fi
+}
+
+all='lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image'
 kit='lint-kit php static-site runtime-export fresh-install demo demo-app'
 kit_contrast='lint-kit php static-site runtime-export fresh-install contrast demo demo-app'
 
@@ -72,6 +95,17 @@ check 'contrast demo demo-app'   tests/e2e/examples/baselines.spec.ts
 check 'contrast demo demo-app'   tests/e2e/lab.section-nav.spec.ts
 check 'php runtime-export demo-app prod-image' demo/templates/demo_app/dashboard.html.twig demo/templates/demo_app/_stylesheets.html.twig
 check 'php runtime-export demo-app prod-image' demo/assets/styles/demo-app.css demo/assets/images/xor/mascot.gif demo/assets/images/xor/mascot-still.png
+check 'php runtime-export demo-app prod-image' demo/src/Controller/DemoAppController.php
+check 'php runtime-export demo-app prod-image' demo/src/Controller/RevenueAssistantController.php
+check 'php runtime-export demo-app prod-image' demo/assets/controllers/revenue_assistant_controller.js
+check 'php runtime-export demo demo-app prod-image' demo/assets/styles/toolkit-fixtures.css
+check 'php runtime-export demo prod-image'     demo/templates/lab/components/LiveAutocomplete.html.twig
+check 'php runtime-export demo prod-image'     demo/src/Controller/OAuthDemoController.php
+check 'php runtime-export demo prod-image'     demo/templates/oauth/account.html.twig
+for path in demo/templates/lab/{nav_menu,_nav_menu_items,_header}.html.twig \
+    demo/src/Controller/{Forms,Preview}Controller.php demo/assets/controllers/dropzone_echo_controller.js; do
+    check 'php runtime-export demo demo-app prod-image' "$path"
+done
 check 'php runtime-export demo demo-app prod-image' demo/templates/shared/_brand.html.twig demo/assets/styles/shared.css demo/config/packages/symfonycasts_tailwind.yaml
 check 'php static-site runtime-export demo demo-app prod-image' tools/kit/KitReader.php
 
@@ -80,13 +114,13 @@ check 'contrast'                  .github/pull_request_template.md
 check 'contrast'                  docs/ROADMAP.md CONTRIBUTING.md AGENTS.md docs/NOTES.md
 # The current release heading sets the upgrade target and the references' links.
 check 'contrast package'          CHANGELOG.md
-# the inputs of the Composer package's generated references: Package checks their copies are up to date
-check 'contrast package'          docs/TESTING.md
-check 'contrast package'          docs/APPLICATION-TESTING.md
-check 'contrast package'          FOR-AGENTS.md
-check 'contrast package'          docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
+# Sources of the package's generated references select its documentation checks.
+check 'contrast package-docs'          docs/TESTING.md
+check 'contrast package-docs'          docs/APPLICATION-TESTING.md
+check 'contrast package-docs'          FOR-AGENTS.md
+check 'contrast package-docs'          docs/RECIPES.md docs/PROJECT-AGENTS-SNIPPET.md
 # The website publishes the guides and the package bundles them.
-check 'static-site contrast package' docs/GUIDE.md
+check 'static-site contrast package-docs' docs/GUIDE.md
 check 'package prod-image'        LICENSE
 check 'package prod-image'        NOTICE
 check 'contrast'                  tools/docs-lint.mjs tools/llms-txt.mjs
@@ -109,9 +143,9 @@ check 'lint-kit php runtime-export demo demo-app prod-image' demo/composer.lock
 check 'static-site runtime-export contrast'      tools/fence-coverage.mjs
 check 'static-site runtime-export'               tools/build-static.sh
 # INSTALL.md supplies the standalone install page, the bundled guide and Contrast.
-check 'static-site contrast package' INSTALL.md
+check 'static-site contrast package-docs' INSTALL.md
 # the kit's README.md: no install, lint, PHP test or page reads it; Contrast and the references do
-check 'contrast package'          README.md
+check 'contrast package-docs'          README.md
 
 # A workflow: actionlint reads it, and the jobs that run what it runs check that part (a workflow's own triggers run
 # the rest: audit.yml and codeql.yml run on the pull request that changes them)
@@ -207,7 +241,8 @@ check 'contrast demo'             tests/e2e/lab.popover.spec.ts
 check 'demo demo-app'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
 check 'demo demo-app'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
-check 'demo demo-app'                      tools/playwright-image.mjs tools/playwright-image.json
+check 'static-site demo demo-app'          tools/playwright-image.mjs tools/playwright-image.json
+check 'static-site package'                tools/ci/with-playwright-browser.sh
 check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php runtime-export contrast demo' demo/tests/Editor/EditorTypeTest.php
@@ -291,21 +326,35 @@ check ''                          tools/tests/jev-diagnosis.test.mjs
 check ''                          tools/tests/step-attempts.test.mjs
 check 'lint-kit php runtime-export fresh-install contrast demo demo-app prod-image' docs/NOTES.md kit.css
 
-# The Composer package xormania/uxor. Its root metadata is in the kit's archive too, but no install or lint reads it;
-# the lock file is the package's alone; its implementation and tests run Package, its markdown Contrast too. The references'
-# inputs run Package (above); the generator and its output are under packages/uxor/
+# A manifest without a comparison selects Package. An exact comparison can isolate known documentation scripts.
+# The lock, runtime implementation and development fixture still select Package.
 check 'package'                   composer.json
+composer_base='{"require":{"php":">=8.4"},"scripts":{"test":"@php tests.php"}}'
+check_package_comparison 'package-docs' composer.json "$composer_base" \
+    '{"require":{"php":">=8.4"},"scripts":{"docs:generate":["@php docs.php"],"docs:check":"@php docs.php --check","test":"@php tests.php"}}'
+check_package_comparison 'package' composer.json "$composer_base" \
+    '{"require":{"php":">=8.5"},"scripts":{"test":"@php tests.php","docs:check":"@php docs.php --check"}}'
+check_package_comparison 'package' composer.json "$composer_base" \
+    '{"require":{"php":">=8.4"},"scripts":{"test":"@php other-tests.php","docs:check":"@php docs.php --check"}}'
+check_package_comparison 'package' composer.json "$composer_base" '{"scripts":'
+check_package_comparison 'package' composer.json \
+    '{"repositories":{"primary":{"type":"composer","url":"https://primary.example"},"secondary":{"type":"composer","url":"https://secondary.example"}},"scripts":{"test":"@php tests.php"}}' \
+    '{"repositories":{"secondary":{"type":"composer","url":"https://secondary.example"},"primary":{"type":"composer","url":"https://primary.example"}},"scripts":{"test":"@php tests.php"}}'
+check_package_comparison 'contrast package-docs' CHANGELOG.md $'## [0.3.5] - 2026-11-24\n\nA correction.' $'## [0.3.5] - 2026-11-24\n\nA different correction.'
+check_package_comparison 'contrast package' CHANGELOG.md '## [0.3.5] - 2026-11-24' '## [0.3.6] - 2026-11-24'
+check_package_comparison 'contrast package' CHANGELOG.md '## [0.3.5] - 2026-11-24' $'## [0.3.6] - 2026-11-24\r\n## [0.3.5] - 2026-11-24'
+check_package_comparison 'contrast package' CHANGELOG.md '## [0.3.5] - 2026-11-24' '## [Unreleased]'
 check 'package'                   composer.lock
 check 'package'                   packages/uxor/src/Operations.php
-check 'static-site contrast package' packages/uxor/resources/guides.json
+check 'static-site contrast package-docs' packages/uxor/resources/guides.json
 for guide in packages/uxor/README.md packages/uxor/OPERATIONS.md; do
-    check 'static-site contrast package' "$guide"
+    check 'static-site contrast package-docs' "$guide"
 done
 # A new guide selects both consumers, including when its path already selects other lanes.
-check 'static-site contrast package' docs/new-user-guide.md
+check 'static-site contrast package-docs' docs/new-user-guide.md
 jq '. + {testing: {file: "docs/APPLICATION-TESTING.md"}}' "$catalog" > "$catalog.next"
 mv "$catalog.next" "$catalog"
-check 'static-site contrast package' docs/APPLICATION-TESTING.md
+check 'static-site contrast package-docs' docs/APPLICATION-TESTING.md
 check 'package'                   packages/uxor/resources/other.json
 check 'demo demo-app package'              packages/uxor/resources/browser/diagnostics.mjs
 check 'demo demo-app package'              packages/uxor/resources/browser/diagnostics.d.mts
@@ -313,12 +362,14 @@ check 'contrast demo package' packages/.gitattributes
 check 'contrast demo package' packages/uxor/.gitattributes
 check 'contrast demo package' packages/uxor/resources/.gitattributes
 check 'package'                   packages/uxor/tests/OperationsTest.php
-check 'package'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
-check 'contrast package'          packages/uxor/resources/uxor/docs/alert/README.md
-check 'package'                   packages/uxor/resources/uxor/index.json
+check 'package-docs'                   packages/uxor/tools/ReferenceGenerator.php packages/uxor/tools/generate-reference.php
+check 'contrast package-docs'          packages/uxor/resources/uxor/docs/alert/README.md
+check 'package-docs'                   packages/uxor/resources/uxor/index.json
+check 'static-site contrast package-docs' website/src/GuideDocs.php tools/llms-txt.mjs \
+    packages/uxor/tests/ReferenceBundleTest.php packages/uxor/tools/ConfigurationGuide.php packages/uxor/resources/uxor/docs/docs/AGENT-ONBOARDING.md
 check 'package'                   packages/uxor/bin/uxor packages/uxor/tools/check-package.py
 check 'contrast package'          packages/uxor/skills/uxor-build/SKILL.md
-check 'contrast package'          packages/uxor/INSTRUCTIONS.md
+check 'contrast package-docs'          packages/uxor/INSTRUCTIONS.md
 # the independent consumer and its development environment (packages/uxor/dev/): Package runs its checks. Its own
 # package.json and browser check are not the kit's browser suite: they run neither Contrast nor the browser job
 check 'package'                   packages/uxor/dev/run.py packages/uxor/dev/tests/test_runner.py
