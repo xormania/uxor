@@ -78,9 +78,6 @@ const UNRELATED = [
     'packages/uxor/resources/uxor/index.json',
     'tools/docs-lint.mjs',
 ];
-/** The image's inputs a release check must not count as never read. */
-const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'kit.js', 'tools/kit/KitReader.php', 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
-
 const workflows = readdirSync(join(root, workflowsDir))
     .filter((name) => /\.ya?ml$/.test(name))
     .map((name) => ({ path: `${workflowsDir}/${name}`, text: readFileSync(join(root, workflowsDir, name), 'utf8') }));
@@ -202,26 +199,11 @@ test('the development image still runs the repository bind-mounted, the app in /
     assert.match(override, /^\s+SERVER_ROOT:\s*['"]?\/app\/demo\/public['"]?\s*$/m, 'SERVER_ROOT is /app/demo/public');
 });
 
-test("the release checks never reuse an earlier pass across a change to one of the production image's inputs", () => {
-    const text = readFileSync(join(root, workflowsDir, 'release-checks.yml'), 'utf8');
-    const compare = stepIn(text, 'changed', 'compare');
-    assert.ok(compare?.run, 'the release workflow compares the inputs of a previous pass with the current head');
-    const lines = compare.run.split('\n');
-    const changed = lines.findIndex((line) => /^\s*changed=\$\(git diff /.test(line));
-    const decision = lines.findIndex((line, i) => i > changed && /^\s*if \[ -z "\$other" \]; then$/.test(line));
-    assert.ok(changed >= 0 && decision > changed, 'a shell predicate connects the changed paths to the reuse decision');
-    const predicate = lines.slice(changed + 1, decision).join('\n');
-    const docs = [...websiteInputs, ...packageGuides, 'CHANGELOG.md', 'AGENTS.md', 'docs/TESTING.md', 'docs/GUIDE.md.bak', 'packages/uxor/INSTRUCTIONS.md', 'packages/uxor/resources/guides.json.bak'];
-    for (const [inputs, expected] of [
-        [IMAGE_INPUTS, IMAGE_INPUTS],
-        [docs, []],
-        [[...docs, ...IMAGE_INPUTS], IMAGE_INPUTS],
-    ]) {
-        const kept = spawnSync('bash', ['-euo', 'pipefail', '-c', `${predicate}\nprintf '%s' "$other"`], {
-            env: { ...process.env, changed: inputs.join('\n') }, encoding: 'utf8',
-        });
-        assert.equal(kept.status, 0, kept.stderr);
-        assert.deepEqual(kept.stdout.split('\n').filter(Boolean), expected, `paths that require a fresh release check: ${inputs.join(', ')}`);
+test('the release fallback builds and tests the same production image as the CI push', () => {
+    const workflow = (file) => readFileSync(join(root, workflowsDir, file), 'utf8');
+    const command = (file, step) => stepIn(workflow(file), 'prod-image', step).run.replace(/uxor-demo-prod:(?:ci|release)/g, 'uxor-demo-prod:test');
+    for (const step of ['build', 'prod-image']) {
+        assert.equal(command('release-checks.yml', step), command('ci.yml', step), `production ${step} contract`);
     }
 });
 

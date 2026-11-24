@@ -7,9 +7,14 @@
 # DropzoneType fields that take a posted file (one with `placeholder: false` and no main line, which needs the recipe's
 # form type extension), `/post` an EditorType that sanitizes what it stores, and all answer 200.
 #
-#   tools/tests/check-fresh-app.sh <base URL> [curl option…]
+#   tools/tests/check-fresh-app.sh [--smoke] <base URL> [curl option…]
 set -euo pipefail
 
+smoke=false
+if [ "${1:-}" = --smoke ]; then
+    smoke=true
+    shift
+fi
 base="$1"
 shift
 work="$(mktemp -d)"
@@ -58,19 +63,6 @@ grep -qE '<p id="form_plainPassword_help"[^>]*>[[:space:]]*At least 12 character
     || { echo "FAIL: the signup password help is not FormField's" >&2; exit 1; }
 echo "ok: the signup form renders through the form theme (HTTP 200)"
 
-# the data-table recipe's PHP (src/UXor/DataTable/) works in the app: the table reads its page, sort and filter
-# from the URL, and its links keep them
-page="$(fetch '/orders?page=2&sort=number&dir=desc&f%5Bstatus%5D=paid' "$@")"
-grep -qE 'Showing <span[^>]*>11–12</span> of <span[^>]*>12</span>' <<< "$page" \
-    || { echo "FAIL: the orders table does not show its second page of paid orders" >&2; exit 1; }
-grep -qE '<turbo-frame[^>]*id="orders"[^>]*data-turbo-action="advance"' <<< "$page" \
-    || { echo "FAIL: the orders table is not in its Turbo Frame" >&2; exit 1; }
-grep -qE 'id="orders-row-2"' <<< "$page" \
-    || { echo "FAIL: the orders table rows have no stable ids" >&2; exit 1; }
-grep -qE 'href="/orders\?sort=number&amp;dir=desc&amp;f%5Bstatus%5D=paid"' <<< "$page" \
-    || { echo "FAIL: the orders table page links lose the sort or the filter" >&2; exit 1; }
-echo "ok: the orders DataTable renders from the recipe's PHP (HTTP 200)"
-
 # the data-table-live recipe's PHP works as a Live Component: the page renders it, and its `goTo` action, sent as the
 # live controller sends it (tools/tests/live-action.php), answers with the requested page
 page="$(fetch /live-orders "$@")"
@@ -83,6 +75,21 @@ status="$(request "$@" -o "$work/action.html" -w '%{http_code}' -X POST "$base/_
 grep -qE 'Showing <span[^>]*>11–20</span> of <span[^>]*>25</span>' "$work/action.html" \
     || { echo "FAIL: the live orders table's goTo action did not render page 2" >&2; exit 1; }
 echo "ok: the live orders DataTableLive renders and answers a Live action (HTTP 200)"
+
+if [ "$smoke" = true ]; then exit 0; fi
+
+# the data-table recipe's PHP (src/UXor/DataTable/) works in the app: the table reads its page, sort and filter
+# from the URL, and its links keep them
+page="$(fetch '/orders?page=2&sort=number&dir=desc&f%5Bstatus%5D=paid' "$@")"
+grep -qE 'Showing <span[^>]*>11–12</span> of <span[^>]*>12</span>' <<< "$page" \
+    || { echo "FAIL: the orders table does not show its second page of paid orders" >&2; exit 1; }
+grep -qE '<turbo-frame[^>]*id="orders"[^>]*data-turbo-action="advance"' <<< "$page" \
+    || { echo "FAIL: the orders table is not in its Turbo Frame" >&2; exit 1; }
+grep -qE 'id="orders-row-2"' <<< "$page" \
+    || { echo "FAIL: the orders table rows have no stable ids" >&2; exit 1; }
+grep -qE 'href="/orders\?sort=number&amp;dir=desc&amp;f%5Bstatus%5D=paid"' <<< "$page" \
+    || { echo "FAIL: the orders table page links lose the sort or the filter" >&2; exit 1; }
+echo "ok: the orders DataTable renders from the recipe's PHP (HTTP 200)"
 
 # the autocomplete recipe: a form field with `'autocomplete' => true` renders through the form theme with UX
 # Autocomplete's controller, the recipe's autocomplete-sync and the label reference for Tom Select, the Autocomplete

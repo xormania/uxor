@@ -102,21 +102,21 @@ jobs:
                   if [ "$EVENT" = pull_request ]; then
                       run=true
                       # The merge commit under test: its first parent is the base, its second the pull request's head
-                      read -r base head <<< "$(git cat-file -p "$GITHUB_SHA" 2>/dev/null | sed -n 's/^parent //p' | tr '\n' ' ')" || true
+                      read -r base head extra <<< "$(git cat-file -p "$GITHUB_SHA" 2>/dev/null | sed -n 's/^parent //p' | tr '\n' ' ')" || true
                       # The newest successful pull request run of this repository that passed the suite on the same
                       # base: its pass marker (release-checks-pr-passed-v1-<base>-<head>, below) names the parents of
                       # the merge commit it tested
                       runs=$(gh api "repos/$REPO/actions/workflows/release-checks.yml/runs?event=pull_request&status=success&per_page=20" \
                           --jq '.workflow_runs[] | select(.head_repository.full_name == "'"$REPO"'") | .id' || true)
                       for id in $runs; do
-                          [ -n "$base" ] && [ -n "$head" ] || break
+                          [ -n "$base" ] && [ -n "$head" ] && [ -z "$extra" ] || break
                           producer=$(gh api "repos/$REPO/actions/runs/$id" \
                               --jq 'select(.path == ".github/workflows/release-checks.yml" and .event == "pull_request" and .conclusion == "success" and .repository.full_name == env.REPO and .head_repository.full_name == env.REPO) | .head_sha' 2>/dev/null) || continue
                           [[ "$producer" =~ ^[0-9a-f]{40}$ ]] || continue
                           candidate=$(gh api "repos/$REPO/actions/runs/$id/artifacts?per_page=100" \
-                              --jq '[.artifacts[] | select(.expired | not) | select(.name | startswith("release-checks-pr-passed-v1-'"$base"'-"))] | first // empty | [.id, .name] | join(" ")' 2>/dev/null) || continue
-                          read -r artifact marker extra <<< "$candidate"
-                          [[ "$artifact" =~ ^[0-9]+$ ]] && [ -z "$extra" ] || continue
+                              --jq '[.artifacts[] | select(.expired | not) | select(.name | startswith("release-checks-pr-passed-v1-'"$base"'-")) | select((now - (.created_at | fromdateiso8601)) | . >= 0 and . <= 1209600)] | first // empty | [.id, .name] | join(" ")' 2>/dev/null) || continue
+                          read -r artifact marker unexpected <<< "$candidate"
+                          [[ "$artifact" =~ ^[0-9]+$ ]] && [ -z "$unexpected" ] || continue
                           # Names are claims, not proof. Read only a bounded commit file from the ZIP, without
                           # extracting it; then ask GitHub for that immutable merge commit's parents. Actions' REST
                           # head_sha is the PR head (not its synthetic merge), so its second parent must be producer.
@@ -131,28 +131,22 @@ jobs:
                   if not re.fullmatch(rb"[0-9a-f]{40}\n?", data): sys.exit(1)
                   print(data.decode("ascii").strip())
                   ' 2>/dev/null) || continue
-                          parents=$(RECORDED_MERGE="$recorded" gh api "repos/$REPO/git/commits/$recorded" \
-                              --jq 'select(.sha == env.RECORDED_MERGE and (.parents | length) == 2) | .parents | map(.sha) | join(" ")' 2>/dev/null) || continue
-                          read -r proved_base sha extra <<< "$parents"
-                          [ -z "$extra" ] && [ "$proved_base" = "$base" ] && [ "$sha" = "$producer" ] || continue
+                          merge=$(RECORDED_MERGE="$recorded" gh api "repos/$REPO/git/commits/$recorded" \
+                              --jq 'select(.sha == env.RECORDED_MERGE and (.parents | length) == 2) | [.parents[0].sha, .parents[1].sha, .tree.sha] | join(" ")' 2>/dev/null) || continue
+                          read -r proved_base sha prior_tree unexpected <<< "$merge"
+                          [ -z "$unexpected" ] && [ "$proved_base" = "$base" ] && [ "$sha" = "$producer" ] || continue
                           [ "$marker" = "release-checks-pr-passed-v1-$proved_base-$sha" ] || continue
-                          git cat-file -e "$sha^{commit}" 2>/dev/null || continue
-                          changed=$(git diff --name-only --no-renames "$sha" "$head") || break
-                          # Browser fixtures import the package recorder. Changes to the separately built
-                          # documentation website do not affect the runtime release suite.
-                          other=$(while IFS= read -r path; do
-                              case "$path" in
-                                  '' ) ;;
-                                  packages/uxor/resources/browser | packages/uxor/resources/browser/* | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) printf '%s\n' "$path" ;;
-                                  website/* | docs/* | packages/uxor/* | INSTALL.md | llms.txt | CHANGELOG.md | AGENTS.md) ;;
-                                  *) printf '%s\n' "$path" ;;
-                              esac
-                          done <<< "$changed")
+                          [[ "$prior_tree" =~ ^[0-9a-f]{40}$ ]] || continue
+                          # The producer actually tested the recorded merge's tree. Requiring its head to have
+                          # that tree guarantees this object belongs to the available history.
+                          previous_head_tree=$(git rev-parse --verify "$sha^{tree}" 2>/dev/null) || continue
+                          [ "$prior_tree" = "$previous_head_tree" ] || continue
+                          current_tree=$(git rev-parse --verify "$GITHUB_SHA^{tree}") || break
+                          other=$(node tools/ci/release-runtime.mjs changed "$prior_tree" "$current_tree") || break
                           if [ -z "$other" ]; then
                               run=false
-                              echo "Run $id passed the release suite on $sha against $base; changed since, none of which the suite reads:"
-                              echo "$changed"
-                              echo "The release suite passed on $sha against the same base ($base), and nothing it reads changed since: none on this head ($head)" >> "$GITHUB_STEP_SUMMARY"
+                              echo "Run $id passed the release suite on $sha against $base. The release runtime inputs are unchanged on $head."
+                              echo "Reused release suite from [run $id](https://github.com/$REPO/actions/runs/$id) on $sha against the same base ($base)." >> "$GITHUB_STEP_SUMMARY"
                           else
                               echo "Changed since $sha (run $id), read by the suite:"
                               echo "$other"
@@ -546,6 +540,9 @@ jobs:
         if: needs.changed.outputs.run == 'true'
         runs-on: ubuntu-latest
         timeout-minutes: 23 # 20, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        permissions:
+            contents: read
+            actions: read # the same-repository CI push's actual production image job
         defaults:
             run:
                 working-directory: release-checks-target
@@ -559,6 +556,7 @@ jobs:
                   sparse-checkout: |
                       .github/actions/jev-diagnosis
                       .github/workflows/release-checks.yml
+                      tools/ci/release-runtime.mjs
                   sparse-checkout-cone-mode: false
 
             - id: checkout
@@ -567,6 +565,7 @@ jobs:
               with:
                   persist-credentials: false
                   ref: ${{ github.sha }}
+                  fetch-depth: 2 # the merge and its parents, to prove that CI tested this tree
                   path: release-checks-target
 
             - name: Verify the tested revision
@@ -580,11 +579,30 @@ jobs:
                       exit 1
                   fi
 
+            - name: Check matching CI push evidence
+              id: reuse
+              if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+              timeout-minutes: 3
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  REPO: ${{ github.repository }}
+                  PR_HEAD: ${{ github.event.pull_request.head.sha }}
+                  PR_BRANCH: ${{ github.head_ref }}
+              run: |
+                  if evidence=$(node ../tools/ci/release-runtime.mjs production "$REPO" "$GITHUB_SHA" "$PR_HEAD" "$PR_BRANCH"); then
+                      echo "$evidence" | tee -a "$GITHUB_STEP_SUMMARY"
+                      echo 'pass=true' >> "$GITHUB_OUTPUT"
+                  else
+                      echo "$evidence Running the release image check."
+                  fi
+
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+              if: steps.reuse.outputs.pass != 'true'
 
             # (the output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
             - name: Build the production image
               id: build
+              if: steps.reuse.outputs.pass != 'true'
               run: |
                   set -o pipefail
                   {
@@ -594,6 +612,7 @@ jobs:
             # (the output also goes to $RUNNER_TEMP/jev-prod-image.log, for the Jev step)
             - name: Run the production image
               id: prod-image
+              if: steps.reuse.outputs.pass != 'true'
               run: |
                   set -o pipefail
                   tools/tests/prod-image.sh uxor-demo-prod:release 2>&1 | tee "$RUNNER_TEMP/jev-prod-image.log"
