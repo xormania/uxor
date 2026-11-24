@@ -137,8 +137,9 @@ while IFS= read -r path; do
         .github/workflows/pages.yml) on static-site runtime-export workflows ;;
         .github/workflows/release.yml) on static-site runtime-export fresh-install workflows ;;
         .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/workflows/browser-provider.yml) on workflows ;;
-        # The image pipeline exercises its own contexts on changes. Main CI checks its workflow definitions.
-        .github/workflows/images.yml | .github/workflows/refresh-images.yml) on workflows ;;
+        # refresh-images.yml runs on its schedule and by hand, never on a push: actionlint only. Its updater's cases
+        # (tools/ci/image-refresh.mjs) run in Tool tests, on every run
+        .github/workflows/refresh-images.yml) on workflows ;;
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
         .github/workflows/monthly.yml) on workflows ;;
@@ -192,7 +193,7 @@ while IFS= read -r path; do
         package.json | package-lock.json) on static-site contrast demo demo-app ;;
 
         # Repository tools, each with the jobs that run it
-        tools/ci/images/* | tools/ci/image-refresh*) ;;
+        tools/ci/image-refresh*) ;;
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
         llms.txt) on static-site contrast ;;
         # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the

@@ -2,14 +2,13 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-    existsSync, lstatSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync,
+    existsSync, lstatSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, posix, resolve, sep } from 'node:path';
 import { parseArgs } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
-const IMAGE_ROOT = 'tools/ci/images';
 const BROWSER_IMAGE = 'mcr.microsoft.com/playwright';
 const BROWSER_DOCKERFILE = 'packages/uxor/resources/browser/Dockerfile';
 const ROOT_BROWSER_PIN = 'tools/playwright-image.json';
@@ -40,23 +39,9 @@ function read(root, path) {
     return readFileSync(regularFile(root, path), 'utf8');
 }
 
-function walkDockerfiles(root) {
-    const directory = join(root, IMAGE_ROOT);
-    if (!existsSync(directory)) return [];
-    const visit = (parent) => readdirSync(join(root, parent), { withFileTypes: true }).flatMap((entry) => {
-        const path = posix.join(parent, entry.name);
-        if (entry.isDirectory()) return visit(path);
-        return entry.isFile() && /^Dockerfile(?:\.[a-z0-9_-]+)?$/.test(entry.name) ? [path] : [];
-    });
-    if (!lstatSync(directory).isDirectory() || realpathSync(directory) !== directory) {
-        throw new Error(`Expected a real directory: ${IMAGE_ROOT}`);
-    }
-    return visit(IMAGE_ROOT).sort();
-}
-
 function ownedFiles(root) {
     return new Set([
-        ...walkDockerfiles(root), BROWSER_DOCKERFILE, ROOT_BROWSER_PIN,
+        BROWSER_DOCKERFILE, ROOT_BROWSER_PIN,
         ...BROWSER_CLIENTS.flatMap(([directory]) => ['package.json', 'package-lock.json'].map((file) => posix.join(directory, file))),
     ]);
 }
@@ -245,9 +230,9 @@ function applyBrowserUpdates(root, changes, refresh, versions, lockClient) {
 
 const fingerprint = (value) => createHash('sha256').update(value).digest('hex');
 
-function sameDockerfile(path, before, after) {
+function sameDockerfile(before, after) {
     const stripPins = (text) => updateDockerfile(text, (tag) => {
-        return path === BROWSER_DOCKERFILE && isBrowserTag(tag) ? 'browser-version@digest' : `${tag}@digest`;
+        return isBrowserTag(tag) ? 'browser-version@digest' : `${tag}@digest`;
     });
     return stripPins(before) === stripPins(after);
 }
@@ -255,8 +240,7 @@ function sameDockerfile(path, before, after) {
 function validateChanges(root, updates) {
     validateBrowserGroup(root, updates);
     for (const [path, after] of updates) {
-        if ((path.startsWith(IMAGE_ROOT + '/') || path === BROWSER_DOCKERFILE)
-            && !sameDockerfile(path, read(root, path), after)) {
+        if (path === BROWSER_DOCKERFILE && !sameDockerfile(read(root, path), after)) {
             throw new Error(`Image refresh may change only the Dockerfile pins: ${path}`);
         }
     }
@@ -276,7 +260,7 @@ function validateChanges(root, updates) {
 export function discover(root, { inspect = inspectRegistry, versions = compatiblePatches, lockClient = rebuildLock } = {}) {
     const checked = realpathSync(root);
     const refresh = refresher(inspect);
-    const changes = new Map(walkDockerfiles(checked).map((path) => [path, updateDockerfile(read(checked, path), refresh)]));
+    const changes = new Map();
     applyBrowserUpdates(checked, changes, refresh, versions, lockClient);
     const base = command('git', ['rev-parse', 'HEAD'], { cwd: checked });
     return {
@@ -368,7 +352,7 @@ export function propose(root, plan, { repository, appSlug }) {
     }
     return send('POST', `${repo}/pulls`, {
         base: target, head: updateBranch, title: 'chore(ci): refresh image pins',
-        body: 'Refresh UXor build image digests and any compatible packaged browser patch together. Review the candidate CI results before merging.',
+        body: 'Refresh the Playwright image digests and any compatible packaged browser patch together. Review the candidate CI results before merging.',
     }).html_url;
 }
 

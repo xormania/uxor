@@ -6,7 +6,7 @@
 # of the demo, the development images and the Mago images (their Dockerfiles, pinned by digest: a new digest for the
 # same tag, or a newer tag), against `dev` like any pull request. CI runs on
 # each; nothing merges on its own.
-# Refresh image pins owns the CI image inputs in tools/ci/images and the version-matched browser pins.
+# Refresh image pins owns the version-matched Playwright image and browser pins.
 # Its daily discovery starts before the routine weekly Dependabot checks. Browser screenshot upgrades stay reviewed.
 version: 2
 updates:

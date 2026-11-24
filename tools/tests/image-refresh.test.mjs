@@ -12,7 +12,6 @@ const browser = (version) => 'mcr.microsoft.com/playwright:v' + version + '-nobl
 const browserFile = 'packages/uxor/resources/browser/Dockerfile';
 const providerManifest = 'packages/uxor/resources/browser/package.json';
 const consumerManifest = 'packages/uxor/dev/package.json';
-const pipelineFile = 'tools/ci/images/base/Dockerfile';
 
 function scratch(t) {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'uxor-image-refresh-')));
@@ -27,7 +26,6 @@ function scratch(t) {
     put('package-lock.json', { packages: { 'node_modules/@playwright/test': { version: '1.58.2' } } });
     put('tools/playwright-image.json', JSON.stringify({ image: browser('1.58.2') + '@' + digest('a') }, null, 4) + '\n');
     put(browserFile, 'FROM ' + browser('1.65.1') + '@' + digest('a') + '\nRUN echo fixture\n');
-    put(pipelineFile, 'FROM php:8.5-cli-bookworm@' + digest('a') + '\nRUN echo base\n');
     for (const [path, kind, name] of [
         [providerManifest, 'dependencies', 'playwright-core'],
         [consumerManifest, 'devDependencies', '@playwright/test'],
@@ -95,7 +93,7 @@ test('a candidate moves both clients and the provider in one plan and keeps the 
         inspect: simulatedInspection, versions: () => new Set(['1.65.1', '1.65.2', '1.66.0']), lockClient: lockedPatch,
     });
     assert.equal(git('status', '--porcelain'), '');
-    assert.equal(plan.files.length, 7);
+    assert.equal(plan.files.length, 6);
     const changes = new Map(plan.files.map(({ path, after }) => [path, after]));
     assert.match(changes.get(browserFile), /:v1\.65\.2-noble@sha256:b{64}/);
     assert.match(changes.get('tools/playwright-image.json'), /:v1\.58\.2-noble@sha256:b{64}/);
@@ -103,7 +101,7 @@ test('a candidate moves both clients and the provider in one plan and keeps the 
         assert.match(changes.get(path), /1\.65\.2/);
         assert.match(changes.get(path.replace('package.json', 'package-lock.json')), /1\.65\.2/);
     }
-    assert.equal(apply(dir, plan).length, 7);
+    assert.equal(apply(dir, plan).length, 6);
     assert.match(git('diff', browserFile), /v1\.65\.2-noble/);
     assert.doesNotMatch(git('status', '--porcelain'), /^ M package-lock\.json/m);
 });
@@ -122,7 +120,7 @@ test('waits for the provider image when npm publishes first', (t) => {
         versions: () => new Set(['1.65.1', '1.65.2']),
         lockClient() { throw new Error('No lock change before the provider exists'); },
     });
-    assert.equal(plan.files.length, 3);
+    assert.equal(plan.files.length, 2);
     assert.match(plan.files.find(({ path }) => path === browserFile).after, /:v1\.65\.1-noble@sha256:b{64}/);
 });
 
@@ -135,21 +133,21 @@ test('the first release can inspect its screenshot pin while the packaged provid
         inspect: simulatedInspection,
         versions() { throw new Error('No provider patch discovery before this group lands on dev'); },
     });
-    assert.deepEqual(plan.files.map(({ path }) => path), [pipelineFile, 'tools/playwright-image.json']);
-    assert.deepEqual(apply(dir, plan), [pipelineFile, 'tools/playwright-image.json']);
+    assert.deepEqual(plan.files.map(({ path }) => path), ['tools/playwright-image.json']);
+    assert.deepEqual(apply(dir, plan), ['tools/playwright-image.json']);
 });
 
 test('rejects stale, out-of-scope and non-pin edits before writing any file', (t) => {
     const { dir, git, put } = scratch(t);
     const plan = discover(dir, { inspect: simulatedInspection, versions: () => new Set(['1.65.1']), lockClient: lockedPatch });
     const altered = structuredClone(plan);
-    altered.files.find(({ path }) => path === pipelineFile).after += 'RUN echo unexpected\n';
+    altered.files.find(({ path }) => path === browserFile).after += 'RUN echo unexpected\n';
     assert.throws(() => apply(dir, altered), /only the Dockerfile pins/);
     assert.throws(() => apply(dir, { ...plan, files: [...plan.files, { path: '../outside', after: 'x' }] }), /Invalid or stale/);
     assert.equal(git('status', '--porcelain'), '');
     put(browserFile, 'FROM ' + browser('1.65.1') + '@' + digest('a') + '\n# changed\n');
     assert.throws(() => apply(dir, plan), /Invalid or stale/);
-    assert.match(readFileSync(join(dir, pipelineFile), 'utf8'), new RegExp(digest('a')));
+    assert.match(readFileSync(join(dir, 'tools/playwright-image.json'), 'utf8'), new RegExp(digest('a')));
 });
 
 const script = fileURLToPath(new URL('../ci/image-refresh.mjs', import.meta.url));
