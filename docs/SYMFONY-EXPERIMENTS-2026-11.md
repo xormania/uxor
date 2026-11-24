@@ -2,8 +2,8 @@
 
 Reviewed November 18, 2026 against the demo on Symfony 8.1.11 and UXor’s development setup on Symfony AI Mate 0.14.0.
 
-The [experiment reports](experiments/) record what the trials found. For Mate, see the [beta discovery results](experiments/mate-beta.md)
-and the [current package guide](../packages/uxor/README.md#connect-an-agent-client) for discovering tools in your application.
+The [experiment reports](experiments/) record what the trials found. For Mate, see the
+[current package guide](../packages/uxor/README.md#connect-an-agent-client) for discovering tools in your application.
 
 ## Asset delivery and diagnostics
 
