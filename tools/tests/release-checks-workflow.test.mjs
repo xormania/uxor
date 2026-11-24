@@ -420,6 +420,10 @@ printf '%s' "$payload" | jq -r "$4"`);
     const recorderHelper = commit('packages/uxor/resources/browser/diagnostics-helper.mjs', 'browser recorder helper');
     git('checkout', '-q', docs);
     const workflowChange = commit('.github/workflows/release-checks.yml', 'changed');
+    git('checkout', '-q', docs);
+    const releaseSpec = commit('tests/e2e/release.long-session.spec.ts', 'release test');
+    git('checkout', '-q', docs);
+    const leakDetector = commit('tests/e2e/leak-detector.mjs', 'long-session helper');
     git('checkout', '-q', base);
     const movedBase = commit('main-only.txt', 'moved');
     const provenMerge = merge(base, passed);
@@ -433,6 +437,8 @@ printf '%s' "$payload" | jq -r "$4"`);
         ['recorder imported by release Playwright tests', merge(base, recorder), () => {}, 'true'],
         ['a new helper beside the browser recorder', merge(base, recorderHelper), () => {}, 'true'],
         ['the workflow itself', merge(base, workflowChange), () => {}, 'true'],
+        ['the long-session release spec', merge(base, releaseSpec), () => {}, 'true'],
+        ['the leak detector that its release spec imports', merge(base, leakDetector), () => {}, 'true'],
         ['the base moved since', merge(movedBase, docs), () => {}, 'true'],
         ['the earlier run left no marker', merge(base, docs), (runs, artifacts) => { artifacts.length = 1; }, 'true'],
         ['an expired marker', merge(base, docs), (runs, artifacts) => { artifacts[1].expired = true; }, 'true'],
@@ -635,6 +641,7 @@ for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a 
     // immutable triggering event must independently agree with the frozen target. The daily run is a dispatch on dev:
     // it executes the dev commit it was started on, even when dev advances while it runs.
     assert.equal(checkout.with.ref, '${{ github.sha }}', 'no event checks out a branch name');
+    if (job === 'checks') assert.equal(checkout.with['sparse-checkout'], undefined, 'release-only specs and helpers require the full target checkout');
     for (const [name, event, resolved, expectedCheckout, expectedStatus] of [
         ['daily run cannot substitute another commit', 'workflow_dispatch', substitutedSha, eventSha, 1],
         ['daily run cannot be moved to an advanced dev', 'workflow_dispatch', advancedDev, eventSha, 1],

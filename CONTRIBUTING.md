@@ -97,7 +97,10 @@ same way unless users of the kit or of the package need it.
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker) with FrankenPHP in worker mode,
 PHP 8.5 and HTTPS. Docker is enough to serve it locally. Symfony AssetMapper fetches browser packages and
-TailwindBundle builds CSS with the standalone Tailwind binary.
+TailwindBundle builds CSS with the standalone Tailwind binary. The demo's
+[stylesheet](demo/assets/styles/app.css) declares its utility sources: the gallery's application and recipe
+files, the examples in recipe READMEs, `INSTALL.md` and `docs/GUIDE.md`. When a new surface renders utility
+classes, include it in the stylesheet and in the [CSS rebuild check](tools/prepare-tests.mjs).
 
 ```bash
 (
@@ -249,10 +252,15 @@ Same-repository pull requests use their branch's push run, with a differently na
 request event so it cannot satisfy the required *CI result* early. Each job runs when the change could affect what
 it checks ([`tools/ci-changes.sh`](tools/ci-changes.sh)); pushes to `main`, and a full run by hand, run everything.
 
-A branch push is compared with where it left `dev`. A fork pull request uses the target base supplied by GitHub
+A feature branch push is compared with where it left `dev`. A fork pull request uses the target base supplied by GitHub
 and runs selected lanes fresh, without reusing evidence from other runs. A push to `dev` is compared with the commit
 of its last successful run, so every merge since is checked; with none, everything runs. *Tool tests* runs in every
 full CI run and checks what any path can break: bundled reference links, test inventory names and archive contents.
+
+On a stacked or release branch, the comparison with `dev` can include work the parent branch already validated.
+In the *Changes* job, *Plan the lanes* shows whether Chromium will run and the reason. A verified browser pass
+can cover a package or documentation follow-up even on a branch's first push. See
+[Reused lanes](docs/TESTING.md#reused-lanes) for the inputs and evidence that decide this.
 
 Once a day on `dev`, the jobs that install freshly resolved dependencies run alone (both *Fresh install* jobs and
 *Package*). GitHub schedules run on the default branch, `main`; each scheduled workflow starts its work on `dev`,
@@ -479,9 +487,9 @@ default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). For 
 For an already running native server, also set `PHP_BINARY=php` or its PHP executable. For managed native servers,
 choose a free `DEMO_PORT`. [The Playwright configuration](playwright.config.ts) defines how the tests connect to
 the browser server. Before the tests, Playwright
-builds the demo's Tailwind CSS when the files it scans changed since the last build (a SHA-256 of their content,
-kept in `demo/var/tailwind/sources.sha256`), so no screenshot is taken against stale CSS; with nothing changed, it
-builds nothing. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
+checks the demo's Tailwind inputs, including the recipe examples, the two guides the gallery renders and the
+Symfony form layouts the demo inherits. A change to those sources or the build inputs triggers a rebuild.
+The content digest is kept in `demo/var/tailwind/sources.sha256`. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
 (`tests/e2e/examples/recipes/`) when Playwright loads its configuration; each step holds a lock, and nothing is
 written when nothing changed, so several Playwright processes can share a checkout, and `--list` builds nothing.
 CI runs it as its own step before the tests (`node tools/prepare-tests.mjs`). A demo serving `demo/public/assets/`

@@ -3,14 +3,14 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { hostname, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, matchesGlob, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const modulePath = join(root, 'tools/prepare-tests.mjs');
-const { recipeSpecs, syncRecipeSpecs, withLock } = await import(modulePath);
+const { cssSourcesDigest, recipeSpecs, syncRecipeSpecs, withLock } = await import(modulePath);
 
 const UPSTREAM = "import { expect, test } from '../../../../assets/test/browser/fixtures';\n";
 
@@ -148,18 +148,6 @@ esac
     assert.equal(together.filter(({ output }) => output.includes('built=true')).length, 1);
 
     assert.match((await build()).output, /built=false/);
-    // Package-only and administrative inputs must be excluded by the real CSS scan and its build record.
-    const appCss = readFileSync(join(root, 'demo/assets/styles/app.css'), 'utf8');
-    const excludedFiles = ['composer.json', 'composer.lock', 'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md',
-        'SECURITY.md', '.github/pull_request_template.md'];
-    for (const path of ['packages/uxor', ...excludedFiles]) {
-        assert.ok(appCss.includes(`@source not "../../../${path}";`), `the demo must exclude ${path} from Tailwind candidates`);
-    }
-    mkdirSync(join(dir, 'packages/uxor/dev/app/templates'), { recursive: true });
-    writeFileSync(join(dir, 'packages/uxor/dev/app/templates/panel.html.twig'), '<kbd class="m-72">');
-    mkdirSync(join(dir, '.github'));
-    for (const path of excludedFiles) writeFileSync(join(dir, path), 'mt-80');
-    assert.match((await build()).output, /built=false/, 'excluded inputs keep the demo CSS record current');
     writeFileSync(join(dir, 'kit.css'), '.new { color: red }');
     assert.match((await build()).output, /built=true/);
     assert.equal(builds(), 2);
@@ -168,6 +156,49 @@ esac
     assert.match((await build()).output, /built=true/, '.gitignore itself is a source');
     writeFileSync(join(dir, 'ignored.log'), 'changed, still ignored');
     assert.match((await build()).output, /built=false/);
+});
+
+test('the Tailwind sources and the CSS build record agree on rendered and repository-only content', (t) => {
+    const dir = checkout();
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    execFileSync('git', ['init', '-q', dir]);
+    const stylesheet = join(root, 'demo/assets/styles/app.css');
+    writeFileSync(join(dir, '.gitignore'), '/demo/vendor/\n/demo/assets/vendor/\n/node_modules/\n');
+    const content = readFileSync(stylesheet, 'utf8');
+    assert.match(content, /@import "tailwindcss" source\(none\);/, 'only explicit sources contribute candidates');
+    const sources = [...content.matchAll(/^@source (not )?"([^"]+)";/gm)].map(([, excluded, path]) => ({
+        excluded: !!excluded, pattern: relative(root, resolve(dirname(stylesheet), path)),
+    }));
+    const included = ['demo/templates/base.html.twig', 'alert/templates/button.html.twig', 'alert/README.md',
+        'alert/manifest.json', 'docs/GUIDE.md', 'INSTALL.md', 'kit.js',
+        'demo/vendor/symfony/twig-bridge/Resources/views/Form/tailwind_2_layout.html.twig',
+        'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig'];
+    const omitted = ['README.md', 'docs/README.md', 'docs/templates/snippet.html.twig', 'docs/subdir/review.md',
+        'docs/PLAN-composer-package.md', '.github/workflows/release.yml', 'tests/e2e/shared.spec.ts',
+        'composer.json', 'composer.lock', 'packages/uxor/dev/app/templates/widget.html.twig', 'tools/README.md',
+        'node_modules/unrelated/templates/widget.html.twig', 'demo/assets/vendor/unrelated/data.json',
+        'demo/vendor/symfony/twig-bridge/Resources/views/Form/unrelated.html.twig',
+        'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
+    let digest = cssSourcesDigest(dir);
+    for (const path of [...included, ...omitted]) {
+        const rendered = included.includes(path);
+        const matching = sources.filter(({ pattern }) => matchesGlob(path, pattern) || path.startsWith(pattern + '/'));
+        assert.equal(matching.some((s) => !s.excluded) && !matching.some((s) => s.excluded), rendered, `CSS scan: ${path}`);
+        mkdirSync(dirname(join(dir, path)), { recursive: true });
+        writeFileSync(join(dir, path), '<div class="mt-80">');
+        const next = cssSourcesDigest(dir);
+        assert.equal(next !== digest, rendered, `CSS build record: ${path}`);
+        digest = next;
+    }
+    for (const path of ['demo/assets/vendor/flowbite/dist/flowbite.min.css', 'demo/vendor/symfony/ux-live-component/assets/dist/live.min.css']) {
+        const imported = relative(dirname(stylesheet), join(root, path));
+        assert.ok(content.includes(`@import "${imported}";`), `stylesheet imports ${path}`);
+        mkdirSync(dirname(join(dir, path)), { recursive: true });
+        writeFileSync(join(dir, path), 'main { color: blue; }');
+        const next = cssSourcesDigest(dir);
+        assert.notEqual(next, digest, `CSS build record: ${path}`);
+        digest = next;
+    }
 });
 
 test('a lock held by a running process is waited for; one left by a process that is gone is taken over', async () => {
@@ -198,7 +229,7 @@ test('stale lock recovery preserves a replacement lock held by a live contender'
         import assert from 'node:assert/strict';
         import fs from 'node:fs';
         import { syncBuiltinESMExports } from 'node:module';
-        import { join } from 'node:path';
+        import { dirname, join, matchesGlob, relative, resolve } from 'node:path';
 
         const lock = ${JSON.stringify(lock)};
         const owner = ${JSON.stringify(owner)};

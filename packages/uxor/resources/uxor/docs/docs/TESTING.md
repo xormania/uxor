@@ -1612,8 +1612,9 @@ report, 4 tests not reached. Run it on a local report with `node tools/ci/playwr
 **Catches:** a push that changes only the changelog or the contributor docs running the browser tests again on code
 that already passed, and the reverse, a pass carried over to inputs it never tested.
 
-A branch is compared with where it left `dev` (`CONTRIBUTING.md`, *Checks*), so a push that changes only
-`CHANGELOG.md` after green code still selects every lane the code selected. Before running one, the Changes job asks
+A feature branch push uses the merge base with `dev` even when the branch starts from a release or another work branch.
+That comparison can select the demo because of changes that already passed on the parent. This also happens on
+the first push, before a pull request has a target. Before scheduling the shards, the Changes job asks
 [`tools/ci/lane-evidence.mjs`](https://github.com/xormania/uxor/blob/0.3.5/tools/ci/lane-evidence.mjs) whether an earlier run already passed it on the same
 inputs. Seven lanes can be reused: *Kit PHP*, *Demo + Playwright*'s Chromium shards (`demo`, `CHROMIUM_SHARDS` jobs),
 its Firefox and WebKit shards (`engines`, six jobs) and *Production image* for 14 days; both *Fresh install* jobs
@@ -1636,13 +1637,17 @@ download of this commit's archive is not checked again within those 24 hours.
   links them on GitHub; `EXCLUDED_FOR` in the tool ties each file to its lanes): *Package*'s references read
   `CHANGELOG.md`'s latest version, so its content is *Package*'s input. Editing an excluded file keeps the lanes'
   fingerprints. Deleting it or changing its Git mode changes the fingerprint.
-- **Composer and the demo browsers.** The Chromium, Firefox and WebKit jobs check out the kit and demo, including
-  `packages/uxor/resources/browser/`, which the Playwright fixtures import. Their checkout omits the root Composer
-  manifest and lock and the rest of the independent package, apart from Git attributes governing the recorder.
-  The demo also excludes package files from its Tailwind scan. An edit confined to the independent consumer,
-  such as adding a lifecycle test, therefore keeps a verified browser pass eligible even on a stacked branch.
-  *Package* still checks that edit. Changes to the recorder, the demo's own lock, recipes, Playwright tests,
-  CI workflow or verifier require fresh browser evidence. Unusual Git entries such as symlinks remain fingerprinted.
+- **Demo browsers.** Chromium, Firefox and WebKit use the same [checkout rules](https://github.com/xormania/uxor/blob/0.3.5/tools/ci/browser-checkout.patterns).
+  Git applies those rules both to the runner's checkout and to the file list used to qualify a previous pass.
+  A package-only change, a root README correction or an edit to a release workflow can therefore reuse a verified
+  browser run, including on a release branch or a stack. The demo's Tailwind build scans the UI sources and the
+  guides it renders. Changes to a recipe README, `INSTALL.md`, `docs/GUIDE.md`, the shared browser recorder,
+  a demo Playwright spec, the demo lock or the CI workflow invalidate browser evidence. New paths outside the
+  exclusions are included. A symlink or submodule makes browser qualification hash the whole tree.
+- **Playwright spec edits.** Kit PHP, Package, Production image, Lint kit and Fresh install can reuse their
+  previous passes after an edit to an existing Playwright spec under `tests/e2e/` or in a recipe's test suite.
+  The spec's path and Git mode still count, so moving a spec or replacing it with a link triggers validation.
+  The demo browser lanes count the contents of their specs. Release checks run the release-only specs in a separate checkout.
 - **Age.** The runner's image version is recorded, not compared; a pass counts for 14 days, or 24 hours for the lanes above, from
   its lane jobs' completion (the oldest job's, as GitHub's job list reports it and as the marker must say), never from
   its marker's creation.

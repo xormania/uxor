@@ -2,7 +2,7 @@
  * UXor demo styles: Tailwind CSS, Flowbite CSS, the kit's theme and recipe styles,
  * and the demo's branding and documentation styles.
  */
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "../vendor/flowbite/dist/flowbite.min.css";
 /* Include Live loading indicators in the main stylesheet for the first paint. */
 @import "../../vendor/symfony/ux-live-component/assets/dist/live.min.css";
@@ -12,14 +12,22 @@
 @import "../../../editor/assets/styles/uxor-editor.css";
 @import "./xor.css";
 @import "./recipe-doc.css";
-@source "../../..";
-/* The Composer dev package and its consumer have a separate asset pipeline. */
-@source not "../../../packages/uxor";
-@source not "../../../composer.json";
-@source not "../../../composer.lock";
-/* Administrative instructions and records do not supply demo utilities. */
-@source not "../../../CHANGELOG.md";
-@source not "../../../CONTRIBUTING.md";
-@source not "../../../AGENTS.md";
-@source not "../../../SECURITY.md";
-@source not "../../../.github/pull_request_template.md";
+/* The gallery renders its app, recipe sources and two guides. Restrict utility discovery to those
+ * surfaces so edits to contributor docs, package tooling and browser tests cannot change its CSS. */
+@source "../../../*/{templates,assets,src,config}/**/*";
+@source "../../../*/README.md";
+@source "../../../*/manifest.json";
+@source "../../../kit.js";
+@source "../../../INSTALL.md";
+@source "../../../docs/GUIDE.md";
+/* UXor's form theme delegates unoverridden widgets to these installed Symfony layouts. */
+@source "../../vendor/symfony/twig-bridge/Resources/views/Form/{tailwind_2_layout,form_div_layout}.html.twig";
+@source not "../../../docs/{templates,assets,src,config}/**/*";
+@source not "../../../docs/{README.md,manifest.json}";
+@source not "../../assets/vendor";
+@source not "../../../packages";
+@source not "../../../tools";
+@source not "../../../tests";
+@source not "../../../.*/**/*";
+@source not "../../../node_modules";
+@source not "../../../vendor";

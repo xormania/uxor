@@ -15,6 +15,11 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source
   writes and project-code execution require separate explicit grants, and existing application configuration is preserved.
 
+### Changed
+
+- The demo builds Tailwind utilities from its UI sources and rendered guides. Changes to contributor docs or
+  package-only files can reuse a verified Playwright run on a stacked or release branch.
+
 ### Fixed
 
 - Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation
