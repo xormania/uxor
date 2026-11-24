@@ -4,22 +4,23 @@ All notable changes to UXor. The format follows [Keep a Changelog](https://keepa
 Versions use [Semantic Versioning](https://semver.org/)'s `X.Y.Z` format as git tags, without a `v`.
 UXor is in `0.x` development: its public interfaces are not yet stable, and changes may be incompatible.
 The maintainer chooses each release number and may skip numbers; the entries describe changes and migration needs.
-See [Releases](CONTRIBUTING.md#releases) for the current policy.
+On a release branch, a dated entry can describe a version being prepared. [GitHub Releases](https://github.com/xormania/uxor/releases)
+lists published versions. See the [release policy](CONTRIBUTING.md#releases) for how UXor publishes a tag.
 
 ## [Unreleased]
 
 ### Added
 
+- The documentation website groups guides by product and recipes by task. The Composer setup, agent onboarding,
+  advanced operations, configuration and application testing guides are available as HTML and Markdown.
+  Installed agent tools can read the same guides. Package settings generate the configuration reference.
+
 - The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
   read page errors, failed requests and available Symfony profile tokens using the installed CLI or Mate.
 
-- The gallery publishes the Composer onboarding guide and advanced operations reference as HTML and Markdown.
-  The same guides are available in the repository and through the installed agent tools.
-
-- The Composer dev package adds setup planning and application-owned configuration for Mago, Serena, Maker and
-  Symfony diagnostics, with explicit dependency installation, environment checks and compiled Symfony preparation.
-  Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source
-  writes and project-code execution require separate explicit grants, and existing application configuration is preserved.
+- Installing the Composer development package supplies the Toolkit installer, Mate, Maker, Mago and Symfony
+  diagnostics. `uxor setup` previews changes to application configuration and Serena client bindings.
+  `uxor setup --apply` writes missing configuration and preserves existing settings.
 
 ### Changed
 
@@ -32,10 +33,10 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Fixed
 
-- Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation
-  worker, Composer autoloader or configured extensions. `--write` alone does not grant execution permission;
-  setup's execution flag does not authorize future connections. Saving that permission in new MCP bindings
-  requires the separate `--save-project-trust` option. Checked-in contributor bindings carry no saved execution permission.
+- The Docker-backed Mago and Serena launcher requires `--trust-project-code` before mounting the application
+  or executing its preparation worker, Composer autoloader or configured extensions. Mutating the checkout also
+  requires `--write`. Persisting execution permission in a new Serena binding requires `--save-project-trust`.
+  Checked-in contributor bindings carry no saved execution permission.
 
 - Serena verifies Symfony preparation using provider-owned code without loading application PHP. It checks the
   manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
@@ -73,8 +74,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
   Component’s loading indicators in its main stylesheet.
 - `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
   Charts share one 1×1 canvas to resolve theme colors on load and when switching themes.
-- The Composer development package uses Symfony AI Mate `1.0.0-BETA1`. Consuming applications opt into the three
-  Mate prereleases in their own Composer dev dependencies. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
+- The Composer development package moves from Symfony AI Mate 0.14 to the 1.x line, starting at `1.0.0-BETA1`.
+  While the required Mate packages are in beta, the application allows beta dependencies and prefers stable versions.
+  Allow the UXor and Mate Composer plugins, then require `xormania/uxor` for development. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
 - The Composer package names its Mate skills `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify` so
   application skills can use the original generic names. See the [migration steps](packages/uxor/README.md#upgrade-from-the-old-skill-names)
   for custom overrides and disable settings.

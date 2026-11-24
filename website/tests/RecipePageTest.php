@@ -19,6 +19,25 @@ final class RecipePageTest extends WebsiteTestCase
         self::assertSame(array_unique($ids[1]), $ids[1], 'every id on the page is unique');
     }
 
+    public function testRecipeNavigationUsesTheCatalogOfThePublishedCheckout(): void
+    {
+        $page = \Dom\HTMLDocument::createFromString(self::recipeHtml('duplicate-snippets'), LIBXML_NOERROR);
+        $navigation = $page->querySelector('nav[aria-label="Recipes"]');
+        self::assertNotNull($navigation);
+        $groups = [];
+        foreach ($navigation->querySelectorAll('.group-title') as $heading) {
+            $groups[$heading->textContent] = array_map(static fn ($link) => trim($link->textContent),
+                iterator_to_array($heading->nextElementSibling->querySelectorAll('a')));
+        }
+
+        self::assertSame(['duplicate-snippets'], $groups['Test fixtures']);
+        self::assertSame(['theme', 'theme-toggle'], $groups['Theme']);
+        self::assertSame('duplicate-snippets', trim($navigation->querySelector('[aria-current="page"]')->textContent));
+        $names = array_merge(...array_values($groups));
+        sort($names, SORT_STRING);
+        self::assertSame(array_keys(self::kit()->getRecipes()), $names, 'every kit recipe has exactly one link');
+    }
+
     public function testEachExampleIsItsPreviewPageInBothThemes(): void
     {
         $html = self::recipeHtml('badge');

@@ -98,7 +98,8 @@ final class EnvironmentSetup
                 ."- Run ".$project['bin']."/uxor prepare --trust-project-code after source, dependency or service changes to refresh Symfony wiring.\n"
                 ."- On first use, ".$project['bin']."/uxor-mago prepares the provider on the Docker host.\n"
                 ."- Connect Serena using the local MCP definition in mcp.json. Paths are machine-local to the MCP host; container users supply --host-project-root during setup.\n"
-                ."- Mate Beta1 uses the application CLI: ".$project['bin']."/mate tools:list --format=json; inspect exact inputs before tools:call.\n"
+                ."- List the installed Mate tools in the application: ".$project['bin']."/mate tools:list --format=json; inspect exact inputs before tools:call.\n"
+                ."- Visit a served URL with ".$project['bin']."/uxor-browser URL and pass the printed artifact path to ".$project['bin']."/uxor browser-diagnostics.\n"
                 ."- Import test and expect from .uxor/browser.mjs in the application's Playwright tests; configure its baseURL and output directory, and set PROFILER_COLLECT=1 for a diagnostic run.\n"
                 ."- Inspect the exact request profile URI in browser-diagnostics.json. Preserve failure evidence before changing caches.\n"
                 ."- Keep the application's production runtime independent of development dependencies.\n",

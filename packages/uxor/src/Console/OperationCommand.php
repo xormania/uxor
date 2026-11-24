@@ -39,7 +39,7 @@ final class OperationCommand extends Command
         }
         if (in_array($this->operation, ['setup', 'environment', 'prepare'], true)) {
             $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'setup' === $this->operation
-                ? 'Acknowledge native application execution for this setup operation; does not save permission for future connections'
+                ? 'Compatibility flag for older setup invocations. Setup only configures files; use save-project-trust for new Serena bindings.'
                 : 'Acknowledge execution of this already trusted application and its native tools');
         }
         if ('setup' === $this->operation) {
@@ -55,7 +55,7 @@ final class OperationCommand extends Command
                 ->setHelp('Run before composer remove --dev xormania/uxor. Without --apply, inspect the managed files and any application integrations requiring manual reconciliation. Stop running UXor providers before applying.');
         }
         if ('environment' === $this->operation) {
-            $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes; requires trust-project-code');
+            $this->addOption('probe', null, InputOption::VALUE_NONE, 'Run native entry-point probes, including Docker provider version checks that may prepare images on first use; requires trust-project-code');
         }
         if ('catalog' === $this->operation) {
             $this->addOption('query', null, InputOption::VALUE_REQUIRED, 'Component name or intent', '')

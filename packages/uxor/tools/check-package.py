@@ -18,6 +18,7 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+import posixpath
 import re
 import secrets
 import shutil
@@ -25,6 +26,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -61,10 +63,10 @@ DEVELOPMENT_FILES = {
 }
 # Every file the source tree holds under these package directories must be exported.
 PACKAGE_DIRECTORIES = ("bin", "config", "resources", "skills", "src")
+ENTRY_DOCUMENTS = ("README.md", "INSTALL.md", f"{PACKAGE_PATH}/README.md", f"{PACKAGE_PATH}/OPERATIONS.md")
 REQUIRED_FILES = (
-    "composer.json", "LICENSE", "README.md", "manifest.json",
-    f"{PACKAGE_PATH}/INSTRUCTIONS.md", f"{PACKAGE_PATH}/OPERATIONS.md", f"{PACKAGE_PATH}/README.md",
-    BROWSER_DIAGNOSTICS_MODULE,
+    "composer.json", "LICENSE", "manifest.json", f"{PACKAGE_PATH}/INSTRUCTIONS.md",
+    *ENTRY_DOCUMENTS, BROWSER_DIAGNOSTICS_MODULE,
 )
 # Everything else is refused: a new development file is caught even when nobody thought to list it. An exported
 # file is a root file below, a file of a recipe (a top-level directory whose manifest.json is exported) or one of
@@ -154,6 +156,30 @@ def as_list(value) -> list[str]:
     return [value] if isinstance(value, str) else list(value)
 
 
+def entry_document_links(markdown: str):
+    """Relative file links from inline Markdown and reference definitions in the visitor guides."""
+    destination = r"(?:<([^>]+)>|([^\s)]+))"
+    link = re.compile(r"(?:\]\(\s*|^ {0,3}\[[^\]]+\]:\s*)" + destination)
+    fence = ""
+    for line in markdown.splitlines():
+        marker = re.match(r"^ {0,3}(`{3,}|~{3,})(.*)$", line)
+        if marker:
+            run, tail = marker.groups()
+            if not fence:
+                fence = run
+            elif run.startswith(fence) and not tail.strip():
+                fence = ""
+            continue
+        if fence or line.startswith(("    ", "\t")):
+            continue
+        # Code spans may show Markdown syntax literally.
+        prose = re.sub(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)", "", line)
+        for match in link.finditer(prose):
+            target = urlsplit(match.group(1) or match.group(2))
+            if target.path and not (target.scheme or target.netloc or target.path.startswith("/")):
+                yield unquote(target.path)
+
+
 @operation("archive.verify")
 def check_archive(archive: Path, revision: str) -> int:
     with tarfile.open(archive, mode="r:") as package:
@@ -201,6 +227,14 @@ def check_archive(archive: Path, revision: str) -> int:
         for required in (*REQUIRED_FILES, *recipe_manifests, *recipe_payload_files(recipe_manifests, tracked, revision), *package_files):
             if not exported_file(required):
                 raise RuntimeError(f"Required file missing from the archive: {required}")
+
+        # These guides are entry points in both the checkout and the distributed archive.
+        for document in ENTRY_DOCUMENTS:
+            content = package.extractfile(paths[document])
+            for target in entry_document_links(content.read().decode("utf-8")):
+                resolved = posixpath.normpath(posixpath.join(posixpath.dirname(document), target))
+                if resolved != "." and resolved not in paths:
+                    raise RuntimeError(f"Broken relative link in archived {document}: {target} resolves to {resolved}")
 
         manifest_file = package.extractfile(paths["composer.json"])
         if manifest_file is None:

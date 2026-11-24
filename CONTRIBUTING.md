@@ -1,11 +1,9 @@
 # Contributing to UXor
 
-UXor is an independently maintained Symfony UI library, currently distributed as a Symfony UX Toolkit kit:
-`manifest.json` at the root, one recipe per top-level directory
-holding a `manifest.json`. The same repository is the Composer package `xormania/uxor`, agent guidance and development
-tools for projects using the kit: `composer.json` at the root, its code in `packages/uxor/`
-([`docs/PLAN-composer-package.md`](docs/PLAN-composer-package.md)). This page covers the repository, the conventions,
-adding a recipe, and the commit and pull request standard.
+This guide covers contributions to UXor's Symfony UX Toolkit recipes and its Composer development package.
+The kit lives in the root `manifest.json` and the recipe directories. Root `composer.json` defines
+`xormania/uxor`, with its code in `packages/uxor/`. To use either product in a Symfony application, start
+with the [Composer setup guide](packages/uxor/README.md) or the [direct Toolkit setup](INSTALL.md).
 
 The official Symfony UX `flowbite-4` kit was an initial reference only. UXor's requirements and compatibility
 commitments govern its design, APIs, documentation and tests; inherited names, markup and behavior carry no
@@ -33,7 +31,7 @@ that install UXor: those applications keep their own instructions, ownership, re
 | Toolkit contribution | Root `manifest.json` and top-level recipe directories | This guide and [root agent guidance](AGENTS.md); edit recipe sources here |
 | Composer dev package development | Root `composer.json`; implementation in `packages/uxor/` | Root Composer dependencies and tests; packaged instructions and skills are product content for consuming applications |
 | Project documentation website | `website/` | Builds release guides, recipe pages, portable Markdown and discovery files from the kit and Composer package sources. See [Docs](#docs). |
-| Example application | `demo/` | [Local Docker setup](#setup) and [demo guidance](demo/AGENTS.md). The app supplies the visual demo and recipe previews for Pages. |
+| Symfony example application and Toolkit test host | `demo/` | [Local Docker setup](#setup) and [demo guidance](demo/AGENTS.md). Pages uses the exported example app at `/demo/` and recipe previews at `/preview/`. The host also runs the local lab and form fixtures. |
 | Package consumer fixture | `packages/uxor/dev/app/` | [Fixture guide](packages/uxor/dev/README.md); independent Composer application, runner and browser suite; installs the package and recipes through consumer workflows |
 | Application using UXor | The application's own root | [FOR-AGENTS.md](FOR-AGENTS.md) for kit use; the installed package's instructions and skills for its tools; the application owner's governance and runtime |
 
@@ -61,7 +59,7 @@ local, ignored settings rather than tracked project guidance. The ignore rules c
 | `tools/sync-demo` | no | copies every recipe into `demo/` the way `ux:install --force` does |
 | `tools/demo-php` | no | runs PHP in the demo's container, for the Playwright specs (`DEMO_URL`) |
 | `tools/contrast/` | no | WCAG contrast check of the theme's color roles |
-| `tools/llms-txt.mjs` | no | writes `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status |
+| `tools/llms-txt.mjs` | no | writes the website’s recipe category index, `llms.txt` and the recipe table of `FOR-AGENTS.md` from `docs/RECIPES.md`'s recipe tables, and checks the plans' status |
 | `tools/docs-lint.mjs`, `tools/fence-coverage.mjs` | no | what the markdown examples teach, and a gallery page for every recipe and README example (*Docs*) |
 | `tools/recipe-imports.mjs` | no | every relative import in a recipe's JavaScript names a file the recipe or its recipe dependencies install (*Checks*) |
 | `tools/js-duplication.mjs` | no | the copies of code in the recipes' JavaScript: the duplicated lines stay within a budget, and no recipe declares again a name a shared module exports (*Checks*, *Shared code*) |
@@ -248,12 +246,16 @@ It looks up package, recipe and demo symbols and compares the analyzer's diagnos
 
 ### Publishing consumer guides
 
-Edit the package walkthrough in [its README](packages/uxor/README.md) and the advanced guide in
-[OPERATIONS.md](packages/uxor/OPERATIONS.md). Their entries in the [guide registry](packages/uxor/resources/guides.json)
-supply the gallery routes, navigation and discovery links. Agents can read the same guides through the installed
-`reference` command. Keep shared explanations in those source files and link to them from entry points.
-After changing commands, refresh the advanced guide first. After changing guide content or package requirements,
-regenerate the references. The [checks below](#checks) include both commands.
+Each entry in the [guide registry](packages/uxor/resources/guides.json) names one Markdown file, its public URL
+slug, its product section and the task it helps a visitor complete. Register a guide once to publish it in the
+website directory, HTML, portable Markdown, sitemap, machine-readable index and installed agent references.
+Write onboarding and testing procedures in their source guides. Edit the recipe groupings in
+[the toolkit catalog](docs/RECIPES.md). Both the website and the installed package use those groupings.
+
+From a repository checkout with its Composer dependencies installed, run `composer docs:generate`
+after editing a source. It refreshes the command and configuration guides first, then the category and discovery
+indexes, then the installed reference bundle. Run `composer docs:check` to verify all three stages without
+writing files. The [checks below](#checks) also list the individual generators.
 
 ## Checks
 
@@ -338,7 +340,7 @@ demo/vendor/bin/ux-toolkit-kit-debug .              # lists each recipe with its
 
 node tools/contrast/check.mjs                       # every pair in tools/contrast/pairs.json meets its contrast minimum
 cmp kit.css theme/assets/styles/uxor.css            # the theme recipe ships kit.css unchanged
-node tools/llms-txt.mjs --check                     # llms.txt and FOR-AGENTS.md's recipe table match docs/RECIPES.md's recipe tables (without --check: rewrites both; see Docs)
+node tools/llms-txt.mjs --check                     # website categories, llms.txt and the FOR-AGENTS.md recipe table match their sources (see Docs)
 node tools/name-check.mjs                           # no file names a former repository of the kit (tools/kit-former-names.json) by its github.com, raw or gallery URL (see Renaming the kit)
 node tools/docs-lint.mjs                            # no markdown example teaches Flowbite JS, palette colors, dark: overrides, inline handlers or styles; no recipe template uses a palette color (see Docs)
 node tools/icon-lint.mjs                            # every icon in the recipes' templates and the markdown is a flowbite: name written in full; lists the names chosen by a Twig expression (see Docs)
@@ -372,7 +374,7 @@ node tools/monthly/trends.mjs --out coverage/trends --php coverage/php/php-cover
 actionlint                                          # every workflow, with ShellCheck on its run steps (CI pins actionlint 1.7.12 and ShellCheck 0.11.0)
 
 python3 packages/uxor/tools/validate-composer.py    # strict Composer validation of the package and lock; allows the two release-matched native provider pins
-php packages/uxor/tools/generate-command-guide.php   # refresh the advanced guide from the registered UXor CLI (requires composer install)
+php packages/uxor/tools/generate-command-guide.php   # refresh the CLI and configuration references from the package (requires composer install)
 php packages/uxor/tools/generate-reference.php      # refresh the Composer install command and bundle the guides from the working tree
 php packages/uxor/tools/generate-reference.php --check   # the bundled references are up to date: lists the stale files, changes nothing
 composer test                                       # the package's PHPUnit tests (packages/uxor/tests/, packages/uxor/phpunit.xml.dist)
@@ -451,16 +453,17 @@ environment, and a later `docker compose up` (such as turning Xdebug on) without
 default ports. Put the HTTPS port in `DEMO_URL` (`https://localhost:8443`). For a manually started native demo, pass its URL in `DEMO_URL` and route Symfony requests with the native setup command above.
 For an already running native server, also set `PHP_BINARY=php` or its PHP executable. For managed native servers,
 choose a free `DEMO_PORT`. [The Playwright configuration](playwright.config.ts) defines how the tests connect to
-the browser server. Before the tests, Playwright
-checks the demo's Tailwind inputs, including the recipe examples, the two guides the gallery renders and the
-Symfony form layouts the demo inherits. A change to those sources or the build inputs triggers a rebuild.
-The content digest is kept in `demo/var/tailwind/sources.sha256`. `tools/prepare-tests.mjs` does that, and writes the recipe specs' runnable copies
-(`tests/e2e/examples/recipes/`) when Playwright loads its configuration; each step holds a lock, and nothing is
-written when nothing changed, so several Playwright processes can share a checkout, and `--list` builds nothing.
-CI runs it as its own step before the tests (`node tools/prepare-tests.mjs`). A demo serving `demo/public/assets/`
-still needs `asset-map:compile` after that. The demo shows all of a recipe's examples at `/r/<recipe>`, and one example
-alone at `/preview/<recipe>/<example>?theme=light` (or `dark`). `<example>` is the slug of the heading above the
-example: `default` for the one under the title, with `-2`, `-3`… added when a heading repeats.
+the browser server. Before tests run, `tools/prepare-tests.mjs` checks the source digest for each stylesheet
+in `demo/var/tailwind/<entrypoint>.sources.sha256`. The example app uses `demo-app`. Labs, forms and recipe
+previews use `toolkit-fixtures`, whose inputs include the README examples. Both use the shared recipe and host
+styles. Playwright prepares runnable copies of the recipe specs in `tests/e2e/examples/recipes/` when it loads
+its configuration and rebuilds changed CSS before running tests. Each step holds a lock so concurrent test
+processes can share a checkout. When the server uses compiled assets in `demo/public/assets/`, rerun
+`bin/console asset-map:compile` from `demo/` after rebuilding CSS.
+
+The [website](#docs) lists each recipe's examples at `/r/<recipe>/`. The Symfony host renders individual
+previews at `/preview/<recipe>/<example>?theme=light` or `?theme=dark`. The example ID comes from the
+preceding heading, with `default` under the recipe title and `-2`, `-3` and so on for repeated headings.
 
 ## Conventions
 
@@ -564,8 +567,9 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
    under `##` or `###` headings. Open each example with ```` ```twig {"preview":true} ````: the demo renders it and
    Playwright screenshots it in light and dark. A plain ```` ```twig ```` block is shown as code only.
 4. Run `tools/sync-demo`, then `(cd demo && php bin/console app:build-styles && php bin/console asset-map:compile)`: the
-   demo's CSS only holds the classes it has seen, and the demo serves the compiled files. Start the demo (see *Setup*)
-   and open `/r/<recipe>` and `/preview/<recipe>/<example>?theme=dark`.
+   host serves the compiled CSS. Open `/preview/<recipe>/<example>?theme=dark` on the running [Symfony host](#setup).
+   To review the rendered documentation and its embedded previews together, build the complete [local site](#docs)
+   and open `/uxor/r/<recipe>/`.
    - Icons: Iconify on demand is off in the demo, so import each icon the recipe uses
      (`(cd demo && php bin/console ux:icons:import flowbite:<name>)`) and commit it under `demo/assets/icons/`.
    - A block that takes a Symfony form gets one for its previews in `demo/src/Kit/PreviewForms.php`.
@@ -586,8 +590,8 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
    If the recipe puts a text, icon or bar color on a background that `tools/contrast/pairs.json` does not cover yet,
    add a row there: `fg`, `bg`, `min` (4.5 for text, 3 for icons, bars and focus rings) and `usage`.
 7. Add a row for the recipe to the matching table in `docs/RECIPES.md` (mark it ✦ if it ships a Stimulus
-   controller), run `node tools/llms-txt.mjs` to add it to `llms.txt` and to `FOR-AGENTS.md`'s table, and add an
-   entry to `CHANGELOG.md` (see *Changelog*). If it is close to another recipe, say which to pick in the list under
+   controller), run `composer docs:generate` to refresh the website categories, agent indexes and package references,
+   and add an entry to `CHANGELOG.md` (see *Changelog*). If it is close to another recipe, say which to pick in the list under
    that table (*Which recipe*). Commit, then run
    the checks that cover a new recipe: the kit lint, `ux-toolkit-kit-debug`, `node tools/contrast/check.mjs` if you added pairs, and
    `npx playwright test`. CI runs all of them.
@@ -606,18 +610,27 @@ website and the installed agent references. Website templates, styles and naviga
 `website/`. This build works without installing the example application.
 
 A complete release adds the example app and rendered recipe previews from a second build.
-Use `tools/build-static.sh _site --base-path=/uxor` to build both from the same checkout.
-The `/demo/` pages show visitors what the application looks like. Run the Docker application
+To inspect the combined site locally, serve both outputs under the same base path:
+
+```sh
+tools/build-static.sh _site/uxor --base-path=/uxor
+python3 -m http.server 8001 --bind 127.0.0.1 --directory _site
+```
+
+Open `http://127.0.0.1:8001/uxor/` for the documentation or `/uxor/demo/` for the visual example app.
+Run the [Symfony host](#setup)
 to exercise features that need a Symfony server.
 
-The lists of recipes that agents read are written from `docs/RECIPES.md`'s recipe tables by `tools/llms-txt.mjs`: edit a
-row there, never the copies, then run `node tools/llms-txt.mjs` and commit what it writes. CI's *Contrast* checks (in *Quick checks*) run
-it with `--check`, which fails when:
+The recipe tables in `docs/RECIPES.md` supply the website’s category index, the recipe lists in
+`FOR-AGENTS.md` and the release index in `llms.txt`. Edit the table once, then run
+`composer docs:generate` and commit the resulting indexes and packaged references. Within that
+command, `node tools/llms-txt.mjs` generates the category and discovery indexes. CI runs its
+`--check` mode in *Contrast*. It fails when:
 
 - a directory with a `manifest.json` is missing from the tables, listed twice, or a row names no recipe;
 - a plan's status does not match the recipes that ship (*Plans* below);
-- `llms.txt`, or the table between `<!-- recipes:start` and `<!-- recipes:end -->` in `FOR-AGENTS.md`, is not what
-  the script writes;
+- the website category index in `website/resources/recipe-categories.json`, `llms.txt` or the generated recipe
+  table in `FOR-AGENTS.md` differs from the generator output;
 - `FOR-AGENTS.md` or `docs/PROJECT-AGENTS-SNIPPET.md` names a recipe that does not exist (`ux:install <name>`, a
   `<name>/README.md` link).
 

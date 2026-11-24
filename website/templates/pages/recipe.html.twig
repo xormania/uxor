@@ -1,16 +1,17 @@
 {% extends 'base.html.twig' %}
 
+{% set markdown_url = path('app_recipe_markdown', {recipe: recipe.name}) %}
 {% set page_title = recipe.manifest.name ~ ': ' ~ kit.manifest.name %}
 {% set description = (recipe.description ?: recipe.manifest.name)|plain_markdown %}
 
 {% block body %}
-    {%- set source = kit.manifest.homepage ~ '/tree/' ~ (commit ?? ref) ~ '/' ~ recipe.name -%}
+    {%- set source_path = (commit ?? ref) ~ '/' ~ recipe.name -%}
     {%- set is_page = 'block' == recipe.manifest.type.value or 'layouts' == recipe.name -%}
 
     <div class="recipe-layout">
         <nav class="recipe-nav" aria-label="Recipes">
             <div>
-                {% for group in groups %}
+                {% for group in recipe_categories %}
                     <p class="group-title">{{ group.title }}</p>
                     <ul>
                         {% for item in group.recipes %}
@@ -76,9 +77,9 @@
                     {% endfor %}
                 </dl>
                 <p class="resource-links">
-                    <a href="{{ source }}/README.md">README</a>
-                    <a href="{{ path('app_recipe_markdown', {recipe: recipe.name}) }}" type="text/markdown">Markdown</a>
-                    <a href="{{ source }}">Source</a>
+                    <a href="{{ repository }}/blob/{{ source_path }}/README.md">README</a>
+                    <a href="{{ markdown_url }}" type="text/markdown">Markdown</a>
+                    <a href="{{ repository }}/tree/{{ source_path }}">Source</a>
                 </p>
             </section>
 

@@ -272,13 +272,10 @@ final class ReferenceBundleTest extends TestCase
 
     public function testTheCommandGuideRejectsDriftAndRestoresTheInstalledCommandDefinition(): void
     {
-        $package = $this->source.'/packages/uxor';
-        $script = $package.'/tools/generate-command-guide.php';
-        mkdir(dirname($script), 0777, true);
-        copy(dirname(__DIR__).'/tools/generate-command-guide.php', $script);
-        symlink(ReferenceGenerator::repositoryRoot().'/vendor', $this->source.'/vendor');
-        $guide = $package.'/OPERATIONS.md';
-        $current = file_get_contents(dirname(__DIR__).'/OPERATIONS.md');
+        $script = $this->copyGuideGenerator();
+        $guide = $this->source.'/packages/uxor/OPERATIONS.md';
+        $current = file_get_contents($guide);
+        self::assertIsString($current);
         $command = (new Application())->find('setup');
         $description = $command->getDefinition()->getOption('save-project-trust')->getDescription();
         self::assertStringContainsString('### `setup`', $current);
@@ -292,6 +289,97 @@ final class ReferenceBundleTest extends TestCase
         (new Process([PHP_BINARY, $script]))->mustRun();
         self::assertSame($current, file_get_contents($guide));
         self::assertSame(0, $check->run(), $check->getErrorOutput());
+    }
+
+    public function testTheConfigurationGuideTracksShippedProviderDefaultsIndependentlyOfEnvironmentOverrides(): void
+    {
+        $script = $this->copyGuideGenerator();
+        $configuration = $this->source.'/docs/COMPOSER-CONFIGURATION.md';
+        $guide = $this->source.'/packages/uxor/OPERATIONS.md';
+        $current = file_get_contents($guide);
+        self::assertIsString($current);
+        $launcher = $this->source.'/packages/uxor/bin/uxor-mago';
+        $defaultImage = static fn (string $provider): string => trim((new Process(
+            ['sh', $launcher, 'image', $provider], env: ['UXOR_MAGO_IMAGE' => false],
+        ))->mustRun()->getOutput());
+        $cli = $defaultImage('cli');
+        $serena = $defaultImage('serena');
+        $original = file_get_contents($configuration);
+        self::assertIsString($original);
+        self::assertStringContainsString('| Mago CLI | `'.$cli.'` |', $original);
+        self::assertStringContainsString('| Serena | `'.$serena.'` |', $original);
+        $source = file_get_contents($launcher);
+        self::assertIsString($source);
+        $changed = str_replace($cli, 'fixture/mago-cli:next', $source, $replacements);
+        self::assertSame(1, $replacements);
+        file_put_contents($launcher, $changed);
+
+        $env = ['UXOR_MAGO_IMAGE' => 'custom/image:override'];
+        $check = new Process([PHP_BINARY, $script, '--check'], env: $env);
+        self::assertSame(1, $check->run(), $check->getErrorOutput());
+        self::assertStringContainsString('Stale Composer configuration guide', $check->getErrorOutput());
+        self::assertSame($original, file_get_contents($configuration));
+        self::assertSame($current, file_get_contents($guide));
+
+        (new Process([PHP_BINARY, $script], env: $env))->mustRun();
+        self::assertSame(str_replace($cli, 'fixture/mago-cli:next', $original), file_get_contents($configuration));
+        self::assertSame($current, file_get_contents($guide));
+        self::assertSame(0, $check->run(), $check->getErrorOutput());
+    }
+
+    public function testTheConfigurationGuideTracksReleaseRequirementsAndBinaries(): void
+    {
+        $script = $this->copyGuideGenerator();
+        $guide = $this->source.'/docs/COMPOSER-CONFIGURATION.md';
+        $original = file_get_contents($guide);
+        self::assertIsString($original);
+        $file = $this->source.'/composer.json';
+        $source = file_get_contents($file);
+        self::assertIsString($source);
+        $manifest = json_decode($source, true, flags: JSON_THROW_ON_ERROR);
+        unset($manifest['require']['symfony/debug-pack']);
+        $manifest['require']['symfony/console'] = '^9.2 || ^10.0';
+        $manifest['bin'][] = 'packages/uxor/bin/uxor-fixture';
+        file_put_contents($file, json_encode($manifest, JSON_THROW_ON_ERROR));
+
+        $check = new Process([PHP_BINARY, $script, '--check']);
+        self::assertSame(1, $check->run(), $check->getErrorOutput());
+        self::assertSame($original, file_get_contents($guide));
+        (new Process([PHP_BINARY, $script]))->mustRun();
+        $updated = file_get_contents($guide);
+        self::assertIsString($updated);
+        self::assertStringContainsString('| `symfony/console` | `^9.2 \|\| ^10.0` |', $updated);
+        self::assertStringContainsString('`uxor-fixture`', $updated);
+
+        self::assertStringNotContainsString('| `symfony/debug-pack` |', $updated);
+        self::assertSame(0, $check->run(), $check->getErrorOutput());
+    }
+
+    public function testSetupOnlyAppliesConfigurationWhenComposerSuppliesAllPlannedDependencies(): void
+    {
+        $script = $this->copyGuideGenerator();
+        $consumer = $this->directory.'/consumer';
+        $requests = $this->setupRequestsInEmptyApplication($consumer);
+        $file = $this->source.'/composer.json';
+        $source = file_get_contents($file);
+        self::assertIsString($source);
+        $manifest = json_decode($source, true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame([], array_diff_key($requests, $manifest['require']), 'Composer supplies all development packages identified by the public setup plan.');
+        (new Process([PHP_BINARY, $script]))->mustRun();
+        self::assertSame(['.', '..', 'composer.json'], scandir($consumer));
+        self::assertSame("{}\n", file_get_contents($consumer.'/composer.json'));
+
+        $guide = file_get_contents($this->source.'/docs/COMPOSER-CONFIGURATION.md');
+        self::assertIsString($guide);
+        self::assertSame(1, preg_match('/^## Optional development setup\n(.+?)(?=^## |\z)/ms', $guide, $section));
+        self::assertDoesNotMatchRegularExpression('/^\|/m', $section[1], 'Composer supplies every requested package.');
+        self::assertStringContainsString('`vendor/bin/uxor setup --apply`', $section[1]);
+        self::assertStringNotContainsString('setup --apply --install --trust-project-code', $section[1]);
+        self::assertStringNotContainsString($consumer, $guide);
+
+        preg_match_all('/^\| `--([a-z0-9-]+)` \|/m', $guide, $options);
+        $setup = (new Application())->find('setup')->getNativeDefinition();
+        self::assertEqualsCanonicalizing(array_keys($setup->getOptions()), $options[1], 'Only command-local options have documented setup defaults.');
     }
 
     public function testNoReleaseInTheChangelogIsAnErrorNeverABranch(): void
@@ -407,6 +495,37 @@ final class ReferenceBundleTest extends TestCase
         }
 
         return ReferenceGenerator::inputsDigest($inputs);
+    }
+
+    /** @return array<string, string> Package names and constraints from the consumer-facing plan. */
+    private function setupRequestsInEmptyApplication(string $root): array
+    {
+        mkdir($root);
+        file_put_contents($root.'/composer.json', "{}\n");
+        $command = new CommandTester((new Application())->find('setup'));
+        self::assertSame(0, $command->execute(['--project-root' => $root, '--format' => 'json']), $command->getDisplay());
+        $data = json_decode($command->getDisplay(), true, flags: JSON_THROW_ON_ERROR)['data'];
+        self::assertSame('plan', $data['mode']);
+
+        $requested = array_filter($data['dependencies'], static fn (array $row): bool => $row['install_requested']);
+
+        return array_column($requested, 'constraint', 'package');
+    }
+
+    private function copyGuideGenerator(): string
+    {
+        $package = $this->source.'/packages/uxor';
+        mkdir($package.'/tools', 0777, true);
+        mkdir($package.'/bin');
+        foreach (['tools/generate-command-guide.php', 'tools/ConfigurationGuide.php', 'bin/uxor-mago', 'OPERATIONS.md'] as $file) {
+            copy(dirname(__DIR__).'/'.$file, $package.'/'.$file);
+        }
+        $root = ReferenceGenerator::repositoryRoot();
+        symlink($root.'/vendor', $this->source.'/vendor');
+        copy($root.'/docs/COMPOSER-CONFIGURATION.md', $this->source.'/docs/COMPOSER-CONFIGURATION.md');
+        copy($root.'/composer.json', $this->source.'/composer.json');
+
+        return $package.'/tools/generate-command-guide.php';
     }
 
     /**

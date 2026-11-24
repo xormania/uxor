@@ -8,7 +8,9 @@ _2026-10-08. The tests of this repository, written up so they can be reused in a
 Stimulus and Live Components. Each pattern says what it catches, shows the core of it, and links the spec that uses
 it here. The snippets use Playwright Test; the PHP ones need only the app's autoloader._
 
-The `demo/` app hosts the runtime tests for recipes, Turbo, Live Components and Content Security Policy. The website tests exercise the independently built HTML and Markdown in `website/tests/`.
+The Symfony host in `demo/` runs the example app at `/demo/` and the Toolkit preview, form and lab fixtures.
+Their Chromium suites run independently. The website tests in `website/tests/` exercise the published guides,
+recipe pages, navigation and portable Markdown.
 
 To test the website, install its locked dependencies and run PHPUnit from `website/`:
 
@@ -1156,10 +1158,10 @@ only the twelve entries the build and the pages use. Three rules keep it tight, 
 below the root starts with a letter or a digit (`![a-z0-9]*/…`, never `!*/…`, which once took `.git/config`); every
 exclusion names the directory and everything below it (`x` and `x/**`), since a file is judged by the last pattern
 matching its own path; and `demo/` is admitted entry by entry (`!demo/<entry>`), so a developer's secrets key, local
-env file or editor folder stays out. The harness's context part checks the result on the checkout it runs in: only the three public guide inputs under `packages/`,
-no `.git`, `.github`, `node_modules` or `tests`, no tools but `tools/sync-demo`, only the expected entries at
-the top of `demo/`, nothing `demo/.gitignore` ignores, no secret or machine-local file; it says whether the checkout's
-`.git` is a directory (a clone, as in CI) or a file (a worktree, which cannot show a `.git` leak). Every file in the
+env file or editor folder stays out. The context check admits `tools/sync-demo` and `tools/kit/KitReader.php`,
+verifies the expected demo files and detects leaked repository metadata, website or package sources, guide files,
+tests and machine-local files. It records whether the checkout is a clone or a linked worktree. A clone lets
+the harness inspect a real `.git/` directory. Every file in the
 context must be tracked by git or be a copy `tools/sync-demo` writes. CI builds from a clone, which holds only tracked
 files; a developer's checkout can hold local files inside the admitted directories (a `config/packages/local.yaml`, a
 file a global gitignore hides), and the image copies those directories whole. Build it by hand from a clean clone, or
@@ -1169,28 +1171,11 @@ What the build downloads is pinned but not all verified: the importmap packages 
 the Tailwind standalone binary by version, its checksum verified only when its release publishes one. The dev image's
 build downloads the same, with the same exposure.
 
-The job runs (`tools/ci-changes.sh`, the *prod-image* output) for every file of the demo the image holds: the twelve
-entries its allow-list admits (`bin`, `config`, `src`, `templates`, `assets`, `public`, `frankenphp`, `composer.json`,
-`composer.lock`, `symfony.lock`, `importmap.php`, `.env`), since the app runs differently in prod (no development
-package, no Toolkit bundle); for its other build inputs: `demo/Dockerfile`, `demo/Dockerfile.dockerignore`,
-`demo/compose.yaml`, `demo/compose.override.yaml` and `tools/sync-demo`, which the builder runs; for its harness,
-`tools/tests/prod-image.sh`; for every recipe file the image holds, which it renders without the development packages: a
-recipe's `manifest.json`, `README.md`, `templates/`, `assets/`, `src/` and `config/`; for the root files it admits
-(`manifest.json`, `kit.css`, `INSTALL.md`, `llms.txt`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`), the package guides and their registry; and for what its
-allow-list may have to name: a new root file, and any file in a top-level directory that is not a recipe (new, or
-deleted), its README included. It does not run for a recipe's `tests/` (its browser specs and screenshot baselines) or
-another file the allow-list leaves out, the browser specs in `tests/`, the docs but `docs/GUIDE.md`, the tools but the
-two above, the rest of `packages/`, or the demo's tests, README and development files. A change to anything the image contains runs
-it: most pull requests run the lane beside *Kit PHP*, *Static site* and *Toolkit browser verification*, about 2 minutes 15 seconds
-on its own runner, in parallel, so it adds runner time but not the time to a verdict, which *Toolkit browser verification* sets.
-The release checks reuse an earlier pass only when nothing the suite reads changed; `docs/GUIDE.md` and `llms.txt`,
-pages of the image, count as read, the rest of `docs/` does not. In the release checks, the required *Release checks*
-verdict needs it: it passes only with the image's job succeeding when the suite runs (a trusted skip skips both), and
-the daily issue stays open, with a comment naming it, while the image fails. It is a plain build, sharing no cache with
-the dev image's bake: about a minute on a cold local build, under twenty seconds warm.
-[`tools/tests/prod-image-workflow.test.mjs`](../tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
-build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a
-recipe's tests, the docs or the tools, and that the dev image's bake steps read the compose files from the root.
+The *Production image* selector covers the Dockerfile, Compose configuration and image harness, the demo's
+runtime sources, `tools/sync-demo`, the shared kit reader and the recipe files the image consumes. Root inputs
+include `manifest.json`, `kit.css`, `kit.js`, `LICENSE` and `NOTICE`. Website templates and the published guides
+belong to the *Static site* job. [The selection cases](../tools/tests/ci-changes.sh) list the expected jobs for
+each kind of input.
 
 ## Accessibility
 
@@ -1255,13 +1240,12 @@ the released package. For that application, use [application testing](APPLICATIO
 development file let into it, an operation or Mate tool that reads outside its bounds, a tampered bundled reference,
 a CLI that no longer starts.
 
-The package (`xormania/uxor`, [`PLAN-composer-package.md`](PLAN-composer-package.md)) is tested from the repository
-root, apart from the demo: `composer install`, then `composer test`, which runs PHPUnit with
-`packages/uxor/phpunit.xml.dist`. Its three classes test the operations behind the CLI and the Mate tools on
-temporary projects, without booting one: component wiring (`ComponentWiringTest`), the catalog, reads, inspection,
-the doctor and tool discovery (`OperationsTest`), and the generated references and their SHA-256 index
-(`ReferenceBundleTest`: the generator on a temporary source, two runs byte for byte, a stale input `--check` reports
-without repairing, an index that names no commit). `packages/uxor/tools/check-package.py` builds the archive both installs receive with
+From the repository root, run `composer install`, then `composer test` for the package suite under
+`packages/uxor/tests/`. It covers CLI and Mate operations, application wiring, development tooling and the
+generated references. `ReferenceBundleTest` exercises the generators on temporary source trees and checks
+that a stale output is reported without modifying it. After editing a guide, configuration default or catalog,
+run `composer docs:generate`, then `composer docs:check`. These commands refresh and verify the command and
+configuration references, website categories and discovery files, and the package's offline bundle. `packages/uxor/tools/check-package.py` builds the archive both installs receive with
 `git archive HEAD` (what GitHub serves; committed files only) and checks it against its own lists, independent of
 `.gitattributes`: the archive holds the files the script lists and every path `composer.json` declares, and nothing
 else: no development file, nothing outside the kit's root files, its recipes and the package's entries. The lists are
