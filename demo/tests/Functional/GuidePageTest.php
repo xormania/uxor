@@ -86,7 +86,10 @@ final class GuidePageTest extends WebTestCase
             $html = (string) self::get('/'.$slug)->getContent();
             $markdown = self::get('/'.$slug.'.md');
             self::assertSame('text/markdown; charset=UTF-8', $markdown->headers->get('Content-Type'));
-            $heading = strtok(file_get_contents(\dirname(__DIR__, 3).'/'.$source), "\n");
+            $contents = file_get_contents(\dirname(__DIR__, 3).'/'.$source);
+            self::assertIsString($contents, $source);
+            [$heading] = explode("\n", $contents, 2);
+            self::assertStringStartsWith('# ', $heading, $source);
             self::assertStringStartsWith($heading."\n", (string) $markdown->getContent(), $slug);
             self::assertSame(1, substr_count($html, '<h1'), $slug);
             self::assertStringContainsString('href="/'.$slug.'.md" type="text/markdown"', $html, $slug);
