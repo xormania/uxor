@@ -21,13 +21,12 @@ final class ApplicationFiles
         $bin = ProjectPath::composerDirectory($root, $composer['config']['bin-dir'] ?? $vendor.'/bin');
         $installedPath = $this->path($root, $vendor.'/composer/installed.json');
         $installed = is_file($installedPath) ? $this->json($installedPath) : [];
-        $packages = [];
-        foreach (($installed['packages'] ?? $installed) as $package) {
-            if (is_array($package) && isset($package['name'], $package['version'])) {
-                $packages[$package['name']] = (string) $package['version'];
-            }
-        }
-        return compact('root', 'composer', 'vendor', 'bin', 'packages');
+        $packages = new InstalledPackages($installed['packages'] ?? $installed, function () use ($root): array {
+            $lock = $this->path($root, 'composer.lock');
+            return is_file($lock) ? $this->json($lock) : [];
+        }, is_file($installedPath) ? $composer : null);
+        return ['root' => $root, 'composer' => $composer, 'vendor' => $vendor, 'bin' => $bin,
+            'packages' => $packages->versions(), 'installedPackages' => $packages];
     }
 
     public function json(string $path): array
