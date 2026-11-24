@@ -37,7 +37,9 @@ or prepare compiled Symfony facts.
 Setup requests Symfony’s full debug pack and the Monolog Mate extension in the first development install.
 Flex can replace the debug pack and its nested profiler pack with direct component requirements. Setup and
 environment inspection use the same Composer evidence, so the next setup can reuse those components even
-when neither pack name appears in the lock. [Debug pack manifest](https://github.com/symfony/debug-pack/blob/v1.1.0/composer.json)
+when neither pack name appears in the lock. If a fork or the application itself provides or replaces a component,
+the report identifies which package satisfies Composer’s constraint. Use `environment --probe --trust-project-code` to check which
+commands the application can actually run. [Debug pack manifest](https://github.com/symfony/debug-pack/blob/v1.1.0/composer.json)
 
 Without Flex, enable DebugBundle, MonologBundle and WebProfilerBundle in the environments where the application
 uses them, and import the development profiler routes if you use its UI. The generated

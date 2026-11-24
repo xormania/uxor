@@ -7,7 +7,7 @@
     "authors": [{"name": "xormania"}],
     "require": {
         "php": ">=8.4",
-        "composer/semver": "^3.4",
+        "composer/composer": "^2.11.2",
         "symfony/ai-mate": ">=1.0.0-BETA1 <1.0.0-BETA2",
         "symfony/ai-mate-composer-plugin": ">=1.0.0-BETA1 <1.0.0-BETA2",
         "symfony/ai-symfony-mate-extension": ">=1.0.0-BETA1 <1.0.0-BETA2",

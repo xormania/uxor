@@ -105,7 +105,7 @@ final class EnvironmentSetup
 
     public function dependencies(array $project): array
     {
-        return DevelopmentDependencies::evaluate($project, $this->files);
+        return DevelopmentDependencies::evaluate($project);
     }
 
     private function plan(array $project, string $client, string $hostProjectRoot, bool $saveProjectTrust): array
@@ -161,7 +161,7 @@ final class EnvironmentSetup
         foreach ($this->preparation->configurationFiles($project['vendor']) as $path => $content) {
             $templates[$path] = $content;
         }
-        if (isset($project['composer']['require']['symfony/framework-bundle']) || isset($project['packages']['symfony/framework-bundle'])) {
+        if (isset($project['composer']['require']['symfony/framework-bundle']) || null !== $project['installedPackages']->match('symfony/framework-bundle')) {
             $profiler = file_get_contents(__DIR__.'/../resources/symfony/profiler.php');
             if (false === $profiler) {
                 throw new \RuntimeException('The packaged development profiler configuration is missing.');

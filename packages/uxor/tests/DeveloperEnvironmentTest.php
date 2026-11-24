@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xormania\UXor\Tests;
 
+use Composer\Package\Locker;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\AI\Mate\Encoding\ResponseEncoder;
@@ -38,6 +39,7 @@ final class DeveloperEnvironmentTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         $canary = '<?php file_put_contents('.var_export($this->project.'/application-executed', true).', "executed");';
         file_put_contents($this->project.'/vendor/autoload.php', $canary);
+        file_put_contents($this->project.'/vendor/composer/installed.php', $canary);
         file_put_contents($this->project.'/bin/console', $canary);
         file_put_contents($this->project.'/AGENTS.md', "# Application guidance\n\nKeep this application's decisions.\n");
         file_put_contents($this->project.'/src/Custom.php', '<?php namespace App; final class Custom { public const VALUE = "keep"; }');
@@ -164,12 +166,156 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertSame([], $repeated['changes']);
     }
 
+    public static function monologProviders(): iterable
+    {
+        yield 'installed fork replacing its own 4.1 release' => ['replace', '4.1.0', 'self.version', true, true];
+        yield 'fork replacing its own incompatible major' => ['replace', '2.7.0', 'self.version', true, false];
+        yield 'provided range overlaps the requested Monolog 3 or 4' => ['provide', '1.0.0', '>=2.5 <3.1', true, true];
+        yield 'provided range is disjoint' => ['provide', '1.0.0', '>=5 <6', true, false];
+        yield 'locked fork absent from the installation' => ['replace', '4.1.0', 'self.version', false, false];
+    }
+
+    #[DataProvider('monologProviders')]
+    public function testDebugPackUsesInstalledComposerLinks(string $link, string $version, string $constraint, bool $installed, bool $compatible): void
+    {
+        $provider = ['name' => 'example/monolog-bundle', 'version' => $version, $link => ['symfony/monolog-bundle' => $constraint]];
+        $this->writeInstalledPackages(['symfony/debug-bundle' => 'v8.1.1', 'symfony/profiler-pack' => 'v1.0.6'], $installed ? [$provider] : []);
+        file_put_contents($this->project.'/composer.lock', json_encode(['packages' => [], 'packages-dev' => [$provider]], JSON_THROW_ON_ERROR));
+
+        [, $plan] = $this->invoke('setup');
+        $rows = array_column($plan['data']['dependencies'], null, 'package');
+        $debug = $rows['symfony/debug-pack'];
+        $monolog = array_column($debug['components'], null, 'package')['symfony/monolog-bundle'];
+        self::assertSame($compatible, $monolog['compatible']);
+        self::assertNull($monolog['installed_version']);
+        self::assertSame($compatible ? 'installed_components' : null, $debug['satisfied_by']);
+        if ($compatible) {
+            self::assertSame('provide' === $link ? 'installed_provider' : 'installed_replacement', $monolog['satisfied_by']);
+            self::assertEquals(['package' => 'example/monolog-bundle', 'installed_version' => $version, 'link' => $link, 'constraint' => $constraint], $monolog['provider']);
+        } else {
+            self::assertNull($monolog['provider'] ?? null);
+        }
+    }
+
+    public function testDebugPackAcceptsTheInstalledForkThroughItsComposerAlias(): void
+    {
+        $fork = ['name' => 'example/monolog-fork', 'version' => 'dev-main', 'replace' => ['symfony/monolog-bundle' => 'self.version']];
+        $this->writeInstalledPackages(['symfony/debug-bundle' => 'v8.1.1', 'symfony/profiler-pack' => 'v1.0.6'], [$fork]);
+        $alias = ['package' => $fork['name'], 'version' => 'dev-main', 'alias' => '4.0.0', 'alias_normalized' => '4.0.0.0'];
+        file_put_contents($this->project.'/composer.lock', json_encode(['packages' => [], 'packages-dev' => [$fork], 'aliases' => [$alias]], JSON_THROW_ON_ERROR));
+
+        [, $result] = $this->invoke('environment');
+        $debug = array_column($result['data']['dependencies'], null, 'package')['symfony/debug-pack'];
+        $monolog = array_column($debug['components'], null, 'package')['symfony/monolog-bundle'];
+        self::assertSame('installed_components', $debug['satisfied_by']);
+        self::assertNull($monolog['installed_version']);
+        self::assertSame('installed_replacement', $monolog['satisfied_by']);
+        self::assertSame($fork['name'], $monolog['provider']['package']);
+        self::assertSame('dev-main', $monolog['provider']['installed_version']);
+        self::assertSame('4.0.0', $monolog['provider']['matched_alias']);
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+    }
+
+    public static function rootMonologLinks(): iterable
+    {
+        yield 'the resolved application supplies MonologBundle' => ['replace', true, true];
+        yield 'the resolved application provides a compatible version range' => ['provide', true, true];
+        yield 'the declaration was added after the lock was written' => ['replace', false, true];
+        yield 'the application has a lock but no installation' => ['replace', true, false];
+    }
+
+    #[DataProvider('rootMonologLinks')]
+    public function testDebugPackRequiresResolvedApplicationLinks(string $link, bool $synchronized, bool $installed): void
+    {
+        $manifestPath = $this->project.'/composer.json';
+        $original = file_get_contents($manifestPath);
+        $manifest = json_decode($original, true, flags: JSON_THROW_ON_ERROR);
+        $constraint = 'replace' === $link ? '4.1.0' : '^4.1';
+        $manifest[$link]['symfony/monolog-bundle'] = $constraint;
+        $current = json_encode($manifest, JSON_THROW_ON_ERROR);
+        file_put_contents($manifestPath, $current);
+        $this->writeInstalledPackages(['symfony/debug-bundle' => 'v8.1.1', 'symfony/profiler-pack' => 'v1.0.6']);
+        $installedPath = $this->project.'/vendor/composer/installed.json';
+        $lock = [
+            'content-hash' => Locker::getContentHash($synchronized ? $current : $original),
+            'packages' => [],
+            'packages-dev' => json_decode(file_get_contents($installedPath), true, flags: JSON_THROW_ON_ERROR)['packages'],
+        ];
+        file_put_contents($this->project.'/composer.lock', json_encode($lock, JSON_THROW_ON_ERROR));
+        if (!$installed) {
+            unlink($installedPath);
+        }
+
+        [, $result] = $this->invoke('setup');
+        self::assertNotSame('failed', $result['status'], $result['summary']);
+        $debug = array_column($result['data']['dependencies'], null, 'package')['symfony/debug-pack'];
+        $monolog = array_column($debug['components'], null, 'package')['symfony/monolog-bundle'];
+        $compatible = $installed && $synchronized;
+        self::assertSame($compatible, $debug['compatible']);
+        self::assertSame($compatible, $monolog['compatible']);
+        self::assertNull($monolog['installed_version']);
+        if ($compatible) {
+            self::assertSame('application_root', $monolog['provider']['source']);
+            self::assertSame($manifest['name'], $monolog['provider']['package']);
+            self::assertNull($monolog['provider']['installed_version']);
+            self::assertSame($link, $monolog['provider']['link']);
+            self::assertSame($constraint, $monolog['provider']['constraint']);
+        }
+        self::assertFileDoesNotExist($this->project.'/application-executed');
+    }
+
+    public function testProvidersOfWholePacksDoNotEstablishAnInstalledDebugCommand(): void
+    {
+        $this->writeInstalledPackages([], [[
+            'name' => 'example/debug-tools', 'version' => 'v1.1.0',
+            'provide' => ['symfony/debug-pack' => 'self.version'], 'replace' => ['symfony/profiler-pack' => 'v1.0.6'],
+        ]]);
+        [, $environment] = $this->invoke('environment');
+        $rows = array_column($environment['data']['dependencies'], null, 'package');
+        foreach (['symfony/debug-pack' => 'installed_provider', 'symfony/profiler-pack' => 'installed_replacement'] as $name => $source) {
+            self::assertNull($rows[$name]['installed_version']);
+            self::assertSame($source, $rows[$name]['satisfied_by']);
+            self::assertSame('example/debug-tools', $rows[$name]['provider']['package']);
+        }
+        $debug = $environment['data']['capabilities']['debug'];
+        self::assertFalse($debug['installed']);
+        self::assertFalse($debug['compatible']);
+        self::assertSame('not_probed', $debug['observed']);
+    }
+
+    public function testSymfonyAggregateReplacementsCompleteBothPacksWithoutInventingBundleInstallations(): void
+    {
+        $components = ['symfony/debug-bundle', 'symfony/web-profiler-bundle', 'symfony/stopwatch'];
+        $this->writeInstalledPackages(['symfony/monolog-bundle' => 'v4.1.0'], [
+            ['name' => 'symfony/symfony', 'version' => 'v8.1.0', 'replace' => array_fill_keys($components, 'self.version')],
+        ]);
+        [, $environment] = $this->invoke('environment');
+        $rows = array_column($environment['data']['dependencies'], null, 'package');
+        foreach (['symfony/debug-pack', 'symfony/profiler-pack'] as $pack) {
+            self::assertSame('installed_components', $rows[$pack]['satisfied_by']);
+            self::assertNull($rows[$pack]['installed_version']);
+        }
+        $evidence = array_column([...$rows['symfony/debug-pack']['components'], ...$rows['symfony/profiler-pack']['components']], null, 'package');
+        foreach ($components as $name) {
+            self::assertNull($evidence[$name]['installed_version']);
+            self::assertSame('symfony/symfony', $evidence[$name]['provider']['package']);
+            self::assertSame('v8.1.0', $evidence[$name]['provider']['installed_version']);
+        }
+        $debug = $environment['data']['capabilities']['debug'];
+        self::assertFalse($debug['installed']);
+        self::assertTrue($debug['compatible']);
+        self::assertSame('not_probed', $debug['observed']);
+    }
+
     public static function monologAliases(): iterable
     {
         $installed = ['name' => 'symfony/monolog-bundle', 'version' => 'dev-main', 'version_normalized' => 'dev-main'];
         $alias = ['package' => 'symfony/monolog-bundle', 'version' => 'dev-main', 'alias' => '4.0.0', 'alias_normalized' => '4.0.0.0'];
 
         yield 'installed branch matches the lock alias' => [$installed, [$alias], '4.0.0'];
+        yield 'an unrelated invalid lock alias does not hide the matching alias' => [$installed, [
+            ['package' => 'example/absent', 'version' => 'invalid version'] + $alias, $alias,
+        ], '4.0.0'];
         yield 'lock alias for a different branch' => [$installed, [['version' => 'dev-older'] + $alias], null];
         yield 'lock alias for an incompatible major' => [$installed, [['alias' => '2.0.0', 'alias_normalized' => '2.0.0.0'] + $alias], null];
         yield 'lock entry without an installed package' => [null, [$alias], null];
@@ -190,6 +336,7 @@ final class DeveloperEnvironmentTest extends TestCase
         $this->writeInstalledPackages(['symfony/debug-bundle' => 'v8.1.1', 'symfony/profiler-pack' => 'v1.0.6'], null === $monolog ? [] : [$monolog]);
         file_put_contents($this->project.'/composer.lock', json_encode(['packages' => [], 'packages-dev' => [], 'aliases' => $aliases], JSON_THROW_ON_ERROR));
         [, $setup] = $this->invoke('setup');
+        self::assertNotSame('failed', $setup['status'], $setup['summary']);
         $dependencies = array_column($setup['data']['dependencies'], null, 'package');
         $debug = $dependencies['symfony/debug-pack'];
         $component = array_column($debug['components'], null, 'package')['symfony/monolog-bundle'];
@@ -209,6 +356,15 @@ final class DeveloperEnvironmentTest extends TestCase
         $rows = array_column($environment['data']['dependencies'], null, 'package');
         self::assertFalse($rows['carthage-software/mago']['compatible']);
         self::assertFalse($rows['byte-kitsune/mago-symfony-wiring']['compatible']);
+
+        $pins = ['carthage-software/mago' => '1.60.2', 'byte-kitsune/mago-symfony-wiring' => '1.3.0', 'symfony/ai-monolog-mate-extension' => '1.0.0-BETA1'];
+        $this->writeInstalledPackages([], [['name' => 'example/dev-tools', 'version' => '1.0.0', 'provide' => $pins]]);
+        [, $environment] = $this->invoke('environment');
+        $rows = array_column($environment['data']['dependencies'], null, 'package');
+        foreach (array_keys($pins) as $package) {
+            self::assertNull($rows[$package]['installed_version']);
+            self::assertFalse($rows[$package]['compatible']);
+        }
     }
 
     public function testDebugBundleInstallationAndTheNativeCommandAreIndependentObservations(): void
