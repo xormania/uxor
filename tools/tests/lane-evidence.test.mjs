@@ -940,7 +940,7 @@ test('the browser checkout and evidence agree on absent and present inputs', (t)
         'README.md', 'docs/PLAN-a-feature.md', 'docs/ci/issue/example.json', '.github/workflows/release.yml',
         '.github/CODEOWNERS', '.github/dependabot.yml', '.github/mention-allowlist', '.github/ISSUE_TEMPLATE/bug.yml',
         'tests/e2e/release.fuzz.spec.ts', 'tests/e2e/release.long-session.spec.ts', 'tests/e2e/leak-detector.mjs',
-        'tools/monthly/trends.mjs', 'tools/contrast/pairs.json', 'tools/tests/prepare-tests.test.mjs',
+        'tools/llms-txt.mjs', 'tools/monthly/trends.mjs', 'tools/contrast/pairs.json', 'tools/tests/prepare-tests.test.mjs',
     ];
     const present = [
         'demo/composer.lock', 'packages/.gitattributes', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',

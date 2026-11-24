@@ -7,11 +7,26 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# Give fixed lane cases their own guide catalog. Keep the real recipe manifests and consumer inputs
+# so classifications that depend on installed files still exercise this checkout's dependency graph.
+root=$PWD
+inputs=$(mktemp -d)
+trap 'rm -rf -- "$inputs"' EXIT
+mkdir -p "$inputs/packages/uxor/resources" "$inputs/packages/uxor/dev"
+catalog="$inputs/packages/uxor/resources/guides.json"
+echo '{"sample":{"file":"docs/new-user-guide.md"}}' > "$catalog"
+cp packages/uxor/dev/workflow-recipes.json "$inputs/packages/uxor/dev/"
+for manifest in */manifest.json; do
+    recipe=${manifest%/manifest.json}
+    ln -s "$root/$recipe" "$inputs/$recipe"
+done
+select_jobs() (cd "$inputs" && "$root/tools/ci-changes.sh")
+
 failures=0
 check() {
     local expected="$1"; shift
     local actual
-    actual=$(printf '%s\n' "$@" | tools/ci-changes.sh | sed -n 's/=true$//p' | paste -sd ' ' -)
+    actual=$(printf '%s\n' "$@" | select_jobs | sed -n 's/=true$//p' | paste -sd ' ' -)
     if [ "$actual" != "$expected" ]; then
         echo "FAIL: $* -> '$actual', expected '$expected'"
         failures=$((failures + 1))
@@ -31,7 +46,7 @@ check_git() {
         eval "$change"
         git -c user.name=t -c user.email=t@t commit -qam change
     )
-    actual=$(git -C "$repo" diff --name-only --no-renames HEAD^ HEAD | tools/ci-changes.sh | sed -n 's/=true$//p' | paste -sd ' ' -)
+    actual=$(git -C "$repo" diff --name-only --no-renames HEAD^ HEAD | select_jobs | sed -n 's/=true$//p' | paste -sd ' ' -)
     rm -rf "$repo"
     if [ "$actual" != "$expected" ]; then
         echo "FAIL: $change -> '$actual', expected '$expected'"
@@ -274,17 +289,11 @@ check 'static-site contrast package' packages/uxor/resources/guides.json
 for guide in packages/uxor/README.md packages/uxor/OPERATIONS.md; do
     check 'static-site contrast package' "$guide"
 done
-# A newly registered guide has no hard-coded path in the selector.
-(
-    root=$PWD
-    fixture=$(mktemp -d)
-    trap 'rm -rf -- "$fixture"' EXIT
-    cd "$fixture"
-    mkdir -p packages/uxor/resources
-    echo '{"guide":{"file":"docs/new-user-guide.md"}}' > packages/uxor/resources/guides.json
-    actual=$(echo 'docs/new-user-guide.md' | "$root/tools/ci-changes.sh" | sed -n 's/=true$//p' | paste -sd ' ' -)
-    [ "$actual" = 'static-site contrast package' ] || { echo "FAIL: catalog guide -> '$actual'"; exit 1; }
-)
+# A new guide selects both consumers, including when its path already selects other lanes.
+check 'static-site contrast package' docs/new-user-guide.md
+jq '. + {testing: {file: "docs/APPLICATION-TESTING.md"}}' "$catalog" > "$catalog.next"
+mv "$catalog.next" "$catalog"
+check 'static-site contrast package' docs/APPLICATION-TESTING.md
 check 'package'                   packages/uxor/resources/other.json
 check 'demo package'              packages/uxor/resources/browser/diagnostics.mjs
 check 'demo package'              packages/uxor/resources/browser/diagnostics.d.mts
