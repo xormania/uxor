@@ -770,12 +770,12 @@ trailing period.
 Examples include `feat(stat-card): show the trend as text` and `fix(layouts): show flash messages in every layout`.
 
 **Branches** use `type/short-topic` for ordinary contributions. Choose a commit type and a lower-kebab-case topic
-that describe the work, such as `fix/modal-focus` or `docs/install-guide`. Start work branches from `dev` and target
-ordinary pull requests at `dev`. Use your fork if you lack repository write access. Maintainers create short-lived
-release branches for pull requests to `main` (*Releases* below). Their names end in `release-X.Y.Z` so CI can
-identify the release base. Work orders use the names below. Existing integration branches can finish under their
-current names, and automation uses its configured branch names. Maintainers review and merge contributions.
-Contributors need only the permissions to open a pull request.
+that describe the work, such as `fix/modal-focus` or `docs/install-guide`. Keep agent, provider and harness names
+out of branch prefixes and topics. Start work branches from `dev` and target ordinary pull requests at `dev`.
+Maintainers use `release/X.Y.Z` for release branches that target `main` (*Releases* below). Work orders use the
+names below, and automation uses its configured branch names. Existing integration and release branches can
+finish under their current names. Maintainers review and merge contributions. Contributors can use a fork
+and need only the permissions to open a pull request.
 
 **Trying unreleased work in an app.** The consumer documentation (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`,
 `llms.txt`, the gallery) names a release ([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)).
@@ -869,7 +869,7 @@ The current release tools publish plain `X.Y.Z` versions. Prereleases such as `0
 version parsing, generated references and release publication before this workflow can publish them correctly.
 The public gallery currently follows the latest non-prerelease.
 
-When the maintainer decides to release, create a short-lived release branch from `dev` and open its pull request
+When the maintainer decides to release, create `release/X.Y.Z` from `dev` and open its pull request
 to `main` as a draft. Its release commit moves the entries under `## [Unreleased]` to the chosen version's dated
 section, leaves an empty `## [Unreleased]` section, and updates the compare links at the bottom. Compare with the
 previous actual release: a release of `0.3.5` after `0.3.2` links `0.3.2...0.3.5`; skipped numbers need no headings
@@ -886,7 +886,7 @@ fail. The release pull request must satisfy all checks required by
 [`main`'s ruleset](https://github.com/xormania/uxor/rules), including *CI result* and *Release checks*.
 Merging it starts publication after CI passes on `main`.
 
-A fix that cannot wait for the next development release starts from `main` on a short-lived branch and goes to
+A fix that cannot wait for the next development release starts from `main` on `release/X.Y.Z` and goes to
 `main` in its own pull request. The maintainer chooses its version too; prepare its changelog heading, references
 and checks as above. This keeps unrelated work on `dev` out of the urgent release.
 

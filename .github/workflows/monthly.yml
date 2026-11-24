@@ -70,7 +70,7 @@ jobs:
                   BRANCH: ${{ github.head_ref }}
               run: |
                   run=false
-                  if [ "$EVENT" != pull_request ] || [ "$BRANCH" = dev ] || [[ "$BRANCH" =~ (^|/)release[-/][0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                  if [ "$EVENT" != pull_request ] || [ "$BRANCH" = dev ] || [[ "$BRANCH" =~ (^release/|(^|/)release-)[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                       run=true
                   fi
                   echo "run=$run" >> "$GITHUB_OUTPUT"

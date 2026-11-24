@@ -50,8 +50,9 @@ you are working on. UXor's contribution and publication policies do not govern a
   and legal attribution; use the Git identity authorized by the contributor for this checkout. Accurate human
   co-author credit is welcome. Maintainers control merges, releases and version choices. Work orders are optional.
 - Use `type/short-topic` for contribution branches, with a lower-kebab-case topic. Commit and pull request titles
-  follow `type(scope): verb and outcome`, with an optional scope and at most 72 characters. The contributor guide
-  defines the types and the branch patterns for release and work orders.
+  follow `type(scope): verb and outcome`, with an optional scope and at most 72 characters. Use `release/X.Y.Z`
+  for release branches. Name every branch for the work it carries and keep agent, provider and harness names out
+  of branch prefixes and topics. See the contributor guide for work-order and automation patterns.
 - Public UXor material must not identify which AI model, assistant, provider or version performed, reviewed or
   routed work. This covers commit metadata and messages, branch names, pull requests, issues, reviews, comments,
   files and published artifacts. Do not add AI co-author trailers, generated attribution footers, identifying

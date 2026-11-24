@@ -1331,7 +1331,7 @@ test('a website-only push above a verified release runs website checks with a co
     fx.commit('packages/uxor/resources/guides.json', '{"install":{"file":"INSTALL.md"}}');
     const dev = fx.commit('tools/ci-changes.sh', readFileSync(new URL('../ci-changes.sh', import.meta.url)));
     fx.git('update-ref', 'refs/remotes/origin/dev', dev);
-    const release = 'claude/release-0.3.5';
+    const release = 'release/0.3.5';
     const green = fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// tested shared recorder\n');
     fx.git('update-ref', 'refs/remotes/origin/' + release, green);
     fx.commit('website/templates/layout.html.twig', 'New navigation\n');
@@ -1352,7 +1352,7 @@ test('a website-only push above a verified release runs website checks with a co
         head_branch: release, head_sha: green, status: 'completed', conclusion: 'success',
         repository: { full_name: REPO }, head_repository: { full_name: REPO } };
     const pass = { name: 'CI result', conclusion: 'success' };
-    const exercise = (pulls, proof, result, expected, partialPulls = false) => {
+    const exercise = (pulls, proof, result, expected, { partialPulls = false, target = release } = {}) => {
         writeFileSync(join(temp, 'pulls'), JSON.stringify(pulls));
         writeFileSync(join(temp, 'run'), JSON.stringify({ workflow_runs: [proof] }));
         writeFileSync(join(temp, 'attempt'), JSON.stringify({ jobs: [result] }));
@@ -1361,17 +1361,17 @@ test('a website-only push above a verified release runs website checks with a co
         const err = openSync(join(temp, 'stderr'), 'w');
         const run = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
             stdio: ['ignore', 'pipe', err], env: { PATH: bin + ':' + process.env.PATH, RUNNER_TEMP: temp, GITHUB_OUTPUT: output,
-                EVENT: 'push', REF: 'refs/heads/feature/links', REPO, BASE: green, TARGET: release, PARTIAL_PULLS: String(partialPulls) } });
+                EVENT: 'push', REF: 'refs/heads/feature/links', REPO, BASE: green, TARGET: target, PARTIAL_PULLS: String(partialPulls) } });
         closeSync(err);
         assert.equal(run.status, 0, run.stdout + readFileSync(join(temp, 'stderr'), 'utf8'));
-        assert.match(readFileSync(output, 'utf8'), new RegExp('^comparison-base=' + expected + '$', 'm'));
+        assert.match(readFileSync(output, 'utf8'), new RegExp('^comparison-base=' + expected + '$', 'm'), target);
         const lanes = readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').filter(line => line.endsWith('=true')).map(line => line.split('=')[0]);
         const plan = enginesPlan(fx, {}, { lanes, shards: '8' });
         assert.equal(plan.outputs['static-site'], 'run');
         assert.equal(plan.outputs['prod-image'], 'skip');
         return plan;
     };
-    const otherRelease = { ...releasePr, head: branch('release-0.4.0') };
+    const otherRelease = { ...releasePr, head: branch('release/0.4.0') };
     for (const prs of [[releasePr], [releasePr, featurePr], [releasePr, featurePr, otherRelease]]) {
         const plan = exercise(prs, verified, pass, green);
         assert.equal(plan.outputs['runtime-export'], 'skip');
@@ -1389,7 +1389,19 @@ test('a website-only push above a verified release runs website checks with a co
     ]) {
         assert.equal(exercise(prs, proof, result, dev).browserRows.length, 9, 'an unverified inherited recorder change selects both Chromium suites');
     }
-    const partial = exercise([releasePr], verified, pass, dev, true);
+    for (const [ref, headRepo, expected] of [
+        ['release-0.3.5', REPO, green],
+        ['claude/release-0.3.5', REPO, green],
+        ['automation/release/0.3.5', REPO, dev],
+        ['release/v0.3.5', REPO, dev],
+        ['release/0.3.5-rc.1', REPO, dev],
+        [release, 'someone/fork', dev],
+    ]) {
+        fx.git('update-ref', 'refs/remotes/origin/' + ref, green);
+        const candidate = { ...releasePr, head: { ref, repo: { full_name: headRepo } } };
+        exercise([candidate], { ...verified, head_branch: ref }, pass, expected, { target: ref });
+    }
+    const partial = exercise([releasePr], verified, pass, dev, { partialPulls: true });
     assert.equal(partial.browserRows.length, 9, 'a truncated list of active release targets never narrows validation');
     fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed recorder\n');
     assert.equal(exercise([releasePr], verified, pass, green).browserRows.length, 9, 'a new recorder change selects both Chromium suites');

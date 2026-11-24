@@ -82,7 +82,7 @@ jobs:
     # Feature pushes check every change since the verified integration base, falling back to where they left dev. A push to
     # dev is compared with the commit of dev's last successful run, so every merge since is checked, those of a run that
     # was cancelled or failed included; with none (a first run, a force push), everything runs. The daily run runs the
-    # installs only. A work order's own branch (claude/wo-<name>) runs like any branch, its pull request a draft or not:
+    # installs only. A work order's own branch (work/<name>) runs like any branch, its pull request a draft or not:
     # when its jobs are stacked, its tree after a job's merge is that job's, whose passes it reuses (CONTRIBUTING.md,
     # *Work orders*).
     changes:
@@ -164,7 +164,7 @@ jobs:
                           target=$(jq -rs --arg repo "$REPO" --arg head "${REF#refs/heads/}" '
                               add | map(select(.head.repo.full_name == $repo and .base.repo.full_name == $repo)) as $prs |
                               [$prs[] | select(.base.ref == "main" and .author_association == "OWNER" and
-                                  (.head.ref | test("(^|/)release-[0-9]+[.][0-9]+[.][0-9]+$"))) | .head.ref] | unique as $releases |
+                                  (.head.ref | test("(^release/|(^|/)release-)[0-9]+[.][0-9]+[.][0-9]+$"))) | .head.ref] | unique as $releases |
                               [$prs[] | select(.head.ref == $head) | .base.ref] | unique |
                               if length == 0 then $releases else . end |
                               if length == 1 then .[0] as $target |
