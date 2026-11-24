@@ -214,6 +214,13 @@ After preparing the customer workflow, run a targeted headless Chromium check fr
 npm run test:workflow:diagnostics -- -g 'a saved row leaving the active search'
 ```
 
+The installed browser launcher also has a standalone acceptance check against a plain HTML page served on
+loopback. It exercises a broken page, a clean page without a profile token and an HTTP 404 before installing
+recipes. Package CI starts with an empty native runtime and browser cache. The Browser provider workflow repeats the
+check with a cold Docker image when its inputs change. Run `python3 packages/uxor/dev/check-headless.py packages/uxor/dev/app` against
+a prepared consumer, adding `--docker` for the container run. When testing with a local Chromium executable,
+set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its absolute path.
+
 The diagnostic run retains `trace.zip` and `browser-diagnostics.json` for each test under `app/var/browser-diagnostics`,
 including passes. Read the selected manifest through the installed UXor tools. Pass the path relative to `app/`:
 

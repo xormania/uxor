@@ -7383,7 +7383,8 @@
             },
             "bin": [
                 "packages/uxor/bin/uxor",
-                "packages/uxor/bin/uxor-mago"
+                "packages/uxor/bin/uxor-mago",
+                "packages/uxor/bin/uxor-browser"
             ],
             "type": "library",
             "extra": {

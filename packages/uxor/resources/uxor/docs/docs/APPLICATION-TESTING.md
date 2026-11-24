@@ -53,9 +53,9 @@ read its artifact through `uxor_browser_diagnostics` or the standalone CLI and o
 in the Mate environment that served the request. Inspect the installed tool's inputs before calling it.
 A missing recorder, trace or Symfony response token is a missing evidence source, not a passing result.
 
-[Browser diagnostics](../packages/uxor/OPERATIONS.md#browser-diagnostics) explains the opt-in Playwright fixture,
-artifact paths and fallback when no profile is available. Installing the helper package does not create a browser
-suite or require the application's asset pipeline to use Node.js.
+For quick feedback on a served URL, run the installed `vendor/bin/uxor-browser` launcher. Use the application’s
+Playwright suite to exercise interactions and verify its expected outcomes. [Browser diagnostics](../packages/uxor/OPERATIONS.md#browser-diagnostics)
+explains both capture paths and how to read an artifact when a Symfony profile is unavailable.
 
 ## Report results in the application's context
 

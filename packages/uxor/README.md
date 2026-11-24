@@ -128,7 +128,10 @@ and reload the page. For interactive recipes, exercise the requested behavior wi
 - To inspect an existing project, run `vendor/bin/uxor inspect --format=json`. Use
   `vendor/bin/uxor doctor --component=modal --format=json` to check static wiring for a particular recipe,
   then verify the behavior through a served page.
-- For a failed browser interaction, [correlate a request with its Symfony profile](OPERATIONS.md#browser-diagnostics).
+- To check a served page immediately, run `vendor/bin/uxor-browser http://127.0.0.1:8000/`. It launches
+  headless Chromium and saves JavaScript errors, failed requests and available Symfony profiler tokens. Any
+  served HTML page works, including an application that has yet to install its first recipe.
+  [Browser diagnostics and Playwright integration](OPERATIONS.md#browser-diagnostics).
 
 <a id="optional-php-checks-and-serena-with-mago"></a>
 <a id="prepare-the-providers-on-the-docker-host"></a>

@@ -36,6 +36,15 @@ updates:
           npm:
               patterns: ['*']
 
+    # Keep the shipped browser's Dockerfile pinned to the same Playwright release when updating this lock.
+    - package-ecosystem: npm
+      directory: /packages/uxor/resources/browser
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+
     # These browser checks install Chromium for their own Playwright version (packages/uxor/dev/README.md).
     - package-ecosystem: npm
       directory: /packages/uxor/dev

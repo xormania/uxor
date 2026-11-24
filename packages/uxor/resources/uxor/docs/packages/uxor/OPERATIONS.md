@@ -314,6 +314,30 @@ Use `doctor --component=<catalog-name>` for selected-component static wiring che
 
 ## Browser diagnostics
 
+For a quick check of a URL, start the application's server and run the installed launcher from the application
+root. No recipe, test file or application npm dependency is required.
+
+```sh
+vendor/bin/uxor-browser http://127.0.0.1:8000/
+vendor/bin/uxor browser-diagnostics var/uxor/browser-diagnostics.json --format=json
+vendor/bin/mate tools:call uxor_browser_diagnostics --path=var/uxor/browser-diagnostics.json --format=json
+```
+
+The launcher uses Node.js 20 or later and npm to prepare a private Playwright runtime and Chromium on first use. It reuses
+that runtime on subsequent checks and leaves the application’s Composer and npm dependencies alone. Add
+`--wait-for '[data-page-ready]'` for a page that finishes rendering after load. It prints the saved artifact
+path even when the check finds a page error, failed request or HTTP error. The exit code is 0 for a clean visit,
+1 for a visit with findings, and 2 if the launcher cannot run. The standalone capture includes the final URL, HTTP status when available and any navigation or readiness error. A response from Symfony can carry an
+`X-Debug-Token` that identifies a profile. Plain HTML pages can still report errors without one.
+
+On a Docker host, select `--docker` to use Chromium with its system libraries. The launcher also selects Docker
+when Node.js or npm is missing. Use a URL reachable from the container. On Linux, host networking reaches a loopback
+service. With Docker Desktop, enable host networking for loopback or use `host.docker.internal` for a published service. The native
+launcher accepts `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` for an existing browser. To preserve captures from
+different runs, use separate project-relative paths ending in `browser-diagnostics.json` with `--output`.
+
+### Record an application Playwright test
+
 The recorder is optional. Use the application's existing diagnostics; when Playwright and local Symfony profiler
 collection are appropriate, register this recorder in its existing test setup. This example uses
 `tests/fixtures.mjs` and the default Composer vendor location:
