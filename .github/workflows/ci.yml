@@ -110,10 +110,11 @@ jobs:
             package: ${{ steps.plan.outputs.package }}
             prod-image: ${{ steps.plan.outputs.prod-image }}
             importmap: ${{ steps.plan.outputs.importmap }}
-            # the browser job: Firefox and WebKit (run, reuse, defer or skip), whether it runs, and its computed matrix
+            # the browser job: Firefox and WebKit, job selection, and the matrix labels and configuration
             engines: ${{ steps.plan.outputs.engines }}
             browsers: ${{ steps.plan.outputs.browsers }}
             browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
+            browser-config: ${{ steps.plan.outputs.browser-config }}
             # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
             lane-plan: ${{ steps.plan.outputs.artifact }}
             # the plan's artifact by id and its plan.json's SHA-256: CI result takes nothing else from it, and checks both
@@ -685,7 +686,7 @@ jobs:
     # Two lanes: the Toolkit version the demo locks (what the kit is developed with) and the minimum supported one
 
     lint-kit:
-        name: Lint kit (${{ matrix.toolkit }} toolkit)
+        name: Lint kit
         needs: changes
         if: needs.changes.outputs.lint-kit == 'run'
         strategy:
@@ -774,7 +775,7 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Lint kit (${{ matrix.toolkit }} toolkit)
+                  job: Lint kit (${{ matrix.toolkit }})
                   artifact: jev-input-ci-${{ github.job }}-${{ matrix.toolkit }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
@@ -1453,7 +1454,7 @@ jobs:
               run: docker logout ghcr.io
 
     demo:
-        name: ${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
+        name: Browser checks
         # not importmap: the shards start beside it and wait for it, by name, just before they need its packages (the
         # plan runs Importmap packages whenever this job runs: its `importmap` output follows the browser lanes)
         needs: changes
@@ -1469,9 +1470,13 @@ jobs:
         # The Changes job lists the selected suites and shards. See docs/TESTING.md, *Browsers*.
         env:
             XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
+            BROWSER_ARTIFACT_KEY: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].artifact-browser }}
+            BROWSER_SHARD: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].shard }}
+            BROWSER_SHARD_COUNT: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].shards }}
+            BROWSER_PROJECTS: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].projects }}
         strategy:
             fail-fast: false
-            # Each entry identifies its suite, browser, shard and Playwright projects.
+            # A single display label per variant keeps GitHub's generated job names readable.
             matrix: ${{ fromJSON(needs.changes.outputs.browser-matrix) }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1580,7 +1585,7 @@ jobs:
             # checks that the copies are what ux:install writes. Deterministic checks run on one shard only (Chromium's 1).
             - name: The sync leaves tracked files unchanged
               id: tracked
-              if: matrix.artifact-browser == 'chromium' && matrix.shard == 1
+              if: env.BROWSER_ARTIFACT_KEY == 'chromium' && env.BROWSER_SHARD == '1'
               run: |
                   if [ -n "$(git status --porcelain)" ]; then
                       git status --porcelain
@@ -1590,13 +1595,13 @@ jobs:
 
             - name: The demo's composer.json and composer.lock are valid
               id: composer
-              if: matrix.artifact-browser == 'chromium' && matrix.shard == 1
+              if: env.BROWSER_ARTIFACT_KEY == 'chromium' && env.BROWSER_SHARD == '1'
               working-directory: demo
               run: docker compose exec -T php composer validate --no-check-publish --strict   # also fails on a stale composer.lock
 
             - name: sync-demo copies what ux:install copies
               id: sync-parity
-              if: matrix.artifact-browser == 'chromium' && matrix.shard == 1
+              if: env.BROWSER_ARTIFACT_KEY == 'chromium' && env.BROWSER_SHARD == '1'
               working-directory: demo
               run: docker compose exec -T php bash ../tools/tests/sync-demo.sh
 
@@ -1649,16 +1654,17 @@ jobs:
               # --list also prints every test: kept in a file, shown when the listing fails
               run: |
                   mkdir -p "$PLAN_DIR"
-                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} \
+                  read -r -a projects <<< "$BROWSER_PROJECTS"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json "${projects[@]}" \
                       > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
                   node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings "$RUNNER_TEMP/shard-timings/shard-timings.json" \
-                      --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
+                      --shard "$BROWSER_SHARD" --shards "$BROWSER_SHARD_COUNT" --out "$PLAN_DIR"
                   mkdir -p playwright-results
                   cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
-                  if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
-                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} \
-                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
-                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
+                  if [ -f "$PLAN_DIR/shard-$BROWSER_SHARD.txt" ]; then
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json "${projects[@]}" \
+                          --test-list "$PLAN_DIR/shard-$BROWSER_SHARD.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
+                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard "$BROWSER_SHARD" --list "$PLAN_DIR/mine.json"
                   fi
 
             # The browser server on the runner's own network (the pinned image the Install step pulled), so the browser
@@ -1693,7 +1699,9 @@ jobs:
                   DEMO_URL: https://localhost
                   PW_BROWSER_WS_ENDPOINT: ws://127.0.0.1:3000/
                   PW_DIRECT_NETWORK: '1'
-              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2
+              run: |
+                  read -r -a projects <<< "$BROWSER_PROJECTS"
+                  npx playwright test "${projects[@]}" ${{ steps.plan.outputs.args }} --workers=2
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
             # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and
@@ -1705,10 +1713,10 @@ jobs:
               id: results
               if: ${{ !cancelled() }}
               env:
-                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
-                  BROWSER: ${{ matrix.artifact-browser }}
-                  RESULTS_ARTIFACT: playwright-results-${{ matrix.artifact-browser }}-${{ matrix.shard }}
-                  REPORT_ARTIFACT: playwright-report-${{ matrix.artifact-browser }}-${{ matrix.shard }}
+                  SHARD: ${{ env.BROWSER_SHARD }}/${{ env.BROWSER_SHARD_COUNT }}
+                  BROWSER: ${{ env.BROWSER_ARTIFACT_KEY }}
+                  RESULTS_ARTIFACT: playwright-results-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
+                  REPORT_ARTIFACT: playwright-report-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
                   DEMO_STARTED: ${{ steps.start.outcome }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
@@ -1743,8 +1751,8 @@ jobs:
               continue-on-error: true
               timeout-minutes: 1
               env:
-                  BROWSER: ${{ matrix.artifact-browser }}
-                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+                  BROWSER: ${{ env.BROWSER_ARTIFACT_KEY }}
+                  SHARD: ${{ env.BROWSER_SHARD }}/${{ env.BROWSER_SHARD_COUNT }}
                   NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
                   NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
                   IMAGE_PULL_SECONDS: ${{ steps.install.outputs.playwright-image-seconds }}
@@ -1761,7 +1769,7 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ !cancelled() }}
               with:
-                  name: playwright-results-${{ matrix.artifact-browser }}-${{ matrix.shard }}
+                  name: playwright-results-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
                   path: playwright-results/
                   retention-days: 30
 
@@ -1778,7 +1786,7 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
               with:
-                  name: playwright-report-${{ matrix.artifact-browser }}-${{ matrix.shard }}
+                  name: playwright-report-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
                   path: |
                       playwright-report/
                       test-results/
@@ -1798,10 +1806,10 @@ jobs:
               with:
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
-                  shard: ${{ matrix.artifact-browser }} ${{ matrix.shard }}/${{ matrix.shards }}
-                  job: ${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
-                  dir: ${{ runner.temp }}/jev-${{ matrix.artifact-browser }}-${{ matrix.shard }}
-                  artifact: jev-input-ci-${{ matrix.artifact-browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  shard: ${{ env.BROWSER_ARTIFACT_KEY }} ${{ env.BROWSER_SHARD }}/${{ env.BROWSER_SHARD_COUNT }}
+                  job: Browser checks (${{ matrix.label }})
+                  dir: ${{ runner.temp }}/jev-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
+                  artifact: jev-input-ci-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             # Last, so the end of the job log names what failed (after the demo's logs): the summary written above
             - name: Playwright summary
@@ -1809,9 +1817,8 @@ jobs:
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
-    # One check for the branch rulesets to require. A skipped matrix job reports its unexpanded name.
-    # Requiring an individual shard would leave a
-    # pull request pending forever. It passes when each lane ran fresh and passed, reused an earlier pass whose evidence
+    # One check for the branch rulesets to require. Requiring an individual shard would leave a pull request pending
+    # when that shard is not selected. The verdict passes when each lane ran fresh and passed, reused a pass whose evidence
     # still holds (requalified here), or was skipped as unaffected; and records the lanes that ran fresh, for later runs
     # (tools/ci/lane-evidence.mjs, docs/TESTING.md, *Reused lanes*).
     result:

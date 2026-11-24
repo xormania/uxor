@@ -1596,7 +1596,8 @@ CI splits the Toolkit Chromium and cross-browser suites by recorded test time (*
 each shard runs [`tools/ci/playwright-summary.mjs`](https://github.com/xormania/uxor/blob/0.3.5/tools/ci/playwright-summary.mjs) on its
 `playwright-results/results.json`. It does not decide pass or fail: Playwright's exit status does.
 
-- **The job summary** (the run's *Summary* page, one section per shard, under its job's name: `Cross-browser verification (firefox 2/3)`) gives the counts, then each failed and each
+- **The job summary** (the run's *Summary* page, one section per shard under its job name, such as
+  `Browser checks (Cross-browser verification, firefox 2/3)`) gives the counts, then each failed and each
   flaky test as `[project] file:line › title` with the first lines of each failed attempt's error, the tested commit,
   the shard, the projects and the runtime versions (Node, Playwright, and PHP, Symfony and Turbo from the demo's
   container). The same text is the last step of the job log (*Playwright summary*), after the demo's logs.

@@ -33,8 +33,9 @@ const ALL = Object.fromEntries(SELECTOR_LANES.map((lane) => [lane, true]));
 const REUSABLE = ['php', 'demo', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const DAY_LANES = ['fresh-install', 'lint-kit', 'package'];
 const CHROMIUM_SHARDS = 6;
-const chromiumJobs = (count) => Array.from({ length: count }, (_, i) => `Toolkit browser verification (chromium ${i + 1}/${count})`);
-const DEMO_APP_JOB = 'Demo app browser checks (chromium 1/1)';
+const toolkitChromiumJob = (shard, count = CHROMIUM_SHARDS) => `Browser checks (Toolkit browser verification, chromium ${shard}/${count})`;
+const chromiumJobs = (count) => Array.from({ length: count }, (_, i) => toolkitChromiumJob(i + 1, count));
+const DEMO_APP_JOB = 'Browser checks (Demo app browser checks, chromium 1/1)';
 
 // ci.yml's job names, per lane
 const LANE_JOBS = {
@@ -45,10 +46,10 @@ const LANE_JOBS = {
     'package-docs': ['Package documentation'],
     package: ['Package'],
     'fresh-install': ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'],
-    'lint-kit': ['Lint kit (locked toolkit)', 'Lint kit (minimum toolkit)'],
+    'lint-kit': ['Lint kit (locked)', 'Lint kit (minimum)'],
     demo: chromiumJobs(CHROMIUM_SHARDS),
     'demo-app': [DEMO_APP_JOB],
-    engines: ['firefox', 'webkit'].flatMap((b) => [1, 2, 3].map((s) => `Cross-browser verification (${b} ${s}/3)`)),
+    engines: ['firefox', 'webkit'].flatMap((b) => [1, 2, 3].map((s) => `Browser checks (Cross-browser verification, ${b} ${s}/3)`)),
 };
 // CI result's `needs` names for the lanes that are jobs of their own
 const NEEDS_OF = { php: ['php'], 'static-site': ['static-site'], 'runtime-export': ['runtime-export'], 'prod-image': ['prod-image'], 'package-docs': ['package-docs'], package: ['package'], 'fresh-install': ['fresh-install', 'docker-install'], 'lint-kit': ['lint-kit'] };
@@ -275,7 +276,7 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
             for (const name of names) if (!missing.includes(name)) jobs.push(job(name, name in conclusions ? conclusions[name] : 'success', 1, when));
         }
         if (!jobs.some((j) => [...laneJobs.demo, ...laneJobs['demo-app'], ...laneJobs.engines].includes(j.name))) {
-            jobs.push(job('${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', 'skipped', 1, when));
+            jobs.push(job('Browser checks', 'skipped', 1, when));
         }
         const run = {
             id, name: 'CI', path: '.github/workflows/ci.yml', event: event === 'push' ? 'push' : 'workflow_dispatch', head_sha: sha, head_branch: ref.replace('refs/heads/', ''),
@@ -302,7 +303,10 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
 }
 
 const decisions = (plan) => Object.fromEntries(Object.entries(plan.lanes).map(([lane, e]) => [lane, e.decision]));
-const matrix = (ran) => JSON.parse(ran.outputs['browser-matrix']).include;
+const matrix = (ran) => {
+    const config = JSON.parse(ran.outputs['browser-config']);
+    return JSON.parse(ran.outputs['browser-matrix']).label.map((label) => config[label]);
+};
 const toolkitChromium = (ran) => matrix(ran).filter(({ browser, suite }) => browser === 'chromium' && suite === 'Toolkit browser verification');
 const markerOf = (w, name) => w.state.artifacts.find((a) => a.name === name);
 const evidenceOf = (w, artifact) => {
@@ -522,7 +526,7 @@ for (const [kind, path, content] of [
 // No false reuse of incomplete work; required code validation completes
 // ---------------------------------------------------------------------------------------------------------------------
 const predecessors = {
-    failed: (w) => w.ciRun({ hoursAgo: 3, conclusions: { 'Toolkit browser verification (chromium 3/6)': 'failure', 'Kit PHP': 'failure' } }),
+    failed: (w) => w.ciRun({ hoursAgo: 3, conclusions: { [toolkitChromiumJob(3)]: 'failure', 'Kit PHP': 'failure' } }),
     cancelled: (w) => w.ciRun({ hoursAgo: 3, conclusions: Object.fromEntries([...LANE_JOBS.demo, 'Kit PHP'].map((name) => [name, 'cancelled'])) }),
     running: (w) => w.ciRun({ hoursAgo: 1, finished: false }),
     missing: () => null,
@@ -611,7 +615,7 @@ test('a partial result on a candidate: the lanes that passed keep their proof, t
 // ---------------------------------------------------------------------------------------------------------------------
 test('one failed browser shard, then Re-run failed jobs: the pass keeps the five siblings as they first ran and the re-run shard, and a later push reuses it', (t) => {
     const w = world(t);
-    const failing = 'Toolkit browser verification (chromium 4/6)';
+    const failing = toolkitChromiumJob(4);
     const first = w.ciRun({ hoursAgo: 3, conclusions: { [failing]: 'failure' } });
     assert.notEqual(first.result.status, 0, 'the first attempt fails');
     assert.equal(first.result.verdict.lanes.demo.status, 'incomplete');
@@ -673,7 +677,7 @@ test('a damaged marker and failing lanes: the fallback execution decides, never 
     allPassedRun(w, { hoursAgo: 3 });
     for (const a of w.state.artifacts) writeFileSync(a.file, 'garbage');
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, garbled.'));
-    const ran = w.ciRun({ hoursAgo: 1, conclusions: { 'Toolkit browser verification (chromium 1/6)': 'failure' } });
+    const ran = w.ciRun({ hoursAgo: 1, conclusions: { [toolkitChromiumJob(1)]: 'failure' } });
     assert.notEqual(ran.result.status, 0);
     assert.equal(ran.result.verdict.ok, false);
     assert.equal(ran.result.verdict.lanes.demo.status, 'incomplete');
@@ -707,7 +711,7 @@ test('a relevant runtime change (the pinned PHP base image): nothing is reused a
 // ---------------------------------------------------------------------------------------------------------------------
 test('a missing shard: CI result refuses the browser lane, says how many shards it had, and records no pass', (t) => {
     const w = world(t);
-    const ran = w.ciRun({ hoursAgo: 1, missing: ['Toolkit browser verification (chromium 6/6)'] });
+    const ran = w.ciRun({ hoursAgo: 1, missing: [toolkitChromiumJob(6)] });
     assert.notEqual(ran.result.status, 0);
     assert.equal(ran.result.verdict.lanes.demo.status, 'incomplete');
     assert.match(ran.result.verdict.lanes.demo.reason, /5 of 6/);
@@ -730,7 +734,7 @@ test('a stale producer (its lane ran again since and failed): the pass is not re
     // Re-run all jobs on the green run: this time a Chromium shard fails, so the run's latest attempt failed the lane
     const run = w.state.runs.get(green.id);
     run.run_attempt = 2;
-    run.jobs = run.jobs.map((j) => ({ ...j, id: j.id + 50000, run_attempt: 2, conclusion: j.name === 'Toolkit browser verification (chromium 2/6)' ? 'failure' : j.conclusion }));
+    run.jobs = run.jobs.map((j) => ({ ...j, id: j.id + 50000, run_attempt: 2, conclusion: j.name === toolkitChromiumJob(2) ? 'failure' : j.conclusion }));
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, stale.'));
     const docs = w.ciRun({ hoursAgo: 1 });
     assert.equal(docs.plan.lanes.demo.decision, 'run');
@@ -783,7 +787,7 @@ test('a later contradiction: a failure recorded on the same inputs after the pla
     const docs = w.ciRun({ hoursAgo: 2, finished: false });
     assert.equal(docs.plan.lanes.demo.decision, 'reuse');
     // meanwhile another run on the same inputs fails the browser tests
-    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 1.5, reuse: 'off', conclusions: { 'Toolkit browser verification (chromium 5/6)': 'failure' } });
+    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 1.5, reuse: 'off', conclusions: { [toolkitChromiumJob(5)]: 'failure' } });
     // the docs push's CI result now runs: it checks the reused evidence again
     const late = docs.complete({ hoursAgo: 1 });
     assert.notEqual(late.status, 0, 'CI result refuses');
@@ -799,7 +803,7 @@ test('a later contradiction: a failure recorded on the same inputs after the pla
 test('a later contradiction found by the plan itself: a failure on the same inputs newer than the pass stops the search', (t) => {
     const w = world(t);
     const green = allPassedRun(w, { hoursAgo: 5 });
-    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 3, reuse: 'off', conclusions: { 'Toolkit browser verification (chromium 5/6)': 'failure' } });
+    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 3, reuse: 'off', conclusions: { [toolkitChromiumJob(5)]: 'failure' } });
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, later.'));
     const docs = w.ciRun({ hoursAgo: 1 });
     assert.equal(docs.plan.lanes.demo.decision, 'run', `demo: ${docs.plan.lanes.demo.reason}`);

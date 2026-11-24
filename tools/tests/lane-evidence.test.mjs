@@ -133,8 +133,9 @@ const demoJobs = (base = 500, attempt = 1, shards = 6) => Array.from({ length: s
 const engineJobs = (base = 700, attempt = 1, shards = 3) => ['firefox', 'webkit']
     .flatMap((browser) => Array.from({ length: shards }, (_, i) => `${browser} ${i + 1}/${shards}`))
     .map((label, i) => ({ id: base + i, name: `Cross-browser verification (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
+const namedBrowserJobs = (jobs) => jobs.map((job) => ({ ...job, name: `Browser checks (${job.name.replace(' (', ', ')}` }));
 const DEMO_JOBS = demoJobs();
-const SKIPPED_DEMO = { id: 499, name: '${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
+const SKIPPED_DEMO = { id: 499, name: 'Browser checks', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
 const brief = (jobs) => jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt }));
 
 /**
@@ -504,7 +505,13 @@ function enginesPlan(fx, routes = {}, { event = 'push', ref = 'refs/heads/featur
         '--chromium-shards', shards, '--selection', file, '--out', out, '--github-output', github], routes);
     assert.equal(result.status, 0, result.stderr);
     const outputs = Object.fromEntries(readFileSync(github, 'utf8').trim().split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
-    return { plan: JSON.parse(readFileSync(out, 'utf8')), outputs, matrix: JSON.parse(outputs['browser-matrix']), log: result.stdout };
+    const matrix = JSON.parse(outputs['browser-matrix']);
+    assert.ok(outputs['browser-config'], 'the plan provides execution inputs separately from display labels');
+    const config = JSON.parse(outputs['browser-config']);
+    assert.deepEqual(Object.keys(matrix), ['label'], 'GitHub appends only the display label to the job name');
+    assert.deepEqual(Object.keys(config), matrix.label, 'each label selects its own configuration');
+    assert.deepEqual(matrix.label, Object.values(config).map(({ suite, browser, shard, shards }) => `${suite}, ${browser} ${shard}/${shards}`));
+    return { plan: JSON.parse(readFileSync(out, 'utf8')), outputs, browserRows: matrix.label.map((label) => config[label]), log: result.stdout };
 }
 
 const engineRoutes = (fx, sha, fp, options = {}) => routesFor('engines', fp, [marker(fx, { lane: 'engines', sha, fp, jobs: engineJobs(), artifactId: 9501, runId: 75, ...options })]);
@@ -524,13 +531,13 @@ test('a stacked package change reuses eight green Chromium shards until a shared
     assert.equal(sameDemo.outputs.demo, 'reuse', sameDemo.plan.lanes.demo.detail);
     assert.equal(sameDemo.plan.lanes.demo.evidence.head_sha, sha);
     assert.equal(sameDemo.outputs.package, 'run', 'the package evidence belongs to the old consumer');
-    assert.deepEqual(sameDemo.matrix.include, []);
+    assert.deepEqual(sameDemo.browserRows, []);
 
     fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed shared recorder\n');
     const changedDemo = enginesPlan(fx, routes, options);
     assert.equal(changedDemo.outputs.demo, 'run');
     assert.equal(changedDemo.outputs.package, 'run');
-    assert.deepEqual(changedDemo.matrix.include.map(({ browser, shard, shards }) => `${browser} ${shard}/${shards}`),
+    assert.deepEqual(changedDemo.browserRows.map(({ browser, shard, shards }) => `${browser} ${shard}/${shards}`),
         Array.from({ length: 8 }, (_, index) => `chromium ${index + 1}/8`));
 });
 
@@ -544,9 +551,9 @@ test('on a branch push the engines lane is deferred, never reported as not appli
     assert.equal(deferred.outputs.engines, 'defer');
     assert.match(deferred.log, /engines: defer \(deferred\).*NOT RUN AT THIS STAGE/);
     assert.equal(deferred.outputs.browsers, 'run');
-    assert.deepEqual(deferred.matrix.include.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
-    assert.equal(deferred.matrix.include[0].projects, '--project=smoke --project=examples');
-    assert.equal(deferred.matrix.include[0].suite, 'Toolkit browser verification');
+    assert.deepEqual(deferred.browserRows.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
+    assert.equal(deferred.browserRows[0].projects, '--project=smoke --project=examples');
+    assert.equal(deferred.browserRows[0].suite, 'Toolkit browser verification');
     const reused = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines));
     assert.equal(reused.outputs.engines, 'reuse', reused.plan.lanes.engines.detail);
     assert.equal(enginesPlan(fx, {}, { lanes: ['php'] }).outputs.engines, 'skip', 'no browser lane selected: neither');
@@ -561,7 +568,7 @@ test('a Demo app change plans one Chromium job without Toolkit Chromium or cross
     assert.equal(standalone.outputs.demo, 'skip');
     assert.equal(standalone.outputs.engines, 'skip');
     assert.equal(standalone.outputs.importmap, 'run');
-    assert.deepEqual(standalone.matrix.include, [{
+    assert.deepEqual(standalone.browserRows, [{
         browser: 'chromium', suite: 'Demo app browser checks', shard: 1, shards: 1,
         projects: '--project=demo-app', 'artifact-browser': 'demo-app-chromium',
     }]);
@@ -571,19 +578,19 @@ test('a Demo app change plans one Chromium job without Toolkit Chromium or cross
     assert.equal(website.outputs['demo-app'], 'skip');
     assert.equal(website.outputs.browsers, 'skip');
     assert.equal(website.outputs.importmap, 'skip');
-    assert.deepEqual(website.matrix.include, []);
+    assert.deepEqual(website.browserRows, []);
 });
 
 test('the engines lane runs when asked, on main, with every push, and on the daily run without a pass on its inputs', (t) => {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes;
-    const browsers = (p) => p.matrix.include.map((e) => e.browser);
+    const browsers = (p) => p.browserRows.map((e) => e.browser);
     const asked = enginesPlan(fx, {}, { event: 'dispatch', engines: 'true' });
     assert.equal(asked.outputs.engines, 'run');
     assert.equal(asked.plan.lanes.engines.reason, 'no_evidence');
     assert.equal(browsers(asked).length, 12);
     for (const browser of ['firefox', 'webkit']) {
-        assert.deepEqual(asked.matrix.include.filter((e) => e.browser === browser).map((e) => [e.suite, e.shard, e.shards, e.projects]),
+        assert.deepEqual(asked.browserRows.filter((e) => e.browser === browser).map((e) => [e.suite, e.shard, e.shards, e.projects]),
             [1, 2, 3].map((shard) => ['Cross-browser verification', shard, 3, `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`]));
     }
     const main = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { ref: 'refs/heads/main' });
@@ -599,7 +606,7 @@ test('the engines lane runs when asked, on main, with every push, and on the dai
     const passed = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
     assert.equal(passed.outputs.engines, 'reuse', 'no change since the last all-browser pass: nothing to run');
     assert.equal(passed.outputs.browsers, 'skip');
-    assert.deepEqual(passed.matrix.include, []);
+    assert.deepEqual(passed.browserRows, []);
     assert.equal(passed.outputs.importmap, 'skip');
 });
 
@@ -607,7 +614,7 @@ test('the Chromium shard count is one setting: the matrix and the demo lane\'s e
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes;
     const eight = enginesPlan(fx, producer(fx, fx.head(), fp.demo), { shards: '8' });
-    assert.equal(eight.matrix.include.length, 8);
+    assert.equal(eight.browserRows.length, 8);
     assert.equal(eight.plan.lanes.demo.jobs_expected, 8);
     assert.equal(eight.plan.lanes.engines.jobs_expected, 6);
     assert.equal(eight.plan.lanes.demo.reason, 'jobs_incomplete', 'a pass with six shards is not a pass with eight');
@@ -642,10 +649,11 @@ test('the engine evidence matches every shard of the producer mode', (t) => {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes.engines;
     const dispatch = { event: 'workflow_dispatch', display_title: 'CI: Firefox and WebKit only' };
-    const dedicated = engineJobs(700, 1, 4);
+    const dedicated = namedBrowserJobs(engineJobs(700, 1, 4));
     const duplicate = [...dedicated.slice(0, -1), { ...dedicated.at(-1), name: dedicated.at(-2).name }];
     for (const [name, runInfo, jobs, accepted] of [
-        ['regular complete', {}, engineJobs(), true],
+        ['regular complete with historical names', {}, engineJobs(), true],
+        ['regular complete with current names', {}, namedBrowserJobs(engineJobs()), true],
         ['dispatch complete', dispatch, dedicated, true],
         ['dispatch with only regular identities', dispatch, engineJobs(), false],
         ['regular with the dispatch identities', {}, dedicated, false],
@@ -762,9 +770,10 @@ const lane = (decision, fingerprint = 'c'.repeat(64), reason) => ({ selected: de
 
 test('CI result records a pass only for a lane that ran fresh and passed in full, a failure for one that failed', (t) => {
     const fx = scratch(t);
+    const browserJobs = namedBrowserJobs(DEMO_JOBS);
     const php = { id: 600, name: 'Kit PHP', conclusion: 'failure', status: 'completed', run_attempt: 2 };
     const image = { id: 601, name: 'Production image', conclusion: 'cancelled', status: 'completed', run_attempt: 2 };
-    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run'), engines: lane('defer') }, [...DEMO_JOBS, php, image]);
+    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run'), engines: lane('defer') }, [...browserJobs, php, image]);
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(markers, [`ci-fail-v1-php-${'e'.repeat(64)}`, `ci-pass-v1-demo-${'d'.repeat(64)}`]);
     const pass = read(`ci-pass-v1-demo-${'d'.repeat(64)}`);
@@ -772,7 +781,7 @@ test('CI result records a pass only for a lane that ran fresh and passed in full
     assert.equal(pass.run_id, 88);
     assert.equal(pass.run_attempt, 1);
     assert.equal(pass.completed_at, '2026-11-15T12:00:00Z', 'the age of the evidence is its jobs\' completion');
-    assert.deepEqual(pass.jobs.map((job) => job.id), DEMO_JOBS.map((job) => job.id));
+    assert.deepEqual(pass.jobs, brief(browserJobs), 'the marker keeps the original job IDs and display names');
     assert.match(output, new RegExp(`^demo-marker=ci-pass-v1-demo-${'d'.repeat(64)}$`, 'm'));
     assert.match(output, /^demo-kind=pass$/m);
     assert.match(output, /^php-kind=fail$/m);
@@ -858,7 +867,7 @@ function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'p
 
 test('the verdict tells fresh, reused, not applicable and incomplete apart, and fails on incomplete', (t) => {
     const { verdict } = verdictFixture(t);
-    const good = verdict();
+    const good = verdict({ demo: 'skipped' }, undefined, [], [SKIPPED_DEMO]);
     assert.equal(good.status, 0, good.stderr + good.stdout);
     assert.equal(good.json.ok, true);
     assert.equal(good.json.lanes.demo.status, 'reused');
@@ -906,9 +915,9 @@ test('the verdict judges the Chromium shards and the engines apart, though they 
 test('a dedicated dispatch passes and records evidence only with all eight distinct engine shards', (t) => {
     const fp = 'f'.repeat(64);
     const { fx, verdict } = verdictFixture(t, { engines: lane('run', fp), event: 'engines' });
-    const complete = engineJobs(700, 1, 4);
+    const complete = namedBrowserJobs(engineJobs(700, 1, 4));
     const duplicate = [...complete.slice(0, -1), { ...complete.at(-1), name: complete.at(-2).name }];
-    for (const [jobs, accepted] of [[complete, true], [engineJobs(), false], [duplicate, false]]) {
+    for (const [jobs, accepted] of [[complete, true], [complete.slice(1), false], [engineJobs(), false], [duplicate, false]]) {
         const { status, json } = verdict({ demo: 'success', php: 'skipped', quick: 'skipped' }, {}, [], jobs);
         assert.equal(status, accepted ? 0 : 1);
         assert.equal(json.lanes.engines.status, accepted ? 'fresh' : 'incomplete');
@@ -1050,7 +1059,8 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     // Contrast and Workflows are steps of Quick checks, on the same outputs (its own test)
     assert.equal(job('php').name, rules.php.name);
     assert.equal(job('prod-image').name, rules['prod-image'].name);
-    for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'importmap']) {
+    assert.equal(job('lint-kit').name, 'Lint kit');
+    for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'browser-config', 'importmap']) {
         assert.match(workflow, new RegExp(`^ {12}${id}: \\$\\{\\{ steps\\.plan\\.outputs\\.${id} \\}\\}$`, 'm'), `Changes outputs ${id} from the plan`);
     }
     assert.doesNotMatch(workflow, /needs\.changes\.outputs\.[a-z-]+ == 'true'/, 'no job runs on the old true/false outputs');
@@ -1060,11 +1070,12 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.match(plan, /--engines "\$ENGINES"/);
     assert.match(plan, /--event "\$PLAN_EVENT"/);
 
-    // The browser job has one definition, with distinct check names assigned by the matrix.
+    // The browser job has one definition with a literal skip name and a distinct matrix label per shard.
     const demo = job('demo');
-    assert.equal(demo.name, '${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})');
+    assert.equal(demo.name, 'Browser checks');
     assert.equal(demo.if, "needs.changes.outputs.browsers == 'run'");
     assert.match(demo.text, /^ {12}matrix: \$\{\{ fromJSON\(needs\.changes\.outputs\.browser-matrix\) \}\}$/m);
+    assert.match(demo.text, /fromJSON\(needs\.changes\.outputs\.browser-config\)\[matrix\.label\]/);
     assert.doesNotMatch(demo.text, /browser: \[chromium/, 'no fixed browser list');
     assert.equal(rules.demo.prefix, 'Toolkit browser verification (chromium ');
     assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Cross-browser verification (firefox ', 'Cross-browser verification (webkit ']);
@@ -1365,7 +1376,7 @@ test('a website-only push above a verified release runs website checks with a co
         const plan = exercise(prs, verified, pass, green);
         assert.equal(plan.outputs['runtime-export'], 'skip');
         assert.equal(plan.outputs.importmap, 'skip');
-        assert.deepEqual(plan.matrix.include, []);
+        assert.deepEqual(plan.browserRows, []);
     }
     for (const [prs, proof, result] of [
         [[releasePr], { ...verified, conclusion: 'failure' }, pass],
@@ -1376,12 +1387,12 @@ test('a website-only push above a verified release runs website checks with a co
         [[releasePr, otherRelease], verified, pass],
         [[{ ...releasePr, author_association: 'CONTRIBUTOR' }], verified, pass],
     ]) {
-        assert.equal(exercise(prs, proof, result, dev).matrix.include.length, 9, 'an unverified inherited recorder change selects both Chromium suites');
+        assert.equal(exercise(prs, proof, result, dev).browserRows.length, 9, 'an unverified inherited recorder change selects both Chromium suites');
     }
     const partial = exercise([releasePr], verified, pass, dev, true);
-    assert.equal(partial.matrix.include.length, 9, 'a truncated list of active release targets never narrows validation');
+    assert.equal(partial.browserRows.length, 9, 'a truncated list of active release targets never narrows validation');
     fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed recorder\n');
-    assert.equal(exercise([releasePr], verified, pass, green).matrix.include.length, 9, 'a new recorder change selects both Chromium suites');
+    assert.equal(exercise([releasePr], verified, pass, green).browserRows.length, 9, 'a new recorder change selects both Chromium suites');
 
     const site = job('static-site');
     assert.equal(site.needs, 'changes');
@@ -1426,7 +1437,7 @@ test('an engines-only run selects the engines lane alone', (t) => {
     const plan = enginesPlan(fx, {}, { event: 'engines', lanes: [], extra: 'engines=true\n' });
     assert.equal(plan.outputs.engines, 'run');
     assert.equal(plan.plan.lanes.engines.jobs_expected, 8);
-    assert.deepEqual(plan.matrix.include.map(({ browser, shard, shards, projects }) => [browser, shard, shards, projects]),
+    assert.deepEqual(plan.browserRows.map(({ browser, shard, shards, projects }) => [browser, shard, shards, projects]),
         ['firefox', 'webkit'].flatMap((browser) => [1, 2, 3, 4].map((shard) => [browser, shard, 4,
             `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`])));
     assert.equal(plan.outputs.importmap, 'run');

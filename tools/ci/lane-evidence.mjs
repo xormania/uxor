@@ -341,12 +341,22 @@ export function zipEntry(buffer, wanted) {
 
 // lanes -------------------------------------------------------------------------------------------------------------------
 
+// GitHub appends the scalar matrix label to the static display name. Qualify
+// earlier jobs by their original names and keep the API names in recorded evidence.
+function canonicalBrowserJobName(name) {
+    return name.replace(/^Browser checks \(([^,]+), (\S+ \d+\/\d+)\)$/, '$1 ($2)');
+}
+
 export function laneJobs(lane, jobs) {
     const rule = lane === 'demo-app' ? DEMO_APP_BROWSER : REUSABLE[lane];
     const prefixes = rule.prefixes ?? (rule.prefix !== undefined ? [rule.prefix] : []);
     const names = rule.names ?? (rule.name !== undefined ? [rule.name] : null);
-    return jobs.filter((job) => isObject(job) && typeof job.name === 'string'
-        && (names ? names.includes(job.name) : prefixes.some((prefix) => job.name.startsWith(prefix))));
+    const browserLane = BROWSER_MATRIX_LANES.includes(lane);
+    return jobs.filter((job) => {
+        if (!isObject(job) || typeof job.name !== 'string') return false;
+        const name = browserLane ? canonicalBrowserJobName(job.name) : job.name;
+        return names ? names.includes(name) : prefixes.some((prefix) => name.startsWith(prefix));
+    });
 }
 
 /** how many jobs a full pass of the lane has */
@@ -362,7 +372,7 @@ function completeJobSet(lane, jobs, count) {
     if (jobs.length !== count) return false;
     if (lane !== 'engines') return true;
     const shards = count / ENGINE_BROWSERS.length;
-    const names = new Set(jobs.map((job) => job.name));
+    const names = new Set(jobs.map((job) => canonicalBrowserJobName(job.name)));
     return ENGINE_BROWSERS.every((browser) => Array.from({ length: shards }, (_, i) =>
         `${CROSS_BROWSER_JOB} (${browser} ${i + 1}/${shards})`).every((name) => names.has(name)));
 }
@@ -672,17 +682,17 @@ async function planCommand(opts) {
     if (lanes.package.decision === 'run' && lanes['package-docs'].decision === 'run') {
         Object.assign(lanes['package-docs'], { decision: 'skip', reason: 'covered_by_package', detail: 'the fresh Package job runs these checks' });
     }
-    const include = [];
+    const browserRows = [];
     if (lanes.demo.decision === 'run') {
         for (let shard = 1; shard <= ctx.chromiumShards; shard++) {
-            include.push({
+            browserRows.push({
                 suite: TOOLKIT_BROWSER_JOB, browser: 'chromium', 'artifact-browser': 'chromium', shard, shards: ctx.chromiumShards,
                 projects: '--project=smoke --project=examples',
             });
         }
     }
     if (lanes['demo-app'].decision === 'run') {
-        include.push({
+        browserRows.push({
             suite: DEMO_APP_BROWSER_JOB, browser: 'chromium', 'artifact-browser': 'demo-app-chromium', shard: 1, shards: 1,
             projects: '--project=demo-app',
         });
@@ -691,13 +701,16 @@ async function planCommand(opts) {
         const shards = event === 'engines' ? ENGINE_DISPATCH_SHARDS : ENGINE_SHARDS;
         for (const browser of ENGINE_BROWSERS) {
             for (let shard = 1; shard <= shards; shard++) {
-                include.push({
+                browserRows.push({
                     suite: CROSS_BROWSER_JOB, browser, 'artifact-browser': browser, shard, shards,
                     projects: `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`,
                 });
             }
         }
     }
+    const browserConfig = Object.fromEntries(browserRows.map((row) => [
+        `${row.suite}, ${row.browser} ${row.shard}/${row.shards}`, row,
+    ]));
     const plan = {
         schema: 1, repo: opts.repo, sha: opts.sha, ref: opts.ref ?? null, event, engines_on: enginesOn, chromium_shards: ctx.chromiumShards,
         reuse: !reuseOff, reuse_off: reuseOff, elapsed_ms: Date.now() - started, api_calls: ctx.calls, lanes,
@@ -713,8 +726,9 @@ async function planCommand(opts) {
     writeOutputs(opts['github-output'], {
         ...Object.fromEntries(Object.entries(lanes).map(([lane, entry]) => [lane, entry.decision])),
         importmap: IMPORTMAP_USERS.some((lane) => lanes[lane].decision === 'run') ? 'run' : 'skip',
-        browsers: include.length ? 'run' : 'skip',
-        'browser-matrix': JSON.stringify({ include }),
+        browsers: browserRows.length ? 'run' : 'skip',
+        'browser-matrix': JSON.stringify({ label: Object.keys(browserConfig) }),
+        'browser-config': JSON.stringify(browserConfig),
         'plan-summary': summary,
     });
 }
