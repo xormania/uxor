@@ -12,7 +12,8 @@ const root = fileURLToPath(new URL('../..', import.meta.url));
 const modulePath = join(root, 'tools/prepare-tests.mjs');
 const { cssSourcesDigest, recipeSpecs, syncRecipeSpecs, withLock } = await import(modulePath);
 
-const UPSTREAM = "import { expect, test } from '../../../../assets/test/browser/fixtures';\n";
+// a recipe spec's import of the examples' fixtures, by its path from <recipe>/tests/
+const SOURCE_IMPORT = "import { expect, test } from '../../tests/e2e/examples/fixtures';\n";
 
 /** A checkout with recipes (a manifest.json and tests/*.spec.ts) and a directory that is not one. */
 function checkout(recipes = { alert: { 'alert.spec.ts': 'one' }, modal: { 'modal.spec.ts': 'two', 'helpers.ts': 'not a spec' } }) {
@@ -21,7 +22,7 @@ function checkout(recipes = { alert: { 'alert.spec.ts': 'one' }, modal: { 'modal
         mkdirSync(join(dir, recipe, 'tests'), { recursive: true });
         writeFileSync(join(dir, recipe, 'manifest.json'), '{}');
         for (const [file, body] of Object.entries(files)) {
-            writeFileSync(join(dir, recipe, 'tests', file), `${UPSTREAM}// ${body}\n`);
+            writeFileSync(join(dir, recipe, 'tests', file), `${SOURCE_IMPORT}// ${body}\n`);
         }
     }
     mkdirSync(join(dir, 'demo/tests'), { recursive: true });
@@ -65,7 +66,7 @@ test('nothing is written when nothing changed; a changed spec is replaced, a rem
     assert.equal(after.ino, before.ino);
     assert.equal(after.mtimeMs, before.mtimeMs);
 
-    writeFileSync(join(dir, 'alert/tests/alert.spec.ts'), `${UPSTREAM}// changed\n`);
+    writeFileSync(join(dir, 'alert/tests/alert.spec.ts'), `${SOURCE_IMPORT}// changed\n`);
     execFileSync('rm', [join(dir, 'modal/tests/modal.spec.ts')]);
     writeFileSync(join(generated(dir), 'gone.old.spec.ts'), 'a recipe that no longer exists');
     assert.deepEqual(syncRecipeSpecs(dir).sort(), ['alert.alert.spec.ts', 'gone.old.spec.ts', 'modal.modal.spec.ts']);
@@ -76,7 +77,7 @@ test('nothing is written when nothing changed; a changed spec is replaced, a rem
 test('a process reading the copies while others rewrite them sees every file, whole', async () => {
     const dir = checkout();
     const source = join(dir, 'alert/tests/alert.spec.ts');
-    const versions = ['A', 'B'].map((body) => `${UPSTREAM}// ${body.repeat(200_000)}\n`);
+    const versions = ['A', 'B'].map((body) => `${SOURCE_IMPORT}// ${body.repeat(200_000)}\n`);
     const expected = versions.map((body) => {
         writeFileSync(source, body);
         return recipeSpecs(dir)['alert.alert.spec.ts'];

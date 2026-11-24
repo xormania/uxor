@@ -37,14 +37,11 @@ final class OperationCommand extends Command
         if (in_array($this->operation, ['inspect', 'doctor', 'setup', 'detach', 'environment', 'prepare', 'tools', 'browser-diagnostics'], true)) {
             $this->addOption('project-root', null, InputOption::VALUE_REQUIRED, 'Explicit application directory; defaults to current directory', getcwd());
         }
-        if (in_array($this->operation, ['setup', 'environment', 'prepare'], true)) {
-            $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'setup' === $this->operation
-                ? 'Compatibility flag for older setup invocations. Setup only configures files; use save-project-trust for new Serena bindings.'
-                : 'Acknowledge execution of this already trusted application and its native tools');
+        if (in_array($this->operation, ['environment', 'prepare'], true)) {
+            $this->addOption('trust-project-code', null, InputOption::VALUE_NONE, 'Acknowledge execution of this already trusted application and its native tools');
         }
         if ('setup' === $this->operation) {
             $this->addOption('apply', null, InputOption::VALUE_NONE, 'Apply the proposed project configuration')
-                ->addOption('install', null, InputOption::VALUE_NONE, 'Compatibility flag for older setup invocations. Composer installs the development tools when the application requires UXor.')
                 ->addOption('save-project-trust', null, InputOption::VALUE_NONE, 'Save execution permission in new Serena bindings for future connections, including later checkouts; applies only to future provider launches')
                 ->addOption('client', null, InputOption::VALUE_REQUIRED, 'none, claude, or codex; configure Serena MCP without replacing existing server entries', 'none')
                 ->addOption('host-project-root', null, InputOption::VALUE_REQUIRED, 'Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere', '');
@@ -94,7 +91,7 @@ final class OperationCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $arguments = [];
-        foreach (['project-root', 'query', 'category', 'limit', 'offset', 'kind', 'name', 'component', 'asset-profile', 'trust-project-code', 'save-project-trust', 'apply', 'install', 'client', 'host-project-root', 'probe'] as $name) {
+        foreach (['project-root', 'query', 'category', 'limit', 'offset', 'kind', 'name', 'component', 'asset-profile', 'trust-project-code', 'save-project-trust', 'apply', 'client', 'host-project-root', 'probe'] as $name) {
             if ($this->getDefinition()->hasOption($name)) {
                 $arguments[str_replace('-', '_', $name)] = $input->getOption($name);
             }

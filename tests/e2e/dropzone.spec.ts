@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectA11y, countEvents, decodedBackgroundImage, recordDropzoneEvents } from './fixtures';
+import { test, expect, expectA11y, countEvents, decodedBackgroundImage, dropFiles, dropzoneAddEvents, fileNames, recordDropzoneEvents } from './fixtures';
 import { png, text } from './files';
 import { previewUrl } from './inventory';
 
@@ -11,7 +11,6 @@ const zone = (page: Page) => page.locator('[data-controller~="dropzone-assist"]'
 const input = (page: Page) => page.locator('input[type="file"]');
 const listItems = (page: Page) => page.locator('.dropzone-preview-list-item');
 const fileCount = (page: Page) => input(page).evaluate((element: HTMLInputElement) => element.files?.length ?? 0);
-const dropzoneEvents = ['dropzone:reject', 'dropzone:pre-add', 'dropzone:change'];
 
 /**
  * Expects no message about the files left out: UX Dropzone 3.8 writes its `accept_message` and `max_files_message` into a
@@ -53,21 +52,6 @@ const fileDragOn = (target: Locator, type: string) =>
 
         return { prevented: event.defaultPrevented, dropEffect: dataTransfer.dropEffect };
     }, type);
-
-/** The names of the files the input holds. */
-const fileNames = (target: Locator) => target.evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name));
-
-/** Drops files on the input as the browser does: the drop event, then the files set on the input and its change event. */
-const dropFiles = (target: Locator, files: { name: string; type: string }[]) =>
-    target.evaluate((element: HTMLInputElement, files) => {
-        const dataTransfer = new DataTransfer();
-        for (const { name, type } of files) {
-            dataTransfer.items.add(new File([name], name, { type }));
-        }
-        element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
-        element.files = dataTransfer.files;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-    }, files);
 
 test('the keyboard reaches the input, opens the chooser, moves to Remove after a pick and back after Remove', async ({ page }) => {
     await page.goto(previewUrl('dropzone', 'default'));
@@ -395,7 +379,7 @@ test('a dropped file that accept refuses is left out with dropzone:reject; a dro
     await page.goto(previewUrl('dropzone', 'hint-and-accepted-types'));
     const fileInput = input(page);
     await expect(fileInput).toHaveAttribute('accept', 'image/png,image/jpeg');
-    const order = await recordDropzoneEvents(page, dropzoneEvents);
+    const order = await recordDropzoneEvents(page, dropzoneAddEvents);
 
     await dropFiles(fileInput, [{ name: 'notes.txt', type: 'text/plain' }]);
     // nothing left to add: no dropzone:pre-add, no dropzone:change; no message shown, none logged (the fixtures fail on
@@ -413,8 +397,8 @@ test('a dropped file that accept refuses is left out with dropzone:reject; a dro
     const accepted = ['reject accept notes.txt', 'pre-add cover.png', 'change cover.png'];
     await expect.poll(order).toEqual(accepted);
 
-    // a drop of a file accept refuses and an image: UX Dropzone 3.8 reports the refused file first, then offers the
-    // image alone to dropzone:pre-add, then dispatches dropzone:change (3.7 dispatched the reject after the change)
+    // a drop of a file accept refuses and an image: UX Dropzone reports the refused file first, then offers the image
+    // alone to dropzone:pre-add, then dispatches dropzone:change
     await dropFiles(fileInput, [
         { name: 'draft.txt', type: 'text/plain' },
         { name: 'photo.jpg', type: 'image/jpeg' },
@@ -434,7 +418,7 @@ test('several files dropped on a zone for one file: the first is taken, the othe
     await page.goto(previewUrl('dropzone', 'default'));
     const fileInput = input(page);
     await expect(fileInput).not.toHaveAttribute('multiple');
-    const order = await recordDropzoneEvents(page, dropzoneEvents);
+    const order = await recordDropzoneEvents(page, dropzoneAddEvents);
 
     // UX Dropzone keeps one file in such a zone whether the files come by a drop or are set on the input (a pick): the
     // others are left out the same way, `max_files` the reason, `accept` not involved (this zone has none)
@@ -445,8 +429,8 @@ test('several files dropped on a zone for one file: the first is taken, the othe
     ]);
     await expect(page.getByRole('button', { name: 'Remove first.png' })).toBeVisible();
     expect(await input(page).evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name))).toEqual(['first.png']);
-    // UX Dropzone 3.8 leaves the extra files out before dropzone:pre-add, whose listeners get the first file alone, and
-    // reports them before the change (3.7: after it)
+    // UX Dropzone leaves the extra files out before dropzone:pre-add, whose listeners get the first file alone, and
+    // reports them before the change
     await expect.poll(order).toEqual(['reject max_files second.png,third.txt', 'pre-add first.png', 'change first.png']);
     await expectNoRejectMessage(page);
 });

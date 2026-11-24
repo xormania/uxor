@@ -41,7 +41,7 @@ final class EnvironmentStatus
                 'note' => 'Configuration paths must resolve on the MCP host. The provider uses PHP 8.4; preparation in another PHP version does not prove the application autoloader runs there.'],
             'symfony_wiring' => $this->preparation->status($root),
             'profiler' => ['installed' => $requirements['symfony/profiler-pack']['compatible'],
-                'configured' => is_file($root.'/'.$project['profiler']['config']) || is_file($root.'/'.$project['profiler']['legacy']) ? true : null,
+                'configured' => is_file($root.'/'.$project['profiler']['config']) ? true : null,
                 'observed' => 'not_probed',
                 'note' => 'Installed describes the profiler pack or its unpacked requirements. Static inspection recognizes UXor’s dev config; other application configuration and effective collection require runtime evidence. An exact HTTP response token and matching profile establish request capture.'],
             'debug' => ['installed' => $has('symfony/debug-bundle'), 'compatible' => $debug['compatible'], 'observed' => 'not_probed'],

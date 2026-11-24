@@ -292,7 +292,7 @@ wrapper) or on an element around it:
 The markup has no `style` attribute and no inline handler. UX Dropzone shows and hides its parts with the `hidden`
 attribute, and shows an image preview as a background image set through the CSSOM, which a policy allows. From
 UX Dropzone 3.8 the preview of a PNG, a JPEG or another non-SVG image is a `blob:` object URL and the preview of an
-SVG a `data:` URL (3.7 used `data:` for every image): the policy's `img-src` needs `blob:` and `data:`, for example
+SVG a `data:` URL: the policy's `img-src` needs `blob:` and `data:`, for example
 `img-src 'self' data: blob:`. A `display` class on one of those parts would keep it shown
 without the theme's base styles, which hide every `[hidden]` element: the template leaves them off. A changed copy
 of the template keeps it so: the preview starts with the `hidden` attribute, never a `hidden` class, which UX

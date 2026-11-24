@@ -183,7 +183,7 @@ def check_pending_requirement_preserved(root: Path, php: str, composer: list[str
     manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
     paths = [manifest_path, root / "composer.lock"]
     before = [path.read_bytes() for path in paths]
-    result = operation(root, php, "setup", "--apply", "--install", "--trust-project-code", allowed=(0, 2))
+    result = operation(root, php, "setup", "--apply", allowed=(0, 2))
     if result["data"]["executions"] or [path.read_bytes() for path in paths] != before:
         raise RuntimeError("Setup resolved or modified the application's pending Composer requirement")
 

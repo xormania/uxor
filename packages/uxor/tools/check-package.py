@@ -482,10 +482,7 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
     if PACKAGE_INSTRUCTIONS_HEADING not in guidance or marker not in guidance:
         raise RuntimeError("Composer did not publish this archive's UXor instructions")
-    tools = json.loads(execute("mate.tools-list", [*mate, "tools:list", "--format=json"], application, capture=True))
-    for tool in ("uxor_catalog", "uxor_browser_diagnostics"):
-        if tool not in tools["tools"]:
-            raise RuntimeError(f"The installed tool was not discovered: {tool}")
+    check_mate_tools(application, mate)
     catalog = operation_result(execute("mate.catalog", [*mate, "tools:call", "uxor_catalog", "--query=kbd",
                                         "--limit=1", "--format=json"], application, capture=True), "catalog")
     expected_inputs = json.loads((installed / PACKAGE_PATH / "resources/uxor/index.json").read_text())["source"]["inputs_sha256"]
@@ -501,6 +498,53 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
         raise RuntimeError("The installed reference resource could not be read through Mate")
     check_skills(application, php, consumer_sources, marker)
     print("Install: the project instructions lead to working UXor tools, references and three skills immediately after Composer finishes.")
+
+
+MATE_TOOLS = ("uxor_browser_diagnostics", "uxor_catalog", "uxor_component", "uxor_detach", "uxor_doctor",
+              "uxor_environment", "uxor_prepare", "uxor_project", "uxor_reference", "uxor_setup", "uxor_tools",
+              "uxor_workflow")
+
+
+def check_mate_tools(application: Path, mate: list[str]) -> None:
+    """Mate discovers every UXor tool with a schema, and the read-only defaults hold through its transport."""
+    def call(name: str, operation_name: str, *arguments: str) -> dict:
+        result = operation_result(execute(f"mate.{name}", [*mate, "tools:call", name, *arguments, "--format=json"],
+                                          application, capture=True), operation_name)
+        if result is None:
+            raise RuntimeError(f"Mate returned no {operation_name} result for {name}")
+        return result
+
+    tools = json.loads(execute("mate.tools-list", [*mate, "tools:list", "--format=json"], application, capture=True))["tools"]
+    owned = sorted(name for name, tool in tools.items() if tool.get("extension") == PACKAGE_NAME)
+    if owned != sorted(MATE_TOOLS):
+        raise RuntimeError(f"Mate discovered UXor tools {owned}; expected {sorted(MATE_TOOLS)}")
+    for name in MATE_TOOLS:
+        schema = json.loads(execute(f"mate.inspect-{name}", [*mate, "tools:inspect", name, "--format=json"],
+                                    application, capture=True))
+        if schema.get("name") != name or not isinstance(schema.get("input_schema"), dict):
+            raise RuntimeError(f"Mate did not describe the input schema of {name}")
+        if name == "uxor_setup":
+            properties = schema["input_schema"].get("properties", {})
+            if (properties.get("saveProjectTrust", {}).get("type") != "boolean"
+                    or "saveProjectTrust" in schema["input_schema"].get("required", [])
+                    or {"install", "trustProjectCode"} & set(properties)):
+                raise RuntimeError("uxor_setup must take an optional saveProjectTrust and no execution or install flags")
+    setup = call("uxor_setup", "setup")
+    if (setup["data"]["mode"] != "plan" or setup["data"]["mcp_binding"]["requested_saved_project_trust"]
+            or setup["changes"] or setup["data"]["executions"]):
+        raise RuntimeError("Mate's default setup must be a plan that saves no trust, changes nothing and executes nothing")
+    detach = call("uxor_detach", "detach")
+    if detach["data"]["mode"] != "plan" or detach["changes"]:
+        raise RuntimeError("Mate's default detach must be a plan without changes")
+    component = call("uxor_component", "component", "--name=button")
+    if component["status"] != "completed" or component["data"]["reference_uri"] != "uxor://reference/button/README.md":
+        raise RuntimeError("Mate did not return the button component reference")
+    workflow = call("uxor_workflow", "workflow", "--name=customer-management", "--limit=64")
+    if workflow["status"] != "completed" or not workflow["data"]["truncated"] or workflow["data"]["next_offset"] != 64:
+        raise RuntimeError("Mate did not page the customer-management workflow")
+    native = call("uxor_tools", "tools")
+    if native["status"] != "incomplete" or native["data"]["project_code_executed"]:
+        raise RuntimeError("Mate's native tool discovery must refuse to run project code without trust")
 
 
 def check_mate_application(application: Path, mate: list[str], vendor: str, binaries: str) -> None:

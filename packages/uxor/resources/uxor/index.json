@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "9d7cf83559c801e8e02fbc98d5aecf60289db78d983ef52f02ab8c8be85ebda8",
+        "inputs_sha256": "391c908f6495f49cd04b224c414dfda2787a0fb2c03d77f78677bda08500ca7a",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "guide_catalog_sha256": "92b083ca3a1cb43236e66a9bf903458f9aa676bed7552cdfe6a52a8f79e302fd",
         "license": "MIT"
@@ -521,7 +521,7 @@
                         "turbo"
                     ],
                     "composer": [
-                        "symfony/ux-dropzone:^3.7",
+                        "symfony/ux-dropzone:^3.8",
                         "symfony/ux-icons",
                         "symfony/ux-twig-component:^3.5",
                         "twig/html-extra:^3.24.0",
@@ -529,7 +529,7 @@
                     ]
                 }
             },
-            "manifest_sha256": "53448a8d197b01a99a41af12a0cfaf6a1aa397de72c8fcc843225a406fee93ab",
+            "manifest_sha256": "a561abf58dfd6846e4e0c087fdd416c0000d1776097cc4fc681d9bd79683ad5c",
             "documentation": "dropzone/README.md",
             "source_url": "https://github.com/xormania/uxor/tree/0.3.5/dropzone"
         },
@@ -1824,8 +1824,8 @@
         },
         "docs/COMPOSER-CONFIGURATION.md": {
             "path": "docs/docs/COMPOSER-CONFIGURATION.md",
-            "sha256": "78bc7380de51a7926d171b8b2cae907d8edba36720291ffed31c32bdeabe1d48",
-            "source_sha256": "78bc7380de51a7926d171b8b2cae907d8edba36720291ffed31c32bdeabe1d48",
+            "sha256": "72459076b1c16aea73acd316064e372893ddb8c3a6a686655a74785af5c83918",
+            "source_sha256": "72459076b1c16aea73acd316064e372893ddb8c3a6a686655a74785af5c83918",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/COMPOSER-CONFIGURATION.md"
         },
         "docs/GUIDE.md": {
@@ -1848,8 +1848,8 @@
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "5c12945e5ea29b951be1fca6b14af234d4ec7f617408e5328914899a20ccd460",
-            "source_sha256": "e4a0b9dd7d34fb87501936a3833874c3dc80ce04bb08017de73f91ef99c50b7c",
+            "sha256": "ea2771dbccc6a2ea2ace8fea958ac2e6f8f70215e4152d0ebd2b4918af3ba610",
+            "source_sha256": "5fac601cdd3ccc01aa470e4fdca5a2e0ccd8f634c6d693b62d8bb624dd5a2ca9",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/TESTING.md"
         },
         "drawer/README.md": {
@@ -1866,8 +1866,8 @@
         },
         "dropzone/README.md": {
             "path": "docs/dropzone/README.md",
-            "sha256": "dff4109d71d8a540eb64b7f6fa10aa5e244fd64fabb3b2c399749410f4bc1f52",
-            "source_sha256": "dff4109d71d8a540eb64b7f6fa10aa5e244fd64fabb3b2c399749410f4bc1f52",
+            "sha256": "f15f781b07307a2886117ab3a9199a0698e7ad940af4ce3ee3fe5c108afae38d",
+            "source_sha256": "f15f781b07307a2886117ab3a9199a0698e7ad940af4ce3ee3fe5c108afae38d",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/dropzone/README.md"
         },
         "editor/README.md": {
@@ -1998,8 +1998,8 @@
         },
         "packages/uxor/OPERATIONS.md": {
             "path": "docs/packages/uxor/OPERATIONS.md",
-            "sha256": "3e45f02d7d549cc59df4fa4b9a55b4c99ced14eaf9687133ac484ab4327f40e3",
-            "source_sha256": "a5708b2679d042089ff15ee14ec805cb20408cfb933e39d52272258d3d8f8563",
+            "sha256": "f6617dc9d515e4c40c00f2c662bbc48593d9749a4637807811a6a9dce7da65f3",
+            "source_sha256": "5a81f605e692dcfe509fbdd1043b6d83f4104d3a3e565cc13b757f20ba046bb4",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md"
         },
         "packages/uxor/README.md": {

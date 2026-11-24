@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6df5ced83d75dccf3f324ce1428e5f8a",
+    "content-hash": "819498a257f7238d92aa6b795570a420",
     "packages": [
         {
             "name": "byte-kitsune/mago-symfony-wiring",

@@ -21,7 +21,7 @@ final class EnvironmentSetup
         $this->ownership = new SetupOwnership($this->files);
     }
 
-    public function setup(string $directory, bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): array
+    public function setup(string $directory, bool $apply = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): array
     {
         if (!in_array($client, ['none', 'claude', 'codex'], true)) {
             throw new \InvalidArgumentException('Choose client none, claude, or codex.');
@@ -131,10 +131,6 @@ final class EnvironmentSetup
             if (SetupIntegration::LocalMcp->value === $path && 'preserve' === $proposal['action'] && $proposal['sha256'] !== hash('sha256', $content)) {
                 $notes[] = 'Existing .uxor/mcp.json was preserved; reconcile its application paths and saved execution permission before connecting. It may retain a previous --trust-project-code flag; remove that flag and stop any already running Serena provider if recurring execution is no longer intended.';
             }
-        }
-        $oldProfiler = $this->files->path($root, $project['profiler']['legacy']);
-        if (is_file($oldProfiler) && hash_file('sha256', $oldProfiler) === hash('sha256', "# Local development diagnostics; never loaded in production.\nframework:\n    profiler:\n        collect: true\n")) {
-            $notes[] = 'The earlier '.$project['profiler']['legacy'].' enables profiling on every dev request. Reconcile this preserved file with your application’s profiler policy.';
         }
         if (is_file($root.'/mago.toml') && !str_contains((string) file_get_contents($root.'/mago.toml'), '.uxor/mago/config.toml')) {
             $notes[] = 'Existing mago.toml was preserved. Include .uxor/mago/config.toml in its existing inheritance chain to enable Symfony enrichment.';

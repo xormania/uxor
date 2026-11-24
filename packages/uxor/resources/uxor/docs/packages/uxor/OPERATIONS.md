@@ -45,7 +45,7 @@ vendor/bin/uxor environment --project-root=/app --probe --trust-project-code --f
 
 `--apply` writes the proposed project configuration and preserves existing application files. Composer installs the
 development dependencies and initializes Mate when the application requires UXor. After installation, verify the
-registered tools with `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json`. Setup accepts `--install` and `--trust-project-code` for compatibility with older scripts.
+registered tools with `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json`.
 See the [Composer installation guide](README.md#install-in-a-symfony-application) for the package and plugin settings.
 Use `prepare` when an operation needs compiled Symfony wiring.
 
@@ -407,9 +407,7 @@ Set Playwright’s `baseURL` to the app. Start the test process with `PROFILER_C
 With collection disabled the recorder requests no browser context, so API-only tests can run without a browser.
 
 Symfony applies the application’s existing profiler settings. When none are present, the generated dev configuration
-uses `PROFILER_COLLECT`, with collection off by default. Earlier setup versions may have generated
-`config/packages/dev/uxor.yaml` with `collect: true`. Setup preserves that file. Review it before removing or
-changing that setting if your application uses a different policy.
+uses `PROFILER_COLLECT`, with collection off by default.
 
 Start the local Symfony server with `PROFILER_COLLECT=1`. If Playwright starts the server, it can inherit the same
 flag from the test command. Keep the output in the selected application so Mate and the CLI can read it:
@@ -599,9 +597,7 @@ Plan or configure this application’s development environment; preserve existin
 
 - `[--format FORMAT]` — text or json
 - `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
-- `[--trust-project-code]` — Compatibility flag for older setup invocations. Setup only configures files; use save-project-trust for new Serena bindings.
 - `[--apply]` — Apply the proposed project configuration
-- `[--install]` — Compatibility flag for older setup invocations. Composer installs the development tools when the application requires UXor.
 - `[--save-project-trust]` — Save execution permission in new Serena bindings for future connections, including later checkouts; applies only to future provider launches
 - `[--client CLIENT]` — none, claude, or codex; configure Serena MCP without replacing existing server entries
 - `[--host-project-root HOST-PROJECT-ROOT]` — Absolute checkout path on the MCP/Docker host when application PHP runs elsewhere

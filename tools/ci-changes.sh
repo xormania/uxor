@@ -136,9 +136,10 @@ while IFS= read -r path; do
         # calls pages.yml. audit.yml and codeql.yml run themselves on the pull request that changes them.
         .github/workflows/pages.yml) on static-site runtime-export workflows ;;
         .github/workflows/release.yml) on static-site runtime-export fresh-install workflows ;;
-        .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/workflows/browser-provider.yml | .github/actionlint.yaml) on workflows ;;
-        # The image pipeline exercises its own contexts on changes. Main CI checks its workflow definitions.
-        .github/workflows/images.yml | .github/workflows/refresh-images.yml) on workflows ;;
+        .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/workflows/browser-provider.yml) on workflows ;;
+        # refresh-images.yml runs on its schedule and by hand, never on a push: actionlint only. Its updater's cases
+        # (tools/ci/image-refresh.mjs) run in Tool tests, on every run
+        .github/workflows/refresh-images.yml) on workflows ;;
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
         .github/workflows/monthly.yml) on workflows ;;
@@ -150,7 +151,7 @@ while IFS= read -r path; do
         .github/workflows/release-checks.yml) on workflows ;;
         # jev.yml and metadata.yml run on their own events, never in CI: actionlint only. CODEOWNERS and the mentions'
         # allowlist are read by Tool tests (the security policy, the mention check's cases), on every run
-        .github/workflows/jev.yml | .github/workflows/metadata.yml | .github/workflows/php-analysis-comparison.yml) on workflows ;;
+        .github/workflows/jev.yml | .github/workflows/metadata.yml) on workflows ;;
         .github/CODEOWNERS | .github/mention-allowlist) ;;
         .github/*) all ;;
 
@@ -192,7 +193,7 @@ while IFS= read -r path; do
         package.json | package-lock.json) on static-site contrast demo demo-app ;;
 
         # Repository tools, each with the jobs that run it
-        tools/ci/images/* | tools/ci/image-refresh*) ;;
+        tools/ci/image-refresh*) ;;
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
         llms.txt) on static-site contrast ;;
         # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the
@@ -209,8 +210,6 @@ while IFS= read -r path; do
         tools/tests/live-action.php | tools/tests/fixtures/fresh-app/*) on fresh-install ;;
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon | tools/ci/phpstan/composer.json | tools/ci/phpstan/composer.lock) on php ;;
-        # The separate PHP analysis comparison workflow exercises its collector, fixtures and exporter.
-        tools/ci/php-analysis-*.py | tools/ci/jev-php-analysis.mjs | tools/tests/test_php_analysis*.py | tools/tests/fixtures/php-analysis/*) ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
         # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
         # every run, also runs ci-metrics.mjs and the shard plan's timings

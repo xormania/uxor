@@ -1274,13 +1274,13 @@ The package is also tested from the side of an application that uses it, in `pac
 dependency in a copy of the independent consumer (`packages/uxor/dev/app`): Mate's initialization and discovery, the
 package's tools, references and skills, a repeated initialization, an update to a newer archive that keeps the
 consumer's own instructions and a custom component, then a production render without development dependencies. The
-Python tests in `packages/uxor/dev/tests/` check the development runner and the Serena harness against a mocked
-provider: that the repository, package and application roots agree, and that a wrong binding is never reported as
-success. *Package* runs both. The [fixture checks](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/dev/README.md#checks) describe the locked
+Python tests in `packages/uxor/dev/tests/` check the development runner and the Mago and Serena providers without a
+real Docker engine: that the repository, package and application roots agree, and that a stale build or a failed
+health check is never reported as ready. *Package* runs both. The [fixture checks](https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/dev/README.md#checks) describe the locked
 Chromium journey and production `/customers` check with recipes installed from the tested revision, and record
 which checks run in CI.
-[*Development images*](https://github.com/xormania/uxor/blob/0.3.5/.github/workflows/development-images.yml) checks Docker and Serena on matching pushes
-and manual runs.
+[*Development images*](https://github.com/xormania/uxor/blob/0.3.5/.github/workflows/development-images.yml) checks the consumer's Docker stack on matching
+pushes and manual runs.
 
 **Catches, too:** a doc, recipe README or manifest changed without regenerating the references the package ships. The
 references record no commit, which a file cannot name for the commit that holds it: their `index.json` records the
@@ -1322,7 +1322,6 @@ The dependency-advisory workflow (`.github/workflows/audit.yml`) checks each npm
 |---|---|
 | Repository browser tests | `package-lock.json` |
 | Consumer browser checks | `packages/uxor/dev/package-lock.json` |
-| Serena TypeScript navigation | `packages/uxor/dev/images/serena/package-lock.json` |
 | Package and its development tools | `composer.lock` |
 | Demo | `demo/composer.lock` |
 | Consumer harness | `packages/uxor/dev/app/composer.lock` |
@@ -1547,9 +1546,11 @@ What differs between the engines, met so far, and how the kit and the suite stay
   (a 204) ends that window. Anywhere else they fail the test: `smoke.spec.ts` ("the page guard") plants them during a
   full load, outside one and after a 204, in every engine.
 - **A same-document navigation of a frame, under request interception:** Firefox cancels the frame's subresources still
-  loading (`NS_BINDING_ABORTED`) and requests them again, which load. The gallery's preview frames do it as they start
-  (Turbo's `history.replaceState`), and `demo-app.spec.ts`'s 320px tests of `/r/social-login` and
-  `/r/oauth-provider-button` failed on the cancelled first attempts of the Google logos (17 of 40 runs locally). It
+  loading (`NS_BINDING_ABORTED`) and requests them again, which load. The gallery's preview frames did it as they
+  started (Turbo's `history.replaceState`): while the demo served the gallery, its 320px tests of `/r/social-login` and
+  `/r/oauth-provider-button` failed on the cancelled first attempts of the Google logos (17 of 40 runs locally). Those
+  pages are now the static website's, whose browser tests (`website/tests/browser/website.spec.ts`) put a stand-in in
+  each preview frame; `smoke.spec.ts` ("the page guard › a cancelled local subresource") plants the case. It
   happens only because the guard's route turns on interception for every request, in Firefox: without it, nothing is
   cancelled. `guardPage()` excuses such a cancelled image only once the same URL, from the same frame and document, was
   requested again after it and received (*Every test: fail on what the user would not see*).
@@ -1791,64 +1792,6 @@ worker's start (Playwright's report does not split it; idle worker time is the b
 moves, and the *CI metrics* job itself. Comparing runs means downloading their `ci-metrics.json` artifacts
 (`gh run download <run> --pattern 'ci-metrics-*'`).
 
-### PHP analysis comparison
-
-The *PHP analysis comparison* workflow runs on pushes that change PHP, the demo dependencies, the analyzer
-configuration or the comparison itself. It can also be dispatched for a selected branch. The existing *Kit PHP*
-job still enforces PHPStan level 8 with the Symfony and PHPUnit extensions. Both workflows install PHPStan from
-the same Composer lock. The comparison prepares the CLI with `tools/mago pull cli` and verifies that
-`tools/mago version` reports `mago 1.60.2` before measuring Mago. If preparation fails, the artifact records
-the failed setup and preserves available PHPStan results. Serena uses its own provider for navigation.
-
-In `summary.json`, `versions.mago` records the version reported by the CLI launcher. The `mago_image` object
-records its selected `reference` and local image `id`. A locally built image can have a null distribution
-`digest`. Its `upstream_reference` and `upstream_digest` identify the official Mago release image used to supply
-the CLI binary. Use the upstream digest when comparing local builds of the same release.
-
-Both analyzers receive the same explicit PHP files under the recipes’ source directories, `demo/src/Demo` and
-`demo/tests`. PHPStan uses the demo’s compiled Symfony test container. The fingerprint in `scope.sha256` describes
-the sorted path list, and the commit identifies the source contents. Evaluate the results at the same commit and
-scope. The analyzer overlap counts distinct matching **file and line positions at error severity**. A shared
-position can represent two different diagnoses. Mago lint and format are reported separately. Each duration
-covers that tool invocation, including its launcher overhead.
-
-Four paired controls exercise return types, nullable method calls, a Symfony service argument and PHPUnit
-assertion narrowing. On the bad variant the expected error identifier must appear at the marked line. On the
-good variant an error on that line counts as a false positive. Warnings and other observations stay in the data.
-The runtime witnesses run separately. Misses and false positives are measured outcomes. A missing tool,
-malformed report or failed runtime witness marks collection incomplete. The comparison workflow reports such
-failures independently of the normal CI gate.
-
-The results are GitHub Actions artifacts retained for 90 days. The REST API lists them by run with
-`GET /repos/{owner}/{repo}/actions/runs/{run_id}/artifacts` and downloads by artifact ID. The
-`php-analysis-comparison-<run>-<attempt>` artifact contains:
-
-| File | Data |
-| --- | --- |
-| `run.json` | Source repository, ref, commit, run ID, attempt and producer step outcomes, including setup failures |
-| `summary.json` | Actual tool versions and image, shared file count and fingerprint, times, exits, severity and rule counts, format count and error-location overlap |
-| `findings.jsonl` | One diagnostic per row with analyzer, repository-relative path, one-based line when available, rule, severity and message |
-| `evaluation.json` | Expected and observed results per fixture, per-tool totals, runtime witness outcome and completeness |
-
-Use the GitHub CLI with access to this repository’s Actions artifacts. The exporter prints one JSON line per
-source run attempt and preserves unavailable, expired and incomplete measurements. Download or archive the
-export before retention expires for longer trend analysis.
-
-```bash
-python3 tools/ci/php-analysis-export.py --branch dev --limit 20 --with-jev > php-analysis.jsonl
-python3 tools/ci/php-analysis-export.py --run "$RUN_ID" --with-jev | jq '.evaluation.totals, .jev'
-gh run download "$RUN_ID" --name "php-analysis-comparison-$RUN_ID-$ATTEMPT" --dir php-analysis
-```
-
-After the source workflow completes, the existing trusted *Jev diagnosis* workflow can publish
-`php-analysis-jev-<source run>-<source attempt>/assessment.json` in its own run. The exporter joins it using
-the source IDs and SHA. Jev receives only the fixed fixture IDs, statuses and verified counts. The assessment
-records the model, rubric version, confidence and suggested next area to examine. Inspection of raw diagnostics
-and source stays with the maintainer. The model’s advice has no effect on fixture scores or CI. Missing Jev
-output and an unavailable provider are distinguishable in the export. GitHub starts this consumer after the
-updated workflow reaches the default branch and its trusted evaluator is present on the selected `dev` or `main`
-branch. Changing a feature branch alone cannot activate it.
-
 ### Shard balance
 
 **Catches:** one shard holding the slow tests (the axe scans, the value matrix, the heavy recipes) and setting CI's
@@ -2061,7 +2004,7 @@ requests. It runs independently of push CI.
 |---|---|---|
 | *PHP coverage and mutants* | The demo's PHPUnit tests with PCOV: lines and methods of the recipes' `src/`, per file and class, and the methods no test runs. Then [Infection](https://infection.github.io/) on the same directories and tests: the MSI and every surviving mutant (escaped, or on a line no test runs) with its diff | job summary; `php-coverage` artifact: `php-coverage.md`, `clover.xml`, `html/`, `infection.md`, `survivors.md`, Infection's own logs |
 | *Browsers (coverage-chromium-1–3)* | The whole browser suite in Chromium, split into three shards, with V8 coverage of the scripts under `/assets/controllers/` | each shard's Playwright summary; raw recordings, 7 days |
-| *Browsers (engines-firefox-1–3, engines-webkit-1–3)* | The selected projects in each engine split across three shards: the behavior tests (a failure fails the shard), then every `@screenshot` test against the Chromium baselines (`PW_SCREENSHOTS=all`, no retries): each one matches, differs (with the ratio of different pixels Playwright gives) or fails another way | each shard's Playwright summary; `screenshots-<browser>-<shard>` (`tools/monthly/screenshots.mjs`) and, where some differ, `screenshot-diffs-<browser>-<shard>` (the expected, actual and diff images), 30 days |
+| *Browsers (engines-firefox-1–3, engines-webkit-1–3)* | The selected projects in each engine split across three shards: every `@screenshot` test against the Chromium baselines (`PW_SCREENSHOTS=all`, no retries), report only: each one matches, differs (with the ratio of different pixels Playwright gives) or fails another way. Their behavior tests run in CI (*Browsers*, Firefox and WebKit), not here | `screenshots-<browser>-<shard>` (`tools/monthly/screenshots.mjs`) and, where some differ, `screenshot-diffs-<browser>-<shard>` (the expected, actual and diff images), 30 days |
 | *Browsers (timings-chromium-1)* | The interaction-count specs (`counts.spec.ts`), 5 runs one after another with `PW_TIMINGS` set: per counted step, the median, the spread (25th to 75th percentile), min and max of its time, from its action until the update it waits for has landed, Playwright's round trips included, and the median of its longest interaction (INP, Event Timing). A count that differs fails the job as in CI | job summary; `timings` artifact (`timings.json`, `timings.md`, `tools/monthly/timings.mjs`), 90 days |
 | *Monthly report* | The shards merged and mapped to `<recipe>/assets/controllers/*.js`: lines and functions run per controller, and **every controller method runs once**, the named methods no test ran; the screenshot shards merged per engine; then every number, the timings and the screenshots included, against the previous successful run | job summary; `js-coverage`, `screenshots` (`screenshots.json`, `screenshots.md`) and `monthly-trends` (`monthly.json`, `trends.md`) artifacts |
 
@@ -2182,14 +2125,13 @@ workflow, resolved target and actual checkout revisions are recorded separately 
 After preparing the demo, [`tools/ci/release-checks.mjs`](https://github.com/xormania/uxor/blob/0.3.5/tools/ci/release-checks.mjs) discovers the target's
 Playwright project contract before launching its assigned lane. Three jobs run concurrently on separate machines:
 `release` (timings, fuzzing and long sessions) uses one worker, while `dark` and `harsh` use two workers each.
-Timing measurements never compete with either behavior lane. Current checkouts use
-`release`, `release-dark` and `release-harsh`. A temporary bridge also supports the exact legacy family on older
-`main` checkouts, including its legacy tag filter. Unknown, partial or mixed families and discovery errors fail;
-a failed suite never retries with another family. Each lane saves its project and required-spec contract in
+Timing measurements never compete with either behavior lane. The target must configure exactly the
+`release`, `release-dark` and `release-harsh` projects: other release project names, a partial or mixed set and
+discovery errors fail, and a failed suite never retries a smaller one. Each lane saves its project and required-spec contract in
 `release-selection.json`; evidence independently derives the expected contract from the assigned `RELEASE_LANE`,
 so a saved contract cannot narrow it. The three lanes partition the required projects exactly once; the `release`
 lane also requires every release spec to run without skips. Missing or empty lane reports remain fatal. With no
-`RELEASE_LANE`, the runner retains the complete serial suite for local use. Remove the legacy bridge when the supported `main` contract is retired.
+`RELEASE_LANE`, the runner retains the complete serial suite for local use.
 
 The PHPUnit properties run once in the `release` lane, with a random seed and `--fail-on-empty-test-suite`.
 The dashboard timing scenario opens Settings through the keyboard, including after a warm-up has left it open;
@@ -2215,8 +2157,9 @@ was written; the command's original exit status remains the verdict.
 into `dev`. Only the *Start on dev* job comes from `main`: a change to it reaches the schedule through the normal
 release. Verify a fresh daily run against a recorded `dev` SHA actually executes all required projects/specs and PHP
 properties. This change does not merge or dispatch a workflow automatically. The
-[issue 134 proof and coverage bundle](https://github.com/xormania/uxor/blob/0.3.5/docs/ci/issue-134/README.md) includes replay instructions, red/green receipts,
-coverage overlap, CI timing observations and the remaining acceptance matrix.
+[issue 134](https://github.com/xormania/uxor/issues/134) proof and coverage bundle, [kept in the history at release 0.3.2](https://github.com/xormania/uxor/tree/8bea08b6e8d42a27df79b2cbbb41e9fb23729abb/docs/ci/issue-134),
+includes replay instructions (run from a checkout of that release), red/green receipts, coverage overlap, CI timing
+observations and the remaining acceptance matrix.
 
 | Group | Where | What it checks |
 |---|---|---|

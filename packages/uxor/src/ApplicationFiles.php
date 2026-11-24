@@ -30,7 +30,7 @@ final class ApplicationFiles
             return is_file($lock) ? $this->json($lock) : [];
         }, is_file($installedPath) ? $composer : null);
         return ['root' => $root, 'composer' => $composer, 'vendor' => $vendor, 'bin' => $bin,
-            'profiler' => ['config' => $profiler.'.php', 'legacy' => $profiler.'.yaml'],
+            'profiler' => ['config' => $profiler.'.php'],
             'packages' => $packages->versions(), 'installedPackages' => $packages];
     }
 

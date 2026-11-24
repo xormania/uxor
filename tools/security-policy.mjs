@@ -70,7 +70,6 @@ const jobWrites = {
     'audit.yml': { start: ['actions'] },
     'ci.yml': { cache: ['packages'], start: ['actions'], 'engines-issue': ['issues'] },
     'codeql.yml': { analyze: ['security-events'] },
-    'images.yml': { publish: ['packages'] },
     'monthly.yml': { start: ['actions'] },
     'pages.yml': { deploy: ['pages', 'id-token'] },
     'release.yml': { release: ['contents'], pages: ['pages', 'id-token'] },

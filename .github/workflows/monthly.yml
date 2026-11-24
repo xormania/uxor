@@ -1,16 +1,16 @@
 name: Monthly
 
 # The periodic checks CI does not run (docs/TESTING.md, *Monthly job*): once a month on `dev`, and by hand before a
-# release (Actions › Monthly › Run workflow, from the branch to check), and on its own when the release pull request is marked
-# ready for review. Report-only, each number against the previous
-# successful run: PHP line coverage of the recipes' src/ (PCOV) and Infection's surviving mutants, V8 coverage of the
-# kit's Stimulus controllers in Chromium with the methods no test runs, the whole suite in Firefox and WebKit with every
-# screenshot compared with the Chromium baselines, and the timings of the key interactions. A report that cannot be
-# made (no coverage driver, no recorded coverage, Infection not run, no timing, no screenshot compared) fails its job
-# instead of reporting 0; a low number fails nothing, and neither does a screenshot difference or a timing. A behavior
-# test that fails fails its job, in every engine, as in CI. GitHub runs the schedule on the default branch, main: that
-# run only starts this workflow on dev (the Start on dev job), so the month's run is a run on dev, with dev's copy of
-# this file, and a failure shows on dev, not main. Actions are pinned by commit; Dependabot proposes their updates
+# release (Actions › Monthly › Run workflow, from the branch to check), and on its own when the release pull request
+# is marked ready for review. Report-only, each number against the previous successful run: PHP line coverage of the
+# recipes' src/ (PCOV) and Infection's surviving mutants, V8 coverage of the kit's Stimulus controllers in Chromium
+# with the methods no test runs, every screenshot test in Firefox and WebKit compared with the Chromium baselines (CI
+# runs their behavior tests), and the timings of the key interactions. A report that cannot be made (no coverage
+# driver, no recorded coverage, Infection not run, no timing, no screenshot compared) fails its job instead of
+# reporting 0; a low number fails nothing, and neither does a screenshot difference or a timing. A Chromium behavior
+# test that fails fails its job, as in CI. GitHub runs the schedule on the default branch, main: that run only starts
+# this workflow on dev (the Start on dev job), so the month's run is a run on dev, with dev's copy of this file, and a
+# failure shows on dev, not main. Actions are pinned by commit; Dependabot proposes their updates
 # (.github/dependabot.yml).
 on:
     schedule:
@@ -210,12 +210,13 @@ jobs:
     # Every browser run of the month, one job per kind and shard, each with its own demo, set up once here:
     # - coverage: the suite in Chromium as CI runs it, with JS_COVERAGE set (tests/e2e/coverage.ts records each test's
     #   V8 coverage of the scripts under /assets/controllers/);
-    # - engines: the whole suite in Firefox and WebKit (decision 6c, A2): the behavior tests, then every @screenshot test
-    #   against the Chromium baselines (PW_SCREENSHOTS=all, without retries), whose differences fail that step only and
-    #   are read for the report (tools/monthly/screenshots.mjs), which compares them with last month's;
+    # - engines: every @screenshot test in Firefox and WebKit against the Chromium baselines (PW_SCREENSHOTS=all, without
+    #   retries), whose differences fail that step only and are read for the report (tools/monthly/screenshots.mjs),
+    #   which compares them with last month's. Their behavior tests run in CI (dev's daily run, pushes to main) and in
+    #   Release checks' engines-only run, not here;
     # - timings: the interaction-count specs in Chromium, 5 runs on one worker with PW_TIMINGS set (decision 6d, report
     #   only; tools/monthly/timings.mjs).
-    # A behavior test or a count that fails fails its job, as in CI; Jev diagnoses each failed attempt, as in CI.
+    # A coverage test or a count that fails fails its job, as in CI; Jev diagnoses each failed attempt, as in CI.
     browsers:
         name: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
         needs: eligible
@@ -252,7 +253,7 @@ jobs:
             - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             # reads the image cache CI writes for dev and main (ci.yml, *Name the build cache*: a public package, so no
-            # login), then the GitHub Actions caches CI keeps as fallbacks; writes none
+            # login); writes none
             - name: Name the build cache
               id: cache
               env:
@@ -280,8 +281,6 @@ jobs:
                       *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
-                      *.cache-from=type=gha,scope=demo-refs/heads/dev
-                      *.cache-from=type=gha,scope=demo-refs/heads/main
 
             - name: Start the demo (composer install on first start)
               id: start
@@ -309,21 +308,20 @@ jobs:
 
             - name: Playwright
               id: tests
+              if: matrix.kind != 'engines'
               env:
                   DEMO_URL: https://localhost
                   KIND: ${{ matrix.kind }}
-                  BROWSER: ${{ matrix.browser }}
                   SHARD: ${{ matrix.shard }}
               run: |
                   case "$KIND" in
                       coverage) JS_COVERAGE="$GITHUB_WORKSPACE/coverage/js/raw" npx playwright test --project=smoke --project=examples --project=demo-app --shard="$SHARD/3" --workers=2 ;;
-                      engines) npx playwright test --project="smoke-$BROWSER" --project="examples-$BROWSER" --project="demo-app-$BROWSER" --shard="$SHARD/3" --workers=2 ;;
                       timings) PW_TIMINGS=1 npx playwright test tests/e2e/counts.spec.ts --project=smoke --repeat-each=5 --workers=1 ;;
                   esac
 
             - name: Read the results
               id: results
-              if: ${{ !cancelled() }}
+              if: ${{ !cancelled() && matrix.kind != 'engines' }}
               env:
                   SHARD: ${{ matrix.kind == 'timings' && '1/1' || format('{0}/3', matrix.shard) }}
                   BROWSER: ${{ matrix.browser }}
@@ -338,7 +336,7 @@ jobs:
               run: node tools/ci/playwright-summary.mjs playwright-results/results.json
 
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-              if: ${{ !cancelled() }}
+              if: ${{ !cancelled() && matrix.kind != 'engines' }}
               with:
                   name: monthly-playwright-results-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
                   path: playwright-results/
@@ -367,7 +365,7 @@ jobs:
                   if-no-files-found: warn
                   retention-days: 7
 
-            # engines: writes over the behavior run's results.json, uploaded above
+            # engines only: the screenshot tests, report only (a difference fails this step, never the job)
             - name: Playwright, screenshots against the Chromium baselines (report only)
               id: screenshots
               if: ${{ !cancelled() && matrix.kind == 'engines' && steps.prepare.outcome == 'success' }}

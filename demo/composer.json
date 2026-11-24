@@ -29,7 +29,7 @@
         "symfony/twig-bundle": "8.1.*",
         "symfony/ux-autocomplete": "^3.5",
         "symfony/ux-chartjs": "^3.5",
-        "symfony/ux-dropzone": "^3.7",
+        "symfony/ux-dropzone": "^3.8",
         "symfony/ux-icons": "^3.8.1",
         "symfony/ux-live-component": "^3.8.1",
         "symfony/ux-toolkit": "^3.5",

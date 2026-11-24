@@ -154,9 +154,8 @@ check 'static-site runtime-export fresh-install workflows' .github/workflows/rel
 check 'workflows'                 .github/workflows/audit.yml
 check 'workflows'                 .github/workflows/codeql.yml
 check 'workflows'                 .github/workflows/browser-provider.yml
-check 'workflows'                 .github/workflows/images.yml .github/workflows/refresh-images.yml
-check ''                          tools/ci/images/demo/Dockerfile tools/ci/image-refresh.mjs
-check 'workflows'                 .github/actionlint.yaml
+check 'workflows'                 .github/workflows/refresh-images.yml
+check ''                          tools/ci/image-refresh.mjs
 # monthly.yml runs on its schedule and by hand, never on a push: actionlint only. Its tools' cases (tools/monthly/) run
 # in Tool tests, on every run, so they select no job; the browser tests' opt-in coverage (tests/e2e/coverage.ts) is part
 # of the browser tests
@@ -171,7 +170,7 @@ check ''                          tools/tests/release-timings.test.mjs
 check 'contrast'                  tests/e2e/release.fuzz.spec.ts tests/e2e/release.long-session.spec.ts
 check ''                          tests/e2e/leak-detector.mjs tools/tests/leak-detector.test.mjs
 # jev.yml and metadata.yml run on their own events: actionlint; CODEOWNERS and the mentions' allowlist: Tool tests
-check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml .github/workflows/php-analysis-comparison.yml
+check 'workflows'                 .github/workflows/jev.yml .github/workflows/metadata.yml
 check ''                          .github/CODEOWNERS .github/mention-allowlist
 check ''                          tools/monthly/js-coverage.mjs tools/monthly/php-scope.php tools/monthly/monthly.test.mjs
 check 'demo demo-app'                      tests/e2e/coverage.ts
@@ -253,8 +252,6 @@ check 'static-site contrast demo demo-app'             package-lock.json
 check 'contrast'                  tools/contrast/pairs.json
 check 'php runtime-export demo demo-app prod-image' demo/src/Demo/DataTableCollector.php
 check 'php'                       tools/phpstan.neon tools/ci/phpstan/composer.json tools/ci/phpstan/composer.lock
-check ''                          tools/ci/php-analysis-comparison.py tools/ci/php-analysis-eval.py tools/ci/php-analysis-export.py
-check ''                          tools/ci/jev-php-analysis.mjs tools/tests/test_php_analysis_eval.py tools/tests/fixtures/php-analysis/return_type/bad.php
 check 'fresh-install'             tools/tests/fresh-install.sh
 check 'fresh-install'             tools/tests/install-scenario.sh
 check 'fresh-install'             tools/tests/live-action.php

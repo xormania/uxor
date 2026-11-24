@@ -1,4 +1,4 @@
-import { decodedBackgroundImage, describeRecipe, expect, testState } from '../../../../assets/test/browser/fixtures';
+import { decodedBackgroundImage, describeRecipe, expect, testState } from '../../tests/e2e/examples/fixtures';
 
 // a 4×4 PNG, all blue
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGOQSfkERwzEcQBMMhch8Z3BJwAAAABJRU5ErkJggg==', 'base64');

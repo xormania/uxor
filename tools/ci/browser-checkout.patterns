@@ -13,7 +13,6 @@
 
 # CI runs from ci.yml. Other workflow definitions are checked by the Workflows lane.
 !/.github/CODEOWNERS
-!/.github/actionlint.yaml
 !/.github/dependabot.yml
 !/.github/mention-allowlist
 !/.github/ISSUE_TEMPLATE/
@@ -39,7 +38,6 @@
 # The classifier and its cases are CI control inputs.
 !/tools/contrast
 !/tools/monthly
-!/tools/ci/images/
 !/tools/ci/image-refresh*
 !/tools/tests/*
 /tools/tests/.gitattributes

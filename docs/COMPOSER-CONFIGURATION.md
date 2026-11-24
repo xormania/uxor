@@ -20,7 +20,6 @@ Follow the [installation guide](../packages/uxor/README.md) for the release-spec
 | `symfony/ai-symfony-mate-extension` | `^1.0.0-BETA1` |
 | `symfony/console` | `^7.4 \|\| ^8.0` |
 | `symfony/debug-pack` | `^1.1` |
-| `symfony/filesystem` | `^7.4 \|\| ^8.0` |
 | `symfony/http-client` | `^7.4 \|\| ^8.0` |
 | `symfony/maker-bundle` | `^1.68` |
 | `symfony/process` | `^7.4 \|\| ^8.0` |
@@ -35,7 +34,6 @@ Run `vendor/bin/uxor setup --format=json` to see the proposed configuration and 
 
 Composer supplies the development tools listed above. Symfony Flex may unpack the debug and profiler packs into their component packages.
 After reviewing the plan, run `vendor/bin/uxor setup --apply` to apply the proposed configuration.
-The setup flags `--install` and `--trust-project-code` remain available for older scripts.
 
 ## Setup defaults
 
@@ -43,9 +41,7 @@ The setup flags `--install` and `--trust-project-code` remain available for olde
 | --- | --- |
 | `--format` | `text` |
 | `--project-root` | Current working directory |
-| `--trust-project-code` | `false` |
 | `--apply` | `false` |
-| `--install` | `false` |
 | `--save-project-trust` | `false` |
 | `--client` | `none` |
 | `--host-project-root` | Empty string |

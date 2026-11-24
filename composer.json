@@ -18,7 +18,6 @@
         "symfony/ai-symfony-mate-extension": "^1.0.0-BETA1",
         "symfony/console": "^7.4 || ^8.0",
         "symfony/debug-pack": "^1.1",
-        "symfony/filesystem": "^7.4 || ^8.0",
         "symfony/http-client": "^7.4 || ^8.0",
         "symfony/maker-bundle": "^1.68",
         "symfony/process": "^7.4 || ^8.0",
@@ -26,7 +25,8 @@
         "symfony/yaml": "^7.4 || ^8.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^12.5"
+        "phpunit/phpunit": "^12.5",
+        "symfony/filesystem": "^7.4 || ^8.0"
     },
     "autoload": {
         "psr-4": {"Xormania\\UXor\\": "packages/uxor/src/"}

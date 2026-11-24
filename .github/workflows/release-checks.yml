@@ -314,7 +314,7 @@ jobs:
               uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
             # reads the image cache CI writes for dev and main (ci.yml, *Name the build cache*: a public package, so no
-            # login), then the GitHub Actions caches CI keeps as fallbacks; writes none
+            # login); writes none
             - name: Name the build cache
               id: cache
               env:
@@ -342,8 +342,6 @@ jobs:
                       *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
-                      *.cache-from=type=gha,scope=demo-refs/heads/dev
-                      *.cache-from=type=gha,scope=demo-refs/heads/main
 
             - name: Start the demo (composer install on first start)
               id: start
@@ -532,8 +530,8 @@ jobs:
     # Only a complete matrix may publish a reusable pass or a recorded baseline. A lane can never clear another lane.
     # The demo's production image (demo/Dockerfile, target frankenphp_prod) on the release target: built from the
     # target's repository for linux/amd64 and run by its tools/tests/prod-image.sh (boot refused without the opt-in, no
-    # baked secret or development package, healthy as www-data, the gallery's pages served, nothing beyond the
-    # allow-list). The workflow's own tools and the target live in separate checkouts, as for the suite.
+    # baked secret or development package, healthy as www-data, the demo's pages and each recipe's live preview served,
+    # nothing beyond the allow-list). The workflow's own tools and the target live in separate checkouts, as for the suite.
     prod-image:
         name: Production image
         needs: changed
