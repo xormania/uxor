@@ -49,6 +49,12 @@ final class EnvironmentStatus
                 'note' => 'The application must import the recorder into its Playwright fixture and set the served baseURL.'],
             'monolog' => ['installed' => $has('symfony/ai-monolog-mate-extension'), 'observed' => 'not_probed'],
         ];
+        $ownership = new SetupOwnership($this->files);
+        foreach (['serena' => SetupIntegration::LocalMcp, 'browser' => SetupIntegration::Browser] as $name => $integration) {
+            if ($capabilities[$name]['configured']) {
+                $capabilities[$name]['configured'] = $ownership->verifyClientConfiguration($root, $integration);
+            }
+        }
         $probes = [];
         if ($probe) {
             foreach (['maker', 'mate'] as $kind) {
@@ -86,7 +92,9 @@ final class EnvironmentStatus
         } elseif (in_array('probe_failed', array_column($capabilities, 'observed'), true)) {
             $next[] = 'Inspect the named failed probe in its owning runtime. Prepare external providers with uxor-mago pull on the Docker host.';
         }
-        $next[] = 'Connect Serena and query a current application symbol. Provider version checks do not establish an active MCP session.';
+        if (true === $capabilities['serena']['configured']) {
+            $next[] = 'Connect Serena and query a current application symbol. Provider version checks do not establish an active MCP session.';
+        }
         $next[] = 'Exercise the requested application journey and inspect its exact profiler token. Keep existing failure evidence when refreshing source facts.';
         if ($capabilities['debug']['compatible']) {
             $next[] = 'probe_failed' === $capabilities['debug']['observed']

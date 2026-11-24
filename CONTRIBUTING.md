@@ -305,6 +305,7 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 | a spec: `tests/e2e/*.spec.ts`, a recipe's `tests/*.spec.ts` | *Demo + Playwright* and *Contrast*. The inventory check runs in *Quick checks* on every CI run |
 | a release check's spec, `tests/e2e/release.*.spec.ts` (it runs in the release projects only) | *Contrast* |
 | `tests/e2e/leak-detector.mjs` (a release spec's; its cases run in *Tool tests*) | nothing else |
+| `tests/e2e/lab-pages.json` (the lab accessibility scan and `LabPageInventoryTest` read it) | *Kit PHP*, *Demo + Playwright* |
 | any other file in `tests/` or a recipe's `tests/`, `playwright.config.ts`, `tools/prepare-tests.mjs`, `tools/playwright-image.mjs`, `tools/playwright-image.json`, `tools/tests/prepare-tests.test.mjs`, `tools/tests/sync-demo.sh`, `tools/tests/fixtures/sync-kit/` | *Demo + Playwright* |
 | `tools/ci/junit-attempts.mjs`, `tools/ci/jev-diagnosis.mjs`, `tools/ci/jev-ci.json`, `tools/ci/step-attempts.mjs`, `tools/ci/ci-metrics.mjs`, `tools/ci/release-*.mjs` | nothing else: they run in advisory steps, in `jev.yml` or in the release checks only, so their cases (*Tool tests*) check them |
 | any other file in `tools/ci/` (the browser job's results summary and its provenance, the shard plan, the background pull of its Playwright image, its wait for *Importmap packages*; *CI metrics*, on every run, also runs the shard timings) | *Demo + Playwright* |
@@ -330,7 +331,6 @@ every run, the other two when selected. *Demo + Playwright* below means the Chro
 | `demo/composer.json`, any file in `demo/config/` (what the production image installs, and how it boots in prod) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | `demo/composer.lock` (what the production image installs; *Lint kit*'s locked lane installs the Toolkit version it holds) | *Lint kit*, *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | `demo/tests/` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright* |
-| `demo/src/Controller/LabController.php` | *Kit PHP*, *Static site*, *Contrast* (`tools/test-inventory.mjs`), *Demo + Playwright*, *Production image* |
 | any other file in `demo/bin/`, `demo/src/`, `demo/templates/`, `demo/assets/`, `demo/public/`, `demo/.env`, `demo/importmap.php`, `demo/symfony.lock` (the app the production image runs) | *Kit PHP*, *Static site*, *Demo + Playwright*, *Production image* |
 | any other file in `demo/` (its README, development and test configuration) | *Kit PHP*, *Static site*, *Demo + Playwright* |
 | `.github/workflows/pages.yml` | *Workflows*, *Static site* (the same build, `tools/build-static.sh`, without the upload); the release it resolves, the tag check, the deploy's freshness check and its check of the deployed site are `tools/tests/pages-workflow.test.mjs`, in *Tool tests* |
@@ -380,7 +380,7 @@ node tools/name-check.mjs                           # no file names a former rep
 node tools/docs-lint.mjs                            # no markdown example teaches Flowbite JS, palette colors, dark: overrides, inline handlers or styles; no recipe template uses a palette color (see Docs)
 node tools/icon-lint.mjs                            # every icon in the recipes' templates and the markdown is a flowbite: name written in full; lists the names chosen by a Twig expression (see Docs)
 node tools/fence-coverage.mjs                       # every README example is one the demo reads; with --site _site, after app:export-static: every recipe and example has its pages (see Docs)
-node tools/test-inventory.mjs                       # docs/TEST-INVENTORY.md has a matrix row per recipe with a controller, a row per rule of FOR-AGENTS.md's Working well, and names existing tests; a11y.spec.ts scans every lab page
+node tools/test-inventory.mjs                       # docs/TEST-INVENTORY.md has a matrix row per recipe with a controller, a row per rule of FOR-AGENTS.md's Working well, and names existing tests
 node tools/readme-versions.mjs                      # each recipe README renders its manifest.json with ::: installation and has no version table (see Docs)
 node tools/readme-pairing.mjs [--base <ref>]        # each recipe whose code your commits change has its README changed, or a Docs-waiver trailer; base: where HEAD left origin/dev (see Docs)
 node tools/recipe-imports.mjs                       # every relative import in a recipe's JS names a file the recipe or its dependencies.recipe install (a shared module: floating, navigation, turbo)
@@ -612,11 +612,11 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
    - add the scenario to `SCENARIOS`, with a route, in `demo/src/Controller/LabController.php`;
    - add its template to `demo/templates/lab/`;
    - write the spec as `tests/e2e/lab.<scenario>.spec.ts`;
-   - add its path to `labPages` in `tests/e2e/a11y.spec.ts` (a route without GET goes to `notPages` in
-     `tools/test-inventory.mjs` instead, with its reason).
+   - add its path to `tests/e2e/lab-pages.json`. For a route without GET, record its route name and reason in
+     `NON_PAGE_ROUTES` in `demo/tests/Functional/LabPageInventoryTest.php`.
 
    Either way, add the recipe's row to the matrix of `docs/TEST-INVENTORY.md`: `node tools/test-inventory.mjs` fails
-   while a recipe with a controller has no row, or a lab page is not scanned.
+   while a recipe with a controller has no row. `LabPageInventoryTest` checks the scan against Symfony's registered routes.
 
    If the recipe puts a text, icon or bar color on a background that `tools/contrast/pairs.json` does not cover yet,
    add a row there: `fg`, `bg`, `min` (4.5 for text, 3 for icons, bars and focus rings) and `usage`.

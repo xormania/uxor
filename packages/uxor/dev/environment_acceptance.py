@@ -344,3 +344,59 @@ final class UxorAcceptanceController
                 server.kill()
                 server.wait(timeout=10)
     print("Installed consumer: native generation, compiled service, exact real profiles, stale-input rejection and targeted repair passed.")
+
+
+def detach(root: Path, php: str) -> None:
+    """Adopt the public fixture and client, then detach while the installed CLI still exists."""
+    client = root / ".mcp.json"
+    neighbor = {"mcpServers": {"application": {"command": "project-service", "args": ["serve"]}}}
+    client.write_text(json.dumps(neighbor))
+    operation(root, php, "setup", "--apply", "--client=claude", allowed=(0, 2))
+    if "uxor-mago" not in json.loads(client.read_text())["mcpServers"]:
+        raise RuntimeError("Detach acceptance requires an adopted client binding")
+
+    # The application keeps the import path from setup's README as part of its own tests.
+    spec = root / "application.spec.mjs"
+    source = """import { test as base, expect } from './.uxor/browser.mjs';
+const test = base.extend({ localSetting: [null, { option: true }] });
+test.use({ localSetting: 'application value' });
+test('the application fixture still runs', ({ localSetting }) => {
+    expect(localSetting).toBe('application value');
+});
+"""
+    spec.write_text(source)
+    prior = snapshot(root)
+    preview = operation(root, php, "detach", allowed=(0, 2))
+    if preview["changes"] or snapshot(root) != prior:
+        raise RuntimeError("Previewing detach changed the installed consumer")
+    operation(root, php, "detach", "--apply")
+    if json.loads(client.read_text()) != neighbor or spec.read_text() != source:
+        raise RuntimeError("Detach lost an application server, its test, or left the UXor binding active")
+    again = operation(root, php, "detach", "--apply")
+    if again["changes"]:
+        raise RuntimeError("Repeating detach proposed or applied further changes")
+
+
+def check_detached_tools(root: Path, php: str) -> None:
+    """Exercise the remaining tools against the actual application after Composer removal."""
+    # Install just the fixture's locked JS runner in the enclosing temporary directory. This test needs no browser.
+    tools = Path(__file__).parent
+    npm_root = root.parent
+    for filename in ("package.json", "package-lock.json"):
+        (npm_root / filename).write_bytes((tools / filename).read_bytes())
+    run("browser.install-test-runner", ["npm", "ci", "--ignore-scripts", "--no-audit", "--no-fund"], npm_root)
+    run("browser.detached-fixture", [str(npm_root / "node_modules/.bin/playwright"), "test",
+                                     "application.spec.mjs", "--workers=1"], root)
+
+    # A real in-file type finding proves native Mago loaded and analyzed the app without calling UXor's removed worker.
+    source = root / "src/DetachedProbe.php"
+    source.write_text("<?php\ndeclare(strict_types=1);\nnamespace App;\nfunction detachedProbe(): int { return 'wrong'; }\n")
+    result = run("mago.detached-native", [php, "vendor/bin/mago", "analyze", "--reporting-format", "json",
+                                          "--reporting-target", "stdout", "--", "src/DetachedProbe.php"],
+                 root, allowed=(1,), timeout=180)
+    issues = json.loads(result.stdout)["issues"]
+    if not any(issue.get("code") == "invalid-return-statement" and
+               any(note.get("kind") == "Primary" and
+                   Path(note["span"]["file_id"]["name"]).name == source.name for note in issue.get("annotations", []))
+               for issue in issues):
+        raise RuntimeError("The remaining native Mago did not diagnose the application's marked return type")

@@ -40,6 +40,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Added
 
+- The Composer development package can detach its recorded Mago, MCP and browser integrations before removal.
+  Run `vendor/bin/uxor detach` to review the plan and `detach --apply` to apply it.
+
 - The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
 - `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
