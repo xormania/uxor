@@ -544,11 +544,11 @@ def check_browser_diagnostics(application: Path, installed: Path, php: str, mate
 import { EventEmitter } from 'node:events';
 import { pathToFileURL } from 'node:url';
 const [recorder, path, scenario] = process.argv.slice(1);
+process.env.PROFILER_COLLECT = '1';
 const { recordBrowserDiagnostics } = await import(pathToFileURL(recorder).href);
 const { responses, requestFailures, pageErrors } = JSON.parse(scenario);
 const context = new EventEmitter();
 const requests = new Map();
-process.env.PROFILER_COLLECT = '1';
 await recordBrowserDiagnostics({ context, baseURL: 'http://127.0.0.1:8765' }, async () => {
     for (const response of responses) {
         const request = {

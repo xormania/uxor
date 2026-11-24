@@ -34,10 +34,11 @@ missing development dependencies with Composer, initializes Mate when `mate/conf
 autoload metadata and refreshes discovery. It requires `--apply --trust-project-code`. It does not build providers
 or prepare compiled Symfony facts.
 
-Let Composer and Symfony Flex apply available package recipes. If the application does not use Flex, register the
-Debug and WebProfiler bundles and integrate profiler routes using the application's configuration conventions.
-The generated FrameworkBundle dev profiler config enables collection but cannot supply missing bundle or route
-registration. Check a real response and its profile. Keep development packages out of the production dependency set.
+Setup and environment inspection report the same installed development dependencies and compatible versions.
+Symfony Flex can unpack the profiler pack into WebProfilerBundle and Stopwatch. Without Flex, register
+WebProfilerBundle and its routes in development when the application needs the profiler UI. The generated
+`config/packages/dev/uxor.php` supplies a collection policy only when the application has none.
+Check a real response and its profile. [Profiler pack requirements](https://github.com/symfony/profiler-pack/blob/v1.0.6/composer.json)
 
 `environment` reports setup and preparation state. `--probe` adds the implemented execution checks and requires
 `--trust-project-code`. Read each check and its scope: configuration presence, installed tools, native execution,
@@ -220,16 +221,13 @@ export const test = base.extend({
 });
 ```
 
-Set Playwright's `baseURL` to the app. The generated development setup enables FrameworkBundle profiler collection.
-Verify collection in the running application, including any existing configuration overrides. Applications that
-prefer an explicit collection flag can instead set `PROFILER_COLLECT=0` and configure dev collection as follows:
+Set Playwright’s `baseURL` to the app. Start the test process with `PROFILER_COLLECT=1` for a diagnostic run.
+With collection disabled the recorder requests no browser context, so API-only tests can run without a browser.
 
-```yaml
-when@dev:
-    framework:
-        profiler:
-            collect: '%env(bool:PROFILER_COLLECT)%'
-```
+Symfony applies the application’s existing profiler settings. When none are present, the generated dev configuration
+uses `PROFILER_COLLECT`, with collection off by default. Earlier setup versions may have generated
+`config/packages/dev/uxor.yaml` with `collect: true`. Setup preserves that file. Review it before removing or
+changing that setting if your application uses a different policy.
 
 Start the local Symfony server with `PROFILER_COLLECT=1`. If Playwright starts the server, it can inherit the same
 flag from the test command. Keep the output in the selected application so Mate and the CLI can read it:

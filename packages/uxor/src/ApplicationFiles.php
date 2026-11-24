@@ -36,14 +36,19 @@ final class ApplicationFiles
 
     public function json(string $path): array
     {
-        if (is_link($path) || !is_file($path) || !is_readable($path) || filesize($path) > 16 * 1024 * 1024) {
-            throw new \InvalidArgumentException('Expected a readable regular project JSON file: '.$path);
-        }
-        $value = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        $value = json_decode($this->readJson($path), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($value)) {
             throw new \InvalidArgumentException('Expected a JSON object: '.$path);
         }
         return $value;
+    }
+
+    public function readJson(string $path): string
+    {
+        if (is_link($path) || !is_file($path) || !is_readable($path) || filesize($path) > 16 * 1024 * 1024) {
+            throw new \InvalidArgumentException('Expected a readable regular project JSON file: '.$path);
+        }
+        return (string) file_get_contents($path);
     }
 
     public function relative(string $path): string

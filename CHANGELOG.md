@@ -46,7 +46,8 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
 - The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. The demo and independent consumer use the same fixture.
+  failures to exact Symfony request profiles. Setup respects the application’s profiler settings and recognizes
+  Flex’s unpacked profiler dependencies. The shared fixture starts collecting only on a diagnostic run.
 
 ### Changed
 
