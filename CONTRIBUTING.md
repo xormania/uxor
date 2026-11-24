@@ -821,6 +821,11 @@ Versions are git tags `X.Y.Z` without a `v`, for compatibility with supported To
 `## [X.Y.Z] - YYYY-MM-DD` heading in `CHANGELOG.md`. The root `composer.json` has no `version` field:
 Composer reads the version from the tag. The kit and the Composer development package share this version sequence.
 
+The release workflow pushes the tag to GitHub. Packagist automatically indexes that tag as a version of
+[`xormania/uxor`](https://packagist.org/packages/xormania/uxor). To verify publication, select the version on
+Packagist and compare its source commit with `git rev-list -n 1 X.Y.Z` in a checkout with the tag.
+Packagist also lists development versions such as `dev-main`. A release branch can appear there before its tag.
+
 The maintainer chooses each release number and may skip unused numbers. An agent preparing a release uses the
 number the maintainer supplied; changelog categories do not select it. UXor is in the initial `0.x` development
 stage described by [Semantic Versioning](https://semver.org/): its public interfaces are not yet stable.
@@ -874,9 +879,10 @@ hand, and a re-run publishes its Release.
 `main`'s first-parent history that adds the version's heading (the release pull request's merge commit), the notes
 are the version's section of `CHANGELOG.md` at that commit (a later edit to an old section changes no published
 notes), and an existing tag, lightweight or annotated, must point at that commit. A tag that points elsewhere is
-refused: the run fails at *Plan the tags*, before any install check, tag or release. Look at what the tag
-holds, then delete it (`git push origin :refs/tags/X.Y.Z`, and locally `git tag -d X.Y.Z`) or move it to the commit
-the plan names, and re-run. See the plan before a release, or after a refusal, with
+refused: the run fails at *Plan the tags*, before any install check, tag or release. Compare the tag, the planned
+commit and the version on Packagist with the maintainer. Packagist [locks a stable release's source and dist
+references](https://packagist.org/about/version-immutability). A correction to a published package needs a new
+release number. See the plan before a release, or after a refusal, with
 `git fetch origin main --tags && tools/release-plan.sh --dry-run --ref origin/main`: for every version, the tag, the
 commit, whether the tag exists and where it points, the decision and the notes; it creates nothing. CI's *Workflows*
 job runs the same dry run, and the script's cases (`tools/tests/release-plan.sh`), whenever `release.yml` or the
@@ -896,7 +902,7 @@ URL Pages gives: `release.json` holds that version and commit; the index, `r/but
 canonical URL at that address; the sitemap, `llms.txt` and `r/button.md` answer. It asks again for about two minutes
 while Pages serves the new deployment, then fails the run, with the problem in its log. If the gallery fails after its
 Release exists, run `pages.yml` by hand on `main`: it rebuilds the latest release. *Re-run failed jobs* works too (a
-full re-run finds the release done and skips the gallery). No branch is ever published: work on `dev` is built and
+full re-run finds the release done and skips the gallery). Only tagged releases reach the public gallery. Work on `dev` is built and
 checked by CI's *Static site* job, on every push, so a page that
 does not render fails a pull request, not the release. Both run `tools/build-static.sh <dir> --base-path=/<repository>`
 (`pages.yml` adds `--release-from-tags` and `--branch=main` on the tag's commit, so the install commands name that

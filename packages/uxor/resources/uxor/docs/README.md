@@ -75,7 +75,8 @@ php bin/console ux:icons:lock
 
 ## Optional Composer development package
 
-The repository is also a Composer package, `xormania/uxor`, for the coding agent working on your project: three
+The optional development package is available on [Packagist](https://packagist.org/packages/xormania/uxor)
+as `xormania/uxor` and shares the kit's release tags. It provides three
 [Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
 and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
 setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
