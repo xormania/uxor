@@ -194,9 +194,18 @@ while IFS= read -r path; do
         tools/tests/prod-image.sh) on php runtime-export demo demo-app prod-image ;;
         tools/*) on php runtime-export demo demo-app ;;
 
-        # These files are consumed only by the example application's stylesheet
-        # and /demo pages. Shared recipe and host inputs still run both projects.
-        demo/templates/demo_app/* | demo/assets/styles/demo-app.css | demo/assets/images/xor/mascot.gif | demo/assets/images/xor/mascot-still.png) on php runtime-export demo-app prod-image ;;
+        # Example-app templates, stylesheet and behavior. Kit PHP still exercises the brand link's app_demo route.
+        demo/templates/demo_app/* | demo/assets/styles/demo-app.css | \
+        demo/assets/images/xor/mascot.gif | demo/assets/images/xor/mascot-still.png | \
+        demo/src/Controller/DemoAppController.php | demo/src/Controller/RevenueAssistantController.php | \
+        demo/assets/controllers/revenue_assistant_controller.js) on php runtime-export demo-app prod-image ;;
+
+        # The app's browser tests follow live links to these fixtures and load the Toolkit stylesheet on the way.
+        demo/templates/lab/nav_menu.html.twig | demo/templates/lab/_nav_menu_items.html.twig | \
+        demo/templates/lab/_header.html.twig | demo/assets/styles/toolkit-fixtures.css) on php runtime-export demo demo-app prod-image ;;
+        # The remaining lab templates and OAuth fixture are exercised by the Toolkit projects.
+        # The shared fallback still covers eagerly loaded controllers, including the lab's Dropzone listener.
+        demo/templates/lab/* | demo/templates/oauth/* | demo/src/Controller/OAuthDemoController.php) on php runtime-export demo prod-image ;;
 
         # Shared Symfony host and build inputs. docker-install.sh copies
         # the demo's Compose file and Caddyfile into a fresh Symfony Docker project. The demo image's build inputs also

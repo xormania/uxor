@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, type CancelledRequest } from './fixtures';
+import { test, expect, expectA11y, collectAutocompleteAssetRequests, controllersConnected, turboVisitDone, markDocument, type CancelledRequest } from './fixtures';
 import { observeTurbo, turboOperation } from './transitions';
 import { demoRoutePaths, previewUrl } from './inventory';
 
@@ -162,33 +162,12 @@ test('leaving a pending revenue request closes its stream and Back restores a fo
     expect(await streamStates()).toEqual([true, false]);
 });
 
-test('the dashboard defers autocomplete until a Turbo visit adds a field', async ({ page }) => {
-    const vendorRequests: string[] = [];
-    page.on('request', (request) => {
-        const path = new URL(request.url()).pathname;
-        // Modulepreload and runtime imports both reach this listener.
-        if (/^\/assets\/(?:@symfony\/ux-autocomplete|vendor\/(?:tom-select|@orchidjs))\//.test(path)) {
-            vendorRequests.push(path);
-        }
-    });
+test('the dashboard does not load unused autocomplete assets', async ({ page }) => {
+    const vendorRequests = collectAutocompleteAssetRequests(page);
     await page.goto('/demo');
     await controllersConnected(page);
     expect(vendorRequests, 'autocomplete assets requested on the dashboard').toEqual([]);
     await expect(page.locator('link[rel=stylesheet][href*="/ux-live-component/"]')).toHaveCount(0);
-
-    await page.goto('/lab');
-    await controllersConnected(page);
-    expect(vendorRequests, 'unused vendor assets requested before opening a scenario').toEqual([]);
-    const sameDocument = await markDocument(page);
-    await turboOperation(page, { url: '/lab/live-autocomplete' }, () => page.getByRole('link', { name: 'live-autocomplete', exact: true }).click());
-    await sameDocument.expectKept();
-    await controllersConnected(page);
-    const country = page.locator('#autocomplete_demo_country + .ts-wrapper');
-    await country.locator('.ts-control').click();
-    await expect(country.getByRole('combobox', { name: 'Country' })).toHaveAttribute('aria-expanded', 'true');
-    await country.getByRole('combobox', { name: 'Country' }).press('Escape');
-    await page.getByRole('button', { name: 'Re-render' }).click();
-    await expect(page.getByTestId('renders')).toHaveText('1');
 });
 
 test('on a desktop the app layout hides the menu button, and its pages use no id twice', async ({ page }) => {

@@ -72,6 +72,17 @@ check 'contrast demo demo-app'   tests/e2e/examples/baselines.spec.ts
 check 'contrast demo demo-app'   tests/e2e/lab.section-nav.spec.ts
 check 'php runtime-export demo-app prod-image' demo/templates/demo_app/dashboard.html.twig demo/templates/demo_app/_stylesheets.html.twig
 check 'php runtime-export demo-app prod-image' demo/assets/styles/demo-app.css demo/assets/images/xor/mascot.gif demo/assets/images/xor/mascot-still.png
+check 'php runtime-export demo-app prod-image' demo/src/Controller/DemoAppController.php
+check 'php runtime-export demo-app prod-image' demo/src/Controller/RevenueAssistantController.php
+check 'php runtime-export demo-app prod-image' demo/assets/controllers/revenue_assistant_controller.js
+check 'php runtime-export demo demo-app prod-image' demo/assets/styles/toolkit-fixtures.css
+check 'php runtime-export demo prod-image'     demo/templates/lab/components/LiveAutocomplete.html.twig
+check 'php runtime-export demo prod-image'     demo/src/Controller/OAuthDemoController.php
+check 'php runtime-export demo prod-image'     demo/templates/oauth/account.html.twig
+for path in demo/templates/lab/{nav_menu,_nav_menu_items,_header}.html.twig \
+    demo/src/Controller/{Forms,Preview}Controller.php demo/assets/controllers/dropzone_echo_controller.js; do
+    check 'php runtime-export demo demo-app prod-image' "$path"
+done
 check 'php runtime-export demo demo-app prod-image' demo/templates/shared/_brand.html.twig demo/assets/styles/shared.css demo/config/packages/symfonycasts_tailwind.yaml
 check 'php static-site runtime-export demo demo-app prod-image' tools/kit/KitReader.php
 
