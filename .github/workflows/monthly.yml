@@ -354,6 +354,7 @@ jobs:
               with:
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
+                  job: Browsers (${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }})
                   shard: monthly ${{ matrix.kind }} ${{ matrix.browser }} ${{ matrix.shard }}
                   dir: ${{ runner.temp }}/jev-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}
                   artifact: jev-input-monthly-${{ matrix.kind }}-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
