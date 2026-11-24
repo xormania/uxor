@@ -750,11 +750,12 @@ JS);
         self::assertSame($binding, json_decode(file_get_contents($client), true));
     }
 
-    public function testDetachOfLegacyBindingsWithoutOwnershipEvidencePreservesTheApplication(): void
+    public function testDetachPreservesUserAuthoredIntegrationsWithoutOwnershipRecords(): void
     {
+        // Files that resemble UXor's integrations but that setup never recorded belong to the application.
         mkdir($this->project.'/.uxor');
-        $legacy = "import { recordBrowserDiagnostics } from '../vendor/xormania/uxor/packages/uxor/resources/browser/diagnostics.mjs';\n";
-        file_put_contents($this->project.'/.uxor/browser.mjs', $legacy);
+        $recorder = "import { recordBrowserDiagnostics } from '../vendor/xormania/uxor/packages/uxor/resources/browser/diagnostics.mjs';\n";
+        file_put_contents($this->project.'/.uxor/browser.mjs', $recorder);
         $binding = ['command' => $this->project.'/vendor/bin/uxor-mago', 'args' => ['--project-root', $this->project, 'serena']];
         file_put_contents($this->project.'/.mcp.json', json_encode(['mcpServers' => ['uxor-mago' => $binding]], JSON_THROW_ON_ERROR));
         $snapshot = $this->snapshot($this->directory);
