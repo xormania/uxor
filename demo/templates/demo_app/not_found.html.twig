@@ -1,6 +1,7 @@
 {% extends 'layouts/error.html.twig' %}
 
 {% block head %}<link rel="icon" href="data:,">{% endblock %}
+{% block stylesheets %}{{ include('demo_app/_stylesheets.html.twig') }}{% endblock %}
 
 {% block title %}Page not found — xor{% endblock %}
 {% block content %}

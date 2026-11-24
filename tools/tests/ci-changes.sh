@@ -70,8 +70,9 @@ check 'contrast demo demo-app'   tests/e2e/a11y.spec.ts tests/e2e/csp.spec.ts te
 check 'contrast demo demo-app'   tests/e2e/examples/fit.spec.ts
 check 'contrast demo demo-app'   tests/e2e/examples/baselines.spec.ts
 check 'contrast demo demo-app'   tests/e2e/lab.section-nav.spec.ts
-check 'php runtime-export demo demo-app prod-image' demo/templates/demo_app/dashboard.html.twig
-check 'php runtime-export demo demo-app prod-image' demo/templates/demo_app/_brand.html.twig
+check 'php runtime-export demo-app prod-image' demo/templates/demo_app/dashboard.html.twig demo/templates/demo_app/_stylesheets.html.twig
+check 'php runtime-export demo-app prod-image' demo/assets/styles/demo-app.css demo/assets/images/xor/mascot.gif demo/assets/images/xor/mascot-still.png
+check 'php runtime-export demo demo-app prod-image' demo/templates/shared/_brand.html.twig demo/assets/styles/shared.css demo/config/packages/symfonycasts_tailwind.yaml
 check 'php static-site runtime-export demo demo-app prod-image' tools/kit/KitReader.php
 
 # Read by people and agents: Contrast checks the generated lists, the plans and what the markdown teaches

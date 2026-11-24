@@ -1,9 +1,10 @@
 {% extends 'layouts/auth.html.twig' %}
 
 {% block head %}<link rel="icon" href="data:,">{% endblock %}
+{% block stylesheets %}{{ include('demo_app/_stylesheets.html.twig') }}{% endblock %}
 
 {% block title %}Create an account — xor{% endblock %}
-{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block brand %}{{ include('shared/_brand.html.twig') }}{% endblock %}
 {% block content %}
     <twig:SignupForm :form="form" loginHref="{{ path('app_demo_login') }}" />
 {% endblock %}

@@ -120,8 +120,9 @@ test('a process reading the copies while others rewrite them sees every file, wh
     assert.match(read.output, /^[1-9]\d* reads$/m);
 });
 
-test('the CSS builds when its sources changed, once for processes that ask together', async () => {
+test('each CSS entrypoint builds when its inputs change, once for processes that ask together', async (t) => {
     const dir = checkout();
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
     execFileSync('git', ['init', '-q', dir]);
     // a stand-in for PHP_BINARY: the record's read and write, and a slow tailwind:build that logs each build
     const php = join(dir, 'fake-php');
@@ -129,51 +130,85 @@ test('the CSS builds when its sources changed, once for processes that ask toget
         php,
         `#!/bin/sh
 case "$1 $2" in
-  "bin/console tailwind:build") sleep 0.5; mkdir -p var/tailwind; echo css > var/tailwind/app.built.css; echo build >> ../builds.log ;;
-  "-r echo"*) [ -f var/tailwind/app.built.css ] && cat var/tailwind/sources.sha256 2>/dev/null; true ;;
-  "-r file_put_contents"*) mkdir -p var/tailwind; echo "$4" > var/tailwind/sources.sha256 ;;
+  "bin/console tailwind:build")
+    name=\${3##*/}
+    name=\${name%.css}
+    sleep 0.2; mkdir -p var/tailwind; echo css > "var/tailwind/$name.built.css"; echo "$name" >> ../builds.log ;;
+  "-r echo"*) [ -f "$4" ] && cat "$5" 2>/dev/null; true ;;
+  "-r file_put_contents"*) echo "$5" > "$4" ;;
   *) echo "unexpected: $*" >&2; exit 1 ;;
 esac
 `,
     );
     chmodSync(php, 0o755);
     writeFileSync(join(dir, '.gitignore'), '/fake-php\n/builds.log\n/tests/\n/demo/var/\n');
-    const builds = () => (existsSync(join(dir, 'builds.log')) ? readFileSync(join(dir, 'builds.log'), 'utf8').split('\n').filter(Boolean).length : 0);
+    const builds = () => readFileSync(join(dir, 'builds.log'), 'utf8').trim().split('\n');
     const env = { PHP_BINARY: php };
     const build = () => inProcess(`console.log('built=' + p.buildCssIfStale(${JSON.stringify(dir)}));`, env);
+    const write = (path, contents) => {
+        mkdirSync(dirname(join(dir, path)), { recursive: true });
+        writeFileSync(join(dir, path), contents);
+    };
 
     const together = await Promise.all([build(), build(), build()]);
     assert.deepEqual(together.map(({ code }) => code), [0, 0, 0], together.map(({ output }) => output).join('\n'));
-    assert.equal(builds(), 1, 'one build for three processes');
+    const both = ['toolkit-fixtures', 'demo-app'];
+    assert.deepEqual(builds(), both, 'one build per entrypoint for three processes');
     assert.equal(together.filter(({ output }) => output.includes('built=true')).length, 1);
 
     assert.match((await build()).output, /built=false/);
-    writeFileSync(join(dir, 'kit.css'), '.new { color: red }');
+    write('demo/templates/demo_app/dashboard.html.twig', '<div class="mt-1">');
     assert.match((await build()).output, /built=true/);
-    assert.equal(builds(), 2);
-    writeFileSync(join(dir, 'ignored.log'), 'scanned? no: ignored');
-    writeFileSync(join(dir, '.gitignore'), `${readFileSync(join(dir, '.gitignore'), 'utf8')}/ignored.log\n`);
+    assert.deepEqual(builds(), [...both, 'demo-app']);
+    write('demo/templates/lab/index.html.twig', '<div class="mt-2">');
+    assert.match((await build()).output, /built=true/);
+    assert.deepEqual(builds(), [...both, 'demo-app', 'toolkit-fixtures']);
+    rmSync(join(dir, 'demo/var/tailwind/demo-app.built.css'));
+    assert.match((await build()).output, /built=true/);
+    assert.deepEqual(builds(), [...both, 'demo-app', 'toolkit-fixtures', 'demo-app']);
+    write('kit.css', '.new { color: red }');
+    assert.match((await build()).output, /built=true/);
+    assert.deepEqual(builds().slice(5), both);
+    write('ignored.log', 'scanned? no: ignored');
+    write('.gitignore', `${readFileSync(join(dir, '.gitignore'), 'utf8')}/ignored.log\n`);
     assert.match((await build()).output, /built=true/, '.gitignore itself is a source');
-    writeFileSync(join(dir, 'ignored.log'), 'changed, still ignored');
+    write('ignored.log', 'changed, still ignored');
     assert.match((await build()).output, /built=false/);
 });
 
-test('the Tailwind sources and the CSS build record agree on rendered and repository-only content', (t) => {
+test('each Tailwind build record tracks its entrypoint, scanned content and inputs that install or compile it', (t) => {
     const dir = checkout();
     t.after(() => rmSync(dir, { recursive: true, force: true }));
     execFileSync('git', ['init', '-q', dir]);
-    const stylesheet = join(root, 'demo/assets/styles/app.css');
-    writeFileSync(join(dir, '.gitignore'), '/demo/vendor/\n/demo/assets/vendor/\n/node_modules/\n');
-    const content = readFileSync(stylesheet, 'utf8');
-    assert.match(content, /@import "tailwindcss" source\(none\);/, 'only explicit sources contribute candidates');
-    const sources = [...content.matchAll(/^@source (not )?"([^"]+)";/gm)].map(([, excluded, path]) => ({
-        excluded: !!excluded, pattern: relative(root, resolve(dirname(stylesheet), path)),
+    const styles = join(root, 'demo/assets/styles');
+    const toolkit = 'toolkit-fixtures';
+    const app = 'demo-app';
+    const both = [toolkit, app];
+    writeFileSync(join(dir, '.gitignore'), '/demo/vendor/\n/demo/assets/vendor/\n/demo/templates/components/\n/node_modules/\n');
+    const shared = readFileSync(join(styles, 'shared.css'), 'utf8');
+    assert.match(shared, /@import "tailwindcss" source\(none\);/, 'only explicit sources contribute candidates');
+    const sources = Object.fromEntries(both.map((entrypoint) => {
+        const content = readFileSync(join(styles, `${entrypoint}.css`), 'utf8');
+        assert.match(content, /@import "\.\/shared\.css";/);
+        return [entrypoint, [...(shared + '\n' + content).matchAll(/^@source (not )?"([^"]+)";/gm)].map(([, excluded, path]) => ({
+            excluded: !!excluded, pattern: relative(root, resolve(styles, path)),
+        }))];
     }));
-    const included = ['demo/templates/base.html.twig', 'alert/templates/button.html.twig', 'alert/README.md',
-        'alert/manifest.json', 'kit.js',
+    const scannedByBoth = ['demo/templates/shared/_brand.html.twig', 'demo/templates/components/Button.html.twig',
+        'demo/templates/layouts/base.html.twig', 'demo/src/UXor/Controller.php', 'demo/assets/controllers/csrf_protection_controller.js',
+        'demo/src/Form/ProfileType.php',
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/tailwind_2_layout.html.twig',
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig'];
-    const omitted = ['README.md', 'docs/GUIDE.md', 'INSTALL.md', 'website/templates/recipe.html.twig',
+    const scannedByToolkit = ['demo/templates/base.html.twig', 'demo/templates/preview.html.twig', 'demo/templates/_toolkit_stylesheets.html.twig', 'demo/templates/forms/index.html.twig',
+        'demo/templates/lab/index.html.twig', 'demo/templates/oauth/login.html.twig',
+        'demo/src/Controller/LabController.php', 'demo/src/Controller/PreviewController.php',
+        'demo/assets/controllers/dropzone_echo_controller.js', 'alert/README.md', 'other/README.md', 'kit.js'];
+    const scannedByApp = ['demo/templates/demo_app/dashboard.html.twig', 'demo/src/Controller/DemoAppController.php',
+        'demo/src/Controller/RevenueAssistantController.php', 'demo/assets/controllers/revenue_assistant_controller.js'];
+    const bothBuildInputs = ['alert/templates/button.html.twig', 'demo/config/packages/symfonycasts_tailwind.yaml', 'demo/composer.lock',
+        'demo/assets/styles/shared.css', 'demo/assets/styles/xor.css', 'kit.css',
+        'demo/assets/vendor/flowbite/dist/flowbite.min.css', 'demo/vendor/symfony/ux-live-component/assets/dist/live.min.css'];
+    const omitted = ['README.md', 'demo/README.md', 'docs/GUIDE.md', 'INSTALL.md', 'website/templates/recipe.html.twig',
         'website/assets/site.css', 'website/src/Renderer.php', 'website/README.md', 'docs/README.md', 'docs/templates/snippet.html.twig', 'docs/subdir/review.md',
         'docs/PLAN-composer-package.md', '.github/workflows/release.yml', 'tests/e2e/shared.spec.ts',
         'packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json',
@@ -181,25 +216,30 @@ test('the Tailwind sources and the CSS build record agree on rendered and reposi
         'node_modules/unrelated/templates/widget.html.twig', 'demo/assets/vendor/unrelated/data.json',
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/unrelated.html.twig',
         'CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
-    let digest = cssSourcesDigest(dir);
-    for (const path of [...included, ...omitted]) {
-        const rendered = included.includes(path);
-        const matching = sources.filter(({ pattern }) => matchesGlob(path, pattern) || path.startsWith(pattern + '/'));
-        assert.equal(matching.some((s) => !s.excluded) && !matching.some((s) => s.excluded), rendered, `CSS scan: ${path}`);
+    const cases = [
+        ...scannedByBoth.map((path) => [path, both, both]),
+        ...scannedByToolkit.map((path) => [path, [toolkit], [toolkit]]),
+        ...scannedByApp.map((path) => [path, [app], [app]]),
+        ['new-recipe/manifest.json', [toolkit], both],
+        ...bothBuildInputs.map((path) => [path, [], both]),
+        [`demo/assets/styles/${toolkit}.css`, [], [toolkit]],
+        [`demo/assets/styles/${app}.css`, [], [app]],
+        ...omitted.map((path) => [path, [], []]),
+    ];
+    const digests = () => Object.fromEntries(both.map((entrypoint) => [entrypoint, cssSourcesDigest(entrypoint, dir)]));
+    let before = digests();
+    for (const [path, scanning, hashing] of cases) {
+        for (const entrypoint of both) {
+            const matching = sources[entrypoint].filter(({ pattern }) => matchesGlob(path, pattern) || matchesGlob(path, `${pattern}/**`));
+            assert.equal(matching.some((s) => !s.excluded) && !matching.some((s) => s.excluded), scanning.includes(entrypoint), `CSS scan (${entrypoint}): ${path}`);
+        }
         mkdirSync(dirname(join(dir, path)), { recursive: true });
         writeFileSync(join(dir, path), '<div class="mt-80">');
-        const next = cssSourcesDigest(dir);
-        assert.equal(next !== digest, rendered, `CSS build record: ${path}`);
-        digest = next;
-    }
-    for (const path of ['demo/assets/vendor/flowbite/dist/flowbite.min.css', 'demo/vendor/symfony/ux-live-component/assets/dist/live.min.css']) {
-        const imported = relative(dirname(stylesheet), join(root, path));
-        assert.ok(content.includes(`@import "${imported}";`), `stylesheet imports ${path}`);
-        mkdirSync(dirname(join(dir, path)), { recursive: true });
-        writeFileSync(join(dir, path), 'main { color: blue; }');
-        const next = cssSourcesDigest(dir);
-        assert.notEqual(next, digest, `CSS build record: ${path}`);
-        digest = next;
+        const after = digests();
+        for (const entrypoint of both) {
+            assert.equal(after[entrypoint] !== before[entrypoint], hashing.includes(entrypoint), `CSS build record (${entrypoint}): ${path}`);
+        }
+        before = after;
     }
 });
 

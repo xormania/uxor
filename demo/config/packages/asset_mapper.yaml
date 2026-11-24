@@ -3,6 +3,9 @@ framework:
         # The paths to make available to the asset mapper.
         paths:
             - assets/
+        excluded_patterns:
+            # Tailwind consumes this partial. Only the two compiled entrypoints are published.
+            - '%kernel.project_dir%/assets/styles/shared.css'
         missing_import_mode: strict
 
 when@prod:

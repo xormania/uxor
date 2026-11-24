@@ -20,6 +20,7 @@
         </script>
         {% block stylesheets %}
         {% endblock %}
+        {{ include('_toolkit_stylesheets.html.twig') }}
 
         {% block javascripts %}
             {% block importmap %}{{ importmap('app', {nonce: csp_script_nonce ~ ''}) }}{% endblock %}
