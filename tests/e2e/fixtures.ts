@@ -348,6 +348,22 @@ export const test = guardedTest.extend<{
 
 export { expect };
 
+/** Reads a preview's decoded CSS background, independent of the URL scheme the controller uses. */
+export function decodedBackgroundImage(image: Locator): Promise<{ url: string; width: number } | null> {
+    return image.evaluate(async (element) => {
+        const match = /^url\("(.*)"\)$/.exec(getComputedStyle(element).backgroundImage);
+        if (!match) {
+            return null;
+        }
+
+        const [, url] = match;
+        const probe = new Image();
+        probe.src = url;
+
+        return probe.decode().then(() => ({ url, width: probe.naturalWidth }), () => null);
+    });
+}
+
 /**
  * Pauses Playwright's clock, installed before the page loaded (`page.clock.install()`): from then on only `runFor()`
  * moves time, so no timer of the page fires between two steps of the test, however slow the run. Installed and not

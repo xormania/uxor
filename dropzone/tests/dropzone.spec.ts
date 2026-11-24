@@ -1,4 +1,4 @@
-import { describeRecipe, expect, testState } from '../../../../assets/test/browser/fixtures';
+import { decodedBackgroundImage, describeRecipe, expect, testState } from '../../../../assets/test/browser/fixtures';
 
 // a 4×4 PNG, all blue
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGOQSfkERwzEcQBMMhch8Z3BJwAAAABJRU5ErkJggg==', 'base64');
@@ -13,7 +13,7 @@ describeRecipe('uxor/dropzone', () => {
 
             const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
             await expect(image).toBeVisible();
-            await expect.poll(() => image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("blob:/);
+            await expect.poll(async () => (await decodedBackgroundImage(image))?.width).toBe(4);
             await expect(page.getByRole('button', { name: 'Remove profile-picture.png' })).toBeVisible();
         },
     });
@@ -28,7 +28,7 @@ describeRecipe('uxor/dropzone', () => {
 
             await expect(page.locator('.dropzone-preview-list-item')).toHaveCount(3);
             const image = page.locator('.dropzone-preview-list-item .dropzone-preview-image').nth(2);
-            await expect.poll(() => image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("blob:/);
+            await expect.poll(async () => (await decodedBackgroundImage(image))?.width).toBe(4);
         },
     });
 

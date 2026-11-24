@@ -1,5 +1,5 @@
-import type { APIResponse, Locator, Page, Response } from '@playwright/test';
-import { test, expect, recordDarkAtFirstBody } from './fixtures';
+import type { APIResponse, Page, Response } from '@playwright/test';
+import { test, expect, decodedBackgroundImage, recordDarkAtFirstBody } from './fixtures';
 import { jpeg, png, svg } from './files';
 
 /*
@@ -126,22 +126,7 @@ test("the Editor's markup has no style attribute, and the mounted editor adds no
     expect(await page.locator('style').evaluateAll((styles) => styles.filter((style) => style.textContent!.includes('ProseMirror')).length)).toBe(0);
 });
 
-/*
- * The scheme a preview image loads from and its natural width, read the way the browser loads a CSS background. UX
- * Dropzone 3.8 previews a PNG or a JPEG from a `blob:` object URL and an SVG from a `data:` URL; the fixtures fail the
- * test if the policy blocks either.
- */
-async function previewOf(image: Locator): Promise<{ scheme: string; width: number }> {
-    return image.evaluate(async (element) => {
-        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
-        const probe = new Image();
-        probe.src = url;
-        await probe.decode();
-
-        return { scheme: url.startsWith('blob:') ? 'blob:' : url.slice(0, url.indexOf(';') + 1), width: probe.naturalWidth };
-    });
-}
-
+// UX Dropzone 3.8 uses object URLs for PNG and JPEG previews. SVG previews still load from data URLs.
 for (const theme of ['light', 'dark']) {
     test(`in the ${theme} theme, a picked PNG or JPEG shows its preview from a blob: URL, an SVG from a data: URL, under the policy`, async ({ page }) => {
         const { policy } = await gotoAndCheckPolicy(page, `/preview/dropzone/default?theme=${theme}`);
@@ -149,14 +134,22 @@ for (const theme of ['light', 'dark']) {
         const input = page.locator('input[type="file"]');
         const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
         for (const [file, scheme] of [
-            [png('tiny.png'), 'blob:'],
-            [jpeg('tiny.jpg'), 'blob:'],
-            [svg('tiny.svg'), 'data:image/svg+xml;'],
+            [png('tiny.png'), /^blob:/],
+            [jpeg('tiny.jpg'), /^blob:/],
+            [svg('tiny.svg'), /^data:image\/svg\+xml;/],
         ] as const) {
+            const previous = await decodedBackgroundImage(image);
             await input.setInputFiles(file);
             await expect(page.getByText(file.name, { exact: true })).toBeVisible();
             await expect(image).toBeVisible();
-            expect(await previewOf(image), file.name).toEqual({ scheme, width: 1 });
+            await expect.poll(async () => {
+                const preview = await decodedBackgroundImage(image);
+
+                return preview?.url === previous?.url ? null : preview;
+            }, { message: file.name }).toEqual({
+                url: expect.stringMatching(scheme),
+                width: 1,
+            });
         }
     });
 }
@@ -183,7 +176,7 @@ test('in the dark theme, a picked image shows its name, its preview under the po
     const box = await image.boundingBox();
     expect(box && box.width > 0 && box.height > 0).toBe(true);
     // the image loads from its object URL (the fixtures fail on a violation)
-    expect(await previewOf(image)).toEqual({ scheme: 'blob:', width: 1 });
+    await expect.poll(() => decodedBackgroundImage(image)).toEqual({ url: expect.stringMatching(/^blob:/), width: 1 });
 
     await page.keyboard.press('Enter');
     await expect(input).toBeFocused();
