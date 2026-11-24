@@ -2,10 +2,10 @@
 
 namespace App\Command;
 
-use App\Kit\KitReader;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Output\OutputInterface;
+use UXor\Kit\KitReader;
 
 /**
  * Lists every README example of the kit as JSON, for the Playwright screenshot suite.

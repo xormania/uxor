@@ -1,14 +1,12 @@
 import type { Page } from '@playwright/test';
-import { test, expect, turboVisitDone, countEvents } from './fixtures';
+import { test, expect, turboVisitDone } from './fixtures';
 import { back, recordFirstFrames, reloadFrames, stepFromCode, visit } from './transitions';
-import { day } from './calendar';
+import { countCalendarChanges, day } from './calendar';
 
 const pick = async (page: Page, label: string, date: string) => {
     await page.getByRole('button', { name: `${label}: choose date` }).click();
     await day(page.getByRole('dialog', { name: 'Choose a date' }), date).click();
 };
-// the change events of the calendars' hidden inputs, from now on
-const countChanges = (page: Page) => countEvents(page, ['change'], '[data-calendar-target="input"]');
 
 test('a pick is submitted by the form; the day buttons never submit it', async ({ page }) => {
     await page.goto('/lab/date-picker-turbo');
@@ -28,7 +26,7 @@ test('repeated Turbo visits leave one controller per picker and one change per p
         await turboVisitDone(page);
     }
     await expect(page.locator('[data-controller~="date-picker"]')).toHaveCount(3);
-    const changes = await countChanges(page);
+    const changes = await countCalendarChanges(page);
     await pick(page, 'Due date', '2026-03-11');
     await expect(page.locator('input[name="due"]')).toHaveValue('2026-03-11');
     expect(await changes()).toEqual({ change: 1 });
@@ -112,7 +110,7 @@ test('a date picker open during a Live re-render stays the same open dialog with
     await expect(page.locator('[data-calendar-target="input"]')).toHaveCount(2);
 
     // the keys and a pick still work: one change, sent to the server
-    const changes = await countChanges(page);
+    const changes = await countCalendarChanges(page);
     await page.keyboard.press('ArrowRight');
     await expect(day(dialog, '2026-03-18')).toBeFocused();
     await page.keyboard.press('Enter');

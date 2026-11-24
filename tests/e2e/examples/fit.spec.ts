@@ -51,6 +51,15 @@ test.describe('a phone, 390px wide', () => {
 test.describe('a small phone, 320px wide', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
+    test('the data table pager fits with both Previous and Next', async ({ page }) => {
+        await page.goto(previewUrl('data-table', 'default') + '&page=3');
+        const pager = page.getByRole('navigation', { name: 'Orders pages' });
+        await expect(pager.getByRole('link', { name: 'Page 3' })).toHaveAttribute('aria-current', 'page');
+        await expect(pager.getByRole('link', { name: 'Go to previous page' })).toBeVisible();
+        await expect(pager.getByRole('link', { name: 'Go to next page' })).toBeVisible();
+        expect(await overflowingBoxes(page), 'boxes outside the page').toEqual([]);
+    });
+
     test('the navbar keeps its brand, search and actions inside the bar', async ({ page, gotoExample }) => {
         await gotoExample('navbar/default');
         const header = page.locator('header');
@@ -80,7 +89,8 @@ for (const width of [640, 768, 1024]) {
             ['the stat card example', previewUrl('stat-card', 'default')],
             ['the dashboard-home example', previewUrl('dashboard-home', 'default')],
         ]) {
-            test(`the stat cards of ${where} hold their values`, async ({ page }) => {
+            const details = url === '/demo' ? { tag: '@demo-app' } : {};
+            test(`the stat cards of ${where} hold their values`, details, async ({ page }) => {
                 await page.goto(url);
                 const values = page.locator('p.tracking-tight.text-heading');
                 await expect(values.first()).toBeVisible();

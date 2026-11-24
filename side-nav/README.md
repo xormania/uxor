@@ -3,34 +3,46 @@
 A multi-level navigation tree: links grouped in branches that open and close, at any depth, with the keyboard of a tree view; the open branches hold across Turbo visits, and the branch of the current page opens.
 
 ```twig {"preview":true}
-<nav aria-label="Documentation" class="w-full max-w-xs p-2">
-    <twig:SideNav label="Documentation" storageKey="side-nav-preview">
-        <twig:SideNav:Item href="#overview">
-            <twig:block name="icon"><twig:ux:icon name="flowbite:chart-pie-outline" class="size-5" /></twig:block>
-            Overview
-        </twig:SideNav:Item>
-        <twig:SideNav:Branch label="Guides">
-            <twig:block name="icon"><twig:ux:icon name="flowbite:file-code-outline" class="size-5" /></twig:block>
-            <twig:SideNav:Item href="#installation">Installation</twig:SideNav:Item>
-            <twig:SideNav:Branch label="Forms">
-                <twig:SideNav:Item href="#fields" :active="true">Fields</twig:SideNav:Item>
-                <twig:SideNav:Item href="#validation">Validation</twig:SideNav:Item>
+<div data-turbo="false" class="w-full max-w-xs p-2">
+    <p id="overview" tabindex="-1" class="hidden target:block">Overview: this guide covers installation, forms and components.</p>
+    <p id="installation" tabindex="-1" class="hidden target:block">Installation: add the toolkit to your application before installing its recipes.</p>
+    <p id="fields" tabindex="-1" class="hidden target:block">Fields: give each control a label and a name for form submission.</p>
+    <p id="validation" tabindex="-1" class="hidden target:block">Validation: show each field’s error beside its control.</p>
+    <p id="components" tabindex="-1" class="hidden target:block">Components: compose a form from labels, inputs and buttons.</p>
+    <p id="controllers" tabindex="-1" class="hidden target:block">Controllers: connect a Stimulus controller to add keyboard and pointer interactions.</p>
+    <nav aria-label="Documentation">
+        <twig:SideNav label="Documentation" storageKey="side-nav-preview">
+            <twig:SideNav:Item href="#overview">
+                <twig:block name="icon"><twig:ux:icon name="flowbite:chart-pie-outline" class="size-5" /></twig:block>
+                Overview
+            </twig:SideNav:Item>
+            <twig:SideNav:Branch label="Guides">
+                <twig:block name="icon"><twig:ux:icon name="flowbite:file-code-outline" class="size-5" /></twig:block>
+                <twig:SideNav:Item href="#installation">Installation</twig:SideNav:Item>
+                <twig:SideNav:Branch label="Forms">
+                    <twig:SideNav:Item href="#fields" :active="true">Fields</twig:SideNav:Item>
+                    <twig:SideNav:Item href="#validation">Validation</twig:SideNav:Item>
+                </twig:SideNav:Branch>
             </twig:SideNav:Branch>
-        </twig:SideNav:Branch>
-        <twig:SideNav:Branch label="Reference">
-            <twig:block name="icon"><twig:ux:icon name="flowbite:list-outline" class="size-5" /></twig:block>
-            <twig:SideNav:Item href="#components">Components</twig:SideNav:Item>
-            <twig:SideNav:Item href="#controllers">Controllers</twig:SideNav:Item>
-        </twig:SideNav:Branch>
-    </twig:SideNav>
-</nav>
+            <twig:SideNav:Branch label="Reference">
+                <twig:block name="icon"><twig:ux:icon name="flowbite:list-outline" class="size-5" /></twig:block>
+                <twig:SideNav:Item href="#components">Components</twig:SideNav:Item>
+                <twig:SideNav:Item href="#controllers">Controllers</twig:SideNav:Item>
+            </twig:SideNav:Branch>
+        </twig:SideNav>
+    </nav>
+</div>
 ```
 
 ## Installation
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=side-nav#recipes). To install `side-nav` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component side-nav --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+Use your application’s route names for the `path()` calls and matching `route` attributes.
 
 ```twig
 <nav aria-label="Main">
@@ -78,6 +90,8 @@ A multi-level navigation tree: links grouped in branches that open and close, at
 - **Motion:** a branch's chevron turns with a transform transition, which stops under `prefers-reduced-motion`.
 
 ### In a sidebar
+
+For this example, install the [sidebar](../sidebar/README.md) recipe.
 
 ```twig
 <twig:Sidebar id="sidebar" data-turbo-permanent>

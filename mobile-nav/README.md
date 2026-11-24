@@ -2,8 +2,14 @@
 
 The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit.
 
+For this example, install the [side-nav](../side-nav/README.md) recipe.
+
 ```twig {"preview":true}
-<div class="h-96">
+<div data-turbo="false" class="h-96">
+    <p id="dashboard" tabindex="-1" class="hidden target:block">Dashboard: two orders are ready to ship.</p>
+    <p id="orders" tabindex="-1" class="hidden target:block">Orders: #1042 is paid and awaiting shipment.</p>
+    <p id="returns" tabindex="-1" class="hidden target:block">Returns: there are no open return requests.</p>
+    <p id="profile" tabindex="-1" class="hidden target:block">Profile: Alex Morgan.</p>
     <twig:MobileNav id="mobile-nav-preview" open>
         <twig:block name="header"><span class="text-lg font-semibold text-heading">[Product name]</span></twig:block>
         <twig:SideNav label="Pages" storageKey="mobile-nav-preview">
@@ -29,7 +35,11 @@ The app's navigation on small screens: a menu button in the navbar opening a mod
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=mobile-nav#recipes). To install `mobile-nav` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component mobile-nav --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [navbar](../navbar/README.md) and [side-nav](../side-nav/README.md) recipes.
 
 ```twig
 <twig:Navbar>

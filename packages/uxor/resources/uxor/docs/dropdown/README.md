@@ -1,6 +1,8 @@
 # Dropdown
 
-The dropdown component can be used to show a list of menu items when clicking on an element such as a button and hiding it when focusing outside of the triggering element.
+Open a menu from a trigger button. Use the arrow keys to move between items, Escape to close the menu, or click outside it to dismiss it.
+
+The triggers in these examples use the [button](../button/README.md) recipe. Install it to use the examples as written.
 
 ```twig {"preview":true}
 <div class="min-h-76">
@@ -28,13 +30,15 @@ The dropdown component can be used to show a list of menu items when clicking on
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=dropdown#recipes). To install `dropdown` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component dropdown --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `Dropdown:Item href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
 
 ```twig
 <twig:Dropdown
-    id="string"
+    id="actions-menu"
     open="true | false"
     placement="right | left | top | bottom | right-start | right-end | left-start | left-end | top-start | top-end | bottom-start | bottom-end"
     triggerType="click | hover"
@@ -57,7 +61,7 @@ The dropdown component can be used to show a list of menu items when clicking on
             <twig:Dropdown:Item as="a" href="#">Link item</twig:Dropdown:Item>
             <twig:Dropdown:Item as="button">Button item</twig:Dropdown:Item>
             <twig:Dropdown:Sub
-                id="string"
+                id="more-actions-menu"
                 placement="right | left | top | bottom | right-start | right-end | left-start | left-end | top-start | top-end | bottom-start | bottom-end"
                 triggerType="click | hover"
                 delay="300"
@@ -111,9 +115,9 @@ installs with it.
 
 ### Dropdown hover
 
-Use the `̀triggerType="{hover|click}"` prop options to set whether the dropdown should be shown when hovering or clicking on the trigger element (ie. button).
-
-There’s a 300ms default delay when showing or hiding the dropdown due to UI/UX reasons and how it may affect the interaction with other components on the page. Generally, we recommend using the `click` method.
+With `triggerType="hover"`, hovering over the trigger opens the menu after 300 ms by default.
+Moving away from both the trigger and the menu closes it after the same delay.
+Clicking or tapping the trigger toggles the menu immediately.
 
 ```twig {"preview":true}
 <div class="min-h-76">
@@ -196,6 +200,8 @@ You can use multiple `Dropdown:Group`, the `Dropdown:Content` add a divider betw
 ### With header
 
 Use this example to show extra information outside of the list of menu items inside the dropdown.
+
+For this example, install the [avatar](../avatar/README.md) and [badge](../badge/README.md) recipes.
 
 ```twig {"preview":true}
 <div class="min-h-126">

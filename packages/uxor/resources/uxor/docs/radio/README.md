@@ -1,17 +1,17 @@
 # Radio
 
-The radio component can be used to allow the user to choose a single option from one or more available options coded with the utility classes from Tailwind CSS and available in multiple styles, variants, and colors and support dark mode.
+A themed radio button. Give the buttons in a group the same `name` so the user can select one option.
 
 ```twig {"preview":true}
 <div class="flex flex-col gap-3">
     <div class="flex items-center mb-4">
         <twig:Radio id="default" value="" name="radio-default"/>
-        <twig:Label for="default" class="select-none ms-2 font-medium">Default radio</twig:Label>
+        <label for="default" class="ms-2 select-none text-sm font-medium text-heading">Default radio</label>
     </div>
 
     <div class="flex items-center mb-4">
         <twig:Radio id="checked" value="" name="radio-default" checked/>
-        <twig:Label for="checked" class="select-none ms-2 font-medium">Checked state</twig:Label>
+        <label for="checked" class="ms-2 select-none text-sm font-medium text-heading">Checked state</label>
     </div>
 </div>
 ```
@@ -19,6 +19,8 @@ The radio component can be used to allow the user to choose a single option from
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=radio#recipes). To install `radio` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component radio --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 ## Usage
 
@@ -31,6 +33,8 @@ The radio component can be used to allow the user to choose a single option from
 ### Disabled
 
 This example can be used for the disabled state of the radio component by applying the disabled attribute to the input element.
+
+For this example, install the [label](../label/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="flex flex-col gap-3">
@@ -49,6 +53,8 @@ This example can be used for the disabled state of the radio component by applyi
 ### Bordered
 
 This example can be used to create a radio component with a bordered style, a description text and an icon.
+
+For this example, install the [label](../label/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <div class="grid gap-6 md:grid-cols-2">

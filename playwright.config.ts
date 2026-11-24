@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, devices } from '@playwright/test';
 import { playwrightImage } from './tools/playwright-image.mjs';
@@ -9,27 +9,32 @@ const require = createRequire(import.meta.url);
 const { version } = require('@playwright/test/package.json');
 const isCI = !!process.env.CI;
 const root = fileURLToPath(new URL('.', import.meta.url));
-const port = Number(process.env.DEMO_PORT ?? 8000);
+const demoPort = Number(process.env.DEMO_PORT ?? 8000);
 /*
  * DEMO_URL points the tests at a demo already running, e.g. https://localhost from Docker (demo/compose.yaml);
  * the specs then run PHP in its container. Without it, Playwright serves the demo with PHP's built-in server.
  */
-const demoURL = process.env.DEMO_URL?.replace(/\/$/, '');
-const baseURL = demoURL ?? `http://127.0.0.1:${port}`;
-if (demoURL) {
-    process.env.PHP_BINARY ??= join(root, 'tools/demo-php');
-}
+const demoURL = process.env.DEMO_URL?.replace(/\/$/, '') || undefined;
+const baseURL = demoURL ?? `http://127.0.0.1:${demoPort}`;
+const configuredPhp = process.env.PHP_BINARY || (demoURL ? join(root, 'tools/demo-php') : 'php');
+// A relative executable path refers to the checkout, even for commands that run inside demo/.
+const phpBinary = configuredPhp.includes('/') ? resolve(root, configuredPhp) : configuredPhp;
+process.env.PHP_BINARY = phpBinary;
+const shellQuote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 
 /*
  * The browser runs in UXor's pinned Playwright image so screenshot comparisons use a reproducible browser runtime.
  * tools/playwright-image.json pins its digest; the tag must match this @playwright/test version
  * (tools/playwright-image.mjs). UXor maintains its own tests and screenshot baselines.
- * PW_BROWSER_SERVER overrides the command (e.g. `--network host` where port publishing is unavailable).
+ * PW_BROWSER_SERVER overrides the managed command. PW_BROWSER_WS_ENDPOINT selects an already running server.
  */
+const browserPort = Number(process.env.PW_BROWSER_PORT ?? 3000);
+const externalBrowser = process.env.PW_BROWSER_WS_ENDPOINT;
+const browserEndpoint = externalBrowser || `ws://127.0.0.1:${browserPort}/`;
 const browserServer =
     process.env.PW_BROWSER_SERVER ??
     [
-        'docker run --rm --init -p 127.0.0.1:3000:3000',
+        `docker run --rm --init -p 127.0.0.1:${browserPort}:3000`,
         playwrightImage(version),
         `npx -y playwright@${version} run-server --port 3000 --host 0.0.0.0`,
     ].join(' ');
@@ -45,9 +50,10 @@ if (!process.env.TEST_WORKER_INDEX) {
 }
 
 /*
- * Two projects per browser: `smoke` (tests/e2e/*.spec.ts, desktop viewport) and `examples` (every README example and
- * the recipe specs, at the configured 800x600 viewport; screenshots live in <recipe>/tests/screenshots/). Chromium's
- * keep their plain names; Firefox's and WebKit's are suffixed: smoke-firefox, examples-webkit...
+ * Three projects per browser. `smoke` covers the Toolkit through /lab and /forms. `examples` covers the recipe
+ * specs and README examples through /preview. `demo-app` covers the /demo pages, including their layout screenshots.
+ * In specs that exercise both surfaces, @demo-app selects the cases that depend on /demo. Chromium's projects keep
+ * their plain names; Firefox's and WebKit's add the browser suffix.
  *
  * Firefox and WebKit run the behavior tests only: every test tagged @screenshot (it compares pixels: a baseline, or two
  * screenshots with each other) is left out, as the baselines are Chromium's. PW_SCREENSHOTS=all turns them around: they
@@ -57,13 +63,21 @@ if (!process.env.TEST_WORKER_INDEX) {
  */
 const crossBrowserScreenshots = 'all' === process.env.PW_SCREENSHOTS;
 const desktop = { chromium: 'Desktop Chrome', firefox: 'Desktop Firefox', webkit: 'Desktop Safari' } as const;
+const demoAppSpecs = ['demo-app*.spec.ts', 'examples/pages.spec.ts'];
+const sharedSpecs = ['a11y.spec.ts', 'csp.spec.ts', 'lab.section-nav.spec.ts', 'lab.side-nav.spec.ts', 'theme-toggle.spec.ts', 'examples/baselines.spec.ts', 'examples/fit.spec.ts'];
+const demoAppTag = /(?:^| )@demo-app(?= |$)/;
+// Playwright matches grep against the project, relative file path, test title and tags.
+const demoAppTest = /(?:^|[ \\/])(?:demo-app[^ \\/]*\.spec\.ts|examples[\\/]pages\.spec\.ts|@demo-app)(?= |$)/;
+const screenshot = /@screenshot/;
 
 function browserProjects(browser: keyof typeof desktop) {
     const suffix = 'chromium' === browser ? '' : `-${browser}`;
     const other = 'chromium' !== browser;
-    const select = {
-        grep: other && crossBrowserScreenshots ? /@screenshot/ : undefined,
-        grepInvert: other && !crossBrowserScreenshots ? /@screenshot/ : undefined,
+    const screenshotsOnly = other && crossBrowserScreenshots;
+    const skipScreenshots = other && !crossBrowserScreenshots;
+    const toolkitSelection = {
+        grep: screenshotsOnly ? screenshot : undefined,
+        grepInvert: skipScreenshots ? [demoAppTag, screenshot] : demoAppTag,
     };
 
     return [
@@ -74,17 +88,29 @@ function browserProjects(browser: keyof typeof desktop) {
             fullyParallel: true,
             // the broad axe scans (a11y.spec.ts) run in Chromium only: Firefox and WebKit run the behavior; the
             // release checks' own specs (release.*.spec.ts) run in the `release` project only (below)
-            testIgnore: other ? ['examples/**', 'a11y.spec.ts', 'release.*.spec.ts'] : ['examples/**', 'release.*.spec.ts'],
-            ...select,
+            testIgnore: ['examples/**', ...demoAppSpecs, 'release.*.spec.ts', ...(other ? ['a11y.spec.ts'] : [])],
+            ...toolkitSelection,
             use: { ...devices[desktop[browser]] },
         },
         {
             name: `examples${suffix}`,
             testDir: './tests/e2e/examples',
             fullyParallel: true,
-            ...select,
+            testIgnore: demoAppSpecs,
+            ...toolkitSelection,
             snapshotPathTemplate: '{testDir}/../../../{arg}{ext}',
             use: { browserName: browser, viewport: { width: 800, height: 600 }, deviceScaleFactor: 1 },
+        },
+        {
+            name: `demo-app${suffix}`,
+            testDir: './tests/e2e',
+            testMatch: [...demoAppSpecs, ...sharedSpecs],
+            testIgnore: other ? 'a11y.spec.ts' : undefined,
+            fullyParallel: true,
+            grep: screenshotsOnly ? new RegExp(`(?=.*${screenshot.source}).*(?:${demoAppTest.source})`) : demoAppTest,
+            grepInvert: skipScreenshots ? screenshot : undefined,
+            snapshotPathTemplate: '{testDir}/../../{arg}{ext}',
+            use: { ...devices[desktop[browser]] },
         },
     ];
 }
@@ -167,7 +193,7 @@ export default defineConfig({
         // process (exposeNetwork), which works wherever the container cannot reach the host's loopback (Docker Desktop).
         // PW_DIRECT_NETWORK=1 says the browser server shares the host's network (`docker run --network host`, as CI's
         // browser job starts it), so the browser reaches the demo itself
-        connectOptions: { wsEndpoint: 'ws://127.0.0.1:3000/', ...(process.env.PW_DIRECT_NETWORK ? {} : { exposeNetwork: '<loopback>' }) },
+        connectOptions: { wsEndpoint: browserEndpoint, ...(process.env.PW_DIRECT_NETWORK ? {} : { exposeNetwork: '<loopback>' }) },
         trace: 'retain-on-failure',
     },
 
@@ -187,19 +213,23 @@ export default defineConfig({
             ? []
             : [
                   {
-                      // Serves the demo with PHP's built-in server; reuses one already listening. The upload limits are
-                      // pinned so the upload specs' too-large cases do not depend on the machine's php.ini.
-                      command: `php -d upload_max_filesize=2M -d post_max_size=8M -S 127.0.0.1:${port} -t demo/public`,
-                      url: baseURL,
-                      reuseExistingServer: true,
+                      // Match the PHP used by discovery and setup. The router passes static files through and sends
+                      // /lab and AssetMapper routes to Symfony. The upload limits are independent of php.ini.
+                      command: `${shellQuote(phpBinary)} -d upload_max_filesize=2M -d post_max_size=8M -S 127.0.0.1:${demoPort} -t demo/public tools/plant-router.php`,
+                      url: `${baseURL}/lab/autocomplete`,
+                      reuseExistingServer: false,
                       timeout: 30_000,
                   },
               ]),
-        {
-            command: browserServer,
-            url: 'http://127.0.0.1:3000/',
-            reuseExistingServer: true,
-            timeout: 5 * 60_000,
-        },
+        ...(externalBrowser
+            ? []
+            : [
+                  {
+                      command: browserServer,
+                      url: `http://127.0.0.1:${browserPort}/json`,
+                      reuseExistingServer: false,
+                      timeout: 5 * 60_000,
+                  },
+              ]),
     ],
 });

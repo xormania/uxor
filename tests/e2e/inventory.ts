@@ -3,14 +3,11 @@
  * each viewport. examples/baselines.spec.ts checks that every committed screenshot belongs to one of them.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const root = fileURLToPath(new URL('../..', import.meta.url));
-
-// The kit's display name, the index's heading: manifest.json's name
-export const kitName: string = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8')).name;
 
 // Recipes as the UX Toolkit discovers them: "<dir>/manifest.json" at depth 1 of the kit root.
 export const recipes = readdirSync(root, { withFileTypes: true })
@@ -42,4 +39,8 @@ export const demoPages = {
     'not-found': '/demo/not-found',
     blank: '/demo/blank',
 };
+
+// The shell, accessibility and favicon checks also exercise routes without a screenshot baseline.
+export const demoRoutePaths = [...Object.values(demoPages), '/demo/revenue-assistant'];
+export const demoAppScreenshots = ['tests', 'e2e', 'examples', 'demo-app-screenshots'];
 export const viewports = { desktop: { width: 1280, height: 800 }, mobile: { width: 390, height: 844 } };

@@ -1,0 +1,6 @@
+{% extends 'base.html.twig' %}
+{% set page_title = 'Page not found · ' ~ kit.manifest.name %}
+{% block body %}
+    <h1>Page not found</h1>
+    <p><a href="{{ path('app_index') }}">Return to the gallery</a> or <a href="{{ path('app_index') }}#recipes">browse recipes</a>.</p>
+{% endblock %}

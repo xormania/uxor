@@ -19,6 +19,8 @@ Use the avatar component to show a visual representation of a user profile using
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=avatar#recipes). To install `avatar` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component avatar --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `Avatar:Image src` keeps a relative or `http(s)` URL. Another scheme renders no `src`, so the fallback stays shown.
@@ -74,6 +76,8 @@ This example can be used to show an icon placeholder or the initials of the user
 ### Dot indicator
 
 Use the `Indicator` component relative to the avatar component as an indicator for the user (eg. online or offline status).
+
+For this example, install the [indicator](../indicator/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="flex items-center justify-center gap-6">
@@ -171,6 +175,8 @@ This example can be used if you want to show additional information in the form 
 ### User dropdown
 
 Use this example if you want to show a dropdown menu when clicking on the avatar component.
+
+For this example, install the [button](../button/README.md) and [dropdown](../dropdown/README.md) recipes.
 
 ```twig {"preview":true}
 <twig:Dropdown id="user-dropdown" placement="bottom-start">

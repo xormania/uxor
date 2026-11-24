@@ -1,0 +1,17 @@
+{% extends 'demo_app/_app.html.twig' %}
+
+{% block title %}Revenue request — xor{% endblock %}
+
+{% block content %}
+    <h1 class="text-2xl font-semibold text-heading">Revenue request</h1>
+    <form method="get" action="{{ path('app_demo_revenue_assistant') }}" class="mt-4 max-w-lg space-y-3"
+          data-controller="revenue-assistant" data-turbo="false"
+          data-revenue-assistant-dashboard-value="{{ path('app_demo') }}"
+          data-action="submit->revenue-assistant#submit turbo:before-cache@document->revenue-assistant#beforeCache">
+        <label for="revenue-request" class="block font-medium text-heading">Revenue request</label>
+        <p id="revenue-help" class="text-sm text-body">Try “Show weekly revenue”, “Show yearly revenue” or “Show all-time revenue”.</p>
+        <twig:Input id="revenue-request" name="prompt" required maxlength="80" aria-describedby="revenue-help" />
+        <twig:Button type="submit">Show revenue</twig:Button>
+        <p role="status" data-revenue-assistant-target="status">{{ error }}</p>
+    </form>
+{% endblock %}

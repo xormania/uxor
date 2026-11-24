@@ -1,9 +1,9 @@
 # Demo security contract
 
-The public gallery is the output of `app:export-static`, not the dynamic Symfony application. The dynamic demo is a
-development and test fixture: it compiles the repository's preview-enabled README examples as Twig, exposes routes
-that exercise Live Components and uploads, and uses a known demonstration login. Run it only from a trusted checkout
-and keep its Compose ports on loopback.
+GitHub Pages serves the documentation website and the static example app. The website embeds the recipe examples
+marked for preview. In the running Symfony fixture, the preview route can load any catalogued README example and
+compile its Twig. The fixture also exposes routes for Live Components and uploads, and uses a known demonstration
+login. Run it only from a trusted checkout and keep its Compose ports on loopback.
 
 Production mode therefore fails closed. `App\Kernel` refuses to boot in `prod` unless both conditions hold:
 
@@ -24,7 +24,7 @@ other than GET, or when a public reference route accepts POST without a named CS
 
 | Category | Paths | Contract |
 |---|---|---|
-| `public-read` | `/`, `/r/{recipe}` | Reads kit metadata and README examples; GET only. |
+| `public-read` | `/` | Opens the example application. GET only. |
 | `public-reference` | `/demo/*`, `/forms*`, `/oauth-demo/*` | Reference forms and layouts. POST is handled by a Symfony form or by the firewall, with CSRF enabled; effects stay in the demo session. |
 | `trusted-code-preview` | `/preview/{recipe}/{example}` | GET only. Compiles Twig from the checked-out repository; the repository is trusted code, not user content. |
 | `development-only` | `/lab/*` | Test scenarios, including uploads, Live actions and Turbo Stream endpoints. Never a public application surface. |

@@ -40,7 +40,11 @@ The alert component can be used to provide information to your users such as suc
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=alert#recipes). To install `alert` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component alert --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig
 <twig:Alert
@@ -286,6 +290,8 @@ with reduced motion enabled, it hides it immediately.
 ### Action
 
 Use `Alert:Action` to add a button or other action element to the alert.
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig {"preview":true}
 <twig:Alert class="max-w-xl">

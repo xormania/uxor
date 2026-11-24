@@ -631,7 +631,7 @@ async function main() {
     const started = Date.now();
     const args = options(process.argv.slice(2));
     const shard = env.SHARD ?? null;
-    const job = args.job ?? `Demo + Playwright${shard ? ` (${shard})` : ''}`;
+    const job = args.job ?? `Playwright${shard ? ` (${shard})` : ''}`;
     const output = args.output ?? 'jev';
     const run = Object.fromEntries(['GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'].map((key) => [key, env[key] ?? '']));
 

@@ -99,10 +99,21 @@ export default class extends Controller {
             trigger.ariaSelected = isActive;
         });
 
+        let enteringPanel;
         this.tabTargets.forEach((tab) => {
-            tab.dataset.state = tab.dataset.tabId === this.activeTabValue ? 'active' : 'inactive';
+            const active = tab.dataset.tabId === this.activeTabValue;
+            if (active && this.connected && tab.dataset.state === 'inactive') {
+                enteringPanel = tab;
+                tab.setAttribute('data-tabs-enter', '');
+            }
+            tab.dataset.state = active ? 'active' : 'inactive';
         });
         this.updateTabStop();
+        if (enteringPanel) {
+            // Start the fade, then leave only the selection in the DOM for Turbo snapshots and Live morphs.
+            getComputedStyle(enteringPanel).opacity;
+            enteringPanel.removeAttribute('data-tabs-enter');
+        }
     }
 
     /** The selected tab disabled in place: the selection moves to the first enabled tab, which is the Tab stop. */

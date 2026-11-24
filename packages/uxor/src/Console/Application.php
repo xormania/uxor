@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Xormania\UXor\Console;
 
 use Symfony\Component\Console\Application as BaseApplication;
+use Symfony\Component\Console\Input\ArgvInput;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Xormania\UXor\Operations;
@@ -14,14 +15,19 @@ final class Application extends BaseApplication
     public function __construct(?Operations $operations = null)
     {
         parent::__construct('UXor');
+        $this->addCommand(new MateCommand());
         $operations ??= Operations::create();
-        foreach (['catalog', 'component', 'reference', 'workflow', 'inspect', 'doctor', 'tools'] as $name) {
+        foreach (['catalog', 'component', 'reference', 'workflow', 'inspect', 'doctor', 'setup', 'detach', 'environment', 'prepare', 'tools', 'browser-diagnostics'] as $name) {
             $this->addCommand(new OperationCommand($operations, $name));
         }
     }
 
     public function doRun(InputInterface $input, OutputInterface $output): int
     {
+        if ($input instanceof ArgvInput && 'mate' === $input->getFirstArgument()) {
+            // Mate owns its options, including nested --help and --version requests.
+            return $this->get('mate')->run($input, $output);
+        }
         $json = 'json' === $input->getParameterOption('--format', 'text');
         if ($json) {
             $input->setInteractive(false);

@@ -114,7 +114,6 @@ async function timed(request: () => Promise<APIResponse>): Promise<{ response: A
 }
 
 test.describe('release fuzz', () => {
-    test.skip(({ browserName }) => 'chromium' !== browserName, 'Chromium only, as the other release checks');
     test.describe.configure({ timeout: BUDGET_MS * 4 + 60_000 });
 
     test.beforeEach(() => {

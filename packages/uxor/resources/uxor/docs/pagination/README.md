@@ -28,6 +28,8 @@ Use the Tailwind CSS pagination element to indicate a series of content across v
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=pagination#recipes). To install `pagination` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component pagination --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `Pagination:Link href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
@@ -53,6 +55,8 @@ Use the Tailwind CSS pagination element to indicate a series of content across v
     </twig:Pagination:Content>
 </twig:Pagination>
 ```
+
+When the links exceed the width of their container, they wrap onto centered rows and keep their order and size.
 
 The `active` link is the current page: it gets `aria-current="page"` and the brand's soft background, its number in
 `text-fg-brand-strong` (at least 4.5:1 in both themes, as the kit's other current items).

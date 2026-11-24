@@ -1,10 +1,14 @@
 // The repository security policy's red and green cases. Run: node --test tools/tests/*.test.mjs
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import {
     agentInstructionProblems,
     codeownerProblems,
     generatedPathProblems,
+    securityFiles,
     sinkProblems,
     supportProblems,
     workflowProblems,
@@ -117,6 +121,27 @@ test('secret references use the same boundary for brackets, whitespace, function
     assert.match(workflowProblems('.github/workflows/ci.yml', passThrough).join('\n'), /a secret is read outside jev\.yml/);
     const multiline = workflow + `            - env:\n                  KEY: >-\n                      \${{ format('{0}',\n                          secrets [ 'KEY' ]) }}\n              run: echo ok\n`;
     assert.match(workflowProblems('.github/workflows/ci.yml', multiline).join('\n'), /a secret is read outside jev\.yml/);
+});
+
+test('only the image refresh proposal can pass its App key to the pinned token action', () => {
+    const imageWorkflow = workflow.replace('    test:', '    propose:') + `            - id: app
+              uses: actions/create-github-app-token@${sha}
+              with:
+                  client-id: \${{ vars.UXOR_IMAGE_REFRESH_APP_CLIENT_ID }}
+                  private-key: \${{ secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY }}
+`;
+    const refresh = '.github/workflows/refresh-images.yml';
+    assert.deepEqual(workflowProblems(refresh, imageWorkflow), []);
+    for (const unsafe of [
+        imageWorkflow.replace('    propose:', '    plan:'),
+        imageWorkflow.replace('create-github-app-token', 'checkout'),
+        imageWorkflow.replace('private-key:', 'other-key:'),
+        imageWorkflow.replace('secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY', 'secrets.ANOTHER_KEY'),
+        imageWorkflow + '            - run: echo \${{ secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY }}\n',
+    ]) {
+        assert.match(workflowProblems(refresh, unsafe).join('\n'), /a secret is read outside/);
+    }
+    assert.match(workflowProblems('.github/workflows/ci.yml', imageWorkflow).join('\n'), /a secret is read outside/);
 });
 
 test('indexed and nested untrusted contexts stay out of run scripts and may pass through env', () => {
@@ -248,6 +273,23 @@ test('finds browser code execution and HTML insertion sinks', () => {
     assert.match(output, /javascript-code-execution/);
 });
 
+test('scans the standalone publisher and its HTML while keeping Markdown source templates separate', (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'uxor-website-policy-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const expected = ['tools/kit/KitReader.php', 'website/assets/site.js', 'website/bin/build', 'website/src/Website.php',
+        'website/templates/pages/article.html.twig', 'website/templates/toolkit/markdown/tabs.html.twig'];
+    const other = ['website/templates/toolkit/doc/_installation.md.twig', 'website/tests/browser/navigation.spec.ts',
+        'website/vendor/pkg/render.php', 'website/.phpunit.cache/cache.php', 'website/assets/photo.jpg'];
+    for (const file of [...expected, ...other]) {
+        const path = join(root, file);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, '');
+    }
+    const files = securityFiles(root);
+    assert.deepEqual(files.map((file) => file.path).sort(), expected.sort());
+    assert.equal(files.find((file) => file.path === 'website/bin/build').extension, '.php');
+});
+
 test('reads an executable without an extension in the language it names', () => {
     const files = [{ path: 'packages/uxor/bin/uxor', source: '#!/usr/bin/env php\n<?php\nshell_exec($command);\n', extension: '.php' }];
     assert.match(sinkProblems(files, []).join('\n'), /packages\/uxor\/bin\/uxor:3: unreviewed php-process-execution/);
@@ -275,10 +317,14 @@ test('rejects tracked dependency, cache and browser-result paths', () => {
     assert.deepEqual(generatedPathProblems(['packages/uxor/src/Operations.php', 'composer.lock', 'demo/src/vendor.php']), []);
     const composer = generatedPathProblems([
         'vendor/autoload.php',
+        'website/vendor/autoload.php',
+        'website/.phpunit.cache/test-results',
         'packages/uxor/.phpunit.cache/test-results',
         'packages/uxor/tools/__pycache__/check-package.cpython-313.pyc',
     ]).join('\n');
     assert.match(composer, /__pycache__/);
+    assert.match(composer, /website\/vendor\/autoload\.php/);
+    assert.match(composer, /website\/\.phpunit\.cache/);
     assert.match(composer, /^vendor\/autoload\.php: /m);
     assert.match(composer, /packages\/uxor\/\.phpunit\.cache/);
 });
@@ -289,11 +335,52 @@ test('requires SECURITY to support the latest released series', () => {
     assert.match(supportProblems(changelog, '| 0.1.x | yes |\n').join('\n'), /0\.2\.x/);
 });
 
-test('requires xormania to own the repository and every security-policy path', () => {
-    const all = ['*', '/.github/', '/AGENTS.md', '/SECURITY.md', '/tools/security-policy.mjs', '/tools/security-sinks.json', '/tools/tests/security-policy.test.mjs'];
-    assert.deepEqual(codeownerProblems(all.map((path) => `${path} @xormania`).join('\n')), []);
-    assert.match(codeownerProblems('* @someone-else\n').join('\n'), /must require review from @xormania/);
-    assert.match(codeownerProblems(`${all.map((path) => `${path} @xormania`).join('\n')}\n** @someone-else\n`).join('\n'), /override ownership/);
+test('component ownership may differ while the final trust-control block retains the root maintainers', () => {
+    const protectedPaths = [
+        '/.github/',
+        '/AGENTS.md',
+        '/SECURITY.md',
+        '/tools/security-policy.mjs',
+        '/tools/security-sinks.json',
+        '/tools/tests/security-policy.test.mjs',
+    ];
+    const policy = (maintainers, components = []) => [
+        `* ${maintainers}`,
+        ...components,
+        ...protectedPaths.map((path) => `${path} ${maintainers}`),
+    ].join('\n');
+
+    assert.deepEqual(codeownerProblems(policy('@xormania')), []);
+    assert.deepEqual(codeownerProblems(policy('@example/maintainers', [
+        '/button/ @example/components',
+        '/docs/ @documentation-owner',
+    ])), []);
+    assert.deepEqual(codeownerProblems(policy('@maintainer-one @maintainer-two', [
+        '*.twig @template-owner',
+    ])), []);
+
+    assert.deepEqual(codeownerProblems(policy('@maintainer-one @maintainer-two')
+        .replace('/AGENTS.md @maintainer-one @maintainer-two', '/AGENTS.md @maintainer-two @maintainer-one')), [],
+    'the protected owner set is independent of ordering');
+
+    const valid = policy('@example/maintainers', ['/button/ @example/components']);
+    const cases = [
+        ['missing root rule', valid.replace(/^\* .*?\n/, ''), /root \*/],
+        ['duplicate root rule', `${valid}\n* @another-owner\n`, /exactly one root/],
+        ['root rule after a component rule', `/calendar/ @calendar-owner\n${valid}`, /first rule/],
+        ['empty component ownership', policy('@example/maintainers', ['/button/']), /must have owners/],
+        ['missing protected rule', valid.replace('/AGENTS.md @example/maintainers\n', ''), /protected ownership rule for \/AGENTS\.md/],
+        ['duplicate protected rule', `${valid}\n/AGENTS.md @example/maintainers\n`, /exactly one protected/],
+        ['protected rule adds a non-maintainer', valid.replace('/AGENTS.md @example/maintainers', '/AGENTS.md @example/maintainers @component-owner'), /only by the root maintainers/],
+        ['protected rule drops a maintainer', valid.replace('/AGENTS.md @example/maintainers', '/AGENTS.md @component-owner'), /retain the root maintainer/],
+        ['one of two maintainers is dropped', policy('@maintainer-one @maintainer-two')
+            .replace('/AGENTS.md @maintainer-one @maintainer-two', '/AGENTS.md @maintainer-one'), /retain the root maintainer/],
+        ['later broad override', `${valid}\n** @another-owner\n`, /final block/],
+        ['later workflow override', `${valid}\n/.github/workflows/ @another-owner\n`, /final block/],
+    ];
+    for (const [name, source, expected] of cases) {
+        assert.match(codeownerProblems(source).join('\n'), expected, name);
+    }
 });
 
 test('keeps prompt-injection, credential and policy-check instructions in AGENTS', () => {

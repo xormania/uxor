@@ -6,6 +6,8 @@ Page layouts to extend: an app shell with sidebar, navbar with its menu, and mob
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=layouts#recipes). To install `layouts` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component layouts --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 The recipe copies six templates to `templates/layouts/`. Extend one from a page:
@@ -47,6 +49,22 @@ Fill `settings_nav` with one `SectionNav:Item` per settings page (the `section-n
 ```
 
 Flash messages added with `$this->addFlash('success', '…')` (also `warning`, `danger`, anything else as `info`) appear as toasts on the next page, whatever its layout, Turbo visit or not.
+
+## Page transitions
+
+To give main content a subtle entrance, add `uxor-page-transition` to the body in your
+application’s layout. The theme stylesheet handles the first load and reads Turbo Drive’s
+visit direction on subsequent pages.
+
+```twig
+{% block body_class %}{{ parent() }} uxor-page-transition{% endblock %}
+```
+
+Main content starts at 90% opacity and moves up 3px over 150ms on first load and
+forward visits. On Back, it fades in at the restored scroll position. It accepts input
+throughout. The sidebar and navbar stay in place. Reduced motion, Turbo’s temporary previews and replace visits display the content
+immediately. Set `--uxor-motion-duration-normal` and `--uxor-motion-ease-out` to
+customize the entrance.
 
 ## Back and forms
 

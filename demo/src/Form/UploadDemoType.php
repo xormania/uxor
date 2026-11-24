@@ -29,7 +29,7 @@ final class UploadDemoType extends AbstractType
             ->add('attachments', DropzoneType::class, [
                 'required' => false,
                 'multiple' => true,
-                // UX Dropzone 3.7 adds Count(max: 3) for it, and the zone takes no more than 3 files in the browser
+                // UX Dropzone adds Count(max: 3) for it, and the zone takes no more than 3 files in the browser
                 'max_files' => 3,
                 'help' => 'Up to 3 files: PDF, TXT or PNG, 1 MB each.',
                 'constraints' => [

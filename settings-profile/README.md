@@ -12,6 +12,8 @@ A profile settings card: avatar, name and a Symfony form rendered through the fo
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=settings-profile#recipes). To install `settings-profile` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component settings-profile --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `SettingsProfile` applies the form theme (`form/flowbite_layout.html.twig`, from the `form-theme` recipe) to its own form, so you do not need a `twig.form_themes` setting. It renders every field of the form, so `ProfileType`, your own form type, decides the fields (for example `name` and `email`).

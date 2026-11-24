@@ -2,6 +2,8 @@
 
 The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens.
 
+For this example, install the [button](../button/README.md) and [input](../input/README.md) recipes.
+
 ```twig {"preview":true}
 <twig:Navbar sidebarId="sidebar-preview" class="w-full rounded-base border">
     <twig:block name="brand"><a href="#" class="text-lg font-semibold text-heading">[Product name]</a></twig:block>
@@ -18,7 +20,11 @@ The bar on top of the app: brand, navigation menu, search, actions, and the menu
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=navbar#recipes). To install `navbar` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component navbar --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [nav-menu](../nav-menu/README.md) and [theme-toggle](../theme-toggle/README.md) recipes.
 
 ```twig
 <twig:Navbar sidebarId="sidebar">
@@ -40,6 +46,8 @@ always stay inside the bar, on its right.
 With `sidebarId`, a menu button (small screens only) opens that `Sidebar` over the page. For a modal drawer holding the
 navigation instead, put a [`MobileNav`](../mobile-nav/README.md) in the `menu` block, at the start of the bar, and
 leave `sidebarId` out:
+
+For this example, install the [mobile-nav](../mobile-nav/README.md) recipe.
 
 ```twig
 <twig:Navbar>

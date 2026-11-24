@@ -1,22 +1,23 @@
 /*
- * Every committed screenshot belongs to a test. A README example that the demo stops finding takes its screenshot
- * and accessibility tests with it, without a failure; its screenshots stay behind and fail this test.
+ * Every committed screenshot belongs to a test. When a README example or app page leaves the inventory, its
+ * screenshots stay behind and fail the check for that browser project.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { demoPages, examples, recipes, root, viewports } from '../inventory';
+import { demoAppScreenshots, demoPages, examples, recipes, root, viewports } from '../inventory';
 import { expect, test, themes } from './fixtures';
 
-/** The files of `<top>/<dir>` (e.g. 'alert/tests'), none when it does not exist. */
-const files = (top: string, dir: string): string[] => (existsSync(join(root, top, dir)) ? readdirSync(join(root, top, dir)) : []);
+/** The files of a directory relative to the repository root. */
+const files = (...path: string[]): string[] => {
+    const dir = join(root, ...path);
+    return existsSync(dir) ? readdirSync(dir) : [];
+};
 
 // about the Chromium baselines, so with the screenshot tests: tagged like them, it runs in Chromium only
 test('every screenshot in <recipe>/tests/screenshots has a test', { tag: '@screenshot' }, () => {
     const expected = new Set([
         // examples.spec.ts
         ...examples.flatMap(({ recipe, id }) => themes.map((theme) => `${recipe}/${id}-${theme}.png`)),
-        // pages.spec.ts
-        ...Object.keys(demoPages).flatMap((name) => Object.keys(viewports).map((viewport) => `layouts/${name}-${viewport}.png`)),
     ]);
     // testState() in the recipe specs: <example>-<state>-<theme>.png
     for (const recipe of recipes) {
@@ -36,6 +37,13 @@ test('every screenshot in <recipe>/tests/screenshots has a test', { tag: '@scree
                 .filter((file) => file.endsWith('.png'))
                 .map((file) => `${entry.name}/${file}`),
         );
+
+    expect(committed.filter((name) => !expected.has(name)), 'screenshots no test compares').toEqual([]);
+});
+
+test('every example app screenshot has a page test', { tag: ['@screenshot', '@demo-app'] }, () => {
+    const expected = new Set(Object.keys(demoPages).flatMap((name) => Object.keys(viewports).map((viewport) => `${name}-${viewport}.png`)));
+    const committed = files(...demoAppScreenshots).filter((file) => file.endsWith('.png'));
 
     expect(committed.filter((name) => !expected.has(name)), 'screenshots no test compares').toEqual([]);
 });

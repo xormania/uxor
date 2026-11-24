@@ -18,6 +18,8 @@ Charts drawn with Symfony UX Chart.js in the theme's colors, light and dark, eac
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=chart#recipes). To install `chart` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component chart --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Run the `composer require` command `ux:install` prints: Symfony Flex registers UX Chart.js and its Stimulus controller,
 and adds `chart.js` to the import map. If `importmap.php` has no `chart.js` entry afterwards, run
 `php bin/console importmap:require chart.js`. There is no stylesheet: the colors are the theme's `chart-1` to
@@ -26,7 +28,8 @@ and adds `chart.js` to the import map. If `importmap.php` has no `chart.js` entr
 ## Usage
 
 Give the data, never colors: the series take the theme's chart roles in order, and the axes, legend and tooltip its
-text and border roles. They follow light and dark as the theme switches.
+text and border roles. They follow light and dark as the theme switches. Charts on the same page share one pixel
+to convert CSS colors for Chart.js, and each chart caches the colors resolved from its own theme.
 
 ```twig
 <twig:Chart
@@ -141,6 +144,8 @@ Register Chart.js plugins as UX Chart.js documents, on its `chartjs:init` event,
 
 ### In a card, with its table shown
 
+For this example, install the [card](../card/README.md) recipe.
+
 ```twig {"preview":true}
 <div class="w-full max-w-xl p-4">
     <twig:Card class="max-w-none">
@@ -172,7 +177,9 @@ Register Chart.js plugins as UX Chart.js documents, on its `chartjs:init` event,
 - The data table gives every value in text, for keyboard and screen reader users who cannot read the canvas; the
   legend and the table name each series, so no information depends on color alone.
 - Every series color reaches 3:1 against the page and cards in both themes.
-- Under `prefers-reduced-motion`, the chart does not animate.
+- Chart animations use the theme’s `--uxor-motion-duration-normal` (150ms by default). Override it on the chart or
+  an ancestor in milliseconds or seconds. Chart.js keeps an explicit `options.animation.duration` or `animation: false`.
+- Under `prefers-reduced-motion`, the chart disables animation by default. An explicit `options.animation` takes precedence.
 
 ## Security
 

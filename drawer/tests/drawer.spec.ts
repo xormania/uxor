@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { describeRecipe, expect, test } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test } from '../../tests/e2e/examples/fixtures';
 
 /*
  * The drawer's own interactions, as modal's spec has them: open on load, the backdrop and its content, the close

@@ -48,6 +48,49 @@ final class Capabilities
     }
 
     /**
+     * @param bool $apply Apply the proposed configuration, preserving application-owned files.
+     * @param string $client none, claude, or codex; only Serena uses MCP, Mate uses the application CLI.
+     * @param string $hostProjectRoot Optional absolute checkout path on the MCP host when PHP uses a different path.
+     * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry.
+     */
+    #[MateTool('uxor_setup', description: 'Preview application and client configuration or apply it with apply=true. Composer installs the development tools. saveProjectTrust adds permission for future Serena connections, including later checkouts, to new bindings.')]
+    public function setup(bool $apply = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('setup',
+            ['project_root' => $this->projectRoot, 'apply' => $apply, 'client' => $client, 'host_project_root' => $hostProjectRoot, 'save_project_trust' => $saveProjectTrust]));
+    }
+
+    /** @param bool $apply Apply the reviewed changes to the bound application. */
+    #[MateTool('uxor_detach', description: 'Plan or detach UXor development integrations before removing its Composer package. Defaults to a read-only plan.')]
+    public function detach(bool $apply = false): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('detach', ['project_root' => $this->projectRoot, 'apply' => $apply]));
+    }
+
+    /** @param bool $trustProjectCode Acknowledge application PHP execution before enabling native probes. */
+    #[MateTool('uxor_environment', description: 'Inspect development capabilities and preparation state. Authorized probes run native entry points and can prepare Docker provider images on first use.')]
+    public function environment(bool $probe = false, bool $trustProjectCode = false): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('environment',
+            ['project_root' => $this->projectRoot, 'probe' => $probe, 'trust_project_code' => $trustProjectCode]));
+    }
+
+    /** @param bool $trustProjectCode Acknowledge authorized application execution for compiled Symfony facts. */
+    #[MateTool('uxor_prepare', description: 'Refresh sanitized Symfony dev-container wiring for Mago/Serena without clearing existing request profiles or logs. Requires trustProjectCode=true.')]
+    public function prepare(bool $trustProjectCode = false): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('prepare',
+            ['project_root' => $this->projectRoot, 'trust_project_code' => $trustProjectCode]));
+    }
+
+    /** @param string $path Path to browser-diagnostics.json relative to the bound project. */
+    #[MateTool('uxor_browser_diagnostics', description: 'Read a local Playwright capture with browser errors, failed requests, and exact Symfony profile URIs.')]
+    public function browserDiagnostics(string $path): string
+    {
+        return ResponseEncoder::encodeUntrusted($this->operations->run('browser-diagnostics', ['project_root' => $this->projectRoot, 'path' => $path]));
+    }
+
+    /**
      * @param string $kind maker or mate
      * @param string $name Empty lists capabilities; an exact name returns native parameter definitions.
      * @param bool $trustProjectCode Explicitly acknowledge execution of PHP/autoload code from the already trusted, authorized project.

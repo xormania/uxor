@@ -1,14 +1,17 @@
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { test as base, expect, type Frame, type Locator, type Page, type Request } from '@playwright/test';
+import { recordBrowserDiagnostics } from '../../packages/uxor/resources/browser/diagnostics.mjs';
 import { startJsCoverage } from './coverage';
 
 const PLACEHOLDER_IMAGE = fileURLToPath(new URL('./examples/placeholder.png', import.meta.url));
 
 type CollectedError = { message: string; httpStatus?: number; url?: string };
 
-/** A request a test cancels on purpose: its exact URL, method, `Turbo-Frame` header, and how many times at most. */
-export type CancelledRequest = { url: string; method: 'GET' | 'POST'; frame: string; count: number };
+/** A known frame visit or event stream that the app closes during the test. */
+export type CancelledRequest = { url: string; method: 'GET' | 'POST'; count: number } & (
+    { frame: string } | { accept: 'text/event-stream' }
+);
 
 type Guard = Awaited<ReturnType<typeof guardPage>>;
 
@@ -79,16 +82,29 @@ export async function recordCspViolations(page: Page): Promise<string[]> {
     return violations;
 }
 
+/** Records preloads and runtime imports of the lazy autocomplete packages. */
+export function collectAutocompleteAssetRequests(page: Page): string[] {
+    const paths: string[] = [];
+    page.on('request', (request) => {
+        const path = new URL(request.url()).pathname;
+        if (/^\/assets\/(?:@symfony\/ux-autocomplete|vendor\/(?:tom-select|@orchidjs))\//.test(path)) {
+            paths.push(path);
+        }
+    });
+    return paths;
+}
+
 /**
- * The URLs the guard's route takes: every one that is not the demo's (`isLocal` in guardPage). A RegExp, not a
- * function: Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only
+ * The guard's route leaves the demo's own URLs and in-browser blob: and data: URLs to the browser. WebKit can send
+ * object URLs through Playwright's route interception, where the placeholder would replace the actual preview.
+ * Playwright's server, beside the browser, matches a RegExp or a glob itself and hands the test's process only
  * the requests that match, while a function makes it hand over every request of the page and wait for the answer, the
  * demo's own scripts, styles and fonts included (in CI, a round trip from the browser's container to the runner and
  * back). The guard sees the demo's requests through the page's events, never through this route.
  */
 export function leavingTheDemo(baseURL: string | undefined): RegExp {
     const local = `${baseURL}/`.replace(/[\\^$.*+?()[\]{}|/]/g, (character) => `\\${character}`);
-    return new RegExp(`^(?!${local})`);
+    return new RegExp(`^(?!${local}|blob:|data:)`);
 }
 
 /**
@@ -102,8 +118,8 @@ export function leavingTheDemo(baseURL: string | undefined): RegExp {
  *
  * `allowCancelledRequest({ url, method, frame, count })` accepts at most `count` requests that fail as cancelled
  * (CANCELLED: each engine's text) and match all of: this exact URL (same origin), this method, and the `Turbo-Frame`
- * header naming `frame`. Only for a test that interrupts that request on purpose (Back while a frame visit runs: Turbo cancels its
- * fetch); any other failed request, or one more than `count`, still fails the test.
+ * header naming `frame`. For a closed EventSource, `accept: 'text/event-stream'` matches the stream's Accept header.
+ * Any other failed request, or one more than `count`, still fails the test.
  */
 export async function guardPage(page: Page, baseURL: string | undefined) {
     const errors: CollectedError[] = [];
@@ -230,7 +246,7 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
                     allowance.count > 0 &&
                     allowance.url === request.url() &&
                     allowance.method === request.method() &&
-                    allowance.frame === request.headers()['turbo-frame'],
+                    ('frame' in allowance ? allowance.frame === request.headers()['turbo-frame'] : allowance.accept === request.headers().accept),
             );
         if (expected) {
             expected.count--;
@@ -278,10 +294,32 @@ export async function guardPage(page: Page, baseURL: string | undefined) {
  * The checks of guardPage() on every test; a test expecting an HTTP error allows it with `allowHttpError`, a test
  * interrupting a frame visit on purpose allows its cancelled request with `allowCancelledRequest`.
  */
-export const test = base.extend<{
+export const guardedTest = base.extend<{
     pageGuard: Guard;
     allowHttpError: (url: RegExp, status: number) => void;
     allowCancelledRequest: (allowance: CancelledRequest) => void;
+    /** Status expected specifically from a main-frame document, such as the rendered 404 page. */
+    documentStatus: number | undefined;
+    browserDiagnostics: void;
+}>({
+    documentStatus: [undefined, { option: true }],
+    browserDiagnostics: [recordBrowserDiagnostics, { auto: true }],
+    pageGuard: [
+        async ({ page, baseURL, documentStatus }, use, testInfo) => {
+            const guard = await guardPage(page, baseURL);
+            if (documentStatus !== undefined) guard.allowHttpError('document', documentStatus);
+            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
+            await use(guard);
+            await stopCoverage();
+            guard.check();
+        },
+        { auto: true },
+    ],
+    allowHttpError: async ({ pageGuard }, use) => use(pageGuard.allowHttpError),
+    allowCancelledRequest: async ({ pageGuard }, use) => use(pageGuard.allowCancelledRequest),
+});
+
+export const test = guardedTest.extend<{
     harshConditions: boolean;
     harsh: void;
     fileChoosers: void;
@@ -319,21 +357,25 @@ export const test = base.extend<{
         },
         { auto: true },
     ],
-    pageGuard: [
-        async ({ page, baseURL }, use, testInfo) => {
-            const guard = await guardPage(page, baseURL);
-            const stopCoverage = await startJsCoverage(page, testInfo); // JS_COVERAGE only (monthly job)
-            await use(guard);
-            await stopCoverage();
-            guard.check();
-        },
-        { auto: true },
-    ],
-    allowHttpError: async ({ pageGuard }, use) => use(pageGuard.allowHttpError),
-    allowCancelledRequest: async ({ pageGuard }, use) => use(pageGuard.allowCancelledRequest),
 });
 
 export { expect };
+
+/** Reads a preview's decoded CSS background, independent of the URL scheme the controller uses. */
+export function decodedBackgroundImage(image: Locator): Promise<{ url: string; width: number } | null> {
+    return image.evaluate(async (element) => {
+        const match = /^url\("(.*)"\)$/.exec(getComputedStyle(element).backgroundImage);
+        if (!match) {
+            return null;
+        }
+
+        const [, url] = match;
+        const probe = new Image();
+        probe.src = url;
+
+        return probe.decode().then(() => ({ url, width: probe.naturalWidth }), () => null);
+    });
+}
 
 /**
  * Pauses Playwright's clock, installed before the page loaded (`page.clock.install()`): from then on only `runFor()`
@@ -343,25 +385,6 @@ export { expect };
  */
 export async function pauseClock(page: Page): Promise<void> {
     await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
-}
-
-/**
- * Answers the gallery's preview frames (`/preview/…`: the README examples a recipe page embeds, each in both themes)
- * with an empty page, for a test of the recipe page that excludes them (a11y.spec.ts scans without `iframe`) or cannot
- * see them (a frame's content never widens the page: its width is the page's, its height the preview-frame
- * controller's). The previews themselves are each loaded on their own under the guard, in both themes, by a11y.spec.ts
- * in Chromium, so only a Chromium test may stub them: in Firefox and WebKit no other test loads the dark ones. The
- * page's own document is never stubbed. A glob, so Playwright hands the test's process only these requests.
- */
-export async function stubPreviewFrames(page: Page): Promise<void> {
-    if ('chromium' !== page.context().browser()?.browserType().name()) {
-        throw new Error('stubPreviewFrames: Chromium only, where a11y.spec.ts loads every preview on its own');
-    }
-    await page.route('**/preview/**', (route) =>
-        route.request().frame() === page.mainFrame()
-            ? route.fallback()
-            : route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Preview</title>' }),
-    );
 }
 
 /**
@@ -456,6 +479,54 @@ export async function countEvents(page: Page, types: readonly string[], target?:
 
     return () => page.evaluate((id) => ({ ...(window as any).__eventCounts[id] }) as Record<string, number>, id);
 }
+
+/**
+ * Records, from now on, each UX Dropzone event of `types` reaching `document`, in order, with the file names it carries
+ * (`change`: the input's files; `remove`: the removed file; `pre-add`: the files offered to its listeners; `reject`: its
+ * reason, then its files); the reader returns them, as `change a.txt,b.txt` or `reject max_files c.txt`.
+ */
+export async function recordDropzoneEvents(
+    page: Page,
+    types: readonly string[] = ['dropzone:change', 'dropzone:remove', 'dropzone:clear'],
+): Promise<() => Promise<string[]>> {
+    const id = await page.evaluate((types) => {
+        const log: string[] = [];
+        const names = (files: unknown): string =>
+            files instanceof File ? files.name : files instanceof FileList || Array.isArray(files) ? [...files].map((file: File) => file.name).join(',') : '';
+        for (const type of types) {
+            document.addEventListener(type, (event) => {
+                const detail = (event as CustomEvent).detail;
+                const carried = 'dropzone:reject' === type ? `${detail.reason} ${names(detail.files)}` : 'dropzone:pre-add' === type ? names(detail.files) : names(detail);
+                log.push(`${type.slice('dropzone:'.length)} ${carried}`.trim());
+            });
+        }
+
+        return ((window as any).__dropzoneEvents ??= [] as string[][]).push(log) - 1;
+    }, types);
+
+    return () => page.evaluate((id) => [...(window as any).__dropzoneEvents[id]] as string[], id);
+}
+
+/** The UX Dropzone events of an add, in the order 3.8 dispatches them: files left out, the files offered, the change. */
+export const dropzoneAddEvents = ['dropzone:reject', 'dropzone:pre-add', 'dropzone:change'] as const;
+
+/** The Dropzone (its `dropzone-assist` wrapper) around the file input `#id`. */
+export const zoneOf = (page: Page, id: string) => page.locator(`[data-controller~="dropzone-assist"]:has(#${id})`);
+
+/** The names of the files the input holds. */
+export const fileNames = (target: Locator) => target.evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name));
+
+/** Drops files on the input as the browser does: the drop event, then the files set on the input and its change event. */
+export const dropFiles = (target: Locator, files: { name: string; type: string }[]) =>
+    target.evaluate((element: HTMLInputElement, files) => {
+        const dataTransfer = new DataTransfer();
+        for (const { name, type } of files) {
+            dataTransfer.items.add(new File([name], name, { type }));
+        }
+        element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+        element.files = dataTransfer.files;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+    }, files);
 
 /** Whether the `<dialog>` is open, and shown modal (`:modal`: the page behind it inert, the dialog in the top layer). */
 export function dialogState(dialog: Locator): Promise<{ open: boolean; modal: boolean }> {

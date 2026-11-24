@@ -1,0 +1,44 @@
+{
+    "composer": {
+        "section": "Composer Dev Package",
+        "file": "packages/uxor/README.md",
+        "title": "Get started with Composer",
+        "description": "Install UXor in a Symfony application and render your first recipe."
+    },
+    "agent-onboarding": {
+        "section": "Composer Dev Package",
+        "file": "docs/AGENT-ONBOARDING.md",
+        "title": "Connect your coding agent",
+        "description": "Select an application, discover the installed tools and verify the result of a first task."
+    },
+    "configuration": {
+        "section": "Composer Dev Package",
+        "file": "docs/COMPOSER-CONFIGURATION.md",
+        "title": "Composer configuration reference",
+        "description": "Look up setup defaults, application files and provider images for this release."
+    },
+    "advanced": {
+        "section": "Composer Dev Package",
+        "file": "packages/uxor/OPERATIONS.md",
+        "title": "Advanced setup and operations",
+        "description": "Configure providers, inspect Symfony wiring, diagnose requests and look up CLI commands."
+    },
+    "install": {
+        "section": "UXor Symfony UX Toolkit",
+        "file": "INSTALL.md",
+        "title": "Set up the toolkit directly",
+        "description": "Prepare Twig, Stimulus, AssetMapper and Tailwind for a direct Symfony UX Toolkit installation."
+    },
+    "guide": {
+        "section": "UXor Symfony UX Toolkit",
+        "file": "docs/GUIDE.md",
+        "title": "Use and update recipes",
+        "description": "Install recipes, adapt the files in your application, and use them with Turbo and Live Components."
+    },
+    "application-testing": {
+        "section": "UXor Symfony UX Toolkit",
+        "file": "docs/APPLICATION-TESTING.md",
+        "title": "Test a recipe in your application",
+        "description": "Verify installation, exercise a user journey and record what passed in your Symfony application."
+    }
+}

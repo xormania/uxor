@@ -6,6 +6,14 @@ detailed plan before it is built._
 Each package's status is in the *Sequence* table: `shipped` means its recipes are in `docs/RECIPES.md`, and their
 READMEs describe how they behave now. This page and the `shipped` plans are records of the decisions, not instructions.
 
+## Current release direction
+
+_2026-11-21._ Publish the current development work as **0.3.5**, exercise the Symfony UX Toolkit kit and the
+Composer development package in local test projects, and stabilize the `0.3.x` work before starting `0.4.0` work.
+The maintainer chooses any further release numbers. The kit and the development package continue to share one
+version sequence; [CONTRIBUTING.md](../CONTRIBUTING.md#releases) describes release preparation and publication.
+This direction updates the immediate sequence; the completed recipe plans below remain historical records.
+
 ## Context
 
 Two research docs (`…-integration-report.md` and `…-proposals.md`, which are not authoritative) and a third report
@@ -46,8 +54,8 @@ building **Turbo-driven apps** get rich UX from installed recipes with as little
 | — | A. Conventions | Grows inside D and B. One CONTRIBUTING section after the second package | — | shipped |
 | — | Deferred | Cropper, Map, sortable lists, virtual grid, Uppy, FullCalendar, "select all matching" | — | open |
 | — | Docs pairing | A deterministic script replaces the `Docs-waiver:` trailers of `tools/readme-pairing.mjs`: it decides from the change itself whether a recipe's README must change. Not started | — | open |
-| — | Composer package | Decided 2026-10-16, outside the roadmap's packages: the agent guidance and development tools ship from this repository as the root Composer package `xormania/uxor`, its code in `packages/uxor/`, on the kit's version sequence; recipes still install with `ux:install`. Work order `claude/wo-composer-package`, details in [`PLAN-composer-package.md`](PLAN-composer-package.md) | — | open |
-| — | Docs automation | Adopted 2026-11-04, outside the roadmap's packages: the public site and the consumer documentation describe the selected published release, recipe pages render their whole README with a generated API, and the site gets canonical URLs, a sitemap and a published `llms.txt`. Three stages, one pull request each into `dev`; details in [`PLAN-docs-automation.md`](PLAN-docs-automation.md) | — | open |
+| — | Composer package | Decided 2026-10-16, outside the roadmap's packages: the agent guidance and development tools ship from this repository as the root Composer package `xormania/uxor`, its code in `packages/uxor/`, on the kit's version sequence; recipes still install with `ux:install`. Details in [`PLAN-composer-package.md`](PLAN-composer-package.md) | — | shipped |
+| — | Docs automation | Adopted 2026-11-04, outside the roadmap's packages: the public site and the consumer documentation describe the selected published release, recipe pages render their whole README with a generated API, and the site gets canonical URLs, a sitemap and a published `llms.txt`. Implementation is in the gallery and Pages workflow. The dated design is in [`PLAN-docs-automation.md`](PLAN-docs-automation.md) | — | shipped |
 
 D and C can run in parallel because they touch different recipes.
 

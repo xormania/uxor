@@ -1,40 +1,47 @@
-# Getting started
+# Set up the toolkit directly
 
-UXor is an independently maintained Symfony UI library, currently distributed as a Symfony UX Toolkit kit: Twig
-components, Stimulus controllers, a form theme, layouts and blocks (ready-made parts of a page), styled with
-[Flowbite](https://flowbite.com/) v4 and Tailwind CSS v4. Each one is a recipe you install with
-`php bin/console ux:install`, once the project is set up as below.
-
-The official Symfony UX `flowbite-4` kit was an initial reference only. The Toolkit installer, Flowbite stylesheet
-and icon set are current integrations, not a requirement to track that kit. These setup instructions describe the
-current release; UXor's requirements and compatibility commitments govern how its integrations evolve.
+Use this guide to set up Symfony UX Toolkit, assets and the theme in your application. If you're getting
+started with UXor, follow the recommended [Composer package guide](packages/uxor/README.md). It includes
+this kit setup and takes you through rendering your first component. Experienced teams can also use
+these steps directly for a kit-only installation.
 
 ## Requirements
 
-The kit needs PHP 8.4 or later with the `zip` extension, Tailwind CSS v4 and Flowbite v4's stylesheet. On a new Symfony project (`composer create-project symfony/skeleton`), do the *Symfony* steps first, in this order:
+The kit needs PHP 8.4 or later with the `zip` extension, Tailwind CSS v4 and Flowbite v4's stylesheet.
+The standard setup uses AssetMapper and TailwindBundle's standalone binary. UXor tests the kit on Symfony 7.4
+LTS and 8.1. For `calendar` and `date-picker` in locales other than `en`, enable PHP's `intl` extension.
+
+For a new Symfony application, create a project (for example `composer create-project symfony/skeleton`),
+then run the *Symfony* steps below from its root. With Symfony Docker, run Composer and Symfony commands in
+the PHP container, for example `docker compose exec php composer …` and `docker compose exec php bin/console …`.
+For an existing application, check which dependencies, asset configuration and components are already in place.
 
 ### Symfony
 
 - Allow Symfony Flex contrib recipes: `composer config extra.symfony.allow-contrib true`. Every component uses the `tailwind_classes` Twig filter of `tales-from-a-dev/twig-tailwind-extra`, and a contrib recipe enables its bundle. Do it before running the `composer require` command that `ux:install` prints, or components fail with `Unknown "tailwind_classes" filter`.
 - Require Twig and Twig components as regular dependencies, before the toolkit: `composer require symfony/twig-bundle symfony/ux-twig-component`. TwigComponentBundle needs TwigBundle, but does not require it. And if Twig components only come in with the toolkit, a dev dependency, `symfony/property-access` is dev-only too, and `cache:clear` fails with "non-existent service property_accessor".
-- Require the toolkit with `symfony/http-client`: `composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client`. The toolkit downloads kits from GitHub with the HTTP client, but does not require it.
+- UXor's Composer development package includes Symfony UX Toolkit and the HTTP client it uses to fetch kits from GitHub. For a kit-only installation, run `composer require --dev symfony/ux-toolkit:^3.8 symfony/http-client`.
 - Require AssetMapper and StimulusBundle: `composer require symfony/asset-mapper symfony/stimulus-bundle`. The layouts load the `app` importmap entrypoint, and StimulusBundle loads the recipes' Stimulus controllers from `assets/controllers/`.
 
 ### Tailwind CSS
 
-- With AssetMapper, install Tailwind CSS with the [TailwindBundle](https://symfony.com/bundles/TailwindBundle/current/index.html). Keep the default major version, `4`, when `php bin/console tailwind:init` asks for it, and keep `php bin/console tailwind:build --watch` running while you work.
-- With Webpack Encore, follow the [Tailwind CSS installation guide for Symfony](https://tailwindcss.com/docs/installation/framework-guides/symfony).
+Install [TailwindBundle](https://symfony.com/bundles/TailwindBundle/current/index.html), which downloads the
+standalone Tailwind CSS binary. Keep major version `4` when `tailwind:init` prompts you.
+
+```bash
+composer require symfonycasts/tailwind-bundle
+php bin/console tailwind:init
+```
+
+Keep `php bin/console tailwind:build --watch` running while you work.
 
 ## Installation
 
-1. Install Flowbite's stylesheet (base styles of the form controls), either with `importmap:require` for AssetMapper, or `npm` for Webpack Encore. The kit uses no Flowbite JavaScript: every behavior lives in the recipes' Stimulus controllers.
+1. Install Flowbite's stylesheet (base styles of the form controls) with AssetMapper. The recipes' Stimulus
+   controllers provide the browser behavior.
 
-```
-# With AssetMapper
+```bash
 php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
-
-# With npm
-npm install "flowbite@^4.0.2"
 ```
 
 The kit is tested with Flowbite 4. `importmap:update` ignores the version constraint and would install Flowbite's latest version, even a new major: to update the stylesheet, run the `importmap:require` command above again.
@@ -45,22 +52,53 @@ The kit is tested with Flowbite 4. `importmap:update` ignores the version constr
 php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
 ```
 
-`<version>` is a release (`X.Y.Z`): the latest one on the [Releases](https://github.com/xormania/uxor/releases) page, the same for every recipe of a project.
+`<version>` is the application's chosen tagged release (`X.Y.Z`) by default, the same for its recipes.
+See [Choosing a revision](#choosing-a-revision) for a new installation, an update or an explicitly requested unreleased test.
 
 ```css
 @import 'tailwindcss';
 
-/* With AssetMapper (downloaded by importmap:require)... */
+/* Downloaded by importmap:require */
 @import '../vendor/flowbite/dist/flowbite.min.css';
-/* ... or with Webpack Encore */
-/* @import 'flowbite/dist/flowbite.min.css'; */
 
 /* UXor's color roles, light and dark, from the `theme` recipe */
 @import './uxor.css';
 ```
 
-3. Install the recipes you need; [`docs/RECIPES.md`](docs/RECIPES.md) lists them. Each `ux:install` prints a `composer require` command for the packages the recipe needs: run it.
+3. Choose a recipe from [the toolkit catalog](packages/uxor/resources/uxor/docs/docs/RECIPES.md). After installing it, run
+   the `composer require` and `importmap:require` commands that Toolkit prints for its dependencies.
 
 ```
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
 ```
+
+Before deploying a page that uses UX Icons, run `php bin/console ux:icons:lock` and commit the icons it saves.
+Repeat this when your templates use new icons. That lets the application serve the selected icons locally.
+
+## Choosing a revision
+
+For a new installation, choose a tagged release from [Releases](https://github.com/xormania/uxor/releases).
+For an existing application, keep its chosen release unless the task includes an update. Use the explicit revision
+in every `--kit` argument; omitting it selects the repository's moving default branch.
+
+Establish an existing recipe's origin from the application's installation or update records. Copied files may
+have been customized, and the optional helper package's version does not prove their origin. If the revision is
+unknown, report it as unknown; choosing a revision for new work does not establish the history of existing files.
+
+For explicitly authorized testing of unreleased UXor work, replace `<version>` with the full 40-character commit
+SHA and record that revision with the test results and relevant local adaptations. Use the same pinned revision
+throughout that test so another person can reproduce it.
+
+## Application-owned files and guidance
+
+The application owns and may customize installed recipe files. Read the recipe's README for its props, extension
+points and security contracts. Before reinstalling with `--force`, preserve local changes using the application's
+normal workflow; review the resulting diff and reconcile customizations.
+
+The optional [Composer development package](packages/uxor/README.md) supplies tools, documentation and
+package-managed consumer guidance. Integrate it while preserving the application's own instructions. For kit-only use,
+adapt the [optional project snippet](packages/uxor/resources/uxor/docs/docs/PROJECT-AGENTS-SNIPPET.md)
+if you want to keep UXor guidance alongside your application's existing instructions.
+
+Verify the installed components in their application context using
+[application testing](packages/uxor/resources/uxor/docs/docs/APPLICATION-TESTING.md).

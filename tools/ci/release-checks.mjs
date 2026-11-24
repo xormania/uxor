@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /*
  * The release scheduler may check out a different revision from its own workflow. Discover that prepared checkout's
- * Playwright projects before launching the release suite: only the two known contracts below are supported. A failed
- * discovery or test run never retries another family. Remove the legacy bridge when main no longer needs it.
+ * Playwright projects before launching the release suite: only the exact project set below is supported, and a failed
+ * discovery or test run never retries a smaller suite.
  *
  * Run from the target checkout, even when this script comes from a separate immutable control checkout:
  *   node tools/ci/release-checks.mjs run
@@ -15,20 +15,29 @@
  * an invalid contract exits 1, bad usage 64. Tests: node --test tools/tests/release-checks.test.mjs
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evidence as reportGaps, testsOf } from './release-evidence.mjs';
 
-const families = {
-    current: ['release', 'release-dark', 'release-harsh'],
-    legacy: ['smoke', 'smoke-dark@release', 'harsh@release'],
-};
+const projects = ['release', 'release-dark', 'release-harsh'];
 const specs = ['release.timings.spec.ts', 'release.long-session.spec.ts', 'release.fuzz.spec.ts'];
+// Required change-sensitive files per project, independent of the target checkout's Playwright config.
+const roster = {
+    release: specs,
+    'release-dark': [
+        'lab.overlays', 'dropdown', 'lab.popover', 'popover', 'lab.tooltip', 'lab.live-modal', 'lab.live-drawer',
+        'lab.editor', 'editor', 'lab.markdown-editor', 'markdown-editor',
+    ].map((name) => `${name}.spec.ts`),
+    'release-harsh': [
+        'lab.data-table-frame', 'lab.data-table-live', 'lab.editor', 'lab.date-picker', 'date-picker', 'lab.autocomplete', 'chart', 'lab.chart',
+    ].map((name) => `${name}.spec.ts`),
+};
 const directory = resolve('playwright-results');
 const selectionFile = resolve(directory, 'release-selection.json');
 const resultsFile = resolve(directory, 'results.json');
 const playwright = resolve('node_modules/@playwright/test/cli.js');
-const evidenceChecker = fileURLToPath(new URL('./release-evidence.mjs', import.meta.url));
 
 function lane() {
     const value = process.env.RELEASE_LANE ?? 'all';
@@ -36,10 +45,9 @@ function lane() {
     return value;
 }
 
-function selection(family, part = 'all') {
-    const grep = family === 'legacy' ? '@release' : null;
-    if (part === 'all') return { schema: 1, family, projects: families[family], specs, grep };
-    return { schema: 2, family, lane: part, projects: [families[family][['release', 'dark', 'harsh'].indexOf(part)]], specs: part === 'release' ? specs : [], grep };
+function selection(part = 'all') {
+    if (part === 'all') return { schema: 4, lane: part, projects, specs };
+    return { schema: 4, lane: part, projects: [projects[['release', 'dark', 'harsh'].indexOf(part)]], specs: part === 'release' ? specs : [] };
 }
 
 function discover(report) {
@@ -51,27 +59,50 @@ function discover(report) {
         throw new Error('discovery returned invalid or duplicate project names');
     }
     const releaseNames = names.filter((name) => name.includes('release'));
-    for (const [family, projects] of Object.entries(families)) {
-        const expected = projects.filter((name) => name !== 'smoke');
-        if (projects.every((name) => names.includes(name)) && releaseNames.length === expected.length && releaseNames.every((name) => expected.includes(name))) {
-            return selection(family, lane());
-        }
+    if (releaseNames.length === projects.length && projects.every((name) => releaseNames.includes(name))) {
+        return selection(lane());
     }
-    throw new Error(`unknown, partial or mixed release project family: ${names.join(', ') || '(none)'}`);
+    throw new Error(`unknown, partial or mixed release projects: ${names.join(', ') || '(none)'}`);
 }
 
 function readSelection() {
-    const saved = JSON.parse(readFileSync(selectionFile, 'utf8'));
-    if (!saved || !Object.hasOwn(families, saved.family)) {
-        throw new Error('release selection has no supported family');
+    const content = readFileSync(selectionFile, 'utf8');
+    const digest = process.env.RELEASE_SELECTION_SHA256;
+    if ((digest !== undefined || process.env.GITHUB_ACTIONS === 'true') && sha256(content) !== digest) {
+        throw new Error('saved release selection differs from the case list recorded before the run');
     }
+    const { tests, ...saved } = JSON.parse(content);
     // The caller's lane is authority: a saved selection cannot narrow the evidence this job must provide.
-    const expected = selection(saved.family, lane());
+    const expected = selection(lane());
     if (Object.keys(saved).sort().join(',') !== Object.keys(expected).sort().join(',') ||
         Object.keys(expected).some((key) => JSON.stringify(saved[key]) !== JSON.stringify(expected[key]))) {
         throw new Error('release selection does not match the complete supported contract');
     }
-    return saved;
+    const cases = Array.isArray(tests) && tests.map((key) => {
+        const parts = typeof key === 'string' && JSON.parse(key);
+        if (!Array.isArray(parts) || parts.length < 3 || parts.some((part) => typeof part !== 'string' || !part)) {
+            throw new Error('release selection has an invalid case identity');
+        }
+        return { key, project: parts[0], path: parts[1] };
+    });
+    verifyRoster(saved, cases);
+    return { ...saved, tests };
+}
+
+const sha256 = (content) => createHash('sha256').update(content).digest('hex');
+
+function verifyRoster(chosen, cases) {
+    if (!Array.isArray(cases) || cases.some((test) => !test.key || !chosen.projects.includes(test.project))
+        || new Set(cases.map((test) => test.key)).size !== cases.length) {
+        throw new Error('release selection has missing, malformed, duplicate or unexpected case identities');
+    }
+    for (const project of chosen.projects) {
+        const files = new Set(cases.filter((test) => test.project === project).map((test) => test.path));
+        if (!files.size) throw new Error(`project ${project} selected no tests`);
+        for (const name of roster[project]) {
+            if (!files.has(`tests/e2e/${name}`)) throw new Error(`project ${project} did not select tests/e2e/${name}`);
+        }
+    }
 }
 
 function status(child) {
@@ -86,6 +117,8 @@ function run() {
     rmSync(selectionFile, { force: true });
     rmSync(resultsFile, { force: true });
     const env = { ...process.env, RELEASE_CHECKS: '1' };
+    // Keep the runner's step outputs for the case selection witness, outside Playwright's environment.
+    delete env.GITHUB_OUTPUT;
     // Discovery must write JSON to stdout, regardless of the caller's reporter output environment.
     for (const key of ['PLAYWRIGHT_JSON_OUTPUT_FILE', 'PLAYWRIGHT_JSON_OUTPUT_DIR', 'PLAYWRIGHT_JSON_OUTPUT_NAME']) {
         delete env[key];
@@ -108,11 +141,25 @@ function run() {
         if (listing.stdout) process.stdout.write(listing.stdout);
         throw new Error(`Release discovery failed: ${error.message}`);
     }
-    writeFileSync(selectionFile, `${JSON.stringify(chosen, null, 2)}\n`);
-    console.log(`Release selection: ${chosen.family} (${chosen.projects.join(', ')})`);
+    const selectedProjects = chosen.projects.map((project) => `--project=${project}`);
+    const selected = spawnSync(process.execPath, [playwright, 'test', ...selectedProjects, '--list', '--reporter=json'], {
+        env, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+    });
+    if (selected.stderr) process.stderr.write(selected.stderr);
+    if (selected.status !== 0) {
+        if (selected.stdout) process.stdout.write(selected.stdout);
+        return status(selected);
+    }
+    const report = JSON.parse(selected.stdout);
+    if (!Array.isArray(report.suites) || report.errors?.length) throw new Error('discovery did not produce a complete release test list');
+    const cases = testsOf(report);
+    verifyRoster(chosen, cases);
+    const content = `${JSON.stringify({ ...chosen, tests: cases.map((test) => test.key) }, null, 2)}\n`;
+    writeFileSync(selectionFile, content);
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `selection-sha256=${sha256(content)}\n`);
+    console.log(`Release selection: ${chosen.projects.join(', ')}, ${cases.length} tests`);
     const workers = ['dark', 'harsh'].includes(lane()) ? 2 : 1;
-    const args = ['test', ...chosen.projects.map((project) => `--project=${project}`), `--workers=${workers}`, '--reporter=list,html,json'];
-    if (chosen.grep) args.push('--grep', chosen.grep);
+    const args = ['test', ...selectedProjects, `--workers=${workers}`, '--reporter=list,html,json'];
     return status(spawnSync(process.execPath, [playwright, ...args], {
         env: { ...env, PLAYWRIGHT_JSON_OUTPUT_FILE: resultsFile, PLAYWRIGHT_HTML_OPEN: 'never' }, stdio: 'inherit',
     }));
@@ -120,13 +167,17 @@ function run() {
 
 function evidence() {
     const chosen = readSelection();
-    const args = [
-        evidenceChecker,
-        ...chosen.projects.flatMap((project) => ['--project', project]),
-        ...chosen.specs.flatMap((spec) => ['--spec', spec]),
-        resultsFile,
-    ];
-    return status(spawnSync(process.execPath, args, { stdio: 'inherit' }));
+    let report;
+    try {
+        report = JSON.parse(readFileSync(resultsFile, 'utf8'));
+    } catch (error) {
+        console.log(`::error::No release evidence: ${resultsFile} is missing or unreadable (${error.message})`);
+        return 1;
+    }
+    const gaps = reportGaps(report, { projects: chosen.projects, specs: chosen.specs, selection: chosen.tests });
+    for (const gap of gaps) console.log(`::error::Incomplete release checks: ${gap}`);
+    if (!gaps.length) console.log(`Release evidence complete: all ${chosen.tests.length} selected cases ran without a skip`);
+    return gaps.length ? 1 : 0;
 }
 
 function main(argv) {

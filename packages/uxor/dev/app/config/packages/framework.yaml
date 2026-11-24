@@ -10,6 +10,10 @@ framework:
         paths: ['assets/']
         missing_import_mode: strict
 
+when@dev:
+    framework:
+        profiler: { collect: '%env(bool:default::PROFILER_COLLECT)%' }
+
 when@test:
     framework:
         test: true

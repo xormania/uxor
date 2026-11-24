@@ -2,6 +2,8 @@
 
 A field that opens a `Calendar` in a `Popover`: pick a date (or a range) with the mouse or the keyboard, or type it. The picked date goes into the calendar's hidden input, which forms and Live Components read.
 
+For this example, install the [button](../button/README.md) and [label](../label/README.md) recipes.
+
 ```twig {"preview":true}
 <div class="flex min-h-96 items-start justify-center pt-6">
     <div class="w-60">
@@ -25,9 +27,13 @@ A field that opens a `Calendar` in a `Popover`: pick a date (or a range) with th
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=date-picker#recipes). To install `date-picker` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component date-picker --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Formatting dates needs PHP's `intl` extension for every locale but `en` (the `calendar` recipe's requirement).
 
 ## Usage
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig
 <twig:DatePicker id="due" selected="2026-03-12">
@@ -76,6 +82,8 @@ is "Choose date", translated with the form's translation domain; set the `picker
 bounds) or text that is not a date clears the selection when the field changes, and marks the field
 `aria-invalid`.
 
+For this example, install the [button](../button/README.md), [input](../input/README.md), and [label](../label/README.md) recipes.
+
 ```twig {"preview":true}
 <div class="flex min-h-96 items-start justify-center pt-6">
     <div class="w-64">
@@ -109,6 +117,8 @@ too.
 
 ### Range
 
+For this example, install the [button](../button/README.md) recipe.
+
 ```twig {"preview":true}
 <div class="flex min-h-96 items-start justify-center pt-6">
     <twig:DatePicker id="date-picker-range" :selected="['2026-03-09', '2026-03-13']" dateStyle="medium" open>
@@ -126,6 +136,8 @@ too.
 ```
 
 ### Date of birth
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="flex min-h-96 items-start justify-center pt-6">

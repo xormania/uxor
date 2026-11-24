@@ -15,7 +15,8 @@ final class NativeTools
 
     public function discover(string $directory, string $kind = 'maker', string $name = '', int $limit = 20, bool $trustProjectCode = false): array
     {
-        $root = $this->inspector->root($directory);
+        $project = (new ApplicationFiles($this->inspector))->project($directory);
+        $root = $project['root'];
         if (!in_array($kind, ['maker', 'mate'], true)) {
             throw new \InvalidArgumentException('Tool kind must be maker or mate.');
         }
@@ -30,7 +31,7 @@ final class NativeTools
                 'root' => $root, 'kind' => $kind, 'project_code_executed' => false,
                 'suggested_action' => 'For a checkout already trusted and authorized for execution, set --trust-project-code on the CLI or trustProjectCode=true in Mate. Otherwise establish trust before running project code.'];
         }
-        $script = 'mate' === $kind ? 'vendor/bin/mate' : 'bin/console';
+        $script = 'mate' === $kind ? $project['bin'].('vendor' === $project['vendor'] ? '/mate' : '/uxor') : 'bin/console';
         if (!is_file($root.'/'.$script)) {
             return ['status' => 'incomplete', 'summary' => 'The selected native tool entry point is missing.',
                 'root' => $root, 'kind' => $kind, 'entry_point' => $script,
@@ -39,6 +40,9 @@ final class NativeTools
         $arguments = 'mate' === $kind
             ? ('' === $name ? ['tools:list', '--format=json'] : ['tools:inspect', $name, '--format=json'])
             : ('' === $name ? ['list', 'make', '--format=json', '--no-interaction'] : ['help', $name, '--format=json', '--no-interaction']);
+        if ('mate' === $kind && 'vendor' !== $project['vendor']) {
+            array_unshift($arguments, 'mate');
+        }
         $argv = [PHP_BINARY, $root.'/'.$script, ...$arguments];
         $process = new Process($argv, $root, timeout: 30);
         $process->disableOutput();

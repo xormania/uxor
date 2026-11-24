@@ -3,6 +3,10 @@
 declare(strict_types=1);
 
 use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+use Xormania\UXor\BrowserDiagnostics;
+use Xormania\UXor\EnvironmentSetup;
+use Xormania\UXor\EnvironmentStatus;
+use Xormania\UXor\SymfonyPreparation;
 use Xormania\UXor\Mate\Capabilities;
 use Xormania\UXor\NativeTools;
 use Xormania\UXor\Operations;
@@ -12,7 +16,7 @@ use Xormania\UXor\ReferenceBundle;
 
 return static function (ContainerConfigurator $container): void {
     $services = $container->services();
-    foreach ([ReferenceBundle::class, ProjectInspector::class, ProjectDoctor::class, NativeTools::class, Operations::class] as $class) {
+    foreach ([ReferenceBundle::class, ProjectInspector::class, ProjectDoctor::class, NativeTools::class, BrowserDiagnostics::class, SymfonyPreparation::class, EnvironmentSetup::class, EnvironmentStatus::class, Operations::class] as $class) {
         $services->set($class)->autowire();
     }
     // public: at the repository root Mate registers its handlers before this file and set() replaces the definition

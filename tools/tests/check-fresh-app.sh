@@ -7,18 +7,27 @@
 # DropzoneType fields that take a posted file (one with `placeholder: false` and no main line, which needs the recipe's
 # form type extension), `/post` an EditorType that sanitizes what it stores, and all answer 200.
 #
-#   tools/tests/check-fresh-app.sh <base URL> [curl option…]
+#   tools/tests/check-fresh-app.sh [--smoke] <base URL> [curl option…]
 set -euo pipefail
 
+smoke=false
+if [ "${1:-}" = --smoke ]; then
+    smoke=true
+    shift
+fi
 base="$1"
 shift
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
+request() {
+    curl --silent --show-error --connect-timeout 5 --max-time 30 "$@"
+}
+
 fetch() { # fetch <path> [curl option…]: prints the page on one line, fails unless it answers 200
     local path="$1" status
     shift
-    status="$(curl -s "$@" -o "$work/page.html" -w '%{http_code}' "$base$path")"
+    status="$(request "$@" -o "$work/page.html" -w '%{http_code}' "$base$path")" || return
     if [ "$status" != 200 ]; then
         if [ -f "$work/page.html" ]; then grep -o '<title>[^<]*' "$work/page.html" >&2 || true; fi
         echo "FAIL: $path answered $status" >&2
@@ -38,7 +47,7 @@ echo "ok: the dashboard renders (HTTP 200)"
 modules="$(grep -oE '<script type="importmap"[^>]*>.*</script>' <<< "$page" | grep -oE ':[[:space:]]*"/assets/[^"]+\.js"' | grep -oE '/assets/[^"]+' | sort -u)"
 grep -q '^/assets/controllers/' <<< "$modules" || { echo "FAIL: the dashboard's import map names no controller of the kit" >&2; exit 1; }
 while IFS= read -r module; do
-    status="$(curl -s "$@" -o /dev/null -w '%{http_code} %{content_type}' "$base$module")"
+    status="$(request "$@" -o /dev/null -w '%{http_code} %{content_type}' "$base$module")"
     [[ "$status" == "200 "*javascript* ]] || { echo "FAIL: $module (in the import map) answered $status" >&2; exit 1; }
 done <<< "$modules"
 echo "ok: the import map's $(wc -l <<< "$modules") local modules answer as JavaScript, the kit's controllers included"
@@ -54,6 +63,21 @@ grep -qE '<p id="form_plainPassword_help"[^>]*>[[:space:]]*At least 12 character
     || { echo "FAIL: the signup password help is not FormField's" >&2; exit 1; }
 echo "ok: the signup form renders through the form theme (HTTP 200)"
 
+# the data-table-live recipe's PHP works as a Live Component: the page renders it, and its `goTo` action, sent as the
+# live controller sends it (tools/tests/live-action.php), answers with the requested page
+page="$(fetch /live-orders "$@")"
+grep -qE 'data-live-name-value="LiveOrders"' <<< "$page" \
+    || { echo "FAIL: the live orders table is not a Live Component" >&2; exit 1; }
+body="$("${PHP:-php}" "$(dirname "$0")/live-action.php" "$work/page.html" '{"page":"2"}')"
+status="$(request "$@" -o "$work/action.html" -w '%{http_code}' -X POST "$base/_components/LiveOrders/goTo" \
+    -H 'Accept: application/vnd.live-component+html' -H 'X-Requested-With: XMLHttpRequest' --data-urlencode "data=$body")"
+[ "$status" = 200 ] || { echo "FAIL: the live orders table's goTo action answered $status" >&2; exit 1; }
+grep -qE 'Showing <span[^>]*>11–20</span> of <span[^>]*>25</span>' "$work/action.html" \
+    || { echo "FAIL: the live orders table's goTo action did not render page 2" >&2; exit 1; }
+echo "ok: the live orders DataTableLive renders and answers a Live action (HTTP 200)"
+
+if [ "$smoke" = true ]; then exit 0; fi
+
 # the data-table recipe's PHP (src/UXor/DataTable/) works in the app: the table reads its page, sort and filter
 # from the URL, and its links keep them
 page="$(fetch '/orders?page=2&sort=number&dir=desc&f%5Bstatus%5D=paid' "$@")"
@@ -66,19 +90,6 @@ grep -qE 'id="orders-row-2"' <<< "$page" \
 grep -qE 'href="/orders\?sort=number&amp;dir=desc&amp;f%5Bstatus%5D=paid"' <<< "$page" \
     || { echo "FAIL: the orders table page links lose the sort or the filter" >&2; exit 1; }
 echo "ok: the orders DataTable renders from the recipe's PHP (HTTP 200)"
-
-# the data-table-live recipe's PHP works as a Live Component: the page renders it, and its `goTo` action, sent as the
-# live controller sends it (tools/tests/live-action.php), answers with the requested page
-page="$(fetch /live-orders "$@")"
-grep -qE 'data-live-name-value="LiveOrders"' <<< "$page" \
-    || { echo "FAIL: the live orders table is not a Live Component" >&2; exit 1; }
-body="$("${PHP:-php}" "$(dirname "$0")/live-action.php" "$work/page.html" '{"page":"2"}')"
-status="$(curl -s "$@" -o "$work/action.html" -w '%{http_code}' -X POST "$base/_components/LiveOrders/goTo" \
-    -H 'Accept: application/vnd.live-component+html' -H 'X-Requested-With: XMLHttpRequest' --data-urlencode "data=$body")"
-[ "$status" = 200 ] || { echo "FAIL: the live orders table's goTo action answered $status" >&2; exit 1; }
-grep -qE 'Showing <span[^>]*>11–20</span> of <span[^>]*>25</span>' "$work/action.html" \
-    || { echo "FAIL: the live orders table's goTo action did not render page 2" >&2; exit 1; }
-echo "ok: the live orders DataTableLive renders and answers a Live action (HTTP 200)"
 
 # the autocomplete recipe: a form field with `'autocomplete' => true` renders through the form theme with UX
 # Autocomplete's controller, the recipe's autocomplete-sync and the label reference for Tom Select, the Autocomplete
@@ -146,7 +157,7 @@ done
 # a 1×1 PNG, posted as the browser would: with the form's CSRF token when it has one, its cookies and its origin
 printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' | base64 -d > "$work/tiny.png"
 token="$(grep -oE '<input[^>]*name="form\[_token\]"[^>]*>' <<< "$page" | grep -oE 'value="[^"]*"' | sed 's/^value="//; s/"$//' || true)"
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
     -F "form[photo]=@$work/tiny.png;type=image/png" ${token:+-F "form[_token]=$token"} "$base/upload")"
 case "$location" in
     "303 "*"uploaded=tiny.png") ;;
@@ -174,7 +185,7 @@ for expected in 'data-controller="editor"' 'role="textbox"' 'aria-labelledby="fo
 done
 if grep -q ' style="' <<< "$page"; then echo "FAIL: the post page has a style attribute" >&2; exit 1; fi
 token="$(grep -oE '<input[^>]*name="form\[_token\]"[^>]*>' <<< "$page" | grep -oE 'value="[^"]*"' | sed 's/^value="//; s/"$//' || true)"
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
     --data-urlencode 'form[body]=<p onclick="x()">Hi <script>x()</script></p>' ${token:+--data-urlencode "form[_token]=$token"} "$base/post")"
 case "$location" in
     "303 "*"stored=%3Cp%3EHi%3C/p%3E") ;;
@@ -191,13 +202,13 @@ for expected in 'data-live-name-value="MarkdownEditor"' 'data-controller="markdo
 done
 if grep -q ' style="' <<< "$page"; then echo "FAIL: the note page has a style attribute" >&2; exit 1; fi
 body="$("${PHP:-php}" "$(dirname "$0")/live-action.php" "$work/page.html" '{}' '{"value":"**Hi** [bad](javascript:x)"}')"
-status="$(curl -s "$@" -o "$work/action.html" -w '%{http_code}' -X POST "$base/_components/MarkdownEditor/preview" \
+status="$(request "$@" -o "$work/action.html" -w '%{http_code}' -X POST "$base/_components/MarkdownEditor/preview" \
     -H 'Accept: application/vnd.live-component+html' -H 'X-Requested-With: XMLHttpRequest' --data-urlencode "data=$body")"
 [ "$status" = 200 ] || { echo "FAIL: the markdown editor's preview action answered $status" >&2; exit 1; }
 grep -qF '<strong>Hi</strong>' "$work/action.html" && ! grep -qF 'href="javascript' "$work/action.html" \
     || { echo "FAIL: the markdown editor's preview did not render the Markdown safely" >&2; exit 1; }
 token="$(grep -oE '<input[^>]*name="form\[_token\]"[^>]*>' <<< "$page" | grep -oE 'value="[^"]*"' | sed 's/^value="//; s/"$//' || true)"
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$work/cookies" -H "Origin: $base" \
     --data-urlencode 'form[body]=**Hi** <script>x()</script>' ${token:+--data-urlencode "form[_token]=$token"} "$base/note")"
 case "$location" in
     "303 "*"stored=**Hi**%20%3Cscript%3Ex%28%29%3C/script%3E") ;;
@@ -212,24 +223,24 @@ echo "ok: a MarkdownType renders the MarkdownEditor, previews on the server and 
 # is mocked: start creates the pending attempt and a bound grant, the real callback authenticates, and another request
 # must refresh the application user from the configured user provider before it can enter the protected account page.
 oauth_cookies="$work/oauth-cookies"
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -c "$oauth_cookies" "$base/oauth-install/account?from=protected")"
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -c "$oauth_cookies" "$base/oauth-install/account?from=protected")"
 [[ "$location" == "302 $base/oauth-install/login" ]] \
     || { echo "FAIL: the anonymous OAuth account page answered $location" >&2; exit 1; }
 page="$(fetch /oauth-install/login "$@" -b "$oauth_cookies" -c "$oauth_cookies")"
 for expected in 'name="turbo-visit-control" content="reload"' 'name="turbo-cache-control" content="no-cache"' 'href="/oauth/github/start"' 'data-turbo="false"' 'Continue with GitHub'; do
     grep -qF -- "$expected" <<< "$page" || { echo "FAIL: the installed OAuth login page lacks $expected" >&2; exit 1; }
 done
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$oauth_cookies" -c "$oauth_cookies" "$base/oauth/github/start")"
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$oauth_cookies" -c "$oauth_cookies" "$base/oauth/github/start")"
 [[ "$location" == "302 $base/oauth/github/check?state="* ]] \
     || { echo "FAIL: the OAuth start route answered $location" >&2; exit 1; }
 callback="${location#302 }"
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$oauth_cookies" -c "$oauth_cookies" "$callback")"
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' -b "$oauth_cookies" -c "$oauth_cookies" "$callback")"
 [[ "$location" == "303 $base/oauth-install/account?from=protected" ]] \
     || { echo "FAIL: the OAuth callback answered $location" >&2; exit 1; }
 page="$(fetch '/oauth-install/account?from=protected' "$@" -b "$oauth_cookies")"
 grep -qF 'Installed user (github:installed-user)' <<< "$page" \
     || { echo "FAIL: the protected OAuth account page lost the authenticated user" >&2; exit 1; }
-location="$(curl -s "$@" -o /dev/null -w '%{http_code} %{redirect_url}' "$base/oauth-install/account")"
+location="$(request "$@" -o /dev/null -w '%{http_code} %{redirect_url}' "$base/oauth-install/account")"
 [[ "$location" == "302 $base/oauth-install/login" ]] \
     || { echo "FAIL: the OAuth account page accepted an anonymous request after sign-in" >&2; exit 1; }
 echo "ok: installed OAuth signs in through the real callback, refreshes its user and protects the account page (HTTP 200, 302, 303)"

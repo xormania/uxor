@@ -18,6 +18,7 @@
                 {% endif %}
             }
         </style>
+        {{ include('_toolkit_stylesheets.html.twig') }}
         {{ importmap('app', {nonce: csp_script_nonce ~ ''}) }}
     </head>
     <body>{{ html|raw }}</body>

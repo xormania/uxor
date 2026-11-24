@@ -2,11 +2,21 @@
 # On a fresh Symfony Docker project (dunglas/symfony-docker: FrankenPHP in worker mode, its PHP image, the latest
 # Symfony by default), README.md's install steps with the kit downloaded from GitHub, the archive users get
 # (`--kit=https://github.com/xormania/uxor:<ref>`), give the same pages as fresh-install.sh.
+# The CI smoke check uses a smaller fixture while still testing installation and HTTPS in the container.
 #
-#   KIT_REF=<tag or full commit SHA> tools/tests/docker-install.sh
+#   KIT_REF=<tag or full commit SHA> tools/tests/docker-install.sh [--smoke]
 #   (SYMFONY_VERSION=… default 8.1.*, KIT_REPOSITORY=… default the owner/name of manifest.json's
 #   homepage; needs Docker and git)
 set -euo pipefail
+
+check_options=()
+case "${1:-}" in
+    --smoke) check_options=(--smoke); shift ;;
+esac
+if [ "$#" -ne 0 ]; then
+    echo 'usage: KIT_REF=<tag or commit SHA> tools/tests/docker-install.sh [--smoke]' >&2
+    exit 2
+fi
 
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 ref="${KIT_REF:?set KIT_REF to a tag or a full commit SHA of the kit}"
@@ -55,14 +65,24 @@ app_dir=/app
 # shellcheck source=tools/tests/install-scenario.sh
 . "$root/tools/tests/install-scenario.sh"
 require_kit_packages
-install_kit_recipes "https://github.com/$repository:$ref" "$work"
-add_fresh_app "$root"
+kit="https://github.com/$repository:$ref"
+if [ "${#check_options[@]}" -gt 0 ]; then
+    install_kit_recipes "$kit" "$work" dashboard-home signup data-table data-table-live chart
+    add_fresh_app "$root" \
+        config/packages/ux_icons.yaml \
+        src/Controller/{Dashboard,Registration,LiveOrders}Controller.php \
+        src/Twig/Components/LiveOrders.php \
+        templates/{dashboard,registration,live_orders}
+else
+    install_kit_recipes "$kit" "$work"
+    add_fresh_app "$root"
+fi
 
 # fresh workers for the new code
 docker compose restart php
 docker compose up --wait --wait-timeout 300
 
-"$root/tools/tests/check-fresh-app.sh" https://localhost --insecure || {
+"$root/tools/tests/check-fresh-app.sh" "${check_options[@]}" https://localhost --noproxy '*' --insecure || {
     echo "--- routes"; x bin/console debug:router --no-interaction 2>&1 | head -30 || true
     echo "--- logs"; docker compose logs --tail 50 php || true
     exit 1

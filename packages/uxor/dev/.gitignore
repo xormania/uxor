@@ -1,5 +1,3 @@
-/.tools/
-/.state/
 /app/.env.local
 /app/vendor/
 /app/var/

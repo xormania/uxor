@@ -22,6 +22,8 @@ Use the skeleton component to indicate a loading status with placeholder element
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=skeleton#recipes). To install `skeleton` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component skeleton --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -35,6 +37,8 @@ Under `prefers-reduced-motion`, the pulse runs three times slower (6 s instead o
 ### Card placeholder
 
 Use this example to show a placeholder when loading content inside a card.
+
+For this example, install the [card](../card/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <twig:Card class="animate-pulse motion-reduce:[animation-duration:6s]!" role="status">

@@ -1,5 +1,25 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, turboVisitDone } from './fixtures';
+import { test, expect, collectAutocompleteAssetRequests, controllersConnected, markDocument, turboVisitDone } from './fixtures';
+import { turboOperation } from './transitions';
+
+test('the lab defers autocomplete until a Turbo visit adds a field', async ({ page }) => {
+    const vendorRequests = collectAutocompleteAssetRequests(page);
+    await page.goto('/lab');
+    await controllersConnected(page);
+    expect(vendorRequests, 'unused vendor assets requested before opening a scenario').toEqual([]);
+
+    const sameDocument = await markDocument(page);
+    await turboOperation(page, { url: '/lab/live-autocomplete' }, () => page.getByRole('link', { name: 'live-autocomplete', exact: true }).click());
+    await sameDocument.expectKept();
+    await controllersConnected(page);
+
+    const country = page.locator('#autocomplete_demo_country + .ts-wrapper');
+    await country.locator('.ts-control').click();
+    await expect(country.getByRole('combobox', { name: 'Country' })).toHaveAttribute('aria-expanded', 'true');
+    await country.getByRole('combobox', { name: 'Country' }).press('Escape');
+    await page.getByRole('button', { name: 'Re-render' }).click();
+    await expect(page.getByTestId('renders')).toHaveText('1');
+});
 
 // Tom Select puts one .ts-wrapper after each <select> it enhances: a second one means it was set up twice
 // the Tom Select fields of /lab/autocomplete: country, languages, customer and fruit; pet, colors and size (the pets form)
@@ -558,9 +578,29 @@ for (const bare of [false, true]) {
     });
 }
 
+test('the first native selection survives a delayed autocomplete download', async ({ page }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/vendor/tom-select/*.js', async (route) => {
+        await gate;
+        await route.continue();
+    });
+    try {
+        await page.goto('/lab/autocomplete', { waitUntil: 'domcontentloaded' });
+        await expect(page.locator('#fruit + .ts-wrapper')).toHaveCount(0);
+        await page.locator('#fruit').selectOption('banana');
+    } finally {
+        release();
+    }
+
+    await expect(page.locator('#fruit + .ts-wrapper .item[data-value="banana"]')).toHaveText('Banana');
+    await expect(page.locator('#fruit')).toHaveValue('banana');
+});
+
 test('a reset syncs the current Tom Select once, after the controller reconnects and after UX Autocomplete rebuilds Tom Select', async ({ page }) => {
     await page.goto('/lab/autocomplete?defaults=1');
     const pet = resetFields.find((field) => 'pet' === field.id)!;
+    await expect(page.locator('#pet + .ts-wrapper')).toBeVisible();
     // counts the calls of sync() on the Tom Select the field has now
     const spySync = () =>
         page.evaluate(() => {

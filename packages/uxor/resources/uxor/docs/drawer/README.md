@@ -27,6 +27,8 @@ A panel sliding over one side of the page, for navigation, filters or details, a
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=drawer#recipes). To install `drawer` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component drawer --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -44,6 +46,8 @@ A panel sliding over one side of the page, for navigation, filters or details, a
 Spread `drawer_trigger_attrs` on the element that opens the drawer, inside `Drawer:Trigger`, and `drawer_close_attrs` on any element that closes it, inside `Drawer:Close`. `Drawer:Content` also shows a close button in its corner; `:showCloseButton="false"` removes it. The `<dialog>` element's id is `drawer-<id>`.
 
 A modal drawer traps focus and makes the page inert (native `showModal()`); Escape or a click on the backdrop closes it. With `:modal="false"` the page stays usable and Escape still closes the drawer while focus is inside it.
+
+Opening a drawer slides the panel a short distance from its placement edge over 150 ms by default. A modal drawer also fades in its backdrop. Focus moves inside as it opens, closing is immediate, and reduced motion skips the entrance.
 
 In a Live Component, an open drawer stays open across a re-render. A re-render that replaces the drawer's container (a wrapper whose id changes) moves the `<dialog>` to a new controller: the old one disconnects without an error, and the new one starts as its `open` value says, closed by default, its triggers collapsed and the page not left inert.
 

@@ -3,7 +3,7 @@
 // Run: node --test tools/tests/release-checks-workflow.test.mjs
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
@@ -16,8 +16,8 @@ const workflow = readFileSync(join(root, file), 'utf8');
 const indent = (line) => line.length - line.trimStart().length;
 const unquote = (value) => value.replace(/\s+#.*$/, '').replace(/^(['"])(.*)\1$/, '$2');
 
-function jobText(job) {
-    const lines = workflow.split('\n');
+function jobText(job, definition = workflow) {
+    const lines = definition.split('\n');
     const first = lines.indexOf(`    ${job}:`);
     assert.ok(first >= 0, `missing job ${job}`);
     let end = first + 1;
@@ -235,6 +235,29 @@ test('the verdict and the daily issue wait for the production image and read its
     }
 });
 
+test('the release image has a direct build fallback unless a same-repository pull request produces verified evidence', (t) => {
+    const fx = scratch(t);
+    const image = steps('prod-image');
+    const reuse = image.find((step) => step.id === 'reuse');
+    const docker = image.filter((step) => /docker\/setup-buildx-action/.test(step.uses ?? '') || ['build', 'prod-image'].includes(step.id));
+    assert.equal(docker.length, 3);
+    assert.ok(holds(reuse.if, { github: { event_name: 'pull_request', repository: 'example/repo', event: { pull_request: { head: { repo: { full_name: 'example/repo' } } } } } }));
+    assert.equal(holds(reuse.if, { github: { event_name: 'pull_request', repository: 'example/repo', event: { pull_request: { head: { repo: { full_name: 'fork/repo' } } } } } }), false);
+    assert.equal(holds(reuse.if, { github: { event_name: 'workflow_dispatch' } }), false);
+    const output = join(fx.temp, 'reuse-output');
+    for (const verified of [false, true]) {
+        executable(fx, 'node', verified ? 'echo "Verified CI evidence"' : 'echo "No matching pass"; exit 1');
+        writeFileSync(output, '');
+        const result = shell(reuse.run, fx, { GITHUB_OUTPUT: output, GITHUB_STEP_SUMMARY: join(fx.temp, 'summary') });
+        assert.equal(result.status, 0, result.stdout + result.stderr);
+        const pass = readFileSync(output, 'utf8').trim() === 'pass=true';
+        assert.equal(pass, verified);
+        for (const step of docker) {
+            assert.equal(holds(step.if, { steps: { reuse: { outputs: { pass: pass ? 'true' : '' } } } }), !verified, step.name ?? step.uses);
+        }
+    }
+});
+
 test('the daily issue reports a failed production image, and closes only when it succeeded too', (t) => {
     const issue = steps('issue').find((step) => step.run);
     for (const [image, closed, reported] of [
@@ -377,6 +400,8 @@ printf '%s' "$payload" | jq -r "$4"`);
 
 test('a pull request skips the suite only after a same-repository pass on the same base, with nothing it reads changed since', (t) => {
     const fx = scratch(t);
+    mkdirSync(join(fx.dir, 'tools/ci'), { recursive: true });
+    copyFileSync(join(root, 'tools/ci/release-runtime.mjs'), join(fx.dir, 'tools/ci/release-runtime.mjs'));
     executable(fx, 'gh', `
 case "$2" in
     */workflows/release-checks.yml/runs?*) payload="$API_RUNS" ;;
@@ -406,30 +431,57 @@ printf '%s' "$payload" | jq -r "$4"`);
         return git('rev-parse', 'HEAD');
     };
     git('init', '-q', '--initial-branch=main');
-    const base = commit('kit.css', 'base');
+    commit('kit.css', 'base CSS');
+    const base = commit('composer.json', '{"require":{"php":">=8.4"}}');
     const passed = commit('calendar/Calendar.html.twig', 'passed');
     commit('CHANGELOG.md', 'release');
     commit('docs/RECIPES.md', 'recipes');
     commit('docs/TESTING.md', 'docs');
+    commit('website/templates/layout.html.twig', 'website navigation');
+    commit('packages/uxor/resources/guides.json', 'published guides');
     commit('AGENTS.md', 'rules');
-    const docs = commit('packages/uxor/README.md', 'package');
+    commit('README.md', 'root package links');
+    commit('CONTRIBUTING.md', 'release documentation');
+    commit('tools/llms-txt.mjs', 'discovery generator');
+    commit('tools/tests/llms-txt.test.mjs', 'generator tests');
+    commit('composer.json', '{"require":{"php":">=8.4"},"scripts":{"docs:check":"node tools/llms-txt.mjs --check"}}');
+    const docs = commit('packages/uxor/INSTRUCTIONS.md', 'package');
     const code = commit('calendar/Calendar.html.twig', 'changed');
     git('checkout', '-q', docs);
+    const recorder = commit('packages/uxor/resources/browser/diagnostics.mjs', 'browser recorder');
+    git('checkout', '-q', docs);
+    const recorderHelper = commit('packages/uxor/resources/browser/diagnostics-helper.mjs', 'browser recorder helper');
+    git('checkout', '-q', docs);
     const workflowChange = commit('.github/workflows/release-checks.yml', 'changed');
+    git('checkout', '-q', docs);
+    const releaseSpec = commit('tests/e2e/release.long-session.spec.ts', 'release test');
+    git('checkout', '-q', docs);
+    const leakDetector = commit('tests/e2e/leak-detector.mjs', 'long-session helper');
     git('checkout', '-q', base);
     const movedBase = commit('main-only.txt', 'moved');
     const provenMerge = merge(base, passed);
     const futureMerge = merge(base, docs);
+    const provenTree = git('rev-parse', `${provenMerge}^{tree}`);
     const compare = steps('changed').find((step) => step.id === 'compare');
-    const marker = (b, h) => ({ id: 91, name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false });
+    const marker = (b, h) => ({
+        id: 91, name: `release-checks-pr-passed-v1-${b}-${h}`, expired: false,
+        created_at: new Date(Date.now() - 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    });
     for (const [name, tested, modify, expected] of [
         ['only paths the suite never reads', merge(base, docs), () => {}, 'false'],
         ['same head', merge(base, passed), () => {}, 'false'],
         ['a path the suite reads', merge(base, code), () => {}, 'true'],
+        ['recorder imported by release Playwright tests', merge(base, recorder), () => {}, 'true'],
+        ['a new helper beside the browser recorder', merge(base, recorderHelper), () => {}, 'true'],
         ['the workflow itself', merge(base, workflowChange), () => {}, 'true'],
+        ['the long-session release spec', merge(base, releaseSpec), () => {}, 'true'],
+        ['the leak detector that its release spec imports', merge(base, leakDetector), () => {}, 'true'],
         ['the base moved since', merge(movedBase, docs), () => {}, 'true'],
         ['the earlier run left no marker', merge(base, docs), (runs, artifacts) => { artifacts.length = 1; }, 'true'],
         ['an expired marker', merge(base, docs), (runs, artifacts) => { artifacts[1].expired = true; }, 'true'],
+        ['an unexpired marker older than two weeks', merge(base, docs), (runs, artifacts) => {
+            artifacts[1].created_at = '2026-01-01T00:00:00Z';
+        }, 'true'],
         ['another base in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(movedBase, passed); }, 'true'],
         ['a fork run', merge(base, docs), (runs) => { runs[0].head_repository.full_name = 'fork/project'; }, 'true'],
         ['an unknown commit in the marker', merge(base, docs), (runs, artifacts) => { artifacts[1] = marker(base, 'd'.repeat(40)); }, 'true'],
@@ -449,6 +501,9 @@ printf '%s' "$payload" | jq -r "$4"`);
         ['producer repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.repository.full_name = 'other/project'; }, 'true'],
         ['producer head repository differs', futureMerge, (runs, artifacts, proof) => { proof.run.head_repository.full_name = 'fork/project'; }, 'true'],
         ['recorded merge base differs', futureMerge, (runs, artifacts, proof) => { proof.commit.parents[0].sha = movedBase; }, 'true'],
+        ['recorded merge tree differs from the producer head', futureMerge, (runs, artifacts, proof) => {
+            proof.commit.tree.sha = git('rev-parse', `${futureMerge}^{tree}`);
+        }, 'true'],
         ['recorded commit is not the requested SHA', futureMerge, (runs, artifacts, proof) => { proof.commit.sha = 'd'.repeat(40); }, 'true'],
         ['recorded commit is not a two-parent merge', futureMerge, (runs, artifacts, proof) => { proof.commit.parents.length = 1; }, 'true'],
         ['malformed commit text', futureMerge, (runs, artifacts, proof) => { proof.content = 'not a commit'; }, 'true'],
@@ -464,7 +519,7 @@ printf '%s' "$payload" | jq -r "$4"`);
         const proof = {
             run: { head_sha: passed, path: file, event: 'pull_request', conclusion: 'success',
                 repository: { full_name: 'example/project' }, head_repository: { full_name: 'example/project' } },
-            commit: { sha: provenMerge, parents: [{ sha: base }, { sha: passed }] },
+            commit: { sha: provenMerge, parents: [{ sha: base }, { sha: passed }], tree: { sha: provenTree } },
             content: `${provenMerge}\n`, filename: 'commit', extra: false, fail: '', oversized: false,
         };
         modify(runs, artifacts, proof);
@@ -489,6 +544,55 @@ with zipfile.ZipFile(sys.argv[1], 'w') as archive:
         assert.equal(values.ref, tested, name);
         assert.equal(values.target_ref, '170/merge', name);
     }
+});
+
+test('Monthly runs for same-repository release branches marked ready and uses the development baseline', (t) => {
+    const monthly = readFileSync(join(root, '.github/workflows/monthly.yml'), 'utf8');
+    assert.match(monthly, /^ {4}pull_request:\n {8}types: \[ready_for_review\]\n {8}branches: \[main\]/m);
+    const check = jobText('eligible', monthly);
+    const condition = check.match(/^ {8}if: (.*)$/m)[1];
+    const eligibility = stepIn(monthly, 'eligible', 'select');
+    assert.ok(eligibility?.run, 'the central eligibility decision can be exercised');
+    assert.doesNotMatch(check, /actions: write|actions\/checkout/, 'eligibility reads only the event');
+
+    const fx = scratch(t);
+    const output = join(fx.temp, 'monthly-output');
+    for (const [event, branch, repo, eligible] of [
+        ['pull_request', 'dev', 'example/project', true],
+        ['pull_request', 'release/0.3.5', 'example/project', true],
+        ['pull_request', 'release-0.3.5', 'example/project', true],
+        ['pull_request', 'claude/release-0.3.5', 'example/project', true],
+        ['pull_request', 'release/0.3.5', 'fork/project', false],
+        ['pull_request', 'dev', 'fork/project', false],
+        ['pull_request', 'maintenance', 'example/project', false],
+        ['pull_request', 'automation/release/0.3.5', 'example/project', false],
+        ['pull_request', 'release/v0.3.5', 'example/project', false],
+        ['pull_request', 'release/0.3.5-rc.1', 'example/project', false],
+        ['pull_request', 'release-0.3.5/follow-up', 'example/project', false],
+        ['workflow_dispatch', 'maintenance', 'example/project', true],
+        ['schedule', 'main', 'example/project', false],
+    ]) {
+        const label = `${event}/${branch}/${repo}`;
+        const github = { event_name: event, head_ref: branch, ref_name: branch, repository: 'example/project', event: { pull_request: { head: { repo: { full_name: repo } } } } };
+        writeFileSync(output, '');
+        if (holds(condition, { github })) {
+            const out = shell(eligibility.run, fx, {
+                EVENT: event, BRANCH: branch, GITHUB_OUTPUT: output,
+            });
+            assert.equal(out.status, 0, `${label}: ${out.stdout}${out.stderr}`);
+        }
+        assert.equal(/^run=true$/m.test(readFileSync(output, 'utf8')), eligible, label);
+    }
+
+    for (const job of ['php', 'browsers', 'report']) {
+        const text = jobText(job, monthly);
+        assert.match(text, /^ {8}needs: .*\beligible\b/m, `${job} waits on the same eligibility decision`);
+        assert.match(text, /needs\.eligible\.outputs\.run == 'true'/, `${job} uses the decision`);
+    }
+    const report = jobText('report', monthly);
+    const baseline = report.match(/^ {18}REF: (.*)$/m)[1];
+    assert.equal(expressionValue(baseline, { github: { event_name: 'pull_request', head_ref: 'release/0.3.5', ref_name: '270/merge' } }), 'dev');
+    assert.equal(expressionValue(baseline, { github: { event_name: 'workflow_dispatch', ref_name: 'my-branch' } }), 'my-branch');
 });
 
 test('only a passing pull request run records the base and head it tested, from the merge commit itself', (t) => {
@@ -583,6 +687,7 @@ for (const job of ['checks', 'complete']) test(`${job} checkout trust rejects a 
     // immutable triggering event must independently agree with the frozen target. The daily run is a dispatch on dev:
     // it executes the dev commit it was started on, even when dev advances while it runs.
     assert.equal(checkout.with.ref, '${{ github.sha }}', 'no event checks out a branch name');
+    if (job === 'checks') assert.equal(checkout.with['sparse-checkout'], undefined, 'release-only specs and helpers require the full target checkout');
     for (const [name, event, resolved, expectedCheckout, expectedStatus] of [
         ['daily run cannot substitute another commit', 'workflow_dispatch', substitutedSha, eventSha, 1],
         ['daily run cannot be moved to an advanced dev', 'workflow_dispatch', advancedDev, eventSha, 1],

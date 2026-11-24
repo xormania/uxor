@@ -5,14 +5,18 @@ recipes: none
 
 # Plan: the Composer package `xormania/uxor`
 
+This plan records the package's original design. Use the [package guide](../packages/uxor/README.md) for the
+CLI, installed skills and supported setup in this checkout. The [consumer checks](../packages/uxor/dev/README.md#checks)
+cover the current installation and upgrade paths. [Deferred work](#deferred-and-why) records the remaining decisions.
+
 _2026-10-18. Selected by the owner on 2026-10-16: UXor is one project in one repository; the agent guidance and
 development tools kept until now in a companion Composer package (`xormania/uxorscient`) move into this repository,
 under `packages/uxor/`; the companion's name is dropped as an active product name. The root `composer.json` (the
 package `xormania/uxor`, with its code in `packages/uxor/`), the identity (decision 1) and the one version sequence
 (decision 5) are the proposals of the owner's direction document (*Inputs*, below), adopted here. The kit's recipes
 still install with `ux:install` as copies the application owns: the package adds agent guidance and development tools,
-not a runtime library of components. The work goes through the work order `claude/wo-composer-package` (CONTRIBUTING,
-*Work orders*)._
+not a runtime library of components. The original work order used the integration branch `claude/wo-composer-package`.
+For new branches, follow [the contribution naming standard](../CONTRIBUTING.md#commits-and-pull-requests)._
 
 _Inputs, on the branch `docs/mono-audit-2026-10-16`: the owner's direction,
 `docs/mono/inputs/uxor-single-repository-plan-2026-10-16.md`; the audit and its change register,
@@ -53,7 +57,9 @@ UXor at `40d957c` and the companion at `614aa28`._
    `manifest.json` in `packages/`, and no `export-ignore` of the whole package to make the lint pass. The *Fresh
    install* jobs install from the complete archive, `packages/uxor/` included.
 5. **One version sequence.** The kit and the package share the tags `X.Y.Z` and one `CHANGELOG.md`. A change to either
-   part can make a new version of both; a breaking change in either sets the version. `composer.json` has no
+   part can make a new version of both. The maintainer chooses the number under the current
+   [release policy](../CONTRIBUTING.md#releases); changelog categories do not choose it. Changes to either part,
+   including breaking changes and migration steps, remain explicit in the release notes. `composer.json` has no
    `version` field: Composer and Packagist read the tags. Older tags stay as they are: the first version with
    `composer.json` is the first one Composer can install.
 6. **CI groups.** The existing coordinator and the one *CI result* check stay. A new *Package* job runs
@@ -77,15 +83,15 @@ UXor at `40d957c` and the companion at `614aa28`._
 
 ## The work order and its jobs
 
-Each job is a branch `claude/wo-composer-package--<job>` from the work order, merged back by its own pull request
-with its `CHANGELOG.md` entries and `docs/TEST-INVENTORY.md` rows.
+The original job branches used `claude/wo-composer-package--<job>`. Each had its own pull request with its
+`CHANGELOG.md` entries and `docs/TEST-INVENTORY.md` rows.
 
 | Job | Delivers |
 |---|---|
 | `foundation` | The root `composer.json` and `composer.lock`; `packages/uxor/` imported from the companion at `614aa28` and renamed to the UXor identity, with the executable's autoload path fixed for its new depth; the export rules; the *Package* job, the classifier rules and their cases; the lint view; this plan, CONTRIBUTING, AGENTS and the readmes. The bundled references are the ones generated from UXor at `40d957c` |
-| `consumer` | `packages/uxor/dev/` imported from the companion at `614aa28` with the UXor identity: the independent Symfony consumer, whose path repository reaches the repository root (`../../../..`), and the Docker and Serena environment, with the repository, package and application roots kept apart (Compose mounts the whole repository and runs in the nested application). `install-uxor.py` installs the workflow's recipes from the commit under test, as a local Toolkit kit. *Package* runs the harness tests and `check-package.py --consumer`: the candidate's archive installed, initialized, discovered twice, updated with the consumer's own content kept, and rendered without development dependencies. Not in CI yet: the consumer's browser journey with recipes from the commit and its no-dev runtime check, and the Docker, support identity and Serena checks (`packages/uxor/dev/README.md`, *Checks*) |
+| `consumer` | `packages/uxor/dev/` imported from the companion at `614aa28` with the UXor identity: the independent Symfony consumer, whose path repository reaches the repository root (`../../../..`), and the Docker and Serena environment, with the repository, package and application roots kept apart (Compose mounts the whole repository and runs in the nested application). `install-uxor.py` installs the workflow's recipes from the commit under test, as a local Toolkit kit. *Package* runs the harness tests and `check-package.py --consumer`: the candidate's archive installed, initialized, discovered twice, updated with the consumer's own content kept, and rendered without development dependencies. The original job deferred the browser journey, its no-dev runtime check, and the Docker, support identity and Serena checks. See the [current checks](../packages/uxor/dev/README.md#checks) |
 | `references` | The references regenerated from this checkout: deterministic output, provenance from the hashes of the source files (not from the commit that holds the output, which no commit can name), and a CI check that regenerates into a temporary directory and compares. Delivered as below, *References* |
-| release | The release workflow's checks of both installs at the commit it tags, the Packagist refresh with a limited token from a job that runs no install, the check that Packagist shows the version and its commit, and a retry that reuses the same tag |
+| release | The original proposal covered both installs at the tagged commit, a token-based registry refresh, verification of the indexed version and commit, and retrying with the same tag. Packagist now indexes the workflow's tag automatically. See [Releases](../CONTRIBUTING.md#releases) for the current checks and retry behavior. |
 
 ## References
 
@@ -97,8 +103,8 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
   kit's `manifest.json`, `README.md`, `INSTALL.md`, `FOR-AGENTS.md`, `LICENSE`, `NOTICE`, `docs/GUIDE.md`,
   `docs/RECIPES.md`, `docs/PROJECT-AGENTS-SNIPPET.md`, `docs/TESTING.md`, and each recipe's `README.md` and
   `manifest.json`. A doc can be edited, regenerated and committed once; a dirty or untracked file is read as it is.
-- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the branch or
-  tag its repository links use: `main` unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
+- **Provenance.** `index.json` (schema 2) records no commit. Its `source` holds the repository, `ref` (the version
+  from the latest release heading in `CHANGELOG.md`, unless `--ref` says otherwise), `inputs_sha256` (SHA-256 of `sha256sum`'s
   lines for the sorted input paths: recomputable from the index's own hashes or from a checkout), the kit manifest's
   SHA-256 and the license. A change to a file that is no input changes no byte of the output.
 - **Links.** A link to another copied document stays relative and resolves inside the bundle. A relative link to any
@@ -110,13 +116,10 @@ replaced it (`packages/uxor/tools/ReferenceGenerator.php`, `generate-reference.p
 
 ## Deferred, and why
 
-- **The consumer's browser journey and the prepared environment in CI.** The former companion ran them in two
-  workflows (a browser journey followed by a no-dev runtime check; `run.py up`, `check` and
-  `check-serena.py` in the xorder images). They need their own job, with Playwright's browsers, the xorder images and
-  their support policy, and a classifier output; the commands are in `packages/uxor/dev/README.md`, and the
-  harness tests in *Package* do not establish the provider's behavior (audit, `UXOR-AUD-PKG-006`).
-- **Publication.** Registering `xormania/uxor` on Packagist and holding its token are owner actions, not authorized
-  by this plan. Until then, the package installs from the repository as a VCS dependency.
+- **The consumer's browser journey.** Originally deferred, the [customer workflow](../packages/uxor/dev/README.md#the-customer-workflow)
+  now runs in the *Package* CI job. It exercises the app in a browser and then checks it without development dependencies.
+- **Release verification.** [`xormania/uxor` is registered on Packagist](https://packagist.org/packages/xormania/uxor).
+  The proposed automated comparison of the indexed version and source commit remains open.
 - **The companion's consumers and retirement.** Moving an installed `xormania/uxorscient` to `xormania/uxor` is a
   documented migration, written once the actual consumers are known: remove the old package first, since both ship
   skills named `setup`, `build` and `verify` and Mate refuses the clash. Archiving the companion repository is a

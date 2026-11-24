@@ -1,4 +1,4 @@
-import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test, testState } from '../../tests/e2e/examples/fixtures';
 
 describeRecipe('uxor/dropdown', () => {
     test('closes on a click on its trigger', async ({ page, gotoExample }) => {

@@ -1,20 +1,10 @@
 import type { Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { test, expect, guardPage, leavingTheDemo, markDocument } from './fixtures';
-import { kitName, recipes } from './inventory';
-
-// Every page answering 200 with its heading: a11y.spec.ts, which opens each of them. The theme toggle: theme-toggle.spec.ts.
-
-test('the index lists every recipe of the kit', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(kitName);
-    await expect(page.getByTestId('recipe-count')).toHaveText(`(${recipes.length})`);
-    // grouped by type (components, then blocks), each group sorted by name
-    expect((await page.getByTestId('recipe-list').getByRole('link').allTextContents()).sort()).toEqual(recipes);
-});
+import { png } from './files';
 
 test('links navigate with Turbo Drive (no full page load)', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/forms');
     await page.waitForFunction(() => 'Turbo' in window);
     const sameDocument = await markDocument(page);
 
@@ -22,12 +12,6 @@ test('links navigate with Turbo Drive (no full page load)', async ({ page }) => 
     await expect(page).toHaveURL(/\/lab$/);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Lab');
     await sameDocument.expectKept();
-});
-
-test('unknown recipes are 404', async ({ page, allowHttpError }) => {
-    allowHttpError(/\/r\/does-not-exist$/, 404); // the 404 document itself, nothing else
-    const response = await page.goto('/r/does-not-exist');
-    expect(response?.status()).toBe(404);
 });
 
 /*
@@ -72,7 +56,7 @@ test.describe('the page guard', () => {
     };
 
     test('a Turbo prefetch cancelled by a full load: fails nothing', async ({ page }) => {
-        await page.goto('/');
+        await page.goto('/forms');
         await page.waitForFunction(() => 'Turbo' in window);
         const release = await holdPrefetch(page, '/lab');
         const prefetch = page.waitForRequest((request) => 'prefetch' === request.headers()['x-sec-purpose']);
@@ -383,22 +367,21 @@ test.describe('the page guard', () => {
     const PREFETCH_MESSAGE = 'NetworkError when attempting to fetch resource.';
 
     /*
-     * What the guard's route takes, and what its events report. The route (leavingTheDemo) takes every request leaving
-     * the demo and none of the demo's: Playwright's server matches it, so the demo's requests are never handed to the
-     * test's process. The demo's failures, answers of 400 or more and the policy's violations are read from the page's
-     * events, which see every request whatever the route takes.
+     * Playwright matches requests leaving the demo on its server. App requests and in-browser images load normally.
+     * Page events report the demo's failures, answers of 400 or more and policy violations.
      */
     test.describe('requests and violations', () => {
         const OUTSIDE = 'https://uxor-guard.invalid';
 
-        test("the route takes every URL that is not the demo's, and none of the demo's", ({ baseURL }) => {
+        test('the route takes outside requests and leaves app and in-browser URLs alone', ({ baseURL }) => {
             test.skip('smoke' !== test.info().project.name, 'checks no browser: run in the smoke project only');
             // the demo's addresses, and one made of every character a RegExp reads as syntax
             for (const base of [baseURL ?? 'http://127.0.0.1:8000', 'https://localhost', 'http://127.0.0.1:8000', 'https://a.b+c(d)[e]{f}|g$h^i?j*k\\l']) {
                 const route = leavingTheDemo(base);
-                const local = (url: string) => url.startsWith(`${base}/`);
-                const urls = [`${base}/`, `${base}/lab?q=1#top`, `${base}/assets/app-0a1b2c.js`, `${base}x/`, `${base}.example.org/`, `${base}:8443/`, `${base}`, `${OUTSIDE}/${base}/`, `${OUTSIDE}/picture.png`, 'data:image/png;base64,AA'];
-                expect(urls.filter((url) => route.test(url) === local(url)), `under ${base}: taken although the demo's, or left although not`).toEqual([]);
+                const inside = [`${base}/`, `${base}/lab?q=1#top`, `${base}/assets/app-0a1b2c.js`, `blob:${base}/file`, 'data:image/png;base64,AA'];
+                const outside = [`${base}x/`, `${base}.example.org/`, `${base}:8443/`, base, `${OUTSIDE}/${base}/`, `${OUTSIDE}/picture.png`];
+                expect(inside.filter((url) => route.test(url)), `URLs intercepted under ${base}`).toEqual([]);
+                expect(outside.filter((url) => !route.test(url)), `URLs let through under ${base}`).toEqual([]);
             }
         });
 
@@ -415,6 +398,18 @@ test.describe('the page guard', () => {
             await page.route('**/guard-outside-page', (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Outside</title><img id="outside" src="${OUTSIDE}/picture.png">` }));
             await page.goto('/guard-outside-page');
             await loaded(page.mainFrame(), 'outside');
+            const blobWidth = await page.evaluate(async (bytes) => {
+                const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+                const image = new Image();
+                try {
+                    image.src = url;
+                    await image.decode();
+                    return image.naturalWidth;
+                } finally {
+                    URL.revokeObjectURL(url);
+                }
+            }, [...png('guard.png').buffer]);
+            expect(blobWidth).toBe(1);
             // no-cors: a cross-origin read Firefox would log as an error of the page, which is not what this checks
             const fetched = await page.evaluate((url) => fetch(url, { mode: 'no-cors' }).then((response) => response.text(), (error) => `rejected: ${error}`), `${OUTSIDE}/data.json`);
             expect(fetched).toMatch(/^rejected: /);
@@ -462,7 +457,7 @@ test.describe('the page guard', () => {
     test("the page's own prefetch request cancelled by a full load, its rejection unhandled: reported", async ({ context, baseURL, browserName }) => {
         const page = await context.newPage();
         const guard = await guardPage(page, baseURL);
-        await page.goto('/');
+        await page.goto('/forms');
         const release = await holdPrefetch(page, '/lab');
         // a fetch like Turbo's (same header, same URL, cancelled by the same full load), from a script of the page
         const sent = page.waitForRequest((request) => 'prefetch' === request.headers()['x-sec-purpose']);
@@ -482,7 +477,7 @@ test.describe('the page guard', () => {
     test("Turbo's prefetch failing without being cancelled, then a full load: reported", async ({ context, baseURL, browserName }) => {
         const page = await context.newPage();
         const guard = await guardPage(page, baseURL);
-        await page.goto('/');
+        await page.goto('/forms');
         await page.waitForFunction(() => 'Turbo' in window);
         await page.route('**/lab', (route) => ('prefetch' === route.request().headers()['x-sec-purpose'] ? route.abort('failed') : route.fallback()));
         const rejected = page.waitForEvent('pageerror');
@@ -501,7 +496,7 @@ test.describe('the page guard', () => {
     test("Turbo's prefetch failing after a full load cancelled another prefetch request: reported", async ({ context, baseURL, browserName }) => {
         const page = await context.newPage();
         const guard = await guardPage(page, baseURL);
-        await page.goto('/');
+        await page.goto('/forms');
         // a prefetch request the full load cancels, its rejection handled: no page error of its own
         const release = await holdPrefetch(page, '/forms');
         const sent = page.waitForRequest((request) => 'prefetch' === request.headers()['x-sec-purpose']);
@@ -516,7 +511,7 @@ test.describe('the page guard', () => {
         const rejected = page.waitForEvent('pageerror');
         await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Lab' }).hover();
         await rejected;
-        await page.goto('/');
+        await page.goto('/forms');
         const errors = errorsOf(guard);
         expect(errors).toContain('pageerror: ');
         if ('firefox' === browserName) {
@@ -528,7 +523,7 @@ test.describe('the page guard', () => {
     test("Turbo's prefetch failing after the page cancelled a prefetch request of its own, then a full load: reported", async ({ context, baseURL, browserName }) => {
         const page = await context.newPage();
         const guard = await guardPage(page, baseURL);
-        await page.goto('/');
+        await page.goto('/forms');
         // Turbo started: its history entry replaced (a commit of the same document, which must come before the cancel)
         await page.waitForFunction(() => undefined !== history.state?.turbo);
         // a prefetch request cancelled by the page, no full load: its AbortError handled, no page error of its own
@@ -565,7 +560,7 @@ test.describe('the page guard', () => {
         test(`Turbo's prefetch cancelled by ${how}: reported`, async ({ context, baseURL, browserName }) => {
             const page = await context.newPage();
             const guard = await guardPage(page, baseURL);
-            await page.goto('/');
+            await page.goto('/forms');
             await page.waitForFunction(() => 'Turbo' in window);
             await page.route('**/lab/no-content', (route) => route.fulfill({ status: 204 }));
             const release = await holdPrefetch(page, '/lab');
@@ -577,7 +572,7 @@ test.describe('the page guard', () => {
             await leave(page);
             await rejected;
             release();
-            await expect(page.getByRole('heading', { level: 1, name: kitName })).toBeVisible();
+            await expect(page.getByRole('heading', { level: 1, name: 'Form theme' })).toBeVisible();
             if ('firefox' === browserName) {
                 expect(errorsOf(guard)).toContain(`pageerror: ${PREFETCH_MESSAGE}`);
             }

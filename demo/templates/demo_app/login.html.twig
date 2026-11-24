@@ -1,9 +1,10 @@
 {% extends 'layouts/auth.html.twig' %}
 
 {% block head %}<link rel="icon" href="data:,">{% endblock %}
+{% block stylesheets %}{{ include('demo_app/_stylesheets.html.twig') }}{% endblock %}
 
 {% block title %}Sign in — xor{% endblock %}
-{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block brand %}{{ include('shared/_brand.html.twig') }}{% endblock %}
 {% block content %}
     <twig:LoginForm :form="form" :error="error" forgotPasswordHref="{{ path('app_demo_forgot_password') }}" signupHref="{{ path('app_demo_signup') }}" />
     <p class="mt-4 text-center text-sm text-body">Demo account: demo@example.com / demo</p>

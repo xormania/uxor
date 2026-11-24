@@ -2,6 +2,8 @@
 
 A server-driven table: search, filters, sortable columns, a page size and pages, in a Turbo Frame that keeps Back and Forward working.
 
+For this example, install the [badge](../badge/README.md) recipe.
+
 ```twig {"preview":true}
 <twig:DataTable :table="table" id="orders" label="Orders">
     <twig:block name="cell_status">
@@ -14,6 +16,8 @@ A server-driven table: search, filters, sortable columns, a page size and pages,
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=data-table#recipes). To install `data-table` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component data-table --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 Run `ux:install` from your project's root directory: besides its template, this recipe copies PHP classes into
 `src/UXor/DataTable/`, in the `App\UXor\DataTable` namespace. If your project's root namespace is not
@@ -31,6 +35,7 @@ page past the end loads the last one, and `loadRows()` runs once per request at 
 // src/Table/OrdersTable.php
 namespace App\Table;
 
+use App\Repository\OrderRepository;
 use App\UXor\DataTable\AbstractDataTable;
 use App\UXor\DataTable\Column;
 use App\UXor\DataTable\Filter;
@@ -158,8 +163,8 @@ toolbar and the pager wrap, and a table wider than the screen scrolls sideways i
 The search, filters and page size apply when the form is submitted (the Apply button, or Enter in the search field).
 After Back or Forward, the form shows the state of the URL on screen, never an edit made before leaving: its
 `data-table` controller resets the fields to the values the server rendered when a copy Turbo restores connects.
-Back pressed while a change is still loading drops the change: the URL, the rows and the controls stay those of the
-entry Back went to.
+Back or Forward cancels a pending change when history navigation starts. Even if a page link has already changed
+the URL and its frame is still rendering, the rows and controls match the history entry you chose.
 
 Changing the search, a filter, the sort or the page size goes back to the first page.
 

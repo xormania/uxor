@@ -24,8 +24,8 @@ use Symfony\UX\TwigComponent\Test\InteractsWithTwigComponents;
 /**
  * The main line of a Dropzone (the placeholder above the hint) through the form widget. An explicit `placeholder: false`
  * on a `DropzoneType` shows no main line; a field that says nothing about it keeps the kit's default phrase, custom
- * `attr` or not, so existing forms stay as they are (UX Dropzone 3.7's own theme would drop the line for a field with
- * custom `attr`). The file input stays named by its label, which the main line never was.
+ * `attr` or not, so existing forms stay as they are (UX Dropzone resolves the placeholder of a field with custom `attr`
+ * to false, and its own theme would drop the line). The file input stays named by its label, which the main line never was.
  */
 final class DropzonePlaceholderTest extends KernelTestCase
 {
@@ -53,7 +53,7 @@ final class DropzonePlaceholderTest extends KernelTestCase
         self::assertSame([self::DEFAULT_PHRASE], $this->mainLines($this->renderField([])));
     }
 
-    /** UX Dropzone 3.7 resolves this field's placeholder to false; the kit keeps its default phrase for it. */
+    /** UX Dropzone resolves this field's placeholder to false; the kit keeps its default phrase for it. */
     public function testAFieldWithCustomAttrAndNoPlaceholderKeepsTheDefaultPhrase(): void
     {
         self::assertSame([self::DEFAULT_PHRASE], $this->mainLines($this->renderField(['attr' => ['accept' => 'image/png']])));
@@ -64,7 +64,7 @@ final class DropzonePlaceholderTest extends KernelTestCase
         self::assertSame(['Drop a photo'], $this->mainLines($this->renderField(['placeholder' => 'Drop a photo'])));
     }
 
-    /** UX Dropzone 3.7 deprecates the placeholder in `attr` but still uses it. */
+    /** UX Dropzone deprecates the placeholder in `attr` but still uses it. */
     public function testThePlaceholderInAttrIsStillTheMainLine(): void
     {
         $this->expectUserDeprecationMessage('Since symfony/ux-dropzone 3.7: Passing the placeholder in the "attr" option of "Symfony\UX\Dropzone\Form\DropzoneType" is deprecated, use the "placeholder" option instead.');
@@ -83,6 +83,40 @@ final class DropzonePlaceholderTest extends KernelTestCase
         };
 
         self::assertSame(['Déposez une photo'], $this->mainLines($this->renderField(['placeholder' => $placeholder])));
+    }
+
+    /** @return iterable<string, array{array<string, mixed>, list<string>}> */
+    public static function placeholderChoices(): iterable
+    {
+        yield 'placeholder false' => [['placeholder' => false], []];
+        yield 'nothing said' => [[], [self::DEFAULT_PHRASE]];
+        yield 'a placeholder' => [['placeholder' => 'Drop a photo'], ['Drop a photo']];
+        yield 'custom attr, no placeholder' => [['attr' => ['accept' => 'image/png']], [self::DEFAULT_PHRASE]];
+    }
+
+    /**
+     * UX Dropzone sets the `placeholder` and `container_attr` view variables and still sets `attr.placeholder`, which
+     * the recipe's widget reads instead of either variable. The main line is the field's choice, the file input carries
+     * no `placeholder` attribute (not one of a file input) and no `data-controller`, and the box is the recipe's, with
+     * its own controllers and none of UX Dropzone's container classes.
+     *
+     * @param array<string, mixed> $options
+     * @param list<string>         $lines
+     */
+    #[DataProvider('placeholderChoices')]
+    public function testTheWidgetRendersTheSameForEachPlaceholderChoice(array $options, array $lines): void
+    {
+        $zone = $this->renderField($options);
+        $input = $zone->filter('input[type="file"]');
+
+        self::assertSame($lines, $this->mainLines($zone));
+        self::assertCount(1, $input);
+        self::assertNull($input->attr('placeholder'), 'no placeholder attribute on the file input');
+        self::assertNull($input->attr('data-controller'), 'no controller on the file input');
+        $box = $zone->filter('[data-controller~="symfony--ux-dropzone--dropzone"]');
+        self::assertCount(1, $box);
+        self::assertSame('symfony--ux-dropzone--dropzone dropzone-assist', $box->attr('data-controller'));
+        self::assertStringNotContainsString('dropzone-container', (string) $box->attr('class'), "UX Dropzone's container_attr is not rendered");
     }
 
     /** @return iterable<string, array{bool}> */

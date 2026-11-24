@@ -61,7 +61,7 @@ function resolve(t, fixtures) {
     return { status: run.status, log: run.stdout + run.stderr, values };
 }
 
-test('the site publishes the latest published release, at the commit its tag points at', (t) => {
+test('the site resolves the latest published release to its tagged commit', (t) => {
     const { status, log, values } = resolve(t);
     assert.equal(status, 0, log);
     assert.deepEqual(values, { version: '0.4.0', commit: sha('a') });
@@ -82,7 +82,7 @@ test('no draft, prerelease, malformed or missing release is ever published', (t)
     }
 });
 
-test('what the build checks out comes from the Releases alone; release.yml version is only compared with it', (t) => {
+test('the build uses the published release commit and rejects a different requested version', (t) => {
     // no input reaches the step whose outputs choose the checkout (CodeQL: cache poisoning)
     const release = workflow.slice(workflow.indexOf('            - id: release'), workflow.indexOf('            - id: expected'));
     assert.doesNotMatch(release, /inputs\./);
@@ -120,7 +120,7 @@ test('the build stops unless the checkout and the release tag are the resolved c
     }
 });
 
-test('the deploy stops when a newer release came out, or the tag moved, after the build', (t) => {
+test('the deploy stops when a newer release appears or the tag moves after the build', (t) => {
     const fresh = stepIn(workflow, 'deploy', 'fresh').run;
     for (const [name, fixtures, expected] of [
         ['still the latest, at the same commit', {}, 0],
@@ -210,6 +210,8 @@ function liveSite(overrides = {}) {
         'r/button/': page('r/button/'),
         'install/': page('install/'),
         'guide/': page('guide/'),
+        'demo/': '<a href="/project/">Back to the gallery</a>',
+        'preview/button/default/light/': '<meta name="robots" content="noindex">',
         'sitemap.xml': `<urlset><url><loc>${url}/</loc></url><url><loc>${url}/r/button/</loc></url></urlset>`,
         'llms.txt': `# Project\n\n- [button](${url}/r/button.md): a button\n`,
         'r/button.md': '# Button\n\nA button.\n',
@@ -233,6 +235,8 @@ test('the deploy checks the site where readers get it: the release it shows, its
         ['an older release still served', liveSite({ 'release.json': JSON.stringify({ version: '0.3.0', commit: sha('b') }) }), /release\.json is .*0\.3\.0.*not 0\.4\.0/],
         ['a page naming another host as canonical', liveSite({ 'r/button/': '<link rel="canonical" href="https://elsewhere.example/r/button/">' }), /\/r\/button\/ does not name https:\/\/example\.github\.io\/project\/r\/button\/ as its canonical URL/],
         ['a guide missing', liveSite({ 'guide/': undefined }), /\/guide\/ does not answer/],
+        ['a missing static demo', liveSite({ 'demo/': undefined }), /demo\/ does not answer/],
+        ['a preview falling back to the site homepage', liveSite({ 'preview/button/default/light/': '<h1>UXor</h1>' }), /does not serve a runtime preview/],
         ['a sitemap under another base path', liveSite({ 'sitemap.xml': '<loc>https://example.github.io/r/button/</loc>' }), /sitemap\.xml does not list/],
         ["llms.txt linking the repository's README", liveSite({ 'llms.txt': '- [button](https://raw.githubusercontent.com/example/project/0.4.0/button/README.md)' }), /llms\.txt does not link/],
         ["a recipe's Markdown missing", liveSite({ 'r/button.md': undefined }), /r\/button\.md does not answer/],

@@ -12,6 +12,8 @@ A dashboard home: page header, key figures, two cards and a table of recent orde
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=dashboard-home#recipes). To install `dashboard-home` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component dashboard-home --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 Without props, it shows sample data. Installing it also installs the `layouts` recipe, so a route and a template are all you need to see it:

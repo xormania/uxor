@@ -293,3 +293,11 @@ test('trends: timings and screenshots next to last month\'s, report only', () =>
     delete old.screenshots;
     assert.match(trendsMarkdown(current, old), /\| modal open \| 14 ms \| — \| +\|/);
 });
+
+test('trends: demo layout screenshots still compare with reports from before the project split', () => {
+    const name = 'tests/e2e/examples/pages.spec.ts › desktop › dashboard › dashboard desktop';
+    const previous = collect({ screenshots: { firefox: { [`examples ${name}`]: { status: 'matches', ratio: null } } } }, { ref: 'dev' });
+    const current = collect({ screenshots: { firefox: { [`demo-app ${name}`]: { status: 'differs', ratio: 0.02 } } } }, { ref: 'dev' });
+
+    assert.ok(trendsMarkdown(current, previous).includes(`- firefox \`${'demo-app ' + name}\` (ratio 0.02)`));
+});

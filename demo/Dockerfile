@@ -2,7 +2,7 @@
 
 # Versions
 # UXor: both base images pinned by digest (the tag's multi-platform index), bumped by Dependabot (docs/NOTES.md)
-FROM dunglas/frankenphp:1-php8.5@sha256:7e73a27eb7712a5b4073b92f8f0dec91e9400138604b76cc791589faaa6a639c AS frankenphp_upstream
+FROM dunglas/frankenphp:1-php8.5@sha256:667c5fffd348d9c3c260803d75956f1d9aace7e4b7331d8893de6f101d7e0e57 AS frankenphp_upstream
 
 # The different stages of this Dockerfile are meant to be built into separate images
 # https://docs.docker.com/build/building/multi-stage/#stop-at-a-specific-build-stage
@@ -77,8 +77,7 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY --link demo/frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
 
-# UXor: the image holds the repository as the demo reads it, as on disk: the kit in /app (its recipes, the files the
-# gallery reads), the app in /app/demo (demo/Dockerfile.dockerignore names what the context holds)
+# Keep the kit in /app and the example app in /app/demo, matching their paths in a checkout.
 WORKDIR /app/demo
 
 # prevent the reinstallation of vendors at every changes in the source code
@@ -100,10 +99,10 @@ RUN <<-EOF
 	php ../tools/sync-demo
 	# the auto-scripts: cache:clear, assets:install, importmap:install (the browser packages)
 	composer run-script --no-dev post-install-cmd
-	# the stylesheet (the Tailwind standalone CLI, downloaded at the pinned version), then the compiled assets
-	php bin/console tailwind:build --minify
+	# both stylesheets (the Tailwind standalone CLI, downloaded at the pinned version), then the compiled assets
+	php bin/console app:build-styles --minify
 	php bin/console asset-map:compile
-	rm -rf /app/tools
+	rm /app/tools/sync-demo
 	chmod +x bin/console
 	chmod -R g=u var
 	sync

@@ -186,4 +186,89 @@ PHP);
         self::assertSame('incomplete', $result['status']);
         self::assertStringNotContainsString('secret-example', json_encode($result));
     }
+
+    public function testBrowserDiagnosticsUseSameExactProfileAndFailureEvidenceThroughCliAndMate(): void
+    {
+        $root = $this->directory.'/app';
+        $path = 'results/test/browser-diagnostics.json';
+        $request = ['requestId' => 3, 'method' => 'GET', 'url' => 'http://127.0.0.1/orders?page=2', 'turboFrame' => 'orders'];
+        mkdir(dirname($root.'/'.$path), 0777, true);
+        file_put_contents($root.'/'.$path, json_encode([
+            'version' => 1,
+            'responses' => [$request + ['token' => 'abc123', 'status' => 200, 'headers' => ['ignored' => 'ignored']]],
+            'requestFailures' => [$request + ['error' => 'net::ERR_ABORTED']],
+            'pageErrors' => [['name' => 'AbortError', 'message' => 'signal is aborted without reason', 'stack' => null]],
+        ], JSON_THROW_ON_ERROR));
+
+        $tester = new CommandTester((new Application($this->operations))->find('browser-diagnostics'));
+        self::assertSame(0, $tester->execute(['path' => $path, '--project-root' => $root, '--format' => 'json']));
+        $result = json_decode($tester->getDisplay(), true, flags: JSON_THROW_ON_ERROR);
+        self::assertSame('completed', $result['status']);
+        self::assertSame($path, $result['data']['artifact']);
+        self::assertSame(3, $result['data']['responses'][0]['requestId']);
+        self::assertSame('symfony-profiler://profile/abc123', $result['data']['responses'][0]['profileUri']);
+        self::assertArrayNotHasKey('headers', $result['data']['responses'][0]);
+        self::assertArrayNotHasKey('dropped', $result['data']);
+        self::assertArrayNotHasKey('visit', $result['data']);
+        self::assertSame($request + ['error' => 'net::ERR_ABORTED'], $result['data']['requestFailures'][0]);
+        self::assertSame('AbortError', $result['data']['pageErrors'][0]['name']);
+
+        $mate = new Capabilities($this->operations, $root);
+        self::assertSame($result, ResponseEncoder::decode($mate->browserDiagnostics($path))['untrusted_data']);
+    }
+
+    public function testStandaloneBrowserVisitReportsHttpAndNavigationFailuresWithoutAProfile(): void
+    {
+        $root = $this->directory.'/app';
+        $path = 'browser-diagnostics.json';
+        $base = ['version' => 1, 'responses' => [], 'requestFailures' => [], 'pageErrors' => []];
+        $mate = new Capabilities($this->operations, $root);
+        foreach ([[503, null, 'HTTP 503'], [200, 'Selector timed out', 'visit error'], [null, 'Connection refused', 'visit error']] as [$status, $error, $summary]) {
+            $visit = ['url' => 'http://127.0.0.1/orders', 'status' => $status, 'error' => $error];
+            file_put_contents($root.'/'.$path, json_encode($base + ['visit' => $visit + ['headers' => ['ignored']]], JSON_THROW_ON_ERROR));
+            $result = $this->operations->run('browser-diagnostics', ['project_root' => $root, 'path' => $path]);
+            self::assertSame('completed', $result['status']);
+            self::assertStringContainsString($summary, $result['summary']);
+            self::assertSame($visit, $result['data']['visit']);
+            self::assertSame($result, ResponseEncoder::decode($mate->browserDiagnostics($path))['untrusted_data']);
+        }
+    }
+
+    public function testBrowserDiagnosticsRejectsEscapingPathsAndNonArtifactFiles(): void
+    {
+        $root = $this->directory.'/app';
+        $outside = $this->directory.'/browser-diagnostics.json';
+        file_put_contents($outside, '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[]}');
+        symlink($outside, $root.'/browser-diagnostics.json');
+        symlink($this->directory, $root.'/linked-directory');
+
+        foreach (['../browser-diagnostics.json', $outside, 'browser-diagnostics.json', 'linked-directory/browser-diagnostics.json', 'composer.json'] as $path) {
+            $result = $this->operations->run('browser-diagnostics', ['project_root' => $root, 'path' => $path]);
+            self::assertSame('failed', $result['status'], $path);
+            self::assertSame('invalid_input', $result['error']['type'], $path);
+            self::assertNull($result['data'], $path);
+        }
+    }
+
+    public function testBrowserDiagnosticsRejectsMalformedAndOversizedArtifacts(): void
+    {
+        $root = $this->directory.'/app';
+        $arguments = ['project_root' => $root, 'path' => 'browser-diagnostics.json'];
+        $artifact = $root.'/browser-diagnostics.json';
+        foreach (['{"version":2}', '{"version":1,"responses":{},"requestFailures":[],"pageErrors":[]}',
+            '{"version":1,"responses":[{"requestId":1,"token":"../escape","method":"GET","url":"http://localhost","status":200,"turboFrame":null}],"requestFailures":[],"pageErrors":[]}',
+            '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[],"visit":{"url":"http://localhost","status":700,"error":null}}',
+            '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[],"visit":{"url":"http://localhost","status":null}}',
+            '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[],"dropped":{"responses":0,"requestFailures":0,"pageErrors":-1}}'] as $document) {
+            file_put_contents($artifact, $document);
+            $result = $this->operations->run('browser-diagnostics', $arguments);
+            self::assertSame('failed', $result['status']);
+            self::assertSame('invalid_input', $result['error']['type']);
+        }
+
+        file_put_contents($artifact, str_repeat(' ', 1024 * 1024 + 1));
+        $result = $this->operations->run('browser-diagnostics', $arguments);
+        self::assertSame('failed', $result['status']);
+        self::assertStringContainsString('exceeds 1 MiB', $result['summary']);
+    }
 }

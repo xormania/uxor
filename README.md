@@ -1,97 +1,33 @@
 # UXor
 
-An independently maintained Symfony UI library, currently distributed as a
-[Symfony UX Toolkit](https://symfony.com/bundles/ux-toolkit/current/index.html) kit and styled with the free
-[Flowbite](https://flowbite.com/) v4 library and Tailwind CSS v4: a theme, Twig components, a form theme, page layouts
-and ready-made blocks such as a login card or a dashboard, each one a recipe. `php bin/console ux:install` copies a
-recipe into your project, where you own it. Every behavior is a Stimulus controller, so components keep working with
-Turbo and Live Components. The [Gallery](https://xormania.github.io/uxor/) shows every recipe in light and
-dark, with its code.
-
-The official Symfony UX `flowbite-4` kit was an initial reference only. UXor follows its own requirements and
-compatibility commitments, with no requirement to track that kit's names, markup, behavior or tests. Toolkit
-installation support, Flowbite CSS and the icon set are current implementation choices that can evolve with UXor.
-
-![The dashboard block in the dark theme](docs/images/dashboard-dark.png)
+UXor provides Twig components, forms and ready-made pages for Symfony. Symfony UX Toolkit copies the recipes
+you choose into your application, where your team can edit them. The Composer development package gives you
+and your coding agent a searchable recipe catalog, setup guidance and diagnostics.
 
 ## Install
 
-Requires PHP 8.4 or later with the `zip` extension (the toolkit unpacks GitHub's archive of the kit).
-On a new project (`composer create-project symfony/skeleton`), run these once, in this order:
+**[Set up UXor with the Composer development package](packages/uxor/README.md)** to start in a new or existing
+Symfony application. Follow the guide to install `xormania/uxor` and render your first component. Use the guide
+for your [published release](https://github.com/xormania/uxor/releases) when installing. A development branch
+can describe a package version that is still awaiting publication.
 
-```bash
-# 1. Allow Flex contrib recipes. Every component uses the `tailwind_classes` Twig filter, and a contrib
-#    recipe enables its bundle (tales-from-a-dev/twig-tailwind-extra).
-composer config extra.symfony.allow-contrib true
-# 2. Twig and Twig components as regular dependencies. If they only come in with the toolkit (a dev
-#    dependency), cache:clear fails with "non-existent service property_accessor".
-composer require symfony/twig-bundle symfony/ux-twig-component
-# 3. The toolkit, and the HTTP client it downloads the kit with.
-composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client
-# 4. AssetMapper and StimulusBundle: the layouts load the `app` importmap entrypoint, and StimulusBundle
-#    loads the recipes' controllers from assets/controllers/.
-composer require symfony/asset-mapper symfony/stimulus-bundle
-```
-
-With [Symfony Docker](https://github.com/dunglas/symfony-docker), run these commands inside the container
-(`docker compose exec php composer …`, `docker compose exec php bin/console …`); its PHP image has the `zip`
-extension.
-
-Then set up Tailwind CSS, Flowbite's stylesheet and the `theme` recipe as the *Tailwind CSS* and *Installation*
-sections of [`INSTALL.md`](INSTALL.md) say (its *Symfony* steps are the commands above). After that, install recipes:
-
-```bash
-# <version>: a release, the latest one on https://github.com/xormania/uxor/releases unless you need an older one
-php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version>
-```
-
-Always name the release: without one, `ux:install` downloads the repository's default branch, which can hold work
-that is not released yet. [`CHANGELOG.md`](CHANGELOG.md) lists what each version changes.
-
-`ux:install` also installs the recipes a recipe depends on, then prints a `composer require` command for the
-packages they need: run it. [Installing recipes](docs/GUIDE.md#installing-recipes) says more.
-
-### Icons
-
-The recipes show icons from the `flowbite` set of [UX Icons](https://symfony.com/bundles/ux-icons/current/index.html),
-downloaded from the Iconify API the first time a page shows one. Before you deploy, save them in the project with
-this command and commit them; run it again when your templates use new icons:
-
-```bash
-php bin/console ux:icons:lock
-```
-
-## Agent tooling
-
-The repository is also a Composer package, `xormania/uxor`, for the coding agent working on your project: three
-[Symfony AI Mate](https://symfony.com/doc/current/ai/components/mate.html) skills (set up, build, verify), Mate tools
-and the `vendor/bin/uxor` command line to search the recipes, read their docs, inspect the project and check its
-setup, with UXor's docs bundled in the package. It is a development dependency and installs no recipe:
-recipes still come from `ux:install`, and stay yours. [`packages/uxor/README.md`](packages/uxor/README.md) says how to
-install it.
+| What do you want to do? | Start here |
+| --- | --- |
+| See what UXor looks like | [Open the example app](https://xormania.github.io/uxor/demo/) or [browse the recipe gallery](https://xormania.github.io/uxor/#recipes) for the latest release. |
+| Add a component to a configured app | [Find a recipe in this version](packages/uxor/resources/uxor/docs/docs/RECIPES.md) or [render your first component](packages/uxor/README.md#use). |
+| Install the kit directly or configure the tools yourself | [Direct Toolkit installation](INSTALL.md) · [Advanced configuration](packages/uxor/OPERATIONS.md) |
+| Work on UXor itself | Open `CONTRIBUTING.md` on your branch. For the default branch, [read the contributor guide on GitHub](https://github.com/xormania/uxor/blob/HEAD/CONTRIBUTING.md). |
 
 ## Requirements
 
-| | |
-|---|---|
-| Symfony UX Toolkit | ^3.5 (blocks need 3.5) |
-| PHP | ≥ 8.4 (required by the toolkit), with the `zip` extension; `intl` for `calendar` and `date-picker` in any locale but `en` |
-| Symfony | 7.4 LTS and 8.1: CI installs the kit on both (8.1 in a fresh Symfony Docker project), and the demo and its browser tests run on 8.1 |
-| Assets | AssetMapper (`chart` also needs `chart.js` in the import map, which Flex adds; `editor` needs the Tiptap modules, which `ux:install` prints as `importmap:require` commands; `markdown-editor` needs `symfony/ux-live-component` for its preview). With Webpack Encore, override the layouts' `stylesheets` and `javascripts` blocks: they load the `app` importmap entrypoint |
-| Tailwind CSS | 4.x |
-| Flowbite | 4.x |
+The standard Symfony setup uses Twig, Stimulus, AssetMapper and TailwindBundle's standalone compiler.
+See the [kit requirements](INSTALL.md#requirements) for supported versions and extensions.
 
 ## Documentation
 
-- [Recipes](docs/RECIPES.md): every recipe, one line each, linked to its README.
-- [Guide](docs/GUIDE.md): installing and updating recipes, Turbo and Live Components, security, versioning.
-- [`INSTALL.md`](INSTALL.md): each setup step explained, AssetMapper or Webpack Encore.
-- Coding agents: give yours [`FOR-AGENTS.md`](FOR-AGENTS.md) and [`llms.txt`](llms.txt), and paste
-  [`docs/PROJECT-AGENTS-SNIPPET.md`](docs/PROJECT-AGENTS-SNIPPET.md) into your project's `AGENTS.md` or `CLAUDE.md`.
-- [`CHANGELOG.md`](CHANGELOG.md): what each version changes.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): the repository layout, the checks and the conventions.
-- [`docs/TESTING.md`](docs/TESTING.md): how the kit is tested, with patterns to reuse in your app's tests.
+- [Agent onboarding](packages/uxor/resources/uxor/docs/docs/AGENT-ONBOARDING.md) walks through a first task in your application.
+- [Composer configuration](packages/uxor/resources/uxor/docs/docs/COMPOSER-CONFIGURATION.md) lists the defaults for this version.
+- [Using and updating recipes](packages/uxor/resources/uxor/docs/docs/GUIDE.md) covers application-owned changes.
+- [Application testing](packages/uxor/resources/uxor/docs/docs/APPLICATION-TESTING.md) covers verification in your app.
 
-## License
-
-MIT — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE) (Symfony UX, Flowbite).
+UXor is independently maintained. MIT licensed. See the [license](LICENSE) and [attribution](NOTICE).
