@@ -1,0 +1,13 @@
+{% if previewUrl %}
+    {% set example = previewUrl|split('/')|last %}
+    <div id="example-{{ example }}" class="preview-pair" data-testid="example" data-example="{{ example }}">
+        {% for theme in ['light', 'dark'] %}
+            <figure>
+                <iframe src="{{ previewUrl }}/{{ theme }}/" title="{{ example }} ({{ theme }})" loading="lazy"></iframe>
+                <figcaption>{{ theme|capitalize }}</figcaption>
+            </figure>
+        {% endfor %}
+    </div>
+{% else %}
+    <pre tabindex="0"><code>{{ code }}</code></pre>
+{% endif %}

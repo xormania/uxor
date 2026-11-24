@@ -84,11 +84,10 @@ export function cssSourcesDigest(root = repository) {
     const candidates = ['templates', 'assets', 'src', 'config', 'README.md', 'manifest.json'];
     const controls = ['.gitignore', '.gitattributes', '.ignore'];
     const paths = [
-        ...controls, 'kit.css', 'kit.js', 'INSTALL.md', 'docs/GUIDE.md', 'tools/sync-demo', 'tools/prepare-tests.mjs',
-        ...controls.map((file) => `docs/${file}`),
+        ...controls, 'kit.css', 'kit.js', 'tools/sync-demo', 'tools/prepare-tests.mjs',
         'demo/composer.json', 'demo/composer.lock', 'demo/importmap.php', 'demo/symfony.lock',
     ];
-    const outside = new Set(['docs', 'node_modules', 'packages', 'tests', 'tools', 'vendor']);
+    const outside = new Set(['docs', 'node_modules', 'packages', 'tests', 'tools', 'vendor', 'website']);
     for (const entry of readdirSync(root, { withFileTypes: true })) {
         if (entry.isDirectory() && !entry.name.startsWith('.') && !outside.has(entry.name)) {
             for (const file of [...candidates, ...controls]) paths.push(`${entry.name}/${file}`);

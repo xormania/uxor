@@ -15,10 +15,11 @@ import { stepIn } from '../ci/step-attempts.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const workflowsDir = '.github/workflows';
+const websiteInputs = ['INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'website/src/Renderer.php', 'website/templates/recipe.html.twig'];
 const packageGuides = ['packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json'];
 /**
  * The image's build inputs: the Dockerfile and its allow-list, the Compose files and FrankenPHP's; what the demo's vendor/
- * holds (demo/composer.json, demo/composer.lock: a development-only package the gallery needs at run time is how the
+ * holds (demo/composer.json, demo/composer.lock: a development-only package the app needs at run time is how the
  * image first failed); tools/sync-demo, which the builder runs; and demo/config/, where the production-only
  * configuration lives, which no other lane boots. Also what can change the paths the image needs: a recipe's manifest
  * (copy-files declares what the allow-list must admit), the root files the allow-list admits, and a new top-level
@@ -39,16 +40,14 @@ const TRIGGERS = [
     'alert/manifest.json',
     'manifest.json',
     'kit.css',
-    'INSTALL.md',
-    'llms.txt',
-    'docs/GUIDE.md',
-    ...packageGuides,
+    'kit.js',
+    'tools/kit/KitReader.php',
     'brand-new-dir/notes.txt',
     'NEW-ROOT-FILE.md',
     // the demo is the app the image runs, and its files behave differently in prod (no dev packages, no Toolkit bundle):
     // every entry the image admits; the lane's own harness; a new directory whatever the file's name
     'tools/tests/prod-image.sh',
-    'demo/src/Controller/ShowcaseController.php',
+    'demo/src/Controller/HomeController.php',
     'demo/templates/base.html.twig',
     'demo/.env',
     'demo/importmap.php',
@@ -68,6 +67,8 @@ const TRIGGERS = [
 ];
 /** The image leaves out browser specs, recipe tests, package internals and contributor documentation. */
 const UNRELATED = [
+    ...websiteInputs,
+    ...packageGuides,
     'tests/e2e/smoke.spec.ts',
     'alert/tests/alert.spec.ts',
     'alert/tests/screenshots/with-list-dark.png',
@@ -78,7 +79,7 @@ const UNRELATED = [
     'tools/docs-lint.mjs',
 ];
 /** The image's inputs a release check must not count as never read. */
-const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', ...packageGuides, 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
+const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'kit.js', 'tools/kit/KitReader.php', 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
 
 const workflows = readdirSync(join(root, workflowsDir))
     .filter((name) => /\.ya?ml$/.test(name))
@@ -210,7 +211,7 @@ test("the release checks never reuse an earlier pass across a change to one of t
     const decision = lines.findIndex((line, i) => i > changed && /^\s*if \[ -z "\$other" \]; then$/.test(line));
     assert.ok(changed >= 0 && decision > changed, 'a shell predicate connects the changed paths to the reuse decision');
     const predicate = lines.slice(changed + 1, decision).join('\n');
-    const docs = ['CHANGELOG.md', 'AGENTS.md', 'docs/TESTING.md', 'docs/GUIDE.md.bak', 'packages/uxor/INSTRUCTIONS.md', 'packages/uxor/resources/guides.json.bak'];
+    const docs = [...websiteInputs, ...packageGuides, 'CHANGELOG.md', 'AGENTS.md', 'docs/TESTING.md', 'docs/GUIDE.md.bak', 'packages/uxor/INSTRUCTIONS.md', 'packages/uxor/resources/guides.json.bak'];
     for (const [inputs, expected] of [
         [IMAGE_INPUTS, IMAGE_INPUTS],
         [docs, []],
@@ -270,11 +271,11 @@ test('the lane runs for every kind of recipe file the image admits', () => {
     assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these kinds of recipe file the image admits');
 });
 
-// The root files the image holds are named in the allow-list (`!<file>`, `!docs/GUIDE.md`): each runs the lane, so a
+// The root files the image holds are named in the allow-list (`!<file>`): each runs the lane, so a
 // root file added to the image fails here until the classifier runs the lane for it.
 test('the lane runs for every root file the image admits', () => {
     const files = readFileSync(join(root, 'demo/Dockerfile.dockerignore'), 'utf8').split('\n')
-        .map((line) => /^!((?:docs\/)?[A-Za-z0-9][^/*\s]*)$/.exec(line.trim())?.[1]).filter(Boolean);
+        .map((line) => /^!([A-Za-z0-9][^/*\s]*)$/.exec(line.trim())?.[1]).filter(Boolean);
     assert.ok(files.includes('manifest.json'), 'demo/Dockerfile.dockerignore admits the root files by name (!manifest.json, …)');
     const missing = files.filter((path) => !selected([path]).has('prod-image'));
     assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these root files the image admits');

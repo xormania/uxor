@@ -2,10 +2,10 @@
 
 namespace App\Tests\Kit;
 
-use App\Kit\KitReader;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\UX\Toolkit\Recipe\Recipe;
+use UXor\Kit\KitReader;
 
 /**
  * Reading a recipe's README examples (KitReader::getExamples()): a PCRE error, such as its backtrack limit on a long

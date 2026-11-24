@@ -1,0 +1,11 @@
+<div class="doc-tabs" data-tabs>
+    <div class="tab-list" hidden>
+        {% for tab in tabs %}<button type="button" id="{{ id_prefix }}-{{ tab.id }}-tab" aria-controls="{{ id_prefix }}-{{ tab.id }}">{{ tab.title }}</button>{% endfor %}
+    </div>
+    {% for tab in tabs %}
+        <div id="{{ id_prefix }}-{{ tab.id }}" class="tab-panel">
+            <strong class="tab-fallback">{{ tab.title }}</strong>
+            {{ tab.content|raw }}
+        </div>
+    {% endfor %}
+</div>

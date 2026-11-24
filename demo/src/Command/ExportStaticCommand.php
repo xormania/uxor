@@ -2,8 +2,8 @@
 
 namespace App\Command;
 
-use App\Kit\GuideDocs;
-use App\Kit\KitReader;
+use Symfony\Component\AssetMapper\AssetMapper;
+use Symfony\Component\AssetMapper\ImportMap\ImportMapGenerator;
 use Symfony\Component\Console\Attribute\Argument;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Attribute\Option;
@@ -16,37 +16,19 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 use Symfony\Component\HttpKernel\TerminableInterface;
 use Symfony\Contracts\Service\ResetInterface;
+use UXor\Kit\KitReader;
 
 /**
- * Saves the showcase as static pages, for GitHub Pages (.github/workflows/pages.yml): the index, every recipe page and
- * its portable Markdown (r/<recipe>.md), every README example in both themes, the published consumer guides
- * and theirs, sitemap.xml and llms.txt, and the /demo application's pages. The site's public URL (--site-url) goes into
- * the canonical links, the sitemap and llms.txt. Each page goes through the kernel as a GET
- * request under the site's base path, so Symfony prints the links and asset URLs the site needs.
- *
- * Run `tailwind:build` and `asset-map:compile` first: the compiled assets are copied next to the pages. The /lab and
- * /forms pages need the server (Live Components, form submits) and are left out; the pages say so.
+ * Renders the kit previews and visual example application with Symfony. The documentation
+ * website links to these runtime exports and builds its own pages and assets separately.
  */
-#[AsCommand('app:export-static', description: 'Saves the showcase as static pages, for GitHub Pages')]
+#[AsCommand('app:export-static', description: 'Export recipe previews, the visual demo and their compiled assets')]
 final class ExportStaticCommand
 {
-    /**
-     * The recipes whose examples need Symfony behind them, with what does not work in the static copy: their recipe
-     * page says so. Live Components are switched off on every saved page, so a click does nothing rather than open
-     * Live's error dialog with the static host's answer.
-     */
-    private const SERVER_ONLY = [
-        'oauth' => 'provider sign-in, callbacks and account connections require Symfony and configured provider applications; the static examples show the presentation only',
-        'social-login' => 'provider sign-in requires the application server; the static examples show the login and registration cards',
-        'connected-accounts' => 'connecting and disconnecting accounts requires authenticated server requests; the static examples use disabled actions',
-        'data-table' => 'the search, the sort links and the pages ask the server for the rows, so they do not change them',
-        'data-table-live' => 'the table is a Live Component: its search, sorting, pages and selection run on the server, so they do nothing',
-        'markdown-editor' => 'the Preview tab is rendered on the server by a Live Component, so it stays empty; the Write tab and its toolbar work',
-    ];
-
     public function __construct(
         private readonly KitReader $kit,
-        private readonly GuideDocs $guides,
+        #[Autowire(service: 'asset_mapper.importmap.generator')]
+        private readonly ImportMapGenerator $importMap,
         #[Autowire(service: 'http_kernel')]
         private readonly HttpKernelInterface $httpKernel,
         #[Autowire(service: 'services_resetter')]
@@ -58,20 +40,10 @@ final class ExportStaticCommand
 
     public function __invoke(
         SymfonyStyle $io,
-        #[Argument(description: 'The directory to write the site to (emptied first)')]
+        #[Argument(description: 'Output directory for preview/, demo/ and assets/')]
         string $dir,
         #[Option(description: 'The path the site is served under, e.g. /uxor')]
         string $basePath = '',
-        #[Option(description: 'The release the site is built from, if it is one: the install commands then name it')]
-        ?string $release = null,
-        #[Option(description: 'The latest release, named when the site is built from another commit')]
-        ?string $latestRelease = null,
-        #[Option(description: 'The commit the site is built from')]
-        ?string $commit = null,
-        #[Option(description: 'The branch the commit is on, named in the banner of a site that is not a release')]
-        string $branch = 'main',
-        #[Option(description: 'The public URL the site is served at, for its canonical links, sitemap and llms.txt (default: the GitHub Pages URL of manifest.json\'s homepage under the base path)')]
-        ?string $siteUrl = null,
     ): int {
         $basePath = rtrim($basePath, '/');
         if ('' !== $basePath && !preg_match('#^(/[A-Za-z0-9._-]+)+$#', $basePath)) {
@@ -89,35 +61,45 @@ final class ExportStaticCommand
 
         $filesystem = new Filesystem();
         $dir = Path::makeAbsolute($dir, getcwd());
-        $filesystem->remove($dir);
-        $filesystem->mirror($assets, $dir.'/assets');
+        if (Path::isBasePath($dir, $this->projectDir)) {
+            $io->error('Choose a dedicated directory for the runtime export.');
 
-        $siteUrl = rtrim($siteUrl ?: self::pagesUrl($this->kit->getManifest()->homepage, $basePath), '/');
-        $context = ['release' => $release ?: null, 'latest_release' => $latestRelease ?: null, 'commit' => $commit ?: null, 'branch' => $branch ?: 'main', 'server_only' => self::SERVER_ONLY, 'site_url' => $siteUrl];
+            return Command::INVALID;
+        }
+        // The build wrapper stages these three trees before replacing an earlier export.
+        foreach (['assets', 'demo', 'preview'] as $name) {
+            if (file_exists($dir.'/'.$name) || is_link($dir.'/'.$name)) {
+                $io->error(\sprintf('The runtime export path %s already exists. Choose an empty staging directory.', $dir.'/'.$name));
+
+                return Command::INVALID;
+            }
+        }
+        // AssetMapper retains old fingerprinted assets on a warm build. Publish only the files
+        // named by this compile, so removed styles and scripts cannot reappear in a release.
+        $manifest = json_decode($filesystem->readFile($assets.'/'.AssetMapper::MANIFEST_FILE_NAME), true, flags: \JSON_THROW_ON_ERROR);
+        foreach ($manifest as $path) {
+            if (!str_starts_with($path, '/assets/') || !Path::isBasePath('/assets', $path)) {
+                throw new \UnexpectedValueException(\sprintf('Compiled asset lies outside /assets/: %s.', $path));
+            }
+            $filesystem->copy($this->projectDir.'/public'.$path, $dir.$path);
+        }
+        $metadata = [AssetMapper::MANIFEST_FILE_NAME, ImportMapGenerator::IMPORT_MAP_CACHE_FILENAME];
+        foreach ($this->importMap->getEntrypointNames() as $entrypoint) {
+            $metadata[] = \sprintf(ImportMapGenerator::ENTRYPOINT_CACHE_FILENAME_PATTERN, $entrypoint);
+        }
+        foreach ($metadata as $file) {
+            $filesystem->copy($assets.'/'.$file, $dir.'/assets/'.$file);
+        }
+
         $pages = 0;
         foreach ($this->getPaths() as $path => $file) {
-            $html = $this->render($basePath, $path, $context);
+            $html = $this->render($basePath, $path);
             $filesystem->dumpFile($dir.'/'.$file, $html);
             ++$pages;
         }
-        // GitHub Pages answers any missing path with 404.html
-        $filesystem->dumpFile($dir.'/404.html', $this->render($basePath, '/demo/not-found', $context));
-
         $io->success(\sprintf('%d pages and the compiled assets written to %s.', $pages, $dir));
 
         return Command::SUCCESS;
-    }
-
-    /**
-     * Where GitHub Pages serves a repository's project site: https://<owner>.github.io<base path>.
-     */
-    public static function pagesUrl(string $homepage, string $basePath): string
-    {
-        if (!preg_match('#^https://github\.com/([A-Za-z0-9-]+)/#', $homepage, $owner)) {
-            throw new \InvalidArgumentException(\sprintf('Cannot tell the GitHub Pages URL of "%s": pass --site-url.', $homepage));
-        }
-
-        return \sprintf('https://%s.github.io%s', strtolower($owner[1]), $basePath);
     }
 
     /**
@@ -125,12 +107,7 @@ final class ExportStaticCommand
      */
     private function getPaths(): iterable
     {
-        yield '/' => 'index.html';
-        yield '/sitemap.xml' => 'sitemap.xml';
-        yield '/llms.txt' => 'llms.txt';
         foreach ($this->kit->getRecipes() as $recipe) {
-            yield '/r/'.$recipe->name => 'r/'.$recipe->name.'/index.html';
-            yield '/r/'.$recipe->name.'.md' => 'r/'.$recipe->name.'.md';
             foreach ($this->kit->getExamples($recipe) as $example) {
                 foreach (['light', 'dark'] as $theme) {
                     $preview = \sprintf('preview/%s/%s', $recipe->name, $example['id']);
@@ -138,25 +115,18 @@ final class ExportStaticCommand
                 }
             }
         }
-        foreach (array_keys($this->guides->all()) as $guide) {
-            yield '/'.$guide => $guide.'/index.html';
-            yield '/'.$guide.'.md' => $guide.'.md';
-        }
-        foreach (['', '/login', '/signup', '/forgot-password', '/settings/profile', '/settings/notifications', '/settings/billing', '/blank'] as $page) {
-            yield '/demo'.$page => ltrim('demo'.$page.'/index.html', '/');
+        foreach (['', '/login', '/signup', '/forgot-password', '/settings/profile', '/settings/notifications', '/settings/billing', '/blank', '/not-found'] as $page) {
+            yield '/demo'.$page => 'demo'.$page.'/index.html';
         }
     }
 
-    /**
-     * @param array{release: ?string, latest_release: ?string, commit: ?string, branch: string, server_only: array<string, string>, site_url: string} $context
-     */
-    private function render(string $basePath, string $path, array $context): string
+    private function render(string $basePath, string $path): string
     {
         $request = Request::create($basePath.$path, 'GET', server: [
             'SCRIPT_NAME' => $basePath.'/index.php',
             'SCRIPT_FILENAME' => $this->projectDir.'/public/index.php',
         ]);
-        $request->attributes->set('_static_export', $context);
+        $request->attributes->set('_static_export', true);
 
         $response = $this->httpKernel->handle($request);
         if ($this->httpKernel instanceof TerminableInterface) {
@@ -169,13 +139,7 @@ final class ExportStaticCommand
             throw new \RuntimeException(\sprintf('%s answered %d.', $path, $status));
         }
 
-        $html = (string) $response->getContent();
-        // a Markdown file, the sitemap and llms.txt are saved as the page gave them: what follows rewrites HTML
-        if (1 === preg_match('/\.(?:md|xml|txt)$/', $path)) {
-            return $html;
-        }
-
-        return self::rewrite($html, $basePath, $path);
+        return self::rewrite((string) $response->getContent(), $basePath, $path);
     }
 
     /**

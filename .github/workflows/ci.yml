@@ -78,8 +78,8 @@ jobs:
               run: gh workflow run ci.yml --repo "$REPO" --ref dev -f daily=true
 
     # Which jobs this change could affect (tools/ci-changes.sh): a job it cannot affect is skipped, and a skipped job
-    # passes the branch rulesets. Pushes to main, a run by hand and a change to this workflow run everything. A branch
-    # is compared with where it left dev, so each push checks the whole pull request, not only its last commit. A push to
+    # passes the branch rulesets. Pushes to main, a full manual run and a change to this workflow run everything.
+    # Feature pushes check every change since the verified integration base, falling back to where they left dev. A push to
     # dev is compared with the commit of dev's last successful run, so every merge since is checked, those of a run that
     # was cancelled or failed included; with none (a first run, a force push), everything runs. The daily run runs the
     # installs only. A work order's own branch (claude/wo-<name>) runs like any branch, its pull request a draft or not:
@@ -92,13 +92,15 @@ jobs:
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
             contents: read
-            actions: read # the shard timings of dev's last green run
+            actions: read # validated comparison baselines and shard timings
+            pull-requests: read # identify same-repository integration targets
         outputs:
             timings: ${{ steps.timings.outputs.artifact }}
             # each lane: run, reuse (an earlier pass with the same inputs) or skip (the change cannot affect it)
             lint-kit: ${{ steps.plan.outputs.lint-kit }}
             php: ${{ steps.plan.outputs.php }}
             static-site: ${{ steps.plan.outputs.static-site }}
+            runtime-export: ${{ steps.plan.outputs.runtime-export }}
             fresh-install: ${{ steps.plan.outputs.fresh-install }}
             contrast: ${{ steps.plan.outputs.contrast }}
             demo: ${{ steps.plan.outputs.demo }}
@@ -140,8 +142,8 @@ jobs:
                   REPO: ${{ github.repository }}
               run: |
                   # A pull request is checked out at its prospective merge. GitHub supplies the target base, which
-                  # must be a full commit ID in that merge's history. Other branches compare with where they left
-                  # dev; main, dev and manual runs retain their existing selection. Contrast reads this same base.
+                  # must be a full commit ID in that merge's history. A feature push compares with its verified
+                  # upstream or the branch point from dev. Contrast reads the same comparison base.
                   if [ "$EVENT" = pull_request ]; then
                       if ! [[ "${PR_BASE_SHA:-}" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$PR_BASE_SHA" HEAD 2>/dev/null; then
                           echo "::error::The pull request base is missing, invalid or not an ancestor of the tested merge"
@@ -150,6 +152,40 @@ jobs:
                       base=$PR_BASE_SHA
                   elif [ "$EVENT" = push ] && [ "$REF" != refs/heads/main ] && [ "$REF" != refs/heads/dev ]; then
                       base=$(git merge-base HEAD origin/dev 2>/dev/null || true)
+                      # A push can precede its PR. In that case only a single owner's active
+                      # release into main is a candidate. Branch names and ancestry alone
+                      # cannot certify the inherited changes. Use the merge-base only after
+                      # the target's own full CI verdict on that exact commit has passed.
+                      target=
+                      if pulls=$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100"); then
+                          target=$(jq -rs --arg repo "$REPO" --arg head "${REF#refs/heads/}" '
+                              add | map(select(.head.repo.full_name == $repo and .base.repo.full_name == $repo)) as $prs |
+                              [$prs[] | select(.base.ref == "main" and .author_association == "OWNER" and
+                                  (.head.ref | test("(^|/)release-[0-9]+[.][0-9]+[.][0-9]+$"))) | .head.ref] | unique as $releases |
+                              [$prs[] | select(.head.ref == $head) | .base.ref] | unique |
+                              if length == 0 then $releases else . end |
+                              if length == 1 then .[0] as $target |
+                                  select($target == "main" or $target == "dev" or ($releases | index($target))) | $target
+                              else empty end' <<< "$pulls") || target=
+                      fi
+                      if [ -n "$target" ] && git check-ref-format "refs/heads/$target"; then
+                          common=$(git merge-base HEAD "refs/remotes/origin/$target" 2>/dev/null || true)
+                          if [ -n "$common" ] && [ "$common" != "$base" ] && [ -n "$base" ] && git merge-base --is-ancestor "$base" "$common"; then
+                              run=
+                              if runs=$(gh api -X GET "repos/$REPO/actions/workflows/ci.yml/runs" -f event=push -f "branch=$target" -f "head_sha=$common" -f per_page=1); then
+                                  run=$(jq -r --arg repo "$REPO" --arg target "$target" --arg sha "$common" '
+                                      .workflow_runs[0] | select(.repository.full_name == $repo and .head_repository.full_name == $repo and
+                                      .path == ".github/workflows/ci.yml" and .event == "push" and .head_branch == $target and .head_sha == $sha and
+                                      .status == "completed" and .conclusion == "success") | "\(.id)/attempts/\(.run_attempt)"' <<< "$runs") || run=
+                              fi
+                              if [[ "$run" =~ ^[0-9]+/attempts/[0-9]+$ ]] &&
+                                  jobs=$(gh api --paginate "repos/$REPO/actions/runs/$run/jobs?per_page=100") &&
+                                  jq -es '[.[].jobs[] | select(.name == "CI result")] | length == 1 and .[0].conclusion == "success"' <<< "$jobs" >/dev/null; then
+                                  base=$common
+                                  echo "Comparing with verified $target at $base"
+                              fi
+                          fi
+                      fi
                   else
                       base=
                   fi
@@ -174,13 +210,13 @@ jobs:
                       # Firefox and WebKit only, for the release pull request's head (Release checks) or by hand: every
                       # other lane already has its result on this head's push run
                       echo "Firefox and WebKit only"
-                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image; do
                           echo "$job=false"
                       done > "$RUNNER_TEMP/jobs"
                       echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: install checks with fresh consumer dependency resolution"
-                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
                       # and Firefox and WebKit, unless they already passed on dev's inputs (the plan)
@@ -193,7 +229,7 @@ jobs:
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                  for job in lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   cat "$RUNNER_TEMP/jobs"
@@ -701,7 +737,7 @@ jobs:
                   mkdir "$RUNNER_TEMP/kit"
                   git archive HEAD | tar -x -C "$RUNNER_TEMP/kit"
                   echo "Exported:" && ls -A "$RUNNER_TEMP/kit"
-                  for path in demo docs tests tools .github package.json package-lock.json playwright.config.ts alert/tests \
+                  for path in demo website docs tests tools .github package.json package-lock.json playwright.config.ts alert/tests \
                       composer.lock packages/uxor/tests packages/uxor/tools packages/uxor/dev packages/uxor/phpunit.xml.dist; do
                       if [ -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is not export-ignored"; exit 1; fi
                   done
@@ -829,17 +865,21 @@ jobs:
                   # process (php.ini, not a -d flag, reaches the tests PHPUnit runs in their own processes)
                   ini-values: zend.assertions=1, assert.exception=1
 
-            # The kit lint does not look at PHP: every PHP file the repository tracks (the recipes' src, the demo and its
-            # tests, the package, the tools and their fixtures) and its PHP scripts without an extension are checked here,
-            # first, in about a second.
+            # Check tracked recipe, demo, package and tools PHP. The website job checks its own PHP.
             - name: Syntax
               run: |
                   # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one.
                   # -f: a path starting with a dash (-d/x.php) is the file to lint, never PHP's options
                   # shellcheck disable=SC2016 # $1 is the inner shell's
-                  { git ls-files -z '*.php'
+                  { git ls-files -z '*.php' ':(exclude)website/**'
                     git ls-files -z demo/bin/console demo/bin/phpunit packages/uxor/bin/uxor packages/uxor/dev/app/bin/console tools/sync-demo
-                  } | xargs -0 -n1 -P4 sh -c 'php -l -f "$1" || exit 1' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
+                  } | xargs -0 -n1 -P4 sh -c '
+                      # PHP writes some parse errors in pieces. Print the finished report once per file.
+                      result=0
+                      report=$(php -l -f "$1" 2>&1) || result=1
+                      printf "%s\n" "$report"
+                      exit "$result"
+                  ' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
                   grep -v '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log" || true
                   echo "$(grep -c '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log") files without a syntax error"
                   exit "${status:-0}"
@@ -881,8 +921,12 @@ jobs:
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               working-directory: demo
               run: |
-                  # shellcheck disable=SC2046 # one directory per line, none with a space
-                  bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done)
+                  dirs=(templates)
+                  for manifest in ../*/manifest.json; do
+                      dir="${manifest%/manifest.json}/templates"
+                      if [ -d "$dir" ]; then dirs+=("$dir"); fi
+                  done
+                  bin/console lint:twig "${dirs[@]}"
 
             # demo/tests: the data tables' limits (the deepest page, the loader calls, the selection), the Live table
             # through real Live requests, components rendered against their snapshots, the loader calls of one
@@ -941,13 +985,76 @@ jobs:
 
     static-site:
         name: Static site
-        needs: [changes, importmap]
+        needs: changes
         if: needs.changes.outputs.static-site == 'run'
+        runs-on: ubuntu-24.04 # supported by the locked Playwright Chromium build
+        timeout-minutes: 13
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  extensions: dom, intl, mbstring
+                  tools: composer
+                  coverage: none
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - name: Check website PHP syntax
+              run: git ls-files -z 'website/*.php' website/bin/build | xargs -0 -r -n1 php -l -f
+
+            - name: Build the website
+              id: build
+              run: |
+                  set -o pipefail
+                  tools/build-static.sh _site/uxor --website-only --base-path=/uxor 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+
+            - name: Test website publishing
+              id: publishing
+              working-directory: website
+              run: |
+                  set -o pipefail
+                  vendor/bin/phpunit 2>&1 | tee "$RUNNER_TEMP/jev-publishing.log"
+
+            - name: Install the website test browser
+              id: website-browser-install
+              run: |
+                  set -o pipefail
+                  {
+                      npm ci --no-audit --no-fund
+                      npx playwright install --with-deps chromium
+                  } 2>&1 | tee "$RUNNER_TEMP/jev-website-browser-install.log"
+
+            - name: Check website navigation in Chromium
+              id: navigation
+              env:
+                  WEBSITE_OUTPUT: ${{ github.workspace }}/_site/uxor
+              run: |
+                  set -o pipefail
+                  npx playwright test --config=website/playwright.config.ts 2>&1 | tee "$RUNNER_TEMP/jev-navigation.log"
+
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Static site
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    runtime-export:
+        name: Runtime export
+        needs: [changes, importmap]
+        if: needs.changes.outputs.runtime-export == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        # The GitHub Pages copy (pages.yml) is built only on release: this builds it on every push, so a page that does
-        # not render fails here instead of after the tag. The same build as pages.yml (tools/build-static.sh, with its
-        # checks), without release metadata or the upload.
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -967,11 +1074,11 @@ jobs:
                   path: demo/assets/vendor
 
             # (its output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
-            - name: Build and check the static site
+            - name: Build and check the runtime export
               id: build
               run: |
                   set -o pipefail
-                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+                  tools/build-static.sh _site --runtime-only --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
@@ -981,7 +1088,7 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Static site
+                  job: Runtime export
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     fresh-install:
@@ -1685,7 +1792,7 @@ jobs:
         # different name, so it cannot satisfy CI result before the push run. Partial manual runs keep their own names.
         name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && 'CI result (push runs separately)' || github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
         if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
-        needs: [changes, quick, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, demo, prod-image]
+        needs: [changes, quick, importmap, lint-kit, php, static-site, runtime-export, fresh-install, docker-install, package, demo, prod-image]
         runs-on: ubuntu-latest
         # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
         outputs:

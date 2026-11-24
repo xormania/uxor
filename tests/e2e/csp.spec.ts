@@ -188,10 +188,10 @@ test('in the dark theme, a picked image shows its name, its preview under the po
 
 test("Symfony's error pages keep the hardening headers without a policy on scripts and styles", async ({ page, allowHttpError }) => {
     // an exception's page; in debug, Symfony also removes the whole header from it
-    allowHttpError(/\/r\/does-not-exist$/, 404);
+    allowHttpError(/\/lab\/does-not-exist$/, 404);
     // the error page preview of the dev environment, an ordinary response
     allowHttpError(/\/_error\/404$/, 404);
-    for (const path of ['/r/does-not-exist', '/_error/404']) {
+    for (const path of ['/lab/does-not-exist', '/_error/404']) {
         const response = await page.goto(path);
         expect(response?.status()).toBe(404);
         expect(response?.headers()['x-content-type-options']).toBe('nosniff');

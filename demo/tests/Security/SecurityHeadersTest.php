@@ -19,9 +19,9 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class SecurityHeadersTest extends WebTestCase
 {
-    /** A page of each kind and of each recipe with a controller of its own: shell, demo app, lab, recipe and preview pages. */
+    /** A page of each kind and of each recipe with a controller of its own: demo app, forms, lab and recipe previews. */
     private const PAGES = [
-        '/', '/r/button', '/preview/button/default?theme=light', '/preview/dropdown/default?theme=light', '/demo', '/demo/login',
+        '/lab', '/preview/button/default?theme=light', '/preview/dropdown/default?theme=light', '/demo', '/demo/login',
         '/lab/live-table', '/lab/popover-turbo', '/preview/popover/default?theme=light', '/lab/calendar-turbo',
         '/preview/calendar/default?theme=light', '/lab/date-picker-turbo', '/preview/date-picker/default?theme=light',
         '/lab/chart-turbo', '/preview/chart/default?theme=light', '/lab/dropzone-turbo', '/preview/dropzone/default?theme=light',

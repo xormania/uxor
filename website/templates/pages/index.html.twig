@@ -1,0 +1,108 @@
+{% extends 'base.html.twig' %}
+
+{% set page_title = kit.manifest.name ~ ': components for Symfony UX' %}
+
+{% block hero %}
+    {%- set example_total = example_counts|reduce((total, count) => total + count, 0) -%}
+    <section class="xor-hero" aria-labelledby="kit-heading">
+        <div class="wrap hero-inner">
+            <div class="badges">
+                <span class="badge">Symfony UX Toolkit kit</span>
+                <span class="badge">Flowbite CSS 4</span>
+                <span class="badge">Tailwind CSS 4</span>
+                <span class="badge">Stimulus</span>
+            </div>
+            <h1 id="kit-heading">{{ kit.manifest.name }}</h1>
+            <p class="hero-lead">{{ kit.manifest.description }}</p>
+            <div class="actions">
+                <a href="{{ path('app_guide', {name: 'composer'}) }}" class="action">Get started with Composer</a>
+                <a href="#recipes" class="action secondary">Browse the recipes</a>
+                <a href="{{ path('app_demo') }}" class="action secondary">Open the demo app</a>
+            </div>
+            <dl class="stats">
+                {% for stat in [
+                    {value: (groups.component.recipes ?? [])|length, label: 'components'},
+                    {value: (groups.block.recipes ?? [])|length, label: 'blocks'},
+                    {value: example_total, label: 'live examples'},
+                    {value: 2, label: 'themes, light and dark'},
+                ] %}
+                    <div>
+                        <dt>{{ stat.label }}</dt>
+                        <dd>{{ stat.value }}</dd>
+                    </div>
+                {% endfor %}
+            </dl>
+        </div>
+    </section>
+{% endblock %}
+
+{% block body %}
+    {%- set kit_url = kit.manifest.homepage ~ (':' ~ ref) -%}
+
+    <section class="section" aria-labelledby="why-heading">
+        <h2 id="why-heading">What it gives you</h2>
+        <ul class="cards features">
+            {% for item in [
+                {title: 'Stimulus only', text: 'Every behavior is a Stimulus controller, no initFlowbite(): components keep working across Turbo visits and Live Component re-renders.'},
+                {title: 'Strict CSP', text: 'No inline script, style or event handler, so the components run under a nonce-based Content Security Policy.'},
+                {title: 'Light and dark', text: 'UXor’s color roles for both themes, with contrast fixes checked in CI, and a toggle that remembers the choice.'},
+                {title: 'Tested in a browser', text: 'Every example on this site is compared with a screenshot in both themes, and every page passes an axe accessibility scan.'},
+            ] %}
+                <li class="card">
+                    <h3>{{ item.title }}</h3>
+                    <p>{{ item.text }}</p>
+                </li>
+            {% endfor %}
+        </ul>
+    </section>
+
+    <section id="install" class="section" aria-labelledby="install-heading">
+        <h2 id="install-heading">Use UXor in a Symfony application</h2>
+        <div class="columns">
+            <div>
+                <h3><a href="{{ path('app_guide', {name: 'composer'}) }}">Install UXor with Composer</a></h3>
+                <p>Composer installs Symfony UX Toolkit and UXor’s agent tools together. Search the catalog with Mate, check a served page with headless Chromium, and install recipes as you need them. For provider setup and request diagnostics, see the <a href="{{ path('app_guide', {name: 'advanced'}) }}">operations guide</a>.</p>
+            </div>
+            <div>
+                <h3><a href="{{ path('app_guide', {name: 'install'}) }}">Install recipes directly with Symfony UX Toolkit</a></h3>
+                <p>Once the kit is configured, install a recipe to copy its files into your application. For example, add the button component:</p>
+                <pre tabindex="0"><code>php bin/console ux:install button \
+    --kit={{ kit_url }}</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <section id="recipes" class="section" aria-labelledby="recipes-heading">
+        <h2 id="recipes-heading">Recipes <span data-testid="recipe-count">({{ recipes|length }})</span></h2>
+        <p>Components are the building blocks; blocks are whole sections of a page made of them. Each recipe page shows every example of its README, in both themes, with its code.</p>
+        <div data-testid="recipe-list">
+            {% for type, group in groups %}
+                <h3>{{ group.title }} <span>({{ group.recipes|length }})</span></h3>
+                <ul class="cards recipes">
+                    {% for recipe in group.recipes %}
+                        <li class="card">
+                            <a href="{{ path('app_recipe', {recipe: recipe.name}) }}" class="recipe-link">{{ recipe.name }}</a>
+                            {% if recipe.description %}
+                                {#- Markdown from the README: its links as text, inside this card that is a link -#}
+                                <p>{{ recipe.description|inline_markdown(false) }}</p>
+                            {% endif %}
+                            <p class="count">{{ example_counts[recipe.name] ?: 'No' }} live {{ 1 == example_counts[recipe.name] ? 'example' : 'examples' }}</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>No recipes yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="section" aria-labelledby="demo-heading">
+        <h2 id="demo-heading">Put together</h2>
+        <p>The layouts and blocks as the pages of a small application, the way an app would use them after <code>ux:install</code>.</p>
+        <ul class="actions">
+            {% for route, label in {app_demo: 'Dashboard', app_demo_login: 'Login', app_demo_signup: 'Sign up', app_demo_forgot_password: 'Forgot password', app_demo_settings_profile: 'Settings', app_demo_blank: 'Blank page'} %}
+                <li><a href="{{ path(route) }}" class="action secondary">{{ label }}</a></li>
+            {% endfor %}
+        </ul>
+    </section>
+{% endblock %}

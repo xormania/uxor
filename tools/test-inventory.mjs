@@ -5,7 +5,7 @@
 //   inventory's matrix (its first column, `sidebar, navbar` naming two);
 // - a test the inventory names does not exist: a spec named in a matrix cell or anywhere as `lab.<name>`
 //   (`tests/e2e/<name>.spec.ts`), `recipe:<name>` (a spec in `<name>/tests/`), `shot:<recipe>` (a recipe), a PHPUnit
-//   class (`FooTest`, `FooTest::testBar`, in `demo/tests/`), a spec, test file, `tools/` script or consumer check path. Struck text
+//   class (`FooTest`, `FooTest::testBar`, in `demo/tests/` or `website/tests/`), a spec, test file, `tools/` script or consumer check path. Struck text
 //   (`~~…~~`) is history and is not read;
 // - a rule of FOR-AGENTS.md's "Working well" (a bullet's bold lead-in) has no row in the inventory's "Rules and their
 //   tests" (its first column, the lead-in as written), a row names a rule that is gone, or a row names no test and is
@@ -95,10 +95,11 @@ const walk = (dir) => {
     }
 };
 walk('demo/tests');
+walk('website/tests');
 for (const [, test, method] of inventory.matchAll(/`([A-Z]\w*Test)(?:::(test\w+))?`/g)) {
     const source = phpTests.get(test);
     if (undefined === source) {
-        errors.push(`docs/TEST-INVENTORY.md: ${test} is not a test class in demo/tests/`);
+        errors.push(`docs/TEST-INVENTORY.md: ${test} is not a test class in demo/tests/ or website/tests/`);
     } else if (undefined !== method && !new RegExp(`function ${method}\\(`).test(source)) {
         errors.push(`docs/TEST-INVENTORY.md: ${test} has no ${method}()`);
     }

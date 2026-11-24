@@ -82,5 +82,33 @@
         "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1'], timeout: 120);",
         "count": 1,
         "reason": "Explicit trusted-project preparation runs fixed Symfony Console/exporter argv with the application's PHP and selected root. Capture is bounded in private temporary files; raw stderr is withheld, only sanitized validated wiring is published, and request profiles/logs are not cleared."
+    },
+    {
+        "path": "website/templates/pages/guide.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ doc|raw }}",
+        "count": 1,
+        "reason": "The publisher renders repository-authored guide Markdown to HTML before inserting the complete guide body."
+    },
+    {
+        "path": "website/templates/pages/recipe.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ doc|raw }}",
+        "count": 1,
+        "reason": "The publisher renders recipe README and Toolkit documentation from the release checkout to HTML before inserting the recipe body."
+    },
+    {
+        "path": "website/templates/toolkit/markdown/alert.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ content|raw }}",
+        "count": 1,
+        "reason": "The Toolkit alert renderer supplies the CommonMark-rendered child nodes of the repository's documentation."
+    },
+    {
+        "path": "website/templates/toolkit/markdown/tabs.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ tab.content|raw }}",
+        "count": 1,
+        "reason": "DocTabsRenderer supplies the CommonMark-rendered child nodes of each repository-authored tab."
     }
 ]

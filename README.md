@@ -12,7 +12,7 @@ the recipes you choose.
 
 | What do you want to do? | Start here |
 | --- | --- |
-| See what UXor looks like | [Browse the gallery](https://xormania.github.io/uxor/) or [try a dashboard](https://xormania.github.io/uxor/r/dashboard-home/). |
+| See what UXor looks like | [View the example app](https://xormania.github.io/uxor/demo/) or [browse the recipe catalog](https://xormania.github.io/uxor/#recipes). |
 | Add a component to a configured app | [Look up and render a recipe](packages/uxor/README.md#use). |
 | Install the kit directly or configure the tools yourself | [Direct Toolkit installation](INSTALL.md) · [Advanced configuration](packages/uxor/OPERATIONS.md) |
 | Work on UXor itself | [Contribute to the kit or package](https://github.com/xormania/uxor/blob/main/CONTRIBUTING.md). |
