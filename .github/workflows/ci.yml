@@ -988,7 +988,7 @@ jobs:
         name: Static site
         needs: changes
         if: needs.changes.outputs.static-site == 'run'
-        runs-on: ubuntu-24.04 # supported by the locked Playwright Chromium build
+        runs-on: ubuntu-24.04
         timeout-minutes: 13
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1023,14 +1023,11 @@ jobs:
                   set -o pipefail
                   vendor/bin/phpunit 2>&1 | tee "$RUNNER_TEMP/jev-publishing.log"
 
-            - name: Install the website test browser
+            - name: Install the website test client
               id: website-browser-install
               run: |
                   set -o pipefail
-                  {
-                      npm ci --no-audit --no-fund
-                      npx playwright install --with-deps chromium
-                  } 2>&1 | tee "$RUNNER_TEMP/jev-website-browser-install.log"
+                  npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/jev-website-browser-install.log"
 
             - name: Check website navigation in Chromium
               id: navigation
@@ -1038,7 +1035,8 @@ jobs:
                   WEBSITE_OUTPUT: ${{ github.workspace }}/_site/uxor
               run: |
                   set -o pipefail
-                  npx playwright test --config=website/playwright.config.ts 2>&1 | tee "$RUNNER_TEMP/jev-navigation.log"
+                  bash tools/ci/with-playwright-browser.sh website npx playwright test --config=website/playwright.config.ts \
+                      2>&1 | tee "$RUNNER_TEMP/jev-navigation.log"
 
             - name: Jev diagnosis (advisory)
               if: failure()
@@ -1222,7 +1220,7 @@ jobs:
         name: Package
         needs: changes
         if: needs.changes.outputs.package == 'run'
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04 # the separate native recorder first-use check runs on the host
         timeout-minutes: 23 # 20 for the archive and locked browser consumer, plus 3 for advisory Jev diagnosis
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1327,21 +1325,19 @@ jobs:
                       php packages/uxor/bin/uxor catalog --query=modal --limit=1 --format=json
                   } 2>&1 | tee "$RUNNER_TEMP/jev-smoke.log"
 
-            - name: Install the consumer's locked Playwright and Chromium
+            - name: Install the consumer's locked Playwright client
               id: consumer-browser-install
               working-directory: packages/uxor/dev
               run: |
                   set -o pipefail
-                  {
-                      npm ci
-                      npx playwright install --with-deps chromium
-                  } 2>&1 | tee "$RUNNER_TEMP/jev-consumer-browser-install.log"
+                  npm ci 2>&1 | tee "$RUNNER_TEMP/jev-consumer-browser-install.log"
 
             - name: Check the customer workflow with installed recipes
               id: consumer-workflow
               run: |
                   set -o pipefail
-                  bash packages/uxor/dev/check-workflow.sh 2>&1 | tee "$RUNNER_TEMP/jev-consumer-workflow.log"
+                  bash tools/ci/with-playwright-browser.sh consumer bash packages/uxor/dev/check-workflow.sh \
+                      2>&1 | tee "$RUNNER_TEMP/jev-consumer-workflow.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)

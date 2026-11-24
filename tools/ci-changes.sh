@@ -145,7 +145,8 @@ while IFS= read -r path; do
         tests/e2e/*.spec.ts) on contrast demo ;;
         # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
         # in Tool tests, on every run)
-        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo demo-app ;;
+        tests/* | playwright.config.ts | tools/prepare-tests.mjs) on demo demo-app ;;
+        tools/playwright-image.mjs | tools/playwright-image.json) on static-site demo demo-app ;;
         package.json | package-lock.json) on static-site contrast demo demo-app ;;
 
         # Repository tools, each with the jobs that run it
@@ -174,6 +175,7 @@ while IFS= read -r path; do
         # release checks' tools: no CI job's verdict depends on them, so their cases (Tool tests) check them
         tools/ci/junit-attempts.mjs | tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json | tools/ci/step-attempts.mjs) ;;
         tools/ci/ci-metrics.mjs | tools/ci/release-checks.mjs | tools/ci/release-evidence.mjs | tools/ci/release-failure.mjs | tools/ci/release-timings.mjs) ;;
+        tools/ci/with-playwright-browser.sh) on static-site package ;;
         # the shard plan and the results summary (run-provenance.mjs is its import) decide the browser job's verdict
         tools/ci/*) on demo demo-app ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run

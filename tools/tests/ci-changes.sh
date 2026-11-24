@@ -207,7 +207,8 @@ check 'contrast demo'             tests/e2e/lab.popover.spec.ts
 check 'demo demo-app'                      tests/e2e/transitions.ts
 check 'contrast demo'             tabs/tests/tabs.spec.ts
 check 'demo demo-app'                      playwright.config.ts tools/prepare-tests.mjs tools/tests/prepare-tests.test.mjs
-check 'demo demo-app'                      tools/playwright-image.mjs tools/playwright-image.json
+check 'static-site demo demo-app'          tools/playwright-image.mjs tools/playwright-image.json
+check 'static-site package'                tools/ci/with-playwright-browser.sh
 check ''                          tools/tests/playwright-image.test.mjs
 check 'demo'                      alert/tests/screenshots/default-light.png
 check 'php runtime-export contrast demo' demo/tests/Editor/EditorTypeTest.php
