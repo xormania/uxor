@@ -88,6 +88,10 @@ tests/**
 **/node_modules/**
 packages
 packages/**
+# The gallery renders these consumer guides; package code and dependencies stay outside the build.
+!packages/uxor/README.md
+!packages/uxor/OPERATIONS.md
+!packages/uxor/resources/guides.json
 
 # copies the recipes into the demo at build time (removed from the production image after)
 tools

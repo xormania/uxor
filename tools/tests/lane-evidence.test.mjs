@@ -246,7 +246,7 @@ test('browser fingerprints omit package-only regular files but include shared fi
     check('adding the package manifest at the repository root', false);
     fx.commit('composer.lock', '{}\n');
     check('adding the package lock at the repository root', false);
-    for (const path of ['packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes']) {
+    for (const path of ['packages/.gitattributes', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes']) {
         fx.commit(path, '*.mjs text eol=lf\n');
         check(`adding ${path} governing the shared recorder`, true);
     }
@@ -925,13 +925,15 @@ test('the browser checkout and evidence agree on absent and present inputs', (t)
     const omitted = [
         'composer.json', 'composer.lock', 'packages/uxor/dev/lifecycle-tmux.py',
         'packages/uxor/src/Command.php', 'packages/uxor/resources/browser-extra/example.mjs',
+        'packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json.bak',
         'README.md', 'docs/PLAN-a-feature.md', 'docs/ci/issue/example.json', '.github/workflows/release.yml',
         '.github/CODEOWNERS', '.github/dependabot.yml', '.github/mention-allowlist', '.github/ISSUE_TEMPLATE/bug.yml',
         'tests/e2e/release.fuzz.spec.ts', 'tests/e2e/release.long-session.spec.ts', 'tests/e2e/leak-detector.mjs',
         'tools/monthly/trends.mjs', 'tools/contrast/pairs.json', 'tools/tests/prepare-tests.test.mjs',
     ];
     const present = [
-        'demo/composer.lock', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
+        'demo/composer.lock', 'packages/.gitattributes', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
+        'packages/uxor/resources/guides.json',
         'packages/uxor/resources/browser/diagnostics.mjs', 'packages/uxor/resources/browser/nested/recorder.mjs',
         'packages/another-package/manifest.json', 'new-recipe/templates/components/Example.html.twig',
         'tests/e2e/demo-app.spec.ts', 'tools/tests/sync-demo.sh', 'tools/tests/fixtures/sync-kit/widget/manifest.json',

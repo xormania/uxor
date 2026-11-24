@@ -1,7 +1,8 @@
 # For agents
 
-This is product guidance for using UXor in a consuming Symfony application: install recipes, build pages and
-verify their integration. The application's own instructions, workflow and permissions govern work in it.
+For a new or existing Symfony application, start with the [Composer setup guide](packages/uxor/README.md).
+It covers installing the development tools, finding a recipe and verifying the first rendered component.
+Use this guide to build and test further features under the application's instructions and permissions.
 For changes to UXor's kit, Composer package or repository demo and test fixtures, use
 [`CONTRIBUTING.md`](CONTRIBUTING.md) and the repository's [`AGENTS.md`](AGENTS.md).
 
@@ -32,34 +33,14 @@ UXor's requirements and compatibility commitments.
 
 ## Set up the application
 
-For a setup task, inspect the application's existing dependencies and asset configuration first. On a new Symfony
-project (`composer create-project symfony/skeleton`), run these once, in this order. PHP 8.4 or later with the
-`zip` extension is required. AssetMapper and TailwindBundle handle the asset setup without Node.js.
-Choose `<version>` using [the revision guidance](INSTALL.md#choosing-a-revision).
-With Symfony Docker, run each command in the container (`docker compose exec php composer …`,
-`docker compose exec php bin/console …`).
+Inspect the application's existing dependencies, asset pipeline and installed components. Follow the
+[Composer setup guide](packages/uxor/README.md) for the recommended workflow. The same guide is available
+as `uxor://reference/packages/uxor/README.md` once the package is installed. Its catalog and component
+reference work from the application's own PHP environment, including inside a Symfony Docker container.
 
-```bash
-composer config extra.symfony.allow-contrib true
-composer require symfony/twig-bundle symfony/ux-twig-component
-composer require --dev symfony/ux-toolkit:^3.5 symfony/http-client
-composer require symfony/asset-mapper symfony/stimulus-bundle
-composer require symfonycasts/tailwind-bundle
-php bin/console tailwind:init          # keep Tailwind's major version 4
-php bin/console importmap:require "flowbite/dist/flowbite.min.css@^4.0.2"
-php bin/console ux:install theme --kit=https://github.com/xormania/uxor:<version>
-```
-
-Make `assets/styles/app.css` start with these imports, in this order, preserving the application's other styles:
-
-```css
-@import 'tailwindcss';
-@import '../vendor/flowbite/dist/flowbite.min.css';
-@import './uxor.css';
-```
-
-Keep `php bin/console tailwind:build --watch` running while you work, or run `tailwind:build` after each change.
-[`INSTALL.md`](INSTALL.md) explains each step.
+For a kit-only application or manual asset integration, follow the [direct Toolkit setup](INSTALL.md).
+Keep the project's chosen recipe revision and customized templates. [Choosing a revision](INSTALL.md#choosing-a-revision)
+covers a first install, an existing recipe and an explicitly requested evaluation of unreleased work.
 
 ## Building with the recipes
 
@@ -82,13 +63,13 @@ Keep `php bin/console tailwind:build --watch` running while you work, or run `ta
 4. Pages extend `layouts/app.html.twig` (`ux:install layouts`), or `auth`, `settings`, `error` or `blank`. A block
    such as `dashboard-home` or `login` shows a whole page, controller included, in its README.
 
-## Optional Composer development package and application guidance
+## Composer development package and application guidance
 
 The Composer package `xormania/uxor` is a development dependency that gives you Mate skills
 (`mate-uxor-setup`, `mate-uxor-build`, `mate-uxor-verify`), Mate tools (`uxor_catalog`, `uxor_component`, `uxor_reference`, …) and
 `vendor/bin/uxor` to search the recipes, read their bundled READMEs and check the project's setup.
-When adding these development tools is within the task's scope, follow
-[`packages/uxor/README.md`](packages/uxor/README.md). Recipe installation still uses `ux:install`.
+Use [advanced setup and operations](packages/uxor/OPERATIONS.md) for client registration, provider hosts
+or custom integration. Recipe installation uses Symfony UX Toolkit's `ux:install`.
 
 The helper's setup supplies package-managed consumer guidance through the application's configured integration.
 Use that guidance without duplicating it in a pasted block. For a kit-only application, the short

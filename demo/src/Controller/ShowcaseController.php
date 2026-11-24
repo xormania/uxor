@@ -83,15 +83,14 @@ final class ShowcaseController extends AbstractController
         return new Response($this->docs->markdown($found, self::ref($request) ?? 'main'), headers: ['Content-Type' => 'text/markdown; charset=UTF-8']);
     }
 
-    /**
-     * A consumer guide, from the repository (GuideDocs): getting started (INSTALL.md) or the guide (docs/GUIDE.md).
-     */
-    #[Route('/{name}', name: 'app_guide', requirements: ['name' => 'install|guide'], methods: ['GET'])]
+    #[Route('/{name}', name: 'app_guide', requirements: ['name' => '[a-z][a-z0-9-]*'], methods: ['GET'], priority: -10)]
     public function guide(string $name, Request $request): Response
     {
+        $guide = $this->guides->all()[$name] ?? throw $this->createNotFoundException('Unknown guide.');
+
         return $this->render('showcase/guide.html.twig', [
-            'title' => GuideDocs::GUIDES[$name]['title'],
-            'description' => GuideDocs::GUIDES[$name]['description'],
+            'title' => $guide['title'],
+            'description' => $guide['description'],
             'name' => $name,
             'doc' => $this->guides->html($name, self::ref($request)),
         ]);
@@ -100,9 +99,13 @@ final class ShowcaseController extends AbstractController
     /**
      * The same guide as portable Markdown.
      */
-    #[Route('/{name}.md', name: 'app_guide_markdown', requirements: ['name' => 'install|guide'], methods: ['GET'])]
+    #[Route('/{name}.md', name: 'app_guide_markdown', requirements: ['name' => '[a-z][a-z0-9-]*'], methods: ['GET'], priority: -10)]
     public function guideMarkdown(string $name, Request $request): Response
     {
+        if (!isset($this->guides->all()[$name])) {
+            throw $this->createNotFoundException('Unknown guide.');
+        }
+
         return new Response($this->guides->markdown($name, self::ref($request) ?? 'main'), headers: ['Content-Type' => 'text/markdown; charset=UTF-8']);
     }
 
@@ -114,7 +117,7 @@ final class ShowcaseController extends AbstractController
     public function sitemap(Request $request): Response
     {
         $site = self::siteUrl($request);
-        $paths = ['/', ...array_map(static fn (string $guide): string => '/'.$guide.'/', array_keys(GuideDocs::GUIDES))];
+        $paths = ['/', ...array_map(static fn (string $guide): string => '/'.$guide.'/', array_keys($this->guides->all()))];
         foreach (array_keys($this->kit->getRecipes()) as $recipe) {
             $paths[] = '/r/'.$recipe.'/';
         }
@@ -136,18 +139,30 @@ final class ShowcaseController extends AbstractController
     public function llms(Request $request, #[Autowire('%app.kit_dir%')] string $kitDir): Response
     {
         $site = self::siteUrl($request);
-        $guides = array_flip(array_map(static fn (array $guide): string => $guide['file'], GuideDocs::GUIDES));
         $text = (string) preg_replace_callback(
             '#\]\('.preg_quote(str_replace('https://github.com/', 'https://raw.githubusercontent.com/', $this->kit->getManifest()->homepage), '#').'/[^/)]+/([^)\s]+)\)#',
-            function (array $match) use ($site, $guides): string {
-                if (preg_match('#^([a-z0-9][a-z0-9-]*)/README\.md$#', $match[1], $readme) && null !== $this->kit->getRecipe($readme[1])) {
-                    return ']('.$site.'/r/'.$readme[1].'.md)';
+            function (array $match) use ($site): string {
+                if (null !== $recipe = $this->docs->readmeRecipe($match[1])) {
+                    return ']('.$site.'/r/'.$recipe.'.md)';
                 }
 
-                return isset($guides[$match[1]]) ? ']('.$site.'/'.$guides[$match[1]].'.md)' : $match[0];
+                $slug = $this->guides->slugForFile($match[1]);
+                return null !== $slug ? ']('.$site.'/'.$slug.'.md)' : $match[0];
             },
             (new Filesystem())->readFile(Path::join($kitDir, 'llms.txt')),
         );
+
+        // A branch can build against the last release's frozen index while its gallery already serves new guides.
+        $additional = [];
+        foreach ($this->guides->all() as $slug => $guide) {
+            $target = '('.$site.'/'.$slug.'.md)';
+            if (!str_contains($text, ']'.$target)) {
+                $additional[] = '- ['.$guide['title'].']'.$target.': '.$guide['description'];
+            }
+        }
+        if ([] !== $additional) {
+            $text = rtrim($text)."\n\n## More guides in this gallery\n\n".implode("\n", $additional)."\n";
+        }
 
         return new Response($text, headers: ['Content-Type' => 'text/plain; charset=UTF-8']);
     }

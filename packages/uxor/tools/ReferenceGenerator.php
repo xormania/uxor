@@ -23,13 +23,12 @@ final class ReferenceGenerator
 {
     public const REPOSITORY = 'https://github.com/xormania/uxor';
     public const SCHEMA_VERSION = 2;
+    public const GUIDE_CATALOG = 'packages/uxor/resources/guides.json';
 
     /** The documents copied as they are, besides each recipe's README.md. */
     public const GUIDES = [
         'README.md',
         'FOR-AGENTS.md',
-        'INSTALL.md',
-        'docs/GUIDE.md',
         'docs/APPLICATION-TESTING.md',
         'docs/RECIPES.md',
         'docs/PROJECT-AGENTS-SNIPPET.md',
@@ -133,7 +132,8 @@ final class ReferenceGenerator
             throw new RuntimeException('UXor catalog and recipe manifest directories do not match.');
         }
 
-        $paths = self::GUIDES;
+        $guides = json_decode($read(self::GUIDE_CATALOG), true, 512, JSON_THROW_ON_ERROR);
+        $paths = [...self::GUIDES, ...array_column($guides, 'file')];
         foreach ($names as $name) {
             $paths[] = $name.'/README.md';
         }
@@ -178,6 +178,7 @@ final class ReferenceGenerator
                 'ref' => $ref,
                 'inputs_sha256' => self::inputsDigest($inputs),
                 'manifest_sha256' => $inputs['manifest.json'],
+                'guide_catalog_sha256' => $inputs[self::GUIDE_CATALOG],
                 'license' => $kit['license'],
             ],
             'kit' => $kit,
@@ -304,6 +305,17 @@ final class ReferenceGenerator
                 }
             }
             $resolved = implode('/', $parts);
+            // Package guides link to shipped copies so they also work in a Composer distribution.
+            // Inside the reference bundle those copies already live beside the other indexed documents.
+            $bundlePrefix = 'packages/uxor/resources/uxor/docs/';
+            if (str_starts_with($resolved, $bundlePrefix)) {
+                $key = substr($resolved, strlen($bundlePrefix));
+                if (!isset($selected[$key])) {
+                    throw new RuntimeException('Unindexed bundled documentation link: '.$path.' -> '.$target);
+                }
+
+                return str_repeat('../', substr_count($path, '/')).$key.$suffix;
+            }
             if (isset($selected[$resolved])) {
                 return $target;
             }
