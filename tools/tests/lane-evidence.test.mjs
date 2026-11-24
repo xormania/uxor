@@ -1320,7 +1320,7 @@ test('a website-only push above a verified release runs website checks with a co
     const site = job('static-site');
     assert.equal(site.needs, 'changes');
     assert.match(site.text, /--website-only/);
-    assert.match(site.text, /working-directory: website\s+run: vendor\/bin\/phpunit/);
+    assert.match(site.text, /working-directory: website\s+run: \|\s+set -o pipefail\s+vendor\/bin\/phpunit\b/);
     assert.match(site.text, /--config=website\/playwright.config.ts/);
     assert.doesNotMatch(site.text, /docker|importmap|--shard/);
     assert.match(job('runtime-export').text, /--runtime-only/);

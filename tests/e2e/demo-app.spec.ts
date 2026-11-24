@@ -220,7 +220,7 @@ test('on a desktop the navbar menu marks the current page, opens its submenus an
     await expect(page.getByRole('heading', { name: 'Create an account' })).toBeVisible();
 
     await page.goto('/demo');
-    await menu.getByRole('button', { name: 'Examples' }).click();
+    await menu.getByRole('button', { name: 'Showcase' }).click();
     await menu.getByRole('button', { name: 'Lab' }).click();
     await menu.getByRole('link', { name: 'Navbar menus' }).click();
     await expect(page).toHaveURL(/\/lab\/nav-menu$/);
@@ -243,7 +243,7 @@ test('on a phone the drawer holds the sidebar navigation, then the navbar menu',
     await account.click();
     await expect(account).toHaveAttribute('aria-expanded', 'true');
     await expect(drawer.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
-    await drawer.getByRole('button', { name: 'Examples' }).click();
+    await drawer.getByRole('button', { name: 'Showcase' }).click();
     await expect(account).toHaveAttribute('aria-expanded', 'false');
     await drawer.getByRole('link', { name: 'Forms' }).click();
     await expect(page).toHaveURL(/\/forms$/);
