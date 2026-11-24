@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, countEvents } from './fixtures';
+import { test, expect, countEvents, recordDropzoneEvents } from './fixtures';
 import { png, text } from './files';
 import { back, sendStream, visit } from './transitions';
 
@@ -11,6 +11,7 @@ import { back, sendStream, visit } from './transitions';
  */
 
 const zoneOf = (page: Page, id: string) => page.locator(`[data-controller~="dropzone-assist"]:has(#${id})`);
+const dropzoneEvents = ['dropzone:reject', 'dropzone:pre-add', 'dropzone:change'];
 const names = (input: Locator) => input.evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name));
 
 /** Records every `dropzone:reject` from now on, as its reason and the names of its files. */
@@ -55,12 +56,16 @@ test('a zone capped at two files keeps two of three picked at once and leaves th
     await expect(zoneOf(page, 'capped')).toHaveAttribute('data-symfony--ux-dropzone--dropzone-max-files-value', '2');
     const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
     const rejects = await recordRejects(page);
+    const order = await recordDropzoneEvents(page, dropzoneEvents);
 
     await page.locator('#capped').setInputFiles([text('a.txt'), text('b.txt'), text('c.txt')]);
     await expect(zoneOf(page, 'capped').locator('.dropzone-preview-list-item')).toHaveCount(2);
     expect(await names(page.locator('#capped'))).toEqual(['a.txt', 'b.txt']);
     await expect.poll(rejects).toEqual([{ reason: 'max_files', files: ['c.txt'] }]);
     expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
+    // UX Dropzone 3.8 leaves the file over the cap out before dropzone:pre-add: its listeners get the two that fit, and
+    // the reject comes first
+    expect(await order()).toEqual(['reject max_files c.txt', 'pre-add a.txt,b.txt', 'change a.txt,b.txt']);
 });
 
 test('a full capped zone takes no more until a file is removed; a file picked again counts once', async ({ page }) => {
@@ -70,11 +75,14 @@ test('a full capped zone takes no more until a file is removed; a file picked ag
     await expect(zoneOf(page, 'capped').locator('.dropzone-preview-list-item')).toHaveCount(2);
     const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
     const rejects = await recordRejects(page);
+    const order = await recordDropzoneEvents(page, dropzoneEvents);
 
     await input.setInputFiles(text('c.txt'));
     await expect.poll(rejects).toEqual([{ reason: 'max_files', files: ['c.txt'] }]);
     expect(await names(input)).toEqual(['a.txt', 'b.txt']);
     expect(await events()).toEqual({ 'dropzone:change': 0, 'dropzone:reject': 1 });
+    // no file fits: dropzone:pre-add is not dispatched at all
+    expect(await order()).toEqual(['reject max_files c.txt']);
 
     // a file the zone holds, picked again (same name, size and date): neither added nor left out
     await input.evaluate((element: HTMLInputElement) => {
@@ -98,6 +106,8 @@ test('a full capped zone takes no more until a file is removed; a file picked ag
 test('a drop over the cap with a file accept refuses: one reject for accept, one for max_files, each naming its files', async ({ page }) => {
     await page.goto('/lab/dropzone-options');
     const rejects = await recordRejects(page);
+    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
+    const order = await recordDropzoneEvents(page, dropzoneEvents);
     await dropFiles(page.locator('#capped-images'), [
         { name: 'one.png', type: 'image/png' },
         { name: 'notes.txt', type: 'text/plain' },
@@ -112,6 +122,10 @@ test('a drop over the cap with a file accept refuses: one reject for accept, one
         { reason: 'accept', files: ['notes.txt'] },
         { reason: 'max_files', files: ['three.png'] },
     ]);
+    // UX Dropzone 3.8: both rejects before dropzone:pre-add, whose listeners get only the images that fit, then the
+    // change (3.7 dispatched the rejects after the change)
+    expect(await order()).toEqual(['reject accept notes.txt', 'reject max_files three.png', 'pre-add one.png,two.png', 'change one.png,two.png']);
+    expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 2 });
 });
 
 test('a DropzoneType with max_files caps its zone in the browser', async ({ page }) => {
@@ -123,6 +137,12 @@ test('a DropzoneType with max_files caps its zone in the browser', async ({ page
     await input.setInputFiles([text('a.txt'), text('b.txt'), text('c.txt'), text('d.txt')]);
     expect(await names(input)).toEqual(['a.txt', 'b.txt', 'c.txt']);
     await expect.poll(rejects).toEqual([{ reason: 'max_files', files: ['d.txt'] }]);
+    // UX Dropzone 3.8's DropzoneType sets a `max_files_message` by default, which its own form theme writes into a
+    // `feedback` target a task after the reject: the kit's widget renders neither, so no message shows
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)));
+    const zone = zoneOf(page, 'upload_demo_attachments');
+    await expect(zone.locator('[data-symfony--ux-dropzone--dropzone-target="feedback"], .dropzone-feedback, [role="status"]')).toHaveCount(0);
+    await expect(zone).not.toContainText(/too many files|not added/i);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------

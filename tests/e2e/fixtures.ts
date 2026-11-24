@@ -470,6 +470,33 @@ export async function countEvents(page: Page, types: readonly string[], target?:
     return () => page.evaluate((id) => ({ ...(window as any).__eventCounts[id] }) as Record<string, number>, id);
 }
 
+/**
+ * Records, from now on, each UX Dropzone event of `types` reaching `document`, in order, with the file names it carries
+ * (`change`: the input's files; `remove`: the removed file; `pre-add`: the files offered to its listeners; `reject`: its
+ * reason, then its files); the reader returns them, as `change a.txt,b.txt` or `reject max_files c.txt`.
+ */
+export async function recordDropzoneEvents(
+    page: Page,
+    types: readonly string[] = ['dropzone:change', 'dropzone:remove', 'dropzone:clear'],
+): Promise<() => Promise<string[]>> {
+    const id = await page.evaluate((types) => {
+        const log: string[] = [];
+        const names = (files: unknown): string =>
+            files instanceof File ? files.name : files instanceof FileList || Array.isArray(files) ? [...files].map((file: File) => file.name).join(',') : '';
+        for (const type of types) {
+            document.addEventListener(type, (event) => {
+                const detail = (event as CustomEvent).detail;
+                const carried = 'dropzone:reject' === type ? `${detail.reason} ${names(detail.files)}` : 'dropzone:pre-add' === type ? names(detail.files) : names(detail);
+                log.push(`${type.slice('dropzone:'.length)} ${carried}`.trim());
+            });
+        }
+
+        return ((window as any).__dropzoneEvents ??= [] as string[][]).push(log) - 1;
+    }, types);
+
+    return () => page.evaluate((id) => [...(window as any).__dropzoneEvents[id]] as string[], id);
+}
+
 /** Whether the `<dialog>` is open, and shown modal (`:modal`: the page behind it inert, the dialog in the top layer). */
 export function dialogState(dialog: Locator): Promise<{ open: boolean; modal: boolean }> {
     return dialog.evaluate((element: HTMLDialogElement) => ({ open: element.open, modal: element.matches(':modal') }));
