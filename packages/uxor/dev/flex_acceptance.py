@@ -48,9 +48,12 @@ def check(root: Path, php: str, composer: list[str], candidate: dict, mate: dict
     first = operation(root, php, "setup", *install, timeout=600)
     if first["status"] != "completed":
         raise RuntimeError(f"Fresh Flex setup did not complete: {first['summary']}")
-    requires = [e["argv"] for e in first["data"]["executions"] if e["argv"][1:2] == ["require"]]
-    if len(requires) != 1 or not {"symfony/debug-pack", extension} <= {arg.split(":", 1)[0] for arg in requires[0]}:
-        raise RuntimeError(f"First trusted setup must request the debug pack and Monolog Mate extension together: {requires}")
+    run("composer.validate-flex-lock", [*composer, "validate", "--check-lock", "--no-check-publish", "--no-plugins", "--no-scripts"], root)
+    transactions = [e["argv"] for e in first["data"]["executions"] if e["argv"][1:2] in (["require"], ["update"])]
+    if len(transactions) != 1 or transactions[0][1] != "require":
+        raise RuntimeError(f"Fresh setup must resolve development dependencies in one Composer require: {transactions}")
+    if not {"symfony/debug-pack", extension} <= {arg.split(":", 1)[0] for arg in transactions[0]}:
+        raise RuntimeError(f"First trusted setup must request the debug pack and Monolog Mate extension together: {transactions[0]}")
     installed = installed_packages()
     dev = json.loads((root / "composer.json").read_text())["require-dev"]
     if (installed | dev.keys()) & packs or not components.issubset(dev) or not (components | {extension}).issubset(installed):
@@ -86,7 +89,26 @@ def check(root: Path, php: str, composer: list[str], candidate: dict, mate: dict
     if live["debug"]["observed"] != "command_available" or live["profiler"]["observed"] != "service_available":
         raise RuntimeError(f"The installed console failed to observe the Flex debug command or profiler service: {live}")
     check_debug_capture(root, php)
+    check_mate_init_with_stale_lock(root, php, install)
     print("Flex consumer: setup installed and unpacked the debug packs, repeated without Composer require, and the same request produced a profiler dump and a Mate-searchable application log.")
+
+
+def check_mate_init_with_stale_lock(root: Path, php: str, install: tuple[str, ...]) -> None:
+    manifest_path = root / "composer.json"
+    manifest = json.loads(manifest_path.read_text())
+    del manifest["extra"]["ai-mate"]
+    # The application has all its development tools, but this new requirement has not been resolved.
+    manifest["require"]["php"] = ">=8.4.1"
+    manifest_path.write_text(json.dumps(manifest, indent=4) + "\n")
+    (root / "mate/config.php").unlink()
+    lock = root / "composer.lock"
+    previous_lock = lock.read_bytes()
+    operation(root, php, "setup", *install, timeout=600)
+    result = json.loads(manifest_path.read_text())
+    if "ai-mate" not in result["extra"] or not (root / "mate/config.php").is_file():
+        raise RuntimeError("Setup did not restore the missing Mate configuration")
+    if result["require"]["php"] != manifest["require"]["php"] or lock.read_bytes() != previous_lock:
+        raise RuntimeError("Mate initialization changed the application's pending requirement or its existing stale lock")
 
 
 def check_pack_manifests(root: Path, packs: set[str]) -> None:

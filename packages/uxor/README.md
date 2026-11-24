@@ -72,8 +72,9 @@ vendor/bin/uxor environment --format=json
 
 Use `--project-root=/path/to/application` when the current directory is different. Setup preserves existing
 application files and reports configuration that needs integration. `--apply` writes the proposed missing files;
-`--install` additionally runs Composer for missing development dependencies. It then initializes Mate if needed,
-regenerates autoload metadata and runs Mate discovery. Provider builds and Symfony preparation are separate steps.
+`--install` initializes Mate when needed, then uses Composer to install missing development dependencies and lock
+the resulting manifest. Setup regenerates autoload metadata and runs Mate discovery. Provider builds and Symfony
+preparation are separate steps.
 
 By default, setup installs Symfony’s full `symfony/debug-pack`, Maker, the Monolog Mate extension, and the Mago
 SDK and Symfony wiring as development tools. Flex can unpack the debug and profiler packs into their components.

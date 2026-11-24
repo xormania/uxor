@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xormania\UXor;
 
+use Composer\Package\Locker;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
@@ -44,30 +45,48 @@ final class EnvironmentSetup
         $changes = [];
         $executions = [];
         if ($install) {
-            foreach (['composer.lock', 'mate/config.php', 'mate/extensions.php', 'mate/.env', 'mate/.gitignore',
-                'mate/AGENT_INSTRUCTIONS.md', 'mate/src/.gitignore', 'AGENTS.md', 'CLAUDE.md'] as $nativePath) {
-                $this->files->path($root, $nativePath);
-            }
+            $this->files->path($root, 'mate/.env');
+            $nativePaths = ['composer.json', 'composer.lock', 'mate/config.php', 'mate/extensions.php',
+                'mate/.gitignore', 'mate/AGENT_INSTRUCTIONS.md', 'mate/src/.gitignore', 'AGENTS.md', 'CLAUDE.md'];
+            $before = $this->hashes($root, $nativePaths);
             $composer = (new ExecutableFinder())->find('composer');
             if (null === $composer) {
                 return ['status' => 'incomplete', 'summary' => 'Composer is not available in this PHP environment.',
                     'root' => $root, 'changes' => [], 'next_steps' => ['Run setup in the application environment where Composer and its PHP extensions are installed.']];
             }
-            $before = $this->hashes($root, ['composer.json', 'composer.lock']);
+            $mate = $root.'/'.$project['bin'].'/mate';
             $missing = [];
             foreach (DevelopmentDependencies::missingRequests($this->dependencies($project)) as $dependency) {
                 $missing[] = $dependency['package'].('' === $dependency['constraint'] ? '' : ':'.$dependency['constraint']);
             }
-            if ([] !== $missing) {
-                $execution = $this->execute([$composer, 'require', '--dev', '--no-interaction', '--no-progress', '--with-all-dependencies', ...$missing], $root, 300);
+            // Mate is a dependency of UXor. Its first initialization changes the root manifest; resolve once afterwards.
+            $require = [] === $missing ? [] : [[$composer, 'require', '--dev', '--no-interaction', '--no-progress', '--with-all-dependencies', ...$missing]];
+            $init = is_file($root.'/mate/config.php') ? [] : [[PHP_BINARY, $mate, 'init', '--no-interaction']];
+            // An incomplete vendor installation can recover the missing Mate binary during Composer require.
+            $commands = is_file($mate) ? [...$init, ...$require] : [...$require, ...$init];
+            foreach ($commands as $argv) {
+                if ($argv[0] !== $composer && !is_file($mate)) {
+                    break;
+                }
+                $execution = $this->execute($argv, $root, $argv[0] === $composer ? 300 : 120);
                 $executions[] = $execution;
-                $changes = $this->changed($root, $before);
                 if (0 !== $execution['exit_code']) {
-                    return ['status' => 'failed', 'summary' => 'Composer could not resolve or install the requested development dependencies.',
-                        'root' => $root, 'changes' => $changes, 'executions' => $executions,
-                        'next_steps' => ['Run the recorded Composer command in the application environment to inspect the resolver or recipe failure. Existing stability and plugin policies were retained.']];
+                    return ['status' => $argv[0] === $composer ? 'failed' : 'incomplete',
+                        'summary' => $argv[0] === $composer ? 'Composer could not resolve or install the requested development dependencies.' : 'The application’s Mate initialization needs attention.',
+                        'root' => $root, 'changes' => $this->changed($root, $before), 'executions' => $executions,
+                        'next_steps' => ['Run the recorded failed command in the application environment, then repeat setup.']];
                 }
             }
+            if (is_file($root.'/mate/config.php') && $this->onlyMateMetadataIsUnlocked($root)) {
+                $execution = $this->execute([$composer, 'update', '--lock', '--no-install', '--no-scripts', '--no-interaction', '--no-progress'], $root, 300);
+                $executions[] = $execution;
+                if (0 !== $execution['exit_code']) {
+                    return ['status' => 'incomplete', 'summary' => 'Composer could not refresh the lock after Mate initialization.',
+                        'root' => $root, 'changes' => $this->changed($root, $before), 'executions' => $executions,
+                        'next_steps' => ['Repeat trusted setup to retry the recorded Composer command in the application environment.']];
+                }
+            }
+            $changes = $this->changed($root, $before);
             $project = $this->files->project($root);
             // Flex may have created configuration; inspect the actual post-install state.
             $plan = $this->plan($project, $client, $hostProjectRoot, $saveProjectTrust);
@@ -83,28 +102,46 @@ final class EnvironmentSetup
             $mate = $root.'/'.$project['bin'].'/mate';
             if (!is_file($mate)) {
                 return ['status' => 'incomplete', 'summary' => 'Project configuration was written, but the installed Mate entry point is missing.',
-                    'root' => $root, 'changes' => $changes, 'next_steps' => ['Install the application’s declared Mate development dependencies and run setup again.']];
+                    'root' => $root, 'changes' => $changes, 'executions' => $executions, 'next_steps' => ['Install the application’s declared Mate development dependencies and run setup again.']];
             }
-            $commands = [];
-            if (!is_file($root.'/mate/config.php')) {
-                $commands[] = [PHP_BINARY, $mate, 'init', '--no-interaction'];
-            }
-            $commands[] = [$composer, 'dump-autoload', '--no-interaction'];
-            $commands[] = [PHP_BINARY, $mate, 'discover', '--no-interaction'];
-            $nativeBefore = $this->hashes($root, ['composer.json', 'composer.lock', 'mate/config.php', 'mate/extensions.php',
-                'mate/.gitignore', 'mate/AGENT_INSTRUCTIONS.md', 'mate/src/.gitignore', 'AGENTS.md', 'CLAUDE.md']);
+            $commands = [[$composer, 'dump-autoload', '--no-interaction'], [PHP_BINARY, $mate, 'discover', '--no-interaction']];
             foreach ($commands as $argv) {
                 $execution = $this->execute($argv, $root, 120);
                 $executions[] = $execution;
                 if (0 !== $execution['exit_code']) {
                     return ['status' => 'incomplete', 'summary' => 'Development configuration was written; native Mate setup needs attention.',
-                        'root' => $root, 'changes' => [...$changes, ...$this->changed($root, $nativeBefore)], 'executions' => $executions,
+                        'root' => $root, 'changes' => [...$application['changes'], ...$this->changed($root, $before)], 'executions' => $executions,
                         'next_steps' => ['Run the recorded failed command in the application environment, then repeat setup. Application-authored configuration is preserved.']];
                 }
             }
-            $changes = [...$changes, ...$this->changed($root, $nativeBefore)];
+            $changes = [...$application['changes'], ...$this->changed($root, $before)];
+            $project = $this->files->project($root);
         }
         return $this->result($project, $plan, 'apply', $changes, $executions);
+    }
+
+    /** Removing only Mate's registration must reproduce the locked resolution inputs, including on retry. */
+    private function onlyMateMetadataIsUnlocked(string $root): bool
+    {
+        $manifest = $this->files->json($this->files->path($root, 'composer.json'));
+        $lock = $this->files->path($root, 'composer.lock');
+        if (!isset($manifest['extra']['ai-mate']) || !is_file($lock)) {
+            return false;
+        }
+        $lockedHash = $this->files->json($lock)['content-hash'] ?? null;
+        if (null === $lockedHash || $lockedHash === Locker::getContentHash(ApplicationFiles::encode($manifest))) {
+            return false;
+        }
+        unset($manifest['extra']['ai-mate']);
+        if ($lockedHash === Locker::getContentHash(ApplicationFiles::encode($manifest))) {
+            return true;
+        }
+        // Init may have created the whole extra object in an application with no other metadata.
+        if ([] === $manifest['extra']) {
+            unset($manifest['extra']);
+            return $lockedHash === Locker::getContentHash(ApplicationFiles::encode($manifest));
+        }
+        return false;
     }
 
     public function detach(string $directory, bool $apply = false): array
