@@ -649,8 +649,9 @@ manual adversarial cases are in [`AGENT-ASSURANCE.md`](AGENT-ASSURANCE.md).
 
 Existing parser, summary and captured-step helpers are reused; no browser fixture, product assertion or screenshot
 baseline is replaced. These local tests do not replace a fresh daily run on `dev`. The
-[issue 134 evidence bundle](ci/issue-134/README.md) records historical red/green behavior, semantic mutation
-calibration, coverage overlap, measured hosted timing and unresolved operational acceptance.
+[issue 134](https://github.com/xormania/uxor/issues/134) evidence bundle, [kept in the history at release 0.3.2](https://github.com/xormania/uxor/tree/8bea08b6e8d42a27df79b2cbbb41e9fb23729abb/docs/ci/issue-134), records
+historical red/green behavior, semantic mutation calibration, coverage overlap, measured hosted timing and unresolved
+operational acceptance.
 
 ## The Composer package
 

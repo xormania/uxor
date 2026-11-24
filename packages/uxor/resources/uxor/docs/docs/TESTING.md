@@ -2155,8 +2155,9 @@ was written; the command's original exit status remains the verdict.
 into `dev`. Only the *Start on dev* job comes from `main`: a change to it reaches the schedule through the normal
 release. Verify a fresh daily run against a recorded `dev` SHA actually executes all required projects/specs and PHP
 properties. This change does not merge or dispatch a workflow automatically. The
-[issue 134 proof and coverage bundle](https://github.com/xormania/uxor/blob/0.3.5/docs/ci/issue-134/README.md) includes replay instructions, red/green receipts,
-coverage overlap, CI timing observations and the remaining acceptance matrix.
+[issue 134](https://github.com/xormania/uxor/issues/134) proof and coverage bundle, [kept in the history at release 0.3.2](https://github.com/xormania/uxor/tree/8bea08b6e8d42a27df79b2cbbb41e9fb23729abb/docs/ci/issue-134),
+includes replay instructions (run from a checkout of that release), red/green receipts, coverage overlap, CI timing
+observations and the remaining acceptance matrix.
 
 | Group | Where | What it checks |
 |---|---|---|
