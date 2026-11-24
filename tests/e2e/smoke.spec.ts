@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { test, expect, guardPage, leavingTheDemo, markDocument } from './fixtures';
+import { png } from './files';
 import { kitName, recipes } from './inventory';
 
 // Every page answering 200 with its heading: a11y.spec.ts, which opens each of them. The theme toggle: theme-toggle.spec.ts.
@@ -383,22 +384,21 @@ test.describe('the page guard', () => {
     const PREFETCH_MESSAGE = 'NetworkError when attempting to fetch resource.';
 
     /*
-     * What the guard's route takes, and what its events report. The route (leavingTheDemo) takes every request leaving
-     * the demo and none of the demo's: Playwright's server matches it, so the demo's requests are never handed to the
-     * test's process. The demo's failures, answers of 400 or more and the policy's violations are read from the page's
-     * events, which see every request whatever the route takes.
+     * Playwright matches requests leaving the demo on its server. App requests and in-browser images load normally.
+     * Page events report the demo's failures, answers of 400 or more and policy violations.
      */
     test.describe('requests and violations', () => {
         const OUTSIDE = 'https://uxor-guard.invalid';
 
-        test("the route takes every URL that is not the demo's, and none of the demo's", ({ baseURL }) => {
+        test('the route takes outside requests and leaves app and in-browser URLs alone', ({ baseURL }) => {
             test.skip('smoke' !== test.info().project.name, 'checks no browser: run in the smoke project only');
             // the demo's addresses, and one made of every character a RegExp reads as syntax
             for (const base of [baseURL ?? 'http://127.0.0.1:8000', 'https://localhost', 'http://127.0.0.1:8000', 'https://a.b+c(d)[e]{f}|g$h^i?j*k\\l']) {
                 const route = leavingTheDemo(base);
-                const local = (url: string) => url.startsWith(`${base}/`);
-                const urls = [`${base}/`, `${base}/lab?q=1#top`, `${base}/assets/app-0a1b2c.js`, `${base}x/`, `${base}.example.org/`, `${base}:8443/`, `${base}`, `${OUTSIDE}/${base}/`, `${OUTSIDE}/picture.png`, 'data:image/png;base64,AA'];
-                expect(urls.filter((url) => route.test(url) === local(url)), `under ${base}: taken although the demo's, or left although not`).toEqual([]);
+                const inside = [`${base}/`, `${base}/lab?q=1#top`, `${base}/assets/app-0a1b2c.js`, `blob:${base}/file`, 'data:image/png;base64,AA'];
+                const outside = [`${base}x/`, `${base}.example.org/`, `${base}:8443/`, base, `${OUTSIDE}/${base}/`, `${OUTSIDE}/picture.png`];
+                expect(inside.filter((url) => route.test(url)), `URLs intercepted under ${base}`).toEqual([]);
+                expect(outside.filter((url) => !route.test(url)), `URLs let through under ${base}`).toEqual([]);
             }
         });
 
@@ -415,6 +415,18 @@ test.describe('the page guard', () => {
             await page.route('**/guard-outside-page', (route) => route.fulfill({ contentType: 'text/html', body: `<!doctype html><title>Outside</title><img id="outside" src="${OUTSIDE}/picture.png">` }));
             await page.goto('/guard-outside-page');
             await loaded(page.mainFrame(), 'outside');
+            const blobWidth = await page.evaluate(async (bytes) => {
+                const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+                const image = new Image();
+                try {
+                    image.src = url;
+                    await image.decode();
+                    return image.naturalWidth;
+                } finally {
+                    URL.revokeObjectURL(url);
+                }
+            }, [...png('guard.png').buffer]);
+            expect(blobWidth).toBe(1);
             // no-cors: a cross-origin read Firefox would log as an error of the page, which is not what this checks
             const fetched = await page.evaluate((url) => fetch(url, { mode: 'no-cors' }).then((response) => response.text(), (error) => `rejected: ${error}`), `${OUTSIDE}/data.json`);
             expect(fetched).toMatch(/^rejected: /);
