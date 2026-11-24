@@ -843,7 +843,7 @@ test('the verdict tells fresh, reused, not applicable and incomplete apart, and 
     assert.equal(good.json.lanes.php.status, 'fresh');
     assert.equal(good.json.lanes.contrast.status, 'fresh');
     assert.equal(good.json.lanes.package.status, 'not_applicable');
-    assert.match(good.summary, /demo.*reused.*actions\/runs\/71/);
+    assert.match(good.summary, /Toolkit browser verification.*reused.*actions\/runs\/71/);
     assert.match(good.summary, /1234 ms/);
     assert.match(good.summary, /7 API calls/);
 
@@ -859,8 +859,8 @@ test('a deferred engines lane is reported as not run at this stage, never as a p
     const out = verdict();
     assert.equal(out.status, 0, out.stderr);
     assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
-    assert.match(out.summary, /\| engines \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
-    assert.doesNotMatch(out.summary, /\| engines \| (fresh|reused|not_applicable)/);
+    assert.match(out.summary, /\| Cross-browser verification \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
+    assert.doesNotMatch(out.summary, /\| Cross-browser verification \| (fresh|reused|not_applicable)/);
     assert.match(out.stdout + out.stderr, /::notice::.*NOT RUN AT THIS STAGE/);
     assert.equal(verdict({ demo: 'success' }, undefined, [], [...DEMO_JOBS.map((j) => ({ ...j, id: j.id + 1000 })), ...engineJobs()]).json.lanes.engines.status, 'incomplete', 'a deferred lane that ran is not what was planned');
 });
