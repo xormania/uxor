@@ -10,7 +10,7 @@ use Symfony\Component\Filesystem\Filesystem;
 final class DropzoneSupportedVersionsTest extends TestCase
 {
     private const PACKAGE = 'symfony/ux-dropzone';
-    private const MINIMUM_VERSION = '3.7';
+    private const MINIMUM_VERSION = '3.8';
 
     public function testTheDemoUsesTheRangeSupportedByTheRecipe(): void
     {

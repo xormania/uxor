@@ -4,7 +4,7 @@ import { png, text } from './files';
 import { back, sendStream, visit } from './transitions';
 
 /*
- * The options of UX Dropzone 3.7 through the kit's Dropzone: a cap on the number of files (`maxFiles`, multiple zones;
+ * The options of UX Dropzone 3.8 through the kit's Dropzone: a cap on the number of files (`maxFiles`, multiple zones;
  * `max_files` on a DropzoneType), and a preview made from a template (one file, several files). Files left out come with
  * `dropzone:reject` and their reason. A template zone keeps the kit's focus contract: a keyboard pick focuses its Remove
  * button, named "Remove <file>", and Remove puts the focus back on the input.
@@ -95,8 +95,7 @@ test('a drop over the cap with a file accept refuses: one reject for accept, one
 
     await expect(zoneOf(page, 'capped-images').locator('.dropzone-preview-list-item')).toHaveCount(2);
     expect(await names(page.locator('#capped-images'))).toEqual(['one.png', 'two.png']);
-    // UX Dropzone 3.8: both rejects before dropzone:pre-add, whose listeners get only the images that fit, then the
-    // change (3.7 dispatched the rejects after the change)
+    // UX Dropzone: both rejects before dropzone:pre-add, whose listeners get only the images that fit, then the change
     await expect.poll(order).toEqual(['reject accept notes.txt', 'reject max_files three.png', 'pre-add one.png,two.png', 'change one.png,two.png']);
 });
 

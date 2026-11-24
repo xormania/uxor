@@ -13,7 +13,7 @@ use Twig\Loader\ChainLoader;
 use Twig\Loader\FilesystemLoader;
 
 /**
- * The UX Dropzone 3.7 options the recipe's component and its form widget pass to the controller: `maxFiles` (the
+ * The UX Dropzone options the recipe's component and its form widget pass to the controller: `maxFiles` (the
  * `max_files` form option, whose Count constraint comes from UX Dropzone's DropzoneType) and the markup of each
  * picked file (the component's `preview_item` block, the form theme's `dropzone_preview_item` block), which the
  * component wraps in the controller's `previewItemTemplate` target. The browser side (files over the limit refused,

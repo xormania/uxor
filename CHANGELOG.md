@@ -9,6 +9,12 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
 
 ## [Unreleased]
 
+### Changed
+
+- `dropzone` requires `symfony/ux-dropzone` ^3.8 (it allowed ^3.7). An app on 3.7 runs
+  `composer require symfony/ux-dropzone:^3.8` before installing or updating the recipe; a Content Security Policy's
+  `img-src` needs `blob:` and `data:` for the image preview (see the README's *Content Security Policy*).
+
 ## [0.3.5] - 2026-11-24
 
 ### Added
