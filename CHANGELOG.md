@@ -18,10 +18,9 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
 - The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
   read page errors, failed requests and available Symfony profile tokens using the installed CLI or Mate.
 
-- The Composer dev package adds setup planning and application-owned configuration for Mago, Serena, Maker and
-  Symfony diagnostics, with explicit dependency installation, environment checks and compiled Symfony preparation.
-  Source operations, fresh dependency graphs and request/profile diagnosis form one application workflow; source
-  writes and project-code execution require separate explicit grants, and existing application configuration is preserved.
+- Installing the Composer development package supplies the Toolkit installer, Mate, Maker, Mago and Symfony
+  diagnostics. `uxor setup` previews changes to application configuration and Serena client bindings.
+  `uxor setup --apply` writes missing configuration and preserves existing settings.
 
 ### Changed
 
@@ -34,10 +33,10 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
 
 ### Fixed
 
-- Mago and Serena require `--trust-project-code` before mounting the application or executing its preparation
-  worker, Composer autoloader or configured extensions. `--write` alone does not grant execution permission;
-  setup's execution flag does not authorize future connections. Saving that permission in new MCP bindings
-  requires the separate `--save-project-trust` option. Checked-in contributor bindings carry no saved execution permission.
+- The Docker-backed Mago and Serena launcher requires `--trust-project-code` before mounting the application
+  or executing its preparation worker, Composer autoloader or configured extensions. Mutating the checkout also
+  requires `--write`. Persisting execution permission in a new Serena binding requires `--save-project-trust`.
+  Checked-in contributor bindings carry no saved execution permission.
 
 - Serena verifies Symfony preparation using provider-owned code without loading application PHP. It checks the
   manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
