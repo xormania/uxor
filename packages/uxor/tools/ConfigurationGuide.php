@@ -77,7 +77,6 @@ final class ConfigurationGuide
 
             Composer supplies the development tools listed above. Symfony Flex may unpack the debug and profiler packs into their component packages.
             After reviewing the plan, run `vendor/bin/uxor setup --apply` to apply the proposed configuration.
-            The setup flags `--install` and `--trust-project-code` remain available for older scripts.
 
             ## Setup defaults
 

@@ -49,17 +49,15 @@ final class Capabilities
 
     /**
      * @param bool $apply Apply the proposed configuration, preserving application-owned files.
-     * @param bool $install Compatibility flag for older clients. Composer owns installation.
-     * @param bool $trustProjectCode Compatibility flag for older clients. Setup only configures the application.
      * @param string $client none, claude, or codex; only Serena uses MCP, Mate uses the application CLI.
      * @param string $hostProjectRoot Optional absolute checkout path on the MCP host when PHP uses a different path.
      * @param bool $saveProjectTrust Save recurring execution permission in new Serena bindings, including later code at the selected path; no commit restriction or expiry.
      */
     #[MateTool('uxor_setup', description: 'Preview application and client configuration or apply it with apply=true. Composer installs the development tools. saveProjectTrust adds permission for future Serena connections, including later checkouts, to new bindings.')]
-    public function setup(bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): string
+    public function setup(bool $apply = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): string
     {
         return ResponseEncoder::encodeUntrusted($this->operations->run('setup',
-            ['project_root' => $this->projectRoot, 'apply' => $apply, 'install' => $install, 'trust_project_code' => $trustProjectCode, 'client' => $client, 'host_project_root' => $hostProjectRoot, 'save_project_trust' => $saveProjectTrust]));
+            ['project_root' => $this->projectRoot, 'apply' => $apply, 'client' => $client, 'host_project_root' => $hostProjectRoot, 'save_project_trust' => $saveProjectTrust]));
     }
 
     /** @param bool $apply Apply the reviewed changes to the bound application. */

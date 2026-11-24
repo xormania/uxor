@@ -111,20 +111,17 @@ final class DeveloperEnvironmentTest extends TestCase
         $path = getenv('PATH');
         putenv('PATH='.$this->directory.PATH_SEPARATOR.$path);
         try {
-            foreach ([['--install' => true], []] as $options) {
-                [$code, $result] = $this->invoke('setup', ['--apply' => true, '--trust-project-code' => true] + $options);
-                self::assertFileDoesNotExist($marker, 'Only the application Composer install or update resolves the development graph.');
-                self::assertSame($manifest, file_get_contents($this->project.'/composer.json'));
-                self::assertSame($lock, file_get_contents($this->project.'/composer.lock'));
-                self::assertSame(0, $code, json_encode($result));
-                self::assertSame('completed', $result['status']);
-                self::assertSame([], $result['data']['executions']);
-                self::assertFileExists($this->project.'/.uxor/mcp.json');
-                self::assertFileDoesNotExist($this->project.'/application-executed');
-                $dependencies = array_column($result['data']['dependencies'], null, 'package');
-                self::assertFalse($dependencies['symfony/debug-pack']['compatible']);
-                self::assertStringNotContainsString('setup --apply --install', implode(' ', $result['data']['next_steps']));
-            }
+            [$code, $result] = $this->invoke('setup', ['--apply' => true]);
+            self::assertFileDoesNotExist($marker, 'Only the application Composer install or update resolves the development graph.');
+            self::assertSame($manifest, file_get_contents($this->project.'/composer.json'));
+            self::assertSame($lock, file_get_contents($this->project.'/composer.lock'));
+            self::assertSame(0, $code, json_encode($result));
+            self::assertSame('completed', $result['status']);
+            self::assertSame([], $result['data']['executions']);
+            self::assertFileExists($this->project.'/.uxor/mcp.json');
+            self::assertFileDoesNotExist($this->project.'/application-executed');
+            $dependencies = array_column($result['data']['dependencies'], null, 'package');
+            self::assertFalse($dependencies['symfony/debug-pack']['compatible']);
         } finally {
             putenv('PATH='.$path);
         }
@@ -873,12 +870,10 @@ JS);
     }
 
 
-    public function testCurrentExecutionTrustIsNotSavedForFutureConnections(): void
+    public function testSetupWritesBindingsWithoutSavedTrustByDefault(): void
     {
         foreach (['none', 'claude', 'codex'] as $client) {
-            [$code, $result] = $this->invoke('setup', [
-                '--apply' => true, '--client' => $client, '--trust-project-code' => true,
-            ]);
+            [$code, $result] = $this->invoke('setup', ['--apply' => true, '--client' => $client]);
             self::assertContains($code, [0, 2], json_encode($result));
             self::assertNotSame('failed', $result['status']);
         }
@@ -896,7 +891,7 @@ JS);
         if (in_array('--trust-project-code', $arguments, true)) {
             $savedBindings[] = '.codex/config.toml';
         }
-        self::assertSame([], $savedBindings, 'CURRENT_EXECUTION_TRUST_WAS_SAVED: '.implode(', ', $savedBindings));
+        self::assertSame([], $savedBindings, 'UNREQUESTED_TRUST_WAS_SAVED: '.implode(', ', $savedBindings));
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
@@ -1004,8 +999,7 @@ JS);
         $operations = Operations::create();
         foreach ([false, null, 0, 1, '', 'false', 'true', true] as $savedTrust) {
             $result = $operations->run('setup', [
-                'project_root' => $this->project, 'apply' => true,
-                'trust_project_code' => true, 'save_project_trust' => $savedTrust,
+                'project_root' => $this->project, 'apply' => true, 'save_project_trust' => $savedTrust,
             ]);
             self::assertNotSame('failed', $result['status'], json_encode($result));
             self::assertSame(true === $savedTrust, $result['data']['mcp_binding']['requested_saved_project_trust']);
@@ -1020,15 +1014,13 @@ JS);
         }
     }
 
-    public function testMateSeparatesCurrentExecutionFromSavedProjectTrust(): void
+    public function testMateSavesProjectTrustOnlyOnRequest(): void
     {
         $mate = new Capabilities(Operations::create(), $this->project);
         $before = $this->snapshot($this->directory);
         foreach ([
             [[], false],
-            [['trustProjectCode' => true], false],
             [['saveProjectTrust' => true], true],
-            [['trustProjectCode' => true, 'saveProjectTrust' => true], true],
         ] as [$arguments, $savedTrust]) {
             $result = ResponseEncoder::decode($mate->setup(...$arguments))['untrusted_data'];
             self::assertSame('setup', $result['operation']);
@@ -1039,12 +1031,7 @@ JS);
             self::assertSame([], $result['data']['executions']);
             self::assertSame($before, $this->snapshot($this->directory));
         }
-        $preview = ResponseEncoder::decode($mate->setup(install: true, saveProjectTrust: true))['untrusted_data'];
-        self::assertSame('plan', $preview['data']['mode']);
-        self::assertSame([], $preview['data']['executions']);
-        self::assertSame($before, $this->snapshot($this->directory));
-
-        $result = ResponseEncoder::decode($mate->setup(apply: true, trustProjectCode: true))['untrusted_data'];
+        $result = ResponseEncoder::decode($mate->setup(apply: true))['untrusted_data'];
         self::assertNotSame('failed', $result['status'], json_encode($result));
         $configuration = json_decode(file_get_contents($this->project.'/.uxor/mcp.json'), true, 512, JSON_THROW_ON_ERROR);
         self::assertNotContains('--trust-project-code', $configuration['mcpServers']['uxor-mago']['args']);

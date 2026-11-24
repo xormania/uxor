@@ -175,9 +175,8 @@ def repeat_setup(root: Path, php: str) -> None:
     repeated = operation(root, php, "setup", "--apply", allowed=(0, 2))
     if repeated["changes"] or snapshot(root) != current:
         raise RuntimeError("Repeated setup changed the configured consumer")
-    native = operation(root, php, "setup", "--apply", "--install", "--trust-project-code", allowed=(0, 2))
-    if native["data"].get("mode") != "apply" or config.read_bytes() != expected_config:
-        raise RuntimeError("Repeated native setup did not retain the application's Mate configuration")
+    if repeated["data"].get("mode") != "apply" or config.read_bytes() != expected_config:
+        raise RuntimeError("Repeated setup did not retain the application's Mate configuration")
 
 
 def check_preparation_readers(root: Path, php: str, *, fresh: bool) -> str | None:

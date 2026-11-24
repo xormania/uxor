@@ -54,7 +54,7 @@ final class Operations
                     (int) ($arguments['offset'] ?? 0), (int) ($arguments['limit'] ?? 12000)),
                 'inspect' => $this->inspector->inspect($root),
                 'setup' => $this->environmentSetup->setup($root, true === ($arguments['apply'] ?? false),
-                    true === ($arguments['install'] ?? false), true === ($arguments['trust_project_code'] ?? false), (string) ($arguments['client'] ?? 'none'), (string) ($arguments['host_project_root'] ?? ''),
+                    (string) ($arguments['client'] ?? 'none'), (string) ($arguments['host_project_root'] ?? ''),
                     true === ($arguments['save_project_trust'] ?? false)),
                 'detach' => $this->environmentSetup->detach($root, true === ($arguments['apply'] ?? false)),
                 'environment' => $this->environmentStatus->inspect($root, true === ($arguments['probe'] ?? false), true === ($arguments['trust_project_code'] ?? false)),

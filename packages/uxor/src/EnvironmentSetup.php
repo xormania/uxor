@@ -21,7 +21,7 @@ final class EnvironmentSetup
         $this->ownership = new SetupOwnership($this->files);
     }
 
-    public function setup(string $directory, bool $apply = false, bool $install = false, bool $trustProjectCode = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): array
+    public function setup(string $directory, bool $apply = false, string $client = 'none', string $hostProjectRoot = '', bool $saveProjectTrust = false): array
     {
         if (!in_array($client, ['none', 'claude', 'codex'], true)) {
             throw new \InvalidArgumentException('Choose client none, claude, or codex.');

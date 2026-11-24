@@ -374,7 +374,6 @@ final class ReferenceBundleTest extends TestCase
         self::assertSame(1, preg_match('/^## Optional development setup\n(.+?)(?=^## |\z)/ms', $guide, $section));
         self::assertDoesNotMatchRegularExpression('/^\|/m', $section[1], 'Composer supplies every requested package.');
         self::assertStringContainsString('`vendor/bin/uxor setup --apply`', $section[1]);
-        self::assertStringNotContainsString('setup --apply --install --trust-project-code', $section[1]);
         self::assertStringNotContainsString($consumer, $guide);
 
         preg_match_all('/^\| `--([a-z0-9-]+)` \|/m', $guide, $options);
