@@ -1001,6 +1001,9 @@ def main() -> None:
         if run_upgrades:
             candidate = archive_repository(archive, version=target)
             if arguments.consumer and not arguments.providers:
+                import mate_paths_acceptance
+                mate_paths_acceptance.check(temporary / "custom-paths", candidate, os.environ.get("PHP_BIN", "php"),
+                                            composer_command(), operation_result, check_mate_application)
                 import flex_acceptance
                 flex_acceptance.check(temporary / "flex-consumer", os.environ.get("PHP_BIN", "php"), composer_command(),
                                       candidate, operation_result)

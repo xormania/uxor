@@ -24,12 +24,46 @@ use Xormania\UXor\SetupOwnership;
 final class Plugin implements PluginInterface, EventSubscriberInterface
 {
     private ?DevelopmentRecipes $developmentRecipes = null;
+    private bool $mateReady = false;
 
-    public function activate(Composer $composer, IOInterface $io): void {}
+    public function activate(Composer $composer, IOInterface $io): void
+    {
+        // --no-autoloader skips POST_AUTOLOAD_DUMP but still sends the post-install/update event.
+        // Suppress the upstream hook early if its hardcoded command already belongs to another layout or owner.
+        $repo = $composer->getRepositoryManager()->getLocalRepository();
+        $file = realpath(Factory::getComposerFile());
+        if (false === $file || null === $repo->findPackage('xormania/uxor', '*')) {
+            return;
+        }
+        $root = dirname($file);
+        $public = $root.'/vendor/bin/mate';
+        $native = $repo->findPackage('symfony/ai-mate', '*');
+        if (null === $native || !is_file($public)) {
+            return;
+        }
+        $config = $composer->getConfig();
+        $vendor = $config->get('vendor-dir');
+        $proxy = new InstalledBinary($io, $config->get('bin-dir'), 'auto', vendorDir: $vendor);
+        $source = $composer->getInstallationManager()->getInstallPath($native).'/bin/mate';
+        if (realpath($vendor) !== $root.'/vendor' || !$proxy->matches($source, $public)) {
+            $this->removeNativeDiscovery($composer);
+        }
+    }
 
     public function deactivate(Composer $composer, IOInterface $io): void {}
 
-    public function uninstall(Composer $composer, IOInterface $io): void {}
+    public function uninstall(Composer $composer, IOInterface $io): void
+    {
+        $file = realpath(Factory::getComposerFile());
+        if (false !== $file && 'composer.json' === basename($file)) {
+            $root = dirname($file);
+            $lock = ApplicationFiles::lockProject($root);
+            $result = MateVendorLink::detachment($root, true);
+            if (null !== $result['note']) {
+                $io->writeError('<warning>UXor: '.$result['note'].'</warning>');
+            }
+        }
+    }
 
     public static function getSubscribedEvents(): array
     {
@@ -53,6 +87,12 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
             $dispatcher->addListener(ScriptEvents::POST_INSTALL_CMD, [$this->developmentRecipes, 'configure']);
             $dispatcher->addListener(ScriptEvents::POST_UPDATE_CMD, [$this->developmentRecipes, 'configure']);
         }
+        $this->removeNativeDiscovery($composer);
+        $paths = $this->mateDirectories($event, $root);
+        if (null === $paths) {
+            return;
+        }
+        [$vendor, $bin] = $paths;
         $ownership = new SetupOwnership(new ApplicationFiles(new ProjectInspector()));
         if (!$ownership->hasRecordedSetup($root)) {
             $result = Operations::create()->run('setup', ['project_root' => $root, 'apply' => true]);
@@ -63,18 +103,37 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
                 $event->getIO()->writeError('<warning>UXor: review preserved application configuration with the setup command.</warning>');
             }
         }
-        if (!$this->mateUsesApplicationRoot($composer, $root)) {
-            // Upstream Mate discovers from root/vendor and derives its root from the autoloader's parent.
-            $event->getIO()->writeError('<warning>UXor: Mate cannot discover extensions in this vendor directory. Its CLI expects vendor/ directly under the application root.</warning>');
+        if ('vendor' !== $vendor) {
+            $problem = MateVendorLink::connect($root, $vendor);
+            if (null !== $problem) {
+                $event->getIO()->writeError('<warning>UXor: '.$problem.'</warning>');
+                if (!MateVendorLink::available($root, $vendor)) {
+                    return;
+                }
+            }
+        }
+        $native = $composer->getRepositoryManager()->getLocalRepository()->findPackage('symfony/ai-mate', '*');
+        if (null === $native) {
             return;
         }
+        $proxy = new InstalledBinary($event->getIO(), $root.'/'.$bin, 'auto', vendorDir: $root.'/'.$vendor);
+        $matePath = $composer->getInstallationManager()->getInstallPath($native).'/bin/mate';
+        $usableNative = $proxy->matches($matePath, $root.'/'.$bin.'/mate');
+        if (!$usableNative) {
+            $event->getIO()->writeError('<warning>UXor: the public '.$bin.'/mate is missing or belongs to another command. UXor preserved it. Use '.$bin.'/uxor mate for this application.</warning>');
+        }
+        $this->mateReady = true;
         $manifestFile = new JsonFile($root.'/composer.json');
-        if (!is_file($root.'/mate/config.php') || !is_file($root.'/mate/extensions.php')) {
+        $freshConfig = !is_file($root.'/mate/config.php');
+        if ($freshConfig || !is_file($root.'/mate/extensions.php')) {
             foreach (['composer.json', 'composer.lock', 'AGENTS.md', 'CLAUDE.md', 'mate/config.php', 'mate/extensions.php',
                 'mate/.env', 'mate/.gitignore', 'mate/AGENT_INSTRUCTIONS.md', 'mate/src/.gitignore'] as $path) {
                 ProjectPath::writablePath($root, $path);
             }
-            $this->runMate($event, $root, 'init');
+            $this->runMate($event, $root, $vendor, 'init');
+            if ($freshConfig) {
+                $this->configureInvocation($root, $bin, $usableNative && 'vendor' === $vendor);
+            }
         }
         $manifest = $manifestFile->read();
         $locker = $composer->getLocker();
@@ -102,23 +161,71 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         if (null === $root || !is_file($root.'/mate/extensions.php')) {
             return;
         }
-        $composer = $event->getComposer();
-        if (!$this->mateUsesApplicationRoot($composer, $root)) {
-            return;
+        if ($this->mateReady) {
+            $vendor = ProjectPath::composerDirectory($root, $event->getComposer()->getConfig()->get('vendor-dir'));
+            $this->runMate($event, $root, $vendor, 'discover', '--composer');
         }
-        // Symfony's plugin already discovers after install/update using the default binary path.
-        // Composer can suffix the active class name when it reloads a plugin being upgraded.
-        if (is_file($root.'/vendor/bin/mate') && array_any($composer->getPluginManager()->getPlugins(),
-            static fn (PluginInterface $plugin): bool => str_starts_with($plugin::class, MatePlugin::class))) {
-            return;
-        }
-        $this->runMate($event, $root, 'discover', '--composer');
     }
 
-    private function mateUsesApplicationRoot(Composer $composer, string $root): bool
+    private function removeNativeDiscovery(Composer $composer): void
     {
-        $vendor = realpath($composer->getConfig()->get('vendor-dir'));
-        return false !== $vendor && dirname($vendor) === $root && $vendor === realpath($root.'/vendor');
+        // Mate's own hook invokes an app-relative bin/mate. UXor calls the installed package
+        // with the configured autoloader, including when Composer preserved a conflicting binary.
+        foreach ($composer->getPluginManager()->getPlugins() as $plugin) {
+            if (str_starts_with($plugin::class, MatePlugin::class)) {
+                $composer->getEventDispatcher()->removeListener([$plugin, 'onPostInstallOrUpdate']);
+            }
+        }
+    }
+
+    /** @return array{string, string}|null */
+    private function mateDirectories(Event $event, string $root): ?array
+    {
+        $composer = $event->getComposer();
+        $config = $composer->getConfig();
+        try {
+            $effective = [
+                ProjectPath::composerDirectory($root, $config->get('vendor-dir')),
+                ProjectPath::composerDirectory($root, $config->get('bin-dir')),
+            ];
+            $manifest = (new JsonFile($root.'/composer.json'))->read();
+            $declaredVendor = ProjectPath::composerDirectory($root, $manifest['config']['vendor-dir'] ?? 'vendor');
+            $declaredBin = ProjectPath::composerDirectory($root, $manifest['config']['bin-dir'] ?? $declaredVendor.'/bin');
+            if ($effective !== [$declaredVendor, $declaredBin]) {
+                $event->getIO()->writeError('<warning>UXor: Composer’s effective vendor or binary directory differs from the application manifest. Declare the paths in composer.json for automatic onboarding.</warning>');
+                return null;
+            }
+            return $effective;
+        } catch (\InvalidArgumentException $error) {
+            $event->getIO()->writeError('<warning>UXor: onboarding requires project-local Composer directories. '.$error->getMessage().'</warning>');
+            return null;
+        }
+    }
+
+    /** Set the invocation in the fresh upstream template only. Existing application configuration is never rewritten. */
+    private function configureInvocation(string $root, string $bin, bool $native): void
+    {
+        $command = $bin.'/'.($native ? 'mate' : 'uxor');
+        if ($native && 'vendor/bin/mate' === $command) {
+            return;
+        }
+        $files = new ApplicationFiles(new ProjectInspector());
+        $config = $files->path($root, 'mate/config.php');
+        $content = (string) file_get_contents($config);
+        // Mate uses a DDEV prefix for DDEV projects. Keep that prefix when replacing the generated default.
+        $quoted = preg_match('~^[a-zA-Z0-9_./-]+$~D', $command) ? $command : escapeshellarg($command);
+        if (!$native) {
+            $quoted .= ' mate';
+        }
+        $next = preg_replace_callback("~(->set\('mate\.invocation', )'(ddev exec )?vendor/bin/mate'(\))~",
+            static fn (array $match): string => $match[1].var_export(($match[2] ?? '').$quoted, true).$match[3],
+            $content, 1, $count);
+        if (1 === $count && is_string($next)) {
+            $update = $files->apply($root, [['path' => 'mate/config.php', 'action' => 'update', 'sha256' => hash('sha256', $content), 'content' => $next]]);
+            if (null !== $update['error']) {
+                throw new \RuntimeException($update['error']);
+            }
+        }
     }
 
     private function applicationRoot(Event $event): ?string
@@ -134,10 +241,9 @@ final class Plugin implements PluginInterface, EventSubscriberInterface
         return dirname($file);
     }
 
-    private function runMate(Event $event, string $root, string ...$arguments): void
+    private function runMate(Event $event, string $root, string $vendor, string ...$arguments): void
     {
-        $bin = $event->getComposer()->getConfig()->get('bin-dir').'/mate';
-        $process = new Process([PHP_BINARY, $bin, ...$arguments, '--no-interaction'], $root);
+        $process = new Process([PHP_BINARY, __DIR__.'/../../resources/composer/run-mate.php', $root.'/'.$vendor.'/autoload.php', ...$arguments, '--no-interaction'], $root);
         $process->mustRun();
         $event->getIO()->write($process->getOutput(), true, 'init' === $arguments[0] ? IOInterface::VERBOSE : IOInterface::NORMAL);
     }

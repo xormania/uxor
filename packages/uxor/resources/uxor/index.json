@@ -3,7 +3,7 @@
     "source": {
         "repository": "https://github.com/xormania/uxor",
         "ref": "0.3.5",
-        "inputs_sha256": "2dc42136f8f8a787649d1531ff31811fdb5dce27bc57e74e3b016ab19fb89b25",
+        "inputs_sha256": "9d7cf83559c801e8e02fbc98d5aecf60289db78d983ef52f02ab8c8be85ebda8",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
         "guide_catalog_sha256": "92b083ca3a1cb43236e66a9bf903458f9aa676bed7552cdfe6a52a8f79e302fd",
         "license": "MIT"
@@ -1812,8 +1812,8 @@
         },
         "docs/AGENT-ONBOARDING.md": {
             "path": "docs/docs/AGENT-ONBOARDING.md",
-            "sha256": "54d98ed9a964d88bf8fe27e3cca66a78e81ba5179eb428c41543e787ca0698ee",
-            "source_sha256": "54d98ed9a964d88bf8fe27e3cca66a78e81ba5179eb428c41543e787ca0698ee",
+            "sha256": "3f94dbe463cb106a3a6e763b470e261f71b34cfd54cdd9632b9625833aabdcb3",
+            "source_sha256": "3f94dbe463cb106a3a6e763b470e261f71b34cfd54cdd9632b9625833aabdcb3",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/AGENT-ONBOARDING.md"
         },
         "docs/APPLICATION-TESTING.md": {
@@ -1998,14 +1998,14 @@
         },
         "packages/uxor/OPERATIONS.md": {
             "path": "docs/packages/uxor/OPERATIONS.md",
-            "sha256": "56d98cee791c0593034ea520d3744137dc99e1b84b9e4f64e8ae6abdaecb9cf9",
-            "source_sha256": "d69e3e88be25ec23c4ed7335acc9fddca2ed78d08ff7a901511505476b649ab4",
+            "sha256": "3e45f02d7d549cc59df4fa4b9a55b4c99ced14eaf9687133ac484ab4327f40e3",
+            "source_sha256": "a5708b2679d042089ff15ee14ec805cb20408cfb933e39d52272258d3d8f8563",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md"
         },
         "packages/uxor/README.md": {
             "path": "docs/packages/uxor/README.md",
-            "sha256": "f3625e8dd9be7bda05bf163b0d6edbd2209f6ff73cb4f60891aac439e1f1ecc8",
-            "source_sha256": "a05461b1c78810e495346f8459058dba08a27da7e7fa26e2ee7296132d9e86cc",
+            "sha256": "b6f65fe011f3cbbf8f532c230d5b2585eceebb7e29af6f7772d281eb12381362",
+            "source_sha256": "08b7964c1e2ff48790719c80621092880b8d5b6fc074d51549440595bb4ab8a4",
             "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md"
         },
         "page-header/README.md": {

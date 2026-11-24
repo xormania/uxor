@@ -14,7 +14,7 @@ the package workflow and its first rendered component. Use the package CLI if th
 1. Identify the application root and PHP/Composer invocation. Keep application PHP
    commands in its actual runtime. Select `--project-root` explicitly across applications or worktrees.
 2. Composer installs the development tools, applies missing project defaults and registers UXor with Mate. Verify the application’s installation
-   with `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json`. Inspect `uxor environment --format=json`.
+   by appending `tools:call uxor_catalog --query=kbd --format=json` to the application's configured Mate invocation. Inspect `uxor environment --format=json`.
    To reconcile existing configuration or add a client binding, preview `uxor setup --format=json` and apply authorized changes
    with `setup --apply`. Run native probes only with authorization for the selected application and runtime.
 3. Preserve existing files and integrate reported configuration. Composer uses available Flex recipes.

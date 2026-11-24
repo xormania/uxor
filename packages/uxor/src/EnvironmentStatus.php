@@ -105,7 +105,7 @@ final class EnvironmentStatus
                 : 'Inspect dump() values in the matching request profile, or use bin/console help server:dump to inspect the separate dump server command.';
         }
         if ($capabilities['monolog']['installed']) {
-            $next[] = 'List the installed Monolog tools with '.$project['bin'].'/mate tools:list --format=json before inspecting application logs.';
+            $next[] = 'List the installed Monolog tools with '.$project['bin'].'/uxor mate tools:list --format=json before inspecting application logs.';
         }
         if (!$has('symfony/flex')) {
             $next[] = 'This application does not have Flex. Register installed development bundles and profiler UI routes using its own kernel/configuration conventions.';

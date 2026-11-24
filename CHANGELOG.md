@@ -22,13 +22,13 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
   on interaction and respect reduced motion.
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
   Serena session using the Mago language server. Setup and preparation accept Composer paths such as `./vendor`
-  and `./src`. The application and Serena both withhold fresh wiring while preparation is in progress.
+  and `./src`. The provider prepares on first use. The application and Serena both withhold fresh wiring while
+  preparation is in progress.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
-- The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. Requiring UXor in development installs the full Symfony debug pack, Maker, Toolkit, Monolog Mate
-  extension and Mago tooling. Composer initializes Mate and discovers the UXor tools. Serena and its Mago language
-  server prepare their provider on first use. UXor respects the application’s profiler settings. The shared fixture starts collecting only on a diagnostic run.
+- The Composer development package provides a Playwright fixture and CLI and Mate readers that link browser
+  failures to their Symfony request profiles. The fixture collects on diagnostic runs and respects the
+  application's profiler settings.
 
 - The documentation website groups guides by product and recipes by task. The Composer setup, agent onboarding,
   advanced operations, configuration and application testing guides are available as HTML and Markdown.
@@ -38,8 +38,11 @@ lists published versions. See the [release policy](CONTRIBUTING.md#releases) for
   read page errors, HTTP errors and network failures for the page and its resources, and available Symfony
   profile tokens using the installed CLI or Mate. A failed third-party request identifies its origin.
 
-- Installing the Composer development package supplies the Toolkit installer, Mate, Maker, Mago and Symfony
-  diagnostics. `uxor setup` previews changes to application configuration and Serena client bindings.
+- Installing the Composer development package supplies the Toolkit installer, Mate with its Symfony and Monolog extensions,
+  Maker, Mago and the full Symfony debug pack. Composer initializes Mate and discovers the UXor tools. When an application moves Composer dependencies to another directory inside the project, UXor
+  can create and track the compatibility link that Mate needs. The installed `uxor mate` command discovers
+  extensions in that layout. Installation preserves an occupied path and reports any conflict.
+  `uxor setup` previews changes to application configuration and Serena client bindings.
   `uxor setup --apply` writes missing configuration and preserves existing settings.
 
 ### Changed

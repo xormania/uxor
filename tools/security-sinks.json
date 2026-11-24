@@ -63,11 +63,18 @@
         "reason": "Runs the bound project's own bin/console or configured Composer Mate entry point, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
     },
     {
+        "path": "packages/uxor/src/Composer/MateVendorLink.php",
+        "rule": "php-process-execution",
+        "contains": "(new Process(['/bin/ln', '-P', $alias, $witness]))->run();",
+        "count": 1,
+        "reason": "On macOS the fixed /bin/ln executable records the identity of the newly created symbolic link. The two absolute application-local paths are separate arguments. The command runs under the project lock and has no force flag."
+    },
+    {
         "path": "packages/uxor/src/Composer/Plugin.php",
         "rule": "php-process-execution",
-        "contains": "$process = new Process([PHP_BINARY, $bin, ...$arguments, '--no-interaction'], $root);",
+        "contains": "$process = new Process([PHP_BINARY, __DIR__.'/../../resources/composer/run-mate.php', $root.'/'.$vendor.'/autoload.php', ...$arguments, '--no-interaction'], $root);",
         "count": 1,
-        "reason": "Composer activates the UXor plugin with the application’s plugin permission. In development installs it invokes the installed Mate binary through PHP using fixed init or discover arguments, Composer’s configured bin directory and the selected application root. Static UXor setup runs no process."
+        "reason": "During an authorized Composer development install, PHP runs the package's own Mate entry point with the configured project-local autoloader. The plugin supplies fixed init or discover arguments and the working directory."
     },
     {
         "path": "packages/uxor/src/EnvironmentStatus.php",

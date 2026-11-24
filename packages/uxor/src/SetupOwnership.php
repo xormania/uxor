@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Xormania\UXor;
 
+use Xormania\UXor\Composer\MateVendorLink;
+
 /** Records only setup's writes that need to be disconnected when Composer removes the package. */
 final class SetupOwnership
 {
@@ -158,6 +160,10 @@ final class SetupOwnership
         foreach ($review as $path => $message) {
             $steps[] = $path.': '.$message;
         }
+        $mate = MateVendorLink::detachment($root, false);
+        if (null !== $mate['note']) {
+            $steps[] = $mate['note'];
+        }
         $changes = [];
         $status = [] === $review ? 'completed' : 'incomplete';
         $summary = $review ? 'Application-owned integrations require manual reconciliation before removal.' : 'Detachment plan ready.';
@@ -172,13 +178,16 @@ final class SetupOwnership
             }
             $result = $this->files->apply($root, $proposals);
             $changes = $result['changes'];
+            if (null === $result['error']) {
+                $changes = array_merge($changes, MateVendorLink::detachment($root, true)['files']);
+            }
             $status = null === $result['error'] ? 'completed' : 'failed';
             $summary = $result['error'] ?? 'Managed integrations detached.';
         }
         $steps[] = 'completed' === $status && $apply ? 'Run composer remove --dev xormania/uxor and verify the application’s development tools.'
             : 'Review the plan, reconcile any listed application-owned integration, then run uxor detach --apply before Composer removal.';
         return ['status' => $status, 'summary' => $summary, 'root' => $root, 'mode' => $apply ? 'apply' : 'plan',
-            'files' => array_map(static fn (array $file): array => ['path' => $file['path'], 'action' => $file['action']], $proposals),
+            'files' => array_map(static fn (array $file): array => ['path' => $file['path'], 'action' => $file['action']], array_merge($proposals, $mate['files'])),
             'review' => array_keys($review), 'changes' => $changes, 'next_steps' => $steps];
     }
 

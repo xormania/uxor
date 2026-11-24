@@ -106,11 +106,36 @@ files or a verified connection. The example above configures a client binding fo
 The corresponding Mate tools are `uxor_setup`, `uxor_environment`, `uxor_prepare` and `uxor_detach`. Inspect their installed
 named inputs before calling them through the application's Mate CLI.
 
-**Custom Composer directories.** UXor uses the application's configured vendor and binary paths. If Mate's
-instructions show `vendor/bin/mate` after you changed `bin-dir`, invoke Mate from the actual binary directory
-and set `mate.invocation` in `mate/config.php` to the command you use. Upstream Mate extension discovery
-looks under `vendor/` at the application root. With a relocated vendor directory, check `mate tools:list` for
-`uxor_catalog`; the standalone `uxor` CLI in the configured binary directory also provides the catalog.
+### Custom Composer directories
+
+All examples use Composer's default binary directory. If only `bin-dir` changes, invoke `mate` in that directory.
+With a project-local custom `vendor-dir`, invoke `uxor mate` in Composer's configured binary directory. This
+launcher runs the installed Symfony AI Mate with the application's real root. For instance:
+
+```sh
+tools/commands/uxor mate tools:call uxor_catalog --query=kbd --format=json
+tools/commands/uxor mate tools:call uxor_project --format=json
+```
+
+Mate 1.0 Beta1 resolves extension files under the application's `vendor/` path. During a development install,
+UXor creates a relative `vendor` link to the configured dependency directory if the path is unused. It can use an
+existing link to the right directory and leaves ownership with the application. UXor's package-wide setup and
+inspection require the configured vendor and binary paths to be inside the application with regular directory
+ancestors. A shared vendor directory outside the checkout or a symlinked configured dependency path requires a
+different application layout. Record custom directories in the application's `composer.json`. If Composer uses a
+different path from a user-wide configuration or environment variable, UXor reports the mismatch and skips
+onboarding. The installed `uxor mate` command is also available with default directories when the native `mate`
+binary name is occupied. A file, directory, dangling link or
+link to another location is preserved. Composer reports the conflict and skips Mate onboarding. Reconcile the path
+in the application and run `composer install` to retry. If the app controls an existing `mate/config.php`, check
+`mate.invocation` points to the working executable. UXor sets that value in newly initialized configurations.
+
+The compatibility link and its ownership record are local installation state. With a relocated vendor directory,
+ignore `/vendor` (a trailing slash only matches a directory) and `.uxor/mate-vendor-link.json` and
+`.uxor/mate-vendor-link.id` in the application's version control. `uxor detach` previews removal and
+`uxor detach --apply` removes an identifiable UXor-created link. Composer also checks for that link during plugin
+uninstall. Application-owned or replaced paths remain. When the filesystem cannot prove that the current link
+is the one UXor created, inspect it at removal. The dependency directory and its contents are preserved.
 
 ## Prepare the providers on the Docker host
 
@@ -544,6 +569,12 @@ Inspect the selected application metadata.
 
 - `[--format FORMAT]` — text or json
 - `[--project-root PROJECT-ROOT]` — Explicit application directory; defaults to current directory
+
+### `mate`
+
+Run the installed Symfony AI Mate in the consuming application.
+
+- `[<arguments>...]` — Mate command and its arguments or options
 
 ### `prepare`
 

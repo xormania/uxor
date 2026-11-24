@@ -20,7 +20,9 @@ use the host checkout path; setup's `--host-project-root` only supplies generate
 A client registration is unverified until the client connects and queries a real application symbol.
 
 Composer installs the development tools, applies missing project defaults and registers the Mate integration.
-Call `vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json` to verify it.
+Use the Mate invocation named at the top of the generated instructions and append
+`tools:call uxor_catalog --query=kbd --format=json` to verify it. The application's `.uxor/README.md`
+shows the full catalog command for its configured Composer directories.
 Use `uxor environment` to inspect readiness. To reconcile configuration or add client bindings, preview `uxor setup` and apply
 the authorized plan with `setup --apply`. Execution probes and `prepare` require `--trust-project-code`.
 `uxor-mago` application commands, including Serena startup, require `--trust-project-code` before the command.

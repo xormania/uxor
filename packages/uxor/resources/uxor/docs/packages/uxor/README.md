@@ -43,9 +43,8 @@ composer require --dev 'xormania/uxor:^0.3.5'
 
 Composer installs Mate with its Symfony and Monolog extensions, the full Symfony debug pack, Maker, the Mago
 PHP SDK and Symfony wiring, and the Symfony UX Toolkit installer with its HTTP client. During installation,
-UXor writes missing project defaults and preserves existing settings. With the application's standard `vendor/` directory, the plugins initialize Mate and discover
-UXor’s tools, references and skills. A custom binary directory also works. Applications that relocate the
-vendor directory can use the [custom directory guidance](OPERATIONS.md#set-up-and-inspect-the-development-environment).
+UXor writes missing project defaults and preserves existing settings. The plugins initialize Mate and discover
+UXor’s tools, references and skills.
 Try a catalog lookup in the application.
 
 ```sh
@@ -53,7 +52,10 @@ vendor/bin/mate tools:call uxor_catalog --query=kbd --format=json
 ```
 
 The result should include the `kbd` recipe. Use the application's configured binary directory in place of
-`vendor/bin` if it differs. Continue to [use a recipe](#use), or configure additional integrations below.
+`vendor/bin` if it differs. With a custom Composer `vendor-dir`, use `uxor mate` in that binary directory
+for every Mate command below. For example, with `vendor-dir: dependencies/php` and `bin-dir: tools/commands`,
+run `tools/commands/uxor mate tools:call uxor_catalog --query=kbd --format=json`.
+[Custom Composer directories](OPERATIONS.md#custom-composer-directories) explains the compatibility link and conflict handling. Continue to [use a recipe](#use), or configure additional integrations below.
 
 ## Configure the development environment
 
