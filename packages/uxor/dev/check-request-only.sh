@@ -23,4 +23,4 @@ test('a request-only test runs with diagnostics disabled', async ({ request }) =
     expect((await request.storageState()).cookies).toEqual([]);
 });
 JS
-PROFILER_COLLECT=0 node_modules/.bin/playwright test request-only.spec.mjs --workers=1 --reporter=line
+PROFILER_COLLECT=0 node_modules/.bin/playwright test request-only.spec.mjs --workers=1 --reporter=line "$@"

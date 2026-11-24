@@ -17,12 +17,12 @@ const { basename } = require('node:path');
 const tool = basename(process.argv[1]);
 const args = process.argv.slice(2);
 appendFileSync(process.env.CONSUMER_TEST_LOG, JSON.stringify({ tool, args, cwd: process.cwd() }) + '\\n');
-if (tool === 'npm' && args[0] === 'run' && args[1] === 'test:workflow') {
-    process.exit(Number(process.env.CONSUMER_TEST_BROWSER_EXIT));
+if (tool === 'npm' && args[0] === 'run' && args[1] === process.env.CONSUMER_TEST_FAIL_SCRIPT) {
+    process.exit(7);
 }
 `;
 
-function runStep(t, id, browserExit = 0) {
+function runStep(t, id, failingScript = '') {
     const step = stepIn(workflow, 'package', id);
     assert.ok(step?.run, `Package runs the ${id} step`);
     const lines = workflow.split('\n');
@@ -47,7 +47,7 @@ function runStep(t, id, browserExit = 0) {
             PATH: `${scratch}:${process.env.PATH}`,
             RUNNER_TEMP: scratch,
             CONSUMER_TEST_LOG: log,
-            CONSUMER_TEST_BROWSER_EXIT: String(browserExit),
+            CONSUMER_TEST_FAIL_SCRIPT: failingScript,
         },
         timeout: 15_000,
     });
@@ -73,21 +73,27 @@ test('Package prepares, installs, and exercises the customer app before checking
 
     const prepare = commands.findIndex((command) => /run\.py .*--native.*\bprepare\b/.test(command));
     const install = commands.findIndex((command) => /install-uxor\.py\b/.test(command));
-    const browser = commands.findIndex((command) => /^npm run test:workflow$/.test(command));
+    const requestOnly = commands.indexOf('npm run test:request-only');
+    const browser = commands.indexOf('npm run test:workflow');
     const noDev = commands.findIndex((command) => /\bcomposer (?:[^ ]+ )*install\b.*--no-dev/.test(command));
     const cache = commands.findIndex((command) => /\b(?:bin\/console )?cache:clear\b.*--env[= ]prod/.test(command));
     const runtime = commands.findIndex((command) => /check-workflow-runtime\.php\b/.test(command));
 
-    const sequence = [prepare, install, browser, noDev, cache, runtime];
+    const sequence = [prepare, install, requestOnly, browser, noDev, cache, runtime];
     assert.ok(sequence.every((index, at) => index >= 0 && (at === 0 || index > sequence[at - 1])), commands.join('\n'));
+    assert.equal(calls[requestOnly].cwd, join(root, consumer));
     assert.equal(calls[browser].cwd, join(root, consumer));
 });
 
-test('a failing customer browser journey is a failed Package step', (t) => {
-    const { result, calls } = runStep(t, 'consumer-workflow', 7);
-    assert.notEqual(result.status, 0, result.stdout);
-    assert.ok(calls.some(({ tool, args }) => tool === 'npm' && args.join(' ') === 'run test:workflow'), result.stderr);
-});
+for (const script of ['test:request-only', 'test:workflow']) {
+    test(`a failing ${script} stops the Package step`, (t) => {
+        const { result, calls } = runStep(t, 'consumer-workflow', script);
+        assert.equal(result.status, 7, result.stdout);
+        const last = calls.at(-1);
+        assert.equal(last.tool, 'npm');
+        assert.deepEqual(last.args, ['run', script]);
+    });
+}
 
 function assertPackageSelection(cwd, path, expected) {
     const result = spawnSync('bash', [join(root, 'tools/ci-changes.sh')], { cwd, input: path + '\n', encoding: 'utf8' });

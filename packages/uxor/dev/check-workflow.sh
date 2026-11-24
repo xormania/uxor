@@ -4,8 +4,7 @@ set -euo pipefail
 dev=$(cd "$(dirname "$0")" && pwd)
 python3 "$dev/run.py" --native prepare --no-assets
 python3 "$dev/install-uxor.py"
-bash "$dev/check-request-only.sh"
-(cd "$dev" && npm run test:workflow)
+(cd "$dev" && npm run test:request-only && npm run test:workflow)
 
 # With the Toolkit and development package removed, the installed recipe files must still render.
 python3 "$dev/run.py" --native exec composer install --no-dev --prefer-dist --no-interaction --no-progress
