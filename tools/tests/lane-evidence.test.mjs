@@ -15,7 +15,7 @@ const browserPolicy = 'tools/ci/browser-checkout.patterns';
 const browserPatterns = () => readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8');
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
-const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
+const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
 const REUSABLE = ['demo', 'engines', 'php', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
@@ -787,7 +787,7 @@ function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'p
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: event === 'daily' ? 'refs/heads/dev' : 'refs/heads/feature', event, reuse: true, reuse_off: null, chromium_shards: 6, elapsed_ms: 1234, api_calls: 7, lanes }));
     const needs = (overrides) => {
-        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
         const file = join(fx.dir, 'needs.json');
         writeFileSync(file, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
         return file;
@@ -917,12 +917,23 @@ test('an absent or different checkout policy at a producer revision cannot hide 
     }
 });
 
+test('website-only edits preserve kit evidence while Package keeps possible guide sources in its inputs', (t) => {
+    const fx = scratch(t);
+    const before = fingerprints(fx, fx.head()).lanes;
+    const after = fingerprints(fx, fx.commit('website/content/guide.md', '# New guide')).lanes;
+    assert.notEqual(before.package, after.package, 'the package catalog can name a guide in any directory');
+    for (const lane of ['php', 'demo', 'engines', 'prod-image', 'fresh-install', 'lint-kit']) {
+        assert.equal(before[lane], after[lane], lane);
+    }
+});
+
 test('the browser checkout and evidence agree on absent and present inputs', (t) => {
     const { job } = workflowJobs('ci.yml');
     const demo = job('demo').text;
     assert.match(demo, /git sparse-checkout set --no-cone --stdin < ["']?tools\/ci\/browser-checkout[.]patterns/,
         'the browser job must apply the tested policy before it reads project inputs');
     const omitted = [
+        'website/templates/layout.html.twig', 'website/composer.lock', 'llms.txt', 'docs/GUIDE.md', 'INSTALL.md', 'packages/uxor/resources/guides.json',
         'composer.json', 'composer.lock', 'packages/uxor/dev/lifecycle-tmux.py',
         'packages/uxor/src/Command.php', 'packages/uxor/resources/browser-extra/example.mjs',
         'packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json.bak',
@@ -933,11 +944,10 @@ test('the browser checkout and evidence agree on absent and present inputs', (t)
     ];
     const present = [
         'demo/composer.lock', 'packages/.gitattributes', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
-        'packages/uxor/resources/guides.json',
         'packages/uxor/resources/browser/diagnostics.mjs', 'packages/uxor/resources/browser/nested/recorder.mjs',
         'packages/another-package/manifest.json', 'new-recipe/templates/components/Example.html.twig',
         'tests/e2e/demo-app.spec.ts', 'tools/tests/sync-demo.sh', 'tools/tests/fixtures/sync-kit/widget/manifest.json',
-        'docs/GUIDE.md', 'INSTALL.md', 'button/README.md', '.github/workflows/ci.yml', 'tools/ci-changes.sh',
+        'button/README.md', '.github/workflows/ci.yml', 'tools/ci-changes.sh',
         '.github/actions/jev-diagnosis/action.yml', 'tests/e2e/examples/release.widget.spec.ts', browserPolicy, 'new-input/unknown.txt',
     ];
     const fx = scratch(t);
@@ -970,7 +980,7 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.ok(shards[0] >= 1 && shards[0] <= 20, `CHROMIUM_SHARDS is a sane number (${shards[0]})`);
     assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
     assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
-    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'package']) {
+    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'runtime-export', 'fresh-install', 'package']) {
         assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${job(id).if}`);
     }
     // Contrast and Workflows are steps of Quick checks, on the same outputs (its own test)
@@ -1237,6 +1247,83 @@ printf 'php=false\\n'
             assert.equal(existsSync(join(temp, 'classifier-origin')), false, 'invalid provenance runs no classifier');
         }
     }
+});
+
+test('a website-only push above a verified release runs website checks with a cold cache, before or after its PR opens', (t) => {
+    const fx = scratch(t);
+    fx.commit('packages/uxor/resources/guides.json', '{"install":{"file":"INSTALL.md"}}');
+    const dev = fx.commit('tools/ci-changes.sh', readFileSync(new URL('../ci-changes.sh', import.meta.url)));
+    fx.git('update-ref', 'refs/remotes/origin/dev', dev);
+    const release = 'claude/release-0.3.5';
+    const green = fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// tested shared recorder\n');
+    fx.git('update-ref', 'refs/remotes/origin/' + release, green);
+    fx.commit('website/templates/layout.html.twig', 'New navigation\n');
+    const branch = (ref) => ({ ref, repo: { full_name: REPO } });
+    const releasePr = { base: branch('main'), head: branch(release), author_association: 'OWNER' };
+    const featurePr = { base: branch(release), head: branch('feature/links') };
+    const { workflow, job } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    const temp = join(fx.dir, 'upstream-selection');
+    mkdirSync(temp);
+    const bin = stubGh(fx, `case "$*" in
+        *pulls?*) cat "$RUNNER_TEMP/pulls"; [ "\${PARTIAL_PULLS:-}" != true ] ;;
+        *actions/workflows/ci.yml/runs*"branch=$TARGET"*"head_sha=$BASE"*) cat "$RUNNER_TEMP/run" ;;
+        *actions/runs/27/attempts/2/jobs*) cat "$RUNNER_TEMP/attempt" ;;
+        *) exit 1 ;;
+    esac`);
+    const verified = { id: 27, run_attempt: 2, path: '.github/workflows/ci.yml', event: 'push',
+        head_branch: release, head_sha: green, status: 'completed', conclusion: 'success',
+        repository: { full_name: REPO }, head_repository: { full_name: REPO } };
+    const pass = { name: 'CI result', conclusion: 'success' };
+    const exercise = (pulls, proof, result, expected, partialPulls = false) => {
+        writeFileSync(join(temp, 'pulls'), JSON.stringify(pulls));
+        writeFileSync(join(temp, 'run'), JSON.stringify({ workflow_runs: [proof] }));
+        writeFileSync(join(temp, 'attempt'), JSON.stringify({ jobs: [result] }));
+        const output = join(temp, 'outputs');
+        writeFileSync(output, '');
+        const err = openSync(join(temp, 'stderr'), 'w');
+        const run = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
+            stdio: ['ignore', 'pipe', err], env: { PATH: bin + ':' + process.env.PATH, RUNNER_TEMP: temp, GITHUB_OUTPUT: output,
+                EVENT: 'push', REF: 'refs/heads/feature/links', REPO, BASE: green, TARGET: release, PARTIAL_PULLS: String(partialPulls) } });
+        closeSync(err);
+        assert.equal(run.status, 0, run.stdout + readFileSync(join(temp, 'stderr'), 'utf8'));
+        assert.match(readFileSync(output, 'utf8'), new RegExp('^comparison-base=' + expected + '$', 'm'));
+        const lanes = readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').filter(line => line.endsWith('=true')).map(line => line.split('=')[0]);
+        const plan = enginesPlan(fx, {}, { lanes, shards: '8' });
+        assert.equal(plan.outputs['static-site'], 'run');
+        assert.equal(plan.outputs['prod-image'], 'skip');
+        return plan;
+    };
+    const otherRelease = { ...releasePr, head: branch('release-0.4.0') };
+    for (const prs of [[releasePr], [releasePr, featurePr], [releasePr, featurePr, otherRelease]]) {
+        const plan = exercise(prs, verified, pass, green);
+        assert.equal(plan.outputs['runtime-export'], 'skip');
+        assert.equal(plan.outputs.importmap, 'skip');
+        assert.deepEqual(plan.matrix.include, []);
+    }
+    for (const [prs, proof, result] of [
+        [[releasePr], { ...verified, conclusion: 'failure' }, pass],
+        [[releasePr], { ...verified, head_sha: dev }, pass],
+        [[releasePr], { ...verified, event: 'workflow_dispatch' }, pass],
+        [[releasePr], { ...verified, head_repository: { full_name: 'someone/fork' } }, pass],
+        [[releasePr], verified, { ...pass, name: 'CI result (engines only)' }],
+        [[releasePr, otherRelease], verified, pass],
+        [[{ ...releasePr, author_association: 'CONTRIBUTOR' }], verified, pass],
+    ]) {
+        assert.equal(exercise(prs, proof, result, dev).matrix.include.length, 8, 'an unverified inherited recorder change selects all shards');
+    }
+    const partial = exercise([releasePr], verified, pass, dev, true);
+    assert.equal(partial.matrix.include.length, 8, 'a truncated list of active release targets never narrows validation');
+    fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed recorder\n');
+    assert.equal(exercise([releasePr], verified, pass, green).matrix.include.length, 8, 'a new recorder change always selects the shards');
+
+    const site = job('static-site');
+    assert.equal(site.needs, 'changes');
+    assert.match(site.text, /--website-only/);
+    assert.match(site.text, /working-directory: website\s+run: vendor\/bin\/phpunit/);
+    assert.match(site.text, /--config=website\/playwright.config.ts/);
+    assert.doesNotMatch(site.text, /docker|importmap|--shard/);
+    assert.match(job('runtime-export').text, /--runtime-only/);
 });
 
 test("PR planning is recorded without becoming a trusted reusable producer", (t) => {
@@ -1566,7 +1653,7 @@ test('finish records the markers and gives the verdict in one run, failing on ei
     const needsFile = join(fx.dir, 'finish-needs.json');
     const jobsFile = join(fx.dir, 'finish-jobs.json');
     const finish = (phpResult, jobs) => {
-        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         writeFileSync(needsFile, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result }]))));
         writeFileSync(jobsFile, JSON.stringify(jobs));
         const github = join(fx.dir, 'finish-output');
@@ -1688,7 +1775,7 @@ test('the verdict reads Contrast, Workflows and Tool tests from Quick checks\' o
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, reuse_off: null, chromium_shards: 6, lanes }));
     const verdict = (quick) => {
-        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick };
         writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
         const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
@@ -1723,7 +1810,7 @@ test("a push to a work order's root plans its lanes like any branch's, whatever 
     fx.git('commit', '-qm', 'the selector');
     fx.git('update-ref', 'refs/remotes/origin/dev', 'HEAD');
     fx.commit('CHANGELOG.md', '# Changelog\n\n- a line\n');
-    const bin = stubGh(fx, `case "$*" in *pulls*) echo draft ;; *) echo '' ;; esac`);
+    const bin = stubGh(fx, `case "$*" in *pulls*) echo '[]' ;; *) exit 1 ;; esac`);
     const plan = (branch) => {
         const temp = join(fx.dir, `temp-${branch.replace(/\W/g, '-')}`);
         mkdirSync(temp, { recursive: true });
@@ -1743,13 +1830,13 @@ test("a push to a work order's root plans its lanes like any branch's, whatever 
     assert.equal(root.jobs, branch.jobs, 'the same lanes as any branch with the same change');
     assert.match(root.jobs, /^contrast=true$/m);
     assert.doesNotMatch(root.output, /wo-draft/);
-    assert.doesNotMatch(ghCalls(fx), /pulls/, 'no question about the pull request');
+    assert.match(ghCalls(fx), /pulls/, 'branch lookup preserves the same validation policy for draft work');
 });
 
 test('CI result has no work-order draft path any more', (t) => {
     const { workflow, job } = workflowJobs('ci.yml');
     assert.doesNotMatch(workflow, /wo-draft|WO_DRAFT|work order draft/i);
-    assert.doesNotMatch(job('changes').text, /pull-requests: read/, 'the Changes job no longer reads pull requests');
+    assert.doesNotMatch(job('changes').text, /\.isDraft|\.draft\b/, 'draft status cannot relax check selection');
     const { verdict } = verdictFixture(t);
     const out = verdict({}, undefined, ['--wo-draft', 'true']);
     assert.equal(out.status, 0, 'the option is gone: nothing fails a run for being a draft');
@@ -2036,7 +2123,7 @@ test('the verdict accepts the age the plan accepted for a 24-hour lane, and stil
     lanes['fresh-install'] = { ...lane('reuse', fp), evidence };
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
     const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO, '--now', '2026-11-16T12:00:00Z'], routesFor('fresh-install', fp, [m]));
     assert.equal(out.status, 0, out.stderr);
@@ -2050,7 +2137,7 @@ test('a red or cancelled Quick checks fails CI result even when its outputs all 
     const { fx } = verdictFixture(t);
     for (const result of ['failure', 'cancelled']) {
         const file = join(fx.dir, `needs-${result}.json`);
-        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         writeFileSync(file, JSON.stringify({ ...Object.fromEntries(Object.entries(base).map(([job, r]) => [job, { result: r, outputs: {} }])), quick: { result, outputs: { tools: 'success', contrast: 'success', workflows: 'skipped' } } }));
         const out = run(fx, ['verdict', '--plan', join(fx.dir, 'plan.json'), '--needs', file, '--repo', REPO], producer(fx, fx.head(), fingerprints(fx, fx.head()).lanes.demo));
         assert.equal(out.status, 1, `Quick checks ${result}`);
@@ -2063,7 +2150,7 @@ test("Codex's fixture: a failed Quick checks job with a successful tools output 
     const lanes = Object.fromEntries([...LANES, 'engines'].map((name) => [name, lane('skip', null)]));
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'failure', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } };
     writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
     const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
@@ -2169,7 +2256,7 @@ test('a failure marker vetoes a pass only when its run failed that lane on the s
     lanes.demo = { ...lane('reuse', fp), evidence };
     const planFile = join(fx.dir, 'verdict-plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha, ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     writeFileSync(join(fx.dir, 'verdict-needs.json'), JSON.stringify({ ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'success', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } }));
     const verdictWith = (failure) => run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'verdict-needs.json'), '--repo', REPO], routesFor('demo', fp, [pass, failure]));
     assert.equal(verdictWith(fail({ failed: false })).status, 0, 'a forged later failure does not withdraw the pass');

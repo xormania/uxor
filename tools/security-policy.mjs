@@ -17,6 +17,8 @@ const generatedPrefixes = [
     'demo/var',
     'demo/public/assets',
     'demo/assets/vendor',
+    'website/vendor',
+    'website/.phpunit.cache',
     'node_modules',
     'test-results',
     'playwright-report',
@@ -470,7 +472,7 @@ function walk(directory, excludedDirectories = new Set()) {
     return files;
 }
 
-function securityFiles(root) {
+export function securityFiles(root) {
     const paths = [];
     for (const entry of readdirSync(root, { withFileTypes: true })) {
         if (!entry.isDirectory() || !existsSync(join(root, entry.name, 'manifest.json'))) {
@@ -483,18 +485,21 @@ function securityFiles(root) {
             paths.push(path);
         }
     }
-    // The Composer package's shipped PHP (packages/uxor/src, config): its tests and tools are export-ignored, like a
-    // recipe's tests; its generated references are markdown, which no rule reads
-    for (const directory of ['packages/uxor/src', 'packages/uxor/config']) {
+    // The installed package and the website publisher, including the kit reader it shares with the demo.
+    for (const directory of ['packages/uxor/src', 'packages/uxor/config', 'website/src', 'website/templates', 'website/assets', 'tools/kit']) {
         if (existsSync(join(root, directory))) {
             paths.push(...walk(join(root, directory)));
         }
     }
-    const files = paths.map((path) => ({ path: normalize(relative(root, path)), source: readFileSync(path, 'utf8') }));
-    // and its executable, PHP without the extension (composer.json's bin)
-    const executable = join(root, 'packages/uxor/bin/uxor');
-    if (existsSync(executable)) {
-        files.push({ path: 'packages/uxor/bin/uxor', source: readFileSync(executable, 'utf8'), extension: '.php' });
+    const files = paths
+        // Toolkit's Markdown templates emit document source. Its HTML templates emit markup for the website.
+        .filter((path) => !(path.startsWith(join(root, 'website/templates/toolkit/doc') + sep) && path.endsWith('.md.twig')))
+        .filter((path) => sinkRules.some((rule) => rule.extensions.includes(extname(path))))
+        .map((path) => ({ path: normalize(relative(root, path)), source: readFileSync(path, 'utf8') }));
+    for (const path of ['packages/uxor/bin/uxor', 'website/bin/build']) {
+        if (existsSync(join(root, path))) {
+            files.push({ path, source: readFileSync(join(root, path), 'utf8'), extension: '.php' });
+        }
     }
     return files;
 }

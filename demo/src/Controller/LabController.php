@@ -7,7 +7,6 @@ use App\Form\AutocompleteDemoType;
 use App\Form\EditorDemoType;
 use App\Form\MarkdownDemoType;
 use App\Form\UploadDemoType;
-use App\Kit\KitReader;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
@@ -91,11 +90,6 @@ final class LabController extends AbstractController
 
     private const ITEMS = ['apple' => 'Apple', 'banana' => 'Banana', 'cherry' => 'Cherry'];
 
-    public function __construct(
-        private readonly KitReader $kit,
-    ) {
-    }
-
     #[Route('', name: 'app_lab')]
     public function index(): Response
     {
@@ -132,7 +126,7 @@ final class LabController extends AbstractController
         return $this->render('lab/turbo_nav.html.twig', [
             'page' => $page,
             'description' => self::SCENARIOS['turbo-nav'],
-            'recipes' => $this->kit->getRecipes(),
+            'scenarios' => array_diff(array_keys(self::SCENARIOS), ['turbo-nav']),
         ]);
     }
 

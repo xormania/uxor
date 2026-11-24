@@ -20,8 +20,9 @@ See [Releases](CONTRIBUTING.md#releases) for the current policy.
 
 ### Changed
 
-- The demo builds Tailwind utilities from its UI sources and rendered guides. Changes to contributor docs or
-  package-only files can reuse a verified Playwright run on a stacked or release branch.
+- The documentation website builds from release sources independently of the demo. GitHub Pages publishes its guides
+  and recipe catalog alongside static recipe previews and a visual copy of the example application at `/demo/`.
+  Running the Docker application locally opens the demo.
 
 - `dropzone` documents that UX Dropzone 3.8 previews images from `blob:` object URLs (SVG still from `data:`): a
   Content Security Policy's `img-src` needs `blob:` and `data:`. The demo and the consumer fixture allow both.

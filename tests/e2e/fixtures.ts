@@ -375,25 +375,6 @@ export async function pauseClock(page: Page): Promise<void> {
 }
 
 /**
- * Answers the gallery's preview frames (`/preview/…`: the README examples a recipe page embeds, each in both themes)
- * with an empty page, for a test of the recipe page that excludes them (a11y.spec.ts scans without `iframe`) or cannot
- * see them (a frame's content never widens the page: its width is the page's, its height the preview-frame
- * controller's). The previews themselves are each loaded on their own under the guard, in both themes, by a11y.spec.ts
- * in Chromium, so only a Chromium test may stub them: in Firefox and WebKit no other test loads the dark ones. The
- * page's own document is never stubbed. A glob, so Playwright hands the test's process only these requests.
- */
-export async function stubPreviewFrames(page: Page): Promise<void> {
-    if ('chromium' !== page.context().browser()?.browserType().name()) {
-        throw new Error('stubPreviewFrames: Chromium only, where a11y.spec.ts loads every preview on its own');
-    }
-    await page.route('**/preview/**', (route) =>
-        route.request().frame() === page.mainFrame()
-            ? route.fallback()
-            : route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Preview</title>' }),
-    );
-}
-
-/**
  * Waits until the current Turbo visit has rendered the server's response. A visit to a page Turbo has cached first
  * shows that snapshot as a preview (`data-turbo-preview` on <html>), so the new page's content is visible while its
  * request is still running, and going Back or away then cancels the request. Turbo marks <html> `aria-busy` from

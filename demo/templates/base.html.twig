@@ -1,5 +1,3 @@
-{#- Set by app:export-static on the pages it saves for GitHub Pages: {release, latest_release, commit}; null when served by Symfony. -#}
-{%- set static_export = app.request.attributes.get('_static_export') -%}
 {%- set repository = kit_reader.manifest.homepage -%}
 <!DOCTYPE html>
 <html lang="en">
@@ -10,18 +8,6 @@
         {#- a page's description block prints plain text unescaped: it is escaped once, here, where it is printed -#}
         {%- set description = block('description') is defined ? block('description')|trim : kit_reader.manifest.description %}
         <meta name="description" content="{{ description }}">
-        {#- the static copy's public pages: their canonical URL (each is saved as <path>/index.html) and what a link to them
-            shows when shared; app:export-static gives the site's public URL -#}
-        {%- if static_export.site_url ?? null %}
-            {%- set canonical = static_export.site_url ~ ('/' == app.request.pathInfo ? '/' : app.request.pathInfo|trim('/', 'right') ~ '/') %}
-        <link rel="canonical" href="{{ canonical }}">
-        <meta property="og:type" content="website">
-        <meta property="og:site_name" content="{{ kit_reader.manifest.name }}">
-        <meta property="og:title" content="{{ block('title')|trim }}">
-        <meta property="og:description" content="{{ description }}">
-        <meta property="og:url" content="{{ canonical }}">
-        <meta name="twitter:card" content="summary">
-        {%- endif %}
         <link rel="icon" href="data:,">
         {# The request's Content Security Policy nonces, as the layouts recipe prints them (Turbo gives this one to the <style> of its progress bar). #}
         <meta name="csp-nonce" nonce="{{ csp_style_nonce }}">
@@ -42,53 +28,26 @@
     {#- form_reset: false on a lab page composed without the layouts recipe's form-reset controller (/lab/autocomplete?bare=1) -#}
     <body{% if form_reset ?? true %} data-controller="form-reset"{% endif %} class="flex min-h-screen flex-col bg-neutral-primary text-body antialiased">
         <header class="border-b border-default bg-neutral-primary">
-            {#- one row from 320px: below sm, the GitHub link shows its icon, the contributors' Forms and Lab links are left out, and below 24rem the name beside the logo too -#}
+            {#- On narrow screens the GitHub link shows its icon and the brand label stays available to screen readers. -#}
             <nav class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 sm:gap-x-6" aria-label="Main">
-                <a href="{{ path('app_index') }}" class="flex items-center gap-2 font-semibold text-heading">
+                <a href="{{ path('app_demo') }}" class="flex items-center gap-2 font-semibold text-heading">
                     <span class="xor-logo xor-glow size-7 shrink-0 rounded-base" aria-hidden="true"></span>
                     <span class="max-[24rem]:sr-only">{{ kit_reader.manifest.name }}</span>
                 </a>
-                <a href="{{ path('app_index') }}#recipes" class="text-sm font-medium hover:text-heading">Recipes</a>
-                <a href="{{ path('app_demo') }}" class="text-sm font-medium hover:text-heading">Demo app</a>
-                {% if not static_export %}
-                    <a href="{{ path('app_forms') }}" class="text-sm font-medium hover:text-heading max-sm:hidden">Forms</a>
-                    <a href="{{ path('app_lab') }}" class="text-sm font-medium hover:text-heading max-sm:hidden">Lab</a>
-                {% endif %}
+                <a href="{{ path('app_forms') }}" class="text-sm font-medium hover:text-heading">Forms</a>
+                <a href="{{ path('app_lab') }}" class="text-sm font-medium hover:text-heading">Lab</a>
                 <div class="ml-auto flex items-center gap-3 sm:gap-4">
                     <a href="{{ repository }}" class="flex items-center gap-2 text-sm font-medium hover:text-heading">{{ ux_icon('github', {class: 'size-5 sm:hidden', 'aria-hidden': 'true'}) }}<span class="max-sm:sr-only">GitHub</span></a>
                     <twig:ThemeToggle />
                 </div>
             </nav>
         </header>
-        {% if static_export %}
-            <div class="border-b border-default bg-neutral-secondary-medium text-sm">
-                <p class="mx-auto max-w-7xl px-4 py-2">
-                    {% if static_export.release -%}
-                        A static copy of the demo at release <strong class="text-heading">{{ static_export.release }}</strong>.
-                    {%- else -%}
-                        A static copy of the demo, built from
-                        {% if static_export.commit %}<a href="{{ repository }}/commit/{{ static_export.commit }}" class="font-mono underline hover:text-heading">{{ static_export.commit[:7] }}</a> on {% endif %}<code>{{ static_export.branch ?? 'main' }}</code>
-                        {%- if static_export.latest_release %} after release <strong class="text-heading">{{ static_export.latest_release }}</strong>{% endif %}.
-                    {%- endif %}
-                    Live Components, Turbo Streams and form submits need Symfony:
-                    <a href="{{ repository }}/blob/main/CONTRIBUTING.md#setup" class="underline hover:text-heading">run the full demo</a>.
-                </p>
-            </div>
-        {% endif %}
-        {% block hero %}{% endblock %}
         <main class="mx-auto w-full max-w-7xl flex-1 px-4 py-8">
             {% block body %}{% endblock %}
         </main>
         <footer class="border-t border-default">
             <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-6 text-sm">
                 <p>MIT licensed.</p>
-                {#- the README and the changelog of the release a static copy shows; the security policy is the current one -#}
-                {%- set doc_ref = static_export.release ?? 'main' %}
-                {% for slug, guide in gallery_guides() %}
-                    <a href="{{ path('app_guide', {name: slug}) }}" class="underline hover:text-heading">{{ guide.title }}</a>
-                {% endfor %}
-                <a href="{{ repository }}/blob/{{ doc_ref }}/README.md" class="underline hover:text-heading">README</a>
-                <a href="{{ repository }}/blob/{{ doc_ref }}/CHANGELOG.md" class="underline hover:text-heading">Changelog</a>
                 <a href="{{ repository }}/releases" class="underline hover:text-heading">Releases</a>
                 <a href="{{ repository }}/blob/main/SECURITY.md" class="underline hover:text-heading">Security</a>
             </div>

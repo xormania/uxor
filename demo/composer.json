@@ -64,7 +64,8 @@
             "App\\UXor\\Dropzone\\": "../dropzone/src/UXor/Dropzone/",
             "App\\UXor\\Editor\\": "../editor/src/UXor/Editor/",
             "App\\UXor\\OAuth\\": "../oauth/src/UXor/OAuth/",
-            "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/"
+            "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/",
+            "UXor\\Kit\\": "../tools/kit/"
         }
     },
     "autoload-dev": {

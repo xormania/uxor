@@ -1,0 +1,44 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+use UXor\Website\Website;
+use UXor\Kit\KitReader;
+
+require dirname(__DIR__).'/vendor/autoload.php';
+
+$command = (new Command('build'))
+    ->setDescription('Render project documentation, discovery files and website assets into a staging directory.')
+    ->addArgument('output', InputArgument::REQUIRED, 'Directory for the static website')
+    ->addOption('base-path', null, InputOption::VALUE_REQUIRED, 'Public path prefix, for example /uxor', '')
+    ->addOption('site-url', null, InputOption::VALUE_REQUIRED, 'Absolute public URL, including its path prefix')
+    ->addOption('release', null, InputOption::VALUE_REQUIRED, 'Version of a tagged build')
+    ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'Branch of an untagged build', 'main')
+    ->addOption('commit', null, InputOption::VALUE_REQUIRED, 'Source commit')
+    ->addOption('latest-release', null, InputOption::VALUE_REQUIRED, 'Latest release before an untagged build')
+    ->setCode(static function (InputInterface $input, OutputInterface $output): int {
+        $root = dirname(__DIR__, 2);
+        $base = rtrim($input->getOption('base-path'), '/');
+        $url = $input->getOption('site-url');
+        if (null === $url) {
+            $repository = (new KitReader($root))->getManifest()->homepage;
+            $url = Website::pagesUrl($repository, $base);
+        }
+        $site = new Website($root, $base, $url, $input->getOption('release') ?: null, $input->getOption('branch'),
+            $input->getOption('commit') ?: null, $input->getOption('latest-release') ?: null);
+        $site->build($input->getArgument('output'));
+        $output->writeln('Built the project website in '.$input->getArgument('output'));
+
+        return Command::SUCCESS;
+    });
+$app = new Application('UXor website');
+$app->addCommand($command);
+$app->setDefaultCommand('build', true);
+exit($app->run());

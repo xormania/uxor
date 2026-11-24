@@ -170,10 +170,11 @@ test('the Tailwind sources and the CSS build record agree on rendered and reposi
         excluded: !!excluded, pattern: relative(root, resolve(dirname(stylesheet), path)),
     }));
     const included = ['demo/templates/base.html.twig', 'alert/templates/button.html.twig', 'alert/README.md',
-        'alert/manifest.json', 'docs/GUIDE.md', 'INSTALL.md', 'kit.js',
+        'alert/manifest.json', 'kit.js',
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/tailwind_2_layout.html.twig',
         'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig'];
-    const omitted = ['README.md', 'docs/README.md', 'docs/templates/snippet.html.twig', 'docs/subdir/review.md',
+    const omitted = ['README.md', 'docs/GUIDE.md', 'INSTALL.md', 'website/templates/recipe.html.twig',
+        'website/assets/site.css', 'website/src/Renderer.php', 'website/README.md', 'docs/README.md', 'docs/templates/snippet.html.twig', 'docs/subdir/review.md',
         'docs/PLAN-composer-package.md', '.github/workflows/release.yml', 'tests/e2e/shared.spec.ts',
         'packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json',
         'composer.json', 'composer.lock', 'packages/uxor/dev/app/templates/widget.html.twig', 'tools/README.md',

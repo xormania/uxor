@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site fresh-install contrast demo workflows package prod-image)
+jobs=(lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
@@ -60,10 +60,21 @@ consumer_recipe_inputs() {
     done
 }
 
+# The publisher and package share this catalog. A newly added guide must select its
+# consumers whatever directory its source lives in. A malformed catalog runs both.
+guide_paths=$(jq -er '
+    if type == "object" and all(.[]; (.file | type == "string" and length > 0))
+    then .[].file else error("invalid guide catalog") end
+' packages/uxor/resources/guides.json) || guide_paths='*'
 consumer_inputs=
 while IFS= read -r path; do
     [ -n "$path" ] || continue
+    if [[ $guide_paths == '*' || $'\n'$guide_paths$'\n' == *$'\n'"$path"$'\n'* ]]; then
+        on static-site package
+    fi
     case "$path" in
+        # The standalone website owns its templates, dependencies, static browser tests and assets.
+        website/*) on static-site ;;
         # The workflow, this script and the lanes' plan and verdict (tools/ci/lane-evidence.mjs: what runs, what is
         # reused, what passes) decide what runs: a change to any of them runs everything
         .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh | tools/ci/lane-evidence.mjs) all ;;
@@ -71,10 +82,7 @@ while IFS= read -r path; do
         # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
         # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
         # Package checks the copies are up to date (generate-reference.php --check)
-        # docs/GUIDE.md is also a page of the gallery (/guide, /guide.md: demo/src/Kit/GuideDocs.php): Kit PHP's tests
-        # render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production image
-        # serves its own copy
-        docs/GUIDE.md) on php static-site demo contrast package prod-image ;;
+        docs/GUIDE.md) on static-site contrast package ;;
         docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | docs/APPLICATION-TESTING.md | FOR-AGENTS.md) on contrast package ;;
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
@@ -89,8 +97,8 @@ while IFS= read -r path; do
         # The other workflows. CI cannot run them (they deploy, tag or upload), so it runs the jobs that run what they
         # run: pages.yml builds the static site, release.yml checks the install from GitHub (docker-install.sh) and
         # calls pages.yml. audit.yml and codeql.yml run themselves on the pull request that changes them.
-        .github/workflows/pages.yml) on static-site workflows ;;
-        .github/workflows/release.yml) on static-site fresh-install workflows ;;
+        .github/workflows/pages.yml) on static-site runtime-export workflows ;;
+        .github/workflows/release.yml) on static-site runtime-export fresh-install workflows ;;
         .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/actionlint.yaml) on workflows ;;
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
@@ -113,10 +121,8 @@ while IFS= read -r path; do
         # file is export-ignored and only the package installs from it. .gitattributes decides what both archives hold.
         # The package's markdown runs Contrast too (the markdown rule below); .gitattributes, another directory under
         # packages/ and the references' inputs in the kit are below, with the kit.
-        # The guide catalog supplies the navigation on browser-tested pages and the generated llms.txt.
-        # The two package guide bodies are requested by the PHP tests, static export and image harness.
-        packages/uxor/resources/guides.json | packages/.gitattributes | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on php static-site contrast demo package prod-image ;;
-        packages/uxor/README.md | packages/uxor/OPERATIONS.md) on php static-site contrast package prod-image ;;
+        packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md) on static-site contrast package ;;
+        packages/.gitattributes | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on contrast demo package ;;
         packages/uxor/resources/browser/*) on package demo ;;
         composer.json) on package ;;
         composer.lock | packages/uxor/*) on package ;;
@@ -134,22 +140,20 @@ while IFS= read -r path; do
         # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
         # in Tool tests, on every run)
         tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo ;;
-        package.json | package-lock.json) on contrast demo ;;
+        package.json | package-lock.json) on static-site contrast demo ;;
 
         # Repository tools, each with the jobs that run it
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
-        # llms.txt is also served by the gallery (/llms.txt): Kit PHP's SiteMetadataTest reads it, the static site saves
-        # it, and the production image serves its own copy
-        llms.txt) on php static-site contrast prod-image ;;
+        llms.txt) on static-site contrast ;;
         # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the
         # demo reads manifest.json itself
         tools/kit-identity.mjs) on contrast ;;
         # icon-lint runs in Contrast; its cases in Tool tests, on every run
         tools/icon-lint.mjs) on contrast ;;
-        tools/fence-coverage.mjs) on contrast static-site ;;
+        tools/fence-coverage.mjs) on contrast static-site runtime-export ;;
         # The README checks: Contrast runs them and their cases, the browser job's node --test runs the cases too
         tools/readme-versions.mjs | tools/readme-pairing.mjs) on contrast ;;
-        tools/build-static.sh) on static-site ;;
+        tools/build-static.sh) on static-site runtime-export ;;
         tools/tests/fresh-install.sh | tools/tests/check-fresh-app.sh | tools/tests/docker-install.sh) on fresh-install ;;
         tools/tests/install-scenario.sh) on fresh-install ;;
         tools/tests/live-action.php | tools/tests/fixtures/fresh-app/*) on fresh-install ;;
@@ -178,26 +182,27 @@ while IFS= read -r path; do
         # the PHP binary of the browser tests against a Docker demo (playwright.config.ts, PHP_BINARY)
         tools/demo-php) on demo ;;
         # tools/sync-demo also builds the production image: its builder copies the recipes into the demo with it
-        tools/sync-demo) on php static-site demo prod-image ;;
+        tools/kit/*) on php static-site runtime-export demo prod-image ;;
+        tools/sync-demo) on php runtime-export demo prod-image ;;
         # the production image's harness: a change to it runs it
-        tools/tests/prod-image.sh) on php static-site demo prod-image ;;
-        tools/*) on php static-site demo ;;
+        tools/tests/prod-image.sh) on php runtime-export demo prod-image ;;
+        tools/*) on php runtime-export demo ;;
 
         # The demo app: its PHP tests, its static export and the browser tests run against it. docker-install.sh copies
         # the demo's Compose file and Caddyfile into a fresh Symfony Docker project. The demo image's build inputs also
         # run the production image's lane (demo/Dockerfile, target frankenphp_prod, built and run by
         # tools/tests/prod-image.sh), which no other job builds.
-        demo/compose.yaml | demo/frankenphp/Caddyfile) on php static-site demo fresh-install prod-image ;;
-        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php static-site demo prod-image ;;
+        demo/compose.yaml | demo/frankenphp/Caddyfile) on php runtime-export demo fresh-install prod-image ;;
+        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php runtime-export demo prod-image ;;
         # what the production image installs and how it boots in prod: its packages and its configuration. Lint kit also
         # installs the symfony/ux-toolkit version the lock holds (its locked lane reads it on each run)
-        demo/composer.lock) on php static-site demo prod-image lint-kit ;;
-        demo/composer.json | demo/config/*) on php static-site demo prod-image ;;
-        demo/tests/*) on php static-site demo contrast ;;
+        demo/composer.lock) on php runtime-export demo prod-image lint-kit ;;
+        demo/composer.json | demo/config/*) on php runtime-export demo prod-image ;;
+        demo/tests/*) on php runtime-export demo contrast ;;
         # the rest of what the image admits (demo/Dockerfile.dockerignore): the app runs differently in prod (no
         # development package, no Toolkit bundle), so a change to any of its files runs the image
-        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php static-site demo prod-image ;;
-        demo/*) on php static-site demo ;;
+        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php runtime-export demo prod-image ;;
+        demo/*) on php runtime-export demo ;;
 
         # A recipe's own specs and screenshot baselines: only the browser tests read them, and the
         # inventory check which specs exist
@@ -207,33 +212,34 @@ while IFS= read -r path; do
         # The kit's README.md is read by people and agents, by Contrast (what the markdown teaches) and by the package's
         # references (Package); no install, lint, PHP test or page reads it
         README.md) on contrast package ;;
-        # INSTALL.md is also the gallery's install guide (/install, /install.md: demo/src/Kit/GuideDocs.php): Kit PHP's
-        # tests render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production
-        # image serves its own copy
-        INSTALL.md) on php static-site demo contrast package prod-image ;;
+        INSTALL.md) on static-site contrast package ;;
 
-        # Anything else is part of the kit (recipes, kit.css, kit.js, manifest.json, .gitattributes...).
+        # The runtime and installs consume the root kit assets. The published website serves its own CSS and JS.
+        kit.css) on lint-kit php runtime-export fresh-install contrast demo prod-image ;;
+        kit.js) on lint-kit php runtime-export fresh-install demo prod-image ;;
+
+        # Anything else is part of the kit (recipes, manifest.json, .gitattributes...).
         # Contrast checks the theme's roles, what the markdown teaches and the palette colors of the recipes' templates
         # (tools/docs-lint.mjs), the recipe tables and the controllers' rows; it reads every file in a directory (a
         # recipe: tools/readme-pairing.mjs pairs its code with its README, tools/readme-versions.mjs its README with its
         # manifest) and the root files below
         *)
             # A recipe's README.md (one level down): the toolkit's lint checks its headings, the gallery's page renders
-            # it (Kit PHP: RecipeDocsTest, RecipePageTest, for a directory with a manifest.json), the static site and
-            # the browser tests' examples render its examples, Contrast reads it (above) and the references copy it
+            # it, the demo and browser tests render its preview examples, Kit PHP checks those examples for known
+            # recipes, Contrast reads it (above) and the references copy it
             # (Package); the installs never read it
             if [[ $path =~ ^[^/]+/README\.md$ ]]; then
-                on lint-kit static-site demo contrast package
+                on lint-kit static-site runtime-export demo contrast package
                 [ -f "${path%%/*}/manifest.json" ] && on php
                 # the image holds a recipe's README (the gallery renders it), and a README elsewhere is in a new
                 # directory: the image's lane either way, as below
                 [[ $path == packages/* ]] || on prod-image
                 continue
             fi
-            on lint-kit php static-site fresh-install demo
+            on lint-kit php static-site runtime-export fresh-install demo
             # The production image holds what its allow-list names (demo/Dockerfile.dockerignore) and renders it without
-            # the development packages: the root files the gallery reads (kit.css, manifest.json; INSTALL.md, llms.txt
-            # and docs/GUIDE.md above), and from each recipe its manifest.json, README.md, templates/, assets/, src/ and
+            # the development packages: the runtime's root files (kit.css, kit.js, manifest.json), and from each
+            # recipe its manifest.json, README.md, templates/, assets/, src/ and
             # config/. A change to any of them runs the image's lane, and so does a path in no known place (a new
             # top-level directory, a new root file, a top-level directory deleted), which can need the list changed. A
             # recipe's tests/ and anything else the list leaves out do not.
@@ -247,14 +253,14 @@ while IFS= read -r path; do
                 fi
             else
                 case "$path" in
-                    # root files the image never holds: the kit's script and icon, and the repository's own settings
-                    kit.js | icon.svg | .gitattributes | .gitignore | .editorconfig) ;;
+                    # Root files omitted from the production image's runtime context.
+                    icon.svg | .gitattributes | .gitignore | .editorconfig) ;;
                     *) on prod-image ;;
                 esac
             fi
             case "$path" in
                 # manifest.json: llms.txt holds its description, name and homepage (tools/llms-txt.mjs)
-                */* | kit.css | manifest.json) on contrast ;;
+                */* | manifest.json) on contrast ;;
             esac
             # What both archives hold (.gitattributes' export-ignore), and another directory under packages/, which
             # the archive also ships: Package checks its payload too. The kit's manifest.json and a recipe's
@@ -283,7 +289,7 @@ while IFS= read -r path; do
 
     # What Contrast's lints read wherever it lies: any markdown outside demo/ (tools/docs-lint.mjs, tools/icon-lint.mjs)
     # and a recipe's templates (tools/docs-lint.mjs, tools/icon-lint.mjs). The demo's copies of the recipes are not read.
-    if [[ $path != demo/* && ( $path == *.md || $path =~ ^[^/]+/templates/ ) ]]; then on contrast; fi
+    if [[ $path != demo/* && ( $path == *.md || ( $path != website/* && $path =~ ^[^/]+/templates/ ) ) ]]; then on contrast; fi
 done
 
 for job in "${jobs[@]}"; do echo "$job=${run[$job]}"; done
