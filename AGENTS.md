@@ -27,6 +27,11 @@ you are working on. UXor's contribution and publication policies do not govern a
 
 - Run the [checks](CONTRIBUTING.md#checks) relevant to the change; report failures and checks not run. CI must pass
   before merge. Use the documented [browser diagnostics](docs/TESTING.md#browser-request-profiles) for browser failures.
+- Follow the [CI and test naming standard](CONTRIBUTING.md#ci-and-test-names). Use short sentence-case workflow and
+  job names, verb-led step names, lower-kebab-case job and step IDs, and present-tense behavior for test titles.
+  Give jobs a literal group label before any matrix skip and identify running variants with inputs in parentheses.
+  Verify both labels in Actions and update tooling that reads them in the same change. Reserve `CI result` for
+  the required full verdict.
 - Use Mago and Serena only in a trusted checkout after reviewing their launcher, configuration and selected
   programs. Application commands require `--trust-project-code`; `--write` separately permits checkout changes.
   Follow [their setup](CONTRIBUTING.md#mago-and-serena) when needed.
@@ -44,6 +49,10 @@ you are working on. UXor's contribution and publication policies do not govern a
 - Use the [commit and pull request standard](CONTRIBUTING.md#commits-and-pull-requests). Preserve human authorship
   and legal attribution; use the Git identity authorized by the contributor for this checkout. Accurate human
   co-author credit is welcome. Maintainers control merges, releases and version choices. Work orders are optional.
+- Use `type/short-topic` for contribution branches, with a lower-kebab-case topic. Commit and pull request titles
+  follow `type(scope): verb and outcome`, with an optional scope and at most 72 characters. Use `release/X.Y.Z`
+  for release branches. Name every branch for the work it carries and keep agent, provider and harness names out
+  of branch prefixes and topics. See the contributor guide for work-order and automation patterns.
 - Public UXor material must not identify which AI model, assistant, provider or version performed, reviewed or
   routed work. This covers commit metadata and messages, branch names, pull requests, issues, reviews, comments,
   files and published artifacts. Do not add AI co-author trailers, generated attribution footers, identifying

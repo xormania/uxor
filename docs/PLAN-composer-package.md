@@ -15,8 +15,8 @@ under `packages/uxor/`; the companion's name is dropped as an active product nam
 package `xormania/uxor`, with its code in `packages/uxor/`), the identity (decision 1) and the one version sequence
 (decision 5) are the proposals of the owner's direction document (*Inputs*, below), adopted here. The kit's recipes
 still install with `ux:install` as copies the application owns: the package adds agent guidance and development tools,
-not a runtime library of components. The work goes through the work order `claude/wo-composer-package` (CONTRIBUTING,
-*Work orders*)._
+not a runtime library of components. The original work order used the integration branch `claude/wo-composer-package`.
+For new branches, follow [the contribution naming standard](../CONTRIBUTING.md#commits-and-pull-requests)._
 
 _Inputs, on the branch `docs/mono-audit-2026-10-16`: the owner's direction,
 `docs/mono/inputs/uxor-single-repository-plan-2026-10-16.md`; the audit and its change register,
@@ -83,8 +83,8 @@ UXor at `40d957c` and the companion at `614aa28`._
 
 ## The work order and its jobs
 
-Each job is a branch `claude/wo-composer-package--<job>` from the work order, merged back by its own pull request
-with its `CHANGELOG.md` entries and `docs/TEST-INVENTORY.md` rows.
+The original job branches used `claude/wo-composer-package--<job>`. Each had its own pull request with its
+`CHANGELOG.md` entries and `docs/TEST-INVENTORY.md` rows.
 
 | Job | Delivers |
 |---|---|

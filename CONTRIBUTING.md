@@ -574,17 +574,23 @@ are on the default branch.
 
 - **Workflows** use short sentence-case names for their responsibility, such as *Release checks* or *PHP analysis
   comparison*.
-- **Jobs** use short sentence-case noun phrases that identify what they validate or produce, such as *Toolkit browser
-  verification*. Keep the base name consistent across a matrix and append the distinguishing inputs in parentheses.
-  Use `(<browser> <shard>/<total>)` for browser shards, as in *Toolkit browser verification (chromium 1/8)*.
+- **Jobs** use short sentence-case names that identify what they validate or produce, such as *Browser checks* or
+  *Lint kit*. Use a literal display name for a job that can be skipped before matrix expansion. GitHub shows
+  that name as written when the job is skipped. Keep the condition at job level so a skip uses no runner.
+- **Matrix variants** append the inputs that distinguish each running job in parentheses. Use
+  `(<suite>, <browser> <shard>/<total>)` for browser shards, as in *Browser checks (Toolkit browser verification,
+  chromium 2/8)*, and the selected version or target for other matrices, as in *Lint kit (locked)*. Keep the base
+  name consistent across variants. Verify the labels in Actions for both a run and a skip when changing them.
 - **Steps** start with an action verb and name its target, such as *Verify the published release tag*.
+- **Job and step IDs** use lower kebab case and describe the job or step's role, as in `lint-kit` or `verify-tag`.
+  Keep IDs stable when changing display names.
 - **Test titles** state the expected behavior in the present tense and include the condition that changes it. For
   example, `the deploy stops when a newer release appears or the tag moves`. Use group names for shared context
   and include the case or input in parameterized titles. Follow the framework's convention for method names.
 - **Names read by tooling** are compatibility interfaces. Search for the exact name in workflow triggers, evidence
   checks, metrics, diagnostics and test selectors before renaming it. Update the consumers and fixtures together.
-  Coordinate required check renames with the maintainer and the target branch rulesets. Keep partial and skipped
-  verdicts distinct from the required full *CI result*.
+  Coordinate required check renames with the maintainer and the target branch rulesets. Reserve *CI result* for
+  the required full verdict. Use distinct names for partial and skipped verdicts so they cannot satisfy that check.
 
 ## Adding a recipe
 
@@ -774,18 +780,23 @@ side effect. A visual change is a commit of its own:
 
 ## Commits and pull requests
 
-**Commit subject:** `type(scope): what changes`, in plain words, at most 72 characters, no trailing period.
+**Commit titles** use `type(scope): verb and outcome`, or `type: verb and outcome` when the change spans areas.
+Write in plain words, begin the description with an imperative verb, and keep it to 72 characters without a
+trailing period.
 
 - `type`: `feat` (new recipe or behavior), `fix`, `docs`, `test`, `ci`, `chore` (tooling, dependencies).
-- `scope`: the recipe (`sidebar`, `form-theme`) or the area (`demo`, `ci`, `tools`); left out when several apply.
-- Body, when the subject is not enough: why, and what was checked.
+- `scope`: the recipe (`sidebar`, `form-theme`) or the area (`demo`, `ci`, `tools`), in lower kebab case.
+- Use the body to explain why and what was checked when the title needs more context.
 
-Examples: `feat(stat-card): show the trend as text`, `fix(layouts): every layout shows flash messages`.
+Examples include `feat(stat-card): show the trend as text` and `fix(layouts): show flash messages in every layout`.
 
-**Branches:** work branches start from `dev` and ordinary pull requests target `dev`. Use a descriptive name such
-as `fix/modal-focus` or `docs/install-guide`, in your fork if you do not have repository write access. A release is
-a maintainer-controlled pull request from a short-lived release branch to `main` (*Releases* below). Maintainers review and merge contributions;
-contributors do not need access to protected branches or repository secrets.
+**Branches** use `type/short-topic` for ordinary contributions. Choose a commit type and a lower-kebab-case topic
+that describe the work, such as `fix/modal-focus` or `docs/install-guide`. Keep agent, provider and harness names
+out of branch prefixes and topics. Start work branches from `dev` and target ordinary pull requests at `dev`.
+Maintainers use `release/X.Y.Z` for release branches that target `main` (*Releases* below). Work orders use the
+names below, and automation uses its configured branch names. Existing integration and release branches can
+finish under their current names. Maintainers review and merge contributions. Contributors can use a fork
+and need only the permissions to open a pull request.
 
 **Trying unreleased work in an app.** The consumer documentation (README, `INSTALL.md`, the guide, `FOR-AGENTS.md`,
 `llms.txt`, the gallery) names a release ([`docs/PLAN-docs-automation.md`](docs/PLAN-docs-automation.md)).
@@ -796,9 +807,8 @@ since the last release, and a full 40-character commit SHA takes one commit (a b
 **Work orders (optional):** for a larger change, agree with a maintainer whether linked pull requests or an
 integration branch will make review easier. Ordinary contributions need no work order or particular agent.
 
-- An integration branch uses `work/<name>`, with jobs on `work/<name>--<job>`. These names avoid Git's conflict
-  between a branch and a directory of the same name. Name new branches for the work they contain, without naming
-  a model or assistant assigned to it. Existing integration branches can finish under their current names.
+- An integration branch uses `work/<name>`, with jobs on `work/<name>--<job>`. Use lower kebab case for each name
+  and job. The double hyphen avoids Git's conflict between a branch and a directory of the same name.
 - Before using an integration branch, a maintainer verifies its branch pattern is covered by a
   [ruleset](https://github.com/xormania/uxor/rules) requiring pull requests, *CI result*, *CodeQL* and resolved
   conversations. Jobs merge by pull request; updates from `dev` also arrive through a job, such as
@@ -811,8 +821,10 @@ integration branch will make review easier. Ordinary contributions need no work 
   and the description explains how the completion criteria were met. Record deferred or superseded work with links.
   The maintainer decides when to merge and when completed branches can be removed.
 
-**Pull request:** one topic, with a title in the commit subject format. Use
-[the template](.github/pull_request_template.md) to explain the change, why it is needed and how it was checked.
+**Pull request titles** follow the commit title format and describe the overall outcome, such as
+`ci: give skipped jobs readable names`. Keep each pull request to one topic. Use GitHub's Draft status while
+work is in progress and [the template](.github/pull_request_template.md) to explain why and how it was checked.
+GitHub-generated merge titles and automated dependency pull requests use their generated form.
 
 For behavior or test changes, identify the affected guarantees and their tests, including coverage added, changed
 or removed, reused test support and any remaining gaps. A short paragraph or list is enough; use a coverage table
@@ -878,7 +890,7 @@ The current release tools publish plain `X.Y.Z` versions. Prereleases such as `0
 version parsing, generated references and release publication before this workflow can publish them correctly.
 The public gallery currently follows the latest non-prerelease.
 
-When the maintainer decides to release, create a short-lived release branch from `dev` and open its pull request
+When the maintainer decides to release, create `release/X.Y.Z` from `dev` and open its pull request
 to `main` as a draft. Its release commit moves the entries under `## [Unreleased]` to the chosen version's dated
 section, leaves an empty `## [Unreleased]` section, and updates the compare links at the bottom. Compare with the
 previous actual release: a release of `0.3.5` after `0.3.2` links `0.3.2...0.3.5`; skipped numbers need no headings
@@ -895,7 +907,7 @@ fail. The release pull request must satisfy all checks required by
 [`main`'s ruleset](https://github.com/xormania/uxor/rules), including *CI result* and *Release checks*.
 Merging it starts publication after CI passes on `main`.
 
-A fix that cannot wait for the next development release starts from `main` on a short-lived branch and goes to
+A fix that cannot wait for the next development release starts from `main` on `release/X.Y.Z` and goes to
 `main` in its own pull request. The maintainer chooses its version too; prepare its changelog heading, references
 and checks as above. This keeps unrelated work on `dev` out of the urgent release.
 

@@ -32,6 +32,7 @@ const SLOWEST_FILES = 15;
 const BROWSERS = ['chromium', 'firefox', 'webkit'];
 const TESTS_STEP = /^Playwright \(/;
 const BROWSER_JOB = /^(Demo \+ Playwright|Toolkit browser verification|Demo app browser checks|Cross-browser verification) \((\S+) (\d+)\/(\d+)\)$/;
+const BROWSER_MATRIX_JOB = /^Browser checks \((Toolkit browser verification|Demo app browser checks|Cross-browser verification), (\S+) (\d+)\/(\d+)\)$/;
 const env = process.env;
 
 const [command, ...rest] = process.argv.slice(2);
@@ -305,7 +306,8 @@ function runOf(jobs) {
 }
 
 function browserJob(job) {
-    const match = BROWSER_JOB.exec(job.name ?? '');
+    const name = job.name ?? '';
+    const match = BROWSER_MATRIX_JOB.exec(name) ?? BROWSER_JOB.exec(name);
     if (!match) return null;
     const [, suite, browser, shard, shards] = match;
     return {
