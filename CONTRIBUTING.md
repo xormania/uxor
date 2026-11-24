@@ -297,7 +297,7 @@ To see which jobs a path selects, run the classifier from the repository root:
 
 ```sh
 printf '%s\n' website/templates/pages/index.html.twig | bash tools/ci-changes.sh
-git diff --name-only --no-renames <base> HEAD | bash tools/ci-changes.sh
+git diff --name-only --no-renames <base> HEAD | bash tools/ci-changes.sh <base>
 ```
 
 The [classifier cases](tools/tests/ci-changes.sh) cover individual and combined inputs. A change to
@@ -314,6 +314,10 @@ install* jobs install from the complete archive, `packages/` included.
 
 *Quick checks* verifies that the generated references match their inputs and that `git archive HEAD` includes the
 required kit and package payload. The archive checker reads the committed tree, so commit changes before using it.
+
+*Package documentation* checks Composer metadata, the generated command guide and the reference tests when a change
+reaches the package's docs without a fresh *Package* run. The classifier uses the comparison commit to recognize
+documentation command edits in `composer.json` and prose edits under an unchanged release heading in `CHANGELOG.md`.
 
 *Package* validates, installs, lints and tests the Composer package. Its archive consumer checks Mate
 initialization and discovery, an upgrade that preserves application-owned work, and rendering without dev

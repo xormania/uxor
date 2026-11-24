@@ -40,7 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
 /** every lane of ci.yml's Changes job, in its order: the selector's, then the engines, which follow the browser tests */
-export const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package', 'prod-image', 'engines'];
+export const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package-docs', 'package', 'prod-image', 'engines'];
 const TOOLKIT_BROWSER_JOB = 'Toolkit browser verification';
 const CROSS_BROWSER_JOB = 'Cross-browser verification';
 const DEMO_APP_BROWSER_JOB = 'Demo app browser checks';
@@ -667,6 +667,11 @@ async function planCommand(opts) {
             Object.assign(entry, { decision: 'defer', reason: 'deferred', detail: DEFERRED });
         }
     }
+    // A fresh Package job already validates the manifest, command reference and package tests.
+    // Only a fresh run covers this checkout's documentation job. A reused consumer result does not.
+    if (lanes.package.decision === 'run' && lanes['package-docs'].decision === 'run') {
+        Object.assign(lanes['package-docs'], { decision: 'skip', reason: 'covered_by_package', detail: 'the fresh Package job runs these checks' });
+    }
     const include = [];
     if (lanes.demo.decision === 'run') {
         for (let shard = 1; shard <= ctx.chromiumShards; shard++) {
@@ -1059,7 +1064,7 @@ function verdictCommand(opts) {
             if (passed) status('fresh');
             else status('incomplete', `ended with ${results.join(', ')}`);
         } else if (entry.decision === 'skip') {
-            if (!ran) status('not_applicable');
+            if (!ran) status('not_applicable', entry.reason === 'covered_by_package' ? entry.detail : '');
             else status('incomplete', `planned to skip, ended with ${results.join(', ')}`);
         } else if (entry.decision === 'defer') {
             if (!ran) status('not_run_at_this_stage', DEFERRED);

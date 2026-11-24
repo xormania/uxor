@@ -106,6 +106,7 @@ jobs:
             demo: ${{ steps.plan.outputs.demo }}
             demo-app: ${{ steps.plan.outputs.demo-app }}
             workflows: ${{ steps.plan.outputs.workflows }}
+            package-docs: ${{ steps.plan.outputs.package-docs }}
             package: ${{ steps.plan.outputs.package }}
             prod-image: ${{ steps.plan.outputs.prod-image }}
             importmap: ${{ steps.plan.outputs.importmap }}
@@ -211,26 +212,26 @@ jobs:
                       # Firefox and WebKit only, for the release pull request's head (Release checks) or by hand: every
                       # other lane already has its result on this head's push run
                       echo "Firefox and WebKit only"
-                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image; do
                           echo "$job=false"
                       done > "$RUNNER_TEMP/jobs"
                       echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: install checks with fresh consumer dependency resolution"
-                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
                       # and Firefox and WebKit, unless they already passed on dev's inputs (the plan)
                       echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ -n "$from" ] && git show "$from:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
                       echo "Changed since $from:"
-                      git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
+                      git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" "$from" > "$RUNNER_TEMP/jobs"
                   else
                       echo "Everything runs ($EVENT on $REF)"
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image; do
+                  for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   cat "$RUNNER_TEMP/jobs"
@@ -1212,6 +1213,37 @@ jobs:
                   job: Production image
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # Quick checks already validates the committed archive and generated reference bundle.
+    # A documentation-only change also verifies the live CLI command definitions and the reference PHP tests.
+    package-docs:
+        name: Package documentation
+        needs: changes
+        if: needs.changes.outputs.package-docs == 'run'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: '8.4'
+                  extensions: intl, mbstring, pdo_sqlite, zip
+                  tools: composer:v2
+                  coverage: none
+
+            - name: Validate Composer metadata and install locked test dependencies
+              run: |
+                  python3 packages/uxor/tools/validate-composer.py
+                  composer install --no-interaction --no-progress --no-plugins --no-scripts
+
+            - name: Verify the published CLI command reference
+              run: php packages/uxor/tools/generate-command-guide.php --check
+
+            - name: Verify bundled reference behavior
+              run: vendor/bin/phpunit -c packages/uxor/phpunit.xml.dist packages/uxor/tests/ReferenceBundleTest.php
+
     # The Composer package xormania/uxor: the root composer.json and its implementation in packages/uxor/. Its metadata
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
     # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
@@ -1791,7 +1823,7 @@ jobs:
         # different name, so it cannot satisfy CI result before the push run. Partial manual runs keep their own names.
         name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && 'CI result (push runs separately)' || github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
         if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
-        needs: [changes, quick, importmap, lint-kit, php, static-site, runtime-export, fresh-install, docker-install, package, demo, prod-image]
+        needs: [changes, quick, importmap, lint-kit, php, static-site, runtime-export, fresh-install, docker-install, package-docs, package, demo, prod-image]
         runs-on: ubuntu-latest
         # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
         outputs:

@@ -15,7 +15,7 @@ const browserPolicy = 'tools/ci/browser-checkout.patterns';
 const browserPatterns = () => readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8');
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
-const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package', 'prod-image'];
+const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package-docs', 'package', 'prod-image'];
 const REUSABLE = ['demo', 'engines', 'php', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
@@ -821,7 +821,7 @@ test('a failure that cannot be recorded fails the step loudly; a pass that canno
 
 // verdict ------------------------------------------------------------------------------------------------------------------
 
-function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'push' } = {}) {
+function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'push', packageDocs = lane('skip', null) } = {}) {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes.demo;
     const routes = producer(fx, fx.head(), fp);
@@ -831,12 +831,13 @@ function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'p
         lanes.demo = { ...lane('reuse', fp), evidence };
         lanes.php = lane('run');
         lanes.contrast = lane('run', null, 'not_reusable');
+        lanes['package-docs'] = packageDocs;
     }
     lanes.engines = engines;
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: event === 'daily' ? 'refs/heads/dev' : 'refs/heads/feature', event, reuse: true, reuse_off: null, chromium_shards: 6, elapsed_ms: 1234, api_calls: 7, lanes }));
     const needs = (overrides) => {
-        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
         const file = join(fx.dir, 'needs.json');
         writeFileSync(file, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
         return file;
@@ -1043,7 +1044,7 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.ok(shards[0] >= 1 && shards[0] <= 20, `CHROMIUM_SHARDS is a sane number (${shards[0]})`);
     assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
     assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
-    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'runtime-export', 'fresh-install', 'package']) {
+    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'runtime-export', 'fresh-install', 'package-docs', 'package']) {
         assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${job(id).if}`);
     }
     // Contrast and Workflows are steps of Quick checks, on the same outputs (its own test)
@@ -1698,6 +1699,34 @@ test('CI result records and judges the installs, Lint kit and Package as lanes o
     assert.ok(!half.markers.some((m) => m.includes('fresh-install')), 'one of the two installs is no pass');
 });
 
+test('Package documentation is checked independently when Package does not run fresh', (t) => {
+    const fx = scratch(t);
+    const docs = plan(fx, {}, ['package-docs']);
+    assert.equal(docs.outputs['package-docs'], 'run');
+    assert.equal(docs.outputs.package, 'skip');
+
+    const selected = ['package-docs', 'package'];
+    const full = plan(fx, {}, selected);
+    assert.equal(full.outputs['package-docs'], 'skip');
+    assert.equal(full.plan.lanes['package-docs'].reason, 'covered_by_package');
+    assert.equal(full.outputs.package, 'run');
+
+    const fp = fingerprints(fx, fx.head()).lanes.package;
+    const reused = plan(fx, producer(fx, fx.head(), fp, { lane: 'package', jobs: packageJobs() }), selected);
+    assert.equal(reused.outputs.package, 'reuse');
+    assert.equal(reused.outputs['package-docs'], 'run');
+
+    const packageDocs = [{ ...packageJobs()[0], name: 'Package documentation' }];
+    const docsMarker = recorded(fx, full.plan.lanes, packageDocs);
+    assert.deepEqual(docsMarker.markers, [], 'documentation is never a full Package pass');
+
+    const { verdict } = verdictFixture(t, { packageDocs: lane('run', null, 'not_reusable') });
+    for (const [result, exit] of [['success', 0], ['skipped', 1], ['failure', 1]]) {
+        const checked = verdict({ 'package-docs': result });
+        assert.equal(checked.status, exit, checked.stdout);
+    }
+});
+
 test('the tool refuses a Node older than 20, with a clear message', async () => {
     const { nodeProblem } = await import('../ci/lane-evidence.mjs');
     assert.match(nodeProblem('18.19.1'), /Node 20 or later/);
@@ -1721,7 +1750,7 @@ test('finish records the markers and gives the verdict in one run, failing on ei
     const needsFile = join(fx.dir, 'finish-needs.json');
     const jobsFile = join(fx.dir, 'finish-jobs.json');
     const finish = (phpResult, jobs) => {
-        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         writeFileSync(needsFile, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result }]))));
         writeFileSync(jobsFile, JSON.stringify(jobs));
         const github = join(fx.dir, 'finish-output');
@@ -1843,7 +1872,7 @@ test('the verdict reads Contrast, Workflows and Tool tests from Quick checks\' o
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, reuse_off: null, chromium_shards: 6, lanes }));
     const verdict = (quick) => {
-        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick };
         writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
         const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
@@ -2191,7 +2220,7 @@ test('the verdict accepts the age the plan accepted for a 24-hour lane, and stil
     lanes['fresh-install'] = { ...lane('reuse', fp), evidence };
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
     const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO, '--now', '2026-11-16T12:00:00Z'], routesFor('fresh-install', fp, [m]));
     assert.equal(out.status, 0, out.stderr);
@@ -2205,7 +2234,7 @@ test('a red or cancelled Quick checks fails CI result even when its outputs all 
     const { fx } = verdictFixture(t);
     for (const result of ['failure', 'cancelled']) {
         const file = join(fx.dir, `needs-${result}.json`);
-        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         writeFileSync(file, JSON.stringify({ ...Object.fromEntries(Object.entries(base).map(([job, r]) => [job, { result: r, outputs: {} }])), quick: { result, outputs: { tools: 'success', contrast: 'success', workflows: 'skipped' } } }));
         const out = run(fx, ['verdict', '--plan', join(fx.dir, 'plan.json'), '--needs', file, '--repo', REPO], producer(fx, fx.head(), fingerprints(fx, fx.head()).lanes.demo));
         assert.equal(out.status, 1, `Quick checks ${result}`);
@@ -2218,7 +2247,7 @@ test("Codex's fixture: a failed Quick checks job with a successful tools output 
     const lanes = Object.fromEntries([...LANES, 'engines'].map((name) => [name, lane('skip', null)]));
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'failure', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } };
     writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
     const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
@@ -2324,7 +2353,7 @@ test('a failure marker vetoes a pass only when its run failed that lane on the s
     lanes.demo = { ...lane('reuse', fp), evidence };
     const planFile = join(fx.dir, 'verdict-plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha, ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     writeFileSync(join(fx.dir, 'verdict-needs.json'), JSON.stringify({ ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'success', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } }));
     const verdictWith = (failure) => run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'verdict-needs.json'), '--repo', REPO], routesFor('demo', fp, [pass, failure]));
     assert.equal(verdictWith(fail({ failed: false })).status, 0, 'a forged later failure does not withdraw the pass');

@@ -72,6 +72,7 @@ REQUIRED_FILES = (
 ROOT_FILES = {"INSTALL.md", "LICENSE", "NOTICE", "README.md", "composer.json", "icon.svg", "kit.css", "kit.js",
               "manifest.json"}
 PACKAGE_ENTRIES = {"INSTRUCTIONS.md", "OPERATIONS.md", "README.md", *PACKAGE_DIRECTORIES}
+PACKAGE_INSTRUCTIONS_HEADING = "Building with UXor"
 
 
 @contextmanager
@@ -201,6 +202,10 @@ def check_archive(archive: Path, revision: str) -> int:
         for required in (*REQUIRED_FILES, *recipe_manifests, *recipe_payload_files(recipe_manifests, tracked, revision), *package_files):
             if not exported_file(required):
                 raise RuntimeError(f"Required file missing from the archive: {required}")
+
+        instructions = package.extractfile(paths[f"{PACKAGE_PATH}/INSTRUCTIONS.md"])
+        if instructions is None or PACKAGE_INSTRUCTIONS_HEADING not in instructions.read().decode("utf-8"):
+            raise RuntimeError("The archive lacks the UXor instructions heading that identifies Mate's installed guidance")
 
         manifest_file = package.extractfile(paths["composer.json"])
         if manifest_file is None:
@@ -441,7 +446,7 @@ def check_install_handoff(application: Path, php: str, consumer_sources: dict[st
     if "mate/AGENT_INSTRUCTIONS.md" not in managed or PACKAGE_NAME not in managed:
         raise RuntimeError("The project's agent instructions do not lead to the installed UXor extension")
     guidance = (application / "mate/AGENT_INSTRUCTIONS.md").read_text()
-    if "Building with UXor" not in guidance or marker not in guidance:
+    if PACKAGE_INSTRUCTIONS_HEADING not in guidance or marker not in guidance:
         raise RuntimeError("Composer did not publish this archive's UXor instructions")
     tools = json.loads(execute("mate.tools-list", [*mate, "tools:list", "--format=json"], application, capture=True))
     for tool in ("uxor_catalog", "uxor_browser_diagnostics"):

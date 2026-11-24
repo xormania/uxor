@@ -3,24 +3,60 @@
 # Which CI jobs a change could affect. Reads the changed paths, one per line, on stdin and prints one
 # `<job>=true|false` line per job of .github/workflows/ci.yml, for $GITHUB_OUTPUT. A job is skipped only when none of
 # the paths could change what it checks. A path not listed counts as part of the kit, which runs every job but
-# Contrast, Workflows and Package (a recipe's templates and markdown run Contrast too, its README.md and manifest.json
-# Package too: the package's generated references copy them). Recipe inputs of the customer workflow and lifecycle
+# Contrast, Workflows and the package checks (a recipe's templates and markdown run Contrast too, its README.md
+# and manifest.json affect the package's catalog). Recipe inputs of the customer workflow and lifecycle
 # tests also select Package. A workflow runs Workflows
 # (actionlint) and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed
 # runs everything. Tool tests runs on every push, so a file only it reads selects no job; it also checks the package's
 # references, its archive and the test inventory, which a renamed or added file anywhere can break.
 #
-# Usage: git diff --name-only --no-renames <base> HEAD | tools/ci-changes.sh
+# Usage: git diff --name-only --no-renames <base> HEAD | tools/ci-changes.sh <base>
 # Test:  tools/tests/ci-changes.sh
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image)
+base=${1:-}
+jobs=(lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
 all() { for job in "${jobs[@]}"; do run[$job]=true; done; }
 on() { for job in "$@"; do run[$job]=true; done; }
+
+# Without a readable comparison for these mixed-purpose files, run the full package checks.
+same_composer_install_inputs() {
+    [[ $base =~ ^[0-9a-f]{40}$ && -f composer.json && ! -L composer.json ]] || return 1
+    local before after
+    local filter='if type == "object" and (.scripts | type == "object")
+        then del(.scripts."docs:generate", .scripts."docs:check")
+        else error("not a Composer manifest with scripts") end'
+    # Object order can matter to Composer, for example with named repositories.
+    before=$(git show "$base:composer.json" | jq -ce "$filter") || return 1
+    after=$(jq -ce "$filter" composer.json) || return 1
+    [ "$before" = "$after" ]
+}
+
+release_heading() {
+    # Match the archive lifecycle's release_target(), including Git subprocess newline normalization.
+    python3 -c '
+import re
+import sys
+
+text = sys.stdin.read().replace("\r\n", "\n").replace("\r", "\n")
+number = r"(?:0|[1-9][0-9]*)"
+heading = re.search(rf"^## \[{number}\.{number}\.{number}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.MULTILINE)
+if heading:
+    print(heading.group(0))
+'
+}
+
+same_release_heading() {
+    [[ $base =~ ^[0-9a-f]{40}$ && -f CHANGELOG.md && ! -L CHANGELOG.md ]] || return 1
+    local before after
+    before=$(git show "$base:CHANGELOG.md" | release_heading) || return 1
+    after=$(release_heading < CHANGELOG.md) || return 1
+    [ -n "$before" ] && [ "$before" = "$after" ]
+}
 
 consumer_recipe_inputs() {
     local roots manifest entries recipe kind value index
@@ -70,7 +106,7 @@ consumer_inputs=
 while IFS= read -r path; do
     [ -n "$path" ] || continue
     if [[ $guide_paths == '*' || $'\n'$guide_paths$'\n' == *$'\n'"$path"$'\n'* ]]; then
-        on static-site package
+        on static-site package-docs
     fi
     case "$path" in
         # The standalone website owns its templates, dependencies, static browser tests and assets.
@@ -79,16 +115,17 @@ while IFS= read -r path; do
         # reused, what passes) decide what runs: a change to any of them runs everything
         .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh | tools/ci/lane-evidence.mjs) all ;;
 
-        # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
-        # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
-        # Package checks the copies are up to date (generate-reference.php --check)
-        docs/GUIDE.md) on static-site contrast package ;;
-        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | docs/APPLICATION-TESTING.md | FOR-AGENTS.md) on contrast package ;;
+        # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php).
+        docs/GUIDE.md) on static-site contrast package-docs ;;
+        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | docs/APPLICATION-TESTING.md | FOR-AGENTS.md) on contrast package-docs ;;
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
 
-        # The latest numeric heading supplies the release for the consumer upgrade and the generated reference links.
-        CHANGELOG.md) on contrast package ;;
+        # The lifecycle consumes the release heading. Prose changes still check generated references.
+        CHANGELOG.md)
+            on contrast
+            if same_release_heading; then on package-docs; else on package; fi
+            ;;
         # Read by people and agents: Contrast checks the generated lists, the plans' status and what the markdown teaches.
         docs/* | CONTRIBUTING.md | AGENTS.md | SECURITY.md) on contrast ;;
         .github/pull_request_template.md) on contrast ;;
@@ -121,10 +158,13 @@ while IFS= read -r path; do
         # file is export-ignored and only the package installs from it. .gitattributes decides what both archives hold.
         # The package's markdown runs Contrast too (the markdown rule below); .gitattributes, another directory under
         # packages/ and the references' inputs in the kit are below, with the kit.
-        packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md) on static-site contrast package ;;
+        packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md) on static-site contrast package-docs ;;
+        packages/uxor/INSTRUCTIONS.md | packages/uxor/resources/uxor/docs/* | packages/uxor/resources/uxor/index.json | packages/uxor/tests/ReferenceBundleTest.php | packages/uxor/tools/ConfigurationGuide.php | packages/uxor/tools/PackageInstallGuide.php | packages/uxor/tools/ReferenceGenerator.php | packages/uxor/tools/generate-command-guide.php | packages/uxor/tools/generate-reference.php) on package-docs ;;
         packages/.gitattributes | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on contrast demo package ;;
         packages/uxor/resources/browser/*) on package demo demo-app ;;
-        composer.json) on package ;;
+        composer.json)
+            if same_composer_install_inputs 2>/dev/null; then on package-docs; else on package; fi
+            ;;
         composer.lock | packages/uxor/*) on package ;;
 
         # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs and PHPUnit tests
@@ -221,8 +261,8 @@ while IFS= read -r path; do
 
         # The kit's README.md is read by people and agents, by Contrast (what the markdown teaches) and by the package's
         # references (Package); no install, lint, PHP test or page reads it
-        README.md) on contrast package ;;
-        INSTALL.md) on static-site contrast package ;;
+        README.md) on contrast package-docs ;;
+        INSTALL.md) on static-site contrast package-docs ;;
 
         # The runtime and installs consume the root kit assets. The published website serves its own CSS and JS.
         kit.css) on lint-kit php runtime-export fresh-install contrast demo demo-app prod-image ;;
