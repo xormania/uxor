@@ -51,6 +51,10 @@ def snapshot(root: Path) -> dict[str, str]:
 @observe("consumer.setup")
 def setup(root: Path, php: str) -> None:
     """Install through the public command, preserving application decisions."""
+    profiler_policy = root / "config/packages/dev/application.yaml"
+    profiler_policy.parent.mkdir(parents=True, exist_ok=True)
+    profiler_policy.write_text("parameters:\n    env(APP_CAPTURE_REQUESTS): '0'\n"
+                              "framework:\n    profiler:\n        collect: '%env(bool:APP_CAPTURE_REQUESTS)%'\n")
     before = snapshot(root)
     planned = operation(root, php, "setup", allowed=(0, 2))
     if planned["changes"] or snapshot(root) != before:
@@ -63,10 +67,26 @@ def setup(root: Path, php: str) -> None:
     if not installed["changes"]:
         raise RuntimeError("Fresh consumer setup reported no application configuration changes")
     for name in ("mago.toml", ".uxor/mago/config.toml", ".uxor/mago/worker.php",
-                 "config/packages/dev/uxor.yaml", ".uxor/browser.mjs", ".uxor/mcp.json",
+                 ".uxor/browser.mjs", ".uxor/mcp.json",
                  "mate/config.php", "mate/extensions.php"):
         if not (root / name).is_file():
             raise RuntimeError("Installed setup omitted " + name)
+    # The application controls collection; set its choice opposite to the helper's switch.
+    check_application_profiler(root, php, False, APP_CAPTURE_REQUESTS="0", PROFILER_COLLECT="1")
+    check_application_profiler(root, php, True, APP_CAPTURE_REQUESTS="1", PROFILER_COLLECT="0")
+    profiler_policy.unlink()
+    # Exercise setup's fallback independently of the fixture's own env-backed profiler setting.
+    framework = root / "config/packages/framework.yaml"
+    framework_config = framework.read_text()
+    try:
+        without_policy, count = re.subn(r"^when@dev:\n    framework:\n        profiler:.*\n", "", framework_config, flags=re.M)
+        if count != 1:
+            raise RuntimeError("Expected one dev profiler setting in the independent consumer fixture")
+        framework.write_text(without_policy)
+        check_application_profiler(root, php, False)
+        check_application_profiler(root, php, True, PROFILER_COLLECT="1")
+    finally:
+        framework.write_text(framework_config)
     binding = json.loads((root / ".uxor/mcp.json").read_text())["mcpServers"]["uxor-mago"]
     if "--trust-project-code" in binding["args"] or "--write" in binding["args"]:
         raise RuntimeError("Installation consent leaked into the saved Serena binding")
@@ -93,6 +113,30 @@ def setup(root: Path, php: str) -> None:
         if name not in manifest.get("require-dev", {}) or name in manifest.get("require", {}):
             raise RuntimeError("Setup did not keep development tools in require-dev: " + name)
     print("Installed setup: real Composer dev dependencies, first Mate initialization, separate saved execution permission and application instructions verified.")
+
+
+def check_application_profiler(root: Path, php: str, expected: bool, **switches: str) -> None:
+    probe = r"""
+require 'vendor/autoload.php';
+(new Symfony\Component\Dotenv\Dotenv())->bootEnv('.env');
+$kernel = new App\Kernel('dev', true);
+$request = Symfony\Component\HttpFoundation\Request::create('/health');
+$response = $kernel->handle($request);
+$kernel->terminate($request, $response);
+if (200 !== $response->getStatusCode()) {
+    throw new RuntimeException('Consumer health check failed: '.$response->getStatusCode());
+}
+echo $response->headers->has('X-Debug-Token') ? 'collected' : 'disabled';
+$kernel->shutdown();
+"""
+    env = dict(os.environ)
+    env.pop("PROFILER_COLLECT", None)
+    env.update(switches)
+    result = subprocess.run([php, "-r", probe], cwd=root, text=True, capture_output=True, check=True, timeout=30, env=env)
+    expected_state = "collected" if expected else "disabled"
+    if result.stdout != expected_state:
+        raise RuntimeError(f"Application profiler policy expected {expected_state}, got {result.stdout!r}")
+
 
 
 @observe("consumer.repeat-setup")
@@ -178,13 +222,15 @@ final class UxorAcceptanceController
         reserve.bind(("127.0.0.1", 0))
         port = reserve.getsockname()[1]
     base = f"http://127.0.0.1:{port}"
-    environment = dict(os.environ, APP_ENV="dev", APP_DEBUG="1")
+    environment = dict(os.environ, APP_ENV="dev", APP_DEBUG="1", PROFILER_COLLECT="1")
     log_path = root.parent / "consumer-profile-server.log"
     with log_path.open("w") as log:
         # This owned development server must execute the just-edited source on every request.
         # CLI-server is an OPcache-supported SAPI independently of opcache.enable_cli.
+        # GPCS keeps inherited environment variables out of $_ENV in the HTTP server.
+        # Exercise the application's real process-environment opt-in under this PHP configuration.
         server = subprocess.Popen([php, "-d", "opcache.enable=0", "-d", "opcache.enable_cli=0",
-                                   "-S", f"127.0.0.1:{port}", "-t", "public", "public/index.php"],
+                                   "-d", "variables_order=GPCS", "-S", f"127.0.0.1:{port}", "-t", "public", "public/index.php"],
                                   cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 30
@@ -209,11 +255,12 @@ final class UxorAcceptanceController
                 except HTTPError as error:
                     response = error
                 with response:
-                    result = {"url": url, "status": response.status,
-                              "token": response.headers.get("X-Debug-Token"), "body": json.loads(response.read())}
-                if result["status"] != 200 or not re.fullmatch(r"[0-9a-f]{6}", result["token"] or ""):
-                    raise RuntimeError("The setup consumer did not produce a real successful request/profile")
-                return result
+                    token = response.headers.get("X-Debug-Token")
+                    if response.status != 200 or not re.fullmatch(r"[0-9a-f]{6}", token or ""):
+                        token_state = "missing" if token is None else "present"
+                        raise RuntimeError(f"GET {url} returned HTTP {response.status}, X-Debug-Token {token_state}; "
+                                           "expected HTTP 200 and a six-digit hexadecimal profiler token")
+                    return {"url": url, "status": response.status, "token": token, "body": json.load(response)}
 
             def profile(response: dict) -> dict:
                 data = json.loads(run("mate.read-profile", [php, "vendor/bin/mate", "tools:call", "symfony-profiler-get",

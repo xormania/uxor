@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Xormania\UXor\Tests;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\AI\Mate\Encoding\ResponseEncoder;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -85,6 +86,37 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 
+    public static function profilerInstallations(): iterable
+    {
+        yield 'Flex unpacked profiler-pack 1.0.6' => [['symfony/web-profiler-bundle', 'symfony/stopwatch'], true];
+        yield 'debug-bundle does not supply stopwatch' => [['symfony/web-profiler-bundle', 'symfony/debug-bundle'], false];
+        yield 'stopwatch without web-profiler-bundle' => [['symfony/stopwatch'], false];
+    }
+
+    #[DataProvider('profilerInstallations')]
+    public function testSetupAndEnvironmentAgreeOnProfilerDependencies(array $profilerPackages, bool $expected): void
+    {
+        $packages = [
+            ['name' => 'symfony/framework-bundle', 'version' => 'v8.1.0'],
+            ['name' => 'symfony/maker-bundle', 'version' => 'v1.0.0'],
+            ['name' => 'carthage-software/mago', 'version' => '1.60.2'],
+            ['name' => 'byte-kitsune/mago-symfony-wiring', 'version' => '1.3.0'],
+        ];
+        foreach ($profilerPackages as $name) {
+            $packages[] = ['name' => $name, 'version' => 'v8.1.0'];
+        }
+        file_put_contents($this->project.'/vendor/composer/installed.json', json_encode(['packages' => $packages], JSON_THROW_ON_ERROR));
+
+        [$code, $setup] = $this->invoke('setup', ['--apply' => true]);
+        self::assertSame($expected ? 0 : 2, $code, $setup['summary']);
+        [, $environment] = $this->invoke('environment');
+        foreach ([$setup, $environment] as $result) {
+            self::assertArrayHasKey('dependencies', $result['data'], $result['operation']);
+            $dependencies = array_column($result['data']['dependencies'], 'compatible', 'package');
+            self::assertSame($expected, $dependencies['symfony/profiler-pack'], $result['operation']);
+        }
+    }
+
     public function testApplyingSetupProducesUsableConfigurationAndRepeatingItPreservesApplicationFiles(): void
     {
         $instructions = file_get_contents($this->project.'/AGENTS.md');
@@ -94,7 +126,7 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertNotSame('failed', $result['status']);
         self::assertNotEmpty($result['changes']);
         foreach (['mago.toml', '.uxor/mago/config.toml', '.uxor/mago/worker.php', '.uxor/mago/.gitignore',
-            'config/packages/dev/uxor.yaml', '.uxor/browser.mjs', '.uxor/README.md', '.uxor/mcp.json'] as $path) {
+            'config/packages/dev/uxor.php', '.uxor/browser.mjs', '.uxor/README.md', '.uxor/mcp.json'] as $path) {
             self::assertFileExists($this->project.'/'.$path, $path);
         }
         self::assertStringContainsString('.uxor/mago/config.toml', file_get_contents($this->project.'/mago.toml'));
@@ -122,16 +154,27 @@ final class DeveloperEnvironmentTest extends TestCase
         $mago = "version = \"1.60.2\"\n[source]\npaths = [\"custom-src\"]\n";
         file_put_contents($this->project.'/mago.toml', $mago);
         $server = ['command' => 'consumer-owned-command', 'args' => ['keep-this']];
-        file_put_contents($this->project.'/.mcp.json', json_encode([
-            'application_setting' => 'keep',
-            'mcpServers' => ['existing' => $server],
-        ], JSON_THROW_ON_ERROR));
+        file_put_contents($this->project.'/.mcp.json', <<<'JSON'
+            {
+                "application_setting": "keep",
+                "modelBudget": 123456789012345678901,
+                "mcpServers": {
+                    "existing": {"command": "consumer-owned-command", "args": ["keep-this"], "env": {}, "extraArgs": []}
+                }
+            }
+            JSON);
         [$code, $result] = $this->invoke('setup', ['--apply' => true, '--client' => 'claude']);
         self::assertContains($code, [0, 2], json_encode($result));
         self::assertSame($mago, file_get_contents($this->project.'/mago.toml'));
-        $client = json_decode(file_get_contents($this->project.'/.mcp.json'), true, 512, JSON_THROW_ON_ERROR);
+        $source = file_get_contents($this->project.'/.mcp.json');
+        $client = json_decode($source, true, 512, JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING);
         self::assertSame('keep', $client['application_setting']);
-        self::assertSame($server, $client['mcpServers']['existing']);
+        self::assertMatchesRegularExpression('/"modelBudget"\s*:\s*123456789012345678901(?=\s*[,}])/', $source);
+        $neighbor = json_decode($source, flags: JSON_THROW_ON_ERROR)->mcpServers->existing;
+        self::assertSame($server['command'], $neighbor->command);
+        self::assertSame($server['args'], $neighbor->args);
+        self::assertEquals(new \stdClass(), $neighbor->env);
+        self::assertSame([], $neighbor->extraArgs);
         self::assertArrayNotHasKey('uxor-mate', $client['mcpServers']);
         self::assertArrayHasKey('uxor-mago', $client['mcpServers']);
         self::assertSame(['--project-root', $this->project, 'serena'], $client['mcpServers']['uxor-mago']['args']);
