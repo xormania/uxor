@@ -8,9 +8,8 @@
  *   The copies are built in a temporary directory, then each new or changed one is renamed into place and each one
  *   no recipe has any more is deleted: a process listing the tests meanwhile sees every file whole, old or new, and
  *   nothing is written when nothing changed.
- * - The demo's Tailwind CSS, rebuilt unless it was built from the same sources: those it scans
- *   (demo/assets/styles/app.css declares the demo's scan and exclusions), identified by a SHA-256
- *   of their paths and file contents, recorded next to the build. So no screenshot is taken
+ * - The Toolkit fixtures' and demo app's Tailwind CSS. Each build records a SHA-256 of its source paths and
+ *   contents next to its output, so a change rebuilds only the entrypoints it can affect and no screenshot is taken
  *   against stale CSS, whoever runs the tests, and nothing is rebuilt when nothing changed. The record is read and
  *   written by PHP_BINARY's PHP: in the Docker demo, demo/var/ lives in the container.
  *
@@ -30,6 +29,34 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const repository = fileURLToPath(new URL('..', import.meta.url));
 const LOCK_TIMEOUT_MS = 10 * 60_000;
+const CSS_ENTRYPOINTS = {
+    'toolkit-fixtures': {
+        sources: [
+            'demo/templates/base.html.twig', 'demo/templates/preview.html.twig', 'demo/templates/_toolkit_stylesheets.html.twig',
+            'demo/templates/forms', 'demo/templates/lab', 'demo/templates/oauth',
+            'demo/src/Demo', 'demo/src/Kit', 'demo/src/OAuth',
+            'demo/src/Controller/FormsController.php', 'demo/src/Controller/LabController.php',
+            'demo/src/Controller/OAuthDemoController.php', 'demo/src/Controller/PreviewController.php',
+        ],
+        otherController: 'demo/assets/controllers/revenue_assistant_controller.js',
+        readsExamples: true,
+    },
+    'demo-app': {
+        sources: ['demo/templates/demo_app', 'demo/src/Controller/DemoAppController.php', 'demo/src/Controller/RevenueAssistantController.php'],
+        otherController: 'demo/assets/controllers/dropzone_echo_controller.js',
+        readsExamples: false,
+    },
+};
+const COPIED_RECIPE_INPUTS = [
+    'demo/templates/components', 'demo/templates/form', 'demo/templates/layouts', 'demo/src/UXor',
+    'demo/assets/controllers', 'demo/assets/lib',
+];
+const INSTALLED_CSS_INPUTS = [
+    'demo/assets/vendor/flowbite/dist/flowbite.min.css',
+    'demo/vendor/symfony/ux-live-component/assets/dist/live.min.css',
+    'demo/vendor/symfony/twig-bridge/Resources/views/Form/tailwind_2_layout.html.twig',
+    'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig',
+];
 
 /** The generated copy of each recipe spec: { '<recipe>.<name>.spec.ts': content }. */
 export function recipeSpecs(root = repository) {
@@ -79,31 +106,43 @@ export function syncRecipeSpecs(root = repository) {
     });
 }
 
-/** Bound Git's search to the same UI source directories as app.css, including local untracked UI edits. */
-export function cssSourcesDigest(root = repository) {
-    const candidates = ['templates', 'assets', 'src', 'config', 'README.md', 'manifest.json'];
+/** Hash the entrypoint's CSS inputs, including local edits and copies written by tools/sync-demo. */
+export function cssSourcesDigest(entrypoint, root = repository) {
+    const { sources, otherController, readsExamples } = CSS_ENTRYPOINTS[entrypoint];
     const controls = ['.gitignore', '.gitattributes', '.ignore'];
     const paths = [
-        ...controls, 'kit.css', 'kit.js', 'tools/sync-demo', 'tools/prepare-tests.mjs',
+        ...controls, 'kit.css', 'tools/sync-demo', 'tools/prepare-tests.mjs',
         'demo/composer.json', 'demo/composer.lock', 'demo/importmap.php', 'demo/symfony.lock',
+        'demo/config/packages/symfonycasts_tailwind.yaml', 'demo/templates/shared', 'demo/src/Form',
+        'demo/assets/styles/shared.css', 'demo/assets/styles/xor.css', `demo/assets/styles/${entrypoint}.css`,
+        ...COPIED_RECIPE_INPUTS, ...sources,
     ];
-    const outside = new Set(['docs', 'node_modules', 'packages', 'tests', 'tools', 'vendor', 'website']);
+    const uiDirectories = ['demo', 'demo/templates', 'demo/assets', 'demo/assets/styles', 'demo/src', 'demo/src/Controller'];
+    for (const dir of uiDirectories) {
+        for (const control of controls) paths.push(`${dir}/${control}`);
+    }
+    const recipeInputs = ['templates', 'assets', 'src', 'config', 'manifest.json', ...controls];
+    const examplesExcluded = new Set(['docs', 'node_modules', 'packages', 'tests', 'tools', 'vendor', 'website']);
+    if (readsExamples) paths.push('kit.js');
     for (const entry of readdirSync(root, { withFileTypes: true })) {
-        if (entry.isDirectory() && !entry.name.startsWith('.') && !outside.has(entry.name)) {
-            for (const file of [...candidates, ...controls]) paths.push(`${entry.name}/${file}`);
+        if (!entry.isDirectory()) continue;
+        if (existsSync(join(root, entry.name, 'manifest.json'))) {
+            for (const file of recipeInputs) paths.push(`${entry.name}/${file}`);
+        }
+        if (readsExamples && !entry.name.startsWith('.') && !examplesExcluded.has(entry.name)) {
+            paths.push(`${entry.name}/README.md`, `${entry.name}/manifest.json`);
         }
     }
-    const listed = execFileSync('git', ['--literal-pathspecs', 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', ...paths],
-        { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    // Git ignores installed dependencies. The stylesheet imports these exact CSS files and scans
-    // the two Twig layouts inherited by the demo form theme; include their installed bytes too.
-    const files = new Set(listed.split('\0').filter(Boolean));
-    for (const path of [
-        'demo/assets/vendor/flowbite/dist/flowbite.min.css',
-        'demo/vendor/symfony/ux-live-component/assets/dist/live.min.css',
-        'demo/vendor/symfony/twig-bridge/Resources/views/Form/tailwind_2_layout.html.twig',
-        'demo/vendor/symfony/twig-bridge/Resources/views/Form/form_div_layout.html.twig',
-    ]) files.add(path);
+    const listFiles = (flags, pathspecs) => execFileSync('git', [
+        '--literal-pathspecs', 'ls-files', ...flags, '--exclude-standard', '-z', '--', ...pathspecs,
+    ], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).split('\0').filter(Boolean);
+    const files = new Set([
+        ...listFiles(['--cached', '--others'], paths),
+        ...listFiles(['--others', '--ignored'], COPIED_RECIPE_INPUTS),
+        ...INSTALLED_CSS_INPUTS,
+    ]);
+    files.delete(otherController);
+    files.delete('demo/README.md');
     const digest = createHash('sha256');
     for (const file of [...files].sort()) {
         const path = join(root, file);
@@ -113,21 +152,24 @@ export function cssSourcesDigest(root = repository) {
     return digest.digest('hex');
 }
 
-/** Builds the demo's Tailwind CSS unless the record says it was built from the current sources; true when it built. */
+/** Builds the stale Tailwind entrypoints. Returns true when at least one was rebuilt. */
 export function buildCssIfStale(root = repository) {
     const binary = process.env.PHP_BINARY ?? (process.env.DEMO_URL ? join(root, 'tools/demo-php') : 'php');
     const php = (args, stdio = 'pipe') => execFileSync(binary, args, { cwd: join(root, 'demo'), encoding: 'utf8', stdio });
-    const record = 'var/tailwind/sources.sha256';
     return withLock(root, 'css', () => {
-        const digest = cssSourcesDigest(root);
-        const recorded = php(['-r', `echo is_file('var/tailwind/app.built.css') ? @file_get_contents('${record}') : '';`]);
-        if (recorded.trim() === digest) {
-            return false;
+        let built = false;
+        for (const entrypoint of Object.keys(CSS_ENTRYPOINTS)) {
+            const digest = cssSourcesDigest(entrypoint, root);
+            const output = `var/tailwind/${entrypoint}.built.css`;
+            const record = `var/tailwind/${entrypoint}.sources.sha256`;
+            const recorded = php(['-r', "echo is_file($argv[1]) ? @file_get_contents($argv[2]) : '';", '--', output, record]);
+            if (recorded.trim() === digest) continue;
+            console.log(`Building Tailwind CSS for ${entrypoint}`);
+            php(['bin/console', 'tailwind:build', `assets/styles/${entrypoint}.css`], 'inherit');
+            php(['-r', 'file_put_contents($argv[1], $argv[2].PHP_EOL);', '--', record, digest]);
+            built = true;
         }
-        console.log("Building the demo's Tailwind CSS: its sources changed since the last build");
-        php(['bin/console', 'tailwind:build'], 'inherit');
-        php(['-r', `file_put_contents('${record}', $argv[1].PHP_EOL);`, '--', digest]);
-        return true;
+        return built;
     });
 }
 

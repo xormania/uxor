@@ -247,7 +247,7 @@ jobs:
                   artifact: jev-input-release-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     pages:
-        name: Publish the gallery
+        name: Publish documentation and demo
         needs: [check, release]
         if: needs.release.outputs.versions != ''
         permissions:

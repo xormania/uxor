@@ -498,6 +498,7 @@ jobs:
               with:
                   attempts: release-checks-target/playwright-results/failed-attempts.json
                   compose-logs: release-checks-target/demo
+                  job: Release suite (${{ matrix.lane }})
                   shard: release-checks ${{ matrix.lane }} chromium
                   dir: ${{ runner.temp }}/jev-release-checks
                   artifact: jev-input-release-checks-${{ matrix.lane }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}
@@ -523,6 +524,7 @@ jobs:
               with:
                   attempts: ${{ runner.temp }}/release-step-attempts.json
                   compose-logs: release-checks-target/demo
+                  job: Release suite (${{ matrix.lane }})
                   shard: release-checks ${{ matrix.lane }} chromium
                   dir: ${{ runner.temp }}/jev-release-steps
                   artifact: jev-input-release-checks-${{ matrix.lane }}-chromium-${{ github.run_id }}-${{ github.run_attempt }}

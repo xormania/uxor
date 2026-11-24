@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site runtime-export fresh-install contrast demo workflows package prod-image)
+jobs=(lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package prod-image)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
@@ -123,7 +123,7 @@ while IFS= read -r path; do
         # packages/ and the references' inputs in the kit are below, with the kit.
         packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md) on static-site contrast package ;;
         packages/.gitattributes | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on contrast demo package ;;
-        packages/uxor/resources/browser/*) on package demo ;;
+        packages/uxor/resources/browser/*) on package demo demo-app ;;
         composer.json) on package ;;
         composer.lock | packages/uxor/*) on package ;;
 
@@ -136,11 +136,17 @@ while IFS= read -r path; do
         # detector's cases run in Tool tests
         tests/e2e/release.*.spec.ts) on contrast ;;
         tests/e2e/leak-detector.mjs) ;;
+        # The demo project owns the example app cases and their layout snapshots.
+        # The listed mixed specs exercise both projects. Browser infrastructure is shared.
+        tests/e2e/examples/demo-app-screenshots/*) on demo-app ;;
+        tests/e2e/demo-app*/*.spec.ts) on contrast demo demo-app ;;
+        tests/e2e/demo-app*.spec.ts | tests/e2e/examples/pages.spec.ts) on contrast demo-app ;;
+        tests/e2e/a11y.spec.ts | tests/e2e/csp.spec.ts | tests/e2e/theme-toggle.spec.ts | tests/e2e/lab.side-nav.spec.ts | tests/e2e/lab.section-nav.spec.ts | tests/e2e/examples/baselines.spec.ts | tests/e2e/examples/fit.spec.ts) on contrast demo demo-app ;;
         tests/e2e/*.spec.ts) on contrast demo ;;
         # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
         # in Tool tests, on every run)
-        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo ;;
-        package.json | package-lock.json) on static-site contrast demo ;;
+        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo demo-app ;;
+        package.json | package-lock.json) on static-site contrast demo demo-app ;;
 
         # Repository tools, each with the jobs that run it
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
@@ -169,7 +175,7 @@ while IFS= read -r path; do
         tools/ci/junit-attempts.mjs | tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json | tools/ci/step-attempts.mjs) ;;
         tools/ci/ci-metrics.mjs | tools/ci/release-checks.mjs | tools/ci/release-evidence.mjs | tools/ci/release-failure.mjs | tools/ci/release-timings.mjs) ;;
         # the shard plan and the results summary (run-provenance.mjs is its import) decide the browser job's verdict
-        tools/ci/*) on demo ;;
+        tools/ci/*) on demo demo-app ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run
         # The name check reads every file, so Tool tests runs it on every run too
         tools/tests/*.test.mjs | tools/tests/fixtures/playwright-results/* | tools/tests/fixtures/junit/* | tools/tests/fixtures/ci-metrics/* | tools/monthly/*) ;;
@@ -180,29 +186,33 @@ while IFS= read -r path; do
         tools/check-github-mentions.mjs | tools/hooks/* | tools/js-duplication.mjs | tools/kit-former-names.json) ;;
         tools/recipe-imports.mjs | tools/security-policy.mjs | tools/security-sinks.json | tools/tests/fixtures/release-checks/*) ;;
         # the PHP binary of the browser tests against a Docker demo (playwright.config.ts, PHP_BINARY)
-        tools/demo-php) on demo ;;
+        tools/demo-php) on demo demo-app ;;
         # tools/sync-demo also builds the production image: its builder copies the recipes into the demo with it
-        tools/kit/*) on php static-site runtime-export demo prod-image ;;
-        tools/sync-demo) on php runtime-export demo prod-image ;;
+        tools/kit/*) on php static-site runtime-export demo demo-app prod-image ;;
+        tools/sync-demo) on php runtime-export demo demo-app prod-image ;;
         # the production image's harness: a change to it runs it
-        tools/tests/prod-image.sh) on php runtime-export demo prod-image ;;
-        tools/*) on php runtime-export demo ;;
+        tools/tests/prod-image.sh) on php runtime-export demo demo-app prod-image ;;
+        tools/*) on php runtime-export demo demo-app ;;
 
-        # The demo app: its PHP tests, its static export and the browser tests run against it. docker-install.sh copies
+        # These files are consumed only by the example application's stylesheet
+        # and /demo pages. Shared recipe and host inputs still run both projects.
+        demo/templates/demo_app/* | demo/assets/styles/demo-app.css | demo/assets/images/xor/mascot.gif | demo/assets/images/xor/mascot-still.png) on php runtime-export demo-app prod-image ;;
+
+        # Shared Symfony host and build inputs. docker-install.sh copies
         # the demo's Compose file and Caddyfile into a fresh Symfony Docker project. The demo image's build inputs also
         # run the production image's lane (demo/Dockerfile, target frankenphp_prod, built and run by
         # tools/tests/prod-image.sh), which no other job builds.
-        demo/compose.yaml | demo/frankenphp/Caddyfile) on php runtime-export demo fresh-install prod-image ;;
-        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php runtime-export demo prod-image ;;
+        demo/compose.yaml | demo/frankenphp/Caddyfile) on php runtime-export demo demo-app fresh-install prod-image ;;
+        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php runtime-export demo demo-app prod-image ;;
         # what the production image installs and how it boots in prod: its packages and its configuration. Lint kit also
         # installs the symfony/ux-toolkit version the lock holds (its locked lane reads it on each run)
-        demo/composer.lock) on php runtime-export demo prod-image lint-kit ;;
-        demo/composer.json | demo/config/*) on php runtime-export demo prod-image ;;
+        demo/composer.lock) on php runtime-export demo demo-app prod-image lint-kit ;;
+        demo/composer.json | demo/config/*) on php runtime-export demo demo-app prod-image ;;
         demo/tests/*) on php runtime-export demo contrast ;;
         # the rest of what the image admits (demo/Dockerfile.dockerignore): the app runs differently in prod (no
         # development package, no Toolkit bundle), so a change to any of its files runs the image
-        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php runtime-export demo prod-image ;;
-        demo/*) on php runtime-export demo ;;
+        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php runtime-export demo demo-app prod-image ;;
+        demo/*) on php runtime-export demo demo-app ;;
 
         # A recipe's own specs and screenshot baselines: only the browser tests read them, and the
         # inventory check which specs exist
@@ -215,8 +225,8 @@ while IFS= read -r path; do
         INSTALL.md) on static-site contrast package ;;
 
         # The runtime and installs consume the root kit assets. The published website serves its own CSS and JS.
-        kit.css) on lint-kit php runtime-export fresh-install contrast demo prod-image ;;
-        kit.js) on lint-kit php runtime-export fresh-install demo prod-image ;;
+        kit.css) on lint-kit php runtime-export fresh-install contrast demo demo-app prod-image ;;
+        kit.js) on lint-kit php runtime-export fresh-install demo demo-app prod-image ;;
 
         # Anything else is part of the kit (recipes, manifest.json, .gitattributes...).
         # Contrast checks the theme's roles, what the markdown teaches and the palette colors of the recipes' templates
@@ -229,14 +239,14 @@ while IFS= read -r path; do
             # recipes, Contrast reads it (above) and the references copy it
             # (Package); the installs never read it
             if [[ $path =~ ^[^/]+/README\.md$ ]]; then
-                on lint-kit static-site runtime-export demo contrast package
+                on lint-kit static-site runtime-export demo demo-app contrast package
                 [ -f "${path%%/*}/manifest.json" ] && on php
                 # the image holds a recipe's README (the gallery renders it), and a README elsewhere is in a new
                 # directory: the image's lane either way, as below
                 [[ $path == packages/* ]] || on prod-image
                 continue
             fi
-            on lint-kit php static-site runtime-export fresh-install demo
+            on lint-kit php static-site runtime-export fresh-install demo demo-app
             # The production image holds what its allow-list names (demo/Dockerfile.dockerignore) and renders it without
             # the development packages: the runtime's root files (kit.css, kit.js, manifest.json), and from each
             # recipe its manifest.json, README.md, templates/, assets/, src/ and

@@ -3,9 +3,10 @@
 
 {% block body_class %}{{ parent() }} uxor-page-transition{% endblock %}
 {% block head %}<link rel="icon" href="data:,">{% endblock %}
+{% block stylesheets %}{{ include('demo_app/_stylesheets.html.twig') }}{% endblock %}
 
 {% block title %}Settings — xor{% endblock %}
-{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block brand %}{{ include('shared/_brand.html.twig') }}{% endblock %}
 {% block sidebar %}{{ include('demo_app/_sidebar.html.twig') }}{% endblock %}
 {% block navbar_nav %}{{ include('demo_app/_navbar_nav.html.twig') }}{% endblock %}
 {% block page_title %}Settings{% endblock %}

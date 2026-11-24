@@ -3,7 +3,7 @@ import { demoRoutePaths, examples } from './inventory';
 import { lowContrastText } from './contrast';
 import labPages from './lab-pages.json' with { type: 'json' };
 
-// Every page of the demo: the shell pages, every lab scenario, and every README example in both themes.
+// The runtime's public app pages, form examples, lab scenarios and README examples in both themes.
 const pages = [
     '/forms',
     '/forms/parity',
@@ -16,7 +16,8 @@ const pages = [
 test.describe.configure({ mode: 'parallel' });
 
 for (const path of pages) {
-    test(`a11y ${path}`, async ({ page }) => {
+    const details = demoRoutePaths.includes(path) ? { tag: '@demo-app' } : {};
+    test(`a11y ${path}`, details, async ({ page }) => {
         // every widget in every state on one page: axe alone takes 13-18 s on it in each engine, too close to the 30 s
         // budget on a loaded runner
         test.slow('/lab/value-matrix' === path, 'the value matrix holds every widget: axe scans it for 13-18 s');

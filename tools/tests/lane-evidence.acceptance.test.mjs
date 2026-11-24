@@ -26,13 +26,14 @@ const HOUR = 1;
 const DAY = 24;
 
 // the selector's lanes (tools/ci-changes.sh); the engines follow the browser tests
-const SELECTOR_LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
+const SELECTOR_LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package', 'prod-image'];
 const ALL = Object.fromEntries(SELECTOR_LANES.map((lane) => [lane, true]));
 // the lanes whose pass can be reused (docs/TESTING.md, *Reused lanes*): 14 days, or 24 hours for those resolving live
 const REUSABLE = ['php', 'demo', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const DAY_LANES = ['fresh-install', 'lint-kit', 'package'];
 const CHROMIUM_SHARDS = 6;
-const chromiumJobs = (count) => Array.from({ length: count }, (_, i) => `Demo + Playwright (chromium ${i + 1}/${count})`);
+const chromiumJobs = (count) => Array.from({ length: count }, (_, i) => `Toolkit browser verification (chromium ${i + 1}/${count})`);
+const DEMO_APP_JOB = 'Demo app browser checks (chromium 1/1)';
 
 // ci.yml's job names, per lane
 const LANE_JOBS = {
@@ -44,7 +45,8 @@ const LANE_JOBS = {
     'fresh-install': ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'],
     'lint-kit': ['Lint kit (locked toolkit)', 'Lint kit (minimum toolkit)'],
     demo: chromiumJobs(CHROMIUM_SHARDS),
-    engines: ['firefox', 'webkit'].flatMap((b) => [1, 2, 3].map((s) => `Demo + Playwright (${b} ${s}/3)`)),
+    'demo-app': [DEMO_APP_JOB],
+    engines: ['firefox', 'webkit'].flatMap((b) => [1, 2, 3].map((s) => `Cross-browser verification (${b} ${s}/3)`)),
 };
 // CI result's `needs` names for the lanes that are jobs of their own
 const NEEDS_OF = { php: ['php'], 'static-site': ['static-site'], 'runtime-export': ['runtime-export'], 'prod-image': ['prod-image'], package: ['package'], 'fresh-install': ['fresh-install', 'docker-install'], 'lint-kit': ['lint-kit'] };
@@ -192,12 +194,12 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
         };
         const needs = {
             changes: { result: 'success' },
-            importmap: { result: ['php', 'runtime-export', 'demo', 'engines'].some((lane) => plan.lanes[lane]?.decision === 'run') ? 'success' : 'skipped' },
+            importmap: { result: ['php', 'runtime-export', 'demo', 'demo-app', 'engines'].some((lane) => plan.lanes[lane]?.decision === 'run') ? 'success' : 'skipped' },
             quick: {
                 result: 'success',
                 outputs: { tools: 'success', contrast: plan.lanes.contrast?.decision === 'run' ? 'success' : 'skipped', workflows: plan.lanes.workflows?.decision === 'run' ? 'success' : 'skipped' },
             },
-            demo: { result: conclusionOf([...laneJobs.demo, ...laneJobs.engines]) },
+            demo: { result: conclusionOf([...laneJobs.demo, ...laneJobs['demo-app'], ...laneJobs.engines]) },
         };
         for (const [lane, names] of Object.entries(NEEDS_OF)) {
             names.forEach((need, i) => {
@@ -258,8 +260,8 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
             if (plan.lanes[lane]?.decision !== 'run') continue;
             for (const name of names) if (!missing.includes(name)) jobs.push(job(name, name in conclusions ? conclusions[name] : 'success', 1, when));
         }
-        if (!jobs.some((j) => j.name.startsWith('Demo + Playwright'))) {
-            jobs.push(job('Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', 'skipped', 1, when));
+        if (!jobs.some((j) => [...laneJobs.demo, ...laneJobs['demo-app'], ...laneJobs.engines].includes(j.name))) {
+            jobs.push(job('${{ matrix.suite }} (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', 'skipped', 1, when));
         }
         const run = {
             id, name: 'CI', path: '.github/workflows/ci.yml', event: event === 'push' ? 'push' : 'workflow_dispatch', head_sha: sha, head_branch: ref.replace('refs/heads/', ''),
@@ -287,6 +289,7 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
 
 const decisions = (plan) => Object.fromEntries(Object.entries(plan.lanes).map(([lane, e]) => [lane, e.decision]));
 const matrix = (ran) => JSON.parse(ran.outputs['browser-matrix']).include;
+const toolkitChromium = (ran) => matrix(ran).filter(({ browser, suite }) => browser === 'chromium' && suite === 'Toolkit browser verification');
 const markerOf = (w, name) => w.state.artifacts.find((a) => a.name === name);
 const evidenceOf = (w, artifact) => {
     // the ZIP is stored: the JSON is the bytes between the local header's name and the central directory
@@ -307,7 +310,7 @@ const allPassedRun = (w, options = {}) => {
 // Fresh applicable documentation/policy/result checks; no unaffected expensive setup or browser execution; original
 // proof identified
 // ---------------------------------------------------------------------------------------------------------------------
-test('green code, then a CHANGELOG prose correction: no browser or expensive lane runs again, each reused lane names the run that proved it, the docs checks run fresh', (t) => {
+test('green code, then a CHANGELOG prose correction: Toolkit Chromium and reusable jobs do not run again, each names the run that proved it, the docs checks run fresh', (t) => {
     const w = world(t);
     w.commit('button/templates/components/Button.html.twig', '<button class="btn btn-primary">{% block content %}{% endblock %}</button>\n');
     const green = allPassedRun(w, { hoursAgo: 3 });
@@ -324,8 +327,7 @@ test('green code, then a CHANGELOG prose correction: no browser or expensive lan
         assert.equal(docs.plan.lanes[lane].evidence.run_id, green.id, `${lane} names the run that proved it`);
         assert.equal(docs.plan.lanes[lane].evidence.head_sha, green.sha, `${lane} names the commit that was tested`);
     }
-    assert.deepEqual(matrix(docs), [], 'no browser shard runs');
-    assert.equal(docs.outputs.browsers, 'skip');
+    assert.deepEqual(matrix(docs).map((entry) => entry.suite), ['Demo app browser checks'], 'the cumulative diff still selects the fresh-only Demo app check');
     assert.equal(docs.outputs.importmap, 'run', 'the runtime export needs the demo importmap packages');
     for (const lane of ['contrast', 'workflows', 'static-site', 'runtime-export']) assert.equal(docs.plan.lanes[lane].decision, 'run', `${lane} runs fresh`);
 
@@ -378,7 +380,7 @@ test('docs on a green release branch reuse its browsers on the first push and st
     const selected = classifyFrom(w.git('merge-base', 'dev', 'HEAD'));
     assert.equal(selected.demo, true, 'the inherited workflow selected the browser lane');
     const child = allPassedRun(w, { ref: 'refs/heads/docs/package', selected, hoursAgo: 2 });
-    assert.deepEqual(matrix(child), [], 'no Chromium, Firefox or WebKit shards run');
+    assert.deepEqual(matrix(child).map((entry) => entry.suite), ['Demo app browser checks'], 'the inherited workflow selects the fresh-only Demo app check');
     for (const lane of ['demo', 'engines']) {
         assert.equal(child.plan.lanes[lane].decision, 'reuse', lane);
         assert.equal(child.plan.lanes[lane].evidence.run_id, producer.id);
@@ -394,7 +396,7 @@ test('docs on a green release branch reuse its browsers on the first push and st
     assert.equal(guide.plan.lanes['static-site'].decision, 'run');
     assert.equal(guide.plan.lanes.package.decision, 'run');
     assert.equal(guide.plan.lanes.demo.decision, 'reuse');
-    assert.deepEqual(matrix(guide), []);
+    assert.deepEqual(matrix(guide).map((entry) => entry.suite), ['Demo app browser checks']);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -444,7 +446,7 @@ test('editing a recipe README runs the website, runtime export and kit Chromium 
     for (const lane of ['php', 'static-site', 'runtime-export', 'demo', 'package', 'prod-image']) {
         assert.equal(ran.plan.lanes[lane].decision, 'run', lane);
     }
-    assert.equal(matrix(ran).filter((shard) => shard.browser === 'chromium').length, CHROMIUM_SHARDS);
+    assert.equal(toolkitChromium(ran).length, CHROMIUM_SHARDS);
     assert.equal(ran.result.verdict.lanes.demo.status, 'fresh');
 });
 
@@ -453,7 +455,7 @@ for (const path of ['INSTALL.md', 'docs/GUIDE.md']) {
         const w = world(t);
         allPassedRun(w, { hoursAgo: 3 });
         w.commit(path, w.read(path) + '\nA new section.\n');
-        const ran = w.ciRun({ hoursAgo: 1 });
+        const ran = w.ciRun({ hoursAgo: 1, selected: { ...ALL, 'demo-app': false } });
         assert.equal(ran.plan.lanes['static-site'].decision, 'run');
         assert.equal(ran.plan.lanes.package.decision, 'run');
         assert.equal(ran.plan.lanes.demo.decision, 'reuse');
@@ -480,7 +482,7 @@ for (const [kind, path, content] of [
         w.commit(path, content);
         const ran = w.ciRun({ hoursAgo: 1 });
         for (const lane of REUSABLE) assert.equal(ran.plan.lanes[lane].decision, 'run', `${lane}: ${ran.plan.lanes[lane].reason}`);
-        assert.equal(matrix(ran).filter((m) => m.browser === 'chromium').length, CHROMIUM_SHARDS);
+        assert.equal(toolkitChromium(ran).length, CHROMIUM_SHARDS);
         assert.equal(ran.result.status, 0, ran.result.stderr);
         for (const lane of REUSABLE) assert.equal(ran.result.verdict.lanes[lane].status, 'fresh', lane);
     });
@@ -491,7 +493,7 @@ for (const [kind, path, content] of [
 // No false reuse of incomplete work; required code validation completes
 // ---------------------------------------------------------------------------------------------------------------------
 const predecessors = {
-    failed: (w) => w.ciRun({ hoursAgo: 3, conclusions: { 'Demo + Playwright (chromium 3/6)': 'failure', 'Kit PHP': 'failure' } }),
+    failed: (w) => w.ciRun({ hoursAgo: 3, conclusions: { 'Toolkit browser verification (chromium 3/6)': 'failure', 'Kit PHP': 'failure' } }),
     cancelled: (w) => w.ciRun({ hoursAgo: 3, conclusions: Object.fromEntries([...LANE_JOBS.demo, 'Kit PHP'].map((name) => [name, 'cancelled'])) }),
     running: (w) => w.ciRun({ hoursAgo: 1, finished: false }),
     missing: () => null,
@@ -504,7 +506,7 @@ for (const [kind, predecessor] of Object.entries(predecessors)) {
         w.commit('CONTRIBUTING.md', '# Contributing\n\nA clearer sentence.\n');
         const docs = w.ciRun({ hoursAgo: 0.5 });
         for (const lane of ['php', 'demo']) assert.equal(docs.plan.lanes[lane].decision, 'run', `${lane}: ${docs.plan.lanes[lane].reason}`);
-        assert.equal(matrix(docs).filter((m) => m.browser === 'chromium').length, CHROMIUM_SHARDS);
+        assert.equal(toolkitChromium(docs).length, CHROMIUM_SHARDS);
         assert.equal(docs.result.status, 0, docs.result.stderr);
         assert.equal(docs.result.verdict.lanes.demo.status, 'fresh');
         assert.equal(docs.result.verdict.lanes.php.status, 'fresh');
@@ -533,14 +535,30 @@ test('a partial change to a green candidate: a browser spec reruns Chromium whil
     const w = world(t);
     const green = allPassedRun(w, { hoursAgo: 3 });
     w.commit('tests/e2e/button.spec.ts', "test('button', () => { expect(1).toBe(1); });\n");
-    const partial = w.ciRun({ hoursAgo: 1, selected: { ...ALL } });
+    const partial = w.ciRun({ hoursAgo: 1, selected: { ...ALL, 'demo-app': false } });
     assert.equal(partial.plan.lanes.demo.decision, 'run', 'the browser tests, which read the spec, run');
-    assert.equal(matrix(partial).filter((entry) => entry.browser === 'chromium').length, CHROMIUM_SHARDS);
+    assert.equal(toolkitChromium(partial).length, CHROMIUM_SHARDS);
     for (const lane of ['php', 'package', 'prod-image', 'lint-kit', 'fresh-install']) {
         assert.equal(partial.plan.lanes[lane].decision, 'reuse', `${lane}: ${partial.plan.lanes[lane].reason}`);
         assert.equal(partial.plan.lanes[lane].evidence.run_id, green.id);
     }
     assert.ok(partial.result.verdict.ok);
+});
+
+test('a failing Demo app Chromium job fails CI result while successful Toolkit Chromium jobs keep their pass', (t) => {
+    const w = world(t);
+    const selected = { demo: true, 'demo-app': true };
+    const red = w.ciRun({ selected, conclusions: { [DEMO_APP_JOB]: 'failure' }, hoursAgo: 2 });
+    assert.equal(red.result.status, 1);
+    assert.equal(red.result.verdict.lanes['demo-app'].status, 'incomplete');
+    assert.equal(red.result.verdict.lanes.demo.status, 'fresh');
+    assert.ok(red.result.recorded.some((name) => name.startsWith('ci-pass-v1-demo-')));
+    assert.ok(red.result.recorded.every((name) => !/^ci-(pass|fail)-v1-demo-app-/.test(name)));
+
+    const green = allPassedRun(w, { selected, hoursAgo: 1 });
+    assert.equal(green.result.verdict.lanes.demo.status, 'reused');
+    assert.equal(green.result.verdict.lanes['demo-app'].status, 'fresh');
+    assert.deepEqual(matrix(green).map(({ suite, projects }) => [suite, projects]), [['Demo app browser checks', '--project=demo-app']]);
 });
 
 test('a partial result on a candidate: the lanes that passed keep their proof, the lane that failed runs again', (t) => {
@@ -564,7 +582,7 @@ test('a partial result on a candidate: the lanes that passed keep their proof, t
 // ---------------------------------------------------------------------------------------------------------------------
 test('one failed browser shard, then Re-run failed jobs: the pass keeps the five siblings as they first ran and the re-run shard, and a later push reuses it', (t) => {
     const w = world(t);
-    const failing = 'Demo + Playwright (chromium 4/6)';
+    const failing = 'Toolkit browser verification (chromium 4/6)';
     const first = w.ciRun({ hoursAgo: 3, conclusions: { [failing]: 'failure' } });
     assert.notEqual(first.result.status, 0, 'the first attempt fails');
     assert.equal(first.result.verdict.lanes.demo.status, 'incomplete');
@@ -626,7 +644,7 @@ test('a damaged marker and failing lanes: the fallback execution decides, never 
     allPassedRun(w, { hoursAgo: 3 });
     for (const a of w.state.artifacts) writeFileSync(a.file, 'garbage');
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, garbled.'));
-    const ran = w.ciRun({ hoursAgo: 1, conclusions: { 'Demo + Playwright (chromium 1/6)': 'failure' } });
+    const ran = w.ciRun({ hoursAgo: 1, conclusions: { 'Toolkit browser verification (chromium 1/6)': 'failure' } });
     assert.notEqual(ran.result.status, 0);
     assert.equal(ran.result.verdict.ok, false);
     assert.equal(ran.result.verdict.lanes.demo.status, 'incomplete');
@@ -660,7 +678,7 @@ test('a relevant runtime change (the pinned PHP base image): nothing is reused a
 // ---------------------------------------------------------------------------------------------------------------------
 test('a missing shard: CI result refuses the browser lane, says how many shards it had, and records no pass', (t) => {
     const w = world(t);
-    const ran = w.ciRun({ hoursAgo: 1, missing: ['Demo + Playwright (chromium 6/6)'] });
+    const ran = w.ciRun({ hoursAgo: 1, missing: ['Toolkit browser verification (chromium 6/6)'] });
     assert.notEqual(ran.result.status, 0);
     assert.equal(ran.result.verdict.lanes.demo.status, 'incomplete');
     assert.match(ran.result.verdict.lanes.demo.reason, /5 of 6/);
@@ -683,7 +701,7 @@ test('a stale producer (its lane ran again since and failed): the pass is not re
     // Re-run all jobs on the green run: this time a Chromium shard fails, so the run's latest attempt failed the lane
     const run = w.state.runs.get(green.id);
     run.run_attempt = 2;
-    run.jobs = run.jobs.map((j) => ({ ...j, id: j.id + 50000, run_attempt: 2, conclusion: j.name === 'Demo + Playwright (chromium 2/6)' ? 'failure' : j.conclusion }));
+    run.jobs = run.jobs.map((j) => ({ ...j, id: j.id + 50000, run_attempt: 2, conclusion: j.name === 'Toolkit browser verification (chromium 2/6)' ? 'failure' : j.conclusion }));
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, stale.'));
     const docs = w.ciRun({ hoursAgo: 1 });
     assert.equal(docs.plan.lanes.demo.decision, 'run');
@@ -736,7 +754,7 @@ test('a later contradiction: a failure recorded on the same inputs after the pla
     const docs = w.ciRun({ hoursAgo: 2, finished: false });
     assert.equal(docs.plan.lanes.demo.decision, 'reuse');
     // meanwhile another run on the same inputs fails the browser tests
-    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 1.5, reuse: 'off', conclusions: { 'Demo + Playwright (chromium 5/6)': 'failure' } });
+    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 1.5, reuse: 'off', conclusions: { 'Toolkit browser verification (chromium 5/6)': 'failure' } });
     // the docs push's CI result now runs: it checks the reused evidence again
     const late = docs.complete({ hoursAgo: 1 });
     assert.notEqual(late.status, 0, 'CI result refuses');
@@ -752,7 +770,7 @@ test('a later contradiction: a failure recorded on the same inputs after the pla
 test('a later contradiction found by the plan itself: a failure on the same inputs newer than the pass stops the search', (t) => {
     const w = world(t);
     const green = allPassedRun(w, { hoursAgo: 5 });
-    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 3, reuse: 'off', conclusions: { 'Demo + Playwright (chromium 5/6)': 'failure' } });
+    w.ciRun({ ref: 'refs/heads/other', hoursAgo: 3, reuse: 'off', conclusions: { 'Toolkit browser verification (chromium 5/6)': 'failure' } });
     w.commit('CHANGELOG.md', w.read('CHANGELOG.md').replace('- A fix.', '- A fix, later.'));
     const docs = w.ciRun({ hoursAgo: 1 });
     assert.equal(docs.plan.lanes.demo.decision, 'run', `demo: ${docs.plan.lanes.demo.reason}`);
@@ -808,7 +826,7 @@ for (const [how, options] of [['the reuse switch off', { reuse: 'off' }], ['main
             assert.match(ran.plan.lanes[lane].fingerprint, /^[0-9a-f]{64}$/, `${lane}: fingerprinted, so its markers are recorded`);
         }
         assert.equal(ran.plan.reuse, false);
-        assert.equal(matrix(ran).length, CHROMIUM_SHARDS + (options.ref === 'refs/heads/main' ? 6 : 0), 'the full matrix: on main the engines too');
+        assert.equal(matrix(ran).length, CHROMIUM_SHARDS + 1 + (options.ref === 'refs/heads/main' ? 6 : 0), 'Toolkit Chromium, the Demo app, and on main the engines too');
         assert.equal(ran.result.status, 0, ran.result.stderr);
         for (const lane of SELECTOR_LANES) assert.equal(ran.result.verdict.lanes[lane].status, 'fresh', lane);
         for (const lane of REUSABLE) assert.ok(ran.result.recorded.some((n) => n.startsWith(`ci-pass-v1-${lane}-`)), `${lane}: its pass is recorded`);

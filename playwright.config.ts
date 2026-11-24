@@ -50,9 +50,10 @@ if (!process.env.TEST_WORKER_INDEX) {
 }
 
 /*
- * Two projects per browser: `smoke` (tests/e2e/*.spec.ts, desktop viewport) and `examples` (every README example and
- * the recipe specs, at the configured 800x600 viewport; screenshots live in <recipe>/tests/screenshots/). Chromium's
- * keep their plain names; Firefox's and WebKit's are suffixed: smoke-firefox, examples-webkit...
+ * Three projects per browser. `smoke` covers the Toolkit through /lab and /forms. `examples` covers the recipe
+ * specs and README examples through /preview. `demo-app` covers the /demo pages, including their layout screenshots.
+ * In specs that exercise both surfaces, @demo-app selects the cases that depend on /demo. Chromium's projects keep
+ * their plain names; Firefox's and WebKit's add the browser suffix.
  *
  * Firefox and WebKit run the behavior tests only: every test tagged @screenshot (it compares pixels: a baseline, or two
  * screenshots with each other) is left out, as the baselines are Chromium's. PW_SCREENSHOTS=all turns them around: they
@@ -62,13 +63,21 @@ if (!process.env.TEST_WORKER_INDEX) {
  */
 const crossBrowserScreenshots = 'all' === process.env.PW_SCREENSHOTS;
 const desktop = { chromium: 'Desktop Chrome', firefox: 'Desktop Firefox', webkit: 'Desktop Safari' } as const;
+const demoAppSpecs = ['demo-app*.spec.ts', 'examples/pages.spec.ts'];
+const sharedSpecs = ['a11y.spec.ts', 'csp.spec.ts', 'lab.section-nav.spec.ts', 'lab.side-nav.spec.ts', 'theme-toggle.spec.ts', 'examples/baselines.spec.ts', 'examples/fit.spec.ts'];
+const demoAppTag = /(?:^| )@demo-app(?= |$)/;
+// Playwright matches grep against the project, relative file path, test title and tags.
+const demoAppTest = /(?:^|[ \\/])(?:demo-app[^ \\/]*\.spec\.ts|examples[\\/]pages\.spec\.ts|@demo-app)(?= |$)/;
+const screenshot = /@screenshot/;
 
 function browserProjects(browser: keyof typeof desktop) {
     const suffix = 'chromium' === browser ? '' : `-${browser}`;
     const other = 'chromium' !== browser;
-    const select = {
-        grep: other && crossBrowserScreenshots ? /@screenshot/ : undefined,
-        grepInvert: other && !crossBrowserScreenshots ? /@screenshot/ : undefined,
+    const screenshotsOnly = other && crossBrowserScreenshots;
+    const skipScreenshots = other && !crossBrowserScreenshots;
+    const toolkitSelection = {
+        grep: screenshotsOnly ? screenshot : undefined,
+        grepInvert: skipScreenshots ? [demoAppTag, screenshot] : demoAppTag,
     };
 
     return [
@@ -79,17 +88,29 @@ function browserProjects(browser: keyof typeof desktop) {
             fullyParallel: true,
             // the broad axe scans (a11y.spec.ts) run in Chromium only: Firefox and WebKit run the behavior; the
             // release checks' own specs (release.*.spec.ts) run in the `release` project only (below)
-            testIgnore: other ? ['examples/**', 'a11y.spec.ts', 'release.*.spec.ts'] : ['examples/**', 'release.*.spec.ts'],
-            ...select,
+            testIgnore: ['examples/**', ...demoAppSpecs, 'release.*.spec.ts', ...(other ? ['a11y.spec.ts'] : [])],
+            ...toolkitSelection,
             use: { ...devices[desktop[browser]] },
         },
         {
             name: `examples${suffix}`,
             testDir: './tests/e2e/examples',
             fullyParallel: true,
-            ...select,
+            testIgnore: demoAppSpecs,
+            ...toolkitSelection,
             snapshotPathTemplate: '{testDir}/../../../{arg}{ext}',
             use: { browserName: browser, viewport: { width: 800, height: 600 }, deviceScaleFactor: 1 },
+        },
+        {
+            name: `demo-app${suffix}`,
+            testDir: './tests/e2e',
+            testMatch: [...demoAppSpecs, ...sharedSpecs],
+            testIgnore: other ? 'a11y.spec.ts' : undefined,
+            fullyParallel: true,
+            grep: screenshotsOnly ? new RegExp(`(?=.*${screenshot.source}).*(?:${demoAppTest.source})`) : demoAppTest,
+            grepInvert: skipScreenshots ? screenshot : undefined,
+            snapshotPathTemplate: '{testDir}/../../{arg}{ext}',
+            use: { ...devices[desktop[browser]] },
         },
     ];
 }

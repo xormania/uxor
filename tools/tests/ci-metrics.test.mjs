@@ -143,6 +143,30 @@ test('run: each shard\'s tests, retries, wall and summed time, worker use, and i
     assert.equal(f2.job, null);
 });
 
+test('run: Toolkit Chromium, Demo app Chromium and cross-browser shards keep separate job metrics', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ci-metrics-browser-suites-'));
+    const shards = join(dir, 'shards');
+    const jobsFile = join(dir, 'jobs.json');
+    const out = join(dir, 'out');
+    const cases = [
+        ['chromium', 'Toolkit browser verification (chromium 1/1)'],
+        ['demo-app-chromium', 'Demo app browser checks (chromium 1/1)'],
+        ['firefox', 'Cross-browser verification (firefox 1/1)'],
+    ];
+    const timedJob = readFileSync(join(fixtures, 'jobs.jsonl'), 'utf8').trim().split('\n').map((line) => JSON.parse(line))
+        .find((job) => job.name === 'Demo + Playwright (chromium 1/4)');
+    assert.ok(timedJob);
+    for (const [browser] of cases) shard(shards, browser, 1, 1, 'clean.json');
+    writeFileSync(jobsFile, JSON.stringify(cases.map(([, name], index) => ({ ...timedJob, id: index + 1, name }))));
+
+    const result = metrics(['run', '--shards', shards, '--jobs', jobsFile, '--out', out]);
+    assert.equal(result.code, 0, result.stderr);
+    const json = JSON.parse(readFileSync(join(out, 'ci-metrics.json'), 'utf8'));
+    assert.equal(json.shards.length, cases.length);
+    assert.deepEqual(Object.fromEntries(json.shards.map(({ browser, job }) => [browser, job?.name])), Object.fromEntries(cases));
+    assert.deepEqual(json.demoSteps['Build the demo image'], { chromium: 120000, 'demo-app-chromium': 120000, firefox: 120000 });
+});
+
 test('run: the shard balance per browser, and the shards that left no results said as missing', () => {
     const { json, markdown, summary } = run();
     const chromium = json.browsers.chromium;
