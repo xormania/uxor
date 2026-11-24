@@ -258,6 +258,14 @@ holds, and what the new controller starts from.
 Here: [`lab.mobile-nav.spec.ts`](../tests/e2e/lab.mobile-nav.spec.ts), [`lab.nav-menu.spec.ts`](../tests/e2e/lab.nav-menu.spec.ts),
 [`lab.overlays.spec.ts`](../tests/e2e/lab.overlays.spec.ts) (dropdown, modal, drawer).
 
+A preview shown from an object URL (UX Dropzone 3.8 previews a PNG or JPEG from a `blob:` URL, revoked when the
+preview changes or its controller disconnects) can be broken without any error the fixture sees: a `blob:` load is not
+a request of the app, and Chromium logs nothing for a revoked URL used as a background. Wrap `URL.revokeObjectURL` in
+an init script to record the revoked URLs, then read what is shown: decode the preview's URL in the page
+(`new Image()`, `decode()`, `naturalWidth`), list the visible elements whose inline background is a revoked URL now
+and, for each body Turbo renders (`turbo:before-render`), at the first animation frame once that body is in place.
+Here: [`lab.dropzone.spec.ts`](../tests/e2e/lab.dropzone.spec.ts) ("…a restored PNG shows a preview that loads…").
+
 ### Beside a frame visit promoted to history
 
 **Catches:** a component next to a data table (or any `data-turbo-action="advance"` frame) that closes, loses the
