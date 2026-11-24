@@ -61,7 +61,7 @@ function resolve(t, fixtures) {
     return { status: run.status, log: run.stdout + run.stderr, values };
 }
 
-test('the site publishes the latest published release, at the commit its tag points at', (t) => {
+test('the site resolves the latest published release to its tagged commit', (t) => {
     const { status, log, values } = resolve(t);
     assert.equal(status, 0, log);
     assert.deepEqual(values, { version: '0.4.0', commit: sha('a') });
@@ -82,7 +82,7 @@ test('no draft, prerelease, malformed or missing release is ever published', (t)
     }
 });
 
-test('what the build checks out comes from the Releases alone; release.yml version is only compared with it', (t) => {
+test('the build uses the published release commit and rejects a different requested version', (t) => {
     // no input reaches the step whose outputs choose the checkout (CodeQL: cache poisoning)
     const release = workflow.slice(workflow.indexOf('            - id: release'), workflow.indexOf('            - id: expected'));
     assert.doesNotMatch(release, /inputs\./);
@@ -120,7 +120,7 @@ test('the build stops unless the checkout and the release tag are the resolved c
     }
 });
 
-test('the deploy stops when a newer release came out, or the tag moved, after the build', (t) => {
+test('the deploy stops when a newer release appears or the tag moves after the build', (t) => {
     const fresh = stepIn(workflow, 'deploy', 'fresh').run;
     for (const [name, fixtures, expected] of [
         ['still the latest, at the same commit', {}, 0],

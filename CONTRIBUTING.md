@@ -299,7 +299,7 @@ To see which jobs a path selects, run the classifier from the repository root:
 
 ```sh
 printf '%s\n' website/templates/pages/index.html.twig | bash tools/ci-changes.sh
-git diff --name-only --no-renames <base> HEAD | bash tools/ci-changes.sh
+git diff --name-only --no-renames <base> HEAD | bash tools/ci-changes.sh <base>
 ```
 
 The [classifier cases](tools/tests/ci-changes.sh) cover individual and combined inputs. A change to
@@ -316,6 +316,10 @@ install* jobs install from the complete archive, `packages/` included.
 
 *Quick checks* verifies that the generated references match their inputs and that `git archive HEAD` includes the
 required kit and package payload. The archive checker reads the committed tree, so commit changes before using it.
+
+*Package documentation* checks Composer metadata, the generated command guide and the reference tests when a change
+reaches the package's docs without a fresh *Package* run. The classifier uses the comparison commit to recognize
+documentation command edits in `composer.json` and prose edits under an unchanged release heading in `CHANGELOG.md`.
 
 *Package* validates, installs, lints and tests the Composer package. Its archive consumer checks Mate
 initialization and discovery, an upgrade that preserves application-owned work, and rendering without dev
@@ -359,6 +363,7 @@ dirs=(); for manifest in */manifest.json; do if [ -d "${manifest%/manifest.json}
 phpstan analyse -c tools/phpstan.neon --autoload-file=demo/vendor/autoload.php -- "${dirs[@]}" demo/src/Demo demo/tests   # use the locked tool with its Symfony and PHPUnit extensions
 tools/tests/fresh-install.sh                        # a new Symfony app installs dashboard-home, signup and data-table from the last commit (PHP=…, COMPOSER_BIN=…: other binaries)
 KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh   # the same in a new Symfony Docker project (Symfony 8.1), kit downloaded from GitHub
+KIT_REF=<pushed commit SHA or tag> tools/tests/docker-install.sh --smoke   # Docker CI: representative installed pages, assets and a Live action over HTTPS
 npx playwright test                                 # every browser test, in Chromium, Firefox and WebKit: see below
 npx playwright test --project=smoke --project=examples   # Toolkit on Chromium, including screenshots
 npx playwright test --project=demo-app                   # example app on Chromium, including layout screenshots
@@ -543,6 +548,22 @@ preceding heading, with `default` under the recipe title and `-2`, `-3` and so o
   covers Twig props and Stimulus controllers only.
 - **Never commit** `vendor/`, `demo/vendor/`, `demo/var/`, `demo/public/assets/`, `demo/assets/vendor/`, `node_modules/`,
   Playwright output (`test-results/`, `playwright-report/`, `playwright-results/`).
+
+### CI and test names
+
+- **Workflows** use short sentence-case names for their responsibility, such as *Release checks* or *PHP analysis
+  comparison*.
+- **Jobs** use short sentence-case noun phrases that identify what they validate or produce, such as *Toolkit browser
+  verification*. Keep the base name consistent across a matrix and append the distinguishing inputs in parentheses.
+  Use `(<browser> <shard>/<total>)` for browser shards, as in *Toolkit browser verification (chromium 1/8)*.
+- **Steps** start with an action verb and name its target, such as *Verify the published release tag*.
+- **Test titles** state the expected behavior in the present tense and include the condition that changes it. For
+  example, `the deploy stops when a newer release appears or the tag moves`. Use group names for shared context
+  and include the case or input in parameterized titles. Follow the framework's convention for method names.
+- **Names read by tooling** are compatibility interfaces. Search for the exact name in workflow triggers, evidence
+  checks, metrics, diagnostics and test selectors before renaming it. Update the consumers and fixtures together.
+  Coordinate required check renames with the maintainer and the target branch rulesets. Keep partial and skipped
+  verdicts distinct from the required full *CI result*.
 
 ## Adding a recipe
 

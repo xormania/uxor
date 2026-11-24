@@ -1177,6 +1177,17 @@ include `manifest.json`, `kit.css`, `kit.js`, `LICENSE` and `NOTICE`. Website te
 belong to the *Static site* job. [The selection cases](../tools/tests/ci-changes.sh) list the expected jobs for
 each kind of input.
 
+When the release suite runs, its production-image job can reuse the normal CI push's successful build and smoke test
+for the exact same tree. The workflow checks the producing repository, branch, head, CI workflow and attempt and
+verifies that both steps passed within a day. Reuse also requires both production job definitions and their
+workflow-level defaults to match the implementations checked for equivalence. If the matching push is active, the
+job waits briefly for its image result while the release browser tests run. Missing or failed evidence, manual runs
+and daily runs perform their own build and smoke test. The required *Release checks* verdict still waits for the
+image job, and a daily image failure keeps its issue open. The fallback is a plain build without the dev-image cache.
+[`tools/tests/prod-image-workflow.test.mjs`](../tools/tests/prod-image-workflow.test.mjs) checks that both lanes exist,
+build from the root with `demo/Dockerfile` for linux/amd64 only, run on those paths and not on a browser spec, a
+recipe's tests, the docs or the tools, and that the dev image's bake steps read the compose files from the root.
+
 ## Accessibility
 
 **Catches:** serious and critical axe violations on every page, in both themes; and, in a component's own specs, the
@@ -1220,10 +1231,11 @@ and lab.nav-menu.
 **Catches:** what only a new project shows: a missing dependency, a Flex recipe that changes a file, PHP copied into
 `src/` that does not boot.
 
-A script creates a new Symfony app, installs the kit as users do, and fetches its pages and a Live action with
-`curl`, without a browser. Two scripts do it: on a Symfony skeleton with the kit from the last commit, and in a Symfony
-Docker project with the kit from GitHub. They share the steps a user takes (the packages, the recipes in order, the app
-they write); each keeps where the app runs, where the kit comes from and how the app is served.
+The host check creates a fresh Symfony 7.4 app, installs the kit from the last commit's archive, and runs the full
+HTTP scenario. The CI Docker check starts a fresh Symfony Docker project on Symfony 8.1, downloads the kit from
+GitHub, and exercises the installed dashboard, its JavaScript assets, the signup form, and a Live action over HTTPS
+after restarting the workers. Both follow the installer's Composer and Chart AssetMapper instructions. Run the Docker
+script without `--smoke` for the full HTTP scenario, as the release publication workflow does before tagging.
 
 Here: [`fresh-install.sh`](../tools/tests/fresh-install.sh), [`docker-install.sh`](../tools/tests/docker-install.sh),
 their shared steps [`install-scenario.sh`](../tools/tests/install-scenario.sh),
@@ -1455,7 +1467,8 @@ stylesheet, specs, or layout screenshots selects only that browser job. Website 
 The example app and Toolkit fixture styles compile independently. Pages load the stylesheet for their surface.
 Changes to shared runtime inputs, such as installed recipes, the compiler pin, or shared Twig fragments, select
 both browser suites.
-*Cross-browser verification* runs both suites in three shards each on Firefox and WebKit.
+*Cross-browser verification* runs both suites in three shards each on Firefox and WebKit. The dedicated `engines_only`
+dispatch uses four shards per engine for the same full suites. The pass requires every shard of the producer's matrix.
 Each job starts the browser server itself (*Start the browser server*, the pinned image on the runner's network, failing at
 once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the
 browser reaches `https://localhost` itself. Without it (a local run, the default), `playwright.config.ts` has the
@@ -1478,7 +1491,8 @@ the browser tests. Firefox and WebKit run:
   requires verified engine evidence on the head.
 
 An engines-only run (named *CI: Firefox and WebKit only*) has a concurrency group of its own, so it never cancels a
-push's run or is cancelled by one. It and the daily run publish their verdict as *CI result (engines only)* and *CI
+push's run or is cancelled by one. Its verdict covers the browser jobs and their setup. The accompanying push or full
+run covers Quick checks. The dedicated run and the daily run publish their verdict as *CI result (engines only)* and *CI
 result (daily)*: only a push, or a full manual run, publishes *CI result*, the check the rulesets require, so a green
 partial run can never stand in for a red full one on the same commit.
 
@@ -2140,20 +2154,19 @@ for review runs this check too. Only the pull request publishes *Release checks*
 the daily and manual runs, which test the suite but not the engines, publish *Release checks (daily)* and *Release
 checks (manual)*.
 
-On the release pull request, the suite runs again on a new head unless it already passed on an earlier head of a pull
-request in this repository merged with the same base and the workflow allows reuse for every changed path.
-The production image serves `docs/GUIDE.md` and `llms.txt`, so changes to them invalidate reuse. A passing pull
-request run uploads a
+On the release pull request, the suite can reuse a verified pass from the last 14 days against the same base when
+its runtime inputs are unchanged. A passing pull request run uploads a
 `release-checks-pr-passed-v1-<base>-<head>` artifact named by the two parents of the merge commit it tested, read from
 that commit. The consumer downloads the marker as a bounded ZIP and reads its single `commit` entry without
 extracting files. It verifies the producing run's repository, workflow, event and successful conclusion through
 GitHub, then looks up the recorded merge commit's two parents. The first must be the current base; the second must
 be that producing run's immutable `head_sha` (Actions reports the PR head here, not the synthetic merge SHA).
-The artifact name must match those independently verified parents. A filename alone cannot claim a future head,
-and malformed, unavailable or mismatched evidence runs the suite again. Only then does the next run compare the
-verified head with its own. A changelog-only edit can reuse the suite. Editing the workflow or its tools runs
-its suite again. The suite also runs when the base moved, the earlier run produced no marker, the producer was
-a fork, or the checkout cannot find the commit.
+The artifact name must match those independently verified parents. The recorded merge's tree must match its
+producer head's tree. The next run compares that tree with its prospective merge. Changes limited to the website,
+documentation, packaged references, or the root Composer `docs:check` and `docs:generate` scripts can reuse the
+pass. Changes to a runtime input, including the package browser recorder, the release workflow and its tools,
+require a fresh run. A moved base, a fork producer, stale or missing evidence, or a tree whose inputs cannot be
+compared also requires a fresh run.
 
 The workflow resolves the expected target once. Its checkout independently trusts only the immutable triggering
 event SHA (for the daily run, the `dev` commit it was started on); the resolver output cannot select another revision

@@ -16,15 +16,19 @@ const { appendFileSync } = require('node:fs');
 const { basename } = require('node:path');
 const tool = basename(process.argv[1]);
 const args = process.argv.slice(2);
-appendFileSync(process.env.CONSUMER_TEST_LOG, JSON.stringify({ tool, args, cwd: process.cwd() }) + '\\n');
+appendFileSync(process.env.CONSUMER_TEST_LOG, JSON.stringify({
+    tool, args, cwd: process.cwd(), browserEndpoint: process.env.PW_BROWSER_WS_ENDPOINT,
+}) + '\\n');
+if (tool === 'curl') process.stdout.write('200');
+if (tool === 'docker' && args[0] === 'run') process.stdout.write('test-browser');
 if (tool === 'npm' && args[0] === 'run' && args[1] === process.env.CONSUMER_TEST_FAIL_SCRIPT) {
     process.exit(7);
 }
 `;
 
-function runStep(t, id, failingScript = '') {
-    const step = stepIn(workflow, 'package', id);
-    assert.ok(step?.run, `Package runs the ${id} step`);
+function runStep(t, id, failingScript = '', job = 'package') {
+    const step = stepIn(workflow, job, id);
+    assert.ok(step?.run, `${job} runs the ${id} step`);
     const lines = workflow.split('\n');
     const runLine = step.line - 1;
     const stepStart = lines.slice(0, runLine).findLastIndex((line) => /^ {12}- /.test(line));
@@ -37,7 +41,7 @@ function runStep(t, id, failingScript = '') {
     t.after(() => rmSync(scratch, { recursive: true, force: true }));
     const log = join(scratch, 'commands.log');
     writeFileSync(log, '');
-    for (const tool of ['npm', 'npx', 'python3', 'php', 'composer']) {
+    for (const tool of ['npm', 'npx', 'python3', 'php', 'composer', 'ss', 'docker', 'curl']) {
         writeFileSync(join(scratch, tool), recordingStub, { mode: 0o755 });
     }
     const result = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run], {
@@ -56,22 +60,42 @@ function runStep(t, id, failingScript = '') {
     return { result, calls };
 }
 
-test('Package installs the independent consumer lock and its Chromium in CI', (t) => {
+test('Package installs the independent consumer client from its lock', (t) => {
     const { result, calls } = runStep(t, 'consumer-browser-install');
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(calls.map(({ tool, args, cwd }) => [tool, args.slice(0, 1), cwd]), [
         ['npm', ['ci'], join(root, consumer)],
-        ['npx', ['playwright'], join(root, consumer)],
     ]);
-    assert.ok(calls[1].args.includes('install') && calls[1].args.includes('chromium'));
+});
+
+test('Static site uses the root lock and its pinned browser while testing navigation', (t) => {
+    const install = runStep(t, 'website-browser-install', '', 'static-site');
+    assert.equal(install.result.status, 0, install.result.stderr);
+    assert.deepEqual(install.calls.map(({ tool, args }) => [tool, args]), [['npm', ['ci', '--no-audit', '--no-fund']]]);
+
+    const navigation = runStep(t, 'navigation', '', 'static-site');
+    assert.equal(navigation.result.status, 0, navigation.result.stderr);
+    const image = JSON.parse(readFileSync(join(root, 'tools/playwright-image.json'), 'utf8')).image;
+    const browser = navigation.calls.find(({ tool, args }) => tool === 'docker' && 'run' === args[0]);
+    assert.ok(browser?.args.includes(image));
+    assert.ok(browser.args.includes(`type=bind,source=${join(root, 'node_modules')},target=/opt/browser/node_modules,readonly`));
+    const testClient = navigation.calls.find(({ tool }) => tool === 'npx');
+    assert.deepEqual(testClient?.args, ['playwright', 'test', '--config=website/playwright.config.ts']);
+    assert.equal(testClient.browserEndpoint, 'ws://127.0.0.1:3000/');
+    assert.deepEqual(navigation.calls.at(-1).args, ['rm', '-f', 'test-browser']);
 });
 
 test('Package prepares, installs, and exercises the customer app before checking the no-dev runtime', (t) => {
     const { result, calls } = runStep(t, 'consumer-workflow');
     assert.equal(result.status, 0, result.stderr);
     const commands = calls.map(({ tool, args }) => [tool, ...args].join(' '));
+    const image = readFileSync(join(root, 'packages/uxor/resources/browser/Dockerfile'), 'utf8').split('\n')[0].split(' ')[1];
+    const browserServer = calls.find(({ tool, args }) => tool === 'docker' && 'run' === args[0]);
+    assert.ok(browserServer?.args.includes(image));
+    assert.ok(browserServer.args.includes(`type=bind,source=${join(root, consumer, 'node_modules')},target=/opt/browser/node_modules,readonly`));
 
     const prepare = commands.findIndex((command) => /run\.py .*--native.*\bprepare\b/.test(command));
+    const nativeRecorder = commands.findIndex((command) => /check-headless\.py\b/.test(command) && !command.includes('--docker'));
     const install = commands.findIndex((command) => /install-uxor\.py\b/.test(command));
     const requestOnly = commands.indexOf('npm run test:request-only');
     const browser = commands.indexOf('npm run test:workflow');
@@ -79,19 +103,22 @@ test('Package prepares, installs, and exercises the customer app before checking
     const cache = commands.findIndex((command) => /\b(?:bin\/console )?cache:clear\b.*--env[= ]prod/.test(command));
     const runtime = commands.findIndex((command) => /check-workflow-runtime\.php\b/.test(command));
 
-    const sequence = [prepare, install, requestOnly, browser, noDev, cache, runtime];
+    const sequence = [prepare, nativeRecorder, install, requestOnly, browser, noDev, cache, runtime];
     assert.ok(sequence.every((index, at) => index >= 0 && (at === 0 || index > sequence[at - 1])), commands.join('\n'));
     assert.equal(calls[requestOnly].cwd, join(root, consumer));
     assert.equal(calls[browser].cwd, join(root, consumer));
+    assert.equal(calls[browser].browserEndpoint, 'ws://127.0.0.1:3000/');
+    assert.deepEqual(calls.at(-1).args, ['rm', '-f', 'test-browser']);
 });
 
 for (const script of ['test:request-only', 'test:workflow']) {
     test(`a failing ${script} stops the Package step`, (t) => {
         const { result, calls } = runStep(t, 'consumer-workflow', script);
         assert.equal(result.status, 7, result.stdout);
-        const last = calls.at(-1);
+        const last = calls.findLast(({ tool }) => tool !== 'docker');
         assert.equal(last.tool, 'npm');
         assert.deepEqual(last.args, ['run', script]);
+        assert.deepEqual(calls.at(-1).args, ['rm', '-f', 'test-browser']);
     });
 }
 

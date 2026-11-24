@@ -5,8 +5,8 @@ name: Pages
 # and their runtime assets. tools/build-static.sh assembles and checks both outputs. release.yml requests
 # publication after a release. A manual run on main rebuilds the latest release for repair.
 #
-# One release identity throughout: *Which release* reads GitHub's latest Release (never a draft or a prerelease) and the
-# commit its tag points at, from the API alone: no input chooses what is checked out (CodeQL: cache poisoning, the
+# One release identity throughout: *Published release selection* reads GitHub's latest published stable Release and
+# the commit its tag points at, from the API alone: no input chooses what is checked out (CodeQL: cache poisoning, the
 # build runs in the default branch's context). release.yml's version is only compared with it. The build checks out
 # that commit, builds it with its own tools/build-static.sh, checks the pages name that version, and writes
 # release.json beside them; the deploy checks again that the version is still the latest, at that commit, so an older
@@ -31,7 +31,7 @@ concurrency:
 jobs:
     # The release to publish: no branch fallback, a version that is not the latest published Release stops here
     resolve:
-        name: Which release
+        name: Published release selection
         # a manual run only from main (from release.yml, the event is release.yml's own)
         if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
         runs-on: ubuntu-latest
@@ -91,7 +91,7 @@ jobs:
                   persist-credentials: false
                   ref: ${{ needs.resolve.outputs.commit }}
                   fetch-depth: 0 # the tags: the release's own tag names it in the install commands
-            - name: Check the release's tag
+            - name: Verify the published release tag
               id: tag
               env:
                   VERSION: ${{ needs.resolve.outputs.version }}
@@ -117,7 +117,7 @@ jobs:
                   tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch=main 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
             # The site the deploy uploads names this release: its install command installs it, and release.json
             # records the version and the commit for the deploy's own check and for anyone reading the site
-            - name: Check the release identity
+            - name: Verify the built site's release identity
               id: identity
               env:
                   VERSION: ${{ needs.resolve.outputs.version }}
@@ -197,7 +197,7 @@ jobs:
         steps:
             # Still the latest release, at the same commit: a run that waited behind a newer release's run (the pages
             # concurrency group serializes them, it does not order them) or was re-run later deploys nothing
-            - name: Check the release is still the latest
+            - name: Verify the release is still current
               id: fresh
               env:
                   GH_TOKEN: ${{ github.token }}
