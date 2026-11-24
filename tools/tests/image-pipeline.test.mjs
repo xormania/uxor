@@ -488,6 +488,99 @@ test('a changed OCI archive fails verification before the publisher touches the 
     assert.ok(!existsSync(marker), 'a rejected archive never reaches the registry');
 });
 
+test('image cache publication verifies the BuildKit manifest digest before writing a receipt', (t) => {
+    const work = temporaryDirectory(t);
+    const bin = join(work, 'bin');
+    mkdirSync(bin);
+    const role = join(work, 'toolkit');
+    mkdirSync(role);
+    const archive = join(role, 'image.tar');
+    const contents = 'tested image fixture';
+    const hash = (input) => createHash('sha256').update(input).digest('hex');
+    writeFileSync(archive, contents);
+    writeFileSync(join(role, 'tested.sha256'), `${hash(contents)}  ${archive}\n`);
+    writeFileSync(join(role, 'manifest.json'), '{"fixture":"tested image"}\n');
+    writeFileSync(join(work, 'bake.json'), JSON.stringify({ target: { toolkit: {} } }));
+    const cacheManifest = '{"fixture":"BuildKit cache manifest"}';
+    const digest = `sha256:${hash(cacheManifest)}`;
+    const repository = 'xormania/uxor';
+    const cacheRef = `docker://ghcr.io/${repository}-image-cache@${digest}`;
+    const registryReads = join(work, 'cache-reads.txt');
+    writeFileSync(join(bin, 'gh'), '#!/bin/sh\nprintf "%s\\n" "$IMAGE_COMMIT"\n', { mode: 0o755 });
+    writeFileSync(join(bin, 'docker'), `#!/bin/sh
+set -eu
+case "$1" in
+    login) test "$2" = ghcr.io; cat >/dev/null ;;
+    logout) test "$2" = ghcr.io ;;
+    buildx)
+        test "$2 $3 $4 $5 $6" = 'bake --file bake.json --progress=plain toolkit'
+        case "$*" in *image-manifest=true*) ;; *) exit 99 ;; esac
+        printf '%s\\n' "$BUILDKIT_PROGRESS" >&2
+        ;;
+    *) exit 99 ;;
+esac
+`, { mode: 0o755 });
+    writeFileSync(join(bin, 'skopeo'), `#!/bin/sh
+set -eu
+case "$1" in
+    manifest-digest)
+        checksum=$(sha256sum "$2")
+        printf 'sha256:%s\\n' "\${checksum%% *}"
+        ;;
+    copy) test "$4" = --preserve-digests ;;
+    inspect)
+        test "$4" = --raw
+        case "$5" in
+            docker://ghcr.io/xormania/uxor-ci-toolkit:*) cat "$IMAGE_MANIFEST" ;;
+            docker://ghcr.io/xormania/uxor-image-cache*)
+                printf '%s\\n' "$5" >> "$REGISTRY_READS"
+                test "$5" = "$EXPECTED_CACHE_REF"
+                printf '%s' "$CACHE_MANIFEST"
+                ;;
+            *) exit 99 ;;
+        esac
+        ;;
+    *) exit 99 ;;
+esac
+`, { mode: 0o755 });
+    const revision = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' });
+    assert.equal(revision.status, 0, revision.stderr);
+    const sha = revision.stdout.trim();
+    const publish = (progress) => spawnSync('bash', [join(images, 'publish.sh'), work], {
+        cwd: root, encoding: 'utf8', timeout: 30000,
+        env: {
+            ...process.env, PATH: `${bin}:${process.env.PATH}`, BUILDKIT_PROGRESS: progress,
+            GITHUB_REPOSITORY: repository, GITHUB_REF: 'refs/heads/main', GITHUB_REF_PROTECTED: 'true',
+            GITHUB_EVENT_NAME: 'workflow_run', GITHUB_SHA: sha, IMAGE_COMMIT: sha, IMAGE_ROLES: 'toolkit',
+            GITHUB_RUN_ID: '30', GITHUB_RUN_ATTEMPT: '2', GH_TOKEN: 'fixture-token', GITHUB_ACTOR: 'fixture',
+            DOCKER_CONFIG: join(work, 'docker-config'), IMAGE_MANIFEST: join(role, 'manifest.json'),
+            EXPECTED_CACHE_REF: cacheRef, REGISTRY_READS: registryReads, CACHE_MANIFEST: cacheManifest,
+        },
+    });
+    const receipt = join(work, 'receipt.json');
+    for (const progress of [
+        `#9 writing cache image manifest ${digest}\n#9 writing cache image manifest ${digest} done`,
+        `#9 writing cache manifest ${digest} 0.3s done`,
+    ]) {
+        const run = publish(progress);
+        assert.equal(run.status, 0, `${run.stdout}${run.stderr}`);
+        assert.deepEqual(JSON.parse(readFileSync(receipt, 'utf8')), { repository, commit: sha, cache: { toolkit: digest } });
+        assert.equal(readFileSync(registryReads, 'utf8'), `${cacheRef}\n`, 'the cache is fetched by the exporter digest');
+        rmSync(receipt);
+        rmSync(registryReads);
+    }
+
+    for (const progress of [
+        '#9 exporting cache to registry done',
+        `#9 writing cache image manifest ${digest} done\n#9 writing cache image manifest sha256:${'a'.repeat(64)} done`,
+    ]) {
+        const run = publish(progress);
+        assert.notEqual(run.status, 0, progress);
+        assert.ok(!existsSync(receipt), 'publication cannot write a receipt without one exporter digest');
+        assert.ok(!existsSync(registryReads), 'publication rejects uncertain exporter output before fetching a cache');
+    }
+});
+
 test('the daily image refresh is scheduled ahead of each weekly Dependabot version check', () => {
     const refresh = readFileSync(join(root, '.github/workflows/refresh-images.yml'), 'utf8');
     const dependabot = readFileSync(join(root, '.github/dependabot.yml'), 'utf8');

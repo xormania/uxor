@@ -51,9 +51,13 @@ while IFS= read -r scope; do
             --set "$scope.output=type=cacheonly" \
             --set "$scope.cache-to=type=registry,ref=$ref,mode=max,image-manifest=true,oci-mediatypes=true"
     ) 2>&1 | tee "$work/cache-$scope.log"
-    # Use the exporter receipt, rather than resolving a mutable tag after writing.
-    digest=$(sed -nE 's/^#[0-9]+ writing cache manifest (sha256:[a-f0-9]{64})( .*)?$/\1/p' "$work/cache-$scope.log" | sort -u)
-    [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+    # BuildKit includes "image" in this message with image-manifest=true.
+    # Use the digest emitted by the exporter to verify the exact registry object.
+    digest=$(sed -nE 's/^#[0-9]+ writing cache( image)? manifest (sha256:[a-f0-9]{64})( .*)?$/\2/p' "$work/cache-$scope.log" | sort -u)
+    if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+        printf 'Expected one cache manifest digest for %s in %s\n' "$scope" "$work/cache-$scope.log" >&2
+        exit 1
+    fi
     skopeo inspect --authfile "$docker_auth" --raw "docker://ghcr.io/$repository-image-cache@$digest" > "$work/cache-provider.json"
     test "$(skopeo manifest-digest "$work/cache-provider.json")" = "$digest"
     cache=$(jq -c --arg scope "$scope" --arg digest "$digest" '. + {($scope): $digest}' <<< "$cache")
