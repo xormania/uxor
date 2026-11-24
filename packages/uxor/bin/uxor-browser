@@ -11,7 +11,7 @@ var/uxor/browser-diagnostics.json in the current project.
 
 Print the artifact path on stdout. Exit 0 for a clean visit, 1 for a recorded
 failure and 2 for a command or runtime error. The native runtime uses Node.js
-18+ and npm; --docker selects the packaged browser with its system libraries.
+20+ and npm; --docker selects the packaged browser with its system libraries.
 HELP
 }
 
@@ -65,13 +65,13 @@ trap 'rm -f "$artifact"' EXIT
 trap 'exit 2' HUP INT TERM
 
 if ! "$docker"; then
-    if ! command -v npm >/dev/null || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 18 ? 1 : 0)' >/dev/null 2>&1; then
+    if ! command -v npm >/dev/null || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) < 20 ? 1 : 0)' >/dev/null 2>&1; then
         docker=true
     fi
 fi
 
 if "$docker"; then
-    command -v docker >/dev/null || fail 'A working Docker CLI or Node.js 18+ with npm is required.'
+    command -v docker >/dev/null || fail 'A working Docker CLI or Node.js 20+ with npm is required.'
     # Changes to a shipped worker or runtime pin select a new tag. Warm runs need no registry or build.
     hash_input() {
         if command -v sha256sum >/dev/null; then sha256sum; else shasum -a 256; fi
