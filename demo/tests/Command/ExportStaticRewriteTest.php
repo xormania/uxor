@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  *
  * PCRE's JIT does not count small backtrack limits, and a pattern compiled with JIT on keeps its JIT code in PHP's
  * pattern cache when pcre.jit is turned off later: a case run after any test that rewrote a page (this class's healthy
- * case, StaticExportBannerTest) would match and pass no error. So each case runs in its own PHP process, where JIT is
+ * case, DemoExportTest) would match and pass no error. So each case runs in its own PHP process, where JIT is
  * off before any of the export's patterns is compiled.
  */
 final class ExportStaticRewriteTest extends TestCase

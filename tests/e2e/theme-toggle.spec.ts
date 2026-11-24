@@ -45,7 +45,7 @@ for (const system of ['light', 'dark'] as const) {
             const flipped: Scheme = 'light' === expected ? 'dark' : 'light';
 
             test.beforeEach(async ({ page }) => {
-                await page.goto('/');
+                await page.goto('/forms');
                 if (null !== choice) {
                     await page.evaluate((theme) => localStorage.setItem('theme', theme), choice);
                     await page.reload();
@@ -80,7 +80,7 @@ for (const system of ['light', 'dark'] as const) {
                 await expect(page).toHaveURL(/\/lab$/);
                 await expectTheme(page, flipped);
                 await page.goBack();
-                await expect(page).toHaveURL(/\/$/);
+                await expect(page).toHaveURL(/\/forms$/);
                 await expectTheme(page, flipped);
                 await sameDocument.expectKept();
 
@@ -107,7 +107,7 @@ test.describe('storage blocked', () => {
             };
             Object.defineProperty(window, 'localStorage', { get: blocked });
         });
-        await page.goto('/');
+        await page.goto('/forms');
         await expectTheme(page, 'light');
         await toggle(page).click();
         await expectTheme(page, 'dark');

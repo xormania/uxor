@@ -10,7 +10,7 @@ imports:
     - { resource: services/oauth.yaml }
 
 parameters:
-    # Root of the kit showcased by this demo (the repository root).
+    # The local kit supplies the recipes and README examples rendered in the demo.
     app.kit_dir: '%kernel.project_dir%/..'
 
 services:
@@ -25,6 +25,10 @@ services:
         resource: '../src/'
         # the recipes' PHP is registered from the kit below (tools/sync-demo copies it here too)
         exclude: '../src/UXor/'
+
+    UXor\Kit\KitReader:
+        arguments:
+            $kitDir: '%app.kit_dir%'
 
     # PHP that ux:install copies into an app's src/ (composer.json's autoload maps it to the recipes)
     App\UXor\Dropzone\:

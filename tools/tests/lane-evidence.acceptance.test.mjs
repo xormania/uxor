@@ -26,7 +26,7 @@ const HOUR = 1;
 const DAY = 24;
 
 // the selector's lanes (tools/ci-changes.sh); the engines follow the browser tests
-const SELECTOR_LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
+const SELECTOR_LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
 const ALL = Object.fromEntries(SELECTOR_LANES.map((lane) => [lane, true]));
 // the lanes whose pass can be reused (docs/TESTING.md, *Reused lanes*): 14 days, or 24 hours for those resolving live
 const REUSABLE = ['php', 'demo', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
@@ -38,6 +38,7 @@ const chromiumJobs = (count) => Array.from({ length: count }, (_, i) => `Demo + 
 const LANE_JOBS = {
     php: ['Kit PHP'],
     'static-site': ['Static site'],
+    'runtime-export': ['Runtime export'],
     'prod-image': ['Production image'],
     package: ['Package'],
     'fresh-install': ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'],
@@ -46,7 +47,7 @@ const LANE_JOBS = {
     engines: ['firefox', 'webkit'].flatMap((b) => [1, 2, 3].map((s) => `Demo + Playwright (${b} ${s}/3)`)),
 };
 // CI result's `needs` names for the lanes that are jobs of their own
-const NEEDS_OF = { php: ['php'], 'static-site': ['static-site'], 'prod-image': ['prod-image'], package: ['package'], 'fresh-install': ['fresh-install', 'docker-install'], 'lint-kit': ['lint-kit'] };
+const NEEDS_OF = { php: ['php'], 'static-site': ['static-site'], 'runtime-export': ['runtime-export'], 'prod-image': ['prod-image'], package: ['package'], 'fresh-install': ['fresh-install', 'docker-install'], 'lint-kit': ['lint-kit'] };
 
 /** a store-only ZIP holding one file, as GitHub serves an artifact */
 function zip(name, data) {
@@ -107,6 +108,7 @@ function world(t, chromiumShards = CHROMIUM_SHARDS) {
         'tools/ci-changes.sh': '#!/bin/sh\necho selector\n',
         'tools/ci/browser-checkout.patterns': readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8'),
         'tools/playwright-image.json': '{"image": "mcr.microsoft.com/playwright:v1.58.2-noble@sha256:bbbb"}\n',
+        'packages/uxor/resources/guides.json': '{"install":{"file":"INSTALL.md"},"guide":{"file":"docs/GUIDE.md"}}\n',
         'packages/uxor/resources/uxor/index.json': '{"links": "0.3.1"}\n',
     };
     for (const [path, content] of Object.entries(files)) write(path, content);
@@ -190,7 +192,7 @@ process.stdout.write(route.file ? fs.readFileSync(route.file) : JSON.stringify(r
         };
         const needs = {
             changes: { result: 'success' },
-            importmap: { result: ['php', 'static-site', 'demo', 'engines'].some((lane) => plan.lanes[lane]?.decision === 'run') ? 'success' : 'skipped' },
+            importmap: { result: ['php', 'runtime-export', 'demo', 'engines'].some((lane) => plan.lanes[lane]?.decision === 'run') ? 'success' : 'skipped' },
             quick: {
                 result: 'success',
                 outputs: { tools: 'success', contrast: plan.lanes.contrast?.decision === 'run' ? 'success' : 'skipped', workflows: plan.lanes.workflows?.decision === 'run' ? 'success' : 'skipped' },
@@ -324,8 +326,8 @@ test('green code, then a CHANGELOG prose correction: no browser or expensive lan
     }
     assert.deepEqual(matrix(docs), [], 'no browser shard runs');
     assert.equal(docs.outputs.browsers, 'skip');
-    assert.equal(docs.outputs.importmap, 'run', 'the static site, which always runs when selected, still needs the importmap packages');
-    for (const lane of ['contrast', 'workflows', 'static-site']) assert.equal(docs.plan.lanes[lane].decision, 'run', `${lane} runs fresh`);
+    assert.equal(docs.outputs.importmap, 'run', 'the runtime export needs the demo importmap packages');
+    for (const lane of ['contrast', 'workflows', 'static-site', 'runtime-export']) assert.equal(docs.plan.lanes[lane].decision, 'run', `${lane} runs fresh`);
 
     assert.equal(docs.result.status, 0, docs.result.stderr);
     assert.ok(docs.result.verdict.ok);
@@ -386,11 +388,13 @@ test('docs on a green release branch reuse its browsers on the first push and st
     assert.equal(child.plan.lanes.contrast.decision, 'run');
     assert.equal(child.plan.lanes.workflows.decision, 'run');
 
-    // Same stack, same producer, but now the rendered guide changes. Run all eight Chromium shards.
+    // A changed standalone guide runs its publisher and the package; the verified browser inputs are identical.
     w.commit('docs/GUIDE.md', w.read('docs/GUIDE.md') + 'A new example.\n');
     const guide = allPassedRun(w, { ref: 'refs/heads/docs/package', selected, hoursAgo: 1 });
-    assert.equal(guide.plan.lanes.demo.decision, 'run');
-    assert.equal(matrix(guide).filter((shard) => shard.browser === 'chromium').length, 8);
+    assert.equal(guide.plan.lanes['static-site'].decision, 'run');
+    assert.equal(guide.plan.lanes.package.decision, 'run');
+    assert.equal(guide.plan.lanes.demo.decision, 'reuse');
+    assert.deepEqual(matrix(guide), []);
 });
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -432,22 +436,29 @@ test('a generated-reference change: its effect is detected and the Package check
 // Row: Rendered README example, INSTALL, or guide change
 // Actual affected consumers are validated; Markdown suffix alone never exempts them
 // ---------------------------------------------------------------------------------------------------------------------
-for (const [path, edit] of [
-    ['button/README.md', (text) => text.replace('Save', 'Save changes')],
-    ['INSTALL.md', (text) => text.replace('button', 'button alert')],
-    ['docs/GUIDE.md', (text) => `${text}\nA new section.\n`],
-]) {
-    test(`a rendered Markdown file (${path}): the lanes that render or bundle it run again, though it ends in .md`, (t) => {
+test('editing a recipe README runs the website, runtime export and kit Chromium tests', (t) => {
+    const w = world(t);
+    allPassedRun(w, { hoursAgo: 3 });
+    w.commit('button/README.md', w.read('button/README.md').replace('Save', 'Save changes'));
+    const ran = w.ciRun({ hoursAgo: 1 });
+    for (const lane of ['php', 'static-site', 'runtime-export', 'demo', 'package', 'prod-image']) {
+        assert.equal(ran.plan.lanes[lane].decision, 'run', lane);
+    }
+    assert.equal(matrix(ran).filter((shard) => shard.browser === 'chromium').length, CHROMIUM_SHARDS);
+    assert.equal(ran.result.verdict.lanes.demo.status, 'fresh');
+});
+
+for (const path of ['INSTALL.md', 'docs/GUIDE.md']) {
+    test(`editing the published guide ${path} runs the website and Package and preserves kit browser evidence`, (t) => {
         const w = world(t);
         allPassedRun(w, { hoursAgo: 3 });
-        w.commit(path, edit(w.read(path)));
+        w.commit(path, w.read(path) + '\nA new section.\n');
         const ran = w.ciRun({ hoursAgo: 1 });
-        for (const lane of ['php', 'demo', 'package', 'prod-image']) {
-            assert.equal(ran.plan.lanes[lane].decision, 'run', `${lane} after ${path}: ${ran.plan.lanes[lane].reason}`);
-        }
-        assert.equal(matrix(ran).filter((m) => m.browser === 'chromium').length, CHROMIUM_SHARDS, 'every Chromium shard runs');
+        assert.equal(ran.plan.lanes['static-site'].decision, 'run');
+        assert.equal(ran.plan.lanes.package.decision, 'run');
+        assert.equal(ran.plan.lanes.demo.decision, 'reuse');
+        assert.deepEqual(matrix(ran), []);
         assert.ok(ran.result.verdict.ok);
-        assert.equal(ran.result.verdict.lanes.demo.status, 'fresh');
     });
 }
 

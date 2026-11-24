@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, stubPreviewFrames, type CancelledRequest } from './fixtures';
+import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, type CancelledRequest } from './fixtures';
 import { observeTurbo, turboOperation } from './transitions';
-import { demoRoutePaths, previewUrl, recipes } from './inventory';
+import { demoRoutePaths, previewUrl } from './inventory';
 
 /**
  * Call before the step that opens a signed-in page; returns a wait for that page's avatar, a 190 KB GIF in the
@@ -245,8 +245,8 @@ test('on a phone the drawer holds the sidebar navigation, then the navbar menu',
     await expect(drawer.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
     await drawer.getByRole('button', { name: 'Showcase' }).click();
     await expect(account).toHaveAttribute('aria-expanded', 'false');
-    await drawer.getByRole('link', { name: 'Recipes' }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await drawer.getByRole('link', { name: 'Forms' }).click();
+    await expect(page).toHaveURL(/\/forms$/);
 });
 
 test('the not-found block answers 404 and passes axe', async ({ page, allowHttpError }) => {
@@ -459,12 +459,12 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await turboVisitDone(page);
 });
 
-// a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
+// Application layouts fit a phone in both color schemes.
 for (const colorScheme of ['light', 'dark'] as const) {
     test.describe(`${colorScheme} theme at phone width`, () => {
         test.use({ viewport: { width: 390, height: 844 }, colorScheme });
 
-        for (const path of ['/', '/r/button', '/r/data-table', '/demo', '/demo/login', '/demo/settings/profile']) {
+        for (const path of ['/demo', '/demo/login', '/demo/settings/profile']) {
             test(`${path} does not scroll sideways`, async ({ page }) => {
                 await page.goto(path);
                 await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -475,19 +475,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
 }
 
-// the narrowest phone: every page of the gallery and of the demo fits, its heading wraps instead of overflowing, and a
-// recipe's description shows its Markdown rendered, not as source
+// Every application route also fits the narrowest phone.
 test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
-    for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...demoRoutePaths]) {
-        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError, browserName }) => {
+    for (const path of demoRoutePaths) {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
-            if (path.startsWith('/r/') && 'chromium' === browserName) {
-                // the embedded previews cannot widen the page and their text is theirs; in Firefox and WebKit they load,
-                // since no other test there loads the dark ones
-                await stubPreviewFrames(page);
-            }
             await page.goto(path);
             const heading = page.getByRole('heading', { level: 1 }).first();
             await expect(heading).toBeVisible();
@@ -496,8 +490,6 @@ test.describe('at 320px', () => {
             const box = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, scroll: element.scrollWidth, client: element.clientWidth }));
             expect(box.right, 'the heading ends inside the page').toBeLessThanOrEqual(widths.client);
             expect(box.scroll, 'the heading wraps its text').toBeLessThanOrEqual(box.client);
-            // the page's text without its code: a recipe page shows the README's code blocks and inline code,
-            // where backticks are what the code says (a Markdown example, a template literal)
             const text = await page.evaluate(() => {
                 let rest = document.body.innerText;
                 for (const code of document.querySelectorAll('pre, :not(pre) > code')) {
@@ -507,54 +499,17 @@ test.describe('at 320px', () => {
             });
             expect(text).not.toMatch(/\]\(https?:/);
             expect(text).not.toMatch(/`[^`\n]+`/);
-            if (path.startsWith('/r/')) {
-                // a recipe's name is one word as long as the recipe wants (ForgotPasswordForm): one wider than any
-                // font makes it still breaks inside the page
-                await heading.evaluate((element) => (element.textContent = 'ForgotPasswordForm'.repeat(3)));
-                const wide = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, page: document.documentElement.scrollWidth }));
-                expect(wide.right, 'a long name breaks inside the page').toBeLessThanOrEqual(widths.client);
-                expect(wide.page, 'a long name does not widen the page').toBeLessThanOrEqual(widths.client);
-            }
         });
     }
 });
 
-test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
+test('every demo page and a recipe preview name an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
     // the markup is what matters, so each page is fetched rather than visited: a visit from page to page cancels the
     // last page's late requests (lazy controllers, their imports), which the page guard counts as failed
-    for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...demoRoutePaths]) {
+    for (const path of [previewUrl('button', 'default'), ...demoRoutePaths]) {
         const response = await page.request.get(path);
         expect(response.status(), path).toBe(path.endsWith('/demo/not-found') ? 404 : 200); // the error page answers 404 on purpose
         const head = (await response.text()).match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
         expect(head.match(/<link\b[^>]*\brel=["'][^"']*\bicon\b/gi) ?? [], path).toHaveLength(1);
     }
-});
-
-test("the gallery's header keeps one row on a phone, its GitHub link named", async ({ page }) => {
-    await page.goto('/');
-    const nav = page.getByRole('navigation', { name: 'Main' });
-    const row = (await nav.boundingBox())!.height;
-    for (const width of [320, 390]) {
-        await page.setViewportSize({ width, height: 800 });
-        await expect.poll(async () => (await nav.boundingBox())!.height, `${width}px`).toBe(row);
-        await expect(nav.getByRole('link', { name: 'GitHub' })).toBeVisible();
-        const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
-        expect(widths.scroll).toBeLessThanOrEqual(widths.client);
-    }
-});
-
-test("the hero links to Composer first and its two secondary links share one style", async ({ page }) => {
-    await page.goto('/');
-    const hero = page.locator('.xor-hero');
-    const primary = hero.getByRole('link').first();
-    await expect(primary).toHaveAccessibleName('Get started with Composer');
-    await expect(primary).toHaveAttribute('href', '/composer');
-    const browse = hero.getByRole('link', { name: 'Browse the recipes' });
-    const demo = hero.getByRole('link', { name: 'Open the demo app' });
-    await expect(browse).toHaveAttribute('href', '#recipes');
-    await expect(demo).toHaveAttribute('href', '/demo');
-    const secondaryStyle = await browse.getAttribute('class');
-    expect(secondaryStyle).toBeTruthy();
-    expect(await demo.getAttribute('class')).toBe(secondaryStyle);
-    expect(await primary.getAttribute('class')).not.toBe(secondaryStyle);
 });

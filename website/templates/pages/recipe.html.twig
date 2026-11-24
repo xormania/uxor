@@ -1,0 +1,92 @@
+{% extends 'base.html.twig' %}
+
+{% set page_title = recipe.manifest.name ~ ': ' ~ kit.manifest.name %}
+{% set description = (recipe.description ?: recipe.manifest.name)|plain_markdown %}
+
+{% block body %}
+    {%- set source = kit.manifest.homepage ~ '/tree/' ~ (commit ?? ref) ~ '/' ~ recipe.name -%}
+    {%- set is_page = 'block' == recipe.manifest.type.value or 'layouts' == recipe.name -%}
+
+    <div class="recipe-layout">
+        <nav class="recipe-nav" aria-label="Recipes">
+            <div>
+                {% for group in groups %}
+                    <p class="group-title">{{ group.title }}</p>
+                    <ul>
+                        {% for item in group.recipes %}
+                            <li>
+                                {% if item.name == recipe.name %}
+                                    <a href="{{ path('app_recipe', {recipe: item.name}) }}" aria-current="page">{{ item.name }}</a>
+                                {% else %}
+                                    <a href="{{ path('app_recipe', {recipe: item.name}) }}">{{ item.name }}</a>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endfor %}
+            </div>
+        </nav>
+
+        <div>
+            <nav aria-label="Breadcrumb">
+                <ol class="breadcrumb">
+                    <li><a href="{{ path('app_index') }}#recipes">Recipes</a></li>
+                    <li aria-hidden="true">/</li>
+                    <li><span aria-current="page">{{ recipe.name }}</span></li>
+                </ol>
+            </nav>
+            <div class="title-row">
+                <h1>{{ recipe.manifest.name }}</h1>
+                <span class="badge">{{ recipe.manifest.type.value }}</span>
+            </div>
+            {% if recipe.description %}
+                <p class="lead">{{ recipe.description|inline_markdown }}</p>
+            {% endif %}
+            {%- if server_notice %}
+                <p class="notice" data-testid="server-only">
+                    In this static copy, {{ server_notice }}.
+                    <a href="{{ repository }}/blob/{{ ref }}/CONTRIBUTING.md#setup">Run the full demo</a> to try it.
+                </p>
+            {%- endif %}
+
+            <section class="installs" aria-labelledby="installs-heading">
+                <h2 id="installs-heading">What it installs</h2>
+                <dl class="dependencies">
+                    <dt>Copies</dt>
+                    <dd>
+                        {% for source_path, destination in recipe.manifest.copyFiles %}
+                            <code>{{ source_path }}</code> → <code>{{ destination }}</code>{% if not loop.last %}<br>{% endif %}
+                        {% else %}
+                            nothing
+                        {% endfor %}
+                    </dd>
+                    {% if dependencies.recipes %}
+                        <dt>Recipes</dt>
+                        <dd>
+                            {% for dependency in dependencies.recipes %}
+                                <a href="{{ path('app_recipe', {recipe: dependency.name}) }}">{{ dependency.name }}</a>
+                            {% endfor %}
+                        </dd>
+                    {% endif %}
+                    {% for group, label in {composer: 'Composer', importmap: 'Importmap'} %}
+                        {% if dependencies[group] %}
+                            <dt>{{ label }}</dt>
+                            <dd>{% for dependency in dependencies[group] %}<code>{{ dependency }}</code>{% if not loop.last %}<br>{% endif %}{% endfor %}</dd>
+                        {% endif %}
+                    {% endfor %}
+                </dl>
+                <p class="resource-links">
+                    <a href="{{ source }}/README.md">README</a>
+                    <a href="{{ path('app_recipe_markdown', {recipe: recipe.name}) }}" type="text/markdown">Markdown</a>
+                    <a href="{{ source }}">Source</a>
+                </p>
+            </section>
+
+            {#- the README, rendered by the UX Toolkit (UXor\Website\RecipeDocs): its prose, its install steps at the
+                release this copy shows, its examples as their preview pages, its API tables -#}
+            <div class="recipe-doc"{{ is_page ? ' data-page' : '' }} data-testid="recipe-doc">
+                {{ doc|raw }}
+            </div>
+        </div>
+    </div>
+{% endblock %}

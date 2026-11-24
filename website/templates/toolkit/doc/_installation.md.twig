@@ -1,0 +1,43 @@
+{#- Render the install command from the same repository and ref as this website build. -#}
+{%- set kit_url = kit.manifest.homepage ~ ':' ~ ref -%}
+{% if format == 'markdown' %}
+```shell
+php bin/console ux:install {{ recipe.name }} --kit={{ kit_url }}
+```
+{% else %}
+::: tabs
+
+:: tab Automatic
+
+```shell
+php bin/console ux:install {{ recipe.name }} --kit={{ kit_url }}
+```
+
+:: tab Manual
+{% if php_package_dependencies is not empty %}
+Install the following Composer dependencies:
+
+```shell
+composer require {{ php_package_dependencies|join(' ') }}
+```
+{% endif %}
+{% if importmap_package_dependencies is not empty %}
+Install the following AssetMapper dependencies:
+
+```shell
+php bin/console importmap:require {{ importmap_package_dependencies|join(' ') }}
+```
+{% endif %}
+Copy the following file(s) into your app:
+{% for file in files %}
+{#- an image or other binary file (not UTF-8) is named, not printed -#}
+{% if file.content is utf8 %}
+```{{ file.language }}{{ (file.info ? ' ' ~ file.info : '')|raw }}
+{{ file.content|trim|raw }}
+```
+{% else %}
+- `{{ file.path_name }}` (binary: copy it from the recipe's directory)
+{% endif %}
+{% endfor %}
+:::
+{% endif %}

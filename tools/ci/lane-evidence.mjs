@@ -39,11 +39,10 @@ import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
 /** every lane of ci.yml's Changes job, in its order: the selector's, then the engines, which follow the browser tests */
-export const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image', 'engines'];
+export const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image', 'engines'];
 /**
- * The lanes whose pass can be reused, with their jobs' names in ci.yml and how many a full pass has. Not the static
- * site, whose pages print the branch and commit, nor Lint kit, which resolves the Toolkit from the network: both are
- * short, and always run when selected.
+ * The reusable lanes, their job names in ci.yml and the job count for a full pass. The website and runtime exports
+ * include revision metadata and run fresh when selected.
  */
 export const REUSABLE = {
     php: { name: 'Kit PHP', count: 1 },
@@ -89,7 +88,7 @@ const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'], engines: [
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
 /** the checks that are steps of the Quick checks job (`quick` in `needs`): their outcomes are its outputs */
 const QUICK_CHECKS = ['tools', 'contrast', 'workflows'];
-const IMPORTMAP_USERS = ['php', 'static-site', 'demo', 'engines'];
+const IMPORTMAP_USERS = ['php', 'runtime-export', 'demo', 'engines'];
 const MARKER_LIMIT = 65536;
 const RERUN_NOTE = 'only "Re-run all jobs" plans the lanes again; re-running failed jobs reuses this plan';
 
@@ -185,6 +184,9 @@ export function fingerprints(dir, sha) {
         const body = all.map((entry) => {
             const tab = entry.indexOf('\t');
             const path = entry.slice(tab + 1);
+            // The kit's checks, install archives and production image exclude the standalone website.
+            // Package can publish a guide from any directory. Browser lanes follow their own checkout policy below.
+            if (regularPaths && !browser && lane !== 'package' && path.startsWith('website/') && !browserControl(path)) return '';
             if (browser) {
                 if (!browserPaths || browserControl(path)) return entry + '\0';
                 if (!browserPaths.has(path)) return '';

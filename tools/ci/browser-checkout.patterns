@@ -1,12 +1,14 @@
 # Non-cone Git sparse-checkout rules shared by the browser runner and its evidence.
-# Keep unrecognised paths. The demo renders INSTALL.md, docs/GUIDE.md and recipe READMEs.
+# Keep unrecognised paths. The demo uses recipe READMEs for interactive previews.
 /*
+!/website/
+!/INSTALL.md
+!/llms.txt
 !/README.md
 !/FOR-AGENTS.md
 !/docs/*
 /docs/.gitattributes
 /docs/.gitignore
-/docs/GUIDE.md
 
 # CI runs from ci.yml. Other workflow definitions are checked by the Workflows lane.
 !/.github/CODEOWNERS
@@ -18,8 +20,7 @@
 /.github/workflows/.gitattributes
 /.github/workflows/ci.yml
 
-# The demo reads the guide navigation and imports the browser recorder. The browser tests
-# visit /install and /guide; the other guides' bodies are exercised by PHP and the static export.
+# Demo tests import the browser recorder. Website guides are outside this checkout.
 !/composer.json
 !/composer.lock
 !/packages/uxor/*
@@ -27,7 +28,6 @@
 /packages/uxor/resources/
 !/packages/uxor/resources/*
 /packages/uxor/resources/.gitattributes
-/packages/uxor/resources/guides.json
 /packages/uxor/resources/browser/
 
 # Release checks run these specs in their own full checkout. Normal browser projects ignore them.

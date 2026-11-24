@@ -411,6 +411,8 @@ printf '%s' "$payload" | jq -r "$4"`);
     commit('CHANGELOG.md', 'release');
     commit('docs/RECIPES.md', 'recipes');
     commit('docs/TESTING.md', 'docs');
+    commit('website/templates/layout.html.twig', 'website navigation');
+    commit('packages/uxor/resources/guides.json', 'published guides');
     commit('AGENTS.md', 'rules');
     const docs = commit('packages/uxor/INSTRUCTIONS.md', 'package');
     const code = commit('calendar/Calendar.html.twig', 'changed');

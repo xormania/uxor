@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Kit\KitReader;
 use App\Kit\PreviewForms;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -11,6 +10,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\UX\Toolkit\Recipe\RecipeType;
 use Twig\Environment;
+use UXor\Kit\KitReader;
 
 /**
  * Renders one README example of a UXor recipe alone on a page. The Symfony UX Toolkit preview app
