@@ -14,7 +14,9 @@ done
 work="$(mktemp -d)"
 trap 'rm -rf -- "$work"' EXIT
 mkdir "$work/kit"
-cp -a . "$work/kit"
+# Keep the temporary Git worktree owned by this container, even when CI's
+# bind-mounted source belongs to the host runner.
+cp -a --no-preserve=ownership -- . "$work/kit"
 git -C "$work/kit" init --quiet --template=
 git -C "$work/kit" add --force --all
 git -C "$work/kit" -c user.name='Toolkit fixture' -c user.email=toolkit-fixture@example.invalid \
