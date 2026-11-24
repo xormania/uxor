@@ -12,7 +12,7 @@ framework:
 # `vendor/bin/mate tools:call symfony-profiler-*` to read. No toolbar is installed, so pages stay as CI renders them.
 when@dev:
     framework:
-        profiler: { collect: '%env(bool:PROFILER_COLLECT)%' }
+        profiler: { collect: '%env(bool:default::PROFILER_COLLECT)%' }
 
 when@test:
     framework:

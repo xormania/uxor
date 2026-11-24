@@ -75,16 +75,17 @@ def setup(root: Path, php: str) -> None:
     check_application_profiler(root, php, True, APP_CAPTURE_REQUESTS="1", PROFILER_COLLECT="0")
     profiler_policy.unlink()
     # Exercise setup's fallback independently of the fixture's own env-backed profiler setting.
-    framework, dotenv = root / "config/packages/framework.yaml", root / ".env"
-    framework_config, env_config = framework.read_text(), dotenv.read_text()
+    framework = root / "config/packages/framework.yaml"
+    framework_config = framework.read_text()
     try:
-        framework.write_text(re.sub(r"^when@dev:\n    framework:\n        profiler:.*\n", "", framework_config, flags=re.M))
-        dotenv.write_text(re.sub(r"^PROFILER_COLLECT=.*\n", "", env_config, flags=re.M))
+        without_policy, count = re.subn(r"^when@dev:\n    framework:\n        profiler:.*\n", "", framework_config, flags=re.M)
+        if count != 1:
+            raise RuntimeError("Expected one dev profiler setting in the independent consumer fixture")
+        framework.write_text(without_policy)
         check_application_profiler(root, php, False)
         check_application_profiler(root, php, True, PROFILER_COLLECT="1")
     finally:
         framework.write_text(framework_config)
-        dotenv.write_text(env_config)
     binding = json.loads((root / ".uxor/mcp.json").read_text())["mcpServers"]["uxor-mago"]
     if "--trust-project-code" in binding["args"] or "--write" in binding["args"]:
         raise RuntimeError("Installation consent leaked into the saved Serena binding")
@@ -202,8 +203,10 @@ final class UxorAcceptanceController
     with log_path.open("w") as log:
         # This owned development server must execute the just-edited source on every request.
         # CLI-server is an OPcache-supported SAPI independently of opcache.enable_cli.
+        # GPCS keeps inherited environment variables out of $_ENV in the HTTP server.
+        # Exercise the application's real process-environment opt-in under this PHP configuration.
         server = subprocess.Popen([php, "-d", "opcache.enable=0", "-d", "opcache.enable_cli=0",
-                                   "-S", f"127.0.0.1:{port}", "-t", "public", "public/index.php"],
+                                   "-d", "variables_order=GPCS", "-S", f"127.0.0.1:{port}", "-t", "public", "public/index.php"],
                                   cwd=root, env=environment, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 30
@@ -228,11 +231,12 @@ final class UxorAcceptanceController
                 except HTTPError as error:
                     response = error
                 with response:
-                    result = {"url": url, "status": response.status,
-                              "token": response.headers.get("X-Debug-Token"), "body": json.loads(response.read())}
-                if result["status"] != 200 or not re.fullmatch(r"[0-9a-f]{6}", result["token"] or ""):
-                    raise RuntimeError("The setup consumer did not produce a real successful request/profile")
-                return result
+                    token = response.headers.get("X-Debug-Token")
+                    if response.status != 200 or not re.fullmatch(r"[0-9a-f]{6}", token or ""):
+                        token_state = "missing" if token is None else "present"
+                        raise RuntimeError(f"GET {url} returned HTTP {response.status}, X-Debug-Token {token_state}; "
+                                           "expected HTTP 200 and a six-digit hexadecimal profiler token")
+                    return {"url": url, "status": response.status, "token": token, "body": json.load(response)}
 
             def profile(response: dict) -> dict:
                 data = json.loads(run("mate.read-profile", [php, "vendor/bin/mate", "tools:call", "symfony-profiler-get",
