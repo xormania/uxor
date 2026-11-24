@@ -121,7 +121,7 @@ jobs:
                   set -o pipefail
                   {
                       php tools/sync-demo
-                      (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                      (cd demo && composer install --no-interaction --no-progress && bin/console app:build-styles)
                   } 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
 
             - name: Coverage scope (the recipes' src/)

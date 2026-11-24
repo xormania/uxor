@@ -900,7 +900,7 @@ jobs:
               if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               run: |
                   php tools/sync-demo
-                  (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                  (cd demo && composer install --no-interaction --no-progress && bin/console app:build-styles)
 
             - name: Check the demo's Mate guidance
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}

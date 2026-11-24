@@ -1,21 +1,8 @@
-/* The example app's logo and avatar are served by AssetMapper. */
+/* Branding shared by the example application and Toolkit fixture pages. */
 .xor-logo {
     background: #000 url("../images/xor/logo.jpg") center / cover no-repeat;
 }
 
 .xor-glow {
     box-shadow: 0 0 12px rgb(45 230 200 / 0.55);
-}
-
-.xor-avatar {
-    border: 2px solid rgb(45 212 191 / 0.85);
-    box-shadow: 0 0 12px rgb(45 212 191 / 0.45);
-    background: #000 url("../images/xor/mascot.gif") center / cover no-repeat;
-}
-
-/* the mascot holds still for visitors who ask for less motion (and for the page screenshots, taken that way) */
-@media (prefers-reduced-motion: reduce) {
-    .xor-avatar {
-        background-image: url("../images/xor/mascot-still.png");
-    }
 }

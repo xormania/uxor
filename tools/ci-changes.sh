@@ -194,9 +194,11 @@ while IFS= read -r path; do
         tools/tests/prod-image.sh) on php runtime-export demo demo-app prod-image ;;
         tools/*) on php runtime-export demo demo-app ;;
 
-        # Shared Symfony host and build inputs, including the example app templates:
-        # the Tailwind build scans those templates into the stylesheet served to
-        # the Toolkit fixtures too. docker-install.sh copies
+        # These files are consumed only by the example application's stylesheet
+        # and /demo pages. Shared recipe and host inputs still run both projects.
+        demo/templates/demo_app/* | demo/assets/styles/demo-app.css | demo/assets/images/xor/mascot.gif | demo/assets/images/xor/mascot-still.png) on php runtime-export demo-app prod-image ;;
+
+        # Shared Symfony host and build inputs. docker-install.sh copies
         # the demo's Compose file and Caddyfile into a fresh Symfony Docker project. The demo image's build inputs also
         # run the production image's lane (demo/Dockerfile, target frankenphp_prod, built and run by
         # tools/tests/prod-image.sh), which no other job builds.

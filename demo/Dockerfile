@@ -99,8 +99,8 @@ RUN <<-EOF
 	php ../tools/sync-demo
 	# the auto-scripts: cache:clear, assets:install, importmap:install (the browser packages)
 	composer run-script --no-dev post-install-cmd
-	# the stylesheet (the Tailwind standalone CLI, downloaded at the pinned version), then the compiled assets
-	php bin/console tailwind:build --minify
+	# both stylesheets (the Tailwind standalone CLI, downloaded at the pinned version), then the compiled assets
+	php bin/console app:build-styles --minify
 	php bin/console asset-map:compile
 	rm /app/tools/sync-demo
 	chmod +x bin/console

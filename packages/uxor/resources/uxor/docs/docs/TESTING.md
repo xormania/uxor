@@ -891,7 +891,7 @@ bin/phpunit tests/Live                       # one folder
 bin/phpunit --filter testAPagePastTheEnd     # by name
 ```
 
-They render the recipes as the demo has them: run `tools/sync-demo` first, and `bin/console tailwind:build` for the
+They render the recipes as the demo has them: run `tools/sync-demo` first, and `bin/console app:build-styles` for the
 page tests (a page links the built CSS). PHPStan checks the tests with its PHPUnit and Symfony extensions
 (`tools/phpstan.neon`).
 
@@ -1466,10 +1466,11 @@ the other engines compare it with a baseline that is not theirs (`examples-*`) o
 fail.
 
 *Toolkit browser verification* splits Chromium's Toolkit projects across `CHROMIUM_SHARDS` (8).
-*Demo app browser checks* runs the example app's Chromium project in one job. A change confined to a demo app spec
-or layout screenshot selects that one job. Website source selects the website checks. Changes to shared runtime
-inputs select both browser suites. That includes the Symfony host's templates, since the shared Tailwind build
-scans the example app, labs, and recipe previews.
+*Demo app browser checks* runs the example app's Chromium project in one job. A change to its templates,
+stylesheet, specs, or layout screenshots selects only that browser job. Website source selects the website checks.
+The example app and Toolkit fixture styles compile independently. Pages load the stylesheet for their surface.
+Changes to shared runtime inputs, such as installed recipes, the compiler pin, or shared Twig fragments, select
+both browser suites.
 *Cross-browser verification* runs both suites in three shards each on Firefox and WebKit.
 Each job starts the browser server itself (*Start the browser server*, the pinned image on the runner's network, failing at
 once when port 3000 is taken or the server does not answer), and the Playwright step sets `PW_DIRECT_NETWORK=1`, so the

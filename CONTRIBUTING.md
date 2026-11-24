@@ -99,16 +99,18 @@ same way unless users of the kit or of the package need it.
 
 The demo runs in [Symfony Docker](https://github.com/dunglas/symfony-docker) with FrankenPHP in worker mode,
 PHP 8.5 and HTTPS. Docker is enough to serve it locally. Symfony AssetMapper fetches browser packages and
-TailwindBundle builds CSS with the standalone Tailwind binary. The demo's
-[stylesheet](demo/assets/styles/app.css) declares its utility sources: the demo's templates, recipe sources and the examples in recipe READMEs. When a new surface renders utility
-classes, include it in the stylesheet and in the [CSS rebuild check](tools/prepare-tests.mjs).
+TailwindBundle builds CSS with the standalone Tailwind binary. The [example app stylesheet](demo/assets/styles/demo-app.css)
+scans the example app's templates. The [Toolkit fixture stylesheet](demo/assets/styles/toolkit-fixtures.css) scans labs,
+forms, OAuth fixtures, and the recipe README examples. Both import [the installed Toolkit and shared host styles](demo/assets/styles/shared.css).
+When adding utility sources, include each source in the stylesheet that uses it and in the
+[CSS rebuild check](tools/prepare-tests.mjs).
 
 ```bash
 (
     cd demo
     docker compose up --wait
     docker compose exec php php ../tools/sync-demo
-    docker compose exec php bin/console tailwind:build
+    docker compose exec php bin/console app:build-styles
 )
 ```
 
@@ -122,7 +124,7 @@ Do not run the browser tests with `develop` on ([`docs/TESTING.md`](docs/TESTING
 Open https://localhost to enter the example app (the demo listens on this machine only) and accept the certificate of Caddy's local
 authority. The container sees the whole repository in `/app` and runs the demo from `/app/demo`, as on disk;
 FrankenPHP restarts its workers when a file changes. After changing a recipe, run `tools/sync-demo` and
-`tailwind:build` again. `tools/sync-demo` never deletes: remove a renamed or deleted recipe file from `demo/`
+`app:build-styles` again. `tools/sync-demo` never deletes: remove a renamed or deleted recipe file from `demo/`
 yourself. `docker compose down` stops the demo.
 
 The demo image builds from the repository, not from `demo/`: `compose.override.yaml` sets `context: ..` and
@@ -146,7 +148,7 @@ it when the demo's files it holds or its build inputs change (*Production image*
 release.
 
 Without Docker, with PHP 8.4 or later and Composer: run `tools/sync-demo`, then
-`(cd demo && composer install && php bin/console tailwind:build && php bin/console asset-map:compile)`, and serve
+`(cd demo && composer install && php bin/console app:build-styles && php bin/console asset-map:compile)`, and serve
 the demo with `php -S 127.0.0.1:8000 -t demo/public tools/plant-router.php`. The router forwards application
 and AssetMapper routes to Symfony and serves public files directly. Recompile when using compiled assets.
 
@@ -381,7 +383,7 @@ python3 packages/uxor/tools/check-package.py --consumer   # that archive install
 python3 packages/uxor/dev/run.py --native prepare && python3 packages/uxor/dev/run.py --native check   # the consumer's container, Twig and Mate (packages/uxor/dev/README.md)
 ```
 
-Run `tools/sync-demo` and `bin/console tailwind:build` first so the PHP tests render the current recipes and CSS.
+Run `tools/sync-demo` and `bin/console app:build-styles` first so the PHP tests render the current recipes and CSS.
 Use `CREATE_SNAPSHOTS=true bin/phpunit` to create intentionally added snapshots. A change in a component's markup changes its snapshot in
 `demo/tests/Twig/__snapshots__/`: rewrite it with `UPDATE_SNAPSHOTS=true bin/phpunit` and review it like code. CI
 runs them with `CREATE_SNAPSHOTS=false`, so a missing snapshot fails there. The patterns are in
@@ -561,7 +563,7 @@ example: `default` for the one under the title, with `-2`, `-3`… added when a 
    only the line `::: installation` (the toolkit replaces it with the install steps), `## Usage`, then more examples
    under `##` or `###` headings. Open each example with ```` ```twig {"preview":true} ````: the demo renders it and
    Playwright screenshots it in light and dark. A plain ```` ```twig ```` block is shown as code only.
-4. Run `tools/sync-demo`, then `(cd demo && php bin/console tailwind:build && php bin/console asset-map:compile)`: the
+4. Run `tools/sync-demo`, then `(cd demo && php bin/console app:build-styles && php bin/console asset-map:compile)`: the
    demo's CSS only holds the classes it has seen, and the demo serves the compiled files. Start the demo (see *Setup*)
    and open `/r/<recipe>` and `/preview/<recipe>/<example>?theme=dark`.
    - Icons: Iconify on demand is off in the demo, so import each icon the recipe uses
