@@ -138,14 +138,13 @@ jobs:
                           [ "$marker" = "release-checks-pr-passed-v1-$proved_base-$sha" ] || continue
                           git cat-file -e "$sha^{commit}" 2>/dev/null || continue
                           changed=$(git diff --name-only --no-renames "$sha" "$head") || break
-                          # The release fixtures import the package's recorder. The production image serves the
-                          # public guide catalog and source Markdown. Keep these inputs ahead of the directory exclusions.
+                          # Browser fixtures import the package recorder. Changes to the separately built
+                          # documentation website do not affect the runtime release suite.
                           other=$(while IFS= read -r path; do
                               case "$path" in
                                   '' ) ;;
-                                  docs/GUIDE.md | packages/uxor/resources/browser | packages/uxor/resources/browser/*) printf '%s\n' "$path" ;;
-                                  packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) printf '%s\n' "$path" ;;
-                                  docs/* | packages/uxor/* | CHANGELOG.md | AGENTS.md) ;;
+                                  packages/uxor/resources/browser | packages/uxor/resources/browser/* | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) printf '%s\n' "$path" ;;
+                                  website/* | docs/* | packages/uxor/* | INSTALL.md | llms.txt | CHANGELOG.md | AGENTS.md) ;;
                                   *) printf '%s\n' "$path" ;;
                               esac
                           done <<< "$changed")

@@ -77,8 +77,7 @@ RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY --link demo/frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
 
-# UXor: the image holds the repository as the demo reads it, as on disk: the kit in /app (its recipes, the files the
-# gallery reads), the app in /app/demo (demo/Dockerfile.dockerignore names what the context holds)
+# Keep the kit in /app and the example app in /app/demo, matching their paths in a checkout.
 WORKDIR /app/demo
 
 # prevent the reinstallation of vendors at every changes in the source code
@@ -103,7 +102,7 @@ RUN <<-EOF
 	# the stylesheet (the Tailwind standalone CLI, downloaded at the pinned version), then the compiled assets
 	php bin/console tailwind:build --minify
 	php bin/console asset-map:compile
-	rm -rf /app/tools
+	rm /app/tools/sync-demo
 	chmod +x bin/console
 	chmod -R g=u var
 	sync

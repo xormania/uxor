@@ -11,18 +11,13 @@
 #   runtime  the image refuses to boot without the production opt-in; with it and a random APP_SECRET, it turns healthy
 #            (its HEALTHCHECK), PID 1 runs as www-data, PHP has the extensions the image installs and the demo requires,
 #            the production kernel registers no UXToolkitBundle and its console has no ux:install or ux:toolkit:* command
-#            (the gallery uses the Toolkit's library in prod), no Xdebug or development-only package from
-#            demo/composer.lock is installed, the opt-in and the secret are not baked into it; the app is
-#            at /app/demo beside the kit's files, as on disk; the dashboard, a recipe page, the consumer guides and
-#            /llms.txt answer 200 with their content, and every recipe the image holds (/app/*/manifest.json) has a
-#            recipe page answering 200, as does each page's first preview, each page rendered through the demo's own
-#            templates (its Toolkit overrides show every example in a light and a dark preview frame), not a fallback (the files the image needs are in it); no node_modules, tests,
-#            .git, package code, .github, docs but GUIDE.md, or tools/ are
+#            (live previews use the Toolkit library). No development-only Composer packages, opt-in or secret are baked
+#            in. The app starts at /demo, serves forms and lab scenarios, and renders a live example from each recipe
+#            with examples. The final image contains the kit reader and excludes the website and development tools.
 #
-#   context  what the build context sends (demo/Dockerfile's ignore file applied): a throwaway stage copies the
-#            whole context and the copy is listed; only the gallery guides are included from packages/, nothing
-#            under .git, .github, node_modules or any tests directory, nothing in tools/ but tools/sync-demo, and
-#            no secret or machine-local file a developer's
+#   context  a throwaway stage copies the build context and checks the files sent to BuildKit. The allowed tools are
+#            sync-demo and the shared kit reader. Website sources, package guides, .git, .github, node_modules and test
+#            directories are excluded, along with secret or machine-local files a developer's
 #            checkout may hold (Symfony's secrets decryption key, .env.local files, phpunit.xml, .agents, .idea, .vscode),
 #            which only a run in such a checkout can catch; demo/ holding only the entries the build needs (an
 #            explicit list here: a new one fails until it is added to the allow-list and to this list); and nothing
@@ -48,12 +43,6 @@ image="${given_image:-uxor-demo-prod:check-$$}"
 container="uxor-demo-prod-check-$$"
 failures=0
 declare -a report
-# Run at the root of the copied context or /app. Both stages must contain only the public package guides.
-unexpected_package_entries='find packages -mindepth 1 ! \( \
-    -type d \( -path packages/uxor -o -path packages/uxor/resources \) -o \
-    -type f \( -path packages/uxor/README.md -o -path packages/uxor/OPERATIONS.md -o -path packages/uxor/resources/guides.json \) \
-    \) -print'
-
 result() { # <part> <PASS|FAIL|SKIP> <what>
     report+=("$(printf '%-8s %-4s %s' "$1" "$2" "$3")")
     printf '[%s] %s: %s\n' "$1" "$2" "$3"
@@ -146,9 +135,11 @@ if docker buildx build -f "$context_dir/context.Dockerfile" --output "type=local
     listed '.git' "find . \\( -name .git -o -path '*/.git/*' \\) -print"
     listed '.github' "find . -name .github -prune -print"
     listed 'node_modules' "find . -name node_modules -prune -print"
-    listed 'package entries outside the public guides' "$unexpected_package_entries"
+    listed 'website, guides or package files' "find . -maxdepth 1 \( -name website -o -name docs -o -name packages -o -name INSTALL.md -o -name llms.txt \) -print"
     listed 'tests directory' "find . -name tests -type d -prune -print"
-    listed 'tools/ but tools/sync-demo' "find ./tools -mindepth 1 ! -path ./tools/sync-demo -print"
+    listed 'unneeded tools' "find ./tools -mindepth 1 ! -path ./tools/sync-demo ! -path ./tools/kit ! -path ./tools/kit/KitReader.php -print"
+    check context 'the build has the shared kit reader' test -f "$context_out/ctx/tools/kit/KitReader.php"
+    check context 'the build has the recipe sync script' test -f "$context_out/ctx/tools/sync-demo"
     # what a developer's checkout holds and a clone never does (CI cannot see these): Symfony's secrets decryption key,
     # local env files, a local PHPUnit configuration and cache, agent and editor folders
     # demo/ holds only what the build needs: a file that appears in a developer's demo/ fails here and names itself
@@ -226,7 +217,7 @@ else
         pid1_user="$(docker exec "$container" stat -c %U /proc/1 2>/dev/null || echo '?')"
         check runtime "PID 1 runs as www-data (got $pid1_user)" test "$pid1_user" = www-data
         check runtime 'APP_ENV is prod' test "$(docker exec "$container" printenv APP_ENV 2>/dev/null)" = prod
-        # the Toolkit's library serves the gallery in prod; its bundle and console commands are for dev and test only
+        # live previews use the Toolkit library in prod; its bundle and console commands are for dev and test only
         bundles="$(docker exec "$container" php bin/console debug:container --parameter=kernel.bundles --format=json 2>/dev/null || echo FAILED)"
         if [ "$bundles" = FAILED ] || ! grep -q 'FrameworkBundle' <<< "$bundles"; then
             result runtime FAIL "the production kernel's bundles could not be read"
@@ -266,52 +257,42 @@ else
             else result runtime FAIL "GET $1 answers 200 with \"$2\" (got $code)"; fi
             rm -f "$body"
         }
-        page / 'href="/r/button"'               # the dashboard lists the recipes
-        page /r/button 'src="/preview/button/'  # a recipe page: its README's examples, as previews
-        page '/preview/button/default?theme=light' '<title>button / default'   # one preview: the recipe's templates render
-        page /install 'ux:install'               # the install guide (INSTALL.md)
-        page /guide 'How to install, update and use the kit'   # the guide (docs/GUIDE.md)
-        page /composer 'allow-plugins.symfony/ai-mate-composer-plugin'
-        page /composer.md 'allow-plugins.symfony/ai-mate-composer-plugin'
-        page /advanced 'vendor/bin/uxor catalog'
-        page /advanced.md 'vendor/bin/uxor catalog'
-        page /llms.txt '/r/button'               # llms.txt, from the kit's files
+        base="http://127.0.0.1:$port"
+        redirect="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' --max-time 30 "$base/" || true)"
+        check runtime 'the root redirects to the example dashboard' test "$redirect" = "302 $base/demo"
+        page /demo 'Dashboard — xor'
+        page /demo/login 'Demo account:'
+        page /forms 'Form theme —'
+        page /lab 'data-testid="scenario-list"'
+        page '/preview/button/default?theme=light' '<title>button / default</title>'
 
-        # every recipe page answers 200: the recipes are read from the image (each /app/<recipe>/manifest.json), so the
-        # list cannot drift; a failing page is named, with the container's log lines about it
-        recipes="$(docker exec "$container" sh -c 'for m in /app/*/manifest.json; do d="${m%/manifest.json}"; echo "${d##*/}"; done' 2>/dev/null)"
-        failed=''
-        previews=0
-        started="$(date +%s)"
-        body="$(mktemp)"
-        while IFS= read -r recipe; do
-            [ -n "$recipe" ] || continue
-            code="$(curl -s -o "$body" -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port/r/$recipe" || echo 000)"
-            if [ "$code" != 200 ]; then failed="$failed/r/$recipe $code"$'\n'; continue; fi
-            # its first preview: the recipe's templates render in prod
-            preview="$(grep -oE 'src="/preview/[^"]*"' "$body" | head -n 1 | sed 's/^src="//; s/"$//; s/&amp;/\&/g' || true)"
-            [ -n "$preview" ] || continue
-            # the page is the demo's, not a fallback to the Toolkit's own templates: the demo's code_preview override
-            # (demo/templates/bundles/UXToolkitBundle) shows each example in both themes, in a preview-frame iframe
-            example="${preview%%\?*}"
-            if ! grep -qF "src=\"$example?theme=light\"" "$body" || ! grep -qF "src=\"$example?theme=dark\"" "$body" || ! grep -qF 'data-controller="preview-frame"' "$body"; then
-                failed="$failed/r/$recipe renders the Toolkit's own templates, not the demo's (no light and dark preview-frame of $example)"$'\n'
+        # app:examples reads the recipes packaged in this image. Render the first example per recipe in both themes.
+        if examples="$(docker exec "$container" php bin/console app:examples --no-interaction | jq -er '
+            if type == "array" and length > 0 then
+                group_by(.recipe)[] | first | [.recipe, .id] | @tsv
+            else error("empty example inventory") end
+        ')"; then
+            body="$(mktemp)"
+            previews=0
+            failed=()
+            while IFS=$'\t' read -r recipe id; do
+                for theme in light dark; do
+                    url="/preview/$recipe/$id?theme=$theme"
+                    code="$(curl -s -o "$body" -w '%{http_code}' --max-time 30 "$base$url" || true)"
+                    if [ "$code" != 200 ] || ! grep -qF "<title>$recipe / $id</title>" "$body" || ! grep -qF "data-bs-theme=\"$theme\"" "$body"; then
+                        failed+=("$url ($code)")
+                    fi
+                    previews=$((previews + 1))
+                done
+            done <<< "$examples"
+            rm -f "$body"
+            if [ "${#failed[@]}" -eq 0 ]; then
+                result runtime PASS "$previews live previews rendered with the requested theme"
+            else
+                result runtime FAIL "preview failures: ${failed[*]}"
             fi
-            previews=$((previews + 1))
-            code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "http://127.0.0.1:$port$preview" || echo 000)"
-            [ "$code" = 200 ] || failed="$failed$preview $code"$'\n'
-        done <<< "$recipes"
-        rm -f "$body"
-        elapsed="$(($(date +%s) - started))"
-        count="$(grep -c . <<< "$recipes" || true)"
-        if [ "$count" -lt 1 ]; then
-            result runtime FAIL 'the image holds no recipe (no /app/*/manifest.json)'
-        elif [ -z "$failed" ]; then
-            result runtime PASS "every recipe page and its first preview answer 200, each page the demo's own ($count recipes, $previews previews, ${elapsed}s)"
         else
-            result runtime FAIL "every recipe page and its first preview answer 200 ($count recipes, $previews previews, ${elapsed}s), failed:"
-            while IFS= read -r line; do [ -n "$line" ] && printf '    %s\n' "$line"; done <<< "$failed"
-            docker logs "$container" 2>&1 | grep -E 'CRITICAL|critical|Uncaught|Exception' | tail -n 10 | while IFS= read -r line; do printf '    log: %s\n' "${line:0:300}"; done
+            result runtime FAIL 'the image could not list its live examples'
         fi
 
         # the files it must not hold are not in it
@@ -327,10 +308,10 @@ else
         absent 'node_modules' 'find /app -name node_modules -prune -print'
         absent 'tests directory (the root, a recipe or the demo)' 'find /app -maxdepth 2 -name tests -type d -print'
         absent '.git' 'find /app -maxdepth 2 \( -name .git -prune -print \) ; find /app/.git -mindepth 1 -maxdepth 2 -print'
-        absent 'package entries outside the public guides' "cd /app && $unexpected_package_entries"
+        absent 'website, guides or package files' 'find /app -maxdepth 1 \( -name website -o -name docs -o -name packages -o -name INSTALL.md -o -name llms.txt \) -print'
         absent '.github' 'find /app -maxdepth 1 -name .github -print'
-        absent 'tools/ (removed after the build)' 'find /app -maxdepth 1 -name tools -print'
-        absent 'docs but docs/GUIDE.md' 'find /app/docs -mindepth 1 ! -path /app/docs/GUIDE.md -print'
+        absent 'build and development tools' 'find /app/tools -mindepth 1 ! -path /app/tools/kit ! -path /app/tools/kit/KitReader.php -print'
+        check runtime 'the live previews have the shared kit reader' docker exec "$container" test -f /app/tools/kit/KitReader.php
     else
         result runtime FAIL 'the container is not running: no further runtime checks'
     fi

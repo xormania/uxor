@@ -79,6 +79,17 @@ updates:
           composer:
               patterns: ['*']
 
+    - package-ecosystem: composer
+      directory: /website
+      target-branch: dev
+      schedule:
+          interval: weekly
+      commit-message:
+          prefix: chore
+      groups:
+          website-composer:
+              patterns: ['*']
+
     # the demo's lock file (demo/composer.lock: the Symfony and UX packages the recipes install, and the PHP test
     # tools), which the weekly audit reads
     - package-ecosystem: composer

@@ -3,6 +3,7 @@
 # exclude contributor configuration, fixtures, development tools and build output.
 /.github export-ignore
 /demo export-ignore
+/website export-ignore
 /docs export-ignore
 /tests export-ignore
 /tools export-ignore

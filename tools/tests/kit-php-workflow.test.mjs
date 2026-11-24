@@ -1,4 +1,4 @@
-// Kit PHP's order in ci.yml: the cheap, deterministic checks (every tracked PHP file's syntax, every template the demo
+// Kit PHP's order in ci.yml: the cheap, deterministic checks (kit PHP syntax and every template the demo
 // compiles) run before PHPUnit and report on their own, and neither PHPUnit nor PHPStan hides the other's failure.
 // Run: node --test tools/tests/*.test.mjs
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -29,9 +29,9 @@ test('Kit PHP and the comparison install the same analyzer and extensions from t
     }
 });
 
-test('Kit PHP checks the syntax of every tracked PHP file, and the PHP scripts without an extension, before PHPUnit', () => {
+test('Kit PHP checks tracked PHP outside the website, including its scripts without an extension, before PHPUnit', () => {
     const syntax = named('Syntax');
-    assert.match(syntax.text, /git ls-files -z '\*\.php'/, 'every tracked .php file, not only the recipes\' src');
+    assert.ok(syntax.text.includes("git ls-files -z '*.php' ':(exclude)website/**'"));
     for (const script of ['demo/bin/console', 'packages/uxor/bin/uxor', 'tools/sync-demo']) {
         assert.ok(syntax.text.includes(script), `${script} (PHP without an extension)`);
     }
@@ -41,8 +41,6 @@ test('Kit PHP checks the syntax of every tracked PHP file, and the PHP scripts w
 
 test('Kit PHP compiles every template the demo renders, its own and the recipes\', before PHPUnit, even when the syntax check failed', () => {
     const twig = named('Twig syntax');
-    assert.match(twig.text, /bin\/console lint:twig templates /, "the demo's templates");
-    assert.match(twig.text, /\*\/templates/, "and each recipe's templates, by the path the demo reads them from");
     assert.ok(twig.index < named('PHPUnit').index, 'before PHPUnit');
     assert.match(twig.if, /!cancelled\(\)/, 'it runs after a failed step before it');
     assert.match(twig.if, /steps\.demo-install\.outcome == 'success'/, 'only once the demo is installed: it boots the demo\'s Twig');
@@ -102,7 +100,7 @@ const linted = (output, path) => output.split('\n').some((line) => line === `Err
 const script = (step) => step.text.match(/^ {14}run: \|\n([\s\S]*)$/m)[1].replace(/^ {18}/gm, '');
 
 test('Syntax lints a tracked file whose path starts with a dash as a file, never as PHP\'s options', () => {
-    const { dir, temp } = repository({ '-n.php': BROKEN, '-d/x.php': BROKEN, 'ok.php': '<?php echo 1;\n' });
+    const { dir, temp } = repository({ '-n.php': BROKEN, '-d/x.php': BROKEN, 'ok.php': '<?php echo 1;\n', 'website/src/Site.php': BROKEN });
     const result = run(script(named('Syntax')), dir, { RUNNER_TEMP: temp });
     const output = result.stdout + result.stderr;
     assert.notEqual(result.status, 0, `two syntax errors fail the step:\n${output}`);
@@ -110,6 +108,7 @@ test('Syntax lints a tracked file whose path starts with a dash as a file, never
         assert.ok(linted(output, path), `${path} is linted:\n${output}`);
     }
     assert.doesNotMatch(output, /Standard input|Usage: php/, 'no path read as an option');
+    assert.equal(linted(output, 'website/src/Site.php'), false, 'the standalone website owns its PHP syntax');
     assert.match(output, /^1 files without a syntax error$/m);
 });
 
@@ -128,6 +127,21 @@ test('the documented local commands lint a tracked file whose path starts with a
         assert.ok(linted(output, path), `${where}: ${path} is linted:\n${output}`);
         assert.doesNotMatch(output, /Standard input|Usage: php|unknown predicate/, `${where}: no path read as an option`);
     }
+});
+
+test('Kit PHP lints Twig in the demo and recipes without compiling standalone website templates', (t) => {
+    const { dir } = repository({
+        'demo/bin/console': '#!/bin/sh\nprintf "%s\\n" "$@"\n',
+        'demo/templates/home.html.twig': 'Runtime',
+        'button/manifest.json': '{}',
+        'button/templates/Button.html.twig': 'Recipe',
+        'website/templates/pages/guide.html.twig': '{% website_only_tag %}',
+    });
+    t.after(() => rmSync(dir, { recursive: true, force: true }));
+    chmodSync(join(dir, 'demo/bin/console'), 0o755);
+    const result = run(script(named('Twig syntax')), join(dir, 'demo'));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(result.stdout.trim().split('\n'), ['lint:twig', 'templates', '../button/templates']);
 });
 
 test('PHPStan is given a recipe directory whose name starts with a dash as a path, never as its options', () => {

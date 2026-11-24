@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% set description = description ?? kit.manifest.description %}
+    <title>{{ page_title }}</title>
+    <meta name="description" content="{{ description }}">
+    {% if canonical %}
+        <link rel="canonical" href="{{ canonical }}">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="{{ kit.manifest.name }}">
+        <meta property="og:title" content="{{ page_title }}">
+        <meta property="og:description" content="{{ description }}">
+        <meta property="og:url" content="{{ canonical }}">
+        <meta name="twitter:card" content="summary">
+    {% else %}
+        <meta name="robots" content="noindex">
+    {% endif %}
+    <link rel="icon" href="{{ base_path }}/website-assets/logo.jpg">
+    <script src="{{ base_path }}/website-assets/site.js"></script>
+    <link rel="stylesheet" href="{{ base_path }}/website-assets/site.css">
+    <link rel="stylesheet" href="{{ base_path }}/website-assets/recipe-doc.css">
+</head>
+<body>
+<header class="masthead">
+    <nav class="wrap main-nav" aria-label="Main">
+        <a class="brand" href="{{ path('app_index') }}"><img src="{{ base_path }}/website-assets/logo.jpg" width="28" height="28" alt=""><span>{{ kit.manifest.name }}</span></a>
+        <a href="{{ path('app_index') }}#recipes">Recipes</a>
+        <a href="{{ path('app_demo') }}">Demo app</a>
+        <a class="github" href="{{ repository }}">GitHub</a>
+        <button type="button" class="theme-toggle" aria-label="Toggle dark mode" aria-pressed="false" hidden><span aria-hidden="true">◐</span></button>
+    </nav>
+</header>
+<aside class="release-note" aria-label="Version">
+    <div class="wrap">
+        {% if release %}
+            A static copy of release <a href="{{ repository }}/releases/tag/{{ release }}">{{ release }}</a>.
+        {% else %}
+            Development copy {% if commit %}<a href="{{ repository }}/commit/{{ commit }}">{{ commit[:7] }}</a> on {% endif %}<code>{{ branch }}</code>.
+            {% if latest_release %}Latest release: <a href="{{ repository }}/releases/tag/{{ latest_release }}">{{ latest_release }}</a>.{% endif %}
+        {% endif %}
+        Examples that need a server run in the <a href="{{ repository }}/blob/{{ release ?? 'main' }}/CONTRIBUTING.md#setup">full demo</a>.
+    </div>
+</aside>
+<main id="main">
+    {% block hero %}{% endblock %}
+    <div class="wrap content">{% block body %}{% endblock %}</div>
+</main>
+<footer>
+    <nav class="wrap footer-nav" aria-label="Documentation">
+        <span>MIT licensed.</span>
+        {% for slug, guide in guides %}<a href="{{ path('app_guide', {name: slug}) }}">{{ guide.title }}</a>{% endfor %}
+        <a href="{{ repository }}/blob/{{ release ?? 'main' }}/README.md">README</a>
+        <a href="{{ repository }}/blob/{{ release ?? 'main' }}/CHANGELOG.md">Changelog</a>
+        <a href="{{ repository }}/releases">Releases</a>
+        <a href="{{ repository }}/blob/main/SECURITY.md">Security</a>
+    </nav>
+</footer>
+</body>
+</html>

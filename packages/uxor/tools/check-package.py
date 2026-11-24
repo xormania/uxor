@@ -52,7 +52,7 @@ UPSTREAM = "https://github.com/xormania/uxor.git"
 # archives built some other way (`composer archive` reads the working tree and not .gitignore).
 DEVELOPMENT_DIRECTORIES = (
     ".git", ".github", ".phpunit.cache", "blob-report", "coverage", "demo", "docs", "node_modules",
-    "playwright-report", "playwright-results", "test-results", "tests", "tools", "var", "vendor",
+    "playwright-report", "playwright-results", "test-results", "tests", "tools", "var", "vendor", "website",
     f"{PACKAGE_PATH}/dev", f"{PACKAGE_PATH}/tests", f"{PACKAGE_PATH}/tools",
 )
 DEVELOPMENT_FILES = {

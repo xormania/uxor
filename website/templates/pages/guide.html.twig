@@ -1,0 +1,12 @@
+{% extends 'base.html.twig' %}
+
+{% set page_title = title ~ ': ' ~ kit.manifest.name %}
+
+{% block body %}
+    {#- a consumer guide from the repository, rendered by UXor\Website\GuideDocs: its own title, its sections, its install
+        commands at the release this copy shows -#}
+    <div class="recipe-doc guide" data-testid="guide">
+        {{ doc|raw }}
+        <p class="markdown-link"><a href="{{ path('app_guide_markdown', {name: name}) }}" type="text/markdown">This guide as Markdown</a></p>
+    </div>
+{% endblock %}

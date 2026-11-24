@@ -1,6 +1,6 @@
 /*
  * UXor demo styles: Tailwind CSS, Flowbite CSS, the kit's theme and recipe styles,
- * and the demo's branding and documentation styles.
+ * and the demo's branding.
  */
 @import "tailwindcss" source(none);
 @import "../vendor/flowbite/dist/flowbite.min.css";
@@ -11,20 +11,16 @@
 @import "../../../dropzone/assets/styles/uxor-dropzone.css";
 @import "../../../editor/assets/styles/uxor-editor.css";
 @import "./xor.css";
-@import "./recipe-doc.css";
-/* The gallery renders its app, recipe sources and two guides. Restrict utility discovery to those
- * surfaces so edits to contributor docs, package tooling and browser tests cannot change its CSS. */
+/* Runtime templates and live previews use the kit's files and its documented examples. */
 @source "../../../*/{templates,assets,src,config}/**/*";
 @source "../../../*/README.md";
 @source "../../../*/manifest.json";
 @source "../../../kit.js";
-@source "../../../INSTALL.md";
-@source "../../../docs/GUIDE.md";
 /* UXor's form theme delegates unoverridden widgets to these installed Symfony layouts. */
 @source "../../vendor/symfony/twig-bridge/Resources/views/Form/{tailwind_2_layout,form_div_layout}.html.twig";
-@source not "../../../docs/{templates,assets,src,config}/**/*";
-@source not "../../../docs/{README.md,manifest.json}";
+@source not "../../../docs";
 @source not "../../assets/vendor";
+@source not "../../../website";
 @source not "../../../packages";
 @source not "../../../tools";
 @source not "../../../tests";

@@ -1,10 +1,14 @@
 // The repository security policy's red and green cases. Run: node --test tools/tests/*.test.mjs
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import {
     agentInstructionProblems,
     codeownerProblems,
     generatedPathProblems,
+    securityFiles,
     sinkProblems,
     supportProblems,
     workflowProblems,
@@ -248,6 +252,23 @@ test('finds browser code execution and HTML insertion sinks', () => {
     assert.match(output, /javascript-code-execution/);
 });
 
+test('scans the standalone publisher and its HTML while keeping Markdown source templates separate', (t) => {
+    const root = mkdtempSync(join(tmpdir(), 'uxor-website-policy-'));
+    t.after(() => rmSync(root, { recursive: true, force: true }));
+    const expected = ['tools/kit/KitReader.php', 'website/assets/site.js', 'website/bin/build', 'website/src/Website.php',
+        'website/templates/pages/article.html.twig', 'website/templates/toolkit/markdown/tabs.html.twig'];
+    const other = ['website/templates/toolkit/doc/_installation.md.twig', 'website/tests/browser/navigation.spec.ts',
+        'website/vendor/pkg/render.php', 'website/.phpunit.cache/cache.php', 'website/assets/photo.jpg'];
+    for (const file of [...expected, ...other]) {
+        const path = join(root, file);
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, '');
+    }
+    const files = securityFiles(root);
+    assert.deepEqual(files.map((file) => file.path).sort(), expected.sort());
+    assert.equal(files.find((file) => file.path === 'website/bin/build').extension, '.php');
+});
+
 test('reads an executable without an extension in the language it names', () => {
     const files = [{ path: 'packages/uxor/bin/uxor', source: '#!/usr/bin/env php\n<?php\nshell_exec($command);\n', extension: '.php' }];
     assert.match(sinkProblems(files, []).join('\n'), /packages\/uxor\/bin\/uxor:3: unreviewed php-process-execution/);
@@ -275,10 +296,14 @@ test('rejects tracked dependency, cache and browser-result paths', () => {
     assert.deepEqual(generatedPathProblems(['packages/uxor/src/Operations.php', 'composer.lock', 'demo/src/vendor.php']), []);
     const composer = generatedPathProblems([
         'vendor/autoload.php',
+        'website/vendor/autoload.php',
+        'website/.phpunit.cache/test-results',
         'packages/uxor/.phpunit.cache/test-results',
         'packages/uxor/tools/__pycache__/check-package.cpython-313.pyc',
     ]).join('\n');
     assert.match(composer, /__pycache__/);
+    assert.match(composer, /website\/vendor\/autoload\.php/);
+    assert.match(composer, /website\/\.phpunit\.cache/);
     assert.match(composer, /^vendor\/autoload\.php: /m);
     assert.match(composer, /packages\/uxor\/\.phpunit\.cache/);
 });
