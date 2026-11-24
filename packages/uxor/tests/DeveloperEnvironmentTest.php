@@ -534,7 +534,7 @@ final class DeveloperEnvironmentTest extends TestCase
         self::assertSame(['--project-root', $this->project, 'serena'], $configuration['mcpServers']['uxor-mago']['args']);
         self::assertFalse($result['data']['mcp_binding']['requested_saved_project_trust']);
         self::assertFalse($result['data']['mcp_binding']['verified']);
-        self::assertFileDoesNotExist($this->project.'/config/packages/uxor.yaml');
+        self::assertFileDoesNotExist($this->project.'/config/packages/uxor.php');
         self::assertFileDoesNotExist($this->project.'/.mcp.json');
         self::assertFileDoesNotExist($this->project.'/.codex/config.toml');
         self::assertSame($instructions, file_get_contents($this->project.'/AGENTS.md'));
@@ -691,15 +691,6 @@ final class DeveloperEnvironmentTest extends TestCase
         $this->invoke('setup', ['--apply' => true]);
         $this->invoke('detach', ['--apply' => true]);
         self::assertSame($applicationPolicy, file_get_contents($dev.'/uxor.php'));
-
-        unlink($dev.'/uxor.php');
-        $legacy = "# Local development diagnostics; never loaded in production.\nframework:\n    profiler:\n        collect: true\n";
-        file_put_contents($dev.'/uxor.yaml', $legacy);
-        [, $report] = $this->invoke('environment');
-        self::assertTrue($report['data']['capabilities']['profiler']['configured']);
-        [, $plan] = $this->invoke('setup');
-        self::assertStringContainsString('app/settings/packages/dev/uxor.yaml', implode("\n", $plan['data']['next_steps']));
-        self::assertSame($legacy, file_get_contents($dev.'/uxor.yaml'));
         self::assertFileDoesNotExist($this->project.'/application-executed');
     }
 

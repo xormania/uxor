@@ -407,9 +407,7 @@ Set Playwright’s `baseURL` to the app. Start the test process with `PROFILER_C
 With collection disabled the recorder requests no browser context, so API-only tests can run without a browser.
 
 Symfony applies the application’s existing profiler settings. When none are present, the generated dev configuration
-uses `PROFILER_COLLECT`, with collection off by default. Earlier setup versions may have generated
-`config/packages/dev/uxor.yaml` with `collect: true`. Setup preserves that file. Review it before removing or
-changing that setting if your application uses a different policy.
+uses `PROFILER_COLLECT`, with collection off by default.
 
 Start the local Symfony server with `PROFILER_COLLECT=1`. If Playwright starts the server, it can inherit the same
 flag from the test command. Keep the output in the selected application so Mate and the CLI can read it:
