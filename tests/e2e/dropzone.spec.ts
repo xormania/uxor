@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, expectA11y, countEvents } from './fixtures';
+import { test, expect, expectA11y, countEvents, decodedBackgroundImage, dropFiles, dropzoneAddEvents, fileNames, recordDropzoneEvents } from './fixtures';
 import { png, text } from './files';
 import { previewUrl } from './inventory';
 
@@ -11,6 +11,16 @@ const zone = (page: Page) => page.locator('[data-controller~="dropzone-assist"]'
 const input = (page: Page) => page.locator('input[type="file"]');
 const listItems = (page: Page) => page.locator('.dropzone-preview-list-item');
 const fileCount = (page: Page) => input(page).evaluate((element: HTMLInputElement) => element.files?.length ?? 0);
+
+/**
+ * Expects no message about the files left out: UX Dropzone 3.8 writes its `accept_message` and `max_files_message` into a
+ * `feedback` target, a task after the `dropzone:reject`, and the kit's zone has no such target and passes neither message.
+ */
+async function expectNoRejectMessage(page: Page) {
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve)));
+    await expect(zone(page).locator('[data-symfony--ux-dropzone--dropzone-target="feedback"], .dropzone-feedback, [role="status"]')).toHaveCount(0);
+    await expect(zone(page)).not.toContainText(/not accepted|too many files|not added/i);
+}
 
 /** Dispatches a drag event, with no file, on `target`; returns whether it was cancelled. */
 const drag = (target: Locator, type: string) =>
@@ -42,21 +52,6 @@ const fileDragOn = (target: Locator, type: string) =>
 
         return { prevented: event.defaultPrevented, dropEffect: dataTransfer.dropEffect };
     }, type);
-
-/** The names of the files the input holds. */
-const fileNames = (target: Locator) => target.evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name));
-
-/** Drops files on the input as the browser does: the drop event, then the files set on the input and its change event. */
-const dropFiles = (target: Locator, files: { name: string; type: string }[]) =>
-    target.evaluate((element: HTMLInputElement, files) => {
-        const dataTransfer = new DataTransfer();
-        for (const { name, type } of files) {
-            dataTransfer.items.add(new File([name], name, { type }));
-        }
-        element.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
-        element.files = dataTransfer.files;
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-    }, files);
 
 test('the keyboard reaches the input, opens the chooser, moves to Remove after a pick and back after Remove', async ({ page }) => {
     await page.goto(previewUrl('dropzone', 'default'));
@@ -98,7 +93,7 @@ test('a picked image shows its name and its preview; a text file shows no image'
     await expect(page.getByText('Drag and drop or browse')).toBeHidden();
     const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
     await expect(image).toBeVisible();
-    expect(await image.evaluate((element) => getComputedStyle(element).backgroundImage)).toMatch(/^url\("data:image\/png/);
+    await expect.poll(async () => (await decodedBackgroundImage(image))?.width).toBe(1);
     expect(await changes()).toEqual({ 'dropzone:change': 1 });
     // picked without the input focused: the focus stays where it was
     await expect(page.locator('body')).toBeFocused();
@@ -326,23 +321,6 @@ test('a zone disconnected during a file drag shows no drag state once connected 
     await expect(page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]')).toBeVisible();
 });
 
-/**
- * Records, from now on, each `dropzone:change`, `dropzone:remove` and `dropzone:clear` reaching `document`, in order,
- * with the file names it carries (`change`: the input's files; `remove`: the removed file); the reader returns them.
- */
-async function recordDropzoneEvents(page: Page): Promise<() => Promise<string[]>> {
-    await page.evaluate(() => {
-        const log: string[] = ((window as any).__dropzoneEvents = []);
-        const names = (detail: unknown): string =>
-            detail instanceof File ? detail.name : detail instanceof FileList ? [...detail].map((file) => file.name).join(',') : '';
-        for (const type of ['dropzone:change', 'dropzone:remove', 'dropzone:clear']) {
-            document.addEventListener(type, (event) => log.push(`${type.slice('dropzone:'.length)} ${names((event as CustomEvent).detail)}`.trim()));
-        }
-    });
-
-    return () => page.evaluate(() => [...(window as any).__dropzoneEvents] as string[]);
-}
-
 // the dropzone README, Events: `dropzone:remove` after its `dropzone:change` (the removed file), and `dropzone:clear`
 // when the zone becomes empty, so after the last of several files only
 test('removing several files one by one: a change, then a remove naming the file, each time; one clear, after the last', async ({ page }) => {
@@ -401,41 +379,46 @@ test('a dropped file that accept refuses is left out with dropzone:reject; a dro
     await page.goto(previewUrl('dropzone', 'hint-and-accepted-types'));
     const fileInput = input(page);
     await expect(fileInput).toHaveAttribute('accept', 'image/png,image/jpeg');
-    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
-    await page.evaluate(() => {
-        const rejected: { reason: string; files: string[] }[] = ((window as any).rejected = []);
-        document.addEventListener('dropzone:reject', (event) => {
-            const { reason, files } = (event as CustomEvent).detail;
-            rejected.push({ reason, files: [...files].map((file: File) => file.name) });
-        });
-    });
+    const order = await recordDropzoneEvents(page, dropzoneAddEvents);
 
     await dropFiles(fileInput, [{ name: 'notes.txt', type: 'text/plain' }]);
-    await expect.poll(() => page.evaluate(() => (window as any).rejected)).toEqual([{ reason: 'accept', files: ['notes.txt'] }]);
+    // nothing left to add: no dropzone:pre-add, no dropzone:change; no message shown, none logged (the fixtures fail on
+    // a console error)
+    await expect.poll(order).toEqual(['reject accept notes.txt']);
+    await expectNoRejectMessage(page);
     // the zone stays empty: no file in the input, the box shown, no Remove button
     expect(await fileCount(page)).toBe(0);
     await expect(page.getByText('Drop an image or browse')).toBeVisible();
     await expect(page.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
-    expect(await events()).toEqual({ 'dropzone:change': 0, 'dropzone:reject': 1 });
 
     await dropFiles(fileInput, [{ name: 'cover.png', type: 'image/png' }]);
     await expect(page.getByRole('button', { name: 'Remove cover.png' })).toBeVisible();
     expect(await fileCount(page)).toBe(1);
-    expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
+    const accepted = ['reject accept notes.txt', 'pre-add cover.png', 'change cover.png'];
+    await expect.poll(order).toEqual(accepted);
+
+    // a drop of a file accept refuses and an image: UX Dropzone reports the refused file first, then offers the image
+    // alone to dropzone:pre-add, then dispatches dropzone:change
+    await dropFiles(fileInput, [
+        { name: 'draft.txt', type: 'text/plain' },
+        { name: 'photo.jpg', type: 'image/jpeg' },
+    ]);
+    await expect(page.getByRole('button', { name: 'Remove photo.jpg' })).toBeVisible();
+    expect(await fileNames(fileInput)).toEqual(['photo.jpg']);
+    await expect.poll(order).toEqual([
+        ...accepted,
+        'reject accept draft.txt',
+        'pre-add photo.jpg',
+        'change photo.jpg',
+    ]);
+    await expectNoRejectMessage(page);
 });
 
 test('several files dropped on a zone for one file: the first is taken, the others left out with dropzone:reject', async ({ page }) => {
     await page.goto(previewUrl('dropzone', 'default'));
     const fileInput = input(page);
     await expect(fileInput).not.toHaveAttribute('multiple');
-    const events = await countEvents(page, ['dropzone:change', 'dropzone:reject']);
-    await page.evaluate(() => {
-        const rejected: { reason: string; files: string[] }[] = ((window as any).rejected = []);
-        document.addEventListener('dropzone:reject', (event) => {
-            const { reason, files } = (event as CustomEvent).detail;
-            rejected.push({ reason, files: [...files].map((file: File) => file.name) });
-        });
-    });
+    const order = await recordDropzoneEvents(page, dropzoneAddEvents);
 
     // UX Dropzone keeps one file in such a zone whether the files come by a drop or are set on the input (a pick): the
     // others are left out the same way, `max_files` the reason, `accept` not involved (this zone has none)
@@ -445,9 +428,11 @@ test('several files dropped on a zone for one file: the first is taken, the othe
         { name: 'third.txt', type: 'text/plain' },
     ]);
     await expect(page.getByRole('button', { name: 'Remove first.png' })).toBeVisible();
-    await expect.poll(() => page.evaluate(() => (window as any).rejected)).toEqual([{ reason: 'max_files', files: ['second.png', 'third.txt'] }]);
     expect(await input(page).evaluate((element: HTMLInputElement) => [...(element.files ?? [])].map((file) => file.name))).toEqual(['first.png']);
-    expect(await events()).toEqual({ 'dropzone:change': 1, 'dropzone:reject': 1 });
+    // UX Dropzone leaves the extra files out before dropzone:pre-add, whose listeners get the first file alone, and
+    // reports them before the change
+    await expect.poll(order).toEqual(['reject max_files second.png,third.txt', 'pre-add first.png', 'change first.png']);
+    await expectNoRejectMessage(page);
 });
 
 test('an invalid zone is red and described by its error', async ({ page }) => {

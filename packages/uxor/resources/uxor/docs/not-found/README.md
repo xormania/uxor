@@ -10,6 +10,8 @@ The content of a 404 (or any error) page: status, title, explanation and a way b
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=not-found#recipes). To install `not-found` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component not-found --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 In production, Symfony renders `templates/bundles/TwigBundle/Exception/error404.html.twig` for a 404. In dev, preview it at `/_error/404`. The page below extends the `layouts` recipe's `error.html.twig` (`ux:install layouts`); extend your own base template otherwise:

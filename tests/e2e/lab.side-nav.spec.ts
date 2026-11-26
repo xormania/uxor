@@ -48,8 +48,6 @@ test('the tree has the ARIA tree structure, and the branch of the current page r
     // the server opened them: the page's HTML, before any controller
     const html = await (await page.request.get('/lab/side-nav/three')).text();
     expect(html).toMatch(/aria-expanded="false" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Guides"/); // the lab marks the current page from the URL only
-    const demo = await (await page.request.get('/demo/settings/profile')).text();
-    expect(demo).toMatch(/aria-expanded="true" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Settings"/); // `route` marks it on the server
 });
 
 test('the keyboard moves through the shown treeitems, opens and closes branches and follows links', async ({ page }) => {
@@ -188,7 +186,7 @@ test('repeated Turbo visits leave one controller on the tree', async ({ page }) 
     await expect(treeitem(page, 'Reference')).toBeFocused();
 });
 
-test('in the demo\'s data-turbo-permanent sidebar, the tree follows the current page across visits', async ({ page }) => {
+test('in the demo\'s data-turbo-permanent sidebar, the tree follows the current page across visits', { tag: '@demo-app' }, async ({ page }) => {
     await page.goto('/demo');
     const nav = page.getByRole('tree', { name: 'xor' });
     await page.evaluate(() => ((window as any).__sidebar = document.getElementById('sidebar')));
@@ -219,7 +217,9 @@ test('in the demo\'s data-turbo-permanent sidebar, the tree follows the current 
     await expect(nav.getByRole('treeitem', { name: 'Settings' })).toHaveAttribute('aria-expanded', 'true');
 });
 
-test('collapsing the demo\'s sidebar moves the Tab stop off a hidden current item to its shown branch', async ({ page }) => {
+test('collapsing the demo\'s sidebar moves the Tab stop off a hidden current item to its shown branch', { tag: '@demo-app' }, async ({ page }) => {
+    const html = await (await page.request.get('/demo/settings/profile')).text();
+    expect(html).toMatch(/aria-expanded="true" tabindex="-1"\s+data-side-nav-target="branch" data-side-nav-name="Settings"/); // `route` marks it on the server
     await page.goto('/demo/settings/profile');
     const nav = page.getByRole('tree', { name: 'xor' });
     await expect(nav.getByRole('treeitem', { name: 'Profile' })).toHaveAttribute('tabindex', '0');

@@ -1,13 +1,12 @@
 name: Pages
 
-# The demo's showcase as a static site on GitHub Pages: the index, every recipe page and every README example in both
-# themes, rendered by `bin/console app:export-static`, with the /demo application's pages. The site always shows the
-# latest published release (docs/PLAN-docs-automation.md): release.yml calls it once it has published a version, and a
-# manual run on main rebuilds the latest release (a repair after a failed build or deployment), never a branch. Work on
-# dev is built and checked by CI's *Static site* job and never replaces the site.
+# Publish the project documentation, the visual copy of the example app and the live recipe previews.
+# website/bin/build reads the tagged kit and Composer package sources. The example app exports /demo/, /preview/
+# and their runtime assets. tools/build-static.sh assembles and checks both outputs. release.yml requests
+# publication after a release. A manual run on main rebuilds the latest release for repair.
 #
-# One release identity throughout: *Which release* reads GitHub's latest Release (never a draft or a prerelease) and the
-# commit its tag points at, from the API alone: no input chooses what is checked out (CodeQL: cache poisoning, the
+# One release identity throughout: *Published release selection* reads GitHub's latest published stable Release and
+# the commit its tag points at, from the API alone: no input chooses what is checked out (CodeQL: cache poisoning, the
 # build runs in the default branch's context). release.yml's version is only compared with it. The build checks out
 # that commit, builds it with its own tools/build-static.sh, checks the pages name that version, and writes
 # release.json beside them; the deploy checks again that the version is still the latest, at that commit, so an older
@@ -32,7 +31,7 @@ concurrency:
 jobs:
     # The release to publish: no branch fallback, a version that is not the latest published Release stops here
     resolve:
-        name: Which release
+        name: Published release selection
         # a manual run only from main (from release.yml, the event is release.yml's own)
         if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
         runs-on: ubuntu-latest
@@ -92,7 +91,7 @@ jobs:
                   persist-credentials: false
                   ref: ${{ needs.resolve.outputs.commit }}
                   fetch-depth: 0 # the tags: the release's own tag names it in the install commands
-            - name: Check the release's tag
+            - name: Verify the published release tag
               id: tag
               env:
                   VERSION: ${{ needs.resolve.outputs.version }}
@@ -109,9 +108,8 @@ jobs:
                   extensions: intl # the calendar formats dates with twig/intl-extra
                   tools: composer
                   coverage: none
-            # the same build and checks as CI's Static site job, with the release's own script: the checkout is the
-            # tag's commit, so --release-from-tags names exactly that version (the output also goes to
-            # $RUNNER_TEMP/jev-build.log, for the Jev step)
+            # The tag's build composes the documentation website with its matching runtime previews and visual demo.
+            # The combined check validates every documented preview link before the artifact is uploaded.
             - name: Build and check the site
               id: build
               run: |
@@ -119,14 +117,14 @@ jobs:
                   tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" --release-from-tags --branch=main 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
             # The site the deploy uploads names this release: its install command installs it, and release.json
             # records the version and the commit for the deploy's own check and for anyone reading the site
-            - name: Check the release identity
+            - name: Verify the built site's release identity
               id: identity
               env:
                   VERSION: ${{ needs.resolve.outputs.version }}
                   COMMIT: ${{ needs.resolve.outputs.commit }}
               run: |
                   kit="$(jq -r .homepage manifest.json):$VERSION"
-                  if ! grep -qF -- "$kit" _site/index.html; then
+                  if ! grep -qF -- "$kit" _site/install/index.html _site/index.html; then
                       echo "::error::The site's install command does not install $kit"
                       exit 1
                   fi
@@ -199,7 +197,7 @@ jobs:
         steps:
             # Still the latest release, at the same commit: a run that waited behind a newer release's run (the pages
             # concurrency group serializes them, it does not order them) or was re-run later deploys nothing
-            - name: Check the release is still the latest
+            - name: Verify the release is still current
               id: fresh
               env:
                   GH_TOKEN: ${{ github.token }}
@@ -241,6 +239,10 @@ jobs:
                           grep -qF "<link rel=\"canonical\" href=\"$site/$page\">" <<<"$html" \
                               || { problem="/$page does not name $site/$page as its canonical URL"; return 1; }
                       done
+                      demo=$(get demo/) || { problem='/demo/ does not answer'; return 1; }
+                      grep -qF 'Back to the gallery' <<<"$demo" || { problem='/demo/ is missing its static-demo notice'; return 1; }
+                      preview=$(get preview/button/default/light/) || { problem='the button preview does not answer'; return 1; }
+                      grep -qF '<meta name="robots" content="noindex">' <<<"$preview" || { problem='the preview URL does not serve a runtime preview'; return 1; }
                       get sitemap.xml | grep -qF "<loc>$site/r/button/</loc>" || { problem="sitemap.xml does not list $site/r/button/"; return 1; }
                       get llms.txt | grep -qF "($site/r/button.md)" || { problem="llms.txt does not link $site/r/button.md"; return 1; }
                       get r/button.md | grep -q '^# Button' || { problem='r/button.md does not answer the recipe'"'"'s Markdown'; return 1; }

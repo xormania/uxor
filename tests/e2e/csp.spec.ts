@@ -1,6 +1,6 @@
 import type { APIResponse, Page, Response } from '@playwright/test';
-import { test, expect, recordDarkAtFirstBody } from './fixtures';
-import { png } from './files';
+import { test, expect, decodedBackgroundImage, recordDarkAtFirstBody } from './fixtures';
+import { jpeg, png, svg } from './files';
 
 /*
  * The demo's browser hardening headers and its enforced Content Security Policy
@@ -51,14 +51,14 @@ async function gotoAndCheckPolicy(page: Page, path: string): Promise<{ script: s
     return { script: nonceOf(scriptSources), style: nonceOf(styleSources), policy };
 }
 
-test('every response gets its own nonces', async ({ page }) => {
+test('every response gets its own nonces', { tag: '@demo-app' }, async ({ page }) => {
     const first = await gotoAndCheckPolicy(page, '/demo/login');
     const second = await gotoAndCheckPolicy(page, '/demo/login');
     expect(second.script).not.toEqual(first.script);
     expect(second.style).not.toEqual(first.style);
 });
 
-test.describe('system in dark mode', () => {
+test.describe('system in dark mode', { tag: '@demo-app' }, () => {
     test.use({ colorScheme: 'dark' });
 
     test('the layout sets the theme before the first paint', async ({ page }) => {
@@ -69,7 +69,7 @@ test.describe('system in dark mode', () => {
     });
 });
 
-test("Turbo's progress bar gets its style and the brand color", async ({ page }) => {
+test("Turbo's progress bar gets its style and the brand color", { tag: '@demo-app' }, async ({ page }) => {
     await page.goto('/demo/login');
     await page.waitForFunction(() => 'Turbo' in window);
     const bar = await page.evaluate(() => {
@@ -88,7 +88,7 @@ test("Turbo's progress bar gets its style and the brand color", async ({ page })
     expect(bar.color).toBe(bar.brand);
 });
 
-test('the Progress bars keep their width', async ({ page }) => {
+test('the Progress bars keep their width', { tag: '@demo-app' }, async ({ page }) => {
     await page.goto('/demo');
     const bars = await page.locator('[role="meter"], [role="progressbar"]').evaluateAll((tracks) =>
         tracks.map((track) => ({
@@ -126,70 +126,44 @@ test("the Editor's markup has no style attribute, and the mounted editor adds no
     expect(await page.locator('style').evaluateAll((styles) => styles.filter((style) => style.textContent!.includes('ProseMirror')).length)).toBe(0);
 });
 
-test('a picked image shows its preview under the policy (img-src data:)', async ({ page }) => {
-    const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=light');
-    expect(policy.get('img-src')).toContain('data:');
-    await page.locator('input[type="file"]').setInputFiles(png('tiny.png'));
-    const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
-    await expect(image).toBeVisible();
-    // the image loads: its natural size, read the way the browser loads a CSS background (the fixtures fail on a violation)
-    const loaded = await image.evaluate(async (element) => {
-        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
-        const probe = new Image();
-        probe.src = url;
-        await probe.decode();
+// UX Dropzone 3.8 uses object URLs for PNG and JPEG previews. SVG previews still load from data URLs.
+for (const theme of ['light', 'dark']) {
+    test(`in the ${theme} theme, a picked PNG or JPEG shows its preview from a blob: URL, an SVG from a data: URL, under the policy`, async ({ page }) => {
+        const { policy } = await gotoAndCheckPolicy(page, `/preview/dropzone/default?theme=${theme}`);
+        expect(policy.get('img-src')).toEqual(expect.arrayContaining(['blob:', 'data:']));
+        if ('dark' === theme) {
+            await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
+        }
+        const input = page.locator('input[type="file"]');
+        const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
+        for (const [file, scheme] of [
+            [png('tiny.png'), /^blob:/],
+            [jpeg('tiny.jpg'), /^blob:/],
+            [svg('tiny.svg'), /^data:image\/svg\+xml;/],
+        ] as const) {
+            const previous = await decodedBackgroundImage(image);
+            await input.setInputFiles(file);
+            await expect(page.getByText(file.name, { exact: true })).toBeVisible();
+            await expect(page.getByRole('button', { name: `Remove ${file.name}` })).toBeVisible();
+            await expect(image).toBeVisible();
+            await expect.poll(async () => {
+                const preview = await decodedBackgroundImage(image);
 
-        return { scheme: url.slice(0, 15), width: probe.naturalWidth };
+                return preview?.url === previous?.url ? null : preview;
+            }, { message: file.name }).toEqual({
+                url: expect.stringMatching(scheme),
+                width: 1,
+            });
+        }
     });
-    expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
-});
-
-// the same in the dark theme, walked as the user does: a keyboard pick shows the name, the image and Remove, focused;
-// Remove empties the zone and puts the focus back on the input
-test('in the dark theme, a picked image shows its name, its preview under the policy and Remove, focused; Remove empties the zone', async ({ page }) => {
-    const { policy } = await gotoAndCheckPolicy(page, '/preview/dropzone/default?theme=dark');
-    expect(policy.get('img-src')).toContain('data:');
-    await expect(page.locator('html')).toHaveClass(/(^|\s)dark(\s|$)/);
-    const input = page.getByLabel('Profile picture');
-    await input.focus();
-    const chooser = page.waitForEvent('filechooser');
-    await page.keyboard.press('Enter');
-    await (await chooser).setFiles(png('dark.png'));
-
-    const remove = page.getByRole('button', { name: 'Remove dark.png' });
-    await expect(remove).toBeFocused();
-    await expect(remove).toBeVisible();
-    await expect(page.getByText('dark.png', { exact: true })).toBeVisible();
-    await expect(page.getByText('Drag and drop or browse')).toBeHidden();
-    const image = page.locator('[data-symfony--ux-dropzone--dropzone-target="previewImage"]');
-    await expect(image).toBeVisible();
-    const box = await image.boundingBox();
-    expect(box && box.width > 0 && box.height > 0).toBe(true);
-    // the image loads (the fixtures fail on a violation), read the way the browser loads a CSS background
-    const loaded = await image.evaluate(async (element) => {
-        const url = getComputedStyle(element).backgroundImage.slice(5, -2);
-        const probe = new Image();
-        probe.src = url;
-        await probe.decode();
-
-        return { scheme: url.slice(0, 15), width: probe.naturalWidth };
-    });
-    expect(loaded).toEqual({ scheme: 'data:image/png;', width: 1 });
-
-    await page.keyboard.press('Enter');
-    await expect(input).toBeFocused();
-    await expect(image).toBeHidden();
-    await expect(remove).toBeHidden();
-    await expect(page.getByText('Drag and drop or browse')).toBeVisible();
-    expect(await input.evaluate((element: HTMLInputElement) => element.files?.length ?? 0)).toBe(0);
-});
+}
 
 test("Symfony's error pages keep the hardening headers without a policy on scripts and styles", async ({ page, allowHttpError }) => {
     // an exception's page; in debug, Symfony also removes the whole header from it
-    allowHttpError(/\/r\/does-not-exist$/, 404);
+    allowHttpError(/\/lab\/does-not-exist$/, 404);
     // the error page preview of the dev environment, an ordinary response
     allowHttpError(/\/_error\/404$/, 404);
-    for (const path of ['/r/does-not-exist', '/_error/404']) {
+    for (const path of ['/lab/does-not-exist', '/_error/404']) {
         const response = await page.goto(path);
         expect(response?.status()).toBe(404);
         expect(response?.headers()['x-content-type-options']).toBe('nosniff');

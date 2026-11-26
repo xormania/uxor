@@ -1,4 +1,4 @@
-import { describeRecipe, expect, test } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test } from '../../tests/e2e/examples/fixtures';
 
 describeRecipe('uxor/social-login', () => {
     test('presents the registration choices and route back to sign-in', async ({ page, gotoExample }) => {

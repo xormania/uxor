@@ -1,12 +1,12 @@
 # Weekly update pull requests, one per ecosystem: the GitHub Actions (pinned by commit, with the version in a comment),
 # the npm packages of the Playwright tests, the Composer package's development lock file (composer.lock, which the
 # Package job installs; users resolve composer.json's ranges themselves), the demo's lock file (demo/composer.lock),
-# the consumer harness (Composer in packages/uxor/dev/app, npm browser checks in packages/uxor/dev, npm editor tooling
-# in packages/uxor/dev/images/serena) as well as the CI analyzers (Composer in tools/ci/phpstan) and the base images
-# of the demo, the development images and the Mago images (their Dockerfiles, pinned by digest: a new digest for the
-# same tag, or a newer tag), against `dev` like any pull request. CI runs on
-# each; nothing merges on its own.
-# The browser image is not here: its tag follows @playwright/test (tools/playwright-image.json, docs/NOTES.md).
+# the consumer harness (Composer in packages/uxor/dev/app, npm browser checks in packages/uxor/dev) as well as the CI
+# analyzers (Composer in tools/ci/phpstan) and the base images of the demo, the development PHP image and the Mago
+# images (their Dockerfiles, pinned by digest: a new digest for the same tag, or a newer tag), against `dev` like any
+# pull request. CI runs on each; nothing merges on its own.
+# Refresh image pins owns the version-matched Playwright image and browser pins.
+# Its daily discovery starts before the routine weekly Dependabot checks. Browser screenshot upgrades stay reviewed.
 version: 2
 updates:
     - package-ecosystem: github-actions
@@ -15,6 +15,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: ci
       groups:
@@ -26,6 +29,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       ignore:
@@ -36,27 +42,35 @@ updates:
           npm:
               patterns: ['*']
 
-    # These browser checks install Chromium for their own Playwright version (packages/uxor/dev/README.md).
+    # Refresh image pins updates playwright-core, the consumer client and the Docker image together.
+    - package-ecosystem: npm
+      directory: /packages/uxor/resources/browser
+      target-branch: dev
+      schedule:
+          interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
+      commit-message:
+          prefix: chore
+      ignore:
+          - dependency-name: playwright-core
+
+    # Refresh image pins owns the Playwright client here; Dependabot handles other consumer dependencies.
     - package-ecosystem: npm
       directory: /packages/uxor/dev
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
+      ignore:
+          - dependency-name: '@playwright/test'
       groups:
           consumer-npm:
-              patterns: ['*']
-
-    - package-ecosystem: npm
-      directory: /packages/uxor/dev/images/serena
-      target-branch: dev
-      schedule:
-          interval: weekly
-      commit-message:
-          prefix: chore
-      groups:
-          editor-npm:
               patterns: ['*']
 
     - package-ecosystem: composer
@@ -64,10 +78,27 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
           composer:
+              patterns: ['*']
+
+    - package-ecosystem: composer
+      directory: /website
+      target-branch: dev
+      schedule:
+          interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
+      commit-message:
+          prefix: chore
+      groups:
+          website-composer:
               patterns: ['*']
 
     # the demo's lock file (demo/composer.lock: the Symfony and UX packages the recipes install, and the PHP test
@@ -77,6 +108,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -88,6 +122,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:
@@ -99,6 +136,9 @@ updates:
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: ci
       groups:
@@ -106,11 +146,14 @@ updates:
               patterns: ['*']
 
     - package-ecosystem: docker
-      directories: [/demo, /packages/uxor/dev/images/php, /packages/uxor/dev/images/serena, /packages/uxor/resources/mago,
+      directories: [/demo, /packages/uxor/dev/images/php, /packages/uxor/resources/mago,
           /packages/uxor/resources/mago/serena]
       target-branch: dev
       schedule:
           interval: weekly
+          day: monday
+          time: '08:47'
+          timezone: UTC
       commit-message:
           prefix: chore
       groups:

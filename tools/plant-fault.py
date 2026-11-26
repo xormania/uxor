@@ -80,7 +80,9 @@ def run_fault(root, fault, specs, *, baseline, confirm_only):
         apply_fault(root, fault)
     subprocess.run(["php", "tools/sync-demo"], cwd=root, check=True, stdout=subprocess.DEVNULL)
     subprocess.run(["composer", "install", "--no-progress", "--no-interaction"], cwd=root / "demo", check=True)
-    subprocess.run(["php", "bin/console", "tailwind:build"], cwd=root / "demo", check=True)
+    # Older --ref targets have one Tailwind entrypoint and predate the two-stylesheet command.
+    styles_command = "app:build-styles" if (root / "demo/src/Command/BuildStylesCommand.php").is_file() else "tailwind:build"
+    subprocess.run(["php", "bin/console", styles_command], cwd=root / "demo", check=True)
     if not confirm_only:
         subprocess.run(["npm", "ci", "--no-audit", "--no-fund"], cwd=root, check=True)
     # Let PHP bind an unused port. An existing demo may serve another checkout.

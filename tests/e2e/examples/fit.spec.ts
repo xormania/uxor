@@ -89,7 +89,8 @@ for (const width of [640, 768, 1024]) {
             ['the stat card example', previewUrl('stat-card', 'default')],
             ['the dashboard-home example', previewUrl('dashboard-home', 'default')],
         ]) {
-            test(`the stat cards of ${where} hold their values`, async ({ page }) => {
+            const details = url === '/demo' ? { tag: '@demo-app' } : {};
+            test(`the stat cards of ${where} hold their values`, details, async ({ page }) => {
                 await page.goto(url);
                 const values = page.locator('p.tracking-tight.text-heading');
                 await expect(values.first()).toBeVisible();

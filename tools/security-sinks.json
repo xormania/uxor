@@ -60,6 +60,62 @@
         "rule": "php-process-execution",
         "contains": "new Process($argv, $root, timeout: 30)",
         "count": 1,
-        "reason": "Runs the bound project's own bin/console or vendor/bin/mate, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
+        "reason": "Runs the bound project's own bin/console or configured Composer Mate entry point, only after the caller sets trust_project_code: a fixed argv from a closed list of commands (no shell), the project root as working directory, a 30-second timeout and a 1 MiB output bound."
+    },
+    {
+        "path": "packages/uxor/src/Composer/MateVendorLink.php",
+        "rule": "php-process-execution",
+        "contains": "(new Process(['/bin/ln', '-P', $alias, $witness]))->run();",
+        "count": 1,
+        "reason": "On macOS the fixed /bin/ln executable records the identity of the newly created symbolic link. The two absolute application-local paths are separate arguments. The command runs under the project lock and has no force flag."
+    },
+    {
+        "path": "packages/uxor/src/Composer/Plugin.php",
+        "rule": "php-process-execution",
+        "contains": "$process = new Process([PHP_BINARY, __DIR__.'/../../resources/composer/run-mate.php', $root.'/'.$vendor.'/autoload.php', ...$arguments, '--no-interaction'], $root);",
+        "count": 1,
+        "reason": "During an authorized Composer development install, PHP runs the package's own Mate entry point with the configured project-local autoloader. The plugin supplies fixed init or discover arguments and the working directory."
+    },
+    {
+        "path": "packages/uxor/src/EnvironmentStatus.php",
+        "rule": "php-process-execution",
+        "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1'], timeout: 30);",
+        "count": 1,
+        "reason": "An explicit trusted-project probe invokes fixed native readiness commands in the selected application; static inspection executes nothing. Commands use argv, a 30-second timeout and disabled output. Provider-version evidence does not establish an MCP session or a healthy request."
+    },
+    {
+        "path": "packages/uxor/src/SymfonyPreparation.php",
+        "rule": "php-process-execution",
+        "contains": "$process = new Process($argv, $root, ['APP_ENV' => 'dev', 'APP_DEBUG' => '1'], timeout: 120);",
+        "count": 1,
+        "reason": "Explicit trusted-project preparation runs fixed Symfony Console/exporter argv with the application's PHP and selected root. Capture is bounded in private temporary files; raw stderr is withheld, only sanitized validated wiring is published, and request profiles/logs are not cleared."
+    },
+    {
+        "path": "website/templates/pages/guide.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ doc|raw }}",
+        "count": 1,
+        "reason": "The publisher renders repository-authored guide Markdown to HTML before inserting the complete guide body."
+    },
+    {
+        "path": "website/templates/pages/recipe.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ doc|raw }}",
+        "count": 1,
+        "reason": "The publisher renders recipe README and Toolkit documentation from the release checkout to HTML before inserting the recipe body."
+    },
+    {
+        "path": "website/templates/toolkit/markdown/alert.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ content|raw }}",
+        "count": 1,
+        "reason": "The Toolkit alert renderer supplies the CommonMark-rendered child nodes of the repository's documentation."
+    },
+    {
+        "path": "website/templates/toolkit/markdown/tabs.html.twig",
+        "rule": "twig-raw",
+        "contains": "{{ tab.content|raw }}",
+        "count": 1,
+        "reason": "DocTabsRenderer supplies the CommonMark-rendered child nodes of each repository-authored tab."
     }
 ]

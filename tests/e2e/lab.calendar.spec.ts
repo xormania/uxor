@@ -1,11 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
-import { test, expect, turboVisitDone, countEvents } from './fixtures';
+import { test, expect, turboVisitDone } from './fixtures';
 import { advanceFrame, reloadFrames, turboOperation, visit, visitAndBack } from './transitions';
-import { day } from './calendar';
+import { countCalendarChanges, day } from './calendar';
 
 const grid = (calendar: Locator) => calendar.getByRole('grid');
-// the change events of the calendars' hidden inputs, from now on
-const countChanges = (page: Page) => countEvents(page, ['change'], '[data-calendar-target="input"]');
 
 // its form is a GET form: Back shows the month and selection of the URL, not the pick made before leaving
 test('a Turbo visit and Back show the month and selection of the URL, and the calendar still works', async ({ page }) => {
@@ -21,7 +19,7 @@ test('a Turbo visit and Back show the month and selection of the URL, and the ca
     await expect(calendar().locator('input[name="day"]')).toHaveValue('');
     await calendar().getByRole('button', { name: 'Next month' }).click();
     await expect(day(calendar(), '2026-04-08')).toHaveAttribute('data-selected-single', 'false');
-    const changes = await countChanges(page);
+    const changes = await countCalendarChanges(page);
     await day(calendar(), '2026-04-09').click();
     await expect(calendar().locator('input[name="day"]')).toHaveValue('2026-04-09');
     expect(await changes()).toEqual({ change: 1 });
@@ -55,7 +53,7 @@ test('beside a frame visit promoted to history, the calendar keeps the pick; Bac
     }
 
     // the selected day takes the focus in the grid; the arrows move it, Enter picks: one change, one controller
-    const changes = await countChanges(page);
+    const changes = await countCalendarChanges(page);
     await day(calendar, '2026-03-12').focus();
     await page.keyboard.press('ArrowRight');
     await expect(day(calendar, '2026-03-13')).toBeFocused();
@@ -75,7 +73,7 @@ test('repeated Turbo visits leave one controller per calendar and one change per
         await turboVisitDone(page);
     }
     await expect(page.locator('[data-controller~="calendar"]')).toHaveCount(5);
-    const changes = await countChanges(page);
+    const changes = await countCalendarChanges(page);
     const calendar = page.getByRole('group', { name: 'Day' });
     await day(calendar, '2026-03-11').click();
     await expect(calendar.locator('input[name="day"]')).toHaveValue('2026-03-11');

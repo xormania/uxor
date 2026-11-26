@@ -52,7 +52,7 @@ inputs:
         required: false
         default: ''
     job:
-        description: The job's name in the assessments (jev-diagnosis.mjs --job; default "Demo + Playwright (<shard>)")
+        description: The job's name in the assessments (jev-diagnosis.mjs --job; default "Playwright (<shard>)")
         required: false
         default: ''
     shard:

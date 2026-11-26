@@ -1,4 +1,4 @@
-import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test, testState } from '../../tests/e2e/examples/fixtures';
 
 describeRecipe('uxor/tabs', () => {
     testState('shows the panel of a clicked tab', {

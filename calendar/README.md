@@ -10,6 +10,8 @@ Pick a date, several dates or a range, inline in the page: keyboard navigation, 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=calendar#recipes). To install `calendar` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component calendar --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Formatting the month and day names needs PHP's `intl` extension for every locale but `en`.
 
 ## Usage
@@ -110,6 +112,8 @@ A range cannot span a disabled day: a click past one starts a new range.
 ### Presets and booked dates
 
 `modifiers` flags days with `data-<name>="true"`, for your own styles.
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig {"preview":true}
 {% set booked = ['2026-03-17', '2026-03-18', '2026-03-19'] %}

@@ -6,6 +6,8 @@ What the kit's navigation controllers share, in one JavaScript module: marking t
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=navigation#recipes). To install `navigation` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component navigation --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `nav-menu`, `sidebar`, `side-nav`, `section-nav` and `mobile-nav` install it with them: install it yourself only

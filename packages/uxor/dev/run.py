@@ -128,9 +128,6 @@ def prepare(env: dict[str, str], native: bool, *, assets: bool = True) -> None:
     execute(["php", "bin/console", "cache:clear", "--no-interaction"], env, native, running=False)
     if assets:
         execute(["php", "bin/console", "importmap:install", "--no-interaction"], env, native, running=False)
-    execute(["php", "vendor/bin/mate", "init", "--no-interaction"], env, native, running=False)
-    execute(["composer", "dump-autoload", "--no-interaction"], env, native, running=False)
-    execute(["php", "vendor/bin/mate", "discover", "--no-interaction"], env, native, running=False)
 
 
 def readiness(env: dict[str, str]) -> None:
@@ -159,9 +156,6 @@ def main(arguments=None) -> int:
         commands.add_parser(name, help=help_text)
     execute_parser = commands.add_parser("exec", help="Run a command in the consuming application")
     execute_parser.add_argument("arguments", nargs=argparse.REMAINDER)
-    serena = commands.add_parser("serena", help="Start the checkout’s Serena v2 REPL MCP provider")
-    serena.add_argument("--write", action="store_true", help="Allow source editing; separate concurrent work with worktrees")
-    serena.add_argument("--prepare", action="store_true", help="Build the checkout’s Serena image, then exit before MCP startup")
     args = parser.parse_args(arguments)
     env = environment(args.native)
 
@@ -203,15 +197,6 @@ def main(arguments=None) -> int:
                 ["php", "vendor/bin/mate", "tools:call", "symfony-service-detail", "--id=App\\Controller\\DevelopmentController", "--format=json"],
             ]:
                 execute(command, env, args.native)
-    elif args.command == "serena":
-        if args.native:
-            raise ValueError("The prepared Serena provider requires Docker; native PHP remains usable independently")
-        command = [sys.executable, str(DEV / "serena.py")]
-        if args.prepare:
-            command.append("--prepare")
-        if args.write:
-            command.append("--write")
-        os.execvpe(command[0], command, env)
     return 0
 
 

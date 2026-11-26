@@ -1,8 +1,9 @@
 {% extends 'layouts/oauth-auth.html.twig' %}
 
 {% block head %}{{ parent() }}<link rel="icon" href="data:,">{% endblock %}
+{% block stylesheets %}{{ include('_toolkit_stylesheets.html.twig') }}{% endblock %}
 {% block title %}{{ provider_name }} demonstration — xor{% endblock %}
-{% block brand %}{{ include('demo_app/_brand.html.twig') }}{% endblock %}
+{% block brand %}{{ include('shared/_brand.html.twig') }}{% endblock %}
 {% block content %}
     {% form_theme form 'form/flowbite_layout.html.twig' %}
     <twig:Card>

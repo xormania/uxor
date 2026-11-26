@@ -2,9 +2,10 @@
     "schema_version": 2,
     "source": {
         "repository": "https://github.com/xormania/uxor",
-        "ref": "0.3.2",
-        "inputs_sha256": "f7e2ff5dafda20782fa5f861a68bd9b8b20983422c77adb544aa926422dd33cb",
+        "ref": "0.3.5",
+        "inputs_sha256": "391c908f6495f49cd04b224c414dfda2787a0fb2c03d77f78677bda08500ca7a",
         "manifest_sha256": "fd1dae52de106631279c0793f21a0d88fab2e4c2eab457cbf3c7543e9c8c00fe",
+        "guide_catalog_sha256": "92b083ca3a1cb43236e66a9bf903458f9aa676bed7552cdfe6a52a8f79e302fd",
         "license": "MIT"
     },
     "kit": {
@@ -45,7 +46,7 @@
             },
             "manifest_sha256": "c5bd441924655c8a55d17ee7e7cdbab24ff5f7a94ca9ac1c80d3f860b8c4884a",
             "documentation": "alert/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/alert"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/alert"
         },
         "autocomplete": {
             "summary": "Searchable selects with Symfony UX Autocomplete (Tom Select), styled with the theme: one choice, several, values typed by the user, options searched on the server. Works through the form theme ('autocomplete' => true) and as an Autocomplete component outside forms.",
@@ -70,7 +71,7 @@
             },
             "manifest_sha256": "04eec39486e599b3fd33abaad42802c76a12fe14a06a64793f9c828297f2db46",
             "documentation": "autocomplete/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/autocomplete"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/autocomplete"
         },
         "avatar": {
             "summary": "A user's picture, with a fallback, in several sizes, round or with rounded corners.",
@@ -95,7 +96,7 @@
             },
             "manifest_sha256": "d3049fc5865f465a296af9a00df1be8b7a2797e6595708875362c3e015adfa5d",
             "documentation": "avatar/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/avatar"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/avatar"
         },
         "badge": {
             "summary": "A small label or count next to other content, such as a number of comments.",
@@ -118,7 +119,7 @@
             },
             "manifest_sha256": "638e9668865541eb7c5d10fe069f1143b83de4ee7f70ac7035e782e6ba1c2de1",
             "documentation": "badge/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/badge"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/badge"
         },
         "breadcrumb": {
             "summary": "A trail of links showing where the current page sits in the site hierarchy.",
@@ -141,7 +142,7 @@
             },
             "manifest_sha256": "94ac45c53af1addbd435d5f2f09a8ef3334b3fc32fb5791a6ed18bc03cb14010",
             "documentation": "breadcrumb/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/breadcrumb"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/breadcrumb"
         },
         "button": {
             "summary": "A button, or a link that looks like one, in several colors, sizes and styles.",
@@ -164,7 +165,7 @@
             },
             "manifest_sha256": "3fa89c193eae8b71eb4d69c7326f7aa5dbee639bc1ffb14ce40db8f3f0a2374b",
             "documentation": "button/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/button"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/button"
         },
         "button-group": {
             "summary": "Several buttons or links joined into one control.",
@@ -187,7 +188,7 @@
             },
             "manifest_sha256": "b6eb5074aa5355c1118738ebb1ced2ba14e10675cba4f1bdbab8c102a6dfc50a",
             "documentation": "button-group/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/button-group"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/button-group"
         },
         "calendar": {
             "summary": "Pick a date, several dates or a range inline: keyboard navigation, disabled dates and bounds, several months, locales, right to left, hidden inputs for forms and a model prop for Live Components.",
@@ -213,7 +214,7 @@
             },
             "manifest_sha256": "d832563cf80dd03f3023bf5d675ab5534a55d7f389984662420dceeb8b9adcf8",
             "documentation": "calendar/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/calendar"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/calendar"
         },
         "card": {
             "summary": "A box grouping related content: text, images, a form.",
@@ -235,7 +236,7 @@
             },
             "manifest_sha256": "a294c225f0690d4c71dccfba9989c0595df0d4c2d107993948fd1255b9978bcb",
             "documentation": "card/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/card"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/card"
         },
         "chart": {
             "summary": "Charts with Symfony UX Chart.js in the theme's colors, light and dark, each with its data as a table; from arrays or ChartBuilderInterface, updated in place by Live Components.",
@@ -265,7 +266,7 @@
             },
             "manifest_sha256": "57abc1e330e239156000412a874f769451e7dd1ae798cea613af7655beea3bcf",
             "documentation": "chart/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/chart"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/chart"
         },
         "checkbox": {
             "summary": "A square box to select one or more options.",
@@ -287,7 +288,7 @@
             },
             "manifest_sha256": "eac92d01c1b5a340fa387031d9f03d938fa0cb218aaee5bc41918a670c72ac26",
             "documentation": "checkbox/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/checkbox"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/checkbox"
         },
         "connected-accounts": {
             "summary": "Connected provider identities with distinct CSRF-protected POST connection and disconnection forms, and explanations for unavailable actions.",
@@ -315,7 +316,7 @@
             },
             "manifest_sha256": "9e23e58e7375820193ab0183c42b35f468db24cf36f040bbdeaf4d1baf6f51fa",
             "documentation": "connected-accounts/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/connected-accounts"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/connected-accounts"
         },
         "dashboard-home": {
             "summary": "A dashboard home: page header, key figures, two cards and a table of recent orders.",
@@ -347,7 +348,7 @@
             },
             "manifest_sha256": "5e23030eb2c5447f383adb5714d0faad95cd8f77db82d2c2569a49269f6deaf6",
             "documentation": "dashboard-home/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/dashboard-home"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/dashboard-home"
         },
         "data-table": {
             "summary": "A server-driven table: search, filters, sortable columns, page size and pages in a Turbo Frame, with Back and Forward through each state. Copies PHP classes into src/UXor/.",
@@ -383,7 +384,7 @@
             },
             "manifest_sha256": "06db7ef4ba50e167f700cc21f1e8678497028e390f893e38e3e56f5dcad588af",
             "documentation": "data-table/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/data-table"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/data-table"
         },
         "data-table-live": {
             "summary": "data-table as a Live Component: search while typing, filters, sorting, pages and row selection for bulk actions, its state in the URL. Copies PHP classes into src/UXor/.",
@@ -413,7 +414,7 @@
             },
             "manifest_sha256": "6c659b6c3abc88e3ac78680d0f64e5cd84723bdbe4f22cb86578f31b42d4e645",
             "documentation": "data-table-live/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/data-table-live"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/data-table-live"
         },
         "date-picker": {
             "summary": "A date or a range picked in a calendar that opens from a button or a typed field; a DateType opts in through the form theme.",
@@ -443,7 +444,7 @@
             },
             "manifest_sha256": "2a8cb0a4e541d397c7e76942cb1e0aa47dd1fef0acef970d502247b84409db74",
             "documentation": "date-picker/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/date-picker"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/date-picker"
         },
         "drawer": {
             "summary": "A panel sliding over one side of the page, for navigation, filters or details, as a native <dialog>.",
@@ -472,7 +473,7 @@
             },
             "manifest_sha256": "d6abe823ac7ac0cafced8f04d40372111566902e1726a8dabe42ebe0ebffae31",
             "documentation": "drawer/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/drawer"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/drawer"
         },
         "dropdown": {
             "summary": "A menu that opens from a button and closes when the user clicks or focuses outside it.",
@@ -500,7 +501,7 @@
             },
             "manifest_sha256": "fe2640280929ae32a92b1c4db742f67f6645a1f803386f74b30a92c04e1c90ba",
             "documentation": "dropdown/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/dropdown"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/dropdown"
         },
         "dropzone": {
             "summary": "File uploads with Symfony UX Dropzone, styled with the theme: drag and drop or browse, a preview of the picked image, several files that add up across picks, keyboard focus kept after a pick or a removal; a DropzoneType renders as one through the form theme.",
@@ -520,7 +521,7 @@
                         "turbo"
                     ],
                     "composer": [
-                        "symfony/ux-dropzone:^3.7",
+                        "symfony/ux-dropzone:^3.8",
                         "symfony/ux-icons",
                         "symfony/ux-twig-component:^3.5",
                         "twig/html-extra:^3.24.0",
@@ -528,9 +529,9 @@
                     ]
                 }
             },
-            "manifest_sha256": "53448a8d197b01a99a41af12a0cfaf6a1aa397de72c8fcc843225a406fee93ab",
+            "manifest_sha256": "a561abf58dfd6846e4e0c087fdd416c0000d1776097cc4fc681d9bd79683ad5c",
             "documentation": "dropzone/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/dropzone"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/dropzone"
         },
         "editor": {
             "summary": "A rich text editor (Tiptap) that stores restricted HTML: paragraphs, bold, italic, strike, code, headings, lists, quotes, links; a keyboard-friendly toolbar, a link dialog, a counter. EditorType sanitizes every submit (symfony/html-sanitizer), and flowbite_editor_html prints stored HTML.",
@@ -582,7 +583,7 @@
             },
             "manifest_sha256": "b401942813331abd0e23a23d2651d024c273ad5cf8c21730bf5cb61e86640dda",
             "documentation": "editor/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/editor"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/editor"
         },
         "empty-state": {
             "summary": "What a list or page shows when it has nothing yet, with a way forward.",
@@ -605,7 +606,7 @@
             },
             "manifest_sha256": "93536bc1f193055153305ad037718854238c41192adb94830a83484a70347471",
             "documentation": "empty-state/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/empty-state"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/empty-state"
         },
         "floating": {
             "summary": "The positioning shared by dropdown, popover (so date-picker) and tooltip, one JavaScript module: a floating element placed next to the element it belongs to, flipped to the other side when it does not fit, kept in the viewport and following it on scroll and resize.",
@@ -620,7 +621,7 @@
             },
             "manifest_sha256": "47c17b040131a83bad0e194a8bf1a4e0afd75232846854f118637a7c1f899b45",
             "documentation": "floating/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/floating"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/floating"
         },
         "forgot-password": {
             "summary": "A card asking for an email address to send a password reset link, then confirming it was sent.",
@@ -650,7 +651,7 @@
             },
             "manifest_sha256": "7c624ff79a75b61d7a741c84aea718195e8034b9683a3c2d097596e1b71d96bf",
             "documentation": "forgot-password/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/forgot-password"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/forgot-password"
         },
         "form-field": {
             "summary": "A labelled form control with its help text and error message, wired by id (used by the form theme).",
@@ -672,7 +673,7 @@
             },
             "manifest_sha256": "a4c35427121c9d9335d92097a843345b461e41f8e9cb2398b53474ada6fe17eb",
             "documentation": "form-field/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/form-field"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/form-field"
         },
         "form-theme": {
             "summary": "A Symfony form theme that renders every row through FormField and every control through the kit's Input, Select, Textarea, Checkbox, Radio, Label and Button components.",
@@ -702,7 +703,7 @@
             },
             "manifest_sha256": "ab0a927df4efc5a8e38749b259ae21027757ece0a09f53e69f49b75aaea82d75",
             "documentation": "form-theme/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/form-theme"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/form-theme"
         },
         "indicator": {
             "summary": "A dot or number placed on another element: a status, a count, a loading label.",
@@ -725,7 +726,7 @@
             },
             "manifest_sha256": "339c1c5d2ac2df0116fcf72ba4b40cc3b36b0573cb68c8cd87d414f33ad15041",
             "documentation": "indicator/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/indicator"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/indicator"
         },
         "input": {
             "summary": "A single-line field for any input type: text, email, number, password, URL…",
@@ -747,7 +748,7 @@
             },
             "manifest_sha256": "425c5e294bf4b6e35c3c4604edb115b7a353fe778fcd5125a41bf1bcbbd8b32d",
             "documentation": "input/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/input"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/input"
         },
         "kbd": {
             "summary": "A keyboard key or shortcut shown in text.",
@@ -769,7 +770,7 @@
             },
             "manifest_sha256": "bbb5dfafb2ed89c226edc2ad86af58ca26d78ba1c367ffddbd7ee9d5fe2d93a2",
             "documentation": "kbd/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/kbd"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/kbd"
         },
         "label": {
             "summary": "A text element that identifies form controls and other content.",
@@ -792,7 +793,7 @@
             },
             "manifest_sha256": "33184d57b10f7f48543cade5b70b3dd5c32622cc9e5f9ec9529690d60ce78dd7",
             "documentation": "label/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/label"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/label"
         },
         "layouts": {
             "summary": "Page layouts to extend: an app shell with sidebar, navbar with its menu, and mobile nav, a centered column for login, signup and password reset, settings, errors and a blank page.",
@@ -825,7 +826,7 @@
             },
             "manifest_sha256": "155e6cabbcf051d2350a1fc616ffaa806c3e32f84d56a64c8d778085a8235165",
             "documentation": "layouts/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/layouts"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/layouts"
         },
         "login": {
             "summary": "A sign-in card rendering a Symfony login form through the form theme, with the last authentication error.",
@@ -855,7 +856,7 @@
             },
             "manifest_sha256": "36ffe424772a0c964223d8add8ead6aa5503d46c68085807a132b0df5c6402d4",
             "documentation": "login/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/login"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/login"
         },
         "markdown-editor": {
             "summary": "A Markdown field: a native textarea with a small toolbar, and a Preview tab rendered on the server (a Live Component) exactly as the stored Markdown will print; raw HTML, images and unsafe links never reach the page. MarkdownType limits the source, and flowbite_markdown_html prints it.",
@@ -887,7 +888,7 @@
             },
             "manifest_sha256": "17d8230ba30049eb76483fa45d5180e48127960a01bcad10ffbf172a2bf1be5d",
             "documentation": "markdown-editor/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/markdown-editor"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/markdown-editor"
         },
         "mobile-nav": {
             "summary": "The app's navigation on small screens: a menu button in the navbar opening a modal drawer that holds the side nav, closed by a link, Escape, the backdrop and every Turbo visit.",
@@ -916,7 +917,7 @@
             },
             "manifest_sha256": "13f5b5d0633004b58bc9f4292cc3ce666bfe08c756759276efdc001b77151393",
             "documentation": "mobile-nav/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/mobile-nav"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/mobile-nav"
         },
         "modal": {
             "summary": "A dialog over the page, as a native <dialog>, with a close button.",
@@ -945,7 +946,7 @@
             },
             "manifest_sha256": "d723fcdc43afe847cf4bba0a25708aee5c320098d18bbeb411f3b3d2ced01ac1",
             "documentation": "modal/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/modal"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/modal"
         },
         "nav-menu": {
             "summary": "The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer.",
@@ -972,7 +973,7 @@
             },
             "manifest_sha256": "cabc3c53a6d01bce2b45da94944fde1a60a129d0f66a2cdb1fbc5152bc0d65f3",
             "documentation": "nav-menu/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/nav-menu"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/nav-menu"
         },
         "navbar": {
             "summary": "The bar on top of the app: brand, navigation menu, search, actions, and the menu button opening the sidebar or a mobile nav on small screens.",
@@ -996,7 +997,7 @@
             },
             "manifest_sha256": "c587b139b1887ac546ad98f5b58a830aa8d6b7b378d7b604b4f9a23e418ba1d5",
             "documentation": "navbar/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/navbar"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/navbar"
         },
         "navigation": {
             "summary": "What the navigation recipes (nav-menu, sidebar, side-nav, section-nav, mobile-nav) share, one JavaScript module: the current page's link marked aria-current=\"page\", whether a click on a link navigates this tab, a navigation opened over the page closed once the screen grows.",
@@ -1011,7 +1012,7 @@
             },
             "manifest_sha256": "25008d9d880151aa8e4139534be4022dbf5bf86f7c046cbae51a9bab6df37d40",
             "documentation": "navigation/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/navigation"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/navigation"
         },
         "not-found": {
             "summary": "The content of a 404 (or any error) page: status, title, explanation and a way back.",
@@ -1037,7 +1038,7 @@
             },
             "manifest_sha256": "bfc5d623f53e5126cd8ea778a08044223bf126047a25d40cdc89cc031d2c4096",
             "documentation": "not-found/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/not-found"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/not-found"
         },
         "oauth": {
             "summary": "Symfony OAuth2/OIDC authentication, provider adapters, expiring attempts and explicit account connections, with an authentication layout.",
@@ -1074,7 +1075,7 @@
             },
             "manifest_sha256": "8457fc40da91bd11bbc65bc8fca00d6e3b22f360ac83bfba48c0588cdceb85e9",
             "documentation": "oauth/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/oauth"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/oauth"
         },
         "oauth-provider-button": {
             "summary": "A Google, Facebook, GitHub or custom provider sign-in link with an enforced full browser handoff and no Turbo prefetch; Google uses its official local light and dark artwork.",
@@ -1103,7 +1104,7 @@
             },
             "manifest_sha256": "0e310fd6164c85095966e424c46d455336c0d0fccbb5615cbe7f1674611b43aa",
             "documentation": "oauth-provider-button/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/oauth-provider-button"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/oauth-provider-button"
         },
         "page-header": {
             "summary": "The top of a page: its title, a short description and the page's actions.",
@@ -1125,7 +1126,7 @@
             },
             "manifest_sha256": "c08d14a22c9ae5a3986a95b8118853fe22c074144607fa23aa258824dd0def09",
             "documentation": "page-header/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/page-header"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/page-header"
         },
         "pagination": {
             "summary": "Links to the pages of a long list.",
@@ -1151,7 +1152,7 @@
             },
             "manifest_sha256": "d61f4510b638d8581b3660cb012271bc2bc5dd75bb15ae189728d2fd44abc49a",
             "documentation": "pagination/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/pagination"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/pagination"
         },
         "popover": {
             "summary": "Free content anchored to a button (text, links, a small form) in a non-modal dialog that closes on Escape, a click outside or when the focus leaves it.",
@@ -1178,7 +1179,7 @@
             },
             "manifest_sha256": "db1fea2c7fb84a08a6881c732ab78f40258f93867b14bd582095472bccb34b98",
             "documentation": "popover/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/popover"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/popover"
         },
         "progress": {
             "summary": "A bar showing how far a task has come.",
@@ -1201,7 +1202,7 @@
             },
             "manifest_sha256": "adbac3cc0fafb2b5779f3a48c201870ce8db3b6410403de9e4031c6a1f813dac",
             "documentation": "progress/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/progress"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/progress"
         },
         "radio": {
             "summary": "A round button to choose one option among several.",
@@ -1223,7 +1224,7 @@
             },
             "manifest_sha256": "252b23c038d597d854223f68238115f0bf5daed0de7d3ed857ef56c7baabcb4a",
             "documentation": "radio/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/radio"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/radio"
         },
         "section-nav": {
             "summary": "Vertical tabs that navigate: one link per page of a group of pages (settings), the current one marked, a column on large screens and a strip that scrolls sideways on small ones.",
@@ -1250,7 +1251,7 @@
             },
             "manifest_sha256": "7851def2b6f86eb8ca914a785794e898c649f5aa3dd3c1bf58bcadc63148f353",
             "documentation": "section-nav/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/section-nav"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/section-nav"
         },
         "select": {
             "summary": "A list to choose one or more options.",
@@ -1272,7 +1273,7 @@
             },
             "manifest_sha256": "c2930d80bc402be6905c6c564fd9278afd0a8083e91a5fd968841215816d5e2f",
             "documentation": "select/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/select"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/select"
         },
         "settings-profile": {
             "summary": "A profile settings card: avatar, name and a Symfony form rendered through the form theme.",
@@ -1301,7 +1302,7 @@
             },
             "manifest_sha256": "17cbe5b749227cc71b5fc9f3feb1780ee5f8f7b2ed6321cd5215aa226e152fd4",
             "documentation": "settings-profile/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/settings-profile"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/settings-profile"
         },
         "side-nav": {
             "summary": "A multi-level navigation tree: links in branches that open and close, at any depth, with the keyboard of an ARIA tree view; the open branches hold across Turbo visits, and the branch of the current page opens.",
@@ -1328,7 +1329,7 @@
             },
             "manifest_sha256": "2a9fd787c4e30ebbcb747345b4d9a189c89d5cf9693fa6da93ad64e7a84f65f1",
             "documentation": "side-nav/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/side-nav"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/side-nav"
         },
         "sidebar": {
             "summary": "The app's main navigation: grouped links with icons and counts, collapsible to icons, opened over the page on small screens.",
@@ -1355,7 +1356,7 @@
             },
             "manifest_sha256": "e7328461f692f01e13810594b46e16a5ee2a708f5bdb19f243a239fa516c6d43",
             "documentation": "sidebar/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/sidebar"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/sidebar"
         },
         "signup": {
             "summary": "A registration card rendering a Symfony form through the form theme.",
@@ -1384,7 +1385,7 @@
             },
             "manifest_sha256": "440a831520ca4bdf582ebb0a4c9f8c3b0ee71d67961f496108c17736abc43b13",
             "documentation": "signup/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/signup"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/signup"
         },
         "skeleton": {
             "summary": "Placeholders shaped like the content that is loading.",
@@ -1407,7 +1408,7 @@
             },
             "manifest_sha256": "b4d8a15dfd81ef30d983aabbee9ec290795146565acf89df7ff259144e6692a9",
             "documentation": "skeleton/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/skeleton"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/skeleton"
         },
         "social-login": {
             "summary": "Provider login or registration choices, safe feedback and an optional password-form slot in one authentication card.",
@@ -1435,7 +1436,7 @@
             },
             "manifest_sha256": "45bf52199e439cd74b42d59ab753965eff70fd42689acdd346b7c9c8fce327f5",
             "documentation": "social-login/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/social-login"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/social-login"
         },
         "spinner": {
             "summary": "A spinning indicator for a loading state.",
@@ -1457,7 +1458,7 @@
             },
             "manifest_sha256": "aa66c8e54fe95df5fbafc956f62d8aefa2a8cde4f790d8680bc0837e7e7f4ed2",
             "documentation": "spinner/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/spinner"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/spinner"
         },
         "stat-card": {
             "summary": "A key figure with its label and, optionally, how it changed over a period.",
@@ -1480,7 +1481,7 @@
             },
             "manifest_sha256": "abe21109088e364b48fd2db72025a6ffafd2a9d005321ca306b26fc1acda4bd0",
             "documentation": "stat-card/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/stat-card"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/stat-card"
         },
         "table": {
             "summary": "Rows and columns of data.",
@@ -1503,7 +1504,7 @@
             },
             "manifest_sha256": "cc465819927ea98295c761f45efd8a7251cf8ea0b2b2dace4420c5fd98d08a73",
             "documentation": "table/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/table"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/table"
         },
         "tabs": {
             "summary": "Tabs that switch between panels in place, in a row or a column, with the arrow keys of the WAI-ARIA tabs pattern.",
@@ -1527,7 +1528,7 @@
             },
             "manifest_sha256": "96a71f90c604d62cd03fcd4f696f1107b4f8312e1b2a6315f0be70447c94a74c",
             "documentation": "tabs/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/tabs"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/tabs"
         },
         "textarea": {
             "summary": "A multi-line text field, for a comment or a description.",
@@ -1549,7 +1550,7 @@
             },
             "manifest_sha256": "1ea07bb47a5233a63d73d20e69b75666ad2e8d586721976c313163440837519a",
             "documentation": "textarea/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/textarea"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/textarea"
         },
         "theme": {
             "summary": "UXor's light and dark color roles, including text on a solid fill (fg-on-*), as one stylesheet to import in assets/styles/app.css. The theme uses Flowbite's role names and adds UXor's contrast and chart colors. Use roles through utilities such as bg-brand, text-heading and border-default.",
@@ -1564,7 +1565,7 @@
             },
             "manifest_sha256": "f9d03296c4c922eebde9095e04c8cac045e18da4ddb069024ad6fd063d62e065",
             "documentation": "theme/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/theme"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/theme"
         },
         "theme-toggle": {
             "summary": "A button switching between the light and dark themes, remembered in localStorage and following the system preference until the user chooses.",
@@ -1588,7 +1589,7 @@
             },
             "manifest_sha256": "bfd76110ef50087ba0d6788417353dd1bab7d1e5449e55d230d18ed8403374e1",
             "documentation": "theme-toggle/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/theme-toggle"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/theme-toggle"
         },
         "toast": {
             "summary": "Short-lived notifications in a fixed region, added on page load or by Turbo Streams, dismissed after a timeout or by the user.",
@@ -1616,7 +1617,7 @@
             },
             "manifest_sha256": "efa3ae95c1426db53832845b4f8e1570f9fde9cd7cdbcfce10cc396d256b506c",
             "documentation": "toast/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/toast"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/toast"
         },
         "toggle": {
             "summary": "A switch for an on/off setting.",
@@ -1638,7 +1639,7 @@
             },
             "manifest_sha256": "9822a4ce88a789fd70aa921b3908c63cce1a1bccde878945a8f1730827a3c993",
             "documentation": "toggle/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/toggle"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/toggle"
         },
         "tooltip": {
             "summary": "A short text shown while a control is hovered or focused, also announced as its description.",
@@ -1664,7 +1665,7 @@
             },
             "manifest_sha256": "50e982e64a1605d321a56514bef7f6e459f03cb3a3b408e38d45204226f7cf06",
             "documentation": "tooltip/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/tooltip"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/tooltip"
         },
         "turbo": {
             "summary": "What the recipes ask about Turbo's copies of a page, one JavaScript module: whether a turbo:before-cache leaves the page on screen (a frame visit promoted to history) or an element is moved into the next page (data-turbo-permanent), and whether a controller connects in a cached copy.",
@@ -1679,447 +1680,477 @@
             },
             "manifest_sha256": "56df70b6b56e0fda89f01100f3136c64a84f280184df94ec2d8a3a1dc468a9a1",
             "documentation": "turbo/README.md",
-            "source_url": "https://github.com/xormania/uxor/tree/0.3.2/turbo"
+            "source_url": "https://github.com/xormania/uxor/tree/0.3.5/turbo"
         }
     },
     "documents": {
         "FOR-AGENTS.md": {
             "path": "docs/FOR-AGENTS.md",
-            "sha256": "54b0e8818c835d33bd8ca038fcc685682f7d81c14e786e248313fde48e35a8c0",
-            "source_sha256": "f67c796327418d71a7a706e90887603c509c0df6f65c0daf202ece6544ea1f1d",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/FOR-AGENTS.md"
+            "sha256": "60fce0ed3faa85cdadf2b0a4901c4f2a8fdc68099175b9d3a2761ae96173f98d",
+            "source_sha256": "8d50f8eac159ec395f9a3bc6bc13734ac762935033793bdfe3c96355bdd0658a",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/FOR-AGENTS.md"
         },
         "INSTALL.md": {
             "path": "docs/INSTALL.md",
-            "sha256": "00c9dfeb1fd8cb82a6df89ac2113e5479d96310b179b3d0af7f39e994ff8a2af",
-            "source_sha256": "00c9dfeb1fd8cb82a6df89ac2113e5479d96310b179b3d0af7f39e994ff8a2af",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/INSTALL.md"
+            "sha256": "bf2ed4947bb73107cb39b619dc0546137e1404243a1d71b52b82dbfd71360cf7",
+            "source_sha256": "410da18f5a55b9d8bfc86ee5d1d98fa2f3d03cee0f90a68ff29069b553214931",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/INSTALL.md"
         },
         "LICENSE": {
             "path": "docs/LICENSE",
             "sha256": "f637d9418eb0dae0cd2a1dfc197ecdb616bba0282d0c743ad0dc4ff58dbba5b8",
             "source_sha256": "f637d9418eb0dae0cd2a1dfc197ecdb616bba0282d0c743ad0dc4ff58dbba5b8",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/LICENSE"
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/LICENSE"
         },
         "NOTICE": {
             "path": "docs/NOTICE",
             "sha256": "479503335c81108bc17a5d674406dcf0b79bfd5c2e122f1c8c028923122044d4",
             "source_sha256": "479503335c81108bc17a5d674406dcf0b79bfd5c2e122f1c8c028923122044d4",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/NOTICE"
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/NOTICE"
         },
         "README.md": {
             "path": "docs/README.md",
-            "sha256": "2cc608f3a9c0144a8954e283979e3762c25837514d770d934e25833e7b14a9f0",
-            "source_sha256": "3583b703a3e5da169f89d2e90b32f5e574454bad8f407a1e3729b08cc6c577a1",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/README.md"
+            "sha256": "faddb7eb526cbb0e4a7c5bed88f4276670dc7eb71d39d6edfa81ffd54fbf901f",
+            "source_sha256": "2ca3cf55a853943ce3a70e31c39cbdd8b3fd26f8d26ab769bc5b26bab0014776",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/README.md"
         },
         "alert/README.md": {
             "path": "docs/alert/README.md",
-            "sha256": "83e12441271c3e10b96032c9e55040f56f946565b83c6387cc2301ad940ac09c",
-            "source_sha256": "83e12441271c3e10b96032c9e55040f56f946565b83c6387cc2301ad940ac09c",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/alert/README.md"
+            "sha256": "631e73c037a55eeeeb8ff58483ca10b272b7b7987e5480506c9a476d1fc5af0f",
+            "source_sha256": "631e73c037a55eeeeb8ff58483ca10b272b7b7987e5480506c9a476d1fc5af0f",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/alert/README.md"
         },
         "autocomplete/README.md": {
             "path": "docs/autocomplete/README.md",
-            "sha256": "d99392cd1d5af32889a75c318b802589b158aa81514310baa763a93250b80b4b",
-            "source_sha256": "d99392cd1d5af32889a75c318b802589b158aa81514310baa763a93250b80b4b",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/autocomplete/README.md"
+            "sha256": "f9efbfd7fbbbed69b6f0e0be3b1d2e2662916a40f44e3c57f27cf53c2575bc9d",
+            "source_sha256": "f9efbfd7fbbbed69b6f0e0be3b1d2e2662916a40f44e3c57f27cf53c2575bc9d",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/autocomplete/README.md"
         },
         "avatar/README.md": {
             "path": "docs/avatar/README.md",
-            "sha256": "4f3753787fa913791b87c421fa46d0f65f8f480275b07022be4852d727006063",
-            "source_sha256": "4f3753787fa913791b87c421fa46d0f65f8f480275b07022be4852d727006063",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/avatar/README.md"
+            "sha256": "5449856c9294fd07ba713332239618519603750dadee8256ca6642de3dd61e12",
+            "source_sha256": "5449856c9294fd07ba713332239618519603750dadee8256ca6642de3dd61e12",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/avatar/README.md"
         },
         "badge/README.md": {
             "path": "docs/badge/README.md",
-            "sha256": "86094b9475a23200ba1b729262e1342341a60a17e279cec67fdf5eeaf59e0fde",
-            "source_sha256": "86094b9475a23200ba1b729262e1342341a60a17e279cec67fdf5eeaf59e0fde",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/badge/README.md"
+            "sha256": "16ea9f8264d0adf72ce3cc4acfa01ae9f6f3abaf194f9a312ee64cf9083d9513",
+            "source_sha256": "16ea9f8264d0adf72ce3cc4acfa01ae9f6f3abaf194f9a312ee64cf9083d9513",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/badge/README.md"
         },
         "breadcrumb/README.md": {
             "path": "docs/breadcrumb/README.md",
-            "sha256": "bdd8caff9d93d074b0590bc12ec9ab37778c030010baa6329fd440d513a95608",
-            "source_sha256": "bdd8caff9d93d074b0590bc12ec9ab37778c030010baa6329fd440d513a95608",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/breadcrumb/README.md"
+            "sha256": "518cabf3721d5c4bf635a634ea23fa46bb065b196b908c1c08ef06bccdf28abe",
+            "source_sha256": "518cabf3721d5c4bf635a634ea23fa46bb065b196b908c1c08ef06bccdf28abe",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/breadcrumb/README.md"
         },
         "button-group/README.md": {
             "path": "docs/button-group/README.md",
-            "sha256": "e426154fef87e9edbe32f60cafa781362870ec59e9aa67716cf1d674cfd7edd8",
-            "source_sha256": "e426154fef87e9edbe32f60cafa781362870ec59e9aa67716cf1d674cfd7edd8",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/button-group/README.md"
+            "sha256": "449f0b74932c71061cdc8cc4dd46965bb5aaa12a39a010e85e73de3943288964",
+            "source_sha256": "449f0b74932c71061cdc8cc4dd46965bb5aaa12a39a010e85e73de3943288964",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/button-group/README.md"
         },
         "button/README.md": {
             "path": "docs/button/README.md",
-            "sha256": "29fc524bda1f720b97139f44f0c8ba228f112d23cdf7d8967832fcf29e3ae14f",
-            "source_sha256": "29fc524bda1f720b97139f44f0c8ba228f112d23cdf7d8967832fcf29e3ae14f",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/button/README.md"
+            "sha256": "72829cdad860f7b754528acddd7547b7ab95dfbe4d3c8cf43cf6f9d12621a924",
+            "source_sha256": "72829cdad860f7b754528acddd7547b7ab95dfbe4d3c8cf43cf6f9d12621a924",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/button/README.md"
         },
         "calendar/README.md": {
             "path": "docs/calendar/README.md",
-            "sha256": "79d606c9f8e34f98599e144e8cf434facd3a46d64b0af2c089921cde0ccc183e",
-            "source_sha256": "79d606c9f8e34f98599e144e8cf434facd3a46d64b0af2c089921cde0ccc183e",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/calendar/README.md"
+            "sha256": "758c7881d8b5db4c0a8ac5cac1b510e59f985e42f27127ead02e283fa50b95a0",
+            "source_sha256": "758c7881d8b5db4c0a8ac5cac1b510e59f985e42f27127ead02e283fa50b95a0",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/calendar/README.md"
         },
         "card/README.md": {
             "path": "docs/card/README.md",
-            "sha256": "09c805cbacb4a93dad20a1cc745fe8344e4b0d80741ff375d0eba3c7b064799a",
-            "source_sha256": "09c805cbacb4a93dad20a1cc745fe8344e4b0d80741ff375d0eba3c7b064799a",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/card/README.md"
+            "sha256": "eb5d3c28439055202c0dcdb2db085b3209a45d4579db6cc14e43507fc9b20acb",
+            "source_sha256": "eb5d3c28439055202c0dcdb2db085b3209a45d4579db6cc14e43507fc9b20acb",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/card/README.md"
         },
         "chart/README.md": {
             "path": "docs/chart/README.md",
-            "sha256": "0ecc141d93b4fc666aeace46a77bda3233bba9e770ed5bcecd38be7ce10e16b5",
-            "source_sha256": "0ecc141d93b4fc666aeace46a77bda3233bba9e770ed5bcecd38be7ce10e16b5",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/chart/README.md"
+            "sha256": "8c6747532916b7ecd828e989a15b4d5dc6f1a96e109eb19a73152525c2e4d7c4",
+            "source_sha256": "8c6747532916b7ecd828e989a15b4d5dc6f1a96e109eb19a73152525c2e4d7c4",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/chart/README.md"
         },
         "checkbox/README.md": {
             "path": "docs/checkbox/README.md",
-            "sha256": "619cca19fb1f491d89f8a7842f359f4243a41bd92dc0d24282042350772cdfa2",
-            "source_sha256": "619cca19fb1f491d89f8a7842f359f4243a41bd92dc0d24282042350772cdfa2",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/checkbox/README.md"
+            "sha256": "50a8a7691fea87e8de7a3ad06a8eb14550a78d62680095a0a1c9604056f43617",
+            "source_sha256": "50a8a7691fea87e8de7a3ad06a8eb14550a78d62680095a0a1c9604056f43617",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/checkbox/README.md"
         },
         "connected-accounts/README.md": {
             "path": "docs/connected-accounts/README.md",
-            "sha256": "898ca51e0320346c7d27530887eb0a359e20234103e063bbbf2f8a132d163027",
-            "source_sha256": "898ca51e0320346c7d27530887eb0a359e20234103e063bbbf2f8a132d163027",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/connected-accounts/README.md"
+            "sha256": "59bd83869ec25deb0018d320cecf072f49d8b8b2623672688539f664ca2fd1d0",
+            "source_sha256": "59bd83869ec25deb0018d320cecf072f49d8b8b2623672688539f664ca2fd1d0",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/connected-accounts/README.md"
         },
         "dashboard-home/README.md": {
             "path": "docs/dashboard-home/README.md",
-            "sha256": "67dc9dd98bfca7f8f85ceac2978da33ce7b1243d60639188c4c9f20b94de91f0",
-            "source_sha256": "67dc9dd98bfca7f8f85ceac2978da33ce7b1243d60639188c4c9f20b94de91f0",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/dashboard-home/README.md"
+            "sha256": "6bcf888c129e205351afaa3d6f2dcd603cdf2b26c3437cc4259e49820a092c37",
+            "source_sha256": "6bcf888c129e205351afaa3d6f2dcd603cdf2b26c3437cc4259e49820a092c37",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/dashboard-home/README.md"
         },
         "data-table-live/README.md": {
             "path": "docs/data-table-live/README.md",
-            "sha256": "2b85c7c7658308b5bba3a4dbab9a361eb1b8c7ef9125645c6cf1b54b8e55cbf6",
-            "source_sha256": "2b85c7c7658308b5bba3a4dbab9a361eb1b8c7ef9125645c6cf1b54b8e55cbf6",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/data-table-live/README.md"
+            "sha256": "8c182192cc5bd967df0baeaddc4f0d449bebd617f20c4827c55fe63bf09c4d8d",
+            "source_sha256": "8c182192cc5bd967df0baeaddc4f0d449bebd617f20c4827c55fe63bf09c4d8d",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/data-table-live/README.md"
         },
         "data-table/README.md": {
             "path": "docs/data-table/README.md",
-            "sha256": "19b98f66f0003888d64573d06c5ba216a50d541345ce37041a7ca4140b1df031",
-            "source_sha256": "19b98f66f0003888d64573d06c5ba216a50d541345ce37041a7ca4140b1df031",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/data-table/README.md"
+            "sha256": "c8527d566deaa246b973af8d720b1e18e23498a5c1811d6d6dcc613b9c6b1b67",
+            "source_sha256": "c8527d566deaa246b973af8d720b1e18e23498a5c1811d6d6dcc613b9c6b1b67",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/data-table/README.md"
         },
         "date-picker/README.md": {
             "path": "docs/date-picker/README.md",
-            "sha256": "3acf3e9f237b876e2250e94deffc9d6063c1c996b2acf7993a9c342b98ca7135",
-            "source_sha256": "3acf3e9f237b876e2250e94deffc9d6063c1c996b2acf7993a9c342b98ca7135",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/date-picker/README.md"
+            "sha256": "1d09366c18df4277f5d1bf40e0b0458a52045f1f21df07e06d7282da8149e113",
+            "source_sha256": "1d09366c18df4277f5d1bf40e0b0458a52045f1f21df07e06d7282da8149e113",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/date-picker/README.md"
+        },
+        "docs/AGENT-ONBOARDING.md": {
+            "path": "docs/docs/AGENT-ONBOARDING.md",
+            "sha256": "3f94dbe463cb106a3a6e763b470e261f71b34cfd54cdd9632b9625833aabdcb3",
+            "source_sha256": "3f94dbe463cb106a3a6e763b470e261f71b34cfd54cdd9632b9625833aabdcb3",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/AGENT-ONBOARDING.md"
+        },
+        "docs/APPLICATION-TESTING.md": {
+            "path": "docs/docs/APPLICATION-TESTING.md",
+            "sha256": "7ee14adc347f0b59c7354fea9656f47544af5aee3c0e86a3328a09e18b149404",
+            "source_sha256": "7ee14adc347f0b59c7354fea9656f47544af5aee3c0e86a3328a09e18b149404",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/APPLICATION-TESTING.md"
+        },
+        "docs/COMPOSER-CONFIGURATION.md": {
+            "path": "docs/docs/COMPOSER-CONFIGURATION.md",
+            "sha256": "72459076b1c16aea73acd316064e372893ddb8c3a6a686655a74785af5c83918",
+            "source_sha256": "72459076b1c16aea73acd316064e372893ddb8c3a6a686655a74785af5c83918",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/COMPOSER-CONFIGURATION.md"
         },
         "docs/GUIDE.md": {
             "path": "docs/docs/GUIDE.md",
-            "sha256": "6725dc7c1ba06f33ec2fe5fac6f735bb442c90da067f7d5faba771199daa59c9",
-            "source_sha256": "ae40ed303f19630b9cfe5716ee28af391e0f1ee37e426cfe1ad6db04d99b3229",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/docs/GUIDE.md"
+            "sha256": "a55fbd8c04c0ec7b78e0034550ce07d6ed6ccd03af489cdba7c708a5c45409b0",
+            "source_sha256": "19fcb273be08a73328040fbb8b017e1a591f1e69e382f00de55363a82e0b7149",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/GUIDE.md"
         },
         "docs/PROJECT-AGENTS-SNIPPET.md": {
             "path": "docs/docs/PROJECT-AGENTS-SNIPPET.md",
-            "sha256": "86c1f2b89586ba400c74508b850a47b038282111a9fbaf0f74ec6fd1a71045b3",
-            "source_sha256": "86c1f2b89586ba400c74508b850a47b038282111a9fbaf0f74ec6fd1a71045b3",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/docs/PROJECT-AGENTS-SNIPPET.md"
+            "sha256": "55ba99d844ff35558f7e466aacc76b596f356d5f0496e8d8d4d29cdd001da7e9",
+            "source_sha256": "55ba99d844ff35558f7e466aacc76b596f356d5f0496e8d8d4d29cdd001da7e9",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/PROJECT-AGENTS-SNIPPET.md"
         },
         "docs/RECIPES.md": {
             "path": "docs/docs/RECIPES.md",
-            "sha256": "4041b206b987cad35e5c3bbe62cd351c809623156a8aeebef48974743c07a4a1",
-            "source_sha256": "4041b206b987cad35e5c3bbe62cd351c809623156a8aeebef48974743c07a4a1",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/docs/RECIPES.md"
+            "sha256": "222c696edfcc83d70fc441a7dfb1de5c9fa2a01bf088072d55ed3790e3155a86",
+            "source_sha256": "222c696edfcc83d70fc441a7dfb1de5c9fa2a01bf088072d55ed3790e3155a86",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/RECIPES.md"
         },
         "docs/TESTING.md": {
             "path": "docs/docs/TESTING.md",
-            "sha256": "e1fb13e4b481da417ac11f61138ea0f50eba24b2e08e2d494fd3a4f5ba5739a0",
-            "source_sha256": "a139e5ac1181bab8dd595cf3af3311147158e4f7b6fd2f0defbf3e5b346f9a45",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/docs/TESTING.md"
+            "sha256": "ea2771dbccc6a2ea2ace8fea958ac2e6f8f70215e4152d0ebd2b4918af3ba610",
+            "source_sha256": "5fac601cdd3ccc01aa470e4fdca5a2e0ccd8f634c6d693b62d8bb624dd5a2ca9",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/docs/TESTING.md"
         },
         "drawer/README.md": {
             "path": "docs/drawer/README.md",
-            "sha256": "89748ff3373440fd902fe05f501878fd184f33dfa168e438eb0b910e7afc22a2",
-            "source_sha256": "89748ff3373440fd902fe05f501878fd184f33dfa168e438eb0b910e7afc22a2",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/drawer/README.md"
+            "sha256": "12449a7eeba0816c91da73bee9773eee50a131d64cc3621cf28f9d5fa03bc822",
+            "source_sha256": "12449a7eeba0816c91da73bee9773eee50a131d64cc3621cf28f9d5fa03bc822",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/drawer/README.md"
         },
         "dropdown/README.md": {
             "path": "docs/dropdown/README.md",
-            "sha256": "36f9fa7691e9d5afc0db1bf71f2c067e4ec4e80c8422808731d3621ec3bf9147",
-            "source_sha256": "36f9fa7691e9d5afc0db1bf71f2c067e4ec4e80c8422808731d3621ec3bf9147",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/dropdown/README.md"
+            "sha256": "a9c76f38d209e5cf8284fda8a45a48b85ad3d0e2e536b03716499d08deb274f7",
+            "source_sha256": "a9c76f38d209e5cf8284fda8a45a48b85ad3d0e2e536b03716499d08deb274f7",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/dropdown/README.md"
         },
         "dropzone/README.md": {
             "path": "docs/dropzone/README.md",
-            "sha256": "d975c6221df0bc617564dc9bc0e81871f2bb2c8948c23a2b471bf6252a97209b",
-            "source_sha256": "d975c6221df0bc617564dc9bc0e81871f2bb2c8948c23a2b471bf6252a97209b",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/dropzone/README.md"
+            "sha256": "f15f781b07307a2886117ab3a9199a0698e7ad940af4ce3ee3fe5c108afae38d",
+            "source_sha256": "f15f781b07307a2886117ab3a9199a0698e7ad940af4ce3ee3fe5c108afae38d",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/dropzone/README.md"
         },
         "editor/README.md": {
             "path": "docs/editor/README.md",
-            "sha256": "87d367df4ee949aefc507de02c91bef5cc2cd267b47d3e54e7b38b9c408d531e",
-            "source_sha256": "87d367df4ee949aefc507de02c91bef5cc2cd267b47d3e54e7b38b9c408d531e",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/editor/README.md"
+            "sha256": "3b36f1d05e4fc567ee6bc1f71cd5150b0cddfc0243f4bf20116eb2c30b22f0e7",
+            "source_sha256": "3b36f1d05e4fc567ee6bc1f71cd5150b0cddfc0243f4bf20116eb2c30b22f0e7",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/editor/README.md"
         },
         "empty-state/README.md": {
             "path": "docs/empty-state/README.md",
-            "sha256": "14b4a4d27efa34ec26acb7fab3e1c56505f92b3796fa931505405e52ef5d6250",
-            "source_sha256": "14b4a4d27efa34ec26acb7fab3e1c56505f92b3796fa931505405e52ef5d6250",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/empty-state/README.md"
+            "sha256": "97014f2be0424478fde58fa41a6fbf4dd58139c0b8e4874471105344c0a18bd4",
+            "source_sha256": "97014f2be0424478fde58fa41a6fbf4dd58139c0b8e4874471105344c0a18bd4",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/empty-state/README.md"
         },
         "floating/README.md": {
             "path": "docs/floating/README.md",
-            "sha256": "267b618c41881128a308f35c6447d9265b8081ac08bafb7841b14974e204283e",
-            "source_sha256": "267b618c41881128a308f35c6447d9265b8081ac08bafb7841b14974e204283e",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/floating/README.md"
+            "sha256": "2961942a41c49bc58a5293553a8b4096ba528f25d3a25d34f68c615128296e62",
+            "source_sha256": "2961942a41c49bc58a5293553a8b4096ba528f25d3a25d34f68c615128296e62",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/floating/README.md"
         },
         "forgot-password/README.md": {
             "path": "docs/forgot-password/README.md",
-            "sha256": "e378e27cf5bd9ff3afeebf7189c76f4989b1e267f858d3107fd84a9e0757ab17",
-            "source_sha256": "e378e27cf5bd9ff3afeebf7189c76f4989b1e267f858d3107fd84a9e0757ab17",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/forgot-password/README.md"
+            "sha256": "324aa24b0cda3e21ed5f38fc3e7b701ec6496faaad792c2fa3bafd52ca06be2e",
+            "source_sha256": "324aa24b0cda3e21ed5f38fc3e7b701ec6496faaad792c2fa3bafd52ca06be2e",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/forgot-password/README.md"
         },
         "form-field/README.md": {
             "path": "docs/form-field/README.md",
-            "sha256": "e77992465b6b9479877eab8c7cf3418d745eeb35f027f192cd324751de16f154",
-            "source_sha256": "e77992465b6b9479877eab8c7cf3418d745eeb35f027f192cd324751de16f154",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/form-field/README.md"
+            "sha256": "c6f996e9ad32ba1ebda1f1ec1fa2708b09d9551ca774a5ea9bbc8a8d90fb61f2",
+            "source_sha256": "c6f996e9ad32ba1ebda1f1ec1fa2708b09d9551ca774a5ea9bbc8a8d90fb61f2",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/form-field/README.md"
         },
         "form-theme/README.md": {
             "path": "docs/form-theme/README.md",
-            "sha256": "ab1e63449d8f706ef537530c1ca73f0986c87c83d32cc496d835212334167e0f",
-            "source_sha256": "ab1e63449d8f706ef537530c1ca73f0986c87c83d32cc496d835212334167e0f",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/form-theme/README.md"
+            "sha256": "5fb1217625dc558a51477076d36ba725cea514b62a4f600889df22f29d6682b6",
+            "source_sha256": "5fb1217625dc558a51477076d36ba725cea514b62a4f600889df22f29d6682b6",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/form-theme/README.md"
         },
         "indicator/README.md": {
             "path": "docs/indicator/README.md",
-            "sha256": "2d2a6e597ad4d12f4368e76beab46527d889a93824a99c9a580031305d04664a",
-            "source_sha256": "2d2a6e597ad4d12f4368e76beab46527d889a93824a99c9a580031305d04664a",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/indicator/README.md"
+            "sha256": "12c59078da26f16a69cd519a7ea018e37bf96efcc60331ac733b9ff535bbf0ff",
+            "source_sha256": "12c59078da26f16a69cd519a7ea018e37bf96efcc60331ac733b9ff535bbf0ff",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/indicator/README.md"
         },
         "input/README.md": {
             "path": "docs/input/README.md",
-            "sha256": "f8a5c9de49e0c1a6ac5eec8a535d40993c1236756f03823dff2caf3ed9cb0e4c",
-            "source_sha256": "f8a5c9de49e0c1a6ac5eec8a535d40993c1236756f03823dff2caf3ed9cb0e4c",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/input/README.md"
+            "sha256": "7584b48d0ffd9b5faea6dfb9dc3a22943dfb7676e5e11d80e7e920328fc70657",
+            "source_sha256": "7584b48d0ffd9b5faea6dfb9dc3a22943dfb7676e5e11d80e7e920328fc70657",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/input/README.md"
         },
         "kbd/README.md": {
             "path": "docs/kbd/README.md",
-            "sha256": "cbcb607dfb0c2c88ba8cb8932faa5c0e9b52aa1fb7f01598e90a8265c4a49770",
-            "source_sha256": "cbcb607dfb0c2c88ba8cb8932faa5c0e9b52aa1fb7f01598e90a8265c4a49770",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/kbd/README.md"
+            "sha256": "ede42410f025f258e87b38d17008136ba65b39907bce082881148213fab56680",
+            "source_sha256": "ede42410f025f258e87b38d17008136ba65b39907bce082881148213fab56680",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/kbd/README.md"
         },
         "label/README.md": {
             "path": "docs/label/README.md",
-            "sha256": "553a46f3500c93cc4f2a35963d15083978ac83b1c07f2c3f80cb9e045559df9c",
-            "source_sha256": "553a46f3500c93cc4f2a35963d15083978ac83b1c07f2c3f80cb9e045559df9c",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/label/README.md"
+            "sha256": "60dceffc3e23f290c4bd2b5e9e6daa14fdb94e1ee54c9864060bce329a667e68",
+            "source_sha256": "60dceffc3e23f290c4bd2b5e9e6daa14fdb94e1ee54c9864060bce329a667e68",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/label/README.md"
         },
         "layouts/README.md": {
             "path": "docs/layouts/README.md",
-            "sha256": "68ddd3ce5ed311e2e731b0d90d31eb43aa5d83c634a7ad723225909d17f7842c",
-            "source_sha256": "68ddd3ce5ed311e2e731b0d90d31eb43aa5d83c634a7ad723225909d17f7842c",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/layouts/README.md"
+            "sha256": "31208e7e6f3509d90e76c22ad418b14cadf7df5812ffb30eaaf391d7e5c243d9",
+            "source_sha256": "31208e7e6f3509d90e76c22ad418b14cadf7df5812ffb30eaaf391d7e5c243d9",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/layouts/README.md"
         },
         "login/README.md": {
             "path": "docs/login/README.md",
-            "sha256": "f8121a8b95bb5ed7ddf499fc668a58cd3c694c85cbf25a2db202862dd15d4687",
-            "source_sha256": "f8121a8b95bb5ed7ddf499fc668a58cd3c694c85cbf25a2db202862dd15d4687",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/login/README.md"
+            "sha256": "bbaadf8de5e5e2c9f6bc8f68171d5173d737ec92d9f8c38968bef692009ab176",
+            "source_sha256": "bbaadf8de5e5e2c9f6bc8f68171d5173d737ec92d9f8c38968bef692009ab176",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/login/README.md"
         },
         "markdown-editor/README.md": {
             "path": "docs/markdown-editor/README.md",
-            "sha256": "36630b2b1f348b081583500e65050b8542b42c045434889804c5464d5c32a6cc",
-            "source_sha256": "36630b2b1f348b081583500e65050b8542b42c045434889804c5464d5c32a6cc",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/markdown-editor/README.md"
+            "sha256": "94a3b832beeab130289858ddab3d1ccdc8e63d4eeda355808ea8f078907a59d6",
+            "source_sha256": "94a3b832beeab130289858ddab3d1ccdc8e63d4eeda355808ea8f078907a59d6",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/markdown-editor/README.md"
         },
         "mobile-nav/README.md": {
             "path": "docs/mobile-nav/README.md",
-            "sha256": "a95fb34291446b4320f857521c200e3761a7b7627b3ee486b358719d8b416ba4",
-            "source_sha256": "a95fb34291446b4320f857521c200e3761a7b7627b3ee486b358719d8b416ba4",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/mobile-nav/README.md"
+            "sha256": "ac538ee09d547edbfaa6a164f9cf12a98a96282572e579d2d04aa617226c0afc",
+            "source_sha256": "ac538ee09d547edbfaa6a164f9cf12a98a96282572e579d2d04aa617226c0afc",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/mobile-nav/README.md"
         },
         "modal/README.md": {
             "path": "docs/modal/README.md",
-            "sha256": "03c06c286c5707b099626a5b2668458ddd9a9f1e9837eb7bfe2a78807b7a6272",
-            "source_sha256": "03c06c286c5707b099626a5b2668458ddd9a9f1e9837eb7bfe2a78807b7a6272",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/modal/README.md"
+            "sha256": "f162ddfa6fbf201735eff2b0c2643bd392f3adb7a90207057a1d02093e4abc05",
+            "source_sha256": "f162ddfa6fbf201735eff2b0c2643bd392f3adb7a90207057a1d02093e4abc05",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/modal/README.md"
         },
         "nav-menu/README.md": {
             "path": "docs/nav-menu/README.md",
-            "sha256": "4ebaee870cc5e1d9c2d2a007929e745c27b2bc74803bba5abecc9f57a731894c",
-            "source_sha256": "4ebaee870cc5e1d9c2d2a007929e745c27b2bc74803bba5abecc9f57a731894c",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/nav-menu/README.md"
+            "sha256": "4e8666cd2e2c878fd5232fb0202064657de67a3df8edce4ded27a754545ec22c",
+            "source_sha256": "4e8666cd2e2c878fd5232fb0202064657de67a3df8edce4ded27a754545ec22c",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/nav-menu/README.md"
         },
         "navbar/README.md": {
             "path": "docs/navbar/README.md",
-            "sha256": "d1aec76f0e50b7fab57930c1c5221bce1d8224b3a95dd6f1d6119fc03036aba7",
-            "source_sha256": "d1aec76f0e50b7fab57930c1c5221bce1d8224b3a95dd6f1d6119fc03036aba7",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/navbar/README.md"
+            "sha256": "d4a2a4bb2c2e0b16230e8ef8aa3474cae21437f20323c6abf65677b7f21d2e4e",
+            "source_sha256": "d4a2a4bb2c2e0b16230e8ef8aa3474cae21437f20323c6abf65677b7f21d2e4e",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/navbar/README.md"
         },
         "navigation/README.md": {
             "path": "docs/navigation/README.md",
-            "sha256": "0686bc2b66cdbff98de4c79dcb6c94bc69896696abcbb4831dd97419f1dcda94",
-            "source_sha256": "0686bc2b66cdbff98de4c79dcb6c94bc69896696abcbb4831dd97419f1dcda94",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/navigation/README.md"
+            "sha256": "b41744ba4e170deed6fdad9b28f6dfac8ee28567b556c5dbdb5df3edb825c988",
+            "source_sha256": "b41744ba4e170deed6fdad9b28f6dfac8ee28567b556c5dbdb5df3edb825c988",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/navigation/README.md"
         },
         "not-found/README.md": {
             "path": "docs/not-found/README.md",
-            "sha256": "ebfa2a0ef654916731373485cdcc7d2ad12bf2c4205a60247cce69b026146cb5",
-            "source_sha256": "ebfa2a0ef654916731373485cdcc7d2ad12bf2c4205a60247cce69b026146cb5",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/not-found/README.md"
+            "sha256": "dc28dd13cca79df26bc6867458520d8a3fc9f510fdd360e6d2efa9113868f071",
+            "source_sha256": "dc28dd13cca79df26bc6867458520d8a3fc9f510fdd360e6d2efa9113868f071",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/not-found/README.md"
         },
         "oauth-provider-button/README.md": {
             "path": "docs/oauth-provider-button/README.md",
-            "sha256": "511fcdcf119fd603511330ecd9556317e962cc34a7afd797aa77865aa06d3add",
-            "source_sha256": "511fcdcf119fd603511330ecd9556317e962cc34a7afd797aa77865aa06d3add",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/oauth-provider-button/README.md"
+            "sha256": "4e48578da73755c668be2d9de39abda8898ec22dbad512aaa1217bbabd88f049",
+            "source_sha256": "4e48578da73755c668be2d9de39abda8898ec22dbad512aaa1217bbabd88f049",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/oauth-provider-button/README.md"
         },
         "oauth/README.md": {
             "path": "docs/oauth/README.md",
-            "sha256": "dbe68e5eb4309190f55d8c48218ef8c065e1b016cba1096faec2f3f63b2868c9",
-            "source_sha256": "dbe68e5eb4309190f55d8c48218ef8c065e1b016cba1096faec2f3f63b2868c9",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/oauth/README.md"
+            "sha256": "cf89c38a8e2be9136459fce7723f1621426381aedc7573e9ef2e892e3a80e311",
+            "source_sha256": "cf89c38a8e2be9136459fce7723f1621426381aedc7573e9ef2e892e3a80e311",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/oauth/README.md"
+        },
+        "packages/uxor/OPERATIONS.md": {
+            "path": "docs/packages/uxor/OPERATIONS.md",
+            "sha256": "f6617dc9d515e4c40c00f2c662bbc48593d9749a4637807811a6a9dce7da65f3",
+            "source_sha256": "5a81f605e692dcfe509fbdd1043b6d83f4104d3a3e565cc13b757f20ba046bb4",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/OPERATIONS.md"
+        },
+        "packages/uxor/README.md": {
+            "path": "docs/packages/uxor/README.md",
+            "sha256": "b6f65fe011f3cbbf8f532c230d5b2585eceebb7e29af6f7772d281eb12381362",
+            "source_sha256": "08b7964c1e2ff48790719c80621092880b8d5b6fc074d51549440595bb4ab8a4",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/packages/uxor/README.md"
         },
         "page-header/README.md": {
             "path": "docs/page-header/README.md",
-            "sha256": "e43feb3ceffdeeb0557e5ad91b7badca0e953deba589c8eaae97d8ae81531fe4",
-            "source_sha256": "e43feb3ceffdeeb0557e5ad91b7badca0e953deba589c8eaae97d8ae81531fe4",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/page-header/README.md"
+            "sha256": "1f6ce63880b9d7326f14594abd319631d52547bf4bb18e64e9b439d8c12b9caa",
+            "source_sha256": "1f6ce63880b9d7326f14594abd319631d52547bf4bb18e64e9b439d8c12b9caa",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/page-header/README.md"
         },
         "pagination/README.md": {
             "path": "docs/pagination/README.md",
-            "sha256": "05d3575401f864b3b2d96761ecf66e17ddbc0a62f6826e033ee1cbc1d1d0d032",
-            "source_sha256": "05d3575401f864b3b2d96761ecf66e17ddbc0a62f6826e033ee1cbc1d1d0d032",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/pagination/README.md"
+            "sha256": "7850f8e63f6216621f6b5daf0ff250d995a904ba549511a453012c340426e6df",
+            "source_sha256": "7850f8e63f6216621f6b5daf0ff250d995a904ba549511a453012c340426e6df",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/pagination/README.md"
         },
         "popover/README.md": {
             "path": "docs/popover/README.md",
-            "sha256": "5344305533a5a1a607ab6ef65f35465f683feba5a6a5a7452ebd595738c2d0a0",
-            "source_sha256": "5344305533a5a1a607ab6ef65f35465f683feba5a6a5a7452ebd595738c2d0a0",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/popover/README.md"
+            "sha256": "6ba455c7d0deecc01a59ca0adc7341a5055710708c058ed987be33ac0247ca5f",
+            "source_sha256": "6ba455c7d0deecc01a59ca0adc7341a5055710708c058ed987be33ac0247ca5f",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/popover/README.md"
         },
         "progress/README.md": {
             "path": "docs/progress/README.md",
-            "sha256": "68b6b00d7aefcfbf502ab57ed66f3c118525af18d4bb20be4144c70cb64e4684",
-            "source_sha256": "68b6b00d7aefcfbf502ab57ed66f3c118525af18d4bb20be4144c70cb64e4684",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/progress/README.md"
+            "sha256": "fe30dde1e50c6367dc06fee0ef1638685405f7f0c1b210a295e3cb8f2cc6859f",
+            "source_sha256": "fe30dde1e50c6367dc06fee0ef1638685405f7f0c1b210a295e3cb8f2cc6859f",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/progress/README.md"
         },
         "radio/README.md": {
             "path": "docs/radio/README.md",
-            "sha256": "c9c38bc50c106732b8bc507f6ffd3201536b551e4a31ce141f8f7b6b5cdb3dc3",
-            "source_sha256": "c9c38bc50c106732b8bc507f6ffd3201536b551e4a31ce141f8f7b6b5cdb3dc3",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/radio/README.md"
+            "sha256": "ae73f8ee8dec199a47ab2397fe966cafcbf448c2ddc19e5b33caa5ec95aa2411",
+            "source_sha256": "ae73f8ee8dec199a47ab2397fe966cafcbf448c2ddc19e5b33caa5ec95aa2411",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/radio/README.md"
         },
         "section-nav/README.md": {
             "path": "docs/section-nav/README.md",
-            "sha256": "c2af930c610241579e1efa97b5314c116ff38db0d214b8eb9b3267403c421e02",
-            "source_sha256": "c2af930c610241579e1efa97b5314c116ff38db0d214b8eb9b3267403c421e02",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/section-nav/README.md"
+            "sha256": "aaf5e90c1990ea749d34ea248c08508b21e038e2b9c41bf806492d90d478ceb1",
+            "source_sha256": "aaf5e90c1990ea749d34ea248c08508b21e038e2b9c41bf806492d90d478ceb1",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/section-nav/README.md"
         },
         "select/README.md": {
             "path": "docs/select/README.md",
-            "sha256": "4cf02f4048e7f1bdbf9fb05c28635cc2651604fba4c128612236e57557e292ac",
-            "source_sha256": "4cf02f4048e7f1bdbf9fb05c28635cc2651604fba4c128612236e57557e292ac",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/select/README.md"
+            "sha256": "17368125d8b7ad5e8232de5d09a419c9c95626e2cbbe043da10901363e1aaf63",
+            "source_sha256": "17368125d8b7ad5e8232de5d09a419c9c95626e2cbbe043da10901363e1aaf63",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/select/README.md"
         },
         "settings-profile/README.md": {
             "path": "docs/settings-profile/README.md",
-            "sha256": "c92839f5e0543a2998c7337825f957d9ad914fb10c8b4c72340bcbc83ba1363a",
-            "source_sha256": "c92839f5e0543a2998c7337825f957d9ad914fb10c8b4c72340bcbc83ba1363a",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/settings-profile/README.md"
+            "sha256": "7be402b553bce6aeedc4faecf55a719adc4f4246157f9d359ad0b48676a3d343",
+            "source_sha256": "7be402b553bce6aeedc4faecf55a719adc4f4246157f9d359ad0b48676a3d343",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/settings-profile/README.md"
         },
         "side-nav/README.md": {
             "path": "docs/side-nav/README.md",
-            "sha256": "7ce4445211c496feaf27e35a7c4f78d96fcdeaaaf9247372d4ad1c8b6401bf30",
-            "source_sha256": "7ce4445211c496feaf27e35a7c4f78d96fcdeaaaf9247372d4ad1c8b6401bf30",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/side-nav/README.md"
+            "sha256": "0a1063ad584b2b05effa81bc7086965fa797271040a70658746029fff8c34ecf",
+            "source_sha256": "0a1063ad584b2b05effa81bc7086965fa797271040a70658746029fff8c34ecf",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/side-nav/README.md"
         },
         "sidebar/README.md": {
             "path": "docs/sidebar/README.md",
-            "sha256": "5a512e9b5d3bc40aa9791171ed59951121f508185fed6048b6aae8964d80d2f4",
-            "source_sha256": "5a512e9b5d3bc40aa9791171ed59951121f508185fed6048b6aae8964d80d2f4",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/sidebar/README.md"
+            "sha256": "23eb0ecee073ef59b92198da211f65fe5700f67e8427753a1452163f11e7c842",
+            "source_sha256": "23eb0ecee073ef59b92198da211f65fe5700f67e8427753a1452163f11e7c842",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/sidebar/README.md"
         },
         "signup/README.md": {
             "path": "docs/signup/README.md",
-            "sha256": "e04fb4f142ebc4001c42131cf419e5ccf220a2921c9f8ea4d334268e4daf1b2e",
-            "source_sha256": "e04fb4f142ebc4001c42131cf419e5ccf220a2921c9f8ea4d334268e4daf1b2e",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/signup/README.md"
+            "sha256": "c6775835d4a31e27a0e16648ec6a8244ab71b1dbd0987a75bd645c40bdb3f4ec",
+            "source_sha256": "c6775835d4a31e27a0e16648ec6a8244ab71b1dbd0987a75bd645c40bdb3f4ec",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/signup/README.md"
         },
         "skeleton/README.md": {
             "path": "docs/skeleton/README.md",
-            "sha256": "0f57ea18cba7d79089187ee161951cc0b04dc0675bcd122a8373f9b842923e06",
-            "source_sha256": "0f57ea18cba7d79089187ee161951cc0b04dc0675bcd122a8373f9b842923e06",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/skeleton/README.md"
+            "sha256": "bc16d00eebe5940637853cf809f68a24a62c87d2fe7f091f093bb4181ee4a2e3",
+            "source_sha256": "bc16d00eebe5940637853cf809f68a24a62c87d2fe7f091f093bb4181ee4a2e3",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/skeleton/README.md"
         },
         "social-login/README.md": {
             "path": "docs/social-login/README.md",
-            "sha256": "109b05dbf9c41d16f740fc5b5ea644dd63599ff9b84fbaad533f713808a75ef6",
-            "source_sha256": "109b05dbf9c41d16f740fc5b5ea644dd63599ff9b84fbaad533f713808a75ef6",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/social-login/README.md"
+            "sha256": "4977bc4211d655b02a1cb789bc287d9303a943d7ff6a8c8ab7ff4f939eae5624",
+            "source_sha256": "4977bc4211d655b02a1cb789bc287d9303a943d7ff6a8c8ab7ff4f939eae5624",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/social-login/README.md"
         },
         "spinner/README.md": {
             "path": "docs/spinner/README.md",
-            "sha256": "f3f9e87bad6d49089627b7717bf404ce530ff321bfcb9669cbfa6192024e9590",
-            "source_sha256": "f3f9e87bad6d49089627b7717bf404ce530ff321bfcb9669cbfa6192024e9590",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/spinner/README.md"
+            "sha256": "f56da189ebb5cbf76deb1fcadb20f7eb593009161646059f7571a536161aa6b3",
+            "source_sha256": "f56da189ebb5cbf76deb1fcadb20f7eb593009161646059f7571a536161aa6b3",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/spinner/README.md"
         },
         "stat-card/README.md": {
             "path": "docs/stat-card/README.md",
-            "sha256": "cb41cf7113fe2e3a40ee7154bd81aa08f87fca078039ca807b2c3056ba650363",
-            "source_sha256": "cb41cf7113fe2e3a40ee7154bd81aa08f87fca078039ca807b2c3056ba650363",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/stat-card/README.md"
+            "sha256": "a814f58acaf220bdeaa0d5239169c5fde2226c75efaf5a642ae954be1e4d9cc0",
+            "source_sha256": "a814f58acaf220bdeaa0d5239169c5fde2226c75efaf5a642ae954be1e4d9cc0",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/stat-card/README.md"
         },
         "table/README.md": {
             "path": "docs/table/README.md",
-            "sha256": "8baf95f79e61c6c2fc2773662f05f4cb9516945ccbe281a63f780169d17cb8c1",
-            "source_sha256": "8baf95f79e61c6c2fc2773662f05f4cb9516945ccbe281a63f780169d17cb8c1",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/table/README.md"
+            "sha256": "b2684c489d58dc3add862424ee326181254ad3a4512ecc5303350e050b277dac",
+            "source_sha256": "b2684c489d58dc3add862424ee326181254ad3a4512ecc5303350e050b277dac",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/table/README.md"
         },
         "tabs/README.md": {
             "path": "docs/tabs/README.md",
-            "sha256": "e05d830fa1aeb378bd286b2de5d0c266606dbb76ee61bf1763d4020a71c60fa9",
-            "source_sha256": "e05d830fa1aeb378bd286b2de5d0c266606dbb76ee61bf1763d4020a71c60fa9",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/tabs/README.md"
+            "sha256": "eb97104792a03669b5ca3f218abdecdea68dcc675d32b392c00a452ef3edbd36",
+            "source_sha256": "eb97104792a03669b5ca3f218abdecdea68dcc675d32b392c00a452ef3edbd36",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/tabs/README.md"
         },
         "textarea/README.md": {
             "path": "docs/textarea/README.md",
-            "sha256": "c5ab4f9efa4ddefc0e6e042eca56855db94be14230eda334e2e10cf99b2d7b0b",
-            "source_sha256": "c5ab4f9efa4ddefc0e6e042eca56855db94be14230eda334e2e10cf99b2d7b0b",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/textarea/README.md"
+            "sha256": "2e9a93ecdcd191c18a79b45786fd3f8e38e8073b63ad21ea57fc616d941e5e13",
+            "source_sha256": "2e9a93ecdcd191c18a79b45786fd3f8e38e8073b63ad21ea57fc616d941e5e13",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/textarea/README.md"
         },
         "theme-toggle/README.md": {
             "path": "docs/theme-toggle/README.md",
-            "sha256": "57e10c637716b59013cd23da0519b9ca674c97189804a47ebb04e54ddacfd1bd",
-            "source_sha256": "57e10c637716b59013cd23da0519b9ca674c97189804a47ebb04e54ddacfd1bd",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/theme-toggle/README.md"
+            "sha256": "ffae80066b76a8a8fbef1d679ada9541ec9b8c664cd82a71f14580357898bfa4",
+            "source_sha256": "ffae80066b76a8a8fbef1d679ada9541ec9b8c664cd82a71f14580357898bfa4",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/theme-toggle/README.md"
         },
         "theme/README.md": {
             "path": "docs/theme/README.md",
-            "sha256": "e3a4825c72b4073a5cf24d56b71f14987d0fc69fc94314157d1beb7586ed40c5",
-            "source_sha256": "27ee418add752ce74f6cee06d0a79600c194a9f8b39242d29ab81238e87df16e",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/theme/README.md"
+            "sha256": "2822f13a80e322f812159651be45185c5440864528475e97f3d99a4be0daaca5",
+            "source_sha256": "ce7e6be19edc9eddfd001a1ae7208e6e080f8a75abd0b4f2abb34898c6156555",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/theme/README.md"
         },
         "toast/README.md": {
             "path": "docs/toast/README.md",
-            "sha256": "09608fbf4660c7bb9e7339c45485c6f71eab9b1cc409453cd3c917b6ff233ec3",
-            "source_sha256": "09608fbf4660c7bb9e7339c45485c6f71eab9b1cc409453cd3c917b6ff233ec3",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/toast/README.md"
+            "sha256": "392b1938ca25901ad32ee550d64005fafdcc393f4a0d85f4c0bec155015b775e",
+            "source_sha256": "392b1938ca25901ad32ee550d64005fafdcc393f4a0d85f4c0bec155015b775e",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/toast/README.md"
         },
         "toggle/README.md": {
             "path": "docs/toggle/README.md",
-            "sha256": "ff8da8c5f07cc31fa6380ea08c29dda69c22a4fff13c268621ecae3f6588072c",
-            "source_sha256": "ff8da8c5f07cc31fa6380ea08c29dda69c22a4fff13c268621ecae3f6588072c",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/toggle/README.md"
+            "sha256": "9a0cbe7c13bb6032134c165589bc99e7744be7b17056a306754b21a73d499e20",
+            "source_sha256": "9a0cbe7c13bb6032134c165589bc99e7744be7b17056a306754b21a73d499e20",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/toggle/README.md"
         },
         "tooltip/README.md": {
             "path": "docs/tooltip/README.md",
-            "sha256": "6c294d7a9139e1e0457c0045ef928a9756b2e37c75d5f82fc2085eaee58854d0",
-            "source_sha256": "6c294d7a9139e1e0457c0045ef928a9756b2e37c75d5f82fc2085eaee58854d0",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/tooltip/README.md"
+            "sha256": "5004f970e2d02df6656de654756e13e02069b0fd818be5f602496973d99bd70a",
+            "source_sha256": "5004f970e2d02df6656de654756e13e02069b0fd818be5f602496973d99bd70a",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/tooltip/README.md"
         },
         "turbo/README.md": {
             "path": "docs/turbo/README.md",
-            "sha256": "d2c7997c7228dfd50739a5e8eba7d1982f9f755183b49efd5fd79d6825a3b043",
-            "source_sha256": "d2c7997c7228dfd50739a5e8eba7d1982f9f755183b49efd5fd79d6825a3b043",
-            "source_url": "https://github.com/xormania/uxor/blob/0.3.2/turbo/README.md"
+            "sha256": "c59cf07f014d482c8b94af9fd2487791d085d4b7f016a1de0740e21dcfe5ce80",
+            "source_sha256": "c59cf07f014d482c8b94af9fd2487791d085d4b7f016a1de0740e21dcfe5ce80",
+            "source_url": "https://github.com/xormania/uxor/blob/0.3.5/turbo/README.md"
         }
     }
 }

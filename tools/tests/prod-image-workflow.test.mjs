@@ -11,12 +11,15 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { stepIn } from '../ci/step-attempts.mjs';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const workflowsDir = '.github/workflows';
+const websiteInputs = ['INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'website/src/Renderer.php', 'website/templates/recipe.html.twig'];
+const packageGuides = ['packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json'];
 /**
  * The image's build inputs: the Dockerfile and its allow-list, the Compose files and FrankenPHP's; what the demo's vendor/
- * holds (demo/composer.json, demo/composer.lock: a development-only package the gallery needs at run time is how the
+ * holds (demo/composer.json, demo/composer.lock: a development-only package the app needs at run time is how the
  * image first failed); tools/sync-demo, which the builder runs; and demo/config/, where the production-only
  * configuration lives, which no other lane boots. Also what can change the paths the image needs: a recipe's manifest
  * (copy-files declares what the allow-list must admit), the root files the allow-list admits, and a new top-level
@@ -37,15 +40,14 @@ const TRIGGERS = [
     'alert/manifest.json',
     'manifest.json',
     'kit.css',
-    'INSTALL.md',
-    'llms.txt',
-    'docs/GUIDE.md',
+    'kit.js',
+    'tools/kit/KitReader.php',
     'brand-new-dir/notes.txt',
     'NEW-ROOT-FILE.md',
     // the demo is the app the image runs, and its files behave differently in prod (no dev packages, no Toolkit bundle):
     // every entry the image admits; the lane's own harness; a new directory whatever the file's name
     'tools/tests/prod-image.sh',
-    'demo/src/Controller/ShowcaseController.php',
+    'demo/src/Controller/HomeController.php',
     'demo/templates/base.html.twig',
     'demo/.env',
     'demo/importmap.php',
@@ -63,19 +65,19 @@ const TRIGGERS = [
     'editor/src/UXor/Editor/EditorExtension.php',
     'oauth/config/uxor_oauth.example.yaml',
 ];
-/** Content the other jobs render from the same files: a recipe's template, assets and README, a browser spec. */
-/** What the image does not hold: a browser spec, a recipe's own tests, docs but the guide, the package, the other tools. */
+/** The image leaves out browser specs, recipe tests, package internals and contributor documentation. */
 const UNRELATED = [
+    ...websiteInputs,
+    ...packageGuides,
     'tests/e2e/smoke.spec.ts',
     'alert/tests/alert.spec.ts',
     'alert/tests/screenshots/with-list-dark.png',
     'docs/TESTING.md',
     'packages/uxor/tools/ReferenceGenerator.php',
+    'packages/uxor/INSTRUCTIONS.md',
+    'packages/uxor/resources/uxor/index.json',
     'tools/docs-lint.mjs',
 ];
-/** The image's inputs a release check must not count as never read. */
-const IMAGE_INPUTS = ['manifest.json', 'kit.css', 'INSTALL.md', 'llms.txt', 'docs/GUIDE.md', 'alert/manifest.json', 'alert/templates/components/Alert.html.twig', 'alert/assets/controllers/alert_controller.js', 'demo/Dockerfile', 'demo/Dockerfile.dockerignore', 'tools/sync-demo'];
-
 const workflows = readdirSync(join(root, workflowsDir))
     .filter((name) => /\.ya?ml$/.test(name))
     .map((name) => ({ path: `${workflowsDir}/${name}`, text: readFileSync(join(root, workflowsDir, name), 'utf8') }));
@@ -197,16 +199,11 @@ test('the development image still runs the repository bind-mounted, the app in /
     assert.match(override, /^\s+SERVER_ROOT:\s*['"]?\/app\/demo\/public['"]?\s*$/m, 'SERVER_ROOT is /app/demo/public');
 });
 
-test("the release checks never reuse an earlier pass across a change to one of the production image's inputs", () => {
-    const text = readFileSync(join(root, workflowsDir, 'release-checks.yml'), 'utf8');
-    const filters = [...text.matchAll(/grep -vE '([^']+)'/g)].map((m) => m[1]);
-    assert.ok(filters.length > 0, 'release-checks.yml filters the paths the suite never reads with grep -vE');
-    for (const filter of filters) {
-        // through grep -E itself, as the workflow runs it: a pattern grep reads otherwise, or refuses, counts
-        const kept = spawnSync('grep', ['-vE', filter], { input: `${IMAGE_INPUTS.join('\n')}\n`, encoding: 'utf8' });
-        assert.ok(kept.status === 0 || kept.status === 1, `grep -E reads the filter ${filter}: ${kept.stderr}`);
-        const skipped = IMAGE_INPUTS.filter((path) => !kept.stdout.split('\n').includes(path));
-        assert.deepEqual(skipped, [], `the release checks count ${skipped.join(', ')} as never read (${filter}), though the production image holds or builds from them`);
+test('the release fallback builds and tests the same production image as the CI push', () => {
+    const workflow = (file) => readFileSync(join(root, workflowsDir, file), 'utf8');
+    const command = (file, step) => stepIn(workflow(file), 'prod-image', step).run.replace(/uxor-demo-prod:(?:ci|release)/g, 'uxor-demo-prod:test');
+    for (const step of ['build', 'prod-image']) {
+        assert.equal(command('release-checks.yml', step), command('ci.yml', step), `production ${step} contract`);
     }
 });
 
@@ -256,11 +253,11 @@ test('the lane runs for every kind of recipe file the image admits', () => {
     assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these kinds of recipe file the image admits');
 });
 
-// The root files the image holds are named in the allow-list (`!<file>`, `!docs/GUIDE.md`): each runs the lane, so a
+// The root files the image holds are named in the allow-list (`!<file>`): each runs the lane, so a
 // root file added to the image fails here until the classifier runs the lane for it.
 test('the lane runs for every root file the image admits', () => {
     const files = readFileSync(join(root, 'demo/Dockerfile.dockerignore'), 'utf8').split('\n')
-        .map((line) => /^!((?:docs\/)?[A-Za-z0-9][^/*\s]*)$/.exec(line.trim())?.[1]).filter(Boolean);
+        .map((line) => /^!([A-Za-z0-9][^/*\s]*)$/.exec(line.trim())?.[1]).filter(Boolean);
     assert.ok(files.includes('manifest.json'), 'demo/Dockerfile.dockerignore admits the root files by name (!manifest.json, …)');
     const missing = files.filter((path) => !selected([path]).has('prod-image'));
     assert.deepEqual(missing, [], 'tools/ci-changes.sh does not run the production image for these root files the image admits');

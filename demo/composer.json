@@ -29,9 +29,9 @@
         "symfony/twig-bundle": "8.1.*",
         "symfony/ux-autocomplete": "^3.5",
         "symfony/ux-chartjs": "^3.5",
-        "symfony/ux-dropzone": "^3.7",
-        "symfony/ux-icons": "^3.5",
-        "symfony/ux-live-component": "^3.5",
+        "symfony/ux-dropzone": "^3.8",
+        "symfony/ux-icons": "^3.8.1",
+        "symfony/ux-live-component": "^3.8.1",
         "symfony/ux-toolkit": "^3.5",
         "symfony/ux-turbo": "^3.5",
         "symfony/ux-twig-component": "^3.5",
@@ -40,7 +40,7 @@
         "symfonycasts/tailwind-bundle": "^1.0",
         "tales-from-a-dev/twig-tailwind-extra": "^1.5",
         "twig/extra-bundle": "^3.29",
-        "twig/html-extra": "^3.29",
+        "twig/html-extra": "^3.31.1",
         "twig/intl-extra": "^3.24"
     },
     "config": {
@@ -64,7 +64,8 @@
             "App\\UXor\\Dropzone\\": "../dropzone/src/UXor/Dropzone/",
             "App\\UXor\\Editor\\": "../editor/src/UXor/Editor/",
             "App\\UXor\\OAuth\\": "../oauth/src/UXor/OAuth/",
-            "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/"
+            "App\\UXor\\MarkdownEditor\\": "../markdown-editor/src/UXor/MarkdownEditor/",
+            "UXor\\Kit\\": "../tools/kit/"
         }
     },
     "autoload-dev": {
@@ -115,6 +116,7 @@
         }
     },
     "require-dev": {
+        "composer/semver": "^3.5",
         "phpunit/phpunit": "^13.4.6",
         "spatie/phpunit-snapshot-assertions": "^5.4",
         "symfony/ai-mate": "^0.14",

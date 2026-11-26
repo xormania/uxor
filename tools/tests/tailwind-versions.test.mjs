@@ -34,12 +34,12 @@ for (const path of COMPILERS) {
     });
 }
 
-test('tools/build-static.sh names the Tailwind compiler version it builds with, before tailwind:build', () => {
+test('tools/build-static.sh names the Tailwind compiler version it builds with, before app:build-styles', () => {
     const lines = read('tools/build-static.sh').split('\n');
-    const build = lines.findIndex((line) => /bin\/console tailwind:build\b/.test(line) && !/^\s*#/.test(line));
-    assert.ok(build >= 0, 'tools/build-static.sh runs tailwind:build');
+    const build = lines.findIndex((line) => /bin\/console app:build-styles\b/.test(line) && !/^\s*#/.test(line));
+    assert.ok(build >= 0, 'tools/build-static.sh runs app:build-styles');
     const logs = lines.slice(0, build).filter((line) => /^\s*(?:echo|printf)\b/.test(line) && /tailwind/i.test(line));
-    assert.ok(logs.length > 0, 'a line printed before tailwind:build names the Tailwind compiler');
+    assert.ok(logs.length > 0, 'a line printed before app:build-styles names the Tailwind compiler');
     // the version printed is the one found at build time, not a literal copied into the script
     assert.ok(
         logs.some((line) => /\$/.test(line) && !/\d+\.\d+\.\d+/.test(line)),
@@ -50,7 +50,7 @@ test('tools/build-static.sh names the Tailwind compiler version it builds with, 
 /**
  * Runs tools/build-static.sh in a scratch root: the real tools/ (linked), a demo whose symfonycasts_tailwind.yaml is
  * `yaml`, and stand-ins for php and composer (PHP=, COMPOSER_BIN=) that record their arguments; php stops the script
- * at tailwind:build (exit 42), so nothing is installed or built. Returns the exit status, the output and php's calls.
+ * at app:build-styles (exit 42), so nothing is installed or built. Returns the exit status, the output and php's calls.
  */
 function buildStaticWith(yaml) {
     const scratch = mkdtempSync(join(tmpdir(), 'build-static-tailwind-'));
@@ -60,7 +60,7 @@ function buildStaticWith(yaml) {
         writeFileSync(join(scratch, 'demo/config/packages/symfonycasts_tailwind.yaml'), yaml);
         const calls = join(scratch, 'php-calls.log');
         const php = join(scratch, 'php');
-        writeFileSync(php, `#!/usr/bin/env bash\necho "$*" >> '${calls}'\ncase "$*" in *tailwind:build*) exit 42 ;; esac\nexit 0\n`);
+        writeFileSync(php, `#!/usr/bin/env bash\necho "$*" >> '${calls}'\ncase "$*" in *app:build-styles*) exit 42 ;; esac\nexit 0\n`);
         const composer = join(scratch, 'composer');
         writeFileSync(composer, '#!/usr/bin/env bash\nexit 0\n');
         chmodSync(php, 0o755);
@@ -87,14 +87,14 @@ const readable = {
     'single-quoted': ["symfonycasts_tailwind:\n    binary_version: 'v4.3.5'\n", 'v4.3.5'],
     'double-quoted': ['symfonycasts_tailwind:\n    binary_version: "v4.1.12"\n', 'v4.1.12'],
     unquoted: ['symfonycasts_tailwind:\n    binary_version: v4.2.0\n', 'v4.2.0'],
-    'single-quoted, commented,': ["symfonycasts_tailwind:\n    # the CLI tailwind:build downloads\n    binary_version: 'v4.0.17' # pinned\n", 'v4.0.17'],
+    'single-quoted, commented,': ["symfonycasts_tailwind:\n    # the CLI app:build-styles downloads\n    binary_version: 'v4.0.17' # pinned\n", 'v4.0.17'],
 };
 
 for (const [label, [yaml, version]] of Object.entries(readable)) {
-    test(`tools/build-static.sh prints the ${label} binary_version before tailwind:build`, () => {
+    test(`tools/build-static.sh prints the ${label} binary_version before app:build-styles`, () => {
         const { status, output, phpCalls } = buildStaticWith(yaml);
-        assert.match(phpCalls, /bin\/console tailwind:build/, `the script reached tailwind:build (exit ${status}):\n${output}`);
-        assert.equal(status, 42, 'it stopped at the stand-in tailwind:build, not before');
+        assert.match(phpCalls, /bin\/console app:build-styles/, `the script reached app:build-styles (exit ${status}):\n${output}`);
+        assert.equal(status, 42, 'it stopped at the stand-in app:build-styles, not before');
         const line = output.split('\n').find((text) => /tailwind/i.test(text) && /\d+\.\d+\.\d+/.test(text));
         assert.ok(line, `a line names the Tailwind compiler's version:\n${output}`);
         assert.equal(line.match(/v?\d+\.\d+\.\d+/g)?.join(' '), version, `it names ${version}, the version configured: ${line}`);
@@ -109,9 +109,9 @@ const unreadable = {
 };
 
 for (const [label, yaml] of Object.entries(unreadable)) {
-    test(`tools/build-static.sh fails before tailwind:build on ${label}, with an error naming binary_version`, () => {
+    test(`tools/build-static.sh fails before app:build-styles on ${label}, with an error naming binary_version`, () => {
         const { status, output, phpCalls } = buildStaticWith(yaml);
-        assert.doesNotMatch(phpCalls, /tailwind:build/, `tailwind:build never runs:\n${output}`);
+        assert.doesNotMatch(phpCalls, /app:build-styles/, `app:build-styles never runs:\n${output}`);
         assert.notEqual(status, 0, 'the script fails');
         assert.doesNotMatch(output, /unknown/i, 'no version reported as unknown');
         assert.match(output, /binary_version/, `the error names binary_version:\n${output}`);

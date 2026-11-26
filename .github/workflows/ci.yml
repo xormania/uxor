@@ -3,17 +3,20 @@ name: CI
 # queued or running for a head; every other run keeps GitHub's own name (the commit's title, or the workflow's)
 run-name: "${{ github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI: Firefox and WebKit only' || '' }}"
 
-# Every push to a branch runs CI, so a branch is green before its PR opens; there is no pull_request trigger, whose
-# runs would duplicate every check (skipped) on the same commit, and a skipped CI result passes the rulesets before the
-# push's own run ends. A fork's pull request gets CI once its branch is pushed here. Tag pushes do not run it:
-# release.yml checks a release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates
-# (.github/dependabot.yml). Once a day the install jobs that resolve consumer dependencies afresh run alone, on dev
-# (the Changes job): a new Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches
-# no install may no longer run. GitHub runs a schedule on the default branch, main: that run only starts the daily run
-# on dev (the Start on dev job), so a failure shows on dev, where its fix lands, and main changes only by a release.
+# Every push to a branch runs CI, so a same-repository branch is green before its PR opens. Fork pull requests run
+# this workflow against their prospective merge without requiring the maintainer to copy the branch here.
+# A same-repository pull_request run skips the work and uses a different result name: its skipped check must never
+# satisfy CI result while the branch's push run is still running. Tag pushes do not run CI: release.yml checks a
+# release's install before tagging it. Actions are pinned by commit; Dependabot proposes their updates.
+# Once a day the install jobs that resolve consumer dependencies afresh run alone, on dev (the Changes job): a new
+# Symfony skeleton or Symfony Docker, the consumer's packages from Packagist, which a dev push that touches no install
+# may no longer run. The schedule on main only starts the daily run on dev, so a failure shows on dev.
+
 on:
     push:
         branches: ['**']
+    pull_request:
+        types: [opened, edited, synchronize, reopened, ready_for_review]
     schedule:
         - cron: '29 5 * * *'
     workflow_dispatch:
@@ -41,7 +44,7 @@ permissions:
 concurrency:
     # the schedule's start, the daily run and an engines-only run in groups of their own: none cancels, or is cancelled by,
     # a push; an engines-only run never cancels another (a second one waits)
-    group: ${{ github.event_name == 'schedule' && 'ci-schedule' || inputs.daily && github.ref == 'refs/heads/dev' && 'ci-daily' || inputs.engines_only && format('ci-engines-{0}', github.ref) || format('ci-{0}', github.ref) }}
+    group: ${{ github.event_name == 'schedule' && 'ci-schedule' || inputs.engines_only && format('ci-engines-{0}', github.ref) || inputs.daily && github.ref == 'refs/heads/dev' && 'ci-daily' || format('ci-{0}', github.ref) }}
     cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.engines_only) }}
 
 env:
@@ -50,7 +53,7 @@ env:
     # takes the newest version the demo runs, read at run time; the fresh installs use this one.
     UX_TOOLKIT_MINIMUM_VERSION: '3.5.1'
     # The browser tests (docs/TESTING.md, *Browsers*): Chromium in CHROMIUM_SHARDS shards on every push that selects them;
-    # Firefox and WebKit, three shards each, as ENGINES_ON says. `daily` (the trial): on dev's daily run when dev changed
+    # Firefox and WebKit, three shards each (four in a dedicated run), as ENGINES_ON says. `daily`: on dev when it changed
     # since their last pass, on main, when a manual run asks for them (the `engines` input), and for the release pull
     # request, whose Release checks starts them when its head has no pass; any other push defers them, said so in CI
     # result. `every-push`: on every push, as before the trial. This line is the one switch back.
@@ -75,38 +78,43 @@ jobs:
               run: gh workflow run ci.yml --repo "$REPO" --ref dev -f daily=true
 
     # Which jobs this change could affect (tools/ci-changes.sh): a job it cannot affect is skipped, and a skipped job
-    # passes the branch rulesets. Pushes to main, a run by hand and a change to this workflow run everything. A branch
-    # is compared with where it left dev, so each push checks the whole pull request, not only its last commit. A push to
+    # passes the branch rulesets. Pushes to main, a full manual run and a change to this workflow run everything.
+    # Feature pushes check every change since the verified integration base, falling back to where they left dev. A push to
     # dev is compared with the commit of dev's last successful run, so every merge since is checked, those of a run that
     # was cancelled or failed included; with none (a first run, a force push), everything runs. The daily run runs the
-    # installs only. A work order's own branch (claude/wo-<name>) runs like any branch, its pull request a draft or not:
+    # installs only. A work order's own branch (work/<name>) runs like any branch, its pull request a draft or not:
     # when its jobs are stacked, its tree after a job's merge is that job's, whose passes it reuses (CONTRIBUTING.md,
     # *Work orders*).
     changes:
         name: Changes
-        if: github.event_name != 'schedule'
+        if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 8 # 5 for the job, plus 3 for the advisory collector and its upload
         permissions:
             contents: read
-            actions: read # the shard timings of dev's last green run
+            actions: read # validated comparison baselines and shard timings
+            pull-requests: read # identify same-repository integration targets
         outputs:
             timings: ${{ steps.timings.outputs.artifact }}
             # each lane: run, reuse (an earlier pass with the same inputs) or skip (the change cannot affect it)
             lint-kit: ${{ steps.plan.outputs.lint-kit }}
             php: ${{ steps.plan.outputs.php }}
             static-site: ${{ steps.plan.outputs.static-site }}
+            runtime-export: ${{ steps.plan.outputs.runtime-export }}
             fresh-install: ${{ steps.plan.outputs.fresh-install }}
             contrast: ${{ steps.plan.outputs.contrast }}
             demo: ${{ steps.plan.outputs.demo }}
+            demo-app: ${{ steps.plan.outputs.demo-app }}
             workflows: ${{ steps.plan.outputs.workflows }}
+            package-docs: ${{ steps.plan.outputs.package-docs }}
             package: ${{ steps.plan.outputs.package }}
             prod-image: ${{ steps.plan.outputs.prod-image }}
             importmap: ${{ steps.plan.outputs.importmap }}
-            # the browser job: Firefox and WebKit (run, reuse, defer or skip), whether it runs, and its computed matrix
+            # the browser job: Firefox and WebKit, job selection, and the matrix labels and configuration
             engines: ${{ steps.plan.outputs.engines }}
             browsers: ${{ steps.plan.outputs.browsers }}
             browser-matrix: ${{ steps.plan.outputs.browser-matrix }}
+            browser-config: ${{ steps.plan.outputs.browser-config }}
             # the plan's artifact, named once: a re-run of failed jobs keeps this job's outputs and reads the same plan
             lane-plan: ${{ steps.plan.outputs.artifact }}
             # the plan's artifact by id and its plan.json's SHA-256: CI result takes nothing else from it, and checks both
@@ -132,14 +140,55 @@ jobs:
                   DAILY: ${{ inputs.daily }}
                   ENGINES_ONLY: ${{ inputs.engines_only }}
                   REF: ${{ github.ref }}
+                  PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
                   GH_TOKEN: ${{ github.token }}
                   REPO: ${{ github.repository }}
               run: |
-                  # Where the branch left dev; none for main, dev or a run by hand. Computed here, in the workflow, not by a
-                  # script in the tree: a branch cannot choose the range it is checked against. Contrast reads the same
-                  # range (tools/readme-pairing.mjs --base).
-                  if [ "$EVENT" = push ] && [ "$REF" != refs/heads/main ] && [ "$REF" != refs/heads/dev ]; then
+                  # A pull request is checked out at its prospective merge. GitHub supplies the target base, which
+                  # must be a full commit ID in that merge's history. A feature push compares with its verified
+                  # upstream or the branch point from dev. Contrast reads the same comparison base.
+                  if [ "$EVENT" = pull_request ]; then
+                      if ! [[ "${PR_BASE_SHA:-}" =~ ^[0-9a-f]{40}$ ]] || ! git merge-base --is-ancestor "$PR_BASE_SHA" HEAD 2>/dev/null; then
+                          echo "::error::The pull request base is missing, invalid or not an ancestor of the tested merge"
+                          exit 1
+                      fi
+                      base=$PR_BASE_SHA
+                  elif [ "$EVENT" = push ] && [ "$REF" != refs/heads/main ] && [ "$REF" != refs/heads/dev ]; then
                       base=$(git merge-base HEAD origin/dev 2>/dev/null || true)
+                      # A push can precede its PR. In that case only a single owner's active
+                      # release into main is a candidate. Branch names and ancestry alone
+                      # cannot certify the inherited changes. Use the merge-base only after
+                      # the target's own full CI verdict on that exact commit has passed.
+                      target=
+                      if pulls=$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100"); then
+                          target=$(jq -rs --arg repo "$REPO" --arg head "${REF#refs/heads/}" '
+                              add | map(select(.head.repo.full_name == $repo and .base.repo.full_name == $repo)) as $prs |
+                              [$prs[] | select(.base.ref == "main" and .author_association == "OWNER" and
+                                  (.head.ref | test("(^release/|(^|/)release-)[0-9]+[.][0-9]+[.][0-9]+$"))) | .head.ref] | unique as $releases |
+                              [$prs[] | select(.head.ref == $head) | .base.ref] | unique |
+                              if length == 0 then $releases else . end |
+                              if length == 1 then .[0] as $target |
+                                  select($target == "main" or $target == "dev" or ($releases | index($target))) | $target
+                              else empty end' <<< "$pulls") || target=
+                      fi
+                      if [ -n "$target" ] && git check-ref-format "refs/heads/$target"; then
+                          common=$(git merge-base HEAD "refs/remotes/origin/$target" 2>/dev/null || true)
+                          if [ -n "$common" ] && [ "$common" != "$base" ] && [ -n "$base" ] && git merge-base --is-ancestor "$base" "$common"; then
+                              run=
+                              if runs=$(gh api -X GET "repos/$REPO/actions/workflows/ci.yml/runs" -f event=push -f "branch=$target" -f "head_sha=$common" -f per_page=1); then
+                                  run=$(jq -r --arg repo "$REPO" --arg target "$target" --arg sha "$common" '
+                                      .workflow_runs[0] | select(.repository.full_name == $repo and .head_repository.full_name == $repo and
+                                      .path == ".github/workflows/ci.yml" and .event == "push" and .head_branch == $target and .head_sha == $sha and
+                                      .status == "completed" and .conclusion == "success") | "\(.id)/attempts/\(.run_attempt)"' <<< "$runs") || run=
+                              fi
+                              if [[ "$run" =~ ^[0-9]+/attempts/[0-9]+$ ]] &&
+                                  jobs=$(gh api --paginate "repos/$REPO/actions/runs/$run/jobs?per_page=100") &&
+                                  jq -es '[.[].jobs[] | select(.name == "CI result")] | length == 1 and .[0].conclusion == "success"' <<< "$jobs" >/dev/null; then
+                                  base=$common
+                                  echo "Comparing with verified $target at $base"
+                              fi
+                          fi
+                      fi
                   else
                       base=
                   fi
@@ -164,26 +213,26 @@ jobs:
                       # Firefox and WebKit only, for the release pull request's head (Release checks) or by hand: every
                       # other lane already has its result on this head's push run
                       echo "Firefox and WebKit only"
-                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image; do
                           echo "$job=false"
                       done > "$RUNNER_TEMP/jobs"
                       echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ "$EVENT" = workflow_dispatch ] && [ "$DAILY" = true ] && [ "$REF" = refs/heads/dev ]; then
                       echo "The daily run: install checks with fresh consumer dependency resolution"
-                      for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                      for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image; do
                           case "$job" in fresh-install | package) echo "$job=true" ;; *) echo "$job=false" ;; esac
                       done > "$RUNNER_TEMP/jobs"
                       # and Firefox and WebKit, unless they already passed on dev's inputs (the plan)
                       echo "engines=true" >> "$RUNNER_TEMP/jobs"
                   elif [ -n "$from" ] && git show "$from:tools/ci-changes.sh" > "$RUNNER_TEMP/ci-changes.sh" 2>/dev/null; then
                       echo "Changed since $from:"
-                      git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" > "$RUNNER_TEMP/jobs"
+                      git diff --name-only --no-renames "$from" HEAD | tee /dev/stderr | bash "$RUNNER_TEMP/ci-changes.sh" "$from" > "$RUNNER_TEMP/jobs"
                   else
                       echo "Everything runs ($EVENT on $REF)"
                       : > "$RUNNER_TEMP/jobs"
                   fi
                   # a job the base's classifier does not know (one this branch adds) runs
-                  for job in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+                  for job in lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image; do
                       grep -q "^$job=" "$RUNNER_TEMP/jobs" || echo "$job=true" >> "$RUNNER_TEMP/jobs"
                   done
                   cat "$RUNNER_TEMP/jobs"
@@ -198,12 +247,12 @@ jobs:
               run: |
                   context=packages/uxor/resources/mago/serena
                   if [ -f "$context/Dockerfile" ] && { [ -z "$BASE" ] || ! git diff --quiet "$BASE" HEAD -- \
-                      "$context" .github/workflows/ci.yml .github/workflows/mago-providers.yml; }; then
+                      "$context" packages/uxor/src/Preparation .github/workflows/ci.yml .github/workflows/mago-providers.yml; }; then
                       echo 'decision=run' >> "$GITHUB_OUTPUT"
                   fi
 
-            # The browser tests are two lanes of one job: the Chromium shards (demo) and Firefox and WebKit (engines), which
-            # with ENGINES_ON=daily wait on a push (defer: NOT RUN AT THIS STAGE in CI result) and run on the daily run
+            # One browser matrix runs Toolkit Chromium (demo), example-app Chromium (demo-app) and
+            # Firefox and WebKit (engines), which with ENGINES_ON=daily wait on a push and run on the daily run
             # (unless they passed on these inputs), on main and when a manual run asks; the plan writes the job's matrix.
             # Each selected lane runs, or reuses an earlier pass with the same inputs (tools/ci/lane-evidence.mjs,
             # docs/TESTING.md, *Reused lanes*): the markers for the lane's fingerprint, newest first, until a failure from
@@ -216,6 +265,8 @@ jobs:
             # selector decides from the diff what a change can affect, so a branch could skip its own checks by editing
             # it. The tool and ci.yml are inside every fingerprint, so a branch's own copy can only match a pass recorded
             # by that same copy and workflow, and a push already runs the branch's own ci.yml.
+            # Fork PRs run selected lanes fresh. Their results remain useful to reviewers but are not trusted
+            # producers for later branch reuse: lane-evidence.mjs still accepts only same-repository push/manual runs.
             - name: Plan the lanes
               id: plan
               env:
@@ -223,10 +274,10 @@ jobs:
                   REPO: ${{ github.repository }}
                   SHA: ${{ github.sha }}
                   REF: ${{ github.ref }}
-                  REUSE: ${{ (vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
+                  REUSE: ${{ (github.event_name == 'pull_request' || vars.CI_REUSE == 'off' || (github.event_name == 'workflow_dispatch' && !inputs.reuse)) && 'off' || 'on' }}
                   ARTIFACT: lane-plan-${{ github.run_id }}-${{ github.run_attempt }}
                   ENGINES: ${{ inputs.engines && 'true' || 'false' }}
-                  PLAN_EVENT: ${{ github.event_name == 'workflow_dispatch' && (inputs.engines_only && 'engines' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
+                  PLAN_EVENT: ${{ github.event_name == 'pull_request' && 'pull_request' || github.event_name == 'workflow_dispatch' && (inputs.engines_only && 'engines' || inputs.daily && github.ref == 'refs/heads/dev' && 'daily' || 'dispatch') || 'push' }}
               run: |
                   echo "artifact=$ARTIFACT" >> "$GITHUB_OUTPUT"
                   mkdir -p "$RUNNER_TEMP/lane-plan"
@@ -310,8 +361,8 @@ jobs:
     #   tracked paths and ownership controls), and what any path can break whichever lanes the change runs: the bundled
     #   references' links, the test inventory's names, the archive's payload, and the name check, which reads every file.
     # - Contrast, when tools/ci-changes.sh selects it: the theme's contrast, kit.css, llms.txt, what the markdown
-    #   teaches, the icons, the README examples, the test inventory, the READMEs' versions and the README pairing (which
-    #   reads the branch's commits since the Changes job's base).
+    #   teaches, the icons, the README examples, the READMEs' versions and the README pairing (which reads the branch's
+    #   commits since the Changes job's base).
     # - Workflows, when selected: every workflow's syntax, expressions, job graph, action inputs and the shell of its run
     #   steps (actionlint with ShellCheck, release binaries pinned by version and SHA-256); tools/ci-changes.sh also runs
     #   the jobs that run what a workflow runs (pages.yml: Static site; release.yml: Fresh install and Static site). Then
@@ -325,7 +376,8 @@ jobs:
     quick:
         name: Quick checks
         needs: changes
-        if: github.event_name != 'schedule'
+        # The dedicated engine dispatch publishes its own verdict. The push or full run still owns Tool tests.
+        if: github.event_name != 'schedule' && !inputs.engines_only && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
         runs-on: ubuntu-latest
         timeout-minutes: 15 # the three checks' 5, 10 and 5 in a row, plus 3 for the advisory Jev steps
         env:
@@ -443,10 +495,12 @@ jobs:
               run: php packages/uxor/tools/generate-reference.php --check
 
 
-            - name: The test inventory names existing tests
+            - name: Test inventory references
               id: tools-inventory
               if: ${{ !cancelled() }}
-              run: node tools/test-inventory.mjs
+              run: |
+                  set -o pipefail
+                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-tools-inventory.log"
 
 
             - name: The archive holds what the kit and the package declare
@@ -552,14 +606,6 @@ jobs:
                   node tools/fence-coverage.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-fences.log"
 
 
-            - name: The test inventory has a row per recipe with a controller and names existing tests; a11y scans every lab page
-              id: contrast-inventory
-              if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
-              run: |
-                  set -o pipefail
-                  node tools/test-inventory.mjs 2>&1 | tee "$RUNNER_TEMP/jev-contrast-inventory.log"
-
-
             - name: Each recipe README renders its manifest's dependencies and writes no version table
               id: contrast-readme-versions
               if: ${{ !cancelled() && needs.changes.outputs.contrast == 'run' }}
@@ -640,7 +686,7 @@ jobs:
     # Two lanes: the Toolkit version the demo locks (what the kit is developed with) and the minimum supported one
 
     lint-kit:
-        name: Lint kit (${{ matrix.toolkit }} toolkit)
+        name: Lint kit
         needs: changes
         if: needs.changes.outputs.lint-kit == 'run'
         strategy:
@@ -695,7 +741,7 @@ jobs:
                   mkdir "$RUNNER_TEMP/kit"
                   git archive HEAD | tar -x -C "$RUNNER_TEMP/kit"
                   echo "Exported:" && ls -A "$RUNNER_TEMP/kit"
-                  for path in demo docs tests tools .github package.json package-lock.json playwright.config.ts alert/tests \
+                  for path in demo website docs tests tools .github package.json package-lock.json playwright.config.ts alert/tests \
                       composer.lock packages/uxor/tests packages/uxor/tools packages/uxor/dev packages/uxor/phpunit.xml.dist; do
                       if [ -e "$RUNNER_TEMP/kit/$path" ]; then echo "::error::$path is not export-ignored"; exit 1; fi
                   done
@@ -729,7 +775,7 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Lint kit (${{ matrix.toolkit }} toolkit)
+                  job: Lint kit (${{ matrix.toolkit }})
                   artifact: jev-input-ci-${{ github.job }}-${{ matrix.toolkit }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     # The demo's importmap packages (demo/importmap.php), downloaded once per run from the CDN (jsdelivr) and shared as
@@ -823,17 +869,21 @@ jobs:
                   # process (php.ini, not a -d flag, reaches the tests PHPUnit runs in their own processes)
                   ini-values: zend.assertions=1, assert.exception=1
 
-            # The kit lint does not look at PHP: every PHP file the repository tracks (the recipes' src, the demo and its
-            # tests, the package, the tools and their fixtures) and its PHP scripts without an extension are checked here,
-            # first, in about a second.
+            # Check tracked recipe, demo, package and tools PHP. The website job checks its own PHP.
             - name: Syntax
               run: |
                   # php -l exits 255 on a parse error, which would stop xargs at the first one: 1 lets it list every one.
                   # -f: a path starting with a dash (-d/x.php) is the file to lint, never PHP's options
                   # shellcheck disable=SC2016 # $1 is the inner shell's
-                  { git ls-files -z '*.php'
+                  { git ls-files -z '*.php' ':(exclude)website/**'
                     git ls-files -z demo/bin/console demo/bin/phpunit packages/uxor/bin/uxor packages/uxor/dev/app/bin/console tools/sync-demo
-                  } | xargs -0 -n1 -P4 sh -c 'php -l -f "$1" || exit 1' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
+                  } | xargs -0 -n1 -P4 sh -c '
+                      # PHP writes some parse errors in pieces. Print the finished report once per file.
+                      result=0
+                      report=$(php -l -f "$1" 2>&1) || result=1
+                      printf "%s\n" "$report"
+                      exit "$result"
+                  ' php-l > "$RUNNER_TEMP/php-lint.log" 2>&1 || status=$?
                   grep -v '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log" || true
                   echo "$(grep -c '^No syntax errors detected' "$RUNNER_TEMP/php-lint.log") files without a syntax error"
                   exit "${status:-0}"
@@ -853,7 +903,7 @@ jobs:
               if: ${{ !cancelled() && steps.php-setup.outcome == 'success' }}
               run: |
                   php tools/sync-demo
-                  (cd demo && composer install --no-interaction --no-progress && bin/console tailwind:build)
+                  (cd demo && composer install --no-interaction --no-progress && bin/console app:build-styles)
 
             - name: Check the demo's Mate guidance
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
@@ -875,8 +925,12 @@ jobs:
               if: ${{ !cancelled() && steps.demo-install.outcome == 'success' }}
               working-directory: demo
               run: |
-                  # shellcheck disable=SC2046 # one directory per line, none with a space
-                  bin/console lint:twig templates $(cd .. && for dir in */templates; do [ "$dir" = demo/templates ] || echo "../$dir"; done)
+                  dirs=(templates)
+                  for manifest in ../*/manifest.json; do
+                      dir="${manifest%/manifest.json}/templates"
+                      if [ -d "$dir" ]; then dirs+=("$dir"); fi
+                  done
+                  bin/console lint:twig "${dirs[@]}"
 
             # demo/tests: the data tables' limits (the deepest page, the loader calls, the selection), the Live table
             # through real Live requests, components rendered against their snapshots, the loader calls of one
@@ -935,13 +989,74 @@ jobs:
 
     static-site:
         name: Static site
-        needs: [changes, importmap]
+        needs: changes
         if: needs.changes.outputs.static-site == 'run'
+        runs-on: ubuntu-24.04
+        timeout-minutes: 13
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: ${{ env.PHP_VERSION }}
+                  extensions: dom, intl, mbstring
+                  tools: composer
+                  coverage: none
+
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+                  cache: npm
+
+            - name: Check website PHP syntax
+              run: git ls-files -z 'website/*.php' website/bin/build | xargs -0 -r -n1 php -l -f
+
+            - name: Build the website
+              id: build
+              run: |
+                  set -o pipefail
+                  tools/build-static.sh _site/uxor --website-only --base-path=/uxor 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+
+            - name: Test website publishing
+              id: publishing
+              working-directory: website
+              run: |
+                  set -o pipefail
+                  vendor/bin/phpunit 2>&1 | tee "$RUNNER_TEMP/jev-publishing.log"
+
+            - name: Install the website test client
+              id: website-browser-install
+              run: |
+                  set -o pipefail
+                  npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/jev-website-browser-install.log"
+
+            - name: Check website navigation in Chromium
+              id: navigation
+              env:
+                  WEBSITE_OUTPUT: ${{ github.workspace }}/_site/uxor
+              run: |
+                  set -o pipefail
+                  bash tools/ci/with-playwright-browser.sh website npx playwright test --config=website/playwright.config.ts \
+                      2>&1 | tee "$RUNNER_TEMP/jev-navigation.log"
+
+            - name: Jev diagnosis (advisory)
+              if: failure()
+              continue-on-error: true
+              timeout-minutes: 3
+              uses: ./.github/actions/jev-diagnosis
+              with:
+                  steps: ${{ toJSON(steps) }}
+                  job: Static site
+                  artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    runtime-export:
+        name: Runtime export
+        needs: [changes, importmap]
+        if: needs.changes.outputs.runtime-export == 'run'
         runs-on: ubuntu-latest
         timeout-minutes: 18 # 15, plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
-        # The GitHub Pages copy (pages.yml) is built only on release: this builds it on every push, so a page that does
-        # not render fails here instead of after the tag. The same build as pages.yml (tools/build-static.sh, with its
-        # checks), without release metadata or the upload.
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -961,11 +1076,11 @@ jobs:
                   path: demo/assets/vendor
 
             # (its output also goes to $RUNNER_TEMP/jev-build.log, for the Jev step)
-            - name: Build and check the static site
+            - name: Build and check the runtime export
               id: build
               run: |
                   set -o pipefail
-                  tools/build-static.sh _site --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
+                  tools/build-static.sh _site --runtime-only --base-path="/${GITHUB_REPOSITORY#*/}" 2>&1 | tee "$RUNNER_TEMP/jev-build.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
@@ -975,7 +1090,7 @@ jobs:
               uses: ./.github/actions/jev-diagnosis
               with:
                   steps: ${{ toJSON(steps) }}
-                  job: Static site
+                  job: Runtime export
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     fresh-install:
@@ -1028,8 +1143,8 @@ jobs:
               with:
                   persist-credentials: false
 
-            # the kit as users get it: GitHub's archive of this commit, installed in a fresh Symfony Docker project on
-            # the latest Symfony (the output also goes to $RUNNER_TEMP/jev-install.log, for the Jev step)
+            # the kit as users get it: GitHub's archive of this commit, installed and exercised over HTTPS in a new
+            # Symfony Docker project. The host job runs the full scenario (the log also goes to Jev).
             - name: ux:install from GitHub in a fresh Symfony Docker project
               id: install
               env:
@@ -1038,7 +1153,7 @@ jobs:
                   UX_TOOLKIT_VERSION: ${{ env.UX_TOOLKIT_MINIMUM_VERSION }}
               run: |
                   set -o pipefail
-                  tools/tests/docker-install.sh 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+                  tools/tests/docker-install.sh --smoke 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
@@ -1054,8 +1169,8 @@ jobs:
     # The demo's production image (demo/Dockerfile, target frankenphp_prod), which no other job builds: built from the
     # repository as the dev image is (the kit beside the demo, demo/Dockerfile.dockerignore naming what it holds), for
     # linux/amd64 only, then run by tools/tests/prod-image.sh: it refuses to boot without the explicit opt-in, holds no
-    # baked secret, development package or Xdebug, runs as www-data, turns healthy, serves the gallery's pages (each
-    # kind of file it reads from the kit) and holds nothing the allow-list leaves out. It runs when the image's build
+    # baked secret, development package or Xdebug, runs as www-data, turns healthy, serves the demo's pages and a live
+    # preview of each recipe in both themes, and holds nothing the allow-list leaves out. It runs when the image's build
     # inputs change (tools/ci-changes.sh); a plain build, with no cache shared with the dev image's bake.
     prod-image:
         name: Production image
@@ -1097,20 +1212,50 @@ jobs:
                   job: Production image
                   artifact: jev-input-ci-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # Quick checks already validates the committed archive and generated reference bundle.
+    # A documentation-only change also verifies the live CLI command definitions and the reference PHP tests.
+    package-docs:
+        name: Package documentation
+        needs: changes
+        if: needs.changes.outputs.package-docs == 'run'
+        runs-on: ubuntu-latest
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+              with:
+                  php-version: '8.4'
+                  extensions: intl, mbstring, pdo_sqlite, zip
+                  tools: composer:v2
+                  coverage: none
+
+            - name: Validate Composer metadata and install locked test dependencies
+              run: |
+                  python3 packages/uxor/tools/validate-composer.py
+                  composer install --no-interaction --no-progress --no-plugins --no-scripts
+
+            - name: Verify the published CLI command reference
+              run: php packages/uxor/tools/generate-command-guide.php --check
+
+            - name: Verify bundled reference behavior
+              run: vendor/bin/phpunit -c packages/uxor/phpunit.xml.dist packages/uxor/tests/ReferenceBundleTest.php
+
     # The Composer package xormania/uxor: the root composer.json and its implementation in packages/uxor/. Its metadata
     # and lock file, its install, the syntax of its PHP, its PHPUnit tests, the archive Composer and GitHub make of the
     # repository (packages/uxor/tools/check-package.py: the package's runtime is in it, its development files are not),
     # the development harness of packages/uxor/dev/, that archive installed and updated in the independent consumer
-    # (check-package.py --consumer) and the package's executable. It runs on the package's minimum PHP (composer.json:
-    # php >=8.4), pinned here so a later bump of the workflow's PHP_VERSION does not stop checking the minimum. Not here
-    # yet in this job: the consumer's browser journey with recipes installed from this commit. The Development images
-    # workflow builds the Docker and Serena environment from the checked-out image recipes.
+    # (check-package.py --consumer), the package's executable, and the locked consumer's customer workflow with recipes
+    # installed from this commit. It runs on the package's minimum PHP (composer.json: php >=8.4), pinned here so a
+    # later bump of PHP_VERSION does not stop checking the minimum. Development images checks the Docker stack.
     package:
         name: Package
         needs: changes
         if: needs.changes.outputs.package == 'run'
-        runs-on: ubuntu-latest
-        timeout-minutes: 18 # 15 (the consumer installs a Symfony application from Packagist), plus 3 for the advisory Jev step (.github/actions/jev-diagnosis): a diagnosis must never be what times the job out
+        runs-on: ubuntu-24.04 # the separate native recorder first-use check runs on the host
+        timeout-minutes: 23 # 20 for the archive and locked browser consumer, plus 3 for advisory Jev diagnosis
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -1123,18 +1268,27 @@ jobs:
                   tools: composer:v2
                   coverage: none
 
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: packages/uxor/dev/package-lock.json
+
             # (each check's output also goes to $RUNNER_TEMP/jev-<id>.log, for the Jev step: tools/ci/step-attempts.mjs)
             - name: composer.json is valid and composer.lock up to date
               id: validate
               run: |
                   set -o pipefail
-                  composer validate --strict 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
+                  python3 packages/uxor/tools/validate-composer.py 2>&1 | tee "$RUNNER_TEMP/jev-validate.log"
 
             - name: Install the package's dependencies
               id: install
               run: |
                   set -o pipefail
                   composer install --no-interaction --no-progress 2>&1 | tee "$RUNNER_TEMP/jev-install.log"
+
+            - name: Verify the published CLI command reference
+              run: php packages/uxor/tools/generate-command-guide.php --check
 
             # every tracked PHP file of the package, and its executable (PHP without the extension)
             - name: Syntax
@@ -1144,15 +1298,6 @@ jobs:
                   { git ls-files -z -- 'packages/uxor/*.php'; printf '%s\0' packages/uxor/bin/uxor; } \
                       | xargs -0 -n1 php -l 2>&1 | tee "$RUNNER_TEMP/jev-syntax.log"
 
-            # The bundled references (packages/uxor/resources/uxor/) are what the generator makes of this checkout's
-            # docs, recipe READMEs and manifests: it regenerates them into a temporary directory and compares byte for
-            # byte, and fails with the stale files' list without repairing them
-            - name: The bundled references are up to date
-              id: references
-              run: |
-                  set -o pipefail
-                  php packages/uxor/tools/generate-reference.php --check 2>&1 | tee "$RUNNER_TEMP/jev-references.log"
-
             # (an id of its own: Kit PHP's PHPUnit step, id phpunit, is diagnosed from its JUnit report instead)
             - name: PHPUnit
               id: package-tests
@@ -1160,18 +1305,18 @@ jobs:
                   set -o pipefail
                   composer test 2>&1 | tee "$RUNNER_TEMP/jev-package-tests.log"
 
-            # `git archive HEAD` of the repository, as GitHub ships it to the Toolkit and to Composer: the package's files are in it, the
-            # development files are not (the runner's Python, standard library only)
-            - name: The archive's payload
-              id: archive
+            - name: Ensure tmux is available for the lifecycle harness
               run: |
-                  set -o pipefail
-                  python3 packages/uxor/tools/check-package.py 2>&1 | tee "$RUNNER_TEMP/jev-archive.log"
+                  if ! command -v tmux; then
+                      sudo apt-get update
+                      sudo apt-get install -y tmux
+                  fi
+                  tmux -V
 
-            # The development harness of packages/uxor/dev/ (run.py, check-serena.py, composition.py): roots, ownership and
-            # provider-check ordering, without Docker or a provider (the runner's Python, standard library only)
             - name: The consumer's development harness
               id: harness
+              env:
+                  UXOR_TEST_TMUX: '1'
               run: |
                   set -o pipefail
                   {
@@ -1179,15 +1324,29 @@ jobs:
                       python3 -m unittest discover -s packages/uxor/dev/tests -p 'test_*.py'
                   } 2>&1 | tee "$RUNNER_TEMP/jev-harness.log"
 
-            # The independent consumer (packages/uxor/dev/app) installs this commit's archive as a Composer dependency:
-            # Mate initialization and discovery, its tools, references and three skills, a repeated initialization, an
-            # update to a newer archive that keeps consumer-written instructions and a custom component, then the
-            # application without development dependencies renders in production
-            - name: The archive in an independent consumer
+            - name: Composer package lifecycle in a live Symfony consumer
               id: consumer
               run: |
                   set -o pipefail
-                  python3 packages/uxor/tools/check-package.py --consumer 2>&1 | tee "$RUNNER_TEMP/jev-consumer.log"
+                  harness=packages/uxor/dev/lifecycle-tmux.py
+                  (
+                      launch_status=0
+                      run_dir=$(python3 "$harness" start) || launch_status=$?
+                      echo "run_dir=$run_dir" >> "$GITHUB_OUTPUT"
+                      if (( launch_status )); then exit "$launch_status"; fi
+                      python3 "$harness" watch "$run_dir"
+                  ) 2>&1 | tee "$RUNNER_TEMP/jev-consumer.log"
+
+            - name: Retain the failed lifecycle run
+              if: ${{ failure() && steps.consumer.outcome == 'failure' && steps.consumer.outputs.run_dir != '' }}
+              uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              with:
+                  name: composer-lifecycle-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: |
+                      ${{ steps.consumer.outputs.run_dir }}/run.json
+                      ${{ steps.consumer.outputs.run_dir }}/result.json
+                      ${{ steps.consumer.outputs.run_dir }}/output.log
+                  retention-days: 7
 
             # composer.json's executable, run from the checkout: Composer links a dependency's bin into vendor/bin, not
             # the root package's own, so it finds the root vendor/autoload.php itself
@@ -1199,6 +1358,20 @@ jobs:
                       php packages/uxor/bin/uxor list
                       php packages/uxor/bin/uxor catalog --query=modal --limit=1 --format=json
                   } 2>&1 | tee "$RUNNER_TEMP/jev-smoke.log"
+
+            - name: Install the consumer's locked Playwright client
+              id: consumer-browser-install
+              working-directory: packages/uxor/dev
+              run: |
+                  set -o pipefail
+                  npm ci 2>&1 | tee "$RUNNER_TEMP/jev-consumer-browser-install.log"
+
+            - name: Check the customer workflow with installed recipes
+              id: consumer-workflow
+              run: |
+                  set -o pipefail
+                  bash tools/ci/with-playwright-browser.sh consumer bash packages/uxor/dev/check-workflow.sh \
+                      2>&1 | tee "$RUNNER_TEMP/jev-consumer-workflow.log"
 
             # Advisory diagnosis of the step that failed (.github/actions/jev-diagnosis): never the job's verdict
             - name: Jev diagnosis (advisory)
@@ -1218,7 +1391,7 @@ jobs:
         name: Build cache
         needs: changes
         # A reused browser lane builds no image, so write its cache all the same. Serena has its own build inputs.
-        if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.mago-serena-cache == 'run')
+        if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && (needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.demo-app == 'run' || needs.changes.outputs.mago-serena-cache == 'run')
         runs-on: ubuntu-latest
         timeout-minutes: 30
         # a cache that cannot be written fails no run: the run's conclusion, which release.yml waits for on main, stays
@@ -1249,7 +1422,7 @@ jobs:
               run: printf '%s' "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
             - name: Build the demo image into the cache
-              if: needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse'
+              if: needs.changes.outputs.demo == 'run' || needs.changes.outputs.demo == 'reuse' || needs.changes.outputs.demo-app == 'run'
               uses: docker/bake-action@59cb1203cd42bcefd40a1b6d73b589e48c86040e # v7.5.0
               env:
                   DOCKER_BUILD_SUMMARY: 'false' # no build summary and no .dockerbuild record artifact per build
@@ -1271,18 +1444,17 @@ jobs:
             - name: Build the Mago Serena image into the cache
               if: ${{ !cancelled() && steps.registry.outcome == 'success' && needs.changes.outputs.mago-serena-cache == 'run' }}
               run: |
-                  docker buildx build --output=type=cacheonly \
+                  sh packages/uxor/resources/mago/serena/build.sh --output=type=cacheonly \
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-dev" \
                       "--cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-main" \
-                      "--cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true" \
-                      packages/uxor/resources/mago/serena
+                      "--cache-to=type=registry,ref=${{ steps.cache.outputs.image }}:mago-serena-${{ github.ref_name }},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true"
 
             - name: Log out
               if: always()
               run: docker logout ghcr.io
 
     demo:
-        name: Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})
+        name: Browser checks
         # not importmap: the shards start beside it and wait for it, by name, just before they need its packages (the
         # plan runs Importmap packages whenever this job runs: its `importmap` output follows the browser lanes)
         needs: changes
@@ -1294,22 +1466,28 @@ jobs:
         # 25 for the tests, plus 3 for the advisory Jev step and its upload (.github/actions/jev-diagnosis): a diagnosis
         # must never be what times the job out
         timeout-minutes: 28
-        # the browser suite is most of CI's time: one job per browser and shard, each with its own demo and browser (each
-        # reads the image cache the cache job writes on dev and main). Two lanes share this one job, so its steps exist once:
-        # the Chromium shards (the demo lane, CHROMIUM_SHARDS of them: every test, the screenshots included) and three
-        # shards each of Firefox and WebKit (the engines lane: every behavior test, without the @screenshot ones,
-        # playwright.config.ts, browserProjects()). The Changes job's plan lists the shards that run, as the matrix:
-        # Chromium's when the demo lane runs, the engines' when they run (ENGINES_ON, above). docs/TESTING.md, *Browsers*
+        # The three browser lanes share their Symfony host, pinned browser image and setup steps.
+        # The Changes job lists the selected suites and shards. See docs/TESTING.md, *Browsers*.
         env:
             XDEBUG_MODE: 'off' # the demo starts with it off by default (compose.override.yaml); set here so CI does not depend on that default, and the tests do not use it
+            BROWSER_ARTIFACT_KEY: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].artifact-browser }}
+            BROWSER_SHARD: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].shard }}
+            BROWSER_SHARD_COUNT: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].shards }}
+            BROWSER_PROJECTS: ${{ fromJSON(needs.changes.outputs.browser-config)[matrix.label].projects }}
         strategy:
             fail-fast: false
-            # each entry: browser, shard, shards and the two projects (smoke and examples) of that browser
+            # A single display label per variant keeps GitHub's generated job names readable.
             matrix: ${{ fromJSON(needs.changes.outputs.browser-matrix) }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
+                  # Bootstrap the policy from the tested revision, then populate exactly its browser inputs.
+                  sparse-checkout-cone-mode: false
+                  sparse-checkout: /tools/ci/browser-checkout.patterns
+
+            - name: Check out the demo and browser inputs
+              run: git sparse-checkout set --no-cone --stdin < tools/ci/browser-checkout.patterns
 
             - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               id: node # its cache-hit output, for the job's metrics
@@ -1363,8 +1541,6 @@ jobs:
                       *.context=.
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:dev
                       *.cache-from=type=registry,ref=${{ steps.cache.outputs.image }}:main
-                      *.cache-from=type=gha,scope=demo-${{ github.ref }}
-                      *.cache-from=type=gha,scope=demo-refs/heads/main
 
             # The job does not need importmap, so it starts while that job downloads the packages (about 15 s) and
             # waits for it here, by name, through the run's jobs (tools/ci/wait-for-job.mjs): it goes on only when the
@@ -1407,7 +1583,7 @@ jobs:
             # checks that the copies are what ux:install writes. Deterministic checks run on one shard only (Chromium's 1).
             - name: The sync leaves tracked files unchanged
               id: tracked
-              if: matrix.browser == 'chromium' && matrix.shard == 1
+              if: env.BROWSER_ARTIFACT_KEY == 'chromium' && env.BROWSER_SHARD == '1'
               run: |
                   if [ -n "$(git status --porcelain)" ]; then
                       git status --porcelain
@@ -1417,13 +1593,13 @@ jobs:
 
             - name: The demo's composer.json and composer.lock are valid
               id: composer
-              if: matrix.browser == 'chromium' && matrix.shard == 1
+              if: env.BROWSER_ARTIFACT_KEY == 'chromium' && env.BROWSER_SHARD == '1'
               working-directory: demo
               run: docker compose exec -T php composer validate --no-check-publish --strict   # also fails on a stale composer.lock
 
             - name: sync-demo copies what ux:install copies
               id: sync-parity
-              if: matrix.browser == 'chromium' && matrix.shard == 1
+              if: env.BROWSER_ARTIFACT_KEY == 'chromium' && env.BROWSER_SHARD == '1'
               working-directory: demo
               run: docker compose exec -T php bash ../tools/tests/sync-demo.sh
 
@@ -1476,22 +1652,23 @@ jobs:
               # --list also prints every test: kept in a file, shown when the listing fails
               run: |
                   mkdir -p "$PLAN_DIR"
-                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json ${{ matrix.projects }} \
+                  read -r -a projects <<< "$BROWSER_PROJECTS"
+                  PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/all.json" npx playwright test --list --reporter=json "${projects[@]}" \
                       > "$PLAN_DIR/all.log" 2>&1 || { cat "$PLAN_DIR/all.log"; exit 1; }
                   node tools/ci/shard-plan.mjs plan --list "$PLAN_DIR/all.json" --timings "$RUNNER_TEMP/shard-timings/shard-timings.json" \
-                      --shard ${{ matrix.shard }} --shards ${{ matrix.shards }} --out "$PLAN_DIR"
+                      --shard "$BROWSER_SHARD" --shards "$BROWSER_SHARD_COUNT" --out "$PLAN_DIR"
                   mkdir -p playwright-results
                   cp "$PLAN_DIR/plan.json" playwright-results/shard-plan.json
-                  if [ -f "$PLAN_DIR/shard-${{ matrix.shard }}.txt" ]; then
-                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json ${{ matrix.projects }} \
-                          --test-list "$PLAN_DIR/shard-${{ matrix.shard }}.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
-                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard ${{ matrix.shard }} --list "$PLAN_DIR/mine.json"
+                  if [ -f "$PLAN_DIR/shard-$BROWSER_SHARD.txt" ]; then
+                      PLAYWRIGHT_JSON_OUTPUT_FILE="$PLAN_DIR/mine.json" npx playwright test --list --reporter=json "${projects[@]}" \
+                          --test-list "$PLAN_DIR/shard-$BROWSER_SHARD.txt" > "$PLAN_DIR/mine.log" 2>&1 || { cat "$PLAN_DIR/mine.log"; exit 1; }
+                      node tools/ci/shard-plan.mjs verify --plan "$PLAN_DIR/plan.json" --shard "$BROWSER_SHARD" --list "$PLAN_DIR/mine.json"
                   fi
 
             # The browser server on the runner's own network (the pinned image the Install step pulled), so the browser
-            # reaches https://localhost itself instead of through the test process (playwright.config.ts,
-            # PW_DIRECT_NETWORK); Playwright then reuses it. Fails here, with the server's log, when port 3000 is already
-            # taken or the server does not answer within two minutes
+            # reaches https://localhost itself instead of through the test process (PW_DIRECT_NETWORK in
+            # playwright.config.ts). The test step names that server explicitly. Fail here with the server's log
+            # when port 3000 is taken or the server does not answer within two minutes.
             - name: Start the browser server
               id: browser-server
               run: |
@@ -1514,12 +1691,15 @@ jobs:
             # Two workers per shard, stated rather than left to Playwright's default (half the runner's 4 vCPUs, also
             # 2): the measured choice in docs/TESTING.md (*Worker budget*). The release checks run in
             # release-checks.yml, not here (their projects exist only with RELEASE_CHECKS set)
-            - name: Playwright (smoke + every README example + UXor recipe specs)
+            - name: Playwright (selected projects)
               id: tests
               env:
                   DEMO_URL: https://localhost
+                  PW_BROWSER_WS_ENDPOINT: ws://127.0.0.1:3000/
                   PW_DIRECT_NETWORK: '1'
-              run: npx playwright test ${{ matrix.projects }} ${{ steps.plan.outputs.args }} --workers=2
+              run: |
+                  read -r -a projects <<< "$BROWSER_PROJECTS"
+                  npx playwright test "${projects[@]}" ${{ steps.plan.outputs.args }} --workers=2
 
             # What the shard's tests did, read from playwright-results/results.json (tools/ci/playwright-summary.mjs): the
             # counts, each failed and flaky (passed on retry) test with its error, the tested commit and versions, and
@@ -1531,10 +1711,10 @@ jobs:
               id: results
               if: ${{ !cancelled() }}
               env:
-                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
-                  BROWSER: ${{ matrix.browser }}
-                  RESULTS_ARTIFACT: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
-                  REPORT_ARTIFACT: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+                  SHARD: ${{ env.BROWSER_SHARD }}/${{ env.BROWSER_SHARD_COUNT }}
+                  BROWSER: ${{ env.BROWSER_ARTIFACT_KEY }}
+                  RESULTS_ARTIFACT: playwright-results-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
+                  REPORT_ARTIFACT: playwright-report-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
                   DEMO_STARTED: ${{ steps.start.outcome }}
                   TESTS_OUTCOME: ${{ steps.tests.outcome }}
                   SETUP_STEPS: |
@@ -1561,7 +1741,7 @@ jobs:
                   node tools/ci/playwright-summary.mjs playwright-results/results.json
 
             # CI's own numbers, for later optimizations (tools/ci/ci-metrics.mjs job), report only: the demo image's
-            # build records (cached of total steps: did the GitHub Actions cache serve the build), the npm cache hit and
+            # build records (cached of total steps: did the build cache serve the build), the npm cache hit and
             # the seconds of npm ci and of the Playwright image's pull, in job-metrics.json next to the results. CI
             # result gathers every shard's with their durations.json. It never fails the job.
             - name: Record the job's metrics (advisory)
@@ -1569,8 +1749,8 @@ jobs:
               continue-on-error: true
               timeout-minutes: 1
               env:
-                  BROWSER: ${{ matrix.browser }}
-                  SHARD: ${{ matrix.shard }}/${{ matrix.shards }}
+                  BROWSER: ${{ env.BROWSER_ARTIFACT_KEY }}
+                  SHARD: ${{ env.BROWSER_SHARD }}/${{ env.BROWSER_SHARD_COUNT }}
                   NPM_CACHE_HIT: ${{ steps.node.outputs.cache-hit }}
                   NPM_CI_SECONDS: ${{ steps.install.outputs.npm-ci-seconds }}
                   IMAGE_PULL_SECONDS: ${{ steps.install.outputs.playwright-image-seconds }}
@@ -1587,7 +1767,7 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ !cancelled() }}
               with:
-                  name: playwright-results-${{ matrix.browser }}-${{ matrix.shard }}
+                  name: playwright-results-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
                   path: playwright-results/
                   retention-days: 30
 
@@ -1604,7 +1784,7 @@ jobs:
             - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
               if: ${{ failure() || steps.results.outputs.flaky > 0 }}
               with:
-                  name: playwright-report-${{ matrix.browser }}-${{ matrix.shard }}
+                  name: playwright-report-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
                   path: |
                       playwright-report/
                       test-results/
@@ -1624,9 +1804,10 @@ jobs:
               with:
                   attempts: playwright-results/failed-attempts.json
                   compose-logs: demo
-                  shard: ${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }}
-                  dir: ${{ runner.temp }}/jev-${{ matrix.browser }}-${{ matrix.shard }}
-                  artifact: jev-input-ci-${{ matrix.browser }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+                  shard: ${{ env.BROWSER_ARTIFACT_KEY }} ${{ env.BROWSER_SHARD }}/${{ env.BROWSER_SHARD_COUNT }}
+                  job: Browser checks (${{ matrix.label }})
+                  dir: ${{ runner.temp }}/jev-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}
+                  artifact: jev-input-ci-${{ env.BROWSER_ARTIFACT_KEY }}-${{ env.BROWSER_SHARD }}-${{ github.run_id }}-${{ github.run_attempt }}
 
             # Last, so the end of the job log names what failed (after the demo's logs): the summary written above
             - name: Playwright summary
@@ -1634,17 +1815,16 @@ jobs:
               run: |
                   cat playwright-results/summary.md 2>/dev/null || echo "No summary, the Read the results step did not run to the end"
 
-    # One check for the branch rulesets to require. A skipped matrix job reports one check named after its unexpanded
-    # matrix ("Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})"), never the per-shard names, so requiring those would leave a
-    # pull request pending forever. It passes when each lane ran fresh and passed, reused an earlier pass whose evidence
+    # One check for the branch rulesets to require. Requiring an individual shard would leave a pull request pending
+    # when that shard is not selected. The verdict passes when each lane ran fresh and passed, reused a pass whose evidence
     # still holds (requalified here), or was skipped as unaffected; and records the lanes that ran fresh, for later runs
     # (tools/ci/lane-evidence.mjs, docs/TESTING.md, *Reused lanes*).
     result:
-        # The required check is the push's (and a full manual run's): the daily run and an engines-only run test part of a
-        # head and publish under names of their own, so a later green one can never stand in for a red CI result
-        name: ${{ github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || 'CI result' }}
-        if: ${{ always() && github.event_name != 'schedule' }}
-        needs: [changes, quick, importmap, lint-kit, php, static-site, fresh-install, docker-install, package, demo, prod-image]
+        # Pushes, full manual runs and fork PRs publish the required check. A same-repository PR's skipped job has a
+        # different name, so it cannot satisfy CI result before the push run. Partial manual runs keep their own names.
+        name: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && 'CI result (push runs separately)' || github.event_name == 'workflow_dispatch' && inputs.engines_only && 'CI result (engines only)' || github.event_name == 'workflow_dispatch' && inputs.daily && github.ref == 'refs/heads/dev' && 'CI result (daily)' || 'CI result' }}
+        if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
+        needs: [changes, quick, importmap, lint-kit, php, static-site, runtime-export, fresh-install, docker-install, package-docs, package, demo, prod-image]
         runs-on: ubuntu-latest
         # the daily run's engines, for the Engines issue job: passed or failed, and what changed since their last pass
         outputs:
@@ -1854,7 +2034,7 @@ jobs:
     metrics:
         name: CI metrics
         needs: [changes, demo, result]
-        if: ${{ always() && github.event_name != 'schedule' }}
+        if: ${{ always() && github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         continue-on-error: true
@@ -1923,7 +2103,7 @@ jobs:
     engines-issue:
         name: Engines issue
         needs: result
-        if: ${{ always() && inputs.daily && github.ref == 'refs/heads/dev' && needs.result.outputs.engines-status != '' }}
+        if: ${{ always() && inputs.daily && !inputs.engines_only && github.ref == 'refs/heads/dev' && needs.result.outputs.engines-status != '' }}
         runs-on: ubuntu-latest
         timeout-minutes: 5
         permissions:

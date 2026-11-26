@@ -3,6 +3,7 @@
 // Run: node --test tools/tests/playwright-image.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { checkPin, lockedVersion, playwrightImage, readPin } from '../playwright-image.mjs';
 
 const digest = `sha256:${'a'.repeat(64)}`;
@@ -10,6 +11,15 @@ const pinned = `mcr.microsoft.com/playwright:v1.58.2-noble@${digest}`;
 
 test("the repository's pin names the locked @playwright/test version, by digest", () => {
     assert.deepEqual(checkPin(readPin(), lockedVersion()), []);
+});
+
+test("the installed browser's Docker base matches its locked native Playwright release", () => {
+    const resources = new URL('../../packages/uxor/resources/browser/', import.meta.url);
+    const lock = JSON.parse(readFileSync(new URL('package-lock.json', resources), 'utf8'));
+    const dockerfile = readFileSync(new URL('Dockerfile', resources), 'utf8');
+    const base = /^FROM (\S+)$/m.exec(dockerfile)?.[1];
+    const version = lock.packages['node_modules/playwright-core'].version;
+    assert.equal(checkPin(base, version).length, 0, `Pin the browser Dockerfile to Playwright v${version}-noble and its digest.`);
 });
 
 test('a pin for the locked version passes and is returned as is', () => {

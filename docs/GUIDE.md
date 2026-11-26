@@ -1,7 +1,8 @@
-# Guide
+# Use and update recipes
 
-How to install, update and use the kit's recipes once your project is set up as the [README](../README.md#install)
-says.
+Once you've [set up UXor with Composer](../packages/uxor/README.md) or [installed Toolkit directly](../INSTALL.md),
+you can add recipes, customize their files and update them when you choose. Run the commands below in your
+Symfony application's PHP environment.
 
 ## Installing recipes
 
@@ -11,15 +12,10 @@ from [setup](../INSTALL.md), run it for any additional packages it lists, such a
 `ux:install dashboard-home` brings the layouts and every component the dashboard uses.
 Install the `theme` during setup and use the dashboard recipe's README for the controller and template.
 
-With [Symfony Docker](https://github.com/dunglas/symfony-docker), run every `composer` and `php bin/console`
-command of the [README](../README.md#install) and of [`INSTALL.md`](../INSTALL.md) inside the container, from the
-project directory: `docker compose exec php composer …` and `docker compose exec php bin/console …`. Its PHP image
-has the `zip` extension. CI installs the kit this way, in a fresh Symfony Docker project.
-
 ## Updating
 
-Recipes are copies you own, so an update is a change you review like any other. Commit first, then reinstall
-the recipe from the newer version with `--force`:
+Recipes are copies you own, so an update is a change you review like any other. Preserve local changes using
+the application's normal workflow, then reinstall the recipe from the newer version with `--force`:
 
 ```bash
 php bin/console ux:install <recipe> --kit=https://github.com/xormania/uxor:<version> --force
@@ -115,10 +111,15 @@ unchecked. On top of escaping, the components check what shapes their markup:
 The kit's demo enforces a strict Content Security Policy, and every browser test fails on a violation. Report a
 vulnerability privately: see [`SECURITY.md`](https://github.com/xormania/uxor/blob/main/SECURITY.md).
 
+## Verification
+
+Check the application's actual integration and changed user journey with
+[Testing an application using UXor](APPLICATION-TESTING.md). The demo is UXor's fixture; its setup and test commands
+are examples for contributors, not the consuming application's environment.
+
 ## Versioning
 
-Versions are git tags `X.Y.Z`, without a `v`: GitHub names the archive of a `v1.2.3` tag `uxor-1.2.3`,
-which the toolkit then cannot find. Install one with `--kit=https://github.com/xormania/uxor:<version>`, the latest
-release unless you need an older one. Always name the version: without one, `ux:install` downloads the repository's
-default branch, which can hold work that is not released yet.
-[`CHANGELOG.md`](../CHANGELOG.md) lists what each version changes.
+Use a tagged release (`X.Y.Z`) of the kit for new work. Keep the version your application already uses until
+you choose to update it. [Choosing a revision](../INSTALL.md#choosing-a-revision) explains how to pin a release
+or a commit when testing unreleased work. UXor is in `0.x` development. Read the [changelog](../CHANGELOG.md)
+for compatibility changes and migration steps before an update.

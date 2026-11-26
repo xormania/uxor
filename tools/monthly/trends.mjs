@@ -66,7 +66,9 @@ function screenshotChanges(now = {}, before = {}) {
     const changed = [];
     for (const [browser, tests] of Object.entries(now)) {
         for (const [key, t] of Object.entries(tests)) {
-            const was = before[browser]?.[key];
+            // Layout screenshots used to run in the Toolkit's examples project.
+            const legacyKey = key.replace(/^demo-app (tests\/e2e\/examples\/pages\.spec\.ts › )/, 'examples $1');
+            const was = before[browser]?.[key] ?? before[browser]?.[legacyKey];
             if (!was) {
                 continue;
             }

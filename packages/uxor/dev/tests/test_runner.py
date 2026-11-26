@@ -98,14 +98,6 @@ class DevelopmentRunnerTest(unittest.TestCase):
                             runner.main(args)
                         execute.assert_not_called()
 
-    def test_serena_forwards_the_selected_flags_to_the_checkout_launcher(self):
-        for flags in ([], ["--prepare"], ["--write"]):
-            with self.subTest(flags=flags), patch.object(runner.os, "execvpe") as launch:
-                self.assertEqual(0, runner.main(["serena", *flags]))
-                binary, command, _ = launch.call_args.args
-                self.assertEqual(runner.sys.executable, binary)
-                self.assertEqual([binary, str(runner.DEV / "serena.py"), *flags], command)
-
     def test_native_prepare_never_uses_docker_and_preserves_local_ownership(self):
         with tempfile.TemporaryDirectory() as temporary, patch.object(runner, "APP", Path(temporary)), \
                 patch.object(runner, "prepare_image") as image, patch.object(runner, "execute") as execute:

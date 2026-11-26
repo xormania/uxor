@@ -2,6 +2,8 @@
 
 Free content anchored to a button: text, links or a small form, in a non-modal dialog that opens on click and closes on Escape, a click outside or when the focus leaves it.
 
+For this example, install the [button](../button/README.md), [input](../input/README.md), and [label](../label/README.md) recipes.
+
 ```twig {"preview":true}
 <div class="flex min-h-72 items-start justify-center pt-6">
     <twig:Popover id="popover-dimensions" open placement="bottom-start">
@@ -30,7 +32,11 @@ Free content anchored to a button: text, links or a small form, in a non-modal d
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=popover#recipes). To install `popover` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component popover --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig
 <twig:Popover id="filters" placement="bottom-start">
@@ -78,6 +84,8 @@ Whether a `turbo:before-cache` leaves the popover as it is (a frame visit promot
 
 ### Placements
 
+For this example, install the [button](../button/README.md) recipe.
+
 ```twig {"preview":true}
 <div class="flex min-h-72 items-center justify-center gap-4">
     <twig:Popover id="popover-top" name="placements" placement="top">
@@ -98,6 +106,8 @@ Whether a `turbo:before-cache` leaves the popover as it is (a frame visit promot
 ### A group
 
 Opening one popover of the group closes the other.
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig {"preview":true}
 <div class="flex min-h-48 items-start justify-center gap-4 pt-6">

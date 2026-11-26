@@ -15,7 +15,8 @@ final class ProjectInspector
     {
         $root = $this->root($directory);
         $composer = $this->readJson($root.'/composer.json');
-        $installedPath = $root.'/vendor/composer/installed.json';
+        $directories = (new ApplicationFiles($this))->project($root);
+        $installedPath = $root.'/'.$directories['vendor'].'/composer/installed.json';
         $installed = is_file($installedPath) ? $this->readJson($installedPath) : null;
         $installedPackages = null === $installed ? [] : ($installed['packages'] ?? $installed);
         $locked = is_file($root.'/composer.lock') ? $this->readJson($root.'/composer.lock') : [];
@@ -31,14 +32,14 @@ final class ProjectInspector
         foreach (['bin/console', 'config/bundles.php', 'config/services.yaml', 'config/services.php',
             'config/packages/twig_component.yaml', 'config/packages/ux_turbo.yaml', 'importmap.php',
             'assets/bootstrap.js', 'assets/controllers.json', 'assets/styles/app.css', 'mate/config.php',
-            'mate/extensions.php', 'vendor/bin/mate'] as $path) {
+            'mate/extensions.php', $directories['bin'].'/mate'] as $path) {
             $configuration[$path] = is_file($root.'/'.$path);
         }
         $files = [];
         foreach (['templates/components', 'templates/uxor', 'src/UXor', 'assets/controllers', 'assets/lib'] as $path) {
             $this->collectFiles($root, $path, $files);
         }
-        return ['root' => $root, 'php_binary' => PHP_BINARY, 'php_version' => PHP_VERSION,
+        return ['root' => $root, 'php_binary' => PHP_BINARY, 'php_version' => PHP_VERSION, 'vendor_directory' => $directories['vendor'], 'bin_directory' => $directories['bin'],
             'packages' => $packages, 'installed_metadata_available' => null !== $installed,
             'configuration' => $configuration,
             'component_evidence' => ['files' => array_slice($files, 0, 80), 'truncated' => count($files) > 80,

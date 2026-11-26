@@ -428,7 +428,7 @@ async function readBounded(response, limit) {
     return Buffer.concat(chunks).toString('utf8');
 }
 
-export async function evaluate(request, policy, key, deadline) {
+async function evaluate(request, policy, key, deadline) {
     const { transport, connection } = policy;
     const payload = JSON.stringify(request);
     if (bytes(payload) > transport.max_request_bytes) throw new Unavailable('request_budget_exceeded');
@@ -614,8 +614,8 @@ function options(argv) {
     return values;
 }
 
-export function readJson(path, limit, flags = 0) {
-    const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK | flags);
+function readJson(path, limit) {
+    const fd = openSync(path, constants.O_RDONLY | constants.O_NONBLOCK);
     try {
         const info = fstatSync(fd);
         if (!info.isFile() || info.size > limit) throw new Error('not a bounded regular file');
@@ -631,7 +631,7 @@ async function main() {
     const started = Date.now();
     const args = options(process.argv.slice(2));
     const shard = env.SHARD ?? null;
-    const job = args.job ?? `Demo + Playwright${shard ? ` (${shard})` : ''}`;
+    const job = args.job ?? `Playwright${shard ? ` (${shard})` : ''}`;
     const output = args.output ?? 'jev';
     const run = Object.fromEntries(['GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT'].map((key) => [key, env[key] ?? '']));
 

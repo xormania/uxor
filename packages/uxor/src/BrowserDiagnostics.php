@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Xormania\UXor;
 
-/** Reads project-local evidence recorded by the Playwright diagnostics fixture. */
+/** Reads project-local evidence recorded by the browser launcher or Playwright fixture. */
 final class BrowserDiagnostics
 {
     private const FILENAME = 'browser-diagnostics.json';
@@ -51,6 +51,20 @@ final class BrowserDiagnostics
 
         if (property_exists($document, 'dropped')) {
             $result['dropped'] = $this->droppedCounts($document->dropped);
+            if ($result['dropped']['requestFailures'] > 0) {
+                $result['summary'] .= sprintf(' The capture omitted %d additional failed request entries.', $result['dropped']['requestFailures']);
+            }
+        }
+
+        if (property_exists($document, 'visit')) {
+            $visit = $this->entry($document->visit, 'visit', ['url' => 'string', 'status' => 'nullable status', 'error' => 'nullable string']);
+            $result['visit'] = $visit;
+            if (null !== $visit['status']) {
+                $result['summary'] .= sprintf(' The visit returned HTTP %d.', $visit['status']);
+            }
+            if (null !== $visit['error']) {
+                $result['summary'] .= ' The browser reported a visit error.';
+            }
         }
 
         return $result;
@@ -97,21 +111,26 @@ final class BrowserDiagnostics
         }
         $rows = [];
         foreach ($entries as $index => $entry) {
-            if (!$entry instanceof \stdClass) {
-                throw new \InvalidArgumentException(sprintf('Invalid browser diagnostics %s entry %d.', $section, $index));
-            }
-            $entry = get_object_vars($entry);
-            $row = [];
-            foreach ($fields as $key => $type) {
-                if (!array_key_exists($key, $entry) || !$this->isValid($entry[$key], $type)) {
-                    throw new \InvalidArgumentException(sprintf('Invalid browser diagnostics %s entry %d field %s.', $section, $index, $key));
-                }
-                $row[$key] = $entry[$key];
-            }
-            $rows[] = $row;
+            $rows[] = $this->entry($entry, sprintf('%s entry %d', $section, $index), $fields);
         }
 
         return $rows;
+    }
+
+    private function entry(mixed $entry, string $label, array $fields): array
+    {
+        if (!$entry instanceof \stdClass) {
+            throw new \InvalidArgumentException(sprintf('Invalid browser diagnostics %s.', $label));
+        }
+        $row = [];
+        foreach ($fields as $key => $type) {
+            if (!property_exists($entry, $key) || !$this->isValid($entry->$key, $type)) {
+                throw new \InvalidArgumentException(sprintf('Invalid browser diagnostics %s field %s.', $label, $key));
+            }
+            $row[$key] = $entry->$key;
+        }
+
+        return $row;
     }
 
     private function isValid(mixed $value, string $type): bool
@@ -121,6 +140,7 @@ final class BrowserDiagnostics
             'nullable string' => null === $value || is_string($value),
             'request ID' => is_int($value) && $value >= 0,
             'status' => is_int($value) && $value >= 100 && $value <= 599,
+            'nullable status' => null === $value || $this->isValid($value, 'status'),
             'token' => is_string($value) && 1 === preg_match('/\A[A-Za-z0-9_-]{1,128}\z/', $value),
         };
     }

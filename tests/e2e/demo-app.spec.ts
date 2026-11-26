@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
-import { test, expect, expectA11y, controllersConnected, turboVisitDone, markDocument, stubPreviewFrames, type CancelledRequest } from './fixtures';
+import { test, expect, expectA11y, collectAutocompleteAssetRequests, controllersConnected, turboVisitDone, markDocument, type CancelledRequest } from './fixtures';
 import { observeTurbo, turboOperation } from './transitions';
-import { demoPages, previewUrl, recipes } from './inventory';
+import { demoRoutePaths, previewUrl } from './inventory';
 
 /**
  * Call before the step that opens a signed-in page; returns a wait for that page's avatar, a 190 KB GIF in the
@@ -116,33 +116,58 @@ for (const [failure, ending] of [
     });
 }
 
-test('the dashboard defers autocomplete until a Turbo visit adds a field', async ({ page }) => {
-    const vendorRequests: string[] = [];
-    page.on('request', (request) => {
-        const path = new URL(request.url()).pathname;
-        // Modulepreload and runtime imports both reach this listener.
-        if (/^\/assets\/(?:@symfony\/ux-autocomplete|vendor\/(?:tom-select|@orchidjs))\//.test(path)) {
-            vendorRequests.push(path);
-        }
+test('leaving a pending revenue request closes its stream and Back restores a form that can retry', async ({ page }) => {
+    await page.addInitScript(() => {
+        // Hold the stream open until the controller closes it. No server delay or reconnect is needed.
+        const streams: { closed: boolean }[] = [];
+        Object.assign(window, {
+            revenueStreams: streams,
+            EventSource: class {
+                private state = { closed: false };
+                constructor() {
+                    streams.push(this.state);
+                }
+                close() {
+                    this.state.closed = true;
+                }
+            },
+        });
     });
+    const streamStates = () => page.evaluate(() => (
+        window as Window & { revenueStreams: { closed: boolean }[] }
+    ).revenueStreams.map(({ closed }) => closed));
+
+    await page.goto('/demo/revenue-assistant');
+    await controllersConnected(page);
+    const sameDocument = await markDocument(page);
+    const prompt = page.getByRole('textbox', { name: 'Revenue request' });
+    const submit = page.getByRole('button', { name: 'Show revenue' });
+    const status = page.locator('form').getByRole('status');
+    await prompt.fill('Show weekly revenue');
+    await submit.click();
+    await expect(status).toHaveText('Looking up revenue…');
+    expect(await streamStates()).toEqual([false]);
+
+    const dashboard = page.getByRole('navigation', { name: 'Main' }).getByRole('treeitem', { name: 'Dashboard' });
+    await turboOperation(page, { url: '/demo' }, () => dashboard.press('Enter'));
+    expect(await streamStates()).toEqual([true]);
+    await turboOperation(page, { url: '/demo/revenue-assistant' }, () => page.goBack());
+    await sameDocument.expectKept();
+    await controllersConnected(page);
+    await expect(status).toHaveText('');
+
+    await prompt.fill('Show yearly revenue');
+    await submit.click();
+    await expect(status).toHaveText('Looking up revenue…');
+    expect(await streamStates()).toEqual([true, false]);
+});
+
+test('the dashboard does not load unused autocomplete assets', async ({ page }) => {
+    const vendorRequests = collectAutocompleteAssetRequests(page);
     await page.goto('/demo');
     await controllersConnected(page);
     expect(vendorRequests, 'autocomplete assets requested on the dashboard').toEqual([]);
     await expect(page.locator('link[rel=stylesheet][href*="/ux-live-component/"]')).toHaveCount(0);
-
-    await page.goto('/lab');
-    await controllersConnected(page);
-    expect(vendorRequests, 'unused vendor assets requested before opening a scenario').toEqual([]);
-    const sameDocument = await markDocument(page);
-    await turboOperation(page, { url: '/lab/live-autocomplete' }, () => page.getByRole('link', { name: 'live-autocomplete', exact: true }).click());
-    await sameDocument.expectKept();
-    await controllersConnected(page);
-    const country = page.locator('#autocomplete_demo_country + .ts-wrapper');
-    await country.locator('.ts-control').click();
-    await expect(country.getByRole('combobox', { name: 'Country' })).toHaveAttribute('aria-expanded', 'true');
-    await country.getByRole('combobox', { name: 'Country' }).press('Escape');
-    await page.getByRole('button', { name: 'Re-render' }).click();
-    await expect(page.getByTestId('renders')).toHaveText('1');
 });
 
 test('on a desktop the app layout hides the menu button, and its pages use no id twice', async ({ page }) => {
@@ -199,8 +224,8 @@ test('on a phone the drawer holds the sidebar navigation, then the navbar menu',
     await expect(drawer.getByRole('link', { name: 'Profile' })).toHaveAttribute('aria-current', 'page');
     await drawer.getByRole('button', { name: 'Showcase' }).click();
     await expect(account).toHaveAttribute('aria-expanded', 'false');
-    await drawer.getByRole('link', { name: 'Recipes' }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await drawer.getByRole('link', { name: 'Forms' }).click();
+    await expect(page).toHaveURL(/\/forms$/);
 });
 
 test('the not-found block answers 404 and passes axe', async ({ page, allowHttpError }) => {
@@ -413,12 +438,12 @@ test('a page whose tracked importmap changed between two visits, as after a depl
     await turboVisitDone(page);
 });
 
-// a phone shows no horizontal scroll on the gallery's pages: a code block scrolls inside its box instead of widening the page
+// Application layouts fit a phone in both color schemes.
 for (const colorScheme of ['light', 'dark'] as const) {
     test.describe(`${colorScheme} theme at phone width`, () => {
         test.use({ viewport: { width: 390, height: 844 }, colorScheme });
 
-        for (const path of ['/', '/r/button', '/r/data-table', '/demo', '/demo/login', '/demo/settings/profile']) {
+        for (const path of ['/demo', '/demo/login', '/demo/settings/profile']) {
             test(`${path} does not scroll sideways`, async ({ page }) => {
                 await page.goto(path);
                 await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible();
@@ -429,19 +454,13 @@ for (const colorScheme of ['light', 'dark'] as const) {
     });
 }
 
-// the narrowest phone: every page of the gallery and of the demo fits, its heading wraps instead of overflowing, and a
-// recipe's description shows its Markdown rendered, not as source
+// Every application route also fits the narrowest phone.
 test.describe('at 320px', () => {
     test.use({ viewport: { width: 320, height: 640 } });
 
-    for (const path of ['/', '/install', '/guide', ...recipes.map((recipe) => `/r/${recipe}`), ...Object.values(demoPages)]) {
-        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError, browserName }) => {
+    for (const path of demoRoutePaths) {
+        test(`${path} does not scroll sideways and shows no Markdown source`, async ({ page, allowHttpError }) => {
             allowHttpError(/\/demo\/not-found$/, 404); // the error page answers 404 on purpose
-            if (path.startsWith('/r/') && 'chromium' === browserName) {
-                // the embedded previews cannot widen the page and their text is theirs; in Firefox and WebKit they load,
-                // since no other test there loads the dark ones
-                await stubPreviewFrames(page);
-            }
             await page.goto(path);
             const heading = page.getByRole('heading', { level: 1 }).first();
             await expect(heading).toBeVisible();
@@ -450,8 +469,6 @@ test.describe('at 320px', () => {
             const box = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, scroll: element.scrollWidth, client: element.clientWidth }));
             expect(box.right, 'the heading ends inside the page').toBeLessThanOrEqual(widths.client);
             expect(box.scroll, 'the heading wraps its text').toBeLessThanOrEqual(box.client);
-            // the page's text without its code: a recipe page shows the README's code blocks and inline code,
-            // where backticks are what the code says (a Markdown example, a template literal)
             const text = await page.evaluate(() => {
                 let rest = document.body.innerText;
                 for (const code of document.querySelectorAll('pre, :not(pre) > code')) {
@@ -461,45 +478,17 @@ test.describe('at 320px', () => {
             });
             expect(text).not.toMatch(/\]\(https?:/);
             expect(text).not.toMatch(/`[^`\n]+`/);
-            if (path.startsWith('/r/')) {
-                // a recipe's name is one word as long as the recipe wants (ForgotPasswordForm): one wider than any
-                // font makes it still breaks inside the page
-                await heading.evaluate((element) => (element.textContent = 'ForgotPasswordForm'.repeat(3)));
-                const wide = await heading.evaluate((element) => ({ right: element.getBoundingClientRect().right, page: document.documentElement.scrollWidth }));
-                expect(wide.right, 'a long name breaks inside the page').toBeLessThanOrEqual(widths.client);
-                expect(wide.page, 'a long name does not widen the page').toBeLessThanOrEqual(widths.client);
-            }
         });
     }
 });
 
-test('every page of the gallery and of the demo names an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
+test('every demo page and a recipe preview name an icon, so a browser asks for no /favicon.ico', async ({ page }) => {
     // the markup is what matters, so each page is fetched rather than visited: a visit from page to page cancels the
     // last page's late requests (lazy controllers, their imports), which the page guard counts as failed
-    for (const path of ['/', '/r/button', previewUrl('button', 'default'), ...Object.values(demoPages)]) {
+    for (const path of [previewUrl('button', 'default'), ...demoRoutePaths]) {
         const response = await page.request.get(path);
         expect(response.status(), path).toBe(path.endsWith('/demo/not-found') ? 404 : 200); // the error page answers 404 on purpose
         const head = (await response.text()).match(/<head[\s\S]*?<\/head>/i)?.[0] ?? '';
         expect(head.match(/<link\b[^>]*\brel=["'][^"']*\bicon\b/gi) ?? [], path).toHaveLength(1);
     }
-});
-
-test("the gallery's header keeps one row on a phone, its GitHub link named", async ({ page }) => {
-    await page.goto('/');
-    const nav = page.getByRole('navigation', { name: 'Main' });
-    const row = (await nav.boundingBox())!.height;
-    for (const width of [320, 390]) {
-        await page.setViewportSize({ width, height: 800 });
-        await expect.poll(async () => (await nav.boundingBox())!.height, `${width}px`).toBe(row);
-        await expect(nav.getByRole('link', { name: 'GitHub' })).toBeVisible();
-        const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
-        expect(widths.scroll).toBeLessThanOrEqual(widths.client);
-    }
-});
-
-test("the hero's two secondary links share one style", async ({ page }) => {
-    await page.goto('/');
-    const hero = page.locator('.xor-hero');
-    const install = await hero.getByRole('link', { name: 'Install' }).getAttribute('class');
-    expect(await hero.getByRole('link', { name: 'Open the demo app' }).getAttribute('class')).toBe(install);
 });

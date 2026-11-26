@@ -1,0 +1,35 @@
+name: Serena host launcher
+
+on:
+    push:
+        branches: ['**']
+        paths: &provider_paths
+            - packages/uxor/bin/uxor-mago
+            - packages/uxor/resources/mago/Dockerfile
+            - packages/uxor/resources/mago/serena/build.sh
+            - packages/uxor/dev/tests/test_mago.py
+            - tools/mago
+            - .mcp.json
+            - .codex/config.toml
+            - .github/workflows/serena-host.yml
+    pull_request:
+        paths: *provider_paths
+    workflow_dispatch:
+
+permissions:
+    contents: read
+
+jobs:
+    macos-launcher:
+        name: Serena launcher (macOS)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+        runs-on: macos-15
+        timeout-minutes: 5
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - name: Exercise host paths, permissions and MCP stdio with a recording Docker client
+              run: |
+                  command -v shasum
+                  python3 packages/uxor/dev/tests/test_mago.py

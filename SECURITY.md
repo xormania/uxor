@@ -13,8 +13,16 @@
 Report it privately through GitHub: **Security** › **Report a vulnerability**
 (<https://github.com/xormania/uxor/security/advisories/new>). Do not open a public issue.
 
-Name the recipe and the kit version, the props or input, and what the browser or the server does with them.
+Name the affected recipe or package operation, the UXor version, the relevant input and the observed browser
+or server behavior. Include a minimal reproduction when possible; omit credentials and private application data.
 
-The kit is what `ux:install` copies into an application: the recipes, `kit.css` and `kit.js`. The demo app, the tests
-and the tools in this repository are not installed. The *Security* section of [`docs/GUIDE.md`](docs/GUIDE.md#security)
-describes what the components check and what they leave to the application.
+Symfony UX Toolkit copies the files listed in each selected recipe's manifest into the application.
+The kit archive also contains `kit.css` and `kit.js` for previews. The Composer development package
+`xormania/uxor` installs agent guidance and development tools under `vendor/xormania/uxor/`; its operations,
+reference handling and execution boundaries are also in scope for vulnerability reports. The demo application,
+repository tests and maintainer tooling are development infrastructure and are not shipped in that package.
+Report repository or release-workflow vulnerabilities through the same private channel.
+
+The *Security* section of [`docs/GUIDE.md`](docs/GUIDE.md#security) describes the components' checks and application
+responsibilities. [`packages/uxor/OPERATIONS.md`](packages/uxor/OPERATIONS.md) describes the development package's
+trust and execution boundaries.

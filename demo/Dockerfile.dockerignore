@@ -1,7 +1,7 @@
 # The build context of demo/Dockerfile is the repository (compose.override.yaml, the CI lanes), read through this list
 # alone (BuildKit takes <Dockerfile>.dockerignore over the context's .dockerignore). Nothing is sent but what is named
 # here: the demo, the kit's recipes as the demo reads them (each recipe's manifest, README, templates, assets, PHP and
-# config), the root files the gallery reads at run time, and tools/sync-demo, which the production build runs.
+# config), the shared kit reader and the sync script used by the production build.
 #
 # How a file is judged: by the last pattern that matches that file's own path, so excluding a directory's name (`.git`,
 # `**/.git`) leaves out none of its files that an earlier re-include matches. A pattern names a path, not a type, and
@@ -17,11 +17,9 @@
 # the kit as the demo reads it (app.kit_dir: the demo's parent); a recipe's directories are those its copy-files names
 !manifest.json
 !kit.css
-!INSTALL.md
-!llms.txt
+!kit.js
 !LICENSE
 !NOTICE
-!docs/GUIDE.md
 ![a-z0-9]*/manifest.json
 ![a-z0-9]*/README.md
 ![a-z0-9]*/templates
@@ -66,7 +64,6 @@ demo/src/UXor
 demo/src/UXor/**
 demo/assets/controllers/**
 !demo/assets/controllers/csrf_protection_controller.js
-!demo/assets/controllers/preview_frame_controller.js
 !demo/assets/controllers/dropzone_echo_controller.js
 !demo/assets/controllers/revenue_assistant_controller.js
 demo/assets/styles/uxor*.css
@@ -88,8 +85,13 @@ tests/**
 **/node_modules/**
 packages
 packages/**
+website
+website/**
+docs
+docs/**
 
-# copies the recipes into the demo at build time (removed from the production image after)
+# The runtime reads recipes through the shared kit reader. The sync script is only used during the build.
 tools
 tools/**
 !tools/sync-demo
+!tools/kit/KitReader.php

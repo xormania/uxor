@@ -1,4 +1,4 @@
-import { describeRecipe, expect, test, testState } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test, testState } from '../../tests/e2e/examples/fixtures';
 
 describeRecipe('uxor/alert', () => {
     testState('hides an alert when its close button is clicked', {
