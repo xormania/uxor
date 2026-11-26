@@ -3,7 +3,11 @@
 Vertical tabs that navigate: one link per page of a group of pages (settings, an account, a project), the current one marked, a column on large screens and a strip that scrolls sideways on small ones.
 
 ```twig {"preview":true}
-<div class="w-full max-w-56">
+<div data-turbo="false" class="w-full max-w-56">
+    <p id="profile" tabindex="-1" class="hidden target:block">Profile: Alex Morgan.</p>
+    <p id="notifications" tabindex="-1" class="hidden target:block">Notifications: order updates arrive by email.</p>
+    <p id="billing" tabindex="-1" class="hidden target:block">Billing: the next invoice is due on 1 July.</p>
+    <p id="security" tabindex="-1" class="hidden target:block">Security: two-factor authentication is enabled.</p>
     <twig:SectionNav label="Settings" orientation="vertical">
         <twig:SectionNav:Item href="#profile" :active="true">Profile</twig:SectionNav:Item>
         <twig:SectionNav:Item href="#notifications" :active="false">Notifications</twig:SectionNav:Item>
@@ -17,6 +21,8 @@ Vertical tabs that navigate: one link per page of a group of pages (settings, an
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=section-nav#recipes). To install `section-nav` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component section-nav --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -26,6 +32,7 @@ Vertical tabs that navigate: one link per page of a group of pages (settings, an
 </twig:SectionNav>
 ```
 
+The previews use native fragment navigation (`data-turbo="false"`) to show sample sections on this page. For application settings, link each item to its own route as shown above.
 The `layouts` recipe's `settings.html.twig` renders one: fill its `settings_nav` block with `SectionNav:Item`s.
 
 - **Links, not tabs.** Each section is its own page and each item a link, followed as a Turbo visit. The
@@ -48,7 +55,11 @@ The `layouts` recipe's `settings.html.twig` renders one: fill its `settings_nav`
 ### Always a row
 
 ```twig {"preview":true}
-<div class="w-full max-w-xs">
+<div data-turbo="false" class="w-full max-w-xs">
+    <p id="overview" tabindex="-1" class="hidden target:block">Project: storefront redesign.</p>
+    <p id="members" tabindex="-1" class="hidden target:block">Members: Alex Morgan and Sam Lee.</p>
+    <p id="integrations" tabindex="-1" class="hidden target:block">Integrations: no external services connected.</p>
+    <p id="danger-zone" tabindex="-1" class="hidden target:block">Danger zone: archiving the project makes it read-only.</p>
     <twig:SectionNav label="Project" orientation="horizontal">
         <twig:SectionNav:Item href="#overview" :active="false">Overview</twig:SectionNav:Item>
         <twig:SectionNav:Item href="#members" :active="true">Members</twig:SectionNav:Item>

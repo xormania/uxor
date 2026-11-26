@@ -16,6 +16,8 @@ sanitizes the same set, so what the toolbar makes is all a field ever stores.
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=editor#recipes). To install `editor` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component editor --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Then:
 
 1. Run the `composer require` and `importmap:require` commands `ux:install` prints: `symfony/html-sanitizer` and the
@@ -146,7 +148,8 @@ extensions and `EditorHtmlPolicy` together.
 ### Read-only
 
 ```twig {"preview":true}
-<div class="w-full max-w-xl p-4">
-    <twig:Editor id="editor-readonly" name="terms" label="Terms" readonly value="<h2>Terms</h2><p>By ordering, you accept our <a href='/terms'>terms of sale</a>.</p><blockquote><p>Prices include taxes.</p></blockquote>" />
+<div data-turbo="false" class="w-full max-w-xl p-4">
+    <twig:Editor id="editor-readonly" name="terms" label="Terms" readonly value="<h2>Terms</h2><p>By ordering, you accept our <a href='#terms-of-sale'>terms of sale</a>.</p><blockquote><p>Prices include taxes.</p></blockquote>" />
+    <p id="terms-of-sale" tabindex="-1" class="hidden target:block">Terms of sale: prices include taxes and orders may be returned within 30 days.</p>
 </div>
 ```

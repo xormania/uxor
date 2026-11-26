@@ -11,9 +11,11 @@ import { crc32, deflateRawSync } from 'node:zlib';
 import { stepIn } from '../ci/step-attempts.mjs';
 
 const tool = fileURLToPath(new URL('../ci/lane-evidence.mjs', import.meta.url));
+const browserPolicy = 'tools/ci/browser-checkout.patterns';
+const browserPatterns = () => readFileSync(new URL('../ci/browser-checkout.patterns', import.meta.url), 'utf8');
 const REPO = 'example/project';
 const NOW = '2026-11-16T12:00:00Z';
-const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image'];
+const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package-docs', 'package', 'prod-image'];
 const REUSABLE = ['demo', 'engines', 'php', 'prod-image', 'fresh-install', 'lint-kit', 'package'];
 const LANES_ALL = [...LANES, 'engines'];
 const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
@@ -38,6 +40,7 @@ function scratch(t) {
     for (const [path, content] of Object.entries({ '.github/workflows/ci.yml': 'name: CI\n', 'CHANGELOG.md': '# Changelog\n', 'AGENTS.md': 'agents\n', 'button/README.md': '# Button\n', 'kit.css': '' })) {
         write(path, content);
     }
+    write(browserPolicy, browserPatterns());
     git('add', '-A');
     git('commit', '-qm', 'base');
     // the stub gh: `gh api <path>` answers the route's JSON, text or file; `fail: 'HTTP 502'` fails `failTimes` times
@@ -55,8 +58,12 @@ if (process.env.FAKE_GH_DELAY_MS) {
     fs.appendFileSync(process.env.FAKE_GH_TIMES, start + ' ' + Date.now() + ' ' + path + '\\n');
 }
 const routes = JSON.parse(fs.readFileSync(process.env.FAKE_GH_ROUTES, 'utf8'));
-const route = routes[path] ?? (path.includes('/actions/artifacts?name=') ? { json: { total_count: 0, artifacts: [] } } : undefined);
+let route = routes[path] ?? (path.includes('/actions/artifacts?name=') ? { json: { total_count: 0, artifacts: [] } } : undefined);
 if (!route) { process.stderr.write('gh: Not Found (HTTP 404)\\n'); process.exit(1); }
+if (route.sequence) {
+    const calls = fs.readFileSync(process.env.FAKE_GH_LOG, 'utf8').split('\\n').filter((call) => call === path).length;
+    route = route.sequence[Math.min(calls - 1, route.sequence.length - 1)];
+}
 if (route.fail) {
     const counter = process.env.FAKE_GH_LOG + '.' + Buffer.from(path).toString('hex').slice(0, 100);
     const seen = fs.existsSync(counter) ? Number(fs.readFileSync(counter, 'utf8')) : 0;
@@ -119,14 +126,16 @@ const selection = (fx, lanes) => {
     return file;
 };
 
-// the browser job's matrix: CHROMIUM_SHARDS (6) Chromium shards are the demo lane, three each of Firefox and WebKit the
-// engines lane
+// The browser matrix runs CHROMIUM_SHARDS (6) Toolkit Chromium jobs, one Demo app Chromium job and three jobs per
+// cross-browser engine when selected (four per engine on the dedicated dispatch).
 const demoJobs = (base = 500, attempt = 1, shards = 6) => Array.from({ length: shards }, (_, i) => `chromium ${i + 1}/${shards}`)
-    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
-const engineJobs = (base = 700, attempt = 1) => [...[1, 2, 3].map((s) => `firefox ${s}/3`), ...[1, 2, 3].map((s) => `webkit ${s}/3`)]
-    .map((label, i) => ({ id: base + i, name: `Demo + Playwright (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
+    .map((label, i) => ({ id: base + i, name: `Toolkit browser verification (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
+const engineJobs = (base = 700, attempt = 1, shards = 3) => ['firefox', 'webkit']
+    .flatMap((browser) => Array.from({ length: shards }, (_, i) => `${browser} ${i + 1}/${shards}`))
+    .map((label, i) => ({ id: base + i, name: `Cross-browser verification (${label})`, conclusion: 'success', status: 'completed', run_attempt: attempt, completed_at: '2026-11-15T12:00:00Z' }));
+const namedBrowserJobs = (jobs) => jobs.map((job) => ({ ...job, name: `Browser checks (${job.name.replace(' (', ', ')}` }));
 const DEMO_JOBS = demoJobs();
-const SKIPPED_DEMO = { id: 499, name: 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
+const SKIPPED_DEMO = { id: 499, name: 'Browser checks', conclusion: 'skipped', status: 'completed', run_attempt: 1 };
 const brief = (jobs) => jobs.map(({ id, name, conclusion, run_attempt }) => ({ id, name, conclusion, run_attempt }));
 
 /**
@@ -180,7 +189,7 @@ function plan(fx, routes, lanes = ['demo'], extra = [], ref = 'refs/heads/featur
 
 // fingerprints -------------------------------------------------------------------------------------------------------------
 
-test('a fingerprint ignores the excluded files\' content, not their path or mode, and changes with anything else', (t) => {
+test('administrative exclusions retain paths and modes, and every lane fingerprints shared and unknown inputs', (t) => {
     const fx = scratch(t);
     const base = fingerprints(fx, fx.head());
     assert.deepEqual(Object.keys(base.lanes).sort(), [...REUSABLE].sort());
@@ -219,6 +228,90 @@ test('a fingerprint ignores the excluded files\' content, not their path or mode
     fx.git('mv', 'button/README.md', 'button/READ.md');
     fx.git('commit', '-qm', 'rename');
     changed('a rename');
+});
+
+test('browser fingerprints omit package-only regular files but include shared files and unusual Git entries', (t) => {
+    const fx = scratch(t);
+    const browserLanes = ['demo', 'engines'];
+    let previous = fingerprints(fx, fx.head()).lanes;
+    const check = (what, browserInput) => {
+        const current = fingerprints(fx, fx.head()).lanes;
+        for (const lane of browserLanes) {
+            assert.equal(current[lane] !== previous[lane], browserInput, `${what}: ${lane}`);
+        }
+        assert.notEqual(current.package, previous.package, `${what}: Package must check the changed input`);
+        previous = current;
+    };
+    const consumer = 'packages/uxor/dev/lifecycle-tmux.py';
+    const shared = 'packages/uxor/resources/browser/diagnostics.mjs';
+    fx.commit('composer.json', '{}\n');
+    check('adding the package manifest at the repository root', false);
+    fx.commit('composer.lock', '{}\n');
+    check('adding the package lock at the repository root', false);
+    for (const path of ['packages/.gitattributes', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes']) {
+        fx.commit(path, '*.mjs text eol=lf\n');
+        check(`adding ${path} governing the shared recorder`, true);
+    }
+    fx.commit(consumer, 'first\n');
+    check('adding the consumer runner', false);
+    fx.commit(consumer, 'second\n');
+    check('editing the consumer runner', false);
+    fx.git('mv', consumer, 'packages/uxor/dev/test-runner.py');
+    fx.git('commit', '-qm', 'rename consumer runner');
+    check('renaming inside the consumer', false);
+    fx.commit('packages/uxor/dev/test-runner.py', null);
+    check('deleting the consumer runner', false);
+    fx.commit(shared, 'recorder\n');
+    check('adding the shared recorder', true);
+    fx.commit(shared, 'new recorder\n');
+    check('editing the shared recorder', true);
+    fx.git('mv', shared, consumer);
+    fx.git('commit', '-qm', 'move recorder out of browser inputs');
+    check('moving a shared file into the consumer', true);
+    fx.git('mv', consumer, shared);
+    fx.git('commit', '-qm', 'move recorder back into browser inputs');
+    check('moving a consumer file into shared browser inputs', true);
+    symlinkSync('../../../kit.css', join(fx.repo, consumer));
+    fx.git('add', consumer);
+    fx.git('commit', '-qm', 'add a package symlink');
+    check('adding a package symlink', true);
+    fx.commit('README.md', 'edit with a symlink in the tree\n');
+    check('a tree with a link conservatively keeps all regular files', true);
+    const gitlink = 'packages/uxor/dev/submodule';
+    fx.git('update-index', '--add', '--cacheinfo', `160000,${fx.head()},${gitlink}`);
+    fx.git('commit', '-qm', 'add a package gitlink');
+    check('adding a package gitlink', true);
+});
+
+test('only browser lanes read the contents of Playwright specs in the suite and in a recipe', (t) => {
+    const fx = scratch(t);
+    fx.commit('button/manifest.json', '{"name":"button"}\n');
+    const browser = ['demo', 'engines'];
+    for (const [path, consumers] of [
+        ['tests/e2e/example.spec.ts', browser],
+        ['button/tests/example.spec.ts', browser],
+        ['unclassified/tests/example.spec.ts', REUSABLE],
+        ['tests/e2e/fixtures.ts', REUSABLE],
+        ['.gitattributes', REUSABLE],
+    ]) {
+        const first = fingerprints(fx, fx.commit(path, 'first\n')).lanes;
+        const second = fingerprints(fx, fx.commit(path, 'second\n')).lanes;
+        for (const lane of REUSABLE) {
+            assert.equal(first[lane] !== second[lane], consumers.includes(lane), `${lane} after editing ${path}`);
+        }
+    }
+});
+
+test('replacing a browser spec with a link invalidates every lane', (t) => {
+    const fx = scratch(t);
+    const path = 'tests/e2e/example.spec.ts';
+    const regular = fingerprints(fx, fx.commit(path, 'initial\n')).lanes;
+    rmSync(join(fx.repo, path));
+    symlinkSync('../../kit.css', join(fx.repo, path));
+    fx.git('add', path);
+    fx.git('commit', '-qm', 'replace browser spec with a link');
+    const linked = fingerprints(fx, fx.head()).lanes;
+    for (const lane of REUSABLE) assert.notEqual(linked[lane], regular[lane], lane);
 });
 
 // plan ---------------------------------------------------------------------------------------------------------------------
@@ -412,10 +505,41 @@ function enginesPlan(fx, routes = {}, { event = 'push', ref = 'refs/heads/featur
         '--chromium-shards', shards, '--selection', file, '--out', out, '--github-output', github], routes);
     assert.equal(result.status, 0, result.stderr);
     const outputs = Object.fromEntries(readFileSync(github, 'utf8').trim().split('\n').map((line) => [line.slice(0, line.indexOf('=')), line.slice(line.indexOf('=') + 1)]));
-    return { plan: JSON.parse(readFileSync(out, 'utf8')), outputs, matrix: JSON.parse(outputs['browser-matrix']), log: result.stdout };
+    const matrix = JSON.parse(outputs['browser-matrix']);
+    assert.ok(outputs['browser-config'], 'the plan provides execution inputs separately from display labels');
+    const config = JSON.parse(outputs['browser-config']);
+    assert.deepEqual(Object.keys(matrix), ['label'], 'GitHub appends only the display label to the job name');
+    assert.deepEqual(Object.keys(config), matrix.label, 'each label selects its own configuration');
+    assert.deepEqual(matrix.label, Object.values(config).map(({ suite, browser, shard, shards }) => `${suite}, ${browser} ${shard}/${shards}`));
+    return { plan: JSON.parse(readFileSync(out, 'utf8')), outputs, browserRows: matrix.label.map((label) => config[label]), log: result.stdout };
 }
 
 const engineRoutes = (fx, sha, fp, options = {}) => routesFor('engines', fp, [marker(fx, { lane: 'engines', sha, fp, jobs: engineJobs(), artifactId: 9501, runId: 75, ...options })]);
+
+test('a stacked package change reuses eight green Chromium shards until a shared browser input changes', (t) => {
+    const fx = scratch(t);
+    const sha = fx.commit('playwright.config.ts', '// inherited browser change\n');
+    const pass = fingerprints(fx, sha).lanes;
+    const routes = {
+        ...producer(fx, sha, pass.demo, { jobs: demoJobs(500, 1, 8) }),
+        ...producer(fx, sha, pass.package, { lane: 'package', jobs: packageJobs(), artifactId: 9002, runId: 72 }),
+    };
+    // A feature push compares with dev. Its inherited browser change still selects Demo.
+    const options = { lanes: ['demo', 'package'], shards: '8' };
+    fx.commit('packages/uxor/dev/tests/test_lifecycle_tmux.py', '# check consumer restart\n');
+    const sameDemo = enginesPlan(fx, routes, options);
+    assert.equal(sameDemo.outputs.demo, 'reuse', sameDemo.plan.lanes.demo.detail);
+    assert.equal(sameDemo.plan.lanes.demo.evidence.head_sha, sha);
+    assert.equal(sameDemo.outputs.package, 'run', 'the package evidence belongs to the old consumer');
+    assert.deepEqual(sameDemo.browserRows, []);
+
+    fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed shared recorder\n');
+    const changedDemo = enginesPlan(fx, routes, options);
+    assert.equal(changedDemo.outputs.demo, 'run');
+    assert.equal(changedDemo.outputs.package, 'run');
+    assert.deepEqual(changedDemo.browserRows.map(({ browser, shard, shards }) => `${browser} ${shard}/${shards}`),
+        Array.from({ length: 8 }, (_, index) => `chromium ${index + 1}/8`));
+});
 
 test('on a branch push the engines lane is deferred, never reported as not applicable, unless a pass on its inputs exists', (t) => {
     const fx = scratch(t);
@@ -427,23 +551,48 @@ test('on a branch push the engines lane is deferred, never reported as not appli
     assert.equal(deferred.outputs.engines, 'defer');
     assert.match(deferred.log, /engines: defer \(deferred\).*NOT RUN AT THIS STAGE/);
     assert.equal(deferred.outputs.browsers, 'run');
-    assert.deepEqual(deferred.matrix.include.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
-    assert.equal(deferred.matrix.include[0].projects, '--project=smoke --project=examples');
+    assert.deepEqual(deferred.browserRows.map((e) => `${e.browser} ${e.shard}/${e.shards}`), [1, 2, 3, 4, 5, 6].map((n) => `chromium ${n}/6`));
+    assert.equal(deferred.browserRows[0].projects, '--project=smoke --project=examples');
+    assert.equal(deferred.browserRows[0].suite, 'Toolkit browser verification');
     const reused = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines));
     assert.equal(reused.outputs.engines, 'reuse', reused.plan.lanes.engines.detail);
     assert.equal(enginesPlan(fx, {}, { lanes: ['php'] }).outputs.engines, 'skip', 'no browser lane selected: neither');
 });
 
+test('a Demo app change plans one Chromium job without Toolkit Chromium or cross-browser engines', (t) => {
+    const fx = scratch(t);
+    const selected = { lanes: ['demo-app'], enginesOn: 'every-push', shards: '8' };
+    const standalone = enginesPlan(fx, {}, selected);
+    assert.equal(standalone.outputs['demo-app'], 'run');
+    assert.equal(standalone.plan.lanes['demo-app'].reason, 'not_reusable');
+    assert.equal(standalone.outputs.demo, 'skip');
+    assert.equal(standalone.outputs.engines, 'skip');
+    assert.equal(standalone.outputs.importmap, 'run');
+    assert.deepEqual(standalone.browserRows, [{
+        browser: 'chromium', suite: 'Demo app browser checks', shard: 1, shards: 1,
+        projects: '--project=demo-app', 'artifact-browser': 'demo-app-chromium',
+    }]);
+
+    const website = enginesPlan(fx, {}, { ...selected, lanes: ['static-site'] });
+    assert.equal(website.outputs['static-site'], 'run');
+    assert.equal(website.outputs['demo-app'], 'skip');
+    assert.equal(website.outputs.browsers, 'skip');
+    assert.equal(website.outputs.importmap, 'skip');
+    assert.deepEqual(website.browserRows, []);
+});
+
 test('the engines lane runs when asked, on main, with every push, and on the daily run without a pass on its inputs', (t) => {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes;
-    const browsers = (p) => p.matrix.include.map((e) => e.browser);
+    const browsers = (p) => p.browserRows.map((e) => e.browser);
     const asked = enginesPlan(fx, {}, { event: 'dispatch', engines: 'true' });
     assert.equal(asked.outputs.engines, 'run');
     assert.equal(asked.plan.lanes.engines.reason, 'no_evidence');
     assert.equal(browsers(asked).length, 12);
-    assert.deepEqual(asked.matrix.include.filter((e) => e.browser === 'webkit').map((e) => [e.shard, e.shards, e.projects]),
-        [[1, 3, '--project=smoke-webkit --project=examples-webkit'], [2, 3, '--project=smoke-webkit --project=examples-webkit'], [3, 3, '--project=smoke-webkit --project=examples-webkit']]);
+    for (const browser of ['firefox', 'webkit']) {
+        assert.deepEqual(asked.browserRows.filter((e) => e.browser === browser).map((e) => [e.suite, e.shard, e.shards, e.projects]),
+            [1, 2, 3].map((shard) => ['Cross-browser verification', shard, 3, `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`]));
+    }
     const main = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { ref: 'refs/heads/main' });
     assert.equal(main.outputs.engines, 'run', 'main runs fresh, evidence or not');
     assert.equal(main.plan.lanes.engines.reason, 'reuse_off');
@@ -451,12 +600,13 @@ test('the engines lane runs when asked, on main, with every push, and on the dai
     const daily = enginesPlan(fx, {}, { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
     assert.equal(daily.outputs.engines, 'run');
     assert.equal(daily.outputs.demo, 'skip');
+    assert.equal(daily.outputs['demo-app'], 'skip');
     assert.deepEqual([...new Set(browsers(daily))], ['firefox', 'webkit']);
     assert.equal(daily.outputs.importmap, 'run', 'the engines need the importmap packages too');
     const passed = enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'daily', lanes: ['fresh-install', 'package'], extra: 'engines=true\n' });
     assert.equal(passed.outputs.engines, 'reuse', 'no change since the last all-browser pass: nothing to run');
     assert.equal(passed.outputs.browsers, 'skip');
-    assert.deepEqual(passed.matrix.include, []);
+    assert.deepEqual(passed.browserRows, []);
     assert.equal(passed.outputs.importmap, 'skip');
 });
 
@@ -464,7 +614,7 @@ test('the Chromium shard count is one setting: the matrix and the demo lane\'s e
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes;
     const eight = enginesPlan(fx, producer(fx, fx.head(), fp.demo), { shards: '8' });
-    assert.equal(eight.matrix.include.length, 8);
+    assert.equal(eight.browserRows.length, 8);
     assert.equal(eight.plan.lanes.demo.jobs_expected, 8);
     assert.equal(eight.plan.lanes.engines.jobs_expected, 6);
     assert.equal(eight.plan.lanes.demo.reason, 'jobs_incomplete', 'a pass with six shards is not a pass with eight');
@@ -495,11 +645,112 @@ test('Release checks can require an engines pass for a commit: the require comma
     assert.equal(run(fx, ['require', '--lane', 'contrast', '--repo', REPO, '--sha', fx.head()]).status, 2, 'only a reusable lane');
 });
 
+test('the engine evidence matches every shard of the producer mode', (t) => {
+    const fx = scratch(t);
+    const fp = fingerprints(fx, fx.head()).lanes.engines;
+    const dispatch = { event: 'workflow_dispatch', display_title: 'CI: Firefox and WebKit only' };
+    const dedicated = namedBrowserJobs(engineJobs(700, 1, 4));
+    const duplicate = [...dedicated.slice(0, -1), { ...dedicated.at(-1), name: dedicated.at(-2).name }];
+    for (const [name, runInfo, jobs, accepted] of [
+        ['regular complete with historical names', {}, engineJobs(), true],
+        ['regular complete with current names', {}, namedBrowserJobs(engineJobs()), true],
+        ['dispatch complete', dispatch, dedicated, true],
+        ['dispatch with only regular identities', dispatch, engineJobs(), false],
+        ['regular with the dispatch identities', {}, dedicated, false],
+        ['dispatch with a duplicate and a missing shard', dispatch, duplicate, false],
+    ]) {
+        const routes = engineRoutes(fx, fx.head(), fp, { run: runInfo, jobs });
+        const result = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--sha', fx.head()], routes);
+        assert.equal(result.status, accepted ? 0 : 1, `${name}: ${result.stdout + result.stderr}`);
+        if (!accepted) assert.match(result.stdout, /jobs_incomplete/, name);
+    }
+});
+
+test('release engine handoff waits for an exact dispatch receipt and rejects unrelated terminal runs', (t) => {
+    const fx = scratch(t);
+    const base = fx.head();
+    const branch = 'release/0.3.5';
+    fx.git('checkout', '-qb', branch);
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '--detach', base);
+    fx.git('merge', '-q', '--no-ff', '--no-edit', branch);
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const output = join(fx.dir, 'engine-require-output');
+    const common = ['require', '--lane', 'engines', '--repo', REPO, '--merge', merge, '--head', head, '--github-output', output, '--branch', branch];
+    const expectOutput = (args, routes, expected) => {
+        writeFileSync(output, '');
+        const checked = run(fx, [...common, ...args], routes);
+        assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+        assert.match(readFileSync(output, 'utf8'), expected, checked.stdout + checked.stderr);
+        return checked;
+    };
+    const metadata = {
+        id: 75, path: '.github/workflows/ci.yml', event: 'workflow_dispatch', display_title: 'CI: Firefox and WebKit only',
+        head_sha: head, head_branch: branch, run_attempt: 1, created_at: '2026-11-16T11:58:00Z', status: 'in_progress',
+        repository: { id: 10, full_name: REPO }, head_repository: { id: 10, full_name: REPO },
+    };
+    const runPath = `repos/${REPO}/actions/runs/75`;
+    const listing = `repos/${REPO}/actions/workflows/ci.yml/runs?branch=${encodeURIComponent(branch)}&event=workflow_dispatch&head_sha=${head}&per_page=20`;
+    const markerPath = `repos/${REPO}/actions/artifacts?name=ci-pass-v1-engines-${fp}&per_page=100`;
+    const jobsPath = `${runPath}/jobs?filter=latest&per_page=100`;
+    const waiting = ['--wait-seconds', '10', '--wait-poll-ms', '1'];
+
+    const eventual = engineRoutes(fx, head, fp, { run: metadata, jobs: engineJobs(700, 1, 4) });
+    eventual[markerPath] = { sequence: [{ json: { total_count: 0, artifacts: [] } }, eventual[markerPath]] };
+    const passed = expectOutput([...waiting, '--run-id', '75'], eventual, /^engines=pass$/m);
+    assert.ok(passed.calls.filter((call) => call === markerPath).length >= 2, 'evidence was absent initially and found on a later poll');
+
+    const failedRun = { ...metadata, status: 'completed', conclusion: 'failure' };
+    const failedShard = { ...engineJobs()[0], conclusion: 'failure', steps: [{ name: 'Playwright (smoke + every README example + UXor recipe specs)', conclusion: 'failure' }] };
+    const failedRoutes = { [runPath]: { json: failedRun }, [jobsPath]: { json: { total_count: 1, jobs: [failedShard] } } };
+    expectOutput([...waiting, '--run-id', '75'], failedRoutes, /^engines=failed:/m);
+    expectOutput([...waiting, '--run-id', '75'], { ...failedRoutes, [jobsPath]: { json: { total_count: 0, jobs: [] } } }, /^engines=incomplete:/m);
+
+    const unrelated = [
+        { ...failedRun, id: 76, head_sha: base },
+        { ...failedRun, id: 77, head_repository: { id: 11, full_name: 'fork/project' } },
+        { ...failedRun, id: 78, created_at: '2026-11-16T11:56:00Z' },
+        { ...failedRun, id: 79, display_title: 'CI: full run' },
+    ];
+    const timeout = expectOutput(['--wait-seconds', '1', '--wait-poll-ms', '1', '--since', '2026-11-16T11:57:00Z'], {
+        [listing]: { json: { total_count: unrelated.length, workflow_runs: unrelated } },
+    }, /^engines=timed_out:/m);
+    assert.ok(timeout.calls.includes(listing), 'dispatch lookup is restricted to the exact head and branch');
+    assert.ok(!timeout.calls.some((call) => /\/runs\/7[6-9](?:\/|$)/.test(call)), 'unrelated runs were never evidence');
+    const changed = expectOutput(['--head', base], eventual, /^engines=tree:/m);
+    assert.equal(changed.calls.length, 0, 'a merge that disagrees with the event head is rejected before any evidence lookup');
+});
+
+test('release engine handoff waits for a passing engine lane receipt from an otherwise red dispatch', (t) => {
+    const fx = scratch(t);
+    const branch = 'release/0.3.5';
+    const base = fx.head();
+    fx.git('checkout', '-qb', branch);
+    const head = fx.commit('kit.css', 'a {}\n');
+    fx.git('checkout', '-q', '--detach', base);
+    fx.git('merge', '-q', '--no-ff', '--no-edit', branch);
+    const merge = fx.head();
+    const fp = fingerprints(fx, head).lanes.engines;
+    const routes = engineRoutes(fx, head, fp, { jobs: engineJobs(700, 1, 4), run: {
+        event: 'workflow_dispatch', display_title: 'CI: Firefox and WebKit only',
+        head_branch: branch, status: 'completed', conclusion: 'failure',
+    } });
+    const markerPath = `repos/${REPO}/actions/artifacts?name=ci-pass-v1-engines-${fp}&per_page=100`;
+    routes[markerPath] = { sequence: [{ json: { total_count: 0, artifacts: [] } }, routes[markerPath]] };
+    const output = join(fx.dir, 'engine-require-output');
+    const checked = run(fx, ['require', '--lane', 'engines', '--repo', REPO, '--merge', merge, '--head', head,
+        '--github-output', output, '--branch', branch, '--run-id', '75', '--wait-seconds', '10', '--wait-poll-ms', '1'], routes);
+    assert.equal(checked.status, 0, checked.stdout + checked.stderr);
+    assert.match(readFileSync(output, 'utf8'), /^engines=pass$/m, checked.stdout);
+    assert.ok(checked.calls.filter((call) => call === markerPath).length >= 2, 'the passing lane receipt was verified when it became visible');
+});
+
 // record -------------------------------------------------------------------------------------------------------------------
 
-function recorded(fx, planLanes, jobs, { needs, reuse = true, attempt = '1' } = {}) {
+function recorded(fx, planLanes, jobs, { needs, reuse = true, attempt = '1', event = 'push' } = {}) {
     const planFile = join(fx.dir, 'plan.json');
-    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: 'a'.repeat(40), ref: 'refs/heads/feature', reuse, reuse_off: reuse ? null : 'switch', lanes: planLanes }));
+    writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: 'a'.repeat(40), ref: 'refs/heads/feature', event, reuse, reuse_off: reuse ? null : 'switch', lanes: planLanes }));
     const jobsFile = join(fx.dir, 'jobs.json');
     rmSync(jobsFile, { force: true });
     if (jobs !== undefined) writeFileSync(jobsFile, typeof jobs === 'string' ? jobs : JSON.stringify(jobs));
@@ -519,9 +770,10 @@ const lane = (decision, fingerprint = 'c'.repeat(64), reason) => ({ selected: de
 
 test('CI result records a pass only for a lane that ran fresh and passed in full, a failure for one that failed', (t) => {
     const fx = scratch(t);
+    const browserJobs = namedBrowserJobs(DEMO_JOBS);
     const php = { id: 600, name: 'Kit PHP', conclusion: 'failure', status: 'completed', run_attempt: 2 };
     const image = { id: 601, name: 'Production image', conclusion: 'cancelled', status: 'completed', run_attempt: 2 };
-    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run'), engines: lane('defer') }, [...DEMO_JOBS, php, image]);
+    const { result, markers, read, output } = recorded(fx, { demo: lane('run', 'd'.repeat(64)), php: lane('run', 'e'.repeat(64)), 'prod-image': lane('run'), engines: lane('defer') }, [...browserJobs, php, image]);
     assert.equal(result.status, 0, result.stderr);
     assert.deepEqual(markers, [`ci-fail-v1-php-${'e'.repeat(64)}`, `ci-pass-v1-demo-${'d'.repeat(64)}`]);
     const pass = read(`ci-pass-v1-demo-${'d'.repeat(64)}`);
@@ -529,7 +781,7 @@ test('CI result records a pass only for a lane that ran fresh and passed in full
     assert.equal(pass.run_id, 88);
     assert.equal(pass.run_attempt, 1);
     assert.equal(pass.completed_at, '2026-11-15T12:00:00Z', 'the age of the evidence is its jobs\' completion');
-    assert.deepEqual(pass.jobs.map((job) => job.id), DEMO_JOBS.map((job) => job.id));
+    assert.deepEqual(pass.jobs, brief(browserJobs), 'the marker keeps the original job IDs and display names');
     assert.match(output, new RegExp(`^demo-marker=ci-pass-v1-demo-${'d'.repeat(64)}$`, 'm'));
     assert.match(output, /^demo-kind=pass$/m);
     assert.match(output, /^php-kind=fail$/m);
@@ -578,20 +830,23 @@ test('a failure that cannot be recorded fails the step loudly; a pass that canno
 
 // verdict ------------------------------------------------------------------------------------------------------------------
 
-function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'push' } = {}) {
+function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'push', packageDocs = lane('skip', null) } = {}) {
     const fx = scratch(t);
     const fp = fingerprints(fx, fx.head()).lanes.demo;
     const routes = producer(fx, fx.head(), fp);
     const evidence = { artifact_id: 9001, artifact_name: `ci-pass-v1-demo-${fp}`, run_id: 71, run_attempt: 1, head_sha: fx.head(), head_branch: 'feature', created_at: '2026-11-15T12:00:00Z', url: 'https://github.com/example/project/actions/runs/71', jobs: brief(DEMO_JOBS), flaky: 2, tests: null };
     const lanes = Object.fromEntries(LANES.map((name) => [name, lane('skip', null)]));
-    lanes.demo = { ...lane('reuse', fp), evidence };
-    lanes.php = lane('run');
-    lanes.contrast = lane('run', null, 'not_reusable');
+    if (event !== 'engines') {
+        lanes.demo = { ...lane('reuse', fp), evidence };
+        lanes.php = lane('run');
+        lanes.contrast = lane('run', null, 'not_reusable');
+        lanes['package-docs'] = packageDocs;
+    }
     lanes.engines = engines;
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: event === 'daily' ? 'refs/heads/dev' : 'refs/heads/feature', event, reuse: true, reuse_off: null, chromium_shards: 6, elapsed_ms: 1234, api_calls: 7, lanes }));
     const needs = (overrides) => {
-        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped', ...overrides };
         const file = join(fx.dir, 'needs.json');
         writeFileSync(file, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
         return file;
@@ -612,7 +867,7 @@ function verdictFixture(t, { engines = lane('defer', 'f'.repeat(64)), event = 'p
 
 test('the verdict tells fresh, reused, not applicable and incomplete apart, and fails on incomplete', (t) => {
     const { verdict } = verdictFixture(t);
-    const good = verdict();
+    const good = verdict({ demo: 'skipped' }, undefined, [], [SKIPPED_DEMO]);
     assert.equal(good.status, 0, good.stderr + good.stdout);
     assert.equal(good.json.ok, true);
     assert.equal(good.json.lanes.demo.status, 'reused');
@@ -621,7 +876,7 @@ test('the verdict tells fresh, reused, not applicable and incomplete apart, and 
     assert.equal(good.json.lanes.php.status, 'fresh');
     assert.equal(good.json.lanes.contrast.status, 'fresh');
     assert.equal(good.json.lanes.package.status, 'not_applicable');
-    assert.match(good.summary, /demo.*reused.*actions\/runs\/71/);
+    assert.match(good.summary, /Toolkit browser verification.*reused.*actions\/runs\/71/);
     assert.match(good.summary, /1234 ms/);
     assert.match(good.summary, /7 API calls/);
 
@@ -637,8 +892,8 @@ test('a deferred engines lane is reported as not run at this stage, never as a p
     const out = verdict();
     assert.equal(out.status, 0, out.stderr);
     assert.equal(out.json.lanes.engines.status, 'not_run_at_this_stage');
-    assert.match(out.summary, /\| engines \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
-    assert.doesNotMatch(out.summary, /\| engines \| (fresh|reused|not_applicable)/);
+    assert.match(out.summary, /\| Cross-browser verification \| NOT RUN AT THIS STAGE \|[^\n]*Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines/);
+    assert.doesNotMatch(out.summary, /\| Cross-browser verification \| (fresh|reused|not_applicable)/);
     assert.match(out.stdout + out.stderr, /::notice::.*NOT RUN AT THIS STAGE/);
     assert.equal(verdict({ demo: 'success' }, undefined, [], [...DEMO_JOBS.map((j) => ({ ...j, id: j.id + 1000 })), ...engineJobs()]).json.lanes.engines.status, 'incomplete', 'a deferred lane that ran is not what was planned');
 });
@@ -655,6 +910,20 @@ test('the verdict judges the Chromium shards and the engines apart, though they 
     assert.equal(green.json.lanes.engines.status, 'fresh');
     assert.equal(green.json.lanes.demo.status, 'reused');
     assert.equal(verdict({ demo: 'success' }, undefined, [], engineJobs().slice(1)).json.lanes.engines.status, 'incomplete', 'a missing engine shard');
+});
+
+test('a dedicated dispatch passes and records evidence only with all eight distinct engine shards', (t) => {
+    const fp = 'f'.repeat(64);
+    const { fx, verdict } = verdictFixture(t, { engines: lane('run', fp), event: 'engines' });
+    const complete = namedBrowserJobs(engineJobs(700, 1, 4));
+    const duplicate = [...complete.slice(0, -1), { ...complete.at(-1), name: complete.at(-2).name }];
+    for (const [jobs, accepted] of [[complete, true], [complete.slice(1), false], [engineJobs(), false], [duplicate, false]]) {
+        const { status, json } = verdict({ demo: 'success', php: 'skipped', quick: 'skipped' }, {}, [], jobs);
+        assert.equal(status, accepted ? 0 : 1);
+        assert.equal(json.lanes.engines.status, accepted ? 'fresh' : 'incomplete');
+        const { markers } = recorded(fx, { engines: lane('run', fp) }, jobs, { event: 'engines' });
+        assert.deepEqual(markers, accepted ? [`ci-pass-v1-engines-${fp}`] : []);
+    }
 });
 
 test('the verdict checks reused evidence again, and says that only Re-run all jobs plans again', (t) => {
@@ -710,6 +979,69 @@ function workflowJobs(file) {
     return { workflow, jobs, job: (id) => jobs.find((j) => j.id === id) };
 }
 
+test('an absent or different checkout policy at a producer revision cannot hide a browser input', (t) => {
+    for (const rules of [null, '/*\n']) {
+        const fx = scratch(t);
+        const sha = fx.commit(browserPolicy, rules);
+        const previous = fingerprints(fx, sha).lanes;
+        const edited = fingerprints(fx, fx.commit('docs/PLAN-history.md', 'would be present under the old rules\n')).lanes;
+        for (const lane of ['demo', 'engines']) assert.notEqual(edited[lane], previous[lane], lane);
+        assert.equal(plan(fx, producer(fx, sha, previous.demo)).outputs.demo, 'run');
+    }
+});
+
+test('website-only edits preserve kit evidence while Package keeps possible guide sources in its inputs', (t) => {
+    const fx = scratch(t);
+    const before = fingerprints(fx, fx.head()).lanes;
+    const after = fingerprints(fx, fx.commit('website/content/guide.md', '# New guide')).lanes;
+    assert.notEqual(before.package, after.package, 'the package catalog can name a guide in any directory');
+    for (const lane of ['php', 'demo', 'engines', 'prod-image', 'fresh-install', 'lint-kit']) {
+        assert.equal(before[lane], after[lane], lane);
+    }
+});
+
+test('the browser checkout and evidence agree on absent and present inputs', (t) => {
+    const { job } = workflowJobs('ci.yml');
+    const demo = job('demo').text;
+    assert.match(demo, /git sparse-checkout set --no-cone --stdin < ["']?tools\/ci\/browser-checkout[.]patterns/,
+        'the browser job must apply the tested policy before it reads project inputs');
+    const omitted = [
+        'website/templates/layout.html.twig', 'website/composer.lock', 'llms.txt', 'docs/GUIDE.md', 'INSTALL.md', 'packages/uxor/resources/guides.json',
+        'composer.json', 'composer.lock', 'packages/uxor/dev/lifecycle-tmux.py',
+        'packages/uxor/src/Command.php', 'packages/uxor/resources/browser-extra/example.mjs',
+        'packages/uxor/README.md', 'packages/uxor/OPERATIONS.md', 'packages/uxor/resources/guides.json.bak',
+        'README.md', 'docs/PLAN-a-feature.md', 'docs/ci/issue/example.json', '.github/workflows/release.yml',
+        '.github/CODEOWNERS', '.github/dependabot.yml', '.github/mention-allowlist', '.github/ISSUE_TEMPLATE/bug.yml',
+        'tests/e2e/release.fuzz.spec.ts', 'tests/e2e/release.long-session.spec.ts', 'tests/e2e/leak-detector.mjs',
+        'tools/llms-txt.mjs', 'tools/monthly/trends.mjs', 'tools/contrast/pairs.json', 'tools/tests/prepare-tests.test.mjs',
+    ];
+    const present = [
+        'demo/composer.lock', 'packages/.gitattributes', 'packages/uxor/.gitattributes', 'packages/uxor/resources/.gitattributes',
+        'packages/uxor/resources/browser/diagnostics.mjs', 'packages/uxor/resources/browser/nested/recorder.mjs',
+        'packages/another-package/manifest.json', 'new-recipe/templates/components/Example.html.twig',
+        'tests/e2e/demo-app.spec.ts', 'tools/tests/sync-demo.sh', 'tools/tests/fixtures/sync-kit/widget/manifest.json',
+        'button/README.md', '.github/workflows/ci.yml', 'tools/ci-changes.sh',
+        '.github/actions/jev-diagnosis/action.yml', 'tests/e2e/examples/release.widget.spec.ts', browserPolicy, 'new-input/unknown.txt',
+    ];
+    const fx = scratch(t);
+    for (const path of [...omitted, ...present]) {
+        mkdirSync(join(fx.repo, path, '..'), { recursive: true });
+        writeFileSync(join(fx.repo, path), path === browserPolicy ? browserPatterns() : 'fixture\n');
+    }
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'add browser and repository files');
+    const base = fingerprints(fx, fx.head()).lanes;
+    for (const path of omitted) writeFileSync(join(fx.repo, path), 'changed\n');
+    fx.git('add', '-A');
+    fx.git('commit', '-qm', 'edit repository-only inputs');
+    const edited = fingerprints(fx, fx.head()).lanes;
+    for (const lane of ['demo', 'engines']) assert.equal(edited[lane], base[lane], lane);
+    fx.git('sparse-checkout', 'set', '--no-cone', '--', ...browserPatterns().trim().split('\n'));
+    for (const path of omitted) assert.equal(existsSync(join(fx.repo, path)), false, path);
+    for (const path of present) assert.equal(existsSync(join(fx.repo, path)), true, path);
+    assert.equal(fx.git('status', '--porcelain'), '');
+});
+
 test("ci.yml runs each lane on the plan's decision, from one browser job whose matrix the plan computes", async () => {
     const { REUSABLE: rules, LANES: lanes } = await import('../ci/lane-evidence.mjs');
     assert.deepEqual(Object.keys(rules).sort(), [...REUSABLE].sort());
@@ -721,13 +1053,14 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.ok(shards[0] >= 1 && shards[0] <= 20, `CHROMIUM_SHARDS is a sane number (${shards[0]})`);
     assert.equal(workflow.match(/^ {4}ENGINES_ON: daily$/gm)?.length, 1, 'ENGINES_ON is the one switch back');
     assert.match(workflow, /^ {12}engines:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m, 'a manual run can ask for the engines');
-    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'fresh-install', 'package']) {
+    for (const id of ['php', 'prod-image', 'lint-kit', 'static-site', 'runtime-export', 'fresh-install', 'package-docs', 'package']) {
         assert.ok(job(id).if.includes(`needs.changes.outputs.${id} == 'run'`), `${id}: ${job(id).if}`);
     }
     // Contrast and Workflows are steps of Quick checks, on the same outputs (its own test)
     assert.equal(job('php').name, rules.php.name);
     assert.equal(job('prod-image').name, rules['prod-image'].name);
-    for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'importmap']) {
+    assert.equal(job('lint-kit').name, 'Lint kit');
+    for (const id of [...lanes, 'engines', 'browsers', 'browser-matrix', 'browser-config', 'importmap']) {
         assert.match(workflow, new RegExp(`^ {12}${id}: \\$\\{\\{ steps\\.plan\\.outputs\\.${id} \\}\\}$`, 'm'), `Changes outputs ${id} from the plan`);
     }
     assert.doesNotMatch(workflow, /needs\.changes\.outputs\.[a-z-]+ == 'true'/, 'no job runs on the old true/false outputs');
@@ -737,15 +1070,15 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     assert.match(plan, /--engines "\$ENGINES"/);
     assert.match(plan, /--event "\$PLAN_EVENT"/);
 
-    // the browser job: one definition, both lanes, the same check names as before
+    // The browser job has one definition with a literal skip name and a distinct matrix label per shard.
     const demo = job('demo');
-    assert.equal(demo.name, 'Demo + Playwright (${{ matrix.browser }} ${{ matrix.shard }}/${{ matrix.shards }})');
+    assert.equal(demo.name, 'Browser checks');
     assert.equal(demo.if, "needs.changes.outputs.browsers == 'run'");
     assert.match(demo.text, /^ {12}matrix: \$\{\{ fromJSON\(needs\.changes\.outputs\.browser-matrix\) \}\}$/m);
+    assert.match(demo.text, /fromJSON\(needs\.changes\.outputs\.browser-config\)\[matrix\.label\]/);
     assert.doesNotMatch(demo.text, /browser: \[chromium/, 'no fixed browser list');
-    assert.equal(rules.demo.prefix, 'Demo + Playwright (chromium ');
-    assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit ']);
-    assert.equal(rules.engines.count, 6);
+    assert.equal(rules.demo.prefix, 'Toolkit browser verification (chromium ');
+    assert.deepEqual(rules.engines.prefixes ?? [rules.engines.prefix], ['Cross-browser verification (firefox ', 'Cross-browser verification (webkit ']);
     assert.equal(job('demo-engines'), undefined, 'no second copy of the browser job');
     assert.ok(job('importmap').if.includes("needs.changes.outputs.importmap == 'run'"));
     assert.ok(job('docker-install').if.includes("needs.changes.outputs.fresh-install == 'run'"));
@@ -754,8 +1087,8 @@ test("ci.yml runs each lane on the plan's decision, from one browser job whose m
     // CI result: the required name, every lane's jobs, the plan by name, record and verdict by the tool
     const result = job('result');
     assert.equal(evaluate(result.name, push), 'CI result', 'the rulesets require this exact name, from the push');
-    // the engines run in the browser job (`demo`); Contrast, Workflows and Tool tests in Quick checks (`quick`)
-    for (const id of [...lanes.filter((id) => !['engines', 'contrast', 'workflows'].includes(id)), 'docker-install', 'importmap', 'quick', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
+    // Demo app Chromium and the engines run in `demo`; Contrast, Workflows and Tool tests run in `quick`.
+    for (const id of [...lanes.filter((id) => !['demo-app', 'engines', 'contrast', 'workflows'].includes(id)), 'docker-install', 'importmap', 'quick', 'changes']) assert.ok(result.needs.includes(id), `CI result needs ${id}`);
     assert.match(result.text, /artifact-ids: \$\{\{ needs\.changes\.outputs\.lane-plan-id \}\}/, 'the plan artifact by the id Changes gave it, whatever the attempt');
     assert.match(job('changes').text, /lane-plan: \$\{\{ steps\.plan\.outputs\.artifact \}\}/);
     assert.match(result.text, /set -o pipefail[\s\S]*lane-evidence\.mjs finish/);
@@ -797,7 +1130,7 @@ test('Release checks requires an engines pass for the release head, and starts o
     assert.match(start.text, /gh workflow run ci\.yml --repo "\$REPO" --ref "\$BRANCH" -f engines_only=true/);
     assert.match(changed.text, /engines: \$\{\{ steps\.engines\.outputs\.engines \}\}/);
     const verdict = job('verdict');
-    assert.match(verdict.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
+    assert.match(verdict.text, /ENGINES: .*steps\.recheck\.outputs\.engines/);
     assert.match(verdict.needs, /start-engines/);
     assert.match(verdict.text, /no Firefox\/WebKit pass for/);
     assert.match(verdict.text, /re-run Release checks when it passes/);
@@ -808,7 +1141,7 @@ test('Release checks requires an engines pass for the release head, and starts o
 // the scalar/boolean subset of GitHub expressions these workflows use; unknown syntax fails closed
 function evaluate(expression, context) {
     const body = expression.replace(/^\$\{\{\s*|\s*\}\}$/g, '')
-        .replace(/\b(github|inputs|needs|vars)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''))
+        .replace(/\b(github|inputs|needs|steps|vars)\.[A-Za-z0-9_.-]+/g, (path) => JSON.stringify(path.split('.').reduce((value, part) => value?.[part], context) ?? ''))
         .replace(/\bstartsWith\(([^,]+),\s*('[^']*')\)/g, '(String($1).startsWith($2))')
         .replace(/\bformat\('([^']*)',\s*([^)]+)\)/g, (_, template, arg) => `(${JSON.stringify(template)}.replace('{0}', ${arg}))`);
     const operators = body.replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|\b(?:true|false|[0-9]+|String|startsWith|replace)\b/g, '');
@@ -821,7 +1154,7 @@ const daily = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/dev'
 const enginesOnly = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: { engines_only: true } };
 const manual = { github: { event_name: 'workflow_dispatch', ref: 'refs/heads/feature' }, inputs: {} };
 
-test("only a push or a full manual run publishes CI result; the daily and an engines-only run publish under their own names", () => {
+test('full CI results and partial or skipped runs cannot substitute for one another', () => {
     const { workflow, job } = workflowJobs('ci.yml');
     const name = job('result').name;
     assert.equal(evaluate(name, push), 'CI result');
@@ -829,6 +1162,22 @@ test("only a push or a full manual run publishes CI result; the daily and an eng
     assert.equal(evaluate(name, daily), 'CI result (daily)', 'the daily run checks the installs and engines only');
     assert.equal(evaluate(name, { ...daily, github: { ...daily.github, ref: 'refs/heads/feature' } }), 'CI result', 'daily off dev runs everything');
     assert.equal(evaluate(name, enginesOnly), 'CI result (engines only)');
+    assert.equal(evaluate(job('quick').if, push), true, 'the push keeps Tool tests');
+    assert.equal(evaluate(job('quick').if, daily), true, 'the scheduled dev run keeps Tool tests');
+    assert.equal(evaluate(job('quick').if, enginesOnly), false, 'the dedicated dispatch checks browsers only');
+    const pullRequest = (headRepository) => ({
+        github: {
+            event_name: 'pull_request',
+            ref: 'refs/pull/42/merge',
+            repository: REPO,
+            event: { pull_request: { head: { repo: { full_name: headRepository } } } },
+        },
+        inputs: {},
+    });
+    assert.equal(evaluate(name, pullRequest('contributor/project')), 'CI result',
+        'a fork gets the required result without a copied branch');
+    assert.equal(evaluate(name, pullRequest(REPO)), 'CI result (push runs separately)',
+        'a skipped same-repository PR cannot satisfy the required push result');
     // an engines-only run: its own concurrency group, never cancelling (nor cancelled by) a push run, and a name to find it by
     const group = workflow.match(/^concurrency:\n(?: {4}#.*\n)* {4}group: (.+)\n {4}cancel-in-progress: (.+)$/m);
     assert.ok(group, 'the workflow concurrency');
@@ -838,6 +1187,288 @@ test("only a push or a full manual run publishes CI result; the daily and an eng
     assert.equal(evaluate(group[2], enginesOnly), false);
     assert.equal(evaluate(key(workflow, 'run-name'), enginesOnly), 'CI: Firefox and WebKit only');
     assert.match(workflow, /^ {12}engines_only:\n {16}description: .+\n {16}type: boolean\n {16}default: false$/m);
+});
+
+test('an engines-only dispatch on dev keeps its lane selection, check and issue policy when daily is also selected', (t) => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    const temp = mkdtempSync(join(tmpdir(), 'ci-dispatch-'));
+    t.after(() => rmSync(temp, { recursive: true, force: true }));
+    const selection = stepIn(workflow, 'changes', 'jobs').run;
+    const issue = job('engines-issue').if.replace('always()', 'true');
+    const dispatch = (inputs) => {
+        const context = { ...daily, inputs, needs: { result: { outputs: { 'engines-status': 'failed' } } } };
+        const result = spawnSync('bash', ['-eu', '-o', 'pipefail', '-c', selection], {
+            cwd: temp, encoding: 'utf8',
+            env: { PATH: process.env.PATH, EVENT: 'workflow_dispatch', REF: context.github.ref,
+                DAILY: String(Boolean(inputs.daily)), ENGINES_ONLY: String(Boolean(inputs.engines_only)),
+                RUNNER_TEMP: temp, GITHUB_OUTPUT: join(temp, 'output') },
+        });
+        assert.equal(result.status, 0, result.stderr);
+        return {
+            lanes: readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').filter((line) => line.endsWith('=true')),
+            plan: evaluate(key(job('changes').text, 'PLAN_EVENT'), context),
+            name: evaluate(key(workflow, 'run-name'), context),
+            group: evaluate(key(workflow, 'group'), context),
+            cancel: evaluate(key(workflow, 'cancel-in-progress'), context),
+            quick: Boolean(evaluate(job('quick').if, context)),
+            verdict: evaluate(job('result').name, context),
+            reportIssue: Boolean(evaluate(issue, context)),
+        };
+    };
+    const only = dispatch({ engines_only: true });
+    assert.deepEqual(only, {
+        lanes: ['engines=true'], plan: 'engines', name: 'CI: Firefox and WebKit only',
+        group: 'ci-engines-refs/heads/dev', cancel: false, quick: false,
+        verdict: 'CI result (engines only)', reportIssue: false,
+    });
+    assert.deepEqual(dispatch({ daily: true, engines_only: true }), only);
+    const ordinaryDaily = dispatch({ daily: true });
+    assert.equal(ordinaryDaily.group, 'ci-daily');
+    assert.equal(ordinaryDaily.verdict, 'CI result (daily)');
+    assert.equal(ordinaryDaily.reportIssue, true);
+});
+
+test("fork PRs enter read-only CI while same-repository PRs leave the required result to their push", () => {
+    const { workflow, job } = workflowJobs('ci.yml');
+    assert.match(workflow, /^ {4}pull_request:\n {8}types: \[opened, edited, synchronize, reopened, ready_for_review\]$/m);
+
+    const context = (headRepository) => ({
+        github: {
+            event_name: 'pull_request',
+            ref: 'refs/pull/42/merge',
+            repository: REPO,
+            event: { pull_request: { head: { repo: { full_name: headRepository } } } },
+        },
+        inputs: {},
+        vars: {},
+        needs: {
+            changes: {
+                result: 'success',
+                outputs: { demo: 'run', 'mago-serena-cache': 'run' },
+            },
+            result: { outputs: { 'engines-status': 'failed' } },
+        },
+    });
+    const fork = context('contributor/project');
+    const sameRepository = context(REPO);
+    const condition = (id, ctx) => Boolean(evaluate(job(id).if.replace(/\balways\(\)/g, 'true'), ctx));
+
+    for (const id of ['changes', 'quick', 'result', 'metrics']) {
+        assert.equal(condition(id, fork), true, `${id}: the fork runs`);
+        assert.equal(condition(id, sameRepository), false, `${id}: the push owns same-repository CI`);
+        assert.equal(condition(id, { ...fork, github: { ...fork.github, event_name: 'schedule' } }), false,
+            `${id}: the schedule only starts its daily workflow`);
+    }
+
+    assert.equal(condition('cache', fork), false, 'a fork cannot enter the registry-writing job');
+    assert.equal(condition('start', fork), false, 'a fork cannot dispatch the daily workflow');
+    assert.equal(condition('engines-issue', fork), false, 'a fork cannot post daily issue updates');
+
+    const reuse = key(job('changes').text, 'REUSE');
+    const event = key(job('changes').text, 'PLAN_EVENT');
+    assert.equal(evaluate(reuse, fork), 'off', 'the new fork route runs selected lanes fresh');
+    assert.equal(evaluate(event, fork), 'pull_request', 'the plan records the actual event');
+    assert.equal(evaluate(reuse, { ...push, vars: {} }), 'on', 'ordinary push reuse is unchanged');
+    assert.equal(evaluate(event, push), 'push');
+
+    const diagnosis = workflowJobs('jev.yml').job('diagnose');
+    assert.equal(Boolean(evaluate(diagnosis.if, {
+        github: {
+            repository: REPO,
+            event: {
+                workflow_run: {
+                    head_repository: { full_name: 'contributor/project' },
+                    head_branch: 'dev',
+                    name: 'CI',
+                    path: '.github/workflows/ci.yml',
+                },
+            },
+        },
+    })), false, 'even a fork branch named dev cannot enter the secret-bearing diagnosis consumer');
+});
+
+test("a PR uses the target base classifier and refuses an invalid or unrelated base", (t) => {
+    const fx = scratch(t);
+    const trusted = `#!/usr/bin/env bash
+printf 'base\\n' > "$RUNNER_TEMP/classifier-origin"
+cat > "$RUNNER_TEMP/classified-paths"
+for lane in lint-kit php static-site fresh-install contrast demo workflows package prod-image; do
+    printf '%s=true\\n' "$lane"
+done
+`;
+    const base = fx.commit('tools/ci-changes.sh', trusted);
+    const head = fx.commit('tools/ci-changes.sh', `#!/usr/bin/env bash
+printf 'incoming\\n' > "$RUNNER_TEMP/classifier-origin"
+printf 'php=false\\n'
+`);
+    fx.git('checkout', '--detach', base);
+    fx.git('merge', '--no-ff', '-m', 'prospective PR merge', head);
+    const merge = fx.head();
+
+    // A valid existing commit is still not a permissible base unless it is in the tested merge's ancestry.
+    fx.git('checkout', '--detach', base);
+    const unrelated = fx.commit('later-target.txt', 'another target commit\n');
+    fx.git('checkout', '--detach', merge);
+
+    const { workflow } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    assert.ok(step?.run);
+    const temp = join(fx.dir, 'pr-selection');
+    mkdirSync(temp);
+    const output = join(fx.dir, 'pr-selection-output');
+
+    for (const [name, supplied, expected] of [
+        ['target base', base, 0],
+        ['missing base', '', 1],
+        ['branch name instead of immutable base', 'dev', 1],
+        ['unknown commit', 'f'.repeat(40), 1],
+        ['existing unrelated commit', unrelated, 1],
+    ]) {
+        writeFileSync(output, '');
+        rmSync(join(temp, 'classifier-origin'), { force: true });
+        rmSync(join(temp, 'classified-paths'), { force: true });
+        // The real step tees to /dev/stderr; use a file, as in the work-order fixture, instead of Node's socket.
+        const errFile = join(temp, 'stderr');
+        const err = openSync(errFile, 'w');
+        const actual = spawnSync('bash', ['--noprofile', '--norc', '-eo', 'pipefail', '-c', step.run], {
+            cwd: fx.repo,
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', err],
+            env: {
+                PATH: process.env.PATH,
+                RUNNER_TEMP: temp,
+                GITHUB_OUTPUT: output,
+                EVENT: 'pull_request',
+                REF: 'refs/pull/42/merge',
+                PR_BASE_SHA: supplied,
+                DAILY: 'false',
+                ENGINES_ONLY: 'false',
+                REPO,
+            },
+        });
+        closeSync(err);
+        const stderr = readFileSync(errFile, 'utf8');
+        assert.equal(actual.status, expected, `${name}: ${actual.stdout}${stderr}`);
+        if (expected === 0) {
+            const values = Object.fromEntries(readFileSync(output, 'utf8').trim().split('\n').map((line) => line.split('=')));
+            assert.equal(values.base, base);
+            assert.equal(values['comparison-base'], base);
+            assert.equal(readFileSync(join(temp, 'classifier-origin'), 'utf8'), 'base\n',
+                'the contributor cannot run its changed classifier to skip its own checks');
+            assert.match(readFileSync(join(temp, 'classified-paths'), 'utf8'), /^tools\/ci-changes\.sh$/m);
+            const selected = Object.fromEntries(readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').map((line) => line.split('=')));
+            assert.equal(selected.php, 'true');
+        } else {
+            assert.match(actual.stdout + stderr, /pull request base is missing, invalid or not an ancestor/);
+            assert.equal(existsSync(join(temp, 'classifier-origin')), false, 'invalid provenance runs no classifier');
+        }
+    }
+});
+
+test('a website-only push above a verified release runs website checks with a cold cache, before or after its PR opens', (t) => {
+    const fx = scratch(t);
+    fx.commit('packages/uxor/resources/guides.json', '{"install":{"file":"INSTALL.md"}}');
+    const dev = fx.commit('tools/ci-changes.sh', readFileSync(new URL('../ci-changes.sh', import.meta.url)));
+    fx.git('update-ref', 'refs/remotes/origin/dev', dev);
+    const release = 'release/0.3.5';
+    const green = fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// tested shared recorder\n');
+    fx.git('update-ref', 'refs/remotes/origin/' + release, green);
+    fx.commit('website/templates/layout.html.twig', 'New navigation\n');
+    const branch = (ref) => ({ ref, repo: { full_name: REPO } });
+    const releasePr = { base: branch('main'), head: branch(release), author_association: 'OWNER' };
+    const featurePr = { base: branch(release), head: branch('feature/links') };
+    const { workflow, job } = workflowJobs('ci.yml');
+    const step = stepIn(workflow, 'changes', 'jobs');
+    const temp = join(fx.dir, 'upstream-selection');
+    mkdirSync(temp);
+    const bin = stubGh(fx, `case "$*" in
+        *pulls?*) cat "$RUNNER_TEMP/pulls"; [ "\${PARTIAL_PULLS:-}" != true ] ;;
+        *actions/workflows/ci.yml/runs*"branch=$TARGET"*"head_sha=$BASE"*) cat "$RUNNER_TEMP/run" ;;
+        *actions/runs/27/attempts/2/jobs*) cat "$RUNNER_TEMP/attempt" ;;
+        *) exit 1 ;;
+    esac`);
+    const verified = { id: 27, run_attempt: 2, path: '.github/workflows/ci.yml', event: 'push',
+        head_branch: release, head_sha: green, status: 'completed', conclusion: 'success',
+        repository: { full_name: REPO }, head_repository: { full_name: REPO } };
+    const pass = { name: 'CI result', conclusion: 'success' };
+    const exercise = (pulls, proof, result, expected, { partialPulls = false, target = release } = {}) => {
+        writeFileSync(join(temp, 'pulls'), JSON.stringify(pulls));
+        writeFileSync(join(temp, 'run'), JSON.stringify({ workflow_runs: [proof] }));
+        writeFileSync(join(temp, 'attempt'), JSON.stringify({ jobs: [result] }));
+        const output = join(temp, 'outputs');
+        writeFileSync(output, '');
+        const err = openSync(join(temp, 'stderr'), 'w');
+        const run = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
+            stdio: ['ignore', 'pipe', err], env: { PATH: bin + ':' + process.env.PATH, RUNNER_TEMP: temp, GITHUB_OUTPUT: output,
+                EVENT: 'push', REF: 'refs/heads/feature/links', REPO, BASE: green, TARGET: target, PARTIAL_PULLS: String(partialPulls) } });
+        closeSync(err);
+        assert.equal(run.status, 0, run.stdout + readFileSync(join(temp, 'stderr'), 'utf8'));
+        assert.match(readFileSync(output, 'utf8'), new RegExp('^comparison-base=' + expected + '$', 'm'), target);
+        const lanes = readFileSync(join(temp, 'jobs'), 'utf8').trim().split('\n').filter(line => line.endsWith('=true')).map(line => line.split('=')[0]);
+        const plan = enginesPlan(fx, {}, { lanes, shards: '8' });
+        assert.equal(plan.outputs['static-site'], 'run');
+        assert.equal(plan.outputs['prod-image'], 'skip');
+        return plan;
+    };
+    const otherRelease = { ...releasePr, head: branch('release/0.4.0') };
+    for (const prs of [[releasePr], [releasePr, featurePr], [releasePr, featurePr, otherRelease]]) {
+        const plan = exercise(prs, verified, pass, green);
+        assert.equal(plan.outputs['runtime-export'], 'skip');
+        assert.equal(plan.outputs.importmap, 'skip');
+        assert.deepEqual(plan.browserRows, []);
+    }
+    for (const [prs, proof, result] of [
+        [[releasePr], { ...verified, conclusion: 'failure' }, pass],
+        [[releasePr], { ...verified, head_sha: dev }, pass],
+        [[releasePr], { ...verified, event: 'workflow_dispatch' }, pass],
+        [[releasePr], { ...verified, head_repository: { full_name: 'someone/fork' } }, pass],
+        [[releasePr], verified, { ...pass, name: 'CI result (engines only)' }],
+        [[releasePr, otherRelease], verified, pass],
+        [[{ ...releasePr, author_association: 'CONTRIBUTOR' }], verified, pass],
+    ]) {
+        assert.equal(exercise(prs, proof, result, dev).browserRows.length, 9, 'an unverified inherited recorder change selects both Chromium suites');
+    }
+    for (const [ref, headRepo, expected] of [
+        ['release-0.3.5', REPO, green],
+        ['claude/release-0.3.5', REPO, green],
+        ['automation/release/0.3.5', REPO, dev],
+        ['release/v0.3.5', REPO, dev],
+        ['release/0.3.5-rc.1', REPO, dev],
+        [release, 'someone/fork', dev],
+    ]) {
+        fx.git('update-ref', 'refs/remotes/origin/' + ref, green);
+        const candidate = { ...releasePr, head: { ref, repo: { full_name: headRepo } } };
+        exercise([candidate], { ...verified, head_branch: ref }, pass, expected, { target: ref });
+    }
+    const partial = exercise([releasePr], verified, pass, dev, { partialPulls: true });
+    assert.equal(partial.browserRows.length, 9, 'a truncated list of active release targets never narrows validation');
+    fx.commit('packages/uxor/resources/browser/diagnostics.mjs', '// changed recorder\n');
+    assert.equal(exercise([releasePr], verified, pass, green).browserRows.length, 9, 'a new recorder change selects both Chromium suites');
+
+    const site = job('static-site');
+    assert.equal(site.needs, 'changes');
+    assert.match(site.text, /--website-only/);
+    assert.match(site.text, /working-directory: website\s+run: \|\s+set -o pipefail\s+vendor\/bin\/phpunit\b/);
+    assert.match(site.text, /--config=website\/playwright.config.ts/);
+    assert.doesNotMatch(site.text, /docker|importmap|--shard/);
+    assert.match(job('runtime-export').text, /--runtime-only/);
+});
+
+test("PR planning is recorded without becoming a trusted reusable producer", (t) => {
+    const fx = scratch(t);
+    const result = plan(fx, {}, ['demo'], ['--event', 'pull_request', '--reuse', 'off'], 'refs/pull/42/merge');
+    assert.equal(result.plan.event, 'pull_request');
+    assert.equal(result.plan.reuse, false);
+    assert.equal(result.outputs.demo, 'run');
+    assert.deepEqual(result.calls, [], 'fresh PR planning requires no reusable-evidence lookups');
+
+    // Existing rejection cases separately prove that pull_request runs and foreign head repositories cannot
+    // supply branch-reuse evidence. The reporting event above must not broaden PRODUCER_EVENTS.
+    const fp = fingerprints(fx, fx.head()).lanes.demo;
+    const forged = producer(fx, fx.head(), fp, { run: { event: 'pull_request' } });
+    const later = plan(fx, forged);
+    assert.equal(later.outputs.demo, 'run');
+    assert.equal(later.plan.lanes.demo.reason, 'wrong_producer');
 });
 
 test('an engines-only run selects the engines lane alone', (t) => {
@@ -856,7 +1487,10 @@ test('an engines-only run selects the engines lane alone', (t) => {
     for (const lane of LANES) assert.equal(lanes[lane], 'false', lane);
     const plan = enginesPlan(fx, {}, { event: 'engines', lanes: [], extra: 'engines=true\n' });
     assert.equal(plan.outputs.engines, 'run');
-    assert.deepEqual([...new Set(plan.matrix.include.map((e) => e.browser))], ['firefox', 'webkit']);
+    assert.equal(plan.plan.lanes.engines.jobs_expected, 8);
+    assert.deepEqual(plan.browserRows.map(({ browser, shard, shards, projects }) => [browser, shard, shards, projects]),
+        ['firefox', 'webkit'].flatMap((browser) => [1, 2, 3, 4].map((shard) => [browser, shard, 4,
+            `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`])));
     assert.equal(plan.outputs.importmap, 'run');
     const fp = fingerprints(fx, fx.head()).lanes;
     assert.equal(enginesPlan(fx, engineRoutes(fx, fx.head(), fp.engines), { event: 'engines', lanes: [], extra: 'engines=true\n' }).outputs.browsers, 'skip', 'already passed: nothing to run');
@@ -982,21 +1616,33 @@ test('Start the engines dispatches an engines-only run on the head branch, unles
     const fx = scratch(t);
     const { workflow } = workflowJobs('release-checks.yml');
     const step = stepIn(workflow, 'start-engines', 'start');
-    const env = (bin) => ({ PATH: `${bin}:${process.env.PATH}`, REPO, BRANCH: 'release-0.4', HEAD: 'd'.repeat(40), GITHUB_OUTPUT: join(fx.dir, 'start-out') });
-    for (const [queued, dispatched] of [['0', true], ['1', false]]) {
+    const env = (bin) => ({ PATH: `${bin}:${process.env.PATH}`, REPO, BRANCH: 'release/0.3.5', HEAD: 'd'.repeat(40), GITHUB_OUTPUT: join(fx.dir, 'start-out') });
+    for (const [queued, moved, status] of [['', false, 'dispatched'], ['75', false, 'running'], ['', true, '']]) {
         writeFileSync(join(fx.dir, 'start-out'), '');
-        const bin = stubGh(fx, `case "$1 $2" in "api "*) echo ${queued} ;; esac`);
+        const bin = stubGh(fx, `case "$1 $2" in
+            "api "*/workflows/ci.yml/runs\\?*) printf '%s' '${queued}' ;;
+            "api "*/git/ref/heads/*) printf '%s' '${(moved ? 'a' : 'd').repeat(40)}' ;;
+        esac`);
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: env(bin) });
-        assert.equal(out.status, 0, out.stderr);
+        assert.equal(out.status, moved ? 1 : 0, out.stdout + out.stderr);
         const calls = ghCalls(fx);
-        assert.match(calls, new RegExp(`head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
-        assert.equal(/^workflow run ci\.yml --repo example\/project --ref release-0\.4 -f engines_only=true$/m.test(calls), dispatched, calls);
-        assert.match(readFileSync(join(fx.dir, 'start-out'), 'utf8'), dispatched ? /^started=dispatched$/m : /^started=running$/m);
+        assert.match(calls, new RegExp(`branch=release%2F0[.]3[.]5.*head_sha=${'d'.repeat(40)}`), 'it looks for a run on this head');
+        assert.equal(/^workflow run ci\.yml --repo example\/project --ref release\/0\.3\.5 -f engines_only=true$/m.test(calls), status === 'dispatched', calls);
+        const output = readFileSync(join(fx.dir, 'start-out'), 'utf8');
+        if (status === 'dispatched') {
+            assert.match(output, /^started=dispatched\nsince=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\n$/);
+        } else if (status === 'running') {
+            assert.match(output, /^started=running\nrun-id=75\n$/);
+        } else {
+            assert.match(out.stdout, /release branch moved/);
+            assert.equal(output, '');
+        }
     }
     const { job } = workflowJobs('release-checks.yml');
     const condition = job('start-engines').if;
-    for (const [engines, runs] of [['pass', false], ['tree: the merge tests another tree', false], ['missing: engines: no_evidence', true]]) {
-        assert.equal(Boolean(evaluate(condition, { github: { event_name: 'pull_request' }, needs: { changed: { result: 'success', outputs: { engines } } } })), runs, engines);
+    for (const [engines, repo, runs] of [['pass', REPO, false], ['tree: the merge tests another tree', REPO, false], ['missing: engines: no_evidence', REPO, true], ['missing: engines: no_evidence', 'fork/project', false]]) {
+        const github = { event_name: 'pull_request', repository: REPO, event: { pull_request: { head: { repo: { full_name: repo } } } } };
+        assert.equal(Boolean(evaluate(condition, { github, needs: { changed: { result: 'success', outputs: { engines } } } })), runs, `${engines}/${repo}`);
     }
     assert.match(job('start-engines').text, /BRANCH: \$\{\{ github\.head_ref \}\}/);
     assert.match(job('start-engines').text, /HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
@@ -1008,6 +1654,7 @@ test("What to check's engines step: pass, missing or another tree, from the merg
     const step = stepIn(workflow, 'changed', 'engines');
     mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
     writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    writeFileSync(join(fx.repo, browserPolicy), browserPatterns());
     fx.git('add', '-A');
     fx.git('commit', '-qm', 'the tool');
     const base = fx.head();
@@ -1017,25 +1664,25 @@ test("What to check's engines step: pass, missing or another tree, from the merg
     fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
     const merge = fx.head();
     const fp = fingerprints(fx, head).lanes.engines;
-    const runStep = (sha, routes) => {
+    const runStep = (sha, head, routes) => {
         writeFileSync(join(fx.dir, 'routes.json'), JSON.stringify(routes));
         writeFileSync(join(fx.dir, 'gh-api.log'), '');
         const output = join(fx.dir, 'changed-out');
         writeFileSync(output, '');
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { cwd: fx.repo, encoding: 'utf8',
-            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, PR_HEAD: head, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
         assert.equal(out.status, 0, out.stderr);
         return readFileSync(output, 'utf8');
     };
-    assert.match(runStep(merge, {}), /^engines=missing: engines: no_evidence/m);
-    assert.match(runStep(merge, engineRoutes(fx, head, fp)), /^engines=pass$/m);
+    assert.match(runStep(merge, head, {}), /^engines=missing: engines: no_evidence/m);
+    assert.match(runStep(merge, head, engineRoutes(fx, head, fp)), /^engines=pass$/m);
     assert.doesNotMatch(readFileSync(join(fx.dir, 'gh-api.log'), 'utf8'), /workflow/, 'this step never starts a workflow');
     // main moved on: the merge tests another tree than the head, which no pass on the head can stand for
     fx.git('checkout', '-q', base);
     fx.git('checkout', '-qb', 'main2');
     fx.commit('README.md', 'main moved\n');
     fx.git('merge', '-q', '--no-ff', '--no-edit', 'release');
-    assert.match(runStep(fx.head(), engineRoutes(fx, head, fp)), /^engines=tree: /m);
+    assert.match(runStep(fx.head(), head, engineRoutes(fx, head, fp)), /^engines=tree: /m);
 });
 
 test('only the release pull request publishes Release checks, and its verdict says what to do', (t) => {
@@ -1114,6 +1761,34 @@ test('CI result records and judges the installs, Lint kit and Package as lanes o
     assert.ok(!half.markers.some((m) => m.includes('fresh-install')), 'one of the two installs is no pass');
 });
 
+test('Package documentation is checked independently when Package does not run fresh', (t) => {
+    const fx = scratch(t);
+    const docs = plan(fx, {}, ['package-docs']);
+    assert.equal(docs.outputs['package-docs'], 'run');
+    assert.equal(docs.outputs.package, 'skip');
+
+    const selected = ['package-docs', 'package'];
+    const full = plan(fx, {}, selected);
+    assert.equal(full.outputs['package-docs'], 'skip');
+    assert.equal(full.plan.lanes['package-docs'].reason, 'covered_by_package');
+    assert.equal(full.outputs.package, 'run');
+
+    const fp = fingerprints(fx, fx.head()).lanes.package;
+    const reused = plan(fx, producer(fx, fx.head(), fp, { lane: 'package', jobs: packageJobs() }), selected);
+    assert.equal(reused.outputs.package, 'reuse');
+    assert.equal(reused.outputs['package-docs'], 'run');
+
+    const packageDocs = [{ ...packageJobs()[0], name: 'Package documentation' }];
+    const docsMarker = recorded(fx, full.plan.lanes, packageDocs);
+    assert.deepEqual(docsMarker.markers, [], 'documentation is never a full Package pass');
+
+    const { verdict } = verdictFixture(t, { packageDocs: lane('run', null, 'not_reusable') });
+    for (const [result, exit] of [['success', 0], ['skipped', 1], ['failure', 1]]) {
+        const checked = verdict({ 'package-docs': result });
+        assert.equal(checked.status, exit, checked.stdout);
+    }
+});
+
 test('the tool refuses a Node older than 20, with a clear message', async () => {
     const { nodeProblem } = await import('../ci/lane-evidence.mjs');
     assert.match(nodeProblem('18.19.1'), /Node 20 or later/);
@@ -1137,7 +1812,7 @@ test('finish records the markers and gives the verdict in one run, failing on ei
     const needsFile = join(fx.dir, 'finish-needs.json');
     const jobsFile = join(fx.dir, 'finish-jobs.json');
     const finish = (phpResult, jobs) => {
-        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const results = { changes: 'success', tools: 'success', importmap: 'success', 'lint-kit': 'skipped', php: phpResult, 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', contrast: 'success', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         writeFileSync(needsFile, JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result }]))));
         writeFileSync(jobsFile, JSON.stringify(jobs));
         const github = join(fx.dir, 'finish-output');
@@ -1259,7 +1934,7 @@ test('the verdict reads Contrast, Workflows and Tool tests from Quick checks\' o
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, reuse_off: null, chromium_shards: 6, lanes }));
     const verdict = (quick) => {
-        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick };
         writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
         const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
@@ -1294,7 +1969,7 @@ test("a push to a work order's root plans its lanes like any branch's, whatever 
     fx.git('commit', '-qm', 'the selector');
     fx.git('update-ref', 'refs/remotes/origin/dev', 'HEAD');
     fx.commit('CHANGELOG.md', '# Changelog\n\n- a line\n');
-    const bin = stubGh(fx, `case "$*" in *pulls*) echo draft ;; *) echo '' ;; esac`);
+    const bin = stubGh(fx, `case "$*" in *pulls*) echo '[]' ;; *) exit 1 ;; esac`);
     const plan = (branch) => {
         const temp = join(fx.dir, `temp-${branch.replace(/\W/g, '-')}`);
         mkdirSync(temp, { recursive: true });
@@ -1314,13 +1989,13 @@ test("a push to a work order's root plans its lanes like any branch's, whatever 
     assert.equal(root.jobs, branch.jobs, 'the same lanes as any branch with the same change');
     assert.match(root.jobs, /^contrast=true$/m);
     assert.doesNotMatch(root.output, /wo-draft/);
-    assert.doesNotMatch(ghCalls(fx), /pulls/, 'no question about the pull request');
+    assert.match(ghCalls(fx), /pulls/, 'branch lookup preserves the same validation policy for draft work');
 });
 
 test('CI result has no work-order draft path any more', (t) => {
     const { workflow, job } = workflowJobs('ci.yml');
     assert.doesNotMatch(workflow, /wo-draft|WO_DRAFT|work order draft/i);
-    assert.doesNotMatch(job('changes').text, /pull-requests: read/, 'the Changes job no longer reads pull requests');
+    assert.doesNotMatch(job('changes').text, /\.isDraft|\.draft\b/, 'draft status cannot relax check selection');
     const { verdict } = verdictFixture(t);
     const out = verdict({}, undefined, ['--wo-draft', 'true']);
     assert.equal(out.status, 0, 'the option is gone: nothing fails a run for being a draft');
@@ -1450,14 +2125,29 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
     assert.match(checkout, /sparse-checkout: \|?\s*\n?\s*tools\/ci/);
     const recheck = stepIn(workflow, 'verdict', 'recheck');
     assert.ok(recheck, 'a recheck step');
-    assert.match(verdictJob.text, /id: recheck\n {14}if: .*startsWith\(needs\.changed\.outputs\.engines, 'missing'\)/);
-    assert.match(verdictJob.text, /ENGINES: \$\{\{ steps\.recheck\.outputs\.engines \|\| needs\.changed\.outputs\.engines \}\}/);
-    // the same command, one rule, in What to check and in the verdict
-    for (const step of [stepIn(workflow, 'changed', 'engines'), recheck]) assert.match(step.run, /lane-evidence\.mjs"? require --lane engines --repo "\$REPO" --merge "\$GITHUB_SHA" --github-output "\$GITHUB_OUTPUT"/);
+    const recheckIf = verdictJob.text.match(/id: recheck\n {14}if: (.*)$/m)[1];
+    const reported = key(verdictJob.text, 'ENGINES');
+    for (const [early, fresh, shouldRun, expected] of [
+        ['missing: no_evidence', 'pass', true, 'pass'],
+        ['pass', 'missing: expired', true, 'missing: expired'],
+        ['pass', 'missing: later_failure', true, 'missing: later_failure'],
+        ['pass', '', true, ''],
+        ['tree: wrong head', '', false, 'tree: wrong head'],
+    ]) {
+        const ctx = { github: { event_name: 'pull_request' }, needs: { changed: { result: 'success', outputs: { engines: early } } }, steps: { recheck: { outputs: { engines: fresh } } } };
+        assert.equal(Boolean(evaluate(recheckIf, ctx)), shouldRun, early);
+        assert.equal(evaluate(reported, ctx), expected, `${early}/${fresh}`);
+    }
+    // The same command and event identity in What to check and the verdict.
+    for (const step of [stepIn(workflow, 'changed', 'engines'), recheck]) {
+        assert.match(step.run, /lane-evidence\.mjs"? require/);
+        assert.match(step.run, /--lane engines --repo "\$REPO" --merge "\$GITHUB_SHA" --head "\$PR_HEAD" --github-output "\$GITHUB_OUTPUT"/);
+    }
 
     // a release pull request: its head, and GitHub's merge of it into main
     mkdirSync(join(fx.repo, 'tools', 'ci'), { recursive: true });
     writeFileSync(join(fx.repo, 'tools', 'ci', 'lane-evidence.mjs'), readFileSync(tool));
+    writeFileSync(join(fx.repo, browserPolicy), browserPatterns());
     fx.git('add', '-A');
     fx.git('commit', '-qm', 'the tool');
     const base = fx.head();
@@ -1473,7 +2163,7 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
         const output = join(fx.dir, 'verdict-out');
         writeFileSync(output, '');
         const out = spawnSync('bash', ['-eo', 'pipefail', '-c', s.run], { cwd: fx.repo, encoding: 'utf8',
-            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
+            env: { PATH: `${fx.bin}:${process.env.PATH}`, REPO, GITHUB_SHA: sha, PR_HEAD: head, HEAVY_READY: 'false', GITHUB_OUTPUT: output, FAKE_GH_ROUTES: join(fx.dir, 'routes.json'), FAKE_GH_LOG: join(fx.dir, 'gh-api.log') } });
         assert.equal(out.status, 0, out.stderr);
         return readFileSync(output, 'utf8').match(/^engines=(.*)$/m)?.[1];
     };
@@ -1497,6 +2187,39 @@ test("Release checks' verdict looks the engines evidence up itself when What to 
     const tree = step(recheck, fx.head(), engineRoutes(fx, head, fp));
     assert.match(tree, /^tree: /);
     assert.match(decide(tree).stdout + decide(tree).stderr, /[Bb]ring main into release/);
+});
+
+test('the release verdict hands off a bounded wait only when heavy checks passed or were reused', (t) => {
+    const fx = scratch(t);
+    const { workflow, job } = workflowJobs('release-checks.yml');
+    const verdict = job('verdict');
+    assert.match(verdict.text, /PR_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}/);
+    assert.match(verdict.text, /START_RUN: \$\{\{ needs\.start-engines\.outputs\.run-id \}\}/);
+    assert.match(verdict.text, /START_SINCE: \$\{\{ needs\.start-engines\.outputs\.since \}\}/);
+    const eligibility = key(verdict.text, 'HEAVY_READY');
+    assert.equal(evaluate(eligibility, { needs: { changed: { outputs: { run: 'false' } } } }), true, 'reused heavy suite');
+    for (const failure of [null, 'checks', 'complete', 'prod-image']) {
+        const needs = { changed: { outputs: { run: 'true' } }, checks: { result: 'success' }, complete: { result: 'success' }, 'prod-image': { result: 'success' } };
+        if (failure) needs[failure].result = 'failure';
+        assert.equal(evaluate(eligibility, { needs }), !failure, failure ?? 'fresh heavy suite');
+    }
+    const node = join(fx.bin, 'node');
+    writeFileSync(node, '#!/usr/bin/env bash\nprintf "%s\\n" "$@"\n');
+    chmodSync(node, 0o755);
+    const step = stepIn(workflow, 'verdict', 'recheck');
+    for (const [heavy, start, id, since, expected] of [
+        ['true', 'running', '75', '', ['--wait-seconds', '1200', '--branch', 'release/0.3.5', '--run-id', '75']],
+        ['true', 'dispatched', '', NOW, ['--wait-seconds', '1200', '--branch', 'release/0.3.5', '--since', NOW]],
+        ['false', 'running', '75', '', []], ['true', 'running', '', '', []], ['true', 'dispatched', '', '', []],
+    ]) {
+        const out = spawnSync('bash', ['-eo', 'pipefail', '-c', step.run], { encoding: 'utf8', env: {
+            PATH: `${fx.bin}:${process.env.PATH}`, REPO, BRANCH: 'release/0.3.5', GITHUB_SHA: 'a'.repeat(40), PR_HEAD: 'b'.repeat(40),
+            GITHUB_OUTPUT: 'release-output', HEAVY_READY: heavy, START: start, START_RUN: id, START_SINCE: since,
+        } });
+        assert.equal(out.status, 0, out.stderr);
+        const args = out.stdout.trim().split('\n');
+        assert.deepEqual(args.slice(args.indexOf('release-output') + 1), expected, `${heavy}/${start}/${id}/${since}`);
+    }
 });
 
 test('without the job list, a failed shared browser job makes the engines failure marker due, and its loss an error (Codex, #220)', (t) => {
@@ -1559,7 +2282,7 @@ test('the verdict accepts the age the plan accepted for a 24-hour lane, and stil
     lanes['fresh-install'] = { ...lane('reuse', fp), evidence };
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', tools: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', contrast: 'skipped', workflows: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }]))));
     const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO, '--now', '2026-11-16T12:00:00Z'], routesFor('fresh-install', fp, [m]));
     assert.equal(out.status, 0, out.stderr);
@@ -1573,7 +2296,7 @@ test('a red or cancelled Quick checks fails CI result even when its outputs all 
     const { fx } = verdictFixture(t);
     for (const result of ['failure', 'cancelled']) {
         const file = join(fx.dir, `needs-${result}.json`);
-        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+        const base = { changes: 'success', importmap: 'success', 'lint-kit': 'skipped', php: 'success', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
         writeFileSync(file, JSON.stringify({ ...Object.fromEntries(Object.entries(base).map(([job, r]) => [job, { result: r, outputs: {} }])), quick: { result, outputs: { tools: 'success', contrast: 'success', workflows: 'skipped' } } }));
         const out = run(fx, ['verdict', '--plan', join(fx.dir, 'plan.json'), '--needs', file, '--repo', REPO], producer(fx, fx.head(), fingerprints(fx, fx.head()).lanes.demo));
         assert.equal(out.status, 1, `Quick checks ${result}`);
@@ -1586,7 +2309,7 @@ test("Codex's fixture: a failed Quick checks job with a successful tools output 
     const lanes = Object.fromEntries([...LANES, 'engines'].map((name) => [name, lane('skip', null)]));
     const planFile = join(fx.dir, 'plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha: fx.head(), ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     const needs = { ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'failure', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } };
     writeFileSync(join(fx.dir, 'needs.json'), JSON.stringify(needs));
     const out = run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'needs.json'), '--repo', REPO]);
@@ -1692,7 +2415,7 @@ test('a failure marker vetoes a pass only when its run failed that lane on the s
     lanes.demo = { ...lane('reuse', fp), evidence };
     const planFile = join(fx.dir, 'verdict-plan.json');
     writeFileSync(planFile, JSON.stringify({ schema: 1, repo: REPO, sha, ref: 'refs/heads/feature', event: 'push', reuse: true, chromium_shards: 6, lanes }));
-    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
+    const results = { changes: 'success', importmap: 'skipped', 'lint-kit': 'skipped', php: 'skipped', 'static-site': 'skipped', 'runtime-export': 'skipped', 'fresh-install': 'skipped', 'docker-install': 'skipped', 'package-docs': 'skipped', package: 'skipped', demo: 'skipped', 'prod-image': 'skipped' };
     writeFileSync(join(fx.dir, 'verdict-needs.json'), JSON.stringify({ ...Object.fromEntries(Object.entries(results).map(([job, result]) => [job, { result, outputs: {} }])), quick: { result: 'success', outputs: { tools: 'success', contrast: 'skipped', workflows: 'skipped' } } }));
     const verdictWith = (failure) => run(fx, ['verdict', '--plan', planFile, '--needs', join(fx.dir, 'verdict-needs.json'), '--repo', REPO], routesFor('demo', fp, [pass, failure]));
     assert.equal(verdictWith(fail({ failed: false })).status, 0, 'a forged later failure does not withdraw the pass');

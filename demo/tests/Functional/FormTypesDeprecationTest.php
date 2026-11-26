@@ -8,7 +8,7 @@ use Symfony\Component\Form\FormTypeInterface;
 
 /**
  * Every form type of the demo builds, and gives its view, without a deprecation: a package update that deprecates an
- * option the demo passes (UX Dropzone 3.7's `attr.placeholder`) fails here, not only in a log. The deprecation is
+ * option the demo passes (UX Dropzone's `attr.placeholder`) fails here, not only in a log. The deprecation is
  * triggered inside the vendor's option normalizer, which PHPUnit counts as indirect and this suite ignores
  * (`ignoreIndirectDeprecations`), so the test collects them itself.
  */

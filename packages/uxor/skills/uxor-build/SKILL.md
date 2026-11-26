@@ -1,35 +1,49 @@
 ---
 name: uxor-build
-description: Build a complete Symfony application interaction with existing UXor components, forms, Stimulus and Turbo, preserving the project's customized code.
+description: Use to understand, build or refactor a consuming Symfony application's feature with UXor components, Serena/Mago source tools, native Makers, Forms, Stimulus and Turbo.
 ---
 
-# Build with UXor
+# Understand and build an application feature
 
-Use this skill when implementing an application page or interaction with UXor.
-
-## Find guidance on demand
-
-Find relevant components with `uxor_catalog` using `query`. To browse more results, pass a returned `data.next_offset` as `offset`. The `uxor://catalog` resource shows the first page. Read `uxor://reference/<recipe>/README.md` for the selected components' contracts, examples and follow-up integration. Read `uxor://reference/docs/GUIDE.md` for the relevant Turbo, Live Component and security behavior. `uxor://reference/docs/PROJECT-AGENTS-SNIPPET.md` contains UXor's practical project conventions.
-
-Run `resources:read <uri> --format=json` with the project's configured Mate invocation. Without that surface, locate the same documents at `vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` (the default Composer vendor directory; use the application's actual one). The digest of the UXor files they are generated from is recorded in the package's `packages/uxor/resources/uxor/index.json`. These documents describe reference behavior; inspect the application's installed copies too.
-
-For bounded sections of long documents, inspect and use the installed `uxor_reference` tool. Keep catalog selection compact, then load detail for the chosen components.
-
-For a searchable list with an editor, validation and save feedback, read `uxor://workflow/customer-management` or use the bounded `uxor_workflow` tool. This guide, written for the UXor package rather than generated from the recipe READMEs, shows how the components connect to application code. It also ships at `vendor/xormania/uxor/packages/uxor/resources/workflows/customer-management.md`.
+Follow the application's instructions and authorized task. Preserve its customized components and business code.
 
 ## Procedure
 
-1. State the complete user journey: initial page, loading/empty state, inputs, validation, successful action, affected content, feedback, focus and intended Back/Forward behavior. Choose how Turbo Drive, Frames, Streams and Live Components participate in that journey.
-2. Inspect the existing application and choose the smallest existing UXor components or block that cover it. Read their docs before composing them. Use the `mate-uxor-setup` skill to install missing components and complete their dependencies.
-3. Reuse Symfony Forms, validation, routing and installed Makers for application wiring. Add business code in the application's own classes. Installed UXor PHP commonly lives under `App\UXor\`; inspect its actual autoloading and service configuration rather than relying on the demo's sibling-directory wiring.
-4. Follow the selected components' contracts. Preserve stable identifiers where Turbo/Live needs them. Use their Stimulus behavior and cleanup; avoid a second initialization system. For the reviewed reference profile, Flowbite supplies CSS while component behavior lives in Stimulus. Follow the selected version's theme roles, icon handling and CSP requirements.
-5. Complete the interaction across updates. Handle invalid submitted forms and successful redirects with the documented response behavior. Deliver toast feedback through the documented stream mechanism, including when its region is permanent. For record lists, choose the table variant whose history and update behavior match the journey. Review file-upload and editor-specific integration when those components are used.
-6. Run the `mate-uxor-verify` procedure against the served page and inspect the actual change before declaring completion.
+1. Define the requested journey: initial/loading/empty states, inputs, validation, successful action, updated
+   content, feedback, focus and Back/Forward behavior. Select the relevant Turbo or Live transitions.
+2. Inspect the application with its existing tools. Use `vendor/bin/mago` for native checks. For a Serena launch or a containerized Mago check, review the application and its extensions, then place
+   `--trust-project-code` before the `vendor/bin/uxor-mago` subcommand. Use Serena
+   for symbols, bodies, definitions and references.
+   Use Mate for compiled service detail and a fresh prepared graph for concrete wiring when useful.
+   Analysis dependencies do not establish measured calls or a complete application graph.
+3. Search the UXor catalog and inspect installed/customized components. Use `mate-uxor-setup` for missing
+   tools, components or dependencies. Discover installed Maker options before generation.
+4. Implement application-owned classes and wiring with Symfony Forms, validation and routing.
+   Use semantic edits when appropriate; the UXor wrapper mounts the checkout read-only by default. For an authorized edit, add `--write` before
+   the `serena` or Mago subcommand in addition to execution trust. Writable access includes
+   repository metadata. Re-query after edits instead of applying stale ranges.
+5. Follow the selected component contracts for identifiers, Stimulus cleanup, theme roles, icons and CSP.
+   Complete validation responses, redirects, feedback and the intended Turbo/Live update behavior.
+6. Use native Mago PHP/Twig formatting, lint, analysis and supported fixes. Inspect the diff and native findings.
+   Run focused application tests. Refresh with `uxor prepare --trust-project-code` before relying on stale
+   compiled facts; environment changes and untracked imported configuration require an explicit refresh too.
+7. Use `mate-uxor-verify` for the served interaction. After an interrupted mutation, inspect the actual state
+   before retrying.
 
-## Use source and runtime tools together
+## References
 
-Serena can navigate and edit PHP/JavaScript source when available. Inspect Twig, YAML, route attributes, service identifiers and Stimulus conventions with text search as needed: an empty semantic-reference result does not establish that these entry points are unused. Mate supplies application/runtime evidence from the selected project. Confirm both tools address the same checkout and runtime.
+Search `uxor_catalog`, continue with `data.next_offset` and read the selected
+`uxor://reference/<recipe>/README.md`. Consult `uxor://reference/docs/GUIDE.md` for component,
+Turbo/Live and security contracts. For a matching list/edit/save journey, read
+`uxor://workflow/customer-management` or use bounded `uxor_workflow`.
 
-After an interrupted edit or failed REPL cell, inspect resulting files and changes before retrying. A reconnect can lose session variables while filesystem changes remain.
+Use the application's configured Mate CLI for `resources:read` and `tools:inspect`; use `uxor_reference`
+for bounded pages. Packaged guidance is also under `vendor/xormania/uxor/packages/uxor/` with the
+default vendor directory. Its `OPERATIONS.md` explains source operations, preparation scope and diagnosis.
+Use the application's actual vendor directory and inspect its installed source before relying on references.
 
-Report what the journey now does, the components reused, checks performed and specific remaining failures or unknowns.
+Report delivered behavior, reused components, checks performed and specific remaining failures or unknowns.
+
+If Mate resources are unavailable, read bundled guides under
+`vendor/xormania/uxor/packages/uxor/resources/uxor/docs/` and append the indexed reference path.
+Replace `vendor` with the application's configured Composer vendor directory.

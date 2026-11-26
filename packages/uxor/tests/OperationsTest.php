@@ -209,11 +209,29 @@ PHP);
         self::assertSame('symfony-profiler://profile/abc123', $result['data']['responses'][0]['profileUri']);
         self::assertArrayNotHasKey('headers', $result['data']['responses'][0]);
         self::assertArrayNotHasKey('dropped', $result['data']);
+        self::assertArrayNotHasKey('visit', $result['data']);
         self::assertSame($request + ['error' => 'net::ERR_ABORTED'], $result['data']['requestFailures'][0]);
         self::assertSame('AbortError', $result['data']['pageErrors'][0]['name']);
 
         $mate = new Capabilities($this->operations, $root);
         self::assertSame($result, ResponseEncoder::decode($mate->browserDiagnostics($path))['untrusted_data']);
+    }
+
+    public function testStandaloneBrowserVisitReportsHttpAndNavigationFailuresWithoutAProfile(): void
+    {
+        $root = $this->directory.'/app';
+        $path = 'browser-diagnostics.json';
+        $base = ['version' => 1, 'responses' => [], 'requestFailures' => [], 'pageErrors' => []];
+        $mate = new Capabilities($this->operations, $root);
+        foreach ([[503, null, 'HTTP 503'], [200, 'Selector timed out', 'visit error'], [null, 'Connection refused', 'visit error']] as [$status, $error, $summary]) {
+            $visit = ['url' => 'http://127.0.0.1/orders', 'status' => $status, 'error' => $error];
+            file_put_contents($root.'/'.$path, json_encode($base + ['visit' => $visit + ['headers' => ['ignored']]], JSON_THROW_ON_ERROR));
+            $result = $this->operations->run('browser-diagnostics', ['project_root' => $root, 'path' => $path]);
+            self::assertSame('completed', $result['status']);
+            self::assertStringContainsString($summary, $result['summary']);
+            self::assertSame($visit, $result['data']['visit']);
+            self::assertSame($result, ResponseEncoder::decode($mate->browserDiagnostics($path))['untrusted_data']);
+        }
     }
 
     public function testBrowserDiagnosticsRejectsEscapingPathsAndNonArtifactFiles(): void
@@ -239,6 +257,8 @@ PHP);
         $artifact = $root.'/browser-diagnostics.json';
         foreach (['{"version":2}', '{"version":1,"responses":{},"requestFailures":[],"pageErrors":[]}',
             '{"version":1,"responses":[{"requestId":1,"token":"../escape","method":"GET","url":"http://localhost","status":200,"turboFrame":null}],"requestFailures":[],"pageErrors":[]}',
+            '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[],"visit":{"url":"http://localhost","status":700,"error":null}}',
+            '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[],"visit":{"url":"http://localhost","status":null}}',
             '{"version":1,"responses":[],"requestFailures":[],"pageErrors":[],"dropped":{"responses":0,"requestFailures":0,"pageErrors":-1}}'] as $document) {
             file_put_contents($artifact, $document);
             $result = $this->operations->run('browser-diagnostics', $arguments);

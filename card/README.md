@@ -18,6 +18,8 @@ Use these responsive card components to show data entries and information to you
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=card#recipes). To install `card` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component card --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -39,6 +41,8 @@ Use these responsive card components to show data entries and information to you
 ### Card with button
 
 Use the following example of a card element if you also want to have an action button.
+
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <twig:Card class="max-w-sm">
@@ -62,6 +66,8 @@ Use the following example of a card element if you also want to have an action b
 ### Card with image
 
 Use this alternative styled card with an image for features, blog posts, and more.
+
+For this example, install the [badge](../badge/README.md) and [button](../button/README.md) recipes and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <twig:Card class="max-w-sm">
@@ -97,6 +103,8 @@ Use this alternative styled card with an image for features, blog posts, and mor
 ### Card with form inputs
 
 Use this card example where you can add form input elements that can be used for authentication actions or any other context where you need to receive information from your users.
+
+For this example, install the [button](../button/README.md), [checkbox](../checkbox/README.md), [input](../input/README.md), and [label](../label/README.md) recipes.
 
 ```twig {"preview":true}
 <twig:Card class="w-full max-w-sm">

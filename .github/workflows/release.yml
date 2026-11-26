@@ -76,7 +76,7 @@ jobs:
                   echo "To release: ${versions:- none}"
 
             # before any install check: a tag that points at another commit than the one that adds its heading fails
-            # the run here (move or delete the tag by hand, CONTRIBUTING.md, Releases)
+            # the run here. See CONTRIBUTING.md, Releases, for checking a tag conflict against Packagist.
             - name: Plan the tags
               id: plan
               if: steps.versions.outputs.versions != ''
@@ -247,7 +247,7 @@ jobs:
                   artifact: jev-input-release-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
 
     pages:
-        name: Publish the gallery
+        name: Publish documentation and demo
         needs: [check, release]
         if: needs.release.outputs.versions != ''
         permissions:

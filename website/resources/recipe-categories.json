@@ -1,0 +1,106 @@
+[
+  {
+    "title": "Theme",
+    "recipes": [
+      "theme",
+      "theme-toggle"
+    ]
+  },
+  {
+    "title": "Shared code",
+    "recipes": [
+      "floating",
+      "navigation",
+      "turbo"
+    ]
+  },
+  {
+    "title": "Basic components",
+    "recipes": [
+      "alert",
+      "avatar",
+      "badge",
+      "button",
+      "button-group",
+      "card",
+      "checkbox",
+      "dropdown",
+      "indicator",
+      "input",
+      "kbd",
+      "label",
+      "modal",
+      "pagination",
+      "radio",
+      "select",
+      "skeleton",
+      "spinner",
+      "table",
+      "tabs",
+      "textarea",
+      "toggle"
+    ]
+  },
+  {
+    "title": "More components",
+    "recipes": [
+      "breadcrumb",
+      "calendar",
+      "chart",
+      "data-table",
+      "data-table-live",
+      "date-picker",
+      "drawer",
+      "empty-state",
+      "mobile-nav",
+      "nav-menu",
+      "navbar",
+      "oauth-provider-button",
+      "page-header",
+      "popover",
+      "progress",
+      "section-nav",
+      "side-nav",
+      "sidebar",
+      "stat-card",
+      "toast",
+      "tooltip"
+    ]
+  },
+  {
+    "title": "Forms",
+    "recipes": [
+      "form-theme",
+      "form-field",
+      "autocomplete",
+      "dropzone",
+      "editor",
+      "markdown-editor"
+    ]
+  },
+  {
+    "title": "Authentication",
+    "recipes": [
+      "oauth"
+    ]
+  },
+  {
+    "title": "Layouts",
+    "recipes": [
+      "layouts"
+    ]
+  },
+  {
+    "title": "Blocks",
+    "recipes": [
+      "dashboard-home",
+      "login",
+      "social-login",
+      "signup",
+      "forgot-password",
+      "settings-profile",
+      "connected-accounts",
+      "not-found"
+    ]
+  }
+]

@@ -6,6 +6,8 @@ Page layouts to extend: an app shell with sidebar, navbar with its menu, and mob
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=layouts#recipes). To install `layouts` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component layouts --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 The recipe copies six templates to `templates/layouts/`. Extend one from a page:

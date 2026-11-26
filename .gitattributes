@@ -1,12 +1,19 @@
-# The UX Toolkit installs a kit from GitHub's archive of the whole repository
-# (archive/<version>.zip). Keep everything that is not part of the kit out of it.
+# The UX Toolkit kit and the Composer development package install from GitHub's
+# archive of this repository (archive/<version>.zip). Keep their shipped files;
+# exclude contributor configuration, fixtures, development tools and build output.
 /.github export-ignore
 /demo export-ignore
+/website export-ignore
 /docs export-ignore
 /tests export-ignore
 /tools export-ignore
 # PHP development tools and project MCP configuration
 /.codex export-ignore
+/.claude export-ignore
+/.agents export-ignore
+# Personal instructions and local client settings stay out of working-tree archives too
+CLAUDE.local.md export-ignore
+**/.claude/settings.local.json export-ignore
 /.mcp.json export-ignore
 /mago.toml export-ignore
 # Recipe tests and screenshot baselines are not installed by ux:install

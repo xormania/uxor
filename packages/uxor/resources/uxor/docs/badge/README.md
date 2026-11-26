@@ -17,6 +17,8 @@ The badge component can be used to complement other elements such as buttons or 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=badge#recipes). To install `badge` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component badge --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 When `as="a"`, `href` keeps a relative, `http(s)`, `mailto` or `tel` URL. Any other scheme renders `#`.
@@ -95,6 +97,8 @@ You can also use badges as anchor elements to link to another page.
 ### Badges with icon
 
 You can also use [SVG icons](https://ux.symfony.com/icons) inside the badge elements.
+
+For this example, install Symfony UX Icons with `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <div class="flex flex-wrap justify-center gap-4">

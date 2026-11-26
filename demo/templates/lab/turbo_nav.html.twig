@@ -23,11 +23,11 @@
                     </twig:Sidebar:Item>
                 {% endfor %}
             </twig:Sidebar:Group>
-            <twig:Sidebar:Group label="Recipes">
-                {% for recipe in recipes %}
-                    <twig:Sidebar:Item href="{{ path('app_recipe', {recipe: recipe.name}) }}">
+            <twig:Sidebar:Group label="Scenarios">
+                {% for name in scenarios %}
+                    <twig:Sidebar:Item href="{{ path('app_lab_' ~ name|replace({'-': '_'})) }}">
                         <twig:block name="icon"><twig:ux:icon name="flowbite:chart-pie-outline" class="size-5" /></twig:block>
-                        {{ recipe.name }}
+                        {{ name }}
                     </twig:Sidebar:Item>
                 {% endfor %}
             </twig:Sidebar:Group>

@@ -16,6 +16,8 @@ A provider login or registration card with authentication feedback and optional 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=social-login#recipes). To install `social-login` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component social-login --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `SocialLogin` owns the authentication card: a page heading, provider choices, feedback, optional password form and a link to the other authentication mode. The `oauth-provider-button` recipe supplies every provider link's full browser navigation and prefetch policy.

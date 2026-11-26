@@ -261,18 +261,16 @@ for (const system of ['dark', 'light'] as const) {
         test.use({ colorScheme: system });
 
         test(`the month and year options are readable: the page and the ${theme} preview use the ${theme} color scheme`, async ({ page }) => {
-            await page.goto('/');
-            await page.evaluate((theme) => localStorage.setItem('theme', theme), theme);
-            await page.goto('/r/calendar');
+            await page.addInitScript((theme) => localStorage.setItem('theme', theme), theme);
+            await page.goto('/lab/turbo-nav/one');
             await expect(page.locator('html')).toHaveClass('dark' === theme ? /\bdark\b/ : /^(?!.*\bdark\b)/);
             expect.soft(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme), 'page color-scheme').toBe(theme);
 
-            const example = page.getByTestId('example').first();
-            const frame = example.locator(`iframe[title$="(${theme})"]`).contentFrame();
-            const calendar = frame.getByRole('group', { name: 'Calendar' });
+            await page.goto(`/preview/calendar/default?theme=${theme}`);
+            const calendar = page.getByRole('group', { name: 'Calendar' });
             await expect(calendar.getByLabel('Month', { exact: true })).toBeAttached();
 
-            const result = await frame.locator('html').evaluate((html, system) => {
+            const result = await page.locator('html').evaluate((html, system) => {
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d', { willReadFrequently: true })!;
                 // any CSS color (oklch included) as sRGB with alpha, through a canvas

@@ -3,54 +3,143 @@
 # Which CI jobs a change could affect. Reads the changed paths, one per line, on stdin and prints one
 # `<job>=true|false` line per job of .github/workflows/ci.yml, for $GITHUB_OUTPUT. A job is skipped only when none of
 # the paths could change what it checks. A path not listed counts as part of the kit, which runs every job but
-# Contrast, Workflows and Package (a recipe's templates and markdown run Contrast too, its README.md and manifest.json
-# Package too: the package's generated references copy them). A workflow runs Workflows
+# Contrast, Workflows and the package checks (a recipe's templates and markdown run Contrast too, its README.md
+# and manifest.json affect the package's catalog). Recipe inputs of the customer workflow and lifecycle
+# tests also select Package. A workflow runs Workflows
 # (actionlint) and the jobs that run the same commands it runs; a workflow or a file under .github/ that is not listed
 # runs everything. Tool tests runs on every push, so a file only it reads selects no job; it also checks the package's
 # references, its archive and the test inventory, which a renamed or added file anywhere can break.
 #
-# Usage: git diff --name-only --no-renames <base> HEAD | tools/ci-changes.sh
+# Usage: git diff --name-only --no-renames <base> HEAD | tools/ci-changes.sh <base>
 # Test:  tools/tests/ci-changes.sh
 
 set -euo pipefail
 
-jobs=(lint-kit php static-site fresh-install contrast demo workflows package prod-image)
+base=${1:-}
+jobs=(lint-kit php static-site runtime-export fresh-install contrast demo demo-app workflows package-docs package prod-image)
 declare -A run
 for job in "${jobs[@]}"; do run[$job]=false; done
 
 all() { for job in "${jobs[@]}"; do run[$job]=true; done; }
 on() { for job in "$@"; do run[$job]=true; done; }
 
+# Without a readable comparison for these mixed-purpose files, run the full package checks.
+same_composer_install_inputs() {
+    [[ $base =~ ^[0-9a-f]{40}$ && -f composer.json && ! -L composer.json ]] || return 1
+    local before after
+    local filter='if type == "object" and (.scripts | type == "object")
+        then del(.scripts."docs:generate", .scripts."docs:check")
+        else error("not a Composer manifest with scripts") end'
+    # Object order can matter to Composer, for example with named repositories.
+    before=$(git show "$base:composer.json" | jq -ce "$filter") || return 1
+    after=$(jq -ce "$filter" composer.json) || return 1
+    [ "$before" = "$after" ]
+}
+
+release_heading() {
+    # Match the archive lifecycle's release_target(), including Git subprocess newline normalization.
+    python3 -c '
+import re
+import sys
+
+text = sys.stdin.read().replace("\r\n", "\n").replace("\r", "\n")
+number = r"(?:0|[1-9][0-9]*)"
+heading = re.search(rf"^## \[{number}\.{number}\.{number}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.MULTILINE)
+if heading:
+    print(heading.group(0))
+'
+}
+
+same_release_heading() {
+    [[ $base =~ ^[0-9a-f]{40}$ && -f CHANGELOG.md && ! -L CHANGELOG.md ]] || return 1
+    local before after
+    before=$(git show "$base:CHANGELOG.md" | release_heading) || return 1
+    after=$(release_heading < CHANGELOG.md) || return 1
+    [ -n "$before" ] && [ "$before" = "$after" ]
+}
+
+consumer_recipe_inputs() {
+    local roots manifest entries recipe kind value index
+    local -a queue
+    local -A seen=()
+    roots=packages/uxor/dev/workflow-recipes.json
+    [ -f "$roots" ] && [ ! -L "$roots" ] || return 1
+    entries=$(jq -er '.[]' "$roots") || return 1
+    mapfile -t queue <<< "$entries"
+    # check-package.py's upgrade scenario installs and customizes Kbd in the consumer application.
+    queue+=(kbd)
+    for ((index=0; index<${#queue[@]}; index++)); do
+        recipe=${queue[index]}
+        [[ $recipe =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || return 1
+        [ -z "${seen[$recipe]:-}" ] || continue
+        seen[$recipe]=1
+        manifest=$recipe/manifest.json
+        [ -f "$manifest" ] && [ ! -L "$manifest" ] || return 1
+        entries=$(jq -r '
+            def canonical_source:
+                if length == 0 or startswith("/") or contains("\\") or test("(^|/)\\.\\.(/|$)|^[A-Za-z]:")
+                then error("invalid copy-files source")
+                else split("/") | map(select(. != "" and . != ".")) | join("/") end;
+            (."copy-files" // {} | keys[] | ["source", canonical_source] | @tsv),
+            (.dependencies.recipe // [] | .[] | ["dependency", .] | @tsv)
+        ' "$manifest") || return 1
+        while IFS=$'\t' read -r kind value; do
+            case "$kind" in
+                source)
+                    [[ $value != *\\* ]] || return 1
+                    if [ -z "$value" ]; then printf '%s\n' "$recipe"
+                    else printf '%s/%s\n' "$recipe" "$value"; fi
+                    ;;
+                dependency) queue+=("$value") ;;
+            esac
+        done <<< "$entries"
+    done
+}
+
+# The publisher and package share this catalog. A newly added guide must select its
+# consumers whatever directory its source lives in. A malformed catalog runs both.
+guide_paths=$(jq -er '
+    if type == "object" and all(.[]; (.file | type == "string" and length > 0))
+    then .[].file else error("invalid guide catalog") end
+' packages/uxor/resources/guides.json) || guide_paths='*'
+consumer_inputs=
 while IFS= read -r path; do
     [ -n "$path" ] || continue
+    if [[ $guide_paths == '*' || $'\n'$guide_paths$'\n' == *$'\n'"$path"$'\n'* ]]; then
+        on static-site package-docs
+    fi
     case "$path" in
+        # The standalone website owns its templates, dependencies, static browser tests and assets.
+        website/*) on static-site ;;
         # The workflow, this script and the lanes' plan and verdict (tools/ci/lane-evidence.mjs: what runs, what is
         # reused, what passes) decide what runs: a change to any of them runs everything
         .github/workflows/ci.yml | tools/ci-changes.sh | tools/tests/ci-changes.sh | tools/ci/lane-evidence.mjs) all ;;
 
-        # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php: its GUIDES,
-        # the kit's manifest.json and each recipe's README.md and manifest.json, the last ones with the kit below):
-        # Package checks the copies are up to date (generate-reference.php --check)
-        # docs/GUIDE.md is also a page of the gallery (/guide, /guide.md: demo/src/Kit/GuideDocs.php): Kit PHP's tests
-        # render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production image
-        # serves its own copy
-        docs/GUIDE.md) on php static-site demo contrast package prod-image ;;
-        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | FOR-AGENTS.md) on contrast package ;;
+        # The Composer package's generated references copy these (packages/uxor/tools/ReferenceGenerator.php).
+        docs/GUIDE.md) on static-site contrast package-docs ;;
+        docs/RECIPES.md | docs/PROJECT-AGENTS-SNIPPET.md | docs/TESTING.md | docs/APPLICATION-TESTING.md | FOR-AGENTS.md) on contrast package-docs ;;
         # the production image holds them too (demo/Dockerfile.dockerignore)
         LICENSE | NOTICE) on package prod-image ;;
 
-        # Read by people and agents: Contrast checks the generated lists, the plans' status (tools/llms-txt.mjs
-        # reads CHANGELOG.md for the links' ref) and what the markdown teaches (tools/docs-lint.mjs)
-        docs/* | CHANGELOG.md | CONTRIBUTING.md | AGENTS.md | SECURITY.md) on contrast ;;
+        # The lifecycle consumes the release heading. Prose changes still check generated references.
+        CHANGELOG.md)
+            on contrast
+            if same_release_heading; then on package-docs; else on package; fi
+            ;;
+        # Read by people and agents: Contrast checks the generated lists, the plans' status and what the markdown teaches.
+        docs/* | CONTRIBUTING.md | AGENTS.md | SECURITY.md) on contrast ;;
         .github/pull_request_template.md) on contrast ;;
         .github/dependabot.yml) ;;
 
         # The other workflows. CI cannot run them (they deploy, tag or upload), so it runs the jobs that run what they
         # run: pages.yml builds the static site, release.yml checks the install from GitHub (docker-install.sh) and
         # calls pages.yml. audit.yml and codeql.yml run themselves on the pull request that changes them.
-        .github/workflows/pages.yml) on static-site workflows ;;
-        .github/workflows/release.yml) on static-site fresh-install workflows ;;
-        .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/actionlint.yaml) on workflows ;;
+        .github/workflows/pages.yml) on static-site runtime-export workflows ;;
+        .github/workflows/release.yml) on static-site runtime-export fresh-install workflows ;;
+        .github/workflows/audit.yml | .github/workflows/codeql.yml | .github/workflows/browser-provider.yml) on workflows ;;
+        # refresh-images.yml runs on its schedule and by hand, never on a push: actionlint only. Its updater's cases
+        # (tools/ci/image-refresh.mjs) run in Tool tests, on every run
+        .github/workflows/refresh-images.yml) on workflows ;;
         # monthly.yml runs on its schedule and by hand on dev, never on a push, and no job here runs what it runs (the
         # browser tests' opt-in coverage, tests/e2e/coverage.ts, is part of the browser tests below)
         .github/workflows/monthly.yml) on workflows ;;
@@ -62,7 +151,7 @@ while IFS= read -r path; do
         .github/workflows/release-checks.yml) on workflows ;;
         # jev.yml and metadata.yml run on their own events, never in CI: actionlint only. CODEOWNERS and the mentions'
         # allowlist are read by Tool tests (the security policy, the mention check's cases), on every run
-        .github/workflows/jev.yml | .github/workflows/metadata.yml | .github/workflows/php-analysis-comparison.yml) on workflows ;;
+        .github/workflows/jev.yml | .github/workflows/metadata.yml) on workflows ;;
         .github/CODEOWNERS | .github/mention-allowlist) ;;
         .github/*) all ;;
 
@@ -72,45 +161,55 @@ while IFS= read -r path; do
         # file is export-ignored and only the package installs from it. .gitattributes decides what both archives hold.
         # The package's markdown runs Contrast too (the markdown rule below); .gitattributes, another directory under
         # packages/ and the references' inputs in the kit are below, with the kit.
-        # The demo's Playwright fixtures also import the browser recorder shipped by the package.
-        packages/uxor/resources/browser/*) on package demo ;;
-        composer.json) on package ;;
+        packages/uxor/resources/guides.json | packages/uxor/README.md | packages/uxor/OPERATIONS.md) on static-site contrast package-docs ;;
+        packages/uxor/INSTRUCTIONS.md | packages/uxor/resources/uxor/docs/* | packages/uxor/resources/uxor/index.json | packages/uxor/tests/ReferenceBundleTest.php | packages/uxor/tools/ConfigurationGuide.php | packages/uxor/tools/PackageInstallGuide.php | packages/uxor/tools/ReferenceGenerator.php | packages/uxor/tools/generate-command-guide.php | packages/uxor/tools/generate-reference.php) on package-docs ;;
+        packages/.gitattributes | packages/uxor/.gitattributes | packages/uxor/resources/.gitattributes) on contrast demo package ;;
+        packages/uxor/resources/browser/*) on package demo demo-app ;;
+        composer.json)
+            if same_composer_install_inputs 2>/dev/null; then on package-docs; else on package; fi
+            ;;
         composer.lock | packages/uxor/*) on package ;;
 
-        # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs exist, the accessibility
-        # scan's list of lab pages and, below, the PHPUnit tests, the lab's routes and which recipes ship a controller
+        # The browser tests and their tools. tools/test-inventory.mjs (Contrast) reads which specs and PHPUnit tests
+        # exist and which recipes ship a controller.
+        # Kit PHP's LabPageInventoryTest and the browser accessibility scan read the same list of lab pages.
+        tests/e2e/lab-pages.json) on php demo ;;
         # The release checks' own specs and their leak detector run in the release projects only (playwright.config.ts,
         # with RELEASE_CHECKS: release-checks.yml), never in CI's browser job; the inventory names the specs, and the
         # detector's cases run in Tool tests
         tests/e2e/release.*.spec.ts) on contrast ;;
         tests/e2e/leak-detector.mjs) ;;
+        # The demo project owns the example app cases and their layout snapshots.
+        # The listed mixed specs exercise both projects. Browser infrastructure is shared.
+        tests/e2e/examples/demo-app-screenshots/*) on demo-app ;;
+        tests/e2e/demo-app*/*.spec.ts) on contrast demo demo-app ;;
+        tests/e2e/demo-app*.spec.ts | tests/e2e/examples/pages.spec.ts) on contrast demo-app ;;
+        tests/e2e/a11y.spec.ts | tests/e2e/csp.spec.ts | tests/e2e/theme-toggle.spec.ts | tests/e2e/lab.side-nav.spec.ts | tests/e2e/lab.section-nav.spec.ts | tests/e2e/examples/baselines.spec.ts | tests/e2e/examples/fit.spec.ts) on contrast demo demo-app ;;
         tests/e2e/*.spec.ts) on contrast demo ;;
         # tools/playwright-image.*: the browser image the browser job pulls and playwright.config.ts runs (its cases run
         # in Tool tests, on every run)
-        tests/* | playwright.config.ts | tools/prepare-tests.mjs | tools/playwright-image.mjs | tools/playwright-image.json) on demo ;;
-        package.json | package-lock.json) on contrast demo ;;
+        tests/* | playwright.config.ts | tools/prepare-tests.mjs) on demo demo-app ;;
+        tools/playwright-image.mjs | tools/playwright-image.json) on static-site demo demo-app ;;
+        package.json | package-lock.json) on static-site contrast demo demo-app ;;
 
         # Repository tools, each with the jobs that run it
+        tools/ci/image-refresh*) ;;
         tools/contrast/* | tools/llms-txt.mjs | tools/docs-lint.mjs | tools/test-inventory.mjs) on contrast ;;
-        # llms.txt is also served by the gallery (/llms.txt): Kit PHP's SiteMetadataTest reads it, the static site saves
-        # it, and the production image serves its own copy
-        llms.txt) on php static-site contrast prod-image ;;
+        llms.txt) on static-site contrast ;;
         # The kit's name and repository from manifest.json: llms-txt (Contrast) writes them, name-check reads them; the
         # demo reads manifest.json itself
         tools/kit-identity.mjs) on contrast ;;
         # icon-lint runs in Contrast; its cases in Tool tests, on every run
         tools/icon-lint.mjs) on contrast ;;
-        tools/fence-coverage.mjs) on contrast static-site ;;
+        tools/fence-coverage.mjs) on contrast static-site runtime-export ;;
         # The README checks: Contrast runs them and their cases, the browser job's node --test runs the cases too
         tools/readme-versions.mjs | tools/readme-pairing.mjs) on contrast ;;
-        tools/build-static.sh) on static-site ;;
+        tools/build-static.sh) on static-site runtime-export ;;
         tools/tests/fresh-install.sh | tools/tests/check-fresh-app.sh | tools/tests/docker-install.sh) on fresh-install ;;
         tools/tests/install-scenario.sh) on fresh-install ;;
         tools/tests/live-action.php | tools/tests/fixtures/fresh-app/*) on fresh-install ;;
         tools/tests/sync-demo.sh | tools/tests/fixtures/sync-kit/*) on demo ;;
         tools/phpstan.neon | tools/ci/phpstan/composer.json | tools/ci/phpstan/composer.lock) on php ;;
-        # The separate PHP analysis comparison workflow exercises its collector, fixtures and exporter.
-        tools/ci/php-analysis-*.py | tools/ci/jev-php-analysis.mjs | tools/tests/test_php_analysis*.py | tools/tests/fixtures/php-analysis/*) ;;
         # The jobs' own CI tools: Kit PHP turns its JUnit report into failed attempts; Jev diagnoses both jobs' failures;
         # the rest (the results summary, the job metrics, the shard plan) is the browser job's. CI result, which runs on
         # every run, also runs ci-metrics.mjs and the shard plan's timings
@@ -118,8 +217,9 @@ while IFS= read -r path; do
         # release checks' tools: no CI job's verdict depends on them, so their cases (Tool tests) check them
         tools/ci/junit-attempts.mjs | tools/ci/jev-diagnosis.mjs | tools/ci/jev-ci.json | tools/ci/step-attempts.mjs) ;;
         tools/ci/ci-metrics.mjs | tools/ci/release-checks.mjs | tools/ci/release-evidence.mjs | tools/ci/release-failure.mjs | tools/ci/release-timings.mjs) ;;
+        tools/ci/with-playwright-browser.sh) on static-site package ;;
         # the shard plan and the results summary (run-provenance.mjs is its import) decide the browser job's verdict
-        tools/ci/*) on demo ;;
+        tools/ci/*) on demo demo-app ;;
         # Tools' cases and their fixtures, and the monthly report tools: Tool tests runs them on every run
         # The name check reads every file, so Tool tests runs it on every run too
         tools/tests/*.test.mjs | tools/tests/fixtures/playwright-results/* | tools/tests/fixtures/junit/* | tools/tests/fixtures/ci-metrics/* | tools/monthly/*) ;;
@@ -130,29 +230,42 @@ while IFS= read -r path; do
         tools/check-github-mentions.mjs | tools/hooks/* | tools/js-duplication.mjs | tools/kit-former-names.json) ;;
         tools/recipe-imports.mjs | tools/security-policy.mjs | tools/security-sinks.json | tools/tests/fixtures/release-checks/*) ;;
         # the PHP binary of the browser tests against a Docker demo (playwright.config.ts, PHP_BINARY)
-        tools/demo-php) on demo ;;
+        tools/demo-php) on demo demo-app ;;
         # tools/sync-demo also builds the production image: its builder copies the recipes into the demo with it
-        tools/sync-demo) on php static-site demo prod-image ;;
+        tools/kit/*) on php static-site runtime-export demo demo-app prod-image ;;
+        tools/sync-demo) on php runtime-export demo demo-app prod-image ;;
         # the production image's harness: a change to it runs it
-        tools/tests/prod-image.sh) on php static-site demo prod-image ;;
-        tools/*) on php static-site demo ;;
+        tools/tests/prod-image.sh) on php runtime-export demo demo-app prod-image ;;
+        tools/*) on php runtime-export demo demo-app ;;
 
-        # The demo app: its PHP tests, its static export and the browser tests run against it. docker-install.sh copies
+        # Example-app templates, stylesheet and behavior. Kit PHP still exercises the brand link's app_demo route.
+        demo/templates/demo_app/* | demo/assets/styles/demo-app.css | \
+        demo/assets/images/xor/mascot.gif | demo/assets/images/xor/mascot-still.png | \
+        demo/src/Controller/DemoAppController.php | demo/src/Controller/RevenueAssistantController.php | \
+        demo/assets/controllers/revenue_assistant_controller.js) on php runtime-export demo-app prod-image ;;
+
+        # The app's browser tests follow live links to these fixtures and load the Toolkit stylesheet on the way.
+        demo/templates/lab/nav_menu.html.twig | demo/templates/lab/_nav_menu_items.html.twig | \
+        demo/templates/lab/_header.html.twig | demo/assets/styles/toolkit-fixtures.css) on php runtime-export demo demo-app prod-image ;;
+        # The remaining lab templates and OAuth fixture are exercised by the Toolkit projects.
+        # The shared fallback still covers eagerly loaded controllers, including the lab's Dropzone listener.
+        demo/templates/lab/* | demo/templates/oauth/* | demo/src/Controller/OAuthDemoController.php) on php runtime-export demo prod-image ;;
+
+        # Shared Symfony host and build inputs. docker-install.sh copies
         # the demo's Compose file and Caddyfile into a fresh Symfony Docker project. The demo image's build inputs also
         # run the production image's lane (demo/Dockerfile, target frankenphp_prod, built and run by
         # tools/tests/prod-image.sh), which no other job builds.
-        demo/compose.yaml | demo/frankenphp/Caddyfile) on php static-site demo fresh-install prod-image ;;
-        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php static-site demo prod-image ;;
+        demo/compose.yaml | demo/frankenphp/Caddyfile) on php runtime-export demo demo-app fresh-install prod-image ;;
+        demo/Dockerfile | demo/Dockerfile.dockerignore | demo/compose.override.yaml | demo/frankenphp/*) on php runtime-export demo demo-app prod-image ;;
         # what the production image installs and how it boots in prod: its packages and its configuration. Lint kit also
         # installs the symfony/ux-toolkit version the lock holds (its locked lane reads it on each run)
-        demo/composer.lock) on php static-site demo prod-image lint-kit ;;
-        demo/composer.json | demo/config/*) on php static-site demo prod-image ;;
-        demo/tests/*) on php static-site demo contrast ;;
-        demo/src/Controller/LabController.php) on php static-site demo contrast prod-image ;;
+        demo/composer.lock) on php runtime-export demo demo-app prod-image lint-kit ;;
+        demo/composer.json | demo/config/*) on php runtime-export demo demo-app prod-image ;;
+        demo/tests/*) on php runtime-export demo contrast ;;
         # the rest of what the image admits (demo/Dockerfile.dockerignore): the app runs differently in prod (no
         # development package, no Toolkit bundle), so a change to any of its files runs the image
-        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php static-site demo prod-image ;;
-        demo/*) on php static-site demo ;;
+        demo/bin/* | demo/src/* | demo/templates/* | demo/assets/* | demo/public/* | demo/.env | demo/importmap.php | demo/symfony.lock) on php runtime-export demo demo-app prod-image ;;
+        demo/*) on php runtime-export demo demo-app ;;
 
         # A recipe's own specs and screenshot baselines: only the browser tests read them, and the
         # inventory check which specs exist
@@ -161,39 +274,40 @@ while IFS= read -r path; do
 
         # The kit's README.md is read by people and agents, by Contrast (what the markdown teaches) and by the package's
         # references (Package); no install, lint, PHP test or page reads it
-        README.md) on contrast package ;;
-        # INSTALL.md is also the gallery's install guide (/install, /install.md: demo/src/Kit/GuideDocs.php): Kit PHP's
-        # tests render it, the static site exports it, the browser tests load it (a11y, demo-app) and the production
-        # image serves its own copy
-        INSTALL.md) on php static-site demo contrast package prod-image ;;
+        README.md) on contrast package-docs ;;
+        INSTALL.md) on static-site contrast package-docs ;;
 
-        # Anything else is part of the kit (recipes, kit.css, kit.js, manifest.json, .gitattributes...).
+        # The runtime and installs consume the root kit assets. The published website serves its own CSS and JS.
+        kit.css) on lint-kit php runtime-export fresh-install contrast demo demo-app prod-image ;;
+        kit.js) on lint-kit php runtime-export fresh-install demo demo-app prod-image ;;
+
+        # Anything else is part of the kit (recipes, manifest.json, .gitattributes...).
         # Contrast checks the theme's roles, what the markdown teaches and the palette colors of the recipes' templates
         # (tools/docs-lint.mjs), the recipe tables and the controllers' rows; it reads every file in a directory (a
         # recipe: tools/readme-pairing.mjs pairs its code with its README, tools/readme-versions.mjs its README with its
         # manifest) and the root files below
         *)
             # A recipe's README.md (one level down): the toolkit's lint checks its headings, the gallery's page renders
-            # it (Kit PHP: RecipeDocsTest, RecipePageTest, for a directory with a manifest.json), the static site and
-            # the browser tests' examples render its examples, Contrast reads it (above) and the references copy it
+            # it, the demo and browser tests render its preview examples, Kit PHP checks those examples for known
+            # recipes, Contrast reads it (above) and the references copy it
             # (Package); the installs never read it
             if [[ $path =~ ^[^/]+/README\.md$ ]]; then
-                on lint-kit static-site demo contrast package
+                on lint-kit static-site runtime-export demo demo-app contrast package
                 [ -f "${path%%/*}/manifest.json" ] && on php
                 # the image holds a recipe's README (the gallery renders it), and a README elsewhere is in a new
                 # directory: the image's lane either way, as below
                 [[ $path == packages/* ]] || on prod-image
                 continue
             fi
-            on lint-kit php static-site fresh-install demo
+            on lint-kit php static-site runtime-export fresh-install demo demo-app
             # The production image holds what its allow-list names (demo/Dockerfile.dockerignore) and renders it without
-            # the development packages: the root files the gallery reads (kit.css, manifest.json; INSTALL.md, llms.txt
-            # and docs/GUIDE.md above), and from each recipe its manifest.json, README.md, templates/, assets/, src/ and
+            # the development packages: the runtime's root files (kit.css, kit.js, manifest.json), and from each
+            # recipe its manifest.json, README.md, templates/, assets/, src/ and
             # config/. A change to any of them runs the image's lane, and so does a path in no known place (a new
             # top-level directory, a new root file, a top-level directory deleted), which can need the list changed. A
             # recipe's tests/ and anything else the list leaves out do not.
             if [[ $path == packages/* ]]; then
-                :  # the Composer package: never in the image
+                :  # the package's gallery inputs are handled above
             elif [[ $path == */* ]]; then
                 if [ -f "${path%%/*}/manifest.json" ]; then
                     [[ $path =~ ^[^/]+/(manifest\.json$|(templates|assets|src|config)/) ]] && on prod-image
@@ -202,14 +316,14 @@ while IFS= read -r path; do
                 fi
             else
                 case "$path" in
-                    # root files the image never holds: the kit's script and icon, and the repository's own settings
-                    kit.js | icon.svg | .gitattributes | .gitignore | .editorconfig) ;;
+                    # Root files omitted from the production image's runtime context.
+                    icon.svg | .gitattributes | .gitignore | .editorconfig) ;;
                     *) on prod-image ;;
                 esac
             fi
             case "$path" in
                 # manifest.json: llms.txt holds its description, name and homepage (tools/llms-txt.mjs)
-                */* | kit.css | manifest.json) on contrast ;;
+                */* | manifest.json) on contrast ;;
             esac
             # What both archives hold (.gitattributes' export-ignore), and another directory under packages/, which
             # the archive also ships: Package checks its payload too. The kit's manifest.json and a recipe's
@@ -219,12 +333,26 @@ while IFS= read -r path; do
                 .gitattributes | packages/* | manifest.json) on package ;;
             esac
             if [[ $path =~ ^[^/]+/manifest\.json$ ]]; then on package; fi
+            if [[ $path == */* && -f "${path%%/*}/manifest.json" && ${run[package]} == false ]]; then
+                if [ -z "$consumer_inputs" ]; then
+                    consumer_inputs=$(consumer_recipe_inputs 2>/dev/null) || consumer_inputs='*'
+                fi
+                # The base's classifier treats the candidate manifests as data. If it cannot read the recipe graph,
+                # run Package for recipe changes instead of guessing which payload the consumer may install.
+                if [ "$consumer_inputs" = '*' ]; then
+                    on package
+                else
+                    while IFS= read -r source; do
+                        if [[ $path == "$source" || $path == "$source/"* ]]; then on package; break; fi
+                    done <<< "$consumer_inputs"
+                fi
+            fi
             ;;
     esac
 
     # What Contrast's lints read wherever it lies: any markdown outside demo/ (tools/docs-lint.mjs, tools/icon-lint.mjs)
     # and a recipe's templates (tools/docs-lint.mjs, tools/icon-lint.mjs). The demo's copies of the recipes are not read.
-    if [[ $path != demo/* && ( $path == *.md || $path =~ ^[^/]+/templates/ ) ]]; then on contrast; fi
+    if [[ $path != demo/* && ( $path == *.md || ( $path != website/* && $path =~ ^[^/]+/templates/ ) ) ]]; then on contrast; fi
 done
 
 for job in "${jobs[@]}"; do echo "$job=${run[$job]}"; done

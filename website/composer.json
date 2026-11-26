@@ -1,0 +1,31 @@
+{
+    "name": "xormania/uxor-website",
+    "type": "project",
+    "description": "Build the static UXor project website from the kit and its published guides.",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "ext-intl": "*",
+        "ext-mbstring": "*",
+        "league/commonmark": "^2.8",
+        "symfony/console": "^8.1",
+        "symfony/filesystem": "^8.1",
+        "symfony/routing": "^8.1",
+        "symfony/string": "^8.1",
+        "symfony/ux-toolkit": "^3.8",
+        "twig/twig": "^3.29"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^13.4.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "UXor\\Website\\": "src/",
+            "UXor\\Kit\\": "../tools/kit/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {"php": "8.4.1"}
+    }
+}

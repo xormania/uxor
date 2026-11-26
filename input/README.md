@@ -2,6 +2,8 @@
 
 The input field is an important part of the form element that can be used to create interactive controls to accept data from the user based on multiple input types, such as text, email, number, password, URL, phone number, and more.
 
+For this example, install the [button](../button/README.md) and [label](../label/README.md) recipes.
+
 ```twig {"preview":true}
 <form>
     <div class="grid gap-6 mb-6 md:grid-cols-2">
@@ -50,6 +52,8 @@ The input field is an important part of the form element that can be used to cre
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=input#recipes). To install `input` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component input --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -75,6 +79,8 @@ Get started with this example if you want to apply the disabled state to an inpu
 
 Use the following example to apply validation styles for error messages.
 
+For this example, install the [label](../label/README.md) recipe.
+
 ```twig {"preview":true}
 <div class="grid w-full max-w-sm items-center gap-1.5">
     <twig:Label for="text" variant="invalid">Your name</twig:Label>
@@ -87,6 +93,8 @@ Use the following example to apply validation styles for error messages.
 
 Get started with a simple file input component to let users upload one single file.
 
+For this example, install the [label](../label/README.md) recipe.
+
 ```twig {"preview":true}
 <div class="grid w-full max-w-sm items-center gap-1.5">
     <twig:Label for="picture">Picture</twig:Label>
@@ -95,6 +103,8 @@ Get started with a simple file input component to let users upload one single fi
 ```
 
 ### With Button
+
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <div class="relative inline-flex">

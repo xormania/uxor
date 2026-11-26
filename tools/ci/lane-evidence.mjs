@@ -2,25 +2,26 @@
 /**
  * Reuse of an earlier pass of a CI lane whose inputs are unchanged (docs/TESTING.md, *Reused lanes*).
  *
- * A lane's inputs are the whole tree but the content of a few administrative files no reusable lane reads (EXCLUDED):
- * its fingerprint hashes `git ls-tree -r` of the commit, those files kept by path and mode only, so a change to anything
- * else, ci.yml, this tool and the pinned versions included, gives every lane a new fingerprint. CI result records a
- * marker artifact for each lane that ran: `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
+ * Each fingerprint hashes the committed tree, with selected administrative files kept by path and mode only.
+ * The browser lanes also omit regular files absent from their sparse checkout. The CI workflow, this tool,
+ * and the pinned versions are inputs. CI result records a marker artifact for each lane that ran:
+ * `ci-pass-v1-<lane>-<fingerprint>` when every job of the lane passed,
  * `ci-fail-v1-...` when one failed. A later run with the same fingerprint takes the markers newest first: a failure from
  * a verified producer stops the search, and the first pass that verifies is reused (at most its MAX_AGE_HOURS old, from a push
  * or manual run of ci.yml in this repository whose lane jobs all passed in their latest attempt, the fingerprint
  * recomputed at the producer's commit the same). Anything missing, ambiguous or failing to load runs the lane.
  *
  *   fingerprint --sha <rev>
- *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|daily|dispatch|engines]
+ *   plan --repo <o/r> --sha <sha> --selection <file> [--ref <ref>] [--reuse on|off] [--event push|pull_request|daily|dispatch|engines]
  *        [--engines-on daily|every-push] [--engines true|false] [--chromium-shards <1-20>] --out <plan.json> [--github-output <f>]
  *   record --plan <plan.json> --jobs <jobs.json> --needs <needs.json> [--shards <dir>] --run-id <n> --run-attempt <n> --out <dir> [--github-output <f>]
  *   verdict --plan <plan.json> --needs <needs.json> --jobs <jobs.json> --repo <o/r> [--summary <f>] [--github-output <f>]
  *   finish  record's and verdict's options: record, then verdict (CI result's one step)
  *   require --lane <reusable lane> --repo <o/r> --sha <sha> [--chromium-shards <n>]   (exit 0: a pass that verifies; 1: none)
  *
- * The browser tests are one job of ci.yml whose matrix the plan computes, and two lanes: `demo`, its Chromium shards
- * (CHROMIUM_SHARDS of them), and `engines`, three shards each of Firefox and WebKit. With ENGINES_ON=daily the engines run
+ * One CI matrix runs Toolkit Chromium (`demo`, CHROMIUM_SHARDS jobs), the example app's Chromium project
+ * (`demo-app`, one job), and both suites in Firefox and WebKit (`engines`, three shards per engine or four on its dedicated dispatch).
+ * With ENGINES_ON=daily the engines run
  * on dev's daily run (unless they already passed on its inputs), on main, when a manual run asks for them, and when the
  * release pull request's Release checks finds no pass for its head and starts one; on any other push they are deferred
  * (not run at this stage, said so in CI result), unless a pass on the same inputs exists. ENGINES_ON=every-push runs them
@@ -39,16 +40,21 @@ import { fileURLToPath } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
 
 /** every lane of ci.yml's Changes job, in its order: the selector's, then the engines, which follow the browser tests */
-export const LANES = ['lint-kit', 'php', 'static-site', 'fresh-install', 'contrast', 'demo', 'workflows', 'package', 'prod-image', 'engines'];
+export const LANES = ['lint-kit', 'php', 'static-site', 'runtime-export', 'fresh-install', 'contrast', 'demo', 'demo-app', 'workflows', 'package-docs', 'package', 'prod-image', 'engines'];
+const TOOLKIT_BROWSER_JOB = 'Toolkit browser verification';
+const CROSS_BROWSER_JOB = 'Cross-browser verification';
+const DEMO_APP_BROWSER_JOB = 'Demo app browser checks';
+const BROWSER_LANE_NAMES = { demo: TOOLKIT_BROWSER_JOB, 'demo-app': DEMO_APP_BROWSER_JOB, engines: CROSS_BROWSER_JOB };
+const DEMO_APP_BROWSER = { name: `${DEMO_APP_BROWSER_JOB} (chromium 1/1)`, count: 1 };
+
 /**
- * The lanes whose pass can be reused, with their jobs' names in ci.yml and how many a full pass has. Not the static
- * site, whose pages print the branch and commit, nor Lint kit, which resolves the Toolkit from the network: both are
- * short, and always run when selected.
+ * The reusable lanes, their job names in ci.yml and the job count for a full pass. The website and runtime exports
+ * include revision metadata and run fresh when selected.
  */
 export const REUSABLE = {
     php: { name: 'Kit PHP', count: 1 },
-    demo: { prefix: 'Demo + Playwright (chromium ', count: null }, // CHROMIUM_SHARDS
-    engines: { prefixes: ['Demo + Playwright (firefox ', 'Demo + Playwright (webkit '], count: 6 },
+    demo: { prefix: `${TOOLKIT_BROWSER_JOB} (chromium `, count: null }, // CHROMIUM_SHARDS
+    engines: { prefixes: [`${CROSS_BROWSER_JOB} (firefox `, `${CROSS_BROWSER_JOB} (webkit `] },
     'prod-image': { name: 'Production image', count: 1 },
     // the lanes that resolve dependencies live (MAX_AGE_HOURS: a day)
     'fresh-install': { names: ['Fresh install', 'Fresh install (Symfony Docker, from GitHub)'], count: 2 },
@@ -58,8 +64,11 @@ export const REUSABLE = {
 export const DEFAULT_CHROMIUM_SHARDS = 6;
 /** the browser lanes share one job (`demo` in `needs`): the verdict reads them from the run's jobs */
 const BROWSER_LANES = ['demo', 'engines'];
+const BROWSER_MATRIX_LANES = [...BROWSER_LANES, 'demo-app'];
 const ENGINE_BROWSERS = ['firefox', 'webkit'];
 const ENGINE_SHARDS = 3;
+const ENGINE_DISPATCH_SHARDS = 4;
+const ENGINE_DISPATCH_TITLE = 'CI: Firefox and WebKit only';
 const DEFERRED = "NOT RUN AT THIS STAGE: Firefox and WebKit run on dev's daily run, on the release pull request, or by a manual run with engines";
 /** read by people, agents and Contrast only: no reusable lane's job reads them (export-ignored, not in the image) */
 export const EXCLUDED = ['CHANGELOG.md', 'CONTRIBUTING.md', 'AGENTS.md', 'SECURITY.md', '.github/pull_request_template.md'];
@@ -89,7 +98,7 @@ const NEEDS = { 'fresh-install': ['fresh-install', 'docker-install'], engines: [
 const SETUP_NEEDS = ['changes', 'tools', 'importmap'];
 /** the checks that are steps of the Quick checks job (`quick` in `needs`): their outcomes are its outputs */
 const QUICK_CHECKS = ['tools', 'contrast', 'workflows'];
-const IMPORTMAP_USERS = ['php', 'static-site', 'demo', 'engines'];
+const IMPORTMAP_USERS = ['php', 'runtime-export', 'demo', 'demo-app', 'engines'];
 const MARKER_LIMIT = 65536;
 const RERUN_NOTE = 'only "Re-run all jobs" plans the lanes again; re-running failed jobs reuses this plan';
 
@@ -130,19 +139,72 @@ function git(dir, args) {
     return spawnSync('git', ['-C', dir, ...args], { encoding: 'buffer', maxBuffer: 1 << 28 });
 }
 
+// Use Git's own sparse-checkout matcher on the tree of the commit being qualified. Only regular
+// files outside the runner's checkout may be omitted. A symlink can point to another path, so a
+// tree with any link or submodule falls back to hashing every entry. Unknown paths are included.
+const BROWSER_RULES = 'tools/ci/browser-checkout.patterns';
+const BROWSER_CONTROLS = new Set([BROWSER_RULES, WORKFLOW, 'tools/ci/lane-evidence.mjs', 'tools/ci-changes.sh', 'tools/tests/ci-changes.sh']);
+
+function browserControl(path) {
+    return BROWSER_CONTROLS.has(path) || ['.gitattributes', '.gitignore'].includes(path.split('/').at(-1));
+}
+
+function browserCheckout(dir, paths, entries) {
+    const rules = fileURLToPath(new URL('./browser-checkout.patterns', import.meta.url));
+    const expected = entries.find((entry) => entry.endsWith('\t' + BROWSER_RULES));
+    const actual = git(dir, ['hash-object', '--no-filters', rules]);
+    // A verifier can inspect a commit other than its own checkout. Apply the rules only if this
+    // exact file was in the commit. An older/different policy is compared as a complete tree.
+    if (actual.status !== 0 || !expected || expected.split('\t')[0].split(' ')[2] !== actual.stdout.toString().trim()) return null;
+    const result = spawnSync('git', ['-C', dir, 'sparse-checkout', 'check-rules', '--no-cone', '--rules-file', rules, '-z'], {
+        input: paths.join('\0') + '\0', encoding: 'utf8', maxBuffer: 1 << 28,
+    });
+    // Older Git installations lack check-rules. They can still qualify identical trees.
+    if (result.status !== 0) return null;
+    return new Set(result.stdout.split('\0').filter(Boolean));
+}
+
+// Playwright specs in the demo suite and in recipes are outside these lanes' archives, production
+// image and Tailwind sources. They still contribute their paths and modes to each fingerprint.
+const SPEC_INDEPENDENT_LANES = ['php', 'package', 'prod-image', 'lint-kit', 'fresh-install'];
+
+function playwrightSpecs(paths) {
+    const names = new Set(paths);
+    return new Set(paths.filter((path) => {
+        if (!path.endsWith('.spec.ts')) return false;
+        if (path.startsWith('tests/e2e/')) return true;
+        const recipe = /^([^/]+)\/tests\/[^/]+\.spec\.ts$/.exec(path);
+        return recipe && names.has(`${recipe[1]}/manifest.json`);
+    }));
+}
+
 export function fingerprints(dir, sha) {
     const tree = git(dir, ['ls-tree', '-r', '-z', '--full-tree', sha]);
     if (tree.status !== 0) throw new Refused('producer_commit_unavailable', `git ls-tree ${sha}: ${tree.stderr.toString().trim()}`);
-    // a file excluded for a lane counts by its path and mode, not its content: deleting it or making it a link still counts
     const all = tree.stdout.toString('utf8').split('\0').filter(Boolean);
+    // Links or submodules can expose excluded files through another path.
+    const regularPaths = all.every((entry) => entry.startsWith('100'))
+        ? all.map((entry) => entry.slice(entry.indexOf('\t') + 1)) : null;
+    const browserPaths = regularPaths && browserCheckout(dir, regularPaths, all);
+    const specs = regularPaths ? playwrightSpecs(regularPaths) : new Set();
     return Object.fromEntries(Object.keys(REUSABLE).map((lane) => {
         const excluded = excludedFor(lane);
+        const browser = BROWSER_LANES.includes(lane);
+        const ignoresSpecContent = SPEC_INDEPENDENT_LANES.includes(lane);
         const body = all.map((entry) => {
             const tab = entry.indexOf('\t');
-            if (!excluded.includes(entry.slice(tab + 1))) return entry;
+            const path = entry.slice(tab + 1);
+            // The kit's checks, install archives and production image exclude the standalone website.
+            // Package can publish a guide from any directory. Browser lanes follow their own checkout policy below.
+            if (regularPaths && !browser && lane !== 'package' && path.startsWith('website/') && !browserControl(path)) return '';
+            if (browser) {
+                if (!browserPaths || browserControl(path)) return entry + '\0';
+                if (!browserPaths.has(path)) return '';
+            }
+            if (!excluded.includes(path) && !(ignoresSpecContent && specs.has(path))) return entry + '\0';
             const [mode, type] = entry.slice(0, tab).split(' ');
-            return `${mode} ${type} -${entry.slice(tab)}`;
-        }).map((entry) => `${entry}\0`).join('');
+            return `${mode} ${type} -${entry.slice(tab)}\0`;
+        }).join('');
         return [lane, createHash('sha256').update(`uxor-lane-evidence/3\0${lane}\0`).update(body).digest('hex')];
     }));
 }
@@ -169,15 +231,16 @@ function api(ctx) {
             // answered already by the plan's concurrent prefetch
             if (ctx.cache?.has(path)) return ctx.cache.get(path);
             for (let attempt = 0; ; attempt++) {
-                if (Date.now() > ctx.deadline) throw new Refused('lookup_error', 'the lookup ran out of time');
+                const remaining = ctx.deadline - Date.now();
+                if (remaining <= 0) throw new Refused('lookup_error', 'the lookup ran out of time');
                 ctx.calls++;
-                const result = spawnSync(ctx.gh, ['api', path], { encoding: 'buffer', maxBuffer: 1 << 26, timeout: 20000 });
+                const result = spawnSync(ctx.gh, ['api', path], { encoding: 'buffer', maxBuffer: 1 << 26, timeout: Math.min(20000, remaining) });
                 if (result.status === 0) return result.stdout;
                 const error = (result.stderr ?? '').toString().trim() || 'failed';
                 const status = Number(error.match(/HTTP (\d{3})/)?.[1]);
                 const permanent = status >= 400 && status < 500 && status !== 429;
                 if (permanent || attempt >= ctx.retries) throw new Refused('lookup_error', `gh api ${path}: ${error}`);
-                sleep(ctx.retryDelay * 2 ** attempt);
+                sleep(Math.max(0, Math.min(ctx.retryDelay * 2 ** attempt, ctx.deadline - Date.now())));
             }
         },
         object(path) {
@@ -278,16 +341,41 @@ export function zipEntry(buffer, wanted) {
 
 // lanes -------------------------------------------------------------------------------------------------------------------
 
+// GitHub appends the scalar matrix label to the static display name. Qualify
+// earlier jobs by their original names and keep the API names in recorded evidence.
+function canonicalBrowserJobName(name) {
+    return name.replace(/^Browser checks \(([^,]+), (\S+ \d+\/\d+)\)$/, '$1 ($2)');
+}
+
 export function laneJobs(lane, jobs) {
-    const rule = REUSABLE[lane];
+    const rule = lane === 'demo-app' ? DEMO_APP_BROWSER : REUSABLE[lane];
     const prefixes = rule.prefixes ?? (rule.prefix !== undefined ? [rule.prefix] : []);
     const names = rule.names ?? (rule.name !== undefined ? [rule.name] : null);
-    return jobs.filter((job) => isObject(job) && typeof job.name === 'string'
-        && (names ? names.includes(job.name) : prefixes.some((prefix) => job.name.startsWith(prefix))));
+    const browserLane = BROWSER_MATRIX_LANES.includes(lane);
+    return jobs.filter((job) => {
+        if (!isObject(job) || typeof job.name !== 'string') return false;
+        const name = browserLane ? canonicalBrowserJobName(job.name) : job.name;
+        return names ? names.includes(name) : prefixes.some((prefix) => name.startsWith(prefix));
+    });
 }
 
 /** how many jobs a full pass of the lane has */
-const expected = (lane, chromiumShards) => (lane === 'demo' ? chromiumShards : REUSABLE[lane].count);
+function expected(lane, chromiumShards, enginesOnly) {
+    if (lane === 'demo') return chromiumShards;
+    if (lane === 'engines') return ENGINE_BROWSERS.length * (enginesOnly ? ENGINE_DISPATCH_SHARDS : ENGINE_SHARDS);
+    return (REUSABLE[lane] ?? DEMO_APP_BROWSER).count;
+}
+
+const isEngineDispatch = (run) => run.event === 'workflow_dispatch' && run.display_title === ENGINE_DISPATCH_TITLE;
+
+function completeJobSet(lane, jobs, count) {
+    if (jobs.length !== count) return false;
+    if (lane !== 'engines') return true;
+    const shards = count / ENGINE_BROWSERS.length;
+    const names = new Set(jobs.map((job) => canonicalBrowserJobName(job.name)));
+    return ENGINE_BROWSERS.every((browser) => Array.from({ length: shards }, (_, i) =>
+        `${CROSS_BROWSER_JOB} (${browser} ${i + 1}/${shards})`).every((name) => names.has(name)));
+}
 
 function chromiumShards(value) {
     const shards = value === undefined ? DEFAULT_CHROMIUM_SHARDS : Number(value);
@@ -378,10 +466,12 @@ function runJobs(client, ctx, run) {
 
 function producerJobs(client, ctx, lane, run) {
     const mine = laneJobs(lane, runJobs(client, ctx, run));
-    const count = expected(lane, ctx.chromiumShards);
+    const count = expected(lane, ctx.chromiumShards, isEngineDispatch(run));
+    const complete = completeJobSet(lane, mine, count);
     const bad = mine.filter((job) => job.conclusion !== 'success');
-    if (mine.length !== count || bad.length) {
-        throw new Refused('jobs_incomplete', `run ${run.id}: ${mine.length} of ${count} ${lane} jobs${bad.length ? `, ${bad.map((job) => `${job.name} ${job.conclusion}`).join(', ')}` : ''}`);
+    if (!complete || bad.length) {
+        const identities = mine.length === count && !complete ? ', wrong shard identities' : '';
+        throw new Refused('jobs_incomplete', `run ${run.id}: ${mine.length} of ${count} ${lane} jobs${identities}${bad.length ? `, ${bad.map((job) => `${job.name} ${job.conclusion}`).join(', ')}` : ''}`);
     }
     return mine;
 }
@@ -538,14 +628,14 @@ async function planCommand(opts) {
     const ctx = context(opts, 0);
     const client = api(ctx);
     const event = opts.event ?? 'push';
-    if (!['push', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, daily, dispatch or engines');
+    if (!['push', 'pull_request', 'daily', 'dispatch', 'engines'].includes(event)) usage('--event is push, pull_request, daily, dispatch or engines');
     const enginesOn = opts['engines-on'] ?? 'daily';
     if (!['daily', 'every-push'].includes(enginesOn)) usage('--engines-on is daily or every-push');
     const selected = Object.fromEntries(readFileSync(opts.selection, 'utf8').split('\n').filter(Boolean).map((line) => {
         const [lane, value] = line.split('=');
         return [lane, value === 'true'];
     }));
-    // the engines test what the browser tests test: selected with them, unless the selection names them (the daily run)
+    // Toolkit input changes select cross-engine verification. Daily and release runs can select it explicitly.
     selected.engines ??= selected.demo ?? true;
     const reuseOff = opts.ref === 'refs/heads/main' ? 'main' : opts.reuse === 'off' ? 'switch' : null;
     // when the engines run rather than wait: on main, with ENGINES_ON=every-push, when a manual run asks, on the daily run
@@ -565,7 +655,7 @@ async function planCommand(opts) {
     const lanes = {};
     for (const lane of LANES) {
         const entry = { selected: selected[lane] ?? true, decision: 'run', fingerprint: own?.[lane] ?? null, reason: '', detail: '', evidence: null };
-        if (REUSABLE[lane]) entry.jobs_expected = expected(lane, ctx.chromiumShards);
+        if (REUSABLE[lane] || lane === 'demo-app') entry.jobs_expected = expected(lane, ctx.chromiumShards, event === 'engines');
         lanes[lane] = entry;
         if (!entry.selected) Object.assign(entry, { decision: 'skip', reason: 'not_selected', detail: 'the change cannot affect it' });
         else if (!REUSABLE[lane]) Object.assign(entry, { reason: 'not_reusable', detail: 'it always runs when selected' });
@@ -587,16 +677,40 @@ async function planCommand(opts) {
             Object.assign(entry, { decision: 'defer', reason: 'deferred', detail: DEFERRED });
         }
     }
-    // the browser job's matrix: the Chromium shards when the demo lane runs, the engines' when they run
-    const include = [];
-    if (lanes.demo.decision === 'run') {
-        for (let shard = 1; shard <= ctx.chromiumShards; shard++) include.push({ browser: 'chromium', shard, shards: ctx.chromiumShards, projects: '--project=smoke --project=examples' });
+    // A fresh Package job already validates the manifest, command reference and package tests.
+    // Only a fresh run covers this checkout's documentation job. A reused consumer result does not.
+    if (lanes.package.decision === 'run' && lanes['package-docs'].decision === 'run') {
+        Object.assign(lanes['package-docs'], { decision: 'skip', reason: 'covered_by_package', detail: 'the fresh Package job runs these checks' });
     }
-    if (lanes.engines.decision === 'run') {
-        for (const browser of ENGINE_BROWSERS) {
-            for (let shard = 1; shard <= ENGINE_SHARDS; shard++) include.push({ browser, shard, shards: ENGINE_SHARDS, projects: `--project=smoke-${browser} --project=examples-${browser}` });
+    const browserRows = [];
+    if (lanes.demo.decision === 'run') {
+        for (let shard = 1; shard <= ctx.chromiumShards; shard++) {
+            browserRows.push({
+                suite: TOOLKIT_BROWSER_JOB, browser: 'chromium', 'artifact-browser': 'chromium', shard, shards: ctx.chromiumShards,
+                projects: '--project=smoke --project=examples',
+            });
         }
     }
+    if (lanes['demo-app'].decision === 'run') {
+        browserRows.push({
+            suite: DEMO_APP_BROWSER_JOB, browser: 'chromium', 'artifact-browser': 'demo-app-chromium', shard: 1, shards: 1,
+            projects: '--project=demo-app',
+        });
+    }
+    if (lanes.engines.decision === 'run') {
+        const shards = event === 'engines' ? ENGINE_DISPATCH_SHARDS : ENGINE_SHARDS;
+        for (const browser of ENGINE_BROWSERS) {
+            for (let shard = 1; shard <= shards; shard++) {
+                browserRows.push({
+                    suite: CROSS_BROWSER_JOB, browser, 'artifact-browser': browser, shard, shards,
+                    projects: `--project=smoke-${browser} --project=examples-${browser} --project=demo-app-${browser}`,
+                });
+            }
+        }
+    }
+    const browserConfig = Object.fromEntries(browserRows.map((row) => [
+        `${row.suite}, ${row.browser} ${row.shard}/${row.shards}`, row,
+    ]));
     const plan = {
         schema: 1, repo: opts.repo, sha: opts.sha, ref: opts.ref ?? null, event, engines_on: enginesOn, chromium_shards: ctx.chromiumShards,
         reuse: !reuseOff, reuse_off: reuseOff, elapsed_ms: Date.now() - started, api_calls: ctx.calls, lanes,
@@ -612,8 +726,9 @@ async function planCommand(opts) {
     writeOutputs(opts['github-output'], {
         ...Object.fromEntries(Object.entries(lanes).map(([lane, entry]) => [lane, entry.decision])),
         importmap: IMPORTMAP_USERS.some((lane) => lanes[lane].decision === 'run') ? 'run' : 'skip',
-        browsers: include.length ? 'run' : 'skip',
-        'browser-matrix': JSON.stringify({ include }),
+        browsers: browserRows.length ? 'run' : 'skip',
+        'browser-matrix': JSON.stringify({ label: Object.keys(browserConfig) }),
+        'browser-config': JSON.stringify(browserConfig),
         'plan-summary': summary,
     });
 }
@@ -622,8 +737,8 @@ async function planCommand(opts) {
  * Release checks' requirement. With --sha: exit 0 when the lane has a pass at this commit that verifies, 1 otherwise.
  * With --merge (a pull request's merge commit) and --github-output: the head is the merge's second parent; a merge that
  * tests another tree than its head gets `<lane>=tree: …` (no pass on the head can stand for it), else `<lane>=pass` or
- * `<lane>=missing: …`, and the exit status is 0. What to check and the verdict both run it, so one rule decides, and a
- * re-run of the verdict alone ("Re-run failed jobs") sees evidence that arrived since What to check ran.
+ * `<lane>=missing: …`, and the exit status is 0. The release verdict can wait for an engines-only dispatch on the
+ * event's head. A workflow run can report why the wait failed, but only the verified marker can supply a pass.
  */
 function requireCommand(opts) {
     need(opts, 'lane', 'repo');
@@ -648,13 +763,21 @@ function requireMerge(opts) {
     const out = (value) => writeOutputs(opts['github-output'], { [opts.lane]: value.replace(/[\r\n]+/g, ' ') });
     const parents = git(dir, ['rev-list', '--parents', '-n', '1', opts.merge]).stdout.toString().trim().split(' ').slice(1);
     const head = parents.length === 2 ? parents[1] : null;
-    const tree = (rev) => git(dir, ['rev-parse', `${rev}^{tree}`]).stdout.toString().trim();
-    if (!head || tree(opts.merge) !== tree(head)) {
+    const tree = (rev) => git(dir, ['rev-parse', '--verify', `${rev}^{tree}`]).stdout.toString().trim();
+    if (opts.head !== undefined && head !== opts.head) {
+        const line = `the merge's head ${head ?? 'unknown'} differs from the pull request event's head ${opts.head}`;
+        console.log(`${opts.lane}: ${line}`);
+        out(`tree: ${line}`);
+        return;
+    }
+    const mergeTree = tree(opts.merge);
+    if (!head || !mergeTree || mergeTree !== tree(head)) {
         const line = `the merge tests another tree than the head ${head ?? 'unknown'} (main has commits the branch lacks)`;
         console.log(`${opts.lane}: ${line}`);
         out(`tree: ${line}`);
         return;
     }
+    if (opts['wait-seconds'] !== undefined) return waitForEngines(opts, head, out);
     const ctx = context(opts, 2);
     const client = api(ctx);
     try {
@@ -667,6 +790,81 @@ function requireMerge(opts) {
         console.log(line);
         out(`missing: ${line}`);
     }
+}
+
+function engineDispatch(client, ctx, opts, head) {
+    const root = `repos/${ctx.repo}/actions`;
+    const requested = Number(opts['run-id']);
+    const matches = (run) => isObject(run) && Number.isSafeInteger(run.id) && (!requested || run.id === requested)
+        && run.head_sha === head && run.head_branch === opts.branch && run.path === WORKFLOW
+        && isEngineDispatch(run)
+        && run.repository?.full_name === ctx.repo && run.head_repository?.full_name === ctx.repo;
+    if (requested) {
+        const run = client.object(`${root}/runs/${requested}`);
+        if (!matches(run)) return { detail: `run ${requested} does not belong to the release's engine dispatch` };
+        return { run };
+    }
+    const listing = client.object(`${root}/workflows/ci.yml/runs?branch=${encodeURIComponent(opts.branch)}&event=workflow_dispatch&head_sha=${head}&per_page=20`);
+    if (!Array.isArray(listing.workflow_runs)) throw new Refused('lookup_error', 'the dispatch listing has no workflow runs');
+    const since = time(opts.since);
+    const run = listing.workflow_runs.filter((item) => matches(item) && time(item.created_at) >= since)
+        .sort((a, b) => time(b.created_at) - time(a.created_at) || b.id - a.id)[0];
+    return { run };
+}
+
+function waitForEngines(opts, head, out) {
+    const seconds = Number(opts['wait-seconds']);
+    const poll = Number(opts['wait-poll-ms'] ?? 10000);
+    if (opts.lane !== 'engines' || opts.head !== head || !opts.branch
+        || !Number.isInteger(seconds) || seconds < 1 || seconds > 1200
+        || !Number.isInteger(poll) || poll < 1 || poll > 30000
+        || (opts['run-id'] === undefined ? Number.isNaN(time(opts.since)) : opts.since !== undefined || !/^[1-9]\d*$/.test(opts['run-id']) || !Number.isSafeInteger(Number(opts['run-id'])))) {
+        usage('waiting requires --lane engines, the PR --head, --branch, --wait-seconds 1..1200 and a --run-id or --since');
+    }
+    const deadline = Date.now() + seconds * 1000;
+    const fp = fingerprints(opts['git-dir'] ?? '.', head).engines;
+    let detail = 'the engine dispatch is not visible yet';
+    let observed = '';
+    while (Date.now() < deadline) {
+        const ctx = context(opts, 0);
+        ctx.deadline = Math.min(ctx.deadline, deadline);
+        const client = api(ctx);
+        try {
+            const evidence = qualify(client, ctx, 'engines', fp);
+            console.log(`engines: passed by run ${evidence.run_id} attempt ${evidence.run_attempt} on ${evidence.head_sha} ${evidence.url}`);
+            out('pass');
+            return;
+        } catch (error) {
+            const refused = refusal(error);
+            detail = `${refused.reason}: ${refused.message}`;
+        }
+        try {
+            const dispatch = engineDispatch(client, ctx, opts, head);
+            if (dispatch.detail) {
+                out(`incomplete: ${dispatch.detail}`);
+                return;
+            }
+            const run = dispatch.run;
+            if (run?.status === 'completed' && run.conclusion && run.conclusion !== 'success') {
+                const jobs = laneJobs('engines', runJobs(client, ctx, run));
+                // Another lane can fail the workflow even when engines passed and recorded a marker that is not visible yet.
+                if (!completeJobSet('engines', jobs, expected('engines', ctx.chromiumShards, true)) || jobs.some((job) => job.conclusion !== 'success')) {
+                    const failed = jobs.some((job) => Array.isArray(job.steps) && job.steps.some((step) => String(step?.name).startsWith(TESTS_STEP)
+                        && ['failure', 'timed_out'].includes(step.conclusion)));
+                    const url = `https://github.com/${opts.repo}/actions/runs/${run.id}`;
+                    out(failed ? `failed: Firefox or WebKit tests failed in ${url}` : `incomplete: ${url} ended with ${run.conclusion} before producing a verified engine pass`);
+                    return;
+                }
+            }
+            const status = run ? `engine dispatch ${run.id}: ${run.conclusion ?? run.status}` : 'the engine dispatch is not visible yet';
+            if (observed !== status) console.log(`engines: ${status}`);
+            observed = status;
+        } catch (error) {
+            detail = refusal(error).message;
+        }
+        sleep(Math.max(0, Math.min(poll, deadline - Date.now())));
+    }
+    out(`timed_out: after waiting ${seconds} seconds for verified engine evidence (${observed || 'dispatch not observed'}; ${detail})`);
 }
 
 /** the browser shards' counts, from the results.json of each shard artifact of those browsers (playwright-results-<browser>-<n>) */
@@ -735,8 +933,8 @@ function recordCommand(opts) {
             console.log(`${lane}: its jobs ran in an earlier attempt, which recorded them`);
             continue;
         }
-        const count = entry.jobs_expected ?? expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS);
-        const passed = mine.length === count && mine.every((job) => job.conclusion === 'success');
+        const count = expected(lane, plan.chromium_shards ?? DEFAULT_CHROMIUM_SHARDS, plan.event === 'engines');
+        const passed = completeJobSet(lane, mine, count) && mine.every((job) => job.conclusion === 'success');
         // a browser shard that failed before its tests is incomplete, not a failure of these inputs
         const failed = BROWSER_LANES.includes(lane)
             ? mine.some(testsFailed)
@@ -852,21 +1050,24 @@ function verdictCommand(opts) {
         let ran;
         let passed;
         let results;
-        if (BROWSER_LANES.includes(lane) && !jobs && result('demo') === 'skipped') {
-            // the browser job was skipped: nothing of either lane ran, and no job list is needed to say so
+        if (BROWSER_MATRIX_LANES.includes(lane) && !jobs && result('demo') === 'skipped') {
+            // the browser job was skipped: none of its lanes ran, and no job list is needed to say so
             ran = false;
             passed = false;
             results = ['skipped'];
-        } else if (BROWSER_LANES.includes(lane)) {
+        } else if (BROWSER_MATRIX_LANES.includes(lane)) {
             if (!jobs) {
                 status('incomplete', "the run's jobs could not be read, so the browser lanes cannot be told apart");
                 continue;
             }
             const mine = laneJobs(lane, jobs).filter((job) => job.conclusion !== 'skipped');
+            const count = expected(lane, ctx.chromiumShards, plan.event === 'engines');
             ran = mine.length > 0;
-            passed = ran && mine.length === (entry?.jobs_expected ?? expected(lane, ctx.chromiumShards)) && mine.every((job) => job.conclusion === 'success');
+            passed = ran && completeJobSet(lane, mine, count) && mine.every((job) => job.conclusion === 'success');
             results = mine.length ? [...new Set(mine.map((job) => job.conclusion ?? job.status))] : ['skipped'];
-            if (ran && !passed && mine.every((job) => job.conclusion === 'success')) results = [`${mine.length} of ${entry?.jobs_expected} jobs`];
+            if (ran && !passed && mine.every((job) => job.conclusion === 'success')) {
+                results = [mine.length === count ? 'wrong shard identities' : `${mine.length} of ${count} jobs`];
+            }
         } else {
             results = (NEEDS[lane] ?? [lane]).map(result);
             ran = !results.every((value) => value === 'skipped');
@@ -877,7 +1078,7 @@ function verdictCommand(opts) {
             if (passed) status('fresh');
             else status('incomplete', `ended with ${results.join(', ')}`);
         } else if (entry.decision === 'skip') {
-            if (!ran) status('not_applicable');
+            if (!ran) status('not_applicable', entry.reason === 'covered_by_package' ? entry.detail : '');
             else status('incomplete', `planned to skip, ended with ${results.join(', ')}`);
         } else if (entry.decision === 'defer') {
             if (!ran) status('not_run_at_this_stage', DEFERRED);
@@ -923,7 +1124,7 @@ function verdictCommand(opts) {
     }
     const label = (value) => (value.status === 'not_run_at_this_stage' ? 'NOT RUN AT THIS STAGE' : value.status);
     const why = (value) => (value.status === 'not_run_at_this_stage' ? DEFERRED.replace('NOT RUN AT THIS STAGE: ', '') : value.reason);
-    const rows = Object.entries(lanes).map(([lane, value]) => `| ${lane} | ${label(value)} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${why(value)} |`);
+    const rows = Object.entries(lanes).map(([lane, value]) => `| ${BROWSER_LANE_NAMES[lane] ?? lane} | ${label(value)} | ${value.producer ? `[run ${value.producer.run_id}](${value.producer.url}) attempt ${value.producer.run_attempt}, ${String(value.producer.head_sha).slice(0, 12)}` : ''} | ${value.flaky ?? ''} | ${why(value)} |`);
     const summary = [
         '### Lanes', '',
         '| Lane | Result | Producer | Flaky | Why |', '|---|---|---|---|---|', ...rows, '',

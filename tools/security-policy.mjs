@@ -17,6 +17,8 @@ const generatedPrefixes = [
     'demo/var',
     'demo/public/assets',
     'demo/assets/vendor',
+    'website/vendor',
+    'website/.phpunit.cache',
     'node_modules',
     'test-results',
     'playwright-report',
@@ -74,8 +76,18 @@ const jobWrites = {
     'release-checks.yml': { issue: ['issues'], start: ['actions'], 'start-engines': ['actions'] },
 };
 
-// The independent trusted diagnosis workflow alone reads secrets. Producers collect data without credentials.
+// Diagnosis reads its own secrets. For image refresh, only the App token action receives the App private key.
 const secretReader = 'jev.yml';
+
+function imageRefreshKeyInput(lines, index) {
+    if (!/^\s+private-key:\s*\$\{\{\s*secrets\.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY\s*\}\}\s*$/.test(lines[index])) return false;
+    const before = lines.slice(0, index);
+    const parent = before.findLastIndex((line) => line.trim() && !line.trimStart().startsWith('#') && indentOf(line) < indentOf(lines[index]));
+    if (parent < 1 || !/^\s+with:\s*$/.test(lines[parent])) return false;
+    const action = before[parent - 1];
+    return indentOf(action) === indentOf(lines[parent])
+        && /^\s+uses:\s*actions\/create-github-app-token@[a-f0-9]{40}(?:\s+#.*)?\s*$/.test(action);
+}
 
 // Read context references as expression tokens, not as spellings inside arbitrary text. Dotted and indexed access
 // have the same trust boundary; quoted literals, nested function calls and whitespace do not change that boundary.
@@ -236,7 +248,7 @@ export function workflowProblems(file, source) {
     return problems;
 }
 
-// Checkouts that keep no token, write permissions only where jobWrites allows, secrets read only by the Jev workflow,
+// Checkouts that keep no token, write permissions only where jobWrites allows, scoped secret reads,
 // and no untrusted expression inside a `run:` script.
 function credentialProblems(file, lines) {
     const problems = [];
@@ -301,8 +313,9 @@ function credentialProblems(file, lines) {
         if (/\bsecrets:\s*inherit\b/.test(content)) {
             problems.push(`${file}:${index + 1}: secrets: inherit hands every secret on; name the one the workflow needs`);
         }
-        if (secretLines.has(index) && name !== secretReader) {
-            problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader}; producers collect diagnosis inputs without credentials`);
+        const imageRefreshKey = file === '.github/workflows/refresh-images.yml' && job === 'propose' && imageRefreshKeyInput(lines, index);
+        if (secretLines.has(index) && name !== secretReader && !imageRefreshKey) {
+            problems.push(`${file}:${index + 1}: a secret is read outside ${secretReader} or the image refresh App token input`);
         }
 
         const run = /^(\s*)(?:-\s*)?run:\s*(.*)$/.exec(line);
@@ -398,24 +411,53 @@ export function supportProblems(changelog, security) {
 }
 
 export function codeownerProblems(source) {
-    const owners = new Map();
+    const entries = [];
     const problems = [];
-    for (const line of source.split('\n')) {
+
+    for (const [index, line] of source.split('\n').entries()) {
         const content = line.replace(/\s+#.*$/, '').trim();
         if (!content || content.startsWith('#')) {
             continue;
         }
         const [pattern, ...names] = content.split(/\s+/);
-        owners.set(pattern, names);
-        if (!names.includes('@xormania')) {
-            problems.push(`.github/CODEOWNERS: ${pattern} can override ownership without @xormania`);
+        entries.push({ pattern, names, line: index + 1 });
+        if (names.length === 0) {
+            problems.push(`.github/CODEOWNERS:${index + 1}: ${pattern} must have owners`);
         }
     }
-    problems.push(
-        ...requiredOwners
-            .filter((pattern) => !owners.get(pattern)?.includes('@xormania'))
-            .map((pattern) => `.github/CODEOWNERS: ${pattern} must require review from @xormania`),
-    );
+
+    // The default owners are the repository maintainers. Component ownership may differ; the protected tail below
+    // restores maintainer ownership for the trust controls after any component patterns, using CODEOWNERS' last match.
+    const defaults = entries.filter(({ pattern }) => pattern === '*');
+    if (defaults.length !== 1 || entries[0]?.pattern !== '*') {
+        problems.push('.github/CODEOWNERS: declare exactly one root * ownership rule as the first rule');
+    }
+    const maintainers = defaults[0]?.names ?? [];
+    const protectedPatterns = requiredOwners.filter((pattern) => pattern !== '*');
+
+    for (const pattern of protectedPatterns) {
+        const matches = entries.filter((entry) => entry.pattern === pattern);
+        if (matches.length !== 1) {
+            problems.push(`.github/CODEOWNERS: declare exactly one protected ownership rule for ${pattern}`);
+            continue;
+        }
+        const additional = matches[0].names.filter((name) => !maintainers.includes(name));
+        if (additional.length) {
+            problems.push(`.github/CODEOWNERS: ${pattern} must be owned only by the root maintainers: ${additional.join(', ')}`);
+        }
+        const missing = maintainers.filter((name) => !matches[0].names.includes(name));
+        if (missing.length) {
+            problems.push(`.github/CODEOWNERS: ${pattern} must retain the root maintainer owners: ${missing.join(', ')}`);
+        }
+    }
+
+    const tail = entries.slice(-protectedPatterns.length);
+    if (tail.length !== protectedPatterns.length
+        || new Set(tail.map(({ pattern }) => pattern)).size !== protectedPatterns.length
+        || !protectedPatterns.every((pattern) => tail.some((entry) => entry.pattern === pattern))) {
+        problems.push('.github/CODEOWNERS: protected ownership rules must be the final block, after component ownership rules');
+    }
+
     return problems;
 }
 
@@ -441,7 +483,7 @@ function walk(directory, excludedDirectories = new Set()) {
     return files;
 }
 
-function securityFiles(root) {
+export function securityFiles(root) {
     const paths = [];
     for (const entry of readdirSync(root, { withFileTypes: true })) {
         if (!entry.isDirectory() || !existsSync(join(root, entry.name, 'manifest.json'))) {
@@ -454,18 +496,21 @@ function securityFiles(root) {
             paths.push(path);
         }
     }
-    // The Composer package's shipped PHP (packages/uxor/src, config): its tests and tools are export-ignored, like a
-    // recipe's tests; its generated references are markdown, which no rule reads
-    for (const directory of ['packages/uxor/src', 'packages/uxor/config']) {
+    // The installed package and the website publisher, including the kit reader it shares with the demo.
+    for (const directory of ['packages/uxor/src', 'packages/uxor/config', 'website/src', 'website/templates', 'website/assets', 'tools/kit']) {
         if (existsSync(join(root, directory))) {
             paths.push(...walk(join(root, directory)));
         }
     }
-    const files = paths.map((path) => ({ path: normalize(relative(root, path)), source: readFileSync(path, 'utf8') }));
-    // and its executable, PHP without the extension (composer.json's bin)
-    const executable = join(root, 'packages/uxor/bin/uxor');
-    if (existsSync(executable)) {
-        files.push({ path: 'packages/uxor/bin/uxor', source: readFileSync(executable, 'utf8'), extension: '.php' });
+    const files = paths
+        // Toolkit's Markdown templates emit document source. Its HTML templates emit markup for the website.
+        .filter((path) => !(path.startsWith(join(root, 'website/templates/toolkit/doc') + sep) && path.endsWith('.md.twig')))
+        .filter((path) => sinkRules.some((rule) => rule.extensions.includes(extname(path))))
+        .map((path) => ({ path: normalize(relative(root, path)), source: readFileSync(path, 'utf8') }));
+    for (const path of ['packages/uxor/bin/uxor', 'website/bin/build']) {
+        if (existsSync(join(root, path))) {
+            files.push({ path, source: readFileSync(join(root, path), 'utf8'), extension: '.php' });
+        }
     }
     return files;
 }

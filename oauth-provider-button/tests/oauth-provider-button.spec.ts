@@ -1,4 +1,4 @@
-import { describeRecipe, expect, test } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test } from '../../tests/e2e/examples/fixtures';
 
 describeRecipe('uxor/oauth-provider-button', () => {
     test('provides named keyboard links with a native provider handoff', async ({ page, gotoExample }) => {

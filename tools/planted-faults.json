@@ -213,7 +213,7 @@
             }
         ],
         "confirm": {
-            "page": "/",
+            "page": "/forms",
             "contains": "href=\"/lab\" data-turbo=\"false\""
         }
     }

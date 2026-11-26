@@ -14,6 +14,8 @@ File uploads with [Symfony UX Dropzone](https://symfony.com/bundles/ux-dropzone/
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=dropzone#recipes). To install `dropzone` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component dropzone --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 Then:
 
 1. Run the `composer require` command `ux:install` prints (`symfony/ux-dropzone`). Symfony Flex registers the bundle
@@ -288,8 +290,10 @@ wrapper) or on an element around it:
 ### Content Security Policy
 
 The markup has no `style` attribute and no inline handler. UX Dropzone shows and hides its parts with the `hidden`
-attribute, and shows an image preview as a background image set through the CSSOM, which a policy allows, from a
-`data:` URL: the policy's `img-src` needs `data:`. A `display` class on one of those parts would keep it shown
+attribute, and shows an image preview as a background image set through the CSSOM, which a policy allows. From
+UX Dropzone 3.8 the preview of a PNG, a JPEG or another non-SVG image is a `blob:` object URL and the preview of an
+SVG a `data:` URL: the policy's `img-src` needs `blob:` and `data:`, for example
+`img-src 'self' data: blob:`. A `display` class on one of those parts would keep it shown
 without the theme's base styles, which hide every `[hidden]` element: the template leaves them off. A changed copy
 of the template keeps it so: the preview starts with the `hidden` attribute, never a `hidden` class, which UX
 Dropzone does not remove; its image takes no hiding class (UX Dropzone hides it until an image file is read); and no

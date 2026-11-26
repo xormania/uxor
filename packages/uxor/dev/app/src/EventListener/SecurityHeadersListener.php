@@ -32,6 +32,6 @@ final class SecurityHeadersListener
             return;
         }
         $nonce = $event->getRequest()->attributes->get('csp_nonce');
-        $headers->set('Content-Security-Policy', "default-src 'self'; script-src 'nonce-$nonce' 'strict-dynamic'; style-src 'self' 'nonce-$nonce'; script-src-attr 'none'; style-src-attr 'none'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+        $headers->set('Content-Security-Policy', "default-src 'self'; script-src 'nonce-$nonce' 'strict-dynamic'; style-src 'self' 'nonce-$nonce'; script-src-attr 'none'; style-src-attr 'none'; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
     }
 }

@@ -163,6 +163,12 @@ async function parseAll(page: Page, items: Item[]): Promise<Parsed[]> {
 const ONCE_PER_PAGE = /autofocus|accesskey/i;
 
 /**
+ * The timeout of a test that checks a whole list of cases: CI records up to 19 s (WebKit), and a failure re-checks each
+ * failing case on its own page.
+ */
+const CHECK_TIMEOUT = 60_000;
+
+/**
  * Checks every case and reports each case `problems` finds. A case of ONCE_PER_PAGE markup is parsed alone (parse);
  * the others in batches (parseAll). A batched case with problems is parsed again alone and reported with what that
  * finds, so a failure reads as it would on its own; a case that has problems only beside the others is reported too,
@@ -219,7 +225,7 @@ test('a handler only one element of a page can trigger (autofocus) is checked al
 });
 
 test('`as` renders only the tags each component accepts', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(CHECK_TIMEOUT);
     const dialogs = recordDialogs(page);
     const failures = await check(
         page,
@@ -280,7 +286,7 @@ test('FormField label and help attribute names cannot add attributes', async ({ 
 });
 
 test('link props keep only the schemes each component allows', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(CHECK_TIMEOUT);
     const dialogs = recordDialogs(page);
     const failures = await check(
         page,
@@ -355,7 +361,7 @@ test('image props keep only relative and http(s) URLs', async ({ page }) => {
 });
 
 test('components drop attributes named on…, check URL attributes in any case, and render the others', async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(CHECK_TIMEOUT);
     const dialogs = recordDialogs(page);
     const failures = await check(
         page,

@@ -229,11 +229,13 @@ test('scheduled runs only dispatch to dev and leave both audit matrices to the d
     }
 });
 
-test('the root Playwright pin remains ignored by Dependabot while the consumer browser may update', () => {
+test('Dependabot leaves Playwright pins to their coordinated image updater or the screenshot baseline review', () => {
     const npm = updates.filter((entry) => entry.startsWith('npm\n'));
     const tests = npm.find((entry) => property(entry, 'directory', 6) === '/');
     const consumer = npm.find((entry) => property(entry, 'directory', 6) === '/packages/uxor/dev');
-    assert.ok(tests && consumer);
+    const provider = npm.find((entry) => property(entry, 'directory', 6) === '/packages/uxor/resources/browser');
+    assert.ok(tests && consumer && provider);
     assert.match(tests, /^ {10}- dependency-name: '@playwright\/test'$/m);
-    assert.doesNotMatch(consumer, /dependency-name:.*@playwright\/test/);
+    assert.match(consumer, /^ {10}- dependency-name: '@playwright\/test'$/m);
+    assert.match(provider, /^ {10}- dependency-name: playwright-core$/m);
 });

@@ -18,6 +18,8 @@ The KBD (Keyboard) component can be used to indicate a textual user input from t
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=kbd#recipes). To install `kbd` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component kbd --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -29,6 +31,8 @@ The KBD (Keyboard) component can be used to indicate a textual user input from t
 ### Arrow keys
 
 Use this example to show arrow keys inside the KBD styled element.
+
+For this example, install Symfony UX Icons with `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <div>

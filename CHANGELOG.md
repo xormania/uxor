@@ -1,32 +1,62 @@
 # Changelog
 
-All notable changes to UXor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y.Z`, no `v`).
+All notable changes to UXor. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versions use [Semantic Versioning](https://semver.org/)'s `X.Y.Z` format as git tags, without a `v`.
+UXor is in `0.x` development: its public interfaces are not yet stable, and changes may be incompatible.
+The maintainer chooses each release number and may skip numbers; the entries describe changes and migration needs.
+On a release branch, a dated entry can describe a version being prepared. [GitHub Releases](https://github.com/xormania/uxor/releases)
+lists published versions. See the [release policy](CONTRIBUTING.md#releases) for how UXor publishes a tag.
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-11-24
+
 ### Added
 
-- The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
+- The Composer development package can detach its recorded Mago, MCP and browser integrations before removal.
+  Run `vendor/bin/uxor detach` to review the plan and `detach --apply` to apply it.
 
+- The demo revenue assistant opens the existing weekly, yearly or all-time dashboard chart and its data table.
 - `theme` provides shared motion durations and easing. Layouts can opt into a subtle entrance for main content on
   first load and forward Turbo visits. Back fades in at the restored scroll position. Drawers and tabs animate
   on interaction and respect reduced motion.
 - The Composer dev package ships `uxor-mago` for optional PHP format checks, lint, static analysis and a read-only
-  Serena session using the Mago language server.
+  Serena session using the Mago language server. Setup and preparation accept Composer paths such as `./vendor`
+  and `./src`. The provider prepares on first use. The application and Serena both withhold fresh wiring while
+  preparation is in progress.
 - UXor contributors can use the same PHP checks and language server in the kit checkout with
   `tools/mago` and the project configurations for Claude Code and Codex.
-- The Composer dev package provides a Playwright diagnostics fixture and CLI and Mate readers that link browser
-  failures to exact Symfony request profiles. The demo and independent consumer use the same fixture.
+- The Composer development package provides a Playwright fixture and CLI and Mate readers that link browser
+  failures to their Symfony request profiles. The fixture collects on diagnostic runs and respects the
+  application's profiler settings.
+
+- The documentation website groups guides by product and recipes by task. The Composer setup, agent onboarding,
+  advanced operations, configuration and application testing guides are available as HTML and Markdown.
+  Installed agent tools can read the same guides. Package settings generate the configuration reference.
+
+- The Composer development package ships `uxor-browser` for headless checks of any served page. Agents can
+  read page errors, HTTP errors and network failures for the page and its resources, and available Symfony
+  profile tokens using the installed CLI or Mate. A failed third-party request identifies its origin.
+
+- Installing the Composer development package supplies the Toolkit installer, Mate with its Symfony and Monolog extensions,
+  Maker, Mago and the full Symfony debug pack. Composer initializes Mate and discovers the UXor tools. When an application moves Composer dependencies to another directory inside the project, UXor
+  can create and track the compatibility link that Mate needs. The installed `uxor mate` command discovers
+  extensions in that layout. Installation preserves an occupied path and reports any conflict.
+  `uxor setup` previews changes to application configuration and Serena client bindings.
+  `uxor setup --apply` writes missing configuration and preserves existing settings.
 
 ### Changed
 
+- Agent guidance separates UXor contributor work, the demo and independent package-consumer fixtures, and
+  applications using the kit. The Composer helper supplies application-scoped skills and testing guidance;
+  the optional project snippet is shorter and preserves the application's own instructions.
 - The demo loads Symfony Autocomplete and Tom Select when an autocomplete field appears and includes Live
   Component’s loading indicators in its main stylesheet.
 - `chart` uses the theme’s normal motion duration for its default Chart.js animation. Explicit chart options take precedence.
   Charts share one 1×1 canvas to resolve theme colors on load and when switching themes.
-- The Composer development package uses Symfony AI Mate `1.0.0-BETA1`. Consuming applications opt into the three
-  Mate prereleases in their own Composer dev dependencies. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
+- The Composer development package moves from Symfony AI Mate 0.14 to the 1.x line, starting at `1.0.0-BETA1`.
+  While the required Mate packages are in beta, the application allows beta dependencies and prefers stable versions.
+  Allow the UXor and Mate Composer plugins, then require `xormania/uxor` for development. See the [installation instructions](packages/uxor/README.md#install-in-a-symfony-application).
 - The Composer package names its Mate skills `mate-uxor-setup`, `mate-uxor-build` and `mate-uxor-verify` so
   application skills can use the original generic names. See the [migration steps](packages/uxor/README.md#upgrade-from-the-old-skill-names)
   for custom overrides and disable settings.
@@ -34,12 +64,38 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
   The installer drops the Flowbite npm suggestion, and the demo's Manual tab now shows the AssetMapper command
   for recipes with importmap dependencies.
 
+- The documentation website builds from release sources independently of the demo. GitHub Pages publishes its guides
+  and recipe catalog alongside static recipe previews and a visual copy of the example application at `/demo/`.
+  Running the Docker application locally opens the demo.
+
+- `dropzone` requires `symfony/ux-dropzone` ^3.8 (it allowed ^3.7). An app on 3.7 runs
+  `composer require symfony/ux-dropzone:^3.8` before installing or updating the recipe. UX Dropzone 3.8 previews
+  images from `blob:` object URLs (SVG still from `data:`): a Content Security Policy's `img-src` needs `blob:` and
+  `data:` (the README's *Content Security Policy*). The demo and the consumer fixture allow both.
+
+- Recipe READMEs link to the published catalog and the installation guide for their checkout. Composed examples
+  identify additional recipes or icon dependencies, and the navigation and editor previews include working local links.
+
 ### Fixed
 
 - `dropdown` keeps a hover menu closed after a second tap or an explicit dismissal.
 - `pagination` wraps its links when the container is too narrow for one row.
 - `data-table` cancels a pending page link as Back or Forward starts, so Turbo can restore the previous rows
   without an uncaught browser error.
+
+- The Docker-backed Mago and Serena launcher requires `--trust-project-code` before mounting the application
+  or executing its preparation worker, Composer autoloader or configured extensions. Mutating the checkout also
+  requires `--write`. Persisting execution permission in a new Serena binding requires `--save-project-trust`.
+  Checked-in contributor bindings carry no saved execution permission.
+
+- Serena verifies Symfony preparation using provider-owned code without loading application PHP. It checks the
+  manifest, compiled reference and tracked input hashes before and after graph queries, rejects fabricated worker
+  freshness output, and refreshes its language server when verified content changes even if a preparation ID is reused.
+
+- The Docker-backed Serena provider includes Python wheels for Linux arm64 and amd64. The macOS host launcher
+  can use the system `shasum` and selects the same state volume as `sha256sum`.
+- The package, documentation website, demo and consumer fixture use patched Twig dependencies. The demo and
+  consumer fixture also use patched Symfony UX Icons and Live Component releases.
 
 ## [0.3.2] - 2026-11-16
 
@@ -422,7 +478,8 @@ and versions follow [Semantic Versioning](https://semver.org/) as git tags (`X.Y
 - `layouts`: base, app (sidebar, navbar, page header, toasts), auth, settings, error and blank.
 - Blocks: `dashboard-home`, `login`, `signup`, `forgot-password`, `settings-profile`, `not-found`.
 
-[Unreleased]: https://github.com/xormania/uxor/compare/0.3.2...HEAD
+[Unreleased]: https://github.com/xormania/uxor/compare/0.3.5...HEAD
+[0.3.5]: https://github.com/xormania/uxor/compare/0.3.2...0.3.5
 [0.3.2]: https://github.com/xormania/uxor/compare/0.3.1...0.3.2
 [0.3.1]: https://github.com/xormania/uxor/compare/0.3.0...0.3.1
 [0.3.0]: https://github.com/xormania/uxor/compare/0.2.0...0.3.0

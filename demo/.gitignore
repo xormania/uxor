@@ -18,7 +18,6 @@
 /templates/components/
 /assets/controllers/*
 !/assets/controllers/csrf_protection_controller.js
-!/assets/controllers/preview_frame_controller.js
 !/assets/controllers/dropzone_echo_controller.js
 !/assets/controllers/revenue_assistant_controller.js
 /assets/styles/uxor.css

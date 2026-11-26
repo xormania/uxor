@@ -1,4 +1,4 @@
-import { describeRecipe, expect, test } from '../../../../assets/test/browser/fixtures';
+import { describeRecipe, expect, test } from '../../tests/e2e/examples/fixtures';
 
 describeRecipe('uxor/connected-accounts', () => {
     test('explains why the last sign-in method cannot be disconnected', async ({ page, gotoExample }) => {

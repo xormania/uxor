@@ -3,43 +3,107 @@ set -eu
 
 usage() {
     cat <<'HELP'
-Usage: uxor-mago [--project-root DIR] <command> [arguments]
+Usage: uxor-mago [--project-root DIR] [--trust-project-code] [--write] <command> [arguments]
 
-  pull [cli|serena] Prepare both providers, or just the selected one
+  pull [cli|serena]     Prewarm both providers, or just the selected one
   image [cli|serena]    Print the selected image reference (defaults to cli)
   version [cli|serena]  Print the installed Mago version (defaults to cli)
-  check             Check formatting, lint, then analyze the application
-  format [args]     Check formatting with mago format --check
-  lint [args]       Run mago lint
-  analyze [args]    Run mago analyze
-  serena            Start Serena over MCP stdio with the Mago language server
+  check                Check PHP formatting, lint, then analysis
+  format [args]        Check PHP formatting; --write allows formatting files
+  lint [args]          Run PHP lint; --write allows native --fix
+  analyze [args]       Run PHP analysis; --write allows native --fix
+  guard [args]         Check the application's configured architecture rules
+  cst [args]           Inspect the native PHP concrete syntax tree
+  fix [args]           Apply native PHP fixes and formatting; requires --write
+  twig:fmt [args]       Check Twig formatting; --write allows formatting files
+  twig:lint [args]      Run native Twig lint; --write allows native --fix
+  serena               Start Serena over MCP stdio with the Mago language server
 
 Run from the Composer application root or select it with --project-root.
-Configure source paths in the application's mago.toml. Run pull once to prepare the providers.
+Options for UXor go before the command; native Mago arguments go after it.
+Providers are prepared automatically on first use. Configure source paths in the application's mago.toml.
+For the native Composer-installed Mago CLI, use the application's Composer binary directory.
+Application commands require --trust-project-code: configured Mago extensions,
+including the Symfony wiring worker, can execute application PHP and its Composer
+autoloader. Serena verifies preparation with provider-owned code that loads no
+application PHP.
+Review the selected application and its configuration before granting this trust.
+--write separately grants the selected command write access to this application.
+Serena reuses private state for this application, user and prepared image.
 UXOR_MAGO_IMAGE selects a compatible custom image for both CLI and Serena.
 HELP
 }
 
+sha256_stdin() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256
+    else
+        echo 'Starting Serena requires sha256sum or shasum on the Docker host.' >&2
+        return 1
+    fi
+}
+
 root=.
-if [ "${1:-}" = --project-root ]; then
-    if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
-    root=$2
-    shift 2
+write=false
+trust_project_code=false
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --project-root)
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
+            root=$2
+            shift 2
+            ;;
+        --write) write=true; shift ;;
+        --trust-project-code) trust_project_code=true; shift ;;
+        *) break ;;
+    esac
+done
+
+command=${1:-}
+if [ "$write" = true ]; then
+    case "$command" in
+        format|lint|analyze|guard|fix|twig:fmt|twig:lint|serena) ;;
+        *) echo '--write requires a formatting, fixing, analysis or Serena command.' >&2; exit 2 ;;
+    esac
 fi
 
 cli_image=${UXOR_MAGO_IMAGE:-uxor-mago-cli:1.60.2-php8.4.28}
-serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624}
-case "${1:-}" in
+serena_image=${UXOR_MAGO_IMAGE:-uxor-mago-serena:1.60.2-7f7d624-6}
+
+prepare_provider() {
+    if [ -n "${UXOR_MAGO_IMAGE:-}" ]; then
+        docker pull "$UXOR_MAGO_IMAGE"
+        return
+    fi
+    bin=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd -P)
+    if [ "$1" = cli ]; then
+        docker build --tag "$cli_image" - < "$bin/../resources/mago/Dockerfile"
+    else
+        # The project's published build cache supplies matching Rust and Python layers on a fresh host.
+        sh "$bin/../resources/mago/serena/build.sh" --load --tag "$serena_image" \
+            --cache-from=type=registry,ref=ghcr.io/xormania/uxor-cache:mago-serena-dev \
+            --cache-from=type=registry,ref=ghcr.io/xormania/uxor-cache:mago-serena-main
+    fi
+}
+
+provider_id() {
+    if provider_image_id=$(docker image inspect --format '{{.Id}}' "$2" </dev/null 2>/dev/null); then
+        printf '%s\n' "$provider_image_id"
+        return
+    fi
+    # Only successful pulls/builds publish the tag. Keep MCP stdin and stdout for the server.
+    prepare_provider "$1" </dev/null >&2 || return 1
+    docker image inspect --format '{{.Id}}' "$2" </dev/null
+}
+
+case "$command" in
     pull)
         case "$#:${2-}" in 1:|2:cli|2:serena) ;; *) usage >&2; exit 2 ;; esac
         if [ -n "${UXOR_MAGO_IMAGE:-}" ]; then exec docker pull "$UXOR_MAGO_IMAGE"; fi
-        bin=$(CDPATH='' cd -P -- "$(dirname -- "$0")" && pwd -P)
-        if [ "${2-all}" != serena ]; then
-            docker build --tag "$cli_image" - < "$bin/../resources/mago/Dockerfile"
-        fi
-        if [ "${2-all}" != cli ]; then
-            docker buildx build --load --tag "$serena_image" "$bin/../resources/mago/serena"
-        fi
+        if [ "${2-all}" != serena ]; then prepare_provider cli; fi
+        if [ "${2-all}" != cli ]; then prepare_provider serena; fi
         exit 0
         ;;
     image|version)
@@ -49,15 +113,21 @@ case "${1:-}" in
             serena) image=$serena_image ;;
             *) usage >&2; exit 2 ;;
         esac
-        if [ "$1" = image ]; then printf '%s\n' "$image"; exit 0; fi
+        if [ "$command" = image ]; then printf '%s\n' "$image"; exit 0; fi
+        provider_id "${2-cli}" "$image" >/dev/null
         exec docker run --rm --pull=never --network none --entrypoint mago "$image" --version
         ;;
     -h|--help) usage; exit 0 ;;
     check|serena) if [ "$#" -ne 1 ]; then usage >&2; exit 2; fi ;;
-    format|lint|analyze) ;;
+    format|lint|analyze|guard|cst|fix|twig:fmt|twig:lint) ;;
     *) usage >&2; exit 2 ;;
 esac
-command=$1
+# Application configuration can start arbitrary extension-host commands, even
+# for a read-only query. File editing and project-code execution are separate grants.
+if [ "$trust_project_code" != true ]; then
+    echo 'This command can execute application code. Review the selected application and pass --trust-project-code before the command.' >&2
+    exit 2
+fi
 image=$cli_image
 shift
 if ! root=$(CDPATH='' cd -P -- "$root" && pwd -P) || [ ! -f "$root/composer.json" ]; then
@@ -66,8 +136,36 @@ if ! root=$(CDPATH='' cd -P -- "$root" && pwd -P) || [ ! -f "$root/composer.json
 fi
 
 if [ ! -f "$root/mago.toml" ]; then
-    echo 'Configure PHP source paths in mago.toml at the application root. See the UXor package README.' >&2
+    echo 'Configure source paths in mago.toml at the application root. Run vendor/bin/uxor setup or see the package README.' >&2
     exit 2
+fi
+
+# Recognize native write modes without changing the arguments sent to Mago.
+# Docker's read-only bind remains the enforcement boundary for every other flag.
+preview=false
+format_output=false
+native_fix=false
+baseline_write=false
+staged=false
+for argument do
+    case "$argument" in
+        --) break ;;
+        --dry-run|--diff|-d) preview=true; format_output=true ;;
+        --check|-c|--stdin-input|-i) format_output=true ;;
+        --fix|--fix=*) native_fix=true ;;
+        --generate-baseline|--remove-outdated-baseline-entries|--backup-baseline) baseline_write=true ;;
+        --staged|-s) staged=true ;;
+    esac
+done
+if [ "$write" = false ]; then
+    requires_write=false
+    if [ "$command" = fix ] || [ "$baseline_write" = true ]; then requires_write=true; fi
+    if [ "$native_fix" = true ] && [ "$preview" = false ]; then requires_write=true; fi
+    case "$command:$staged" in format:true|twig:fmt:true) requires_write=true ;; esac
+    if [ "$requires_write" = true ]; then
+        echo 'This operation writes application files. Put --write before the command to enable it.' >&2
+        exit 2
+    fi
 fi
 
 case "$command" in
@@ -84,39 +182,56 @@ case "$command" in
             mago format --check && mago lint && mago analyze
         '
         ;;
-    format) set -- mago format --check "$@" ;;
-    lint|analyze) set -- mago "$command" "$@" ;;
+    format|twig:fmt)
+        if [ "$write" = false ] && [ "$format_output" = false ]; then
+            set -- mago "$command" --check "$@"
+        else
+            set -- mago "$command" "$@"
+        fi
+        ;;
+    lint|analyze|guard|cst|fix|twig:lint) set -- mago "$command" "$@" ;;
     serena)
-        image=$serena_image
-        # Keep the application and its normal Serena configuration read-only. The
-        # adapter, its index and its settings live in this container for one session.
-        # shellcheck disable=SC2016 # Expand SERENA_HOME inside the image.
-        set -- sh -ec '
-            mkdir -p "$SERENA_HOME" /state/project
-            printf "%s\n" "projects: []" "project_serena_folder_location: /state/project" > "$SERENA_HOME/serena_config.yml"
-            cat > /state/project/project.yml <<EOF
-project_name: application
-language_servers: [mago]
-read_only: true
-ignored_paths: [var, .serena, .phpunit.cache, public/assets]
-included_apis: [lsp.restart_language_server, lsp.get_diagnostics_for_file]
-EOF
-            exec serena start-mcp-server --project /app --transport stdio --agent-interface REPL \
-                --enable-web-dashboard false --open-web-dashboard false --enable-gui-log-window false
-        '
+        image=$(provider_id serena "$serena_image") || exit 2
+        digest=${image#sha256:}
+        case "$image:$digest" in
+            sha256:*:*) ;;
+            *) echo 'Docker did not return a prepared Serena image identity.' >&2; exit 2 ;;
+        esac
+        case "$digest" in
+            ''|*[!0-9a-f]*) echo 'Docker did not return a valid Serena image identity.' >&2; exit 2 ;;
+        esac
+        if [ "${#digest}" -ne 64 ]; then
+            echo 'Docker did not return a valid Serena image identity.' >&2
+            exit 2
+        fi
+        set -- python /opt/provider/start.py --trust-project-code
+        if [ "$write" = true ]; then set -- "$@" --write; fi
         ;;
 esac
 
-# Use Docker's CSV form so paths containing spaces, commas or quotes stay one mount.
+if [ "$command" != serena ]; then provider_id cli "$cli_image" >/dev/null; fi
+
+# Use Docker's CSV form so spaces, commas and quotes stay in one mount.
 source_field=$(printf '%s' "src=$root" | sed 's/"/""/g')
-# A shared checkout may grant read access through one of the caller's other groups.
+mount="type=bind,\"$source_field\",dst=/app"
+if [ "$write" = false ]; then mount="$mount,readonly"; fi
 primary_group=$(id -g)
 set -- -- "$image" "$@"
+if [ "$command" = serena ]; then
+    state=$(printf '%s\0' "$root" "$(id -u):$primary_group" "$image" | sha256_stdin)
+    state="uxor-mago-serena-${state%% *}"
+    set -- --mount "type=volume,source=$state,target=/state" "$@"
+else
+    set -- --tmpfs /state:mode=1777 "$@"
+fi
+# A shared checkout may grant access through one of the caller's other groups.
 for group in $(id -G); do
     if [ "$group" != "$primary_group" ]; then
         set -- --group-add "$group" "$@"
     fi
 done
-exec docker run --rm --init -i --pull=never --network none --user "$(id -u):$primary_group" \
-    --mount "type=bind,\"$source_field\",dst=/app,readonly" --workdir /app \
-    --tmpfs /state:mode=1777 --env SERENA_HOME=/state/serena --env POC_EVIDENCE= "$@"
+exec docker run --rm --init -i --pull=never --network none --read-only \
+    --cap-drop ALL --security-opt no-new-privileges --user "$(id -u):$primary_group" \
+    --mount "$mount" --workdir /app --tmpfs /tmp:mode=1777 \
+    --env HOME=/state --env XDG_CACHE_HOME=/state/cache --env SERENA_HOME=/state/serena \
+    --env SERENA_USAGE_REPORTING=false --env PYTHONDONTWRITEBYTECODE=1 --env POC_EVIDENCE= "$@"

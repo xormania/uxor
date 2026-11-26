@@ -16,6 +16,8 @@ Use the indicator component to show a number count, account status, or as a load
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=indicator#recipes). To install `indicator` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component indicator --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 ```twig
@@ -31,6 +33,8 @@ Use the indicator component to show a number count, account status, or as a load
 ### Count indicator
 
 This example can be used to show a number count inside the indicator and position it relative to a button component.
+
+For this example, install the [button](../button/README.md) recipe and run `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <twig:Button class="relative">

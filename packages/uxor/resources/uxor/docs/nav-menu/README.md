@@ -2,8 +2,16 @@
 
 The navbar's menu: links and buttons opening submenus of links, nested at any depth, as a disclosure navigation; the current page and its submenus are marked, and the same menu opens in place in a mobile nav's drawer.
 
+For this example, install the [navbar](../navbar/README.md) recipe.
+
 ```twig {"preview":true}
-<div class="h-72 w-full">
+<div data-turbo="false" class="h-72 w-full">
+    <p id="overview" tabindex="-1" class="hidden target:block">Overview: this guide covers installation, forms and components.</p>
+    <p id="installation" tabindex="-1" class="hidden target:block">Installation: add the toolkit to your application before installing its recipes.</p>
+    <p id="fields" tabindex="-1" class="hidden target:block">Fields: give each control a label and a name for form submission.</p>
+    <p id="validation" tabindex="-1" class="hidden target:block">Validation: show each field’s error beside its control.</p>
+    <p id="components" tabindex="-1" class="hidden target:block">Components: compose a form from labels, inputs and buttons.</p>
+    <p id="controllers" tabindex="-1" class="hidden target:block">Controllers: connect a Stimulus controller to add keyboard and pointer interactions.</p>
     <twig:Navbar navLabel="Product" class="w-full rounded-base border">
         <twig:block name="brand"><a href="#" class="text-lg font-semibold text-heading">[Product name]</a></twig:block>
         <twig:block name="nav">
@@ -30,7 +38,11 @@ The navbar's menu: links and buttons opening submenus of links, nested at any de
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=nav-menu#recipes). To install `nav-menu` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component nav-menu --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [navbar](../navbar/README.md) recipe. Replace the `app_*` route names with routes from your application.
 
 ```twig
 <twig:Navbar>
@@ -79,7 +91,11 @@ The navbar's menu: links and buttons opening submenus of links, nested at any de
 ### In a mobile nav
 
 ```twig {"preview":true}
-<div class="h-96 w-full max-w-xs rounded-base border border-default p-2">
+<div data-turbo="false" class="h-96 w-full max-w-xs rounded-base border border-default p-2">
+    <p id="overview" tabindex="-1" class="hidden target:block">Overview: this guide covers installation, forms and components.</p>
+    <p id="installation" tabindex="-1" class="hidden target:block">Installation: add the toolkit to your application before installing its recipes.</p>
+    <p id="fields" tabindex="-1" class="hidden target:block">Fields: give each control a label and a name for form submission.</p>
+    <p id="components" tabindex="-1" class="hidden target:block">Components: compose a form from labels, inputs and buttons.</p>
     <twig:NavMenu id="nav-menu-vertical-preview" orientation="vertical">
         <twig:NavMenu:Link href="#overview">Overview</twig:NavMenu:Link>
         <twig:NavMenu:Submenu label="Guides">
@@ -98,6 +114,8 @@ The navbar's menu: links and buttons opening submenus of links, nested at any de
 Vertical, the submenus open in place, indented under their button, and the same keys and closing rules apply; in a
 drawer, Escape first closes the submenu holding the focus, then the drawer. Render the items once in a template of
 their own and include them in both menus, each `NavMenu` with its own `id`, so no id is used twice:
+
+For this example, install the [mobile-nav](../mobile-nav/README.md) and [navbar](../navbar/README.md) recipes.
 
 ```twig
 <twig:Navbar>

@@ -2,6 +2,8 @@
 
 A server-driven table: search, filters, sortable columns, a page size and pages, in a Turbo Frame that keeps Back and Forward working.
 
+For this example, install the [badge](../badge/README.md) recipe.
+
 ```twig {"preview":true}
 <twig:DataTable :table="table" id="orders" label="Orders">
     <twig:block name="cell_status">
@@ -14,6 +16,8 @@ A server-driven table: search, filters, sortable columns, a page size and pages,
 ## Installation
 
 ::: installation
+
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=data-table#recipes). To install `data-table` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component data-table --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
 
 Run `ux:install` from your project's root directory: besides its template, this recipe copies PHP classes into
 `src/UXor/DataTable/`, in the `App\UXor\DataTable` namespace. If your project's root namespace is not
@@ -31,6 +35,7 @@ page past the end loads the last one, and `loadRows()` runs once per request at 
 // src/Table/OrdersTable.php
 namespace App\Table;
 
+use App\Repository\OrderRepository;
 use App\UXor\DataTable\AbstractDataTable;
 use App\UXor\DataTable\Column;
 use App\UXor\DataTable\Filter;

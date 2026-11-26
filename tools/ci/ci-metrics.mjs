@@ -31,7 +31,8 @@ const SLOWEST_TESTS = 20;
 const SLOWEST_FILES = 15;
 const BROWSERS = ['chromium', 'firefox', 'webkit'];
 const TESTS_STEP = /^Playwright \(/;
-const DEMO_JOB = /^Demo \+ Playwright \((\S+) (\d+)\/(\d+)\)$/;
+const BROWSER_JOB = /^(Demo \+ Playwright|Toolkit browser verification|Demo app browser checks|Cross-browser verification) \((\S+) (\d+)\/(\d+)\)$/;
+const BROWSER_MATRIX_JOB = /^Browser checks \((Toolkit browser verification|Demo app browser checks|Cross-browser verification), (\S+) (\d+)\/(\d+)\)$/;
 const env = process.env;
 
 const [command, ...rest] = process.argv.slice(2);
@@ -189,7 +190,10 @@ function readShards(dir, jobs) {
         const valid = durations.status === 'valid' && durations.wallMs != null;
         const capacity = valid && workers ? durations.wallMs * workers : null;
         const attempts = valid ? durations.attempts : null;
-        const apiJob = jobs.find((j) => j.name === `Demo + Playwright (${browser} ${current}/${total})`);
+        const apiJob = jobs.find((job) => {
+            const identity = browserJob(job);
+            return identity?.browser === browser && identity.shard === current && identity.shards === total;
+        });
         shards.push({
             browser,
             shard: current,
@@ -301,17 +305,29 @@ function runOf(jobs) {
     };
 }
 
+function browserJob(job) {
+    const name = job.name ?? '';
+    const match = BROWSER_MATRIX_JOB.exec(name) ?? BROWSER_JOB.exec(name);
+    if (!match) return null;
+    const [, suite, browser, shard, shards] = match;
+    return {
+        browser: suite === 'Demo app browser checks' ? `demo-app-${browser}` : browser,
+        shard: Number(shard),
+        shards: Number(shards),
+    };
+}
+
 /** The browser jobs' mean time per step and browser, in the steps' order; a skipped step spent no time. */
 function demoSteps(jobs) {
     const sums = new Map();
     for (const apiJob of jobs) {
-        const match = DEMO_JOB.exec(apiJob.name ?? '');
-        if (!match) continue;
+        const identity = browserJob(apiJob);
+        if (!identity) continue;
         for (const step of [...(apiJob.steps ?? [])].sort((a, b) => (a.number ?? 0) - (b.number ?? 0))) {
             const ms = step.conclusion === 'skipped' ? null : span(step.started_at, step.completed_at);
             if (ms === null) continue;
             const byBrowser = sums.get(step.name) ?? {};
-            (byBrowser[match[1]] ??= []).push(ms);
+            (byBrowser[identity.browser] ??= []).push(ms);
             sums.set(step.name, byBrowser);
         }
     }

@@ -10,7 +10,11 @@ An indicator that can be used to show a loading state.
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=spinner#recipes). To install `spinner` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component spinner --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig
 <twig:Button disabled>
@@ -81,6 +85,8 @@ Because the spinner component is an inline HTML element it can easily be aligned
 
 Use this animated loading indicator when content inside of a card is still loading.
 
+For this example, install the [card](../card/README.md) recipe.
+
 ```twig {"preview":true}
 <twig:Card class="max-w-sm relative">
     <twig:Card:Header aria-hidden="true">
@@ -102,6 +108,8 @@ Use this animated loading indicator when content inside of a card is still loadi
 ### Progress spinner
 
 Use this animated spinner component inside a list of steppers elements.
+
+For this example, install Symfony UX Icons with `composer require symfony/ux-icons`.
 
 ```twig {"preview":true}
 <div>
@@ -129,6 +137,8 @@ Use this animated spinner component inside a list of steppers elements.
 ### Buttons
 
 The spinner component can also be used inside elements such as buttons when submitting form data:
+
+For this example, install the [button](../button/README.md) recipe.
 
 ```twig {"preview":true}
 <div>

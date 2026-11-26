@@ -1,0 +1,49 @@
+# Non-cone Git sparse-checkout rules shared by the browser runner and its evidence.
+# Keep unrecognised paths. The demo uses recipe READMEs for interactive previews.
+/*
+!/website/
+!/INSTALL.md
+!/llms.txt
+!/tools/llms-txt.mjs
+!/README.md
+!/FOR-AGENTS.md
+!/docs/*
+/docs/.gitattributes
+/docs/.gitignore
+
+# CI runs from ci.yml. Other workflow definitions are checked by the Workflows lane.
+!/.github/CODEOWNERS
+!/.github/dependabot.yml
+!/.github/mention-allowlist
+!/.github/ISSUE_TEMPLATE/
+!/.github/workflows/*
+/.github/workflows/.gitattributes
+/.github/workflows/ci.yml
+
+# Demo tests import the browser recorder. Website guides are outside this checkout.
+!/composer.json
+!/composer.lock
+!/packages/uxor/*
+/packages/uxor/.gitattributes
+/packages/uxor/resources/
+!/packages/uxor/resources/*
+/packages/uxor/resources/.gitattributes
+/packages/uxor/resources/browser/
+
+# Release checks run these specs in their own full checkout. Normal browser projects ignore them.
+!/tests/e2e/release.*.spec.ts
+!/tests/e2e/leak-detector.mjs
+
+# The browser runner executes the sync parity fixture on its first Chromium shard.
+# The classifier and its cases are CI control inputs.
+!/tools/contrast
+!/tools/monthly
+!/tools/ci/image-refresh*
+!/tools/tests/*
+/tools/tests/.gitattributes
+/tools/tests/ci-changes.sh
+/tools/tests/sync-demo.sh
+/tools/tests/fixtures/
+!/tools/tests/fixtures/*
+/tools/tests/fixtures/.gitattributes
+/tools/tests/fixtures/sync-kit/

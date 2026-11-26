@@ -1,0 +1,87 @@
+{% extends 'base.html.twig' %}
+
+{% set page_title = kit.manifest.name ~ ' documentation | Symfony UX Toolkit and Composer Dev Package' %}
+{% set description = 'The Composer Dev Package installs Symfony UX Toolkit and UXor’s agent tools together. Use Mate to find recipes, check a served page with headless Chromium, and install Twig components, layouts and a form theme in your application.' %}
+
+{% block hero %}
+    <section class="xor-hero" aria-labelledby="kit-heading">
+        <div class="wrap hero-inner">
+            <h1 id="kit-heading">{{ kit.manifest.name }}</h1>
+            <p class="hero-lead">{{ description }}</p>
+            <div class="actions">
+                <a href="{{ path('app_guide', {name: 'composer'}) }}" class="action">Get started with Composer</a>
+                <a href="#recipes" class="action secondary">Browse the recipes</a>
+                <a href="{{ path('app_demo') }}" class="action secondary">Open the demo app</a>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block body %}
+    <section id="guides" class="section" aria-labelledby="why-heading">
+        <h2 id="why-heading">Guides</h2>
+        <div class="guide-directory">
+            {% for section in guide_sections %}
+                <section>
+                    <h3>{{ section.title }}</h3>
+                    <ul>
+                        {% for slug, guide in section.guides %}
+                            <li>
+                                <a href="{{ path('app_guide', {name: slug}) }}">{{ guide.title }}</a>
+                                <p>{{ guide.description }}</p>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="section examples-overview">
+        <section id="install" aria-labelledby="install-heading">
+            <h2 id="install-heading">Install a recipe</h2>
+            <p>Once your application is <a href="{{ path('app_guide', {name: 'install'}) }}">configured for Symfony UX Toolkit</a>, add the button component with this command.</p>
+            <pre tabindex="0"><code>php bin/console ux:install button \
+    --kit={{ kit.manifest.homepage }}:{{ ref }}</code></pre>
+        </section>
+        <section aria-labelledby="demo-heading">
+            <h2 id="demo-heading">Explore the example app</h2>
+            <p>See how recipes fit together in the dashboard and account pages. To submit forms or try features that need Symfony, <a href="{{ repository }}/blob/{{ ref }}/CONTRIBUTING.md#setup">run the demo locally</a>.</p>
+            <ul class="demo-links">
+                {% for route, label in {app_demo: 'Dashboard', app_demo_login: 'Login', app_demo_signup: 'Sign up', app_demo_forgot_password: 'Forgot password', app_demo_settings_profile: 'Settings', app_demo_blank: 'Blank page'} %}
+                    <li><a href="{{ path(route) }}">{{ label }}</a></li>
+                {% endfor %}
+            </ul>
+        </section>
+    </div>
+
+    <section id="recipes" class="section" aria-labelledby="recipes-heading">
+        <h2 id="recipes-heading">Recipes <span data-testid="recipe-count">({{ recipes|length }})</span></h2>
+        <p>Choose a recipe to see its code, previews and installation instructions.</p>
+        <nav aria-label="Recipe categories">
+            <ul class="category-links">
+                {% for category in recipe_categories %}
+                    <li><a href="#{{ category.id }}">{{ category.title }}</a></li>
+                {% endfor %}
+            </ul>
+        </nav>
+        <div data-testid="recipe-list">
+            {% for category in recipe_categories %}
+                <section aria-labelledby="{{ category.id }}">
+                    <h3 id="{{ category.id }}">{{ category.title }}</h3>
+                    <ul class="cards recipes">
+                        {% for recipe in category.recipes %}
+                            <li class="card">
+                                <a href="{{ path('app_recipe', {recipe: recipe.name}) }}" class="recipe-link">{{ recipe.name }}</a>
+                                {% if recipe.description %}<p>{{ recipe.description|inline_markdown(false) }}</p>{% endif %}
+                                <p class="count">{{ example_counts[recipe.name] ?: 'No' }} live {{ 1 == example_counts[recipe.name] ? 'example' : 'examples' }}</p>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </section>
+            {% else %}
+                <p>No recipes yet.</p>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}

@@ -167,7 +167,9 @@ test('a read-only editor has no toolbar and cannot be changed; the label focuses
     await expect(editor).toHaveAttribute('contenteditable', 'false');
     await expect(editor).toHaveAttribute('aria-readonly', 'true');
     await expect(page.getByRole('toolbar')).toHaveCount(0);
-    await expect(editor.getByRole('link', { name: 'terms of sale' })).toHaveAttribute('href', '/terms');
+    await editor.getByRole('link', { name: 'terms of sale' }).click();
+    await expect(page.locator(':target')).toBeVisible();
+    await expect(page.locator(':target')).toContainText(/terms of sale/i);
 
     await open(page, 'placeholder-and-help');
     await page.getByText('Your message', { exact: true }).click();

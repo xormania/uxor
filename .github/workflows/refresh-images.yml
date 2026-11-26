@@ -1,0 +1,109 @@
+name: Refresh image pins
+
+# Read the updater from main and treat the dev checkout as data. A manual run on
+# the release branch can exercise discovery without proposing an update.
+on:
+    schedule:
+        - cron: '13 0 * * *'
+    workflow_dispatch:
+        inputs:
+            propose:
+                description: Open or update the reviewable pin PR when run on main
+                type: boolean
+                default: false
+
+permissions:
+    contents: read
+
+concurrency:
+    group: refresh-image-pins
+    cancel-in-progress: false
+
+jobs:
+    discover:
+        name: Discover image updates
+        runs-on: ubuntu-latest
+        timeout-minutes: 15
+        outputs:
+            base: ${{ steps.plan.outputs.base }}
+            changed: ${{ steps.plan.outputs.changed }}
+            plan-id: ${{ steps.artifact.outputs.artifact-id }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  path: image-updater
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  ref: ${{ github.ref == 'refs/heads/main' && 'refs/heads/dev' || github.sha }}
+                  path: image-candidate
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+            - name: Resolve the pinned image inputs
+              id: plan
+              env:
+                  APP_CLIENT_ID: ${{ vars.UXOR_IMAGE_REFRESH_APP_CLIENT_ID }}
+              run: |
+                  set -euo pipefail
+                  plan_file="$RUNNER_TEMP/image-refresh/plan.json"
+                  mkdir -p "$(dirname "$plan_file")"
+                  node image-updater/tools/ci/image-refresh.mjs plan --root image-candidate --out "$plan_file" | tee -a "$GITHUB_STEP_SUMMARY"
+                  printf 'base=%s\nchanged=%s\n' \
+                    "$(jq -r '.base' "$plan_file")" "$(jq -r '.files | length > 0' "$plan_file")" >> "$GITHUB_OUTPUT"
+                  if [ -z "$APP_CLIENT_ID" ]; then
+                    echo 'Discovery recorded a report. Configure the UXor image refresh App to open an update PR.' >> "$GITHUB_STEP_SUMMARY"
+                  fi
+            - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+              id: artifact
+              with:
+                  name: image-pin-refresh-plan
+                  path: ${{ runner.temp }}/image-refresh/plan.json
+                  if-no-files-found: error
+                  retention-days: 7
+
+    propose:
+        name: Open or update the image pin PR
+        needs: discover
+        if: >-
+            ${{ github.repository == 'xormania/uxor'
+            && github.ref == 'refs/heads/main'
+            && (github.event_name == 'schedule' || inputs.propose)
+            && needs.discover.outputs.changed == 'true'
+            && vars.UXOR_IMAGE_REFRESH_APP_CLIENT_ID != '' }}
+        runs-on: ubuntu-latest
+        timeout-minutes: 8
+        environment: image-refresh
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  path: image-updater
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+                  ref: ${{ needs.discover.outputs.base }}
+                  path: image-candidate
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 22
+            - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+              with:
+                  artifact-ids: ${{ needs.discover.outputs.plan-id }}
+                  path: ${{ runner.temp }}/image-refresh
+            - id: app-token
+              uses: actions/create-github-app-token@f418cff399f7aef4c2f0ad47e25ca7a6abbdd6fc # v3
+              with:
+                  client-id: ${{ vars.UXOR_IMAGE_REFRESH_APP_CLIENT_ID }}
+                  private-key: ${{ secrets.UXOR_IMAGE_REFRESH_APP_PRIVATE_KEY }}
+                  permission-contents: write
+                  permission-pull-requests: write
+            - name: Propose the verified candidate changes
+              env:
+                  GH_TOKEN: ${{ steps.app-token.outputs.token }}
+                  IMAGE_REFRESH_APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+              run: |
+                  set -euo pipefail
+                  node image-updater/tools/ci/image-refresh.mjs propose \
+                    --root image-candidate --plan "$RUNNER_TEMP/image-refresh/plan.json" | tee -a "$GITHUB_STEP_SUMMARY"

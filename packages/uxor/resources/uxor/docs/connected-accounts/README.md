@@ -19,6 +19,8 @@ An account settings card with connection forms, identity summaries and explicit 
 
 ::: installation
 
+[Find this recipe in the latest published catalog](https://xormania.github.io/uxor/?recipe=connected-accounts#recipes). To install `connected-accounts` from this revision, follow the [kit installation guide](../INSTALL.md#choosing-a-revision). With the Composer dev package, `vendor/bin/uxor component connected-accounts --format=json` reads the bundled recipe manifest offline. <!-- recipe-source-note -->
+
 ## Usage
 
 `ConnectedAccounts` presents the authenticated user's connections. Connecting and disconnecting use native POST forms with application-supplied actions and CSRF tokens. They use `data-turbo="false"` and `data-turbo-prefetch="false"`, so connecting can continue directly into the external provider flow and every action returns through a full browser navigation.
