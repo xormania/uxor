@@ -2,7 +2,7 @@ ARG MAGO_RELEASE=ghcr.io/carthage-software/mago:1.60.2@sha256:e1a629ea46be10ad5b
 FROM ${MAGO_RELEASE} AS release
 
 # Provide the PHP runtime and extensions used by project-configured analyzer workers.
-FROM php:8.4.28-cli-trixie@sha256:1afd622efcdd7623feca3562344097fb60c8078926e9961679f0c54657fac603
+FROM php:8.5.12-cli-trixie@sha256:50956f094e90a716d43bea28087d447555ad80510e386ab8c9c10d8c70d781a9
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libicu-dev libzip-dev \
     && docker-php-ext-install -j4 intl zip \
